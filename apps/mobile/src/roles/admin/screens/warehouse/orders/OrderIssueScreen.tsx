@@ -10,6 +10,10 @@
  * Gates: none. docs/rbac.json has no permission code for raising an order
  * issue from the warehouse app, so the form stays ungated exactly as before
  * (spec gap, reported to the orchestrator for SPEC_GAPS.md).
+ *
+ * "View Issue" on the confirmation opens the operational issues list, an area
+ * with no API yet, so it is offered only when isAreaAvailable says so
+ * (../availability.ts); without it the confirmation has no bottom action.
  */
 // Design id: M5S16 (M5S16_OrderIssue), absorbs M5S16B (M5S16B_IssueSubmitted)
 import React, { useState } from 'react';
@@ -17,6 +21,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAr
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { isAreaAvailable } from '../availability';
 import type { OrderIssueStep, OrderScreenBaseProps } from './types';
 
 export interface OrderIssueScreenProps extends OrderScreenBaseProps {
@@ -300,7 +305,8 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
 interface IssueSubmittedStepProps {
   issueId: string;
   onBack: () => void;
-  onViewIssue: () => void;
+  /** Omitted when the issues area is hidden: no "View Issue" button. */
+  onViewIssue?: (() => void) | undefined;
 }
 
 function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStepProps) {
@@ -330,12 +336,14 @@ function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStep
         </View>
       </View>
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onViewIssue}>
-          <EyeIcon />
-          <Text style={styles.primaryBtnText}>View Issue</Text>
-        </TouchableOpacity>
-      </View>
+      {onViewIssue ? (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onViewIssue}>
+            <EyeIcon />
+            <Text style={styles.primaryBtnText}>View Issue</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -347,6 +355,7 @@ export function OrderIssueScreen({
   initialStep = 'form',
   issueId,
   onViewIssue,
+  can,
   onBack,
   onNavigate,
 }: OrderIssueScreenProps) {
@@ -377,7 +386,7 @@ export function OrderIssueScreen({
           issueId={submittedIssueId}
           // Back from the confirmation returns to the form, not out of the screen.
           onBack={() => setStep('form')}
-          onViewIssue={handleViewIssue}
+          onViewIssue={isAreaAvailable('operationalIssues', can) ? handleViewIssue : undefined}
         />
       )}
     </SafeAreaView>

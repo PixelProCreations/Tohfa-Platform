@@ -71,6 +71,8 @@ import {
   type ReturnsStackEntry,
   type RmaRecord,
 } from '../../admin/screens/warehouse/returns-rma';
+// Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
+import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -534,7 +536,8 @@ export function OrdersModule({
   initialParams?: any;
   onBack: () => void;
   onTabChange?: (tab: SubWHTab) => void;
-  onNavigateToOperationalIssues?: () => void;
+  /** Omitted when the operational issues area is hidden (no API yet). */
+  onNavigateToOperationalIssues?: (() => void) | undefined;
 }) {
   return (
     <OrdersFlow
@@ -1179,17 +1182,19 @@ export function SubWarehouseAdminDashboardScreen({
   initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [showTodayOverview, setShowTodayOverview] = useState(initialShowTodayOverview);
-  const [showRecentActivity, setShowRecentActivity] = useState(initialShowRecentActivity);
+  const [showRecentActivity, setShowRecentActivity] = useState(
+    initialShowRecentActivity && isAreaAvailable('warehouseActivity', can),
+  );
   useEffect(() => {
     if (initialShowTodayOverview) {
       setShowTodayOverview(true);
     }
   }, [initialShowTodayOverview]);
   useEffect(() => {
-    if (initialShowRecentActivity) {
+    if (initialShowRecentActivity && isAreaAvailable('warehouseActivity', can)) {
       setShowRecentActivity(true);
     }
-  }, [initialShowRecentActivity]);
+  }, [initialShowRecentActivity, can]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
@@ -1386,11 +1391,11 @@ export function SubWarehouseAdminDashboardScreen({
           setHomeEntry(null);
           setActiveTab(tab);
         }}
-        onNavigateToOperationalIssues={() => {
+        onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
           setTaskOrderNo(null);
           setHomeEntry(null);
           setStorageEntry({ screen: 'OperationalIssues' });
-        }}
+        } : undefined}
       />
     );
   }
@@ -1509,7 +1514,7 @@ export function SubWarehouseAdminDashboardScreen({
             setInventoryInitialScreen('M3S09');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (alert.record === 'Transfer') {
+          } else if (alert.record === 'Transfer' && isAreaAvailable('interWarehouseTransfers', can)) {
             // App.tsx opens the shared TransfersFlow on the Sub scope (incoming only).
             onNavigate?.('InterWarehouseTransfer', { transferScope: 'sub' });
           }
@@ -1635,7 +1640,7 @@ export function SubWarehouseAdminDashboardScreen({
         setShowCashTopUp(true);
         break;
       case 'staff':
-        setStaffEntry({ screen: 'Attendance', filter: 'All' });
+        if (isAreaAvailable('staff', can)) setStaffEntry({ screen: 'Attendance', filter: 'All' });
         break;
       case 'qc':
         setNotificationsEntry({
@@ -1941,10 +1946,10 @@ export function SubWarehouseAdminDashboardScreen({
                   setCustomersEntry(null);
                   setActiveTab(tab);
                 }}
-                onNavigateToOperationalIssues={() => {
+                onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
                   setCustomersEntry(null);
                   setStorageEntry({ screen: 'OperationalIssues' });
-                }}
+                } : undefined}
               />
             );
           }
@@ -2370,6 +2375,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
                 ) : null}
 
+                {isAreaAvailable('warehouseActivity', can) ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setShowRecentActivity(true)}
@@ -2377,6 +2383,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
                 </Pressable>
+                ) : null}
               </View>
 
               {/* 4. Needs Attention */}
@@ -2674,6 +2681,7 @@ export function SubWarehouseAdminDashboardScreen({
               {/* 12. Recent Activity */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Recent Activity</Text>
+                {isAreaAvailable('warehouseActivity', can) ? (
                 <TouchableOpacity
                   onPress={() => setShowRecentActivity(true)}
                   activeOpacity={0.75}
@@ -2681,6 +2689,7 @@ export function SubWarehouseAdminDashboardScreen({
                 >
                   <Text style={styles.viewAllText}>View all</Text>
                 </TouchableOpacity>
+                ) : null}
               </View>
 
               <View style={styles.activityCardContainer}>
@@ -2773,7 +2782,9 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             unreadNotifications={unreadNotifCount}
             onOpenNotifications={() => setShowNotifications(true)}
-            onOpenOperationalIssues={() => setStorageEntry({ screen: 'OperationalIssues' })}
+            onOpenOperationalIssues={
+              isAreaAvailable('operationalIssues', can) ? () => setStorageEntry({ screen: 'OperationalIssues' }) : undefined
+            }
           />
         )}
 
@@ -2829,10 +2840,10 @@ export function SubWarehouseAdminDashboardScreen({
               setReturnToNotificationsOnBack(false);
               setActiveTab(tab);
             }}
-            onNavigateToOperationalIssues={() => {
+            onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
               setShowOrdersModule(false);
               setStorageEntry({ screen: 'OperationalIssues' });
-            }}
+            } : undefined}
           />
         )}
 
@@ -2889,14 +2900,14 @@ export function SubWarehouseAdminDashboardScreen({
               if (onNavigate) onNavigate('SubWarehouseBillingHub');
               else setShowBilling(true);
             }}
-            onNavigateToStaff={() => {
+            onNavigateToStaff={isAreaAvailable('staff', can) ? () => {
               if (onNavigate) onNavigate('SubWarehouseStaff');
               else setStaffEntry({ screen: 'Staff' });
-            }}
-            onNavigateToAttendance={() => {
+            } : undefined}
+            onNavigateToAttendance={isAreaAvailable('staff', can) ? () => {
               if (onNavigate) onNavigate('SubWarehouseTodayAttendance');
               else setStaffEntry({ screen: 'Attendance', filter: 'All' });
-            }}
+            } : undefined}
             onNavigateToFinance={() => {
               if (onNavigate) onNavigate('SubWarehouseFinance');
               else setShowFinanceScreen(true);

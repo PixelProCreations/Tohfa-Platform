@@ -34,6 +34,7 @@
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
  */
 import React, { useEffect, useState } from 'react';
+import { isAreaAvailable, storageRouteArea } from '../availability';
 import { useFlowBack } from '../useFlowBack';
 
 import { ActivityDetailScreen } from './ActivityDetailScreen';
@@ -73,8 +74,14 @@ const ROUTE_CODE: Partial<Record<StorageRoute, string>> = {
   Performance: STORAGE_CODES.allWarehousesView,
 };
 
-/** True when `can` allows opening `route`. */
+/**
+ * True when `can` allows opening `route`, and the route's area is offered at
+ * all: materials, operational issues and activity have no API yet, so their
+ * routes are refused here as well as hidden on the hub (../availability.ts).
+ */
 export function canOpenStorageRoute(route: StorageRoute, can: PermissionCheck): boolean {
+  const area = storageRouteArea(route);
+  if (area !== undefined && !isAreaAvailable(area, can)) return false;
   const code = ROUTE_CODE[route];
   return code === undefined || can(code);
 }

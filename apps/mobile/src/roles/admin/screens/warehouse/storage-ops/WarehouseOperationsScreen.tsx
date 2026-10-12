@@ -17,6 +17,12 @@
  * Operations History tiles, the Operations History card and the note that
  * Receive Goods / Stock Verification always open their own modules. The
  * values come from the warehouses in view instead of fixed numbers.
+ *
+ * Areas with no API (materials, operational issues, warehouse activity) and
+ * Staff without admin.staff.list_view are hidden (../availability.ts): tiles
+ * into them carry an `area` and are filtered, the links outside the tile arrays
+ * go through `*Link` aliases that are undefined when the area is hidden, and
+ * rows that show data but would open a hidden area stop being pressable.
  */
 // Design id: M4-S01
 import React, { useEffect, useMemo, useState } from 'react';
@@ -58,7 +64,18 @@ import {
   WarehouseIcon,
   WarningTriangleIcon,
 } from './StorageParts';
+import { isAreaAvailable, type WarehouseArea } from '../availability';
 import type { ActivityModule, WarehouseScreenBaseProps } from './types';
+
+/** A tile or action into a hidden-able area; untagged entries always show. */
+type AreaTagged = { area?: WarehouseArea | undefined };
+
+/** The area a Needs Attention card leads to, when it is one that can be hidden. */
+const MODULE_AREA: Partial<Record<ActivityModule, WarehouseArea>> = {
+  material_handling: 'materialHandling',
+  operational_issue: 'operationalIssues',
+  staff: 'staff',
+};
 
 /** Recent Activity rows previewed on the hub. */
 const RECENT_PREVIEW = 2;
@@ -106,6 +123,15 @@ export function WarehouseOperationsScreen({
   }, [onBack]);
 
   const mainView = isAllWarehouses(scope) && can(STORAGE_CODES.allWarehousesView);
+  const materialsAvailable = isAreaAvailable('materialHandling', can);
+  const issuesAvailable = isAreaAvailable('operationalIssues', can);
+  const activityAvailable = isAreaAvailable('warehouseActivity', can);
+  const shown = (item: AreaTagged) => item.area === undefined || isAreaAvailable(item.area, can);
+  // Links drawn outside the tile arrays; undefined when the area is hidden.
+  const materialsLink = materialsAvailable ? onOpenMaterials : undefined;
+  const issuesLink = issuesAvailable ? onOpenIssues : undefined;
+  const activityLink = activityAvailable ? onOpenActivity : undefined;
+  const selectActivityLink = activityAvailable ? onSelectActivity : undefined;
   const visibleIn = (warehouseId: string) => inScope(scope, warehouseId, selectedWarehouseId);
 
   const summaries = OPERATIONS_SUMMARY.filter((s) => visibleIn(s.warehouseId));
@@ -113,48 +139,48 @@ export function WarehouseOperationsScreen({
     summaries.reduce((sum, s) => sum + s[key], 0);
   const occupancy = summaries.length > 0 ? Math.round(summaries.reduce((sum, s) => sum + s.occupancyPercent, 0) / summaries.length) : 0;
   const openIssues = OPERATIONAL_ISSUES.filter((i) => visibleIn(i.warehouseId) && i.status !== 'Resolved');
-  const attention = ATTENTION_ITEMS.filter((a) => visibleIn(a.warehouseId));
+  const attention = ATTENTION_ITEMS.filter((a) => visibleIn(a.warehouseId) && shown({ area: MODULE_AREA[a.module] }));
   const recent = useMemo(
     () => ACTIVITIES.filter((a) => inScope(scope, a.warehouseId, selectedWarehouseId)).slice(0, RECENT_PREVIEW),
     [scope, selectedWarehouseId],
   );
 
-  const mainKpiTiles = [
+  const mainKpiTiles: ({ label: string; value: string; sub: string; onPress: () => void } & AreaTagged)[] = [
     { label: 'STORAGE LOCATIONS', value: '4', sub: 'warehouses', onPress: () => onOpenModule('storage') },
     { label: 'OCCUPANCY', value: '64%', sub: 'avg', onPress: onOpenCapacity },
-    { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials },
-    { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues },
-    { label: 'STAFF PRESENT', value: `${total('staffPresent')}/${total('staffTotal')}`, sub: 'today', onPress: () => onOpenModule('staff') },
-    { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today') },
+    { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials, area: 'materialHandling' },
+    { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues, area: 'operationalIssues' },
+    { label: 'STAFF PRESENT', value: `${total('staffPresent')}/${total('staffTotal')}`, sub: 'today', onPress: () => onOpenModule('staff'), area: 'staff' },
+    { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today'), area: 'warehouseActivity' },
   ];
 
-  const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
+  const overviewTiles: ({ label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
     { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
-    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
+    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
+    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff'), area: 'staff' },
     ...(mainView
       ? [
-          { label: 'Open Issues', value: String(openIssues.length), sub: 'requires attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
-          { label: 'Operations History', value: String(total('historyRecords')), sub: 'searchable log', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('All') },
+          { label: 'Open Issues', value: String(openIssues.length), sub: 'requires attention', icon: <AlertCircleIcon />, onPress: onOpenIssues, area: 'operationalIssues' as const },
+          { label: 'Operations History', value: String(total('historyRecords')), sub: 'searchable log', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('All'), area: 'warehouseActivity' as const },
         ]
       : []),
   ];
 
-  const mainQuickActions = [
+  const mainQuickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues, area: 'operationalIssues' },
   ];
 
-  const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
+  const quickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues, area: 'operationalIssues' },
     { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
-    ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
+    ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All'), area: 'warehouseActivity' as const }] : []),
   ];
 
   return (
@@ -240,7 +266,7 @@ export function WarehouseOperationsScreen({
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <View style={styles.grid}>
-            {mainKpiTiles.map((card) => (
+            {mainKpiTiles.filter(shown).map((card) => (
               <TouchableOpacity key={card.label} style={styles.mainKpiCard} onPress={card.onPress} activeOpacity={0.75} accessibilityRole="button">
                 <Text style={styles.mainKpiLabel}>{card.label}</Text>
                 <Text style={styles.mainKpiValue}>{card.value}</Text>
@@ -252,7 +278,7 @@ export function WarehouseOperationsScreen({
           <>
             <SectionTitle>Operations Overview</SectionTitle>
             <View style={styles.grid}>
-              {overviewTiles.map((tile) => (
+              {overviewTiles.filter(shown).map((tile) => (
                 <TouchableOpacity key={tile.label} style={styles.overviewTile} onPress={tile.onPress} activeOpacity={0.75} accessibilityRole="button">
                   <View style={styles.tileIcon}>{tile.icon}</View>
                   <Text style={styles.tileValue}>{tile.value}</Text>
@@ -314,25 +340,27 @@ export function WarehouseOperationsScreen({
 
             <SectionTitle
               right={
-                <TouchableOpacity onPress={() => onOpenActivity('Today')} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
-                </TouchableOpacity>
+                activityLink ? (
+                  <TouchableOpacity onPress={() => activityLink('Today')} accessibilityRole="button">
+                    <Text style={styles.link}>View →</Text>
+                  </TouchableOpacity>
+                ) : undefined
               }
             >
               {"Today's Operational Status"}
             </SectionTitle>
             <View style={styles.card}>
-              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+              <TouchableOpacity style={styles.statusRowItem} disabled={!activityLink} onPress={() => activityLink?.('Today')} activeOpacity={0.75} accessibilityRole="button">
                 <Text style={styles.statusRowItemLabel}>Receiving</Text>
                 <Text style={styles.statusRowItemValue}>{total('receivingShipments')} shipments</Text>
               </TouchableOpacity>
               <View style={styles.rowDivider} />
-              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+              <TouchableOpacity style={styles.statusRowItem} disabled={!activityLink} onPress={() => activityLink?.('Today')} activeOpacity={0.75} accessibilityRole="button">
                 <Text style={styles.statusRowItemLabel}>Storage</Text>
                 <Text style={styles.statusRowItemValue}>8 activities</Text>
               </TouchableOpacity>
               <View style={styles.rowDivider} />
-              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+              <TouchableOpacity style={styles.statusRowItem} disabled={!activityLink} onPress={() => activityLink?.('Today')} activeOpacity={0.75} accessibilityRole="button">
                 <Text style={styles.statusRowItemLabel}>Material Handling</Text>
                 <Text style={styles.statusRowItemValue}>6 activities</Text>
               </TouchableOpacity>
@@ -340,16 +368,19 @@ export function WarehouseOperationsScreen({
 
             <SectionTitle
               right={
-                <TouchableOpacity onPress={onOpenIssues} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
-                </TouchableOpacity>
+                issuesLink ? (
+                  <TouchableOpacity onPress={issuesLink} accessibilityRole="button">
+                    <Text style={styles.link}>View →</Text>
+                  </TouchableOpacity>
+                ) : undefined
               }
             >
               Needs Attention
             </SectionTitle>
             <TouchableOpacity
               style={styles.attentionCard}
-              onPress={onOpenIssues}
+              disabled={!issuesLink}
+              onPress={issuesLink}
               activeOpacity={0.75}
               accessibilityRole="button"
             >
@@ -365,7 +396,7 @@ export function WarehouseOperationsScreen({
 
             <SectionTitle>Quick Actions</SectionTitle>
             <View style={styles.grid}>
-              {mainQuickActions.map((qa) => (
+              {mainQuickActions.filter(shown).map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.mainActionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
                   {qa.icon}
                   <Text style={styles.mainActionLabel}>{qa.label}</Text>
@@ -377,7 +408,7 @@ export function WarehouseOperationsScreen({
           <>
             <SectionTitle>Quick Actions</SectionTitle>
             <View style={styles.grid}>
-              {quickActions.map((qa) => (
+              {quickActions.filter(shown).map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
                   {qa.icon}
                   <Text style={styles.actionLabel}>{qa.label}</Text>
@@ -395,7 +426,7 @@ export function WarehouseOperationsScreen({
                   ['ISSUES · OPEN', openIssues.length],
                 ] as const
               ).map(([label, value]) => (
-                <TouchableOpacity key={label} style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <TouchableOpacity key={label} style={styles.statusTile} disabled={!activityLink} onPress={() => activityLink?.('Today')} activeOpacity={0.75} accessibilityRole="button">
                   <Text style={styles.tileValue}>{value}</Text>
                   <Text style={styles.statusLabel}>{label}</Text>
                 </TouchableOpacity>
@@ -410,8 +441,9 @@ export function WarehouseOperationsScreen({
                     key={item.id}
                     style={styles.attentionCard}
                     onPress={() => {
-                      if (item.module === 'material_handling') onOpenMaterials();
-                      else if (item.module === 'operational_issue') onOpenIssues();
+                      // Cards into a hidden area were filtered out of `attention` above.
+                      if (item.module === 'material_handling') materialsLink?.();
+                      else if (item.module === 'operational_issue') issuesLink?.();
                       else onOpenModule(item.module);
                     }}
                     activeOpacity={0.75}
@@ -431,23 +463,28 @@ export function WarehouseOperationsScreen({
               </>
             ) : null}
 
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
-                  <Text style={styles.link}>View All</Text>
-                </TouchableOpacity>
-              }
-            >
-              Recent Activity
-            </SectionTitle>
-            {recent.map((act) => (
-              <TouchableOpacity key={act.id} style={styles.card} onPress={() => onSelectActivity(act.id)} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.cardTitle}>{act.title}</Text>
-                <Text style={styles.statLabel}>
-                  {act.subtitle} · {act.when}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {/* Recent Activity lists records of the activity area, so it goes with it. */}
+            {activityLink && selectActivityLink ? (
+              <>
+                <SectionTitle
+                  right={
+                    <TouchableOpacity onPress={() => activityLink('All')} accessibilityRole="button">
+                      <Text style={styles.link}>View All</Text>
+                    </TouchableOpacity>
+                  }
+                >
+                  Recent Activity
+                </SectionTitle>
+                {recent.map((act) => (
+                  <TouchableOpacity key={act.id} style={styles.card} onPress={() => selectActivityLink(act.id)} activeOpacity={0.75} accessibilityRole="button">
+                    <Text style={styles.cardTitle}>{act.title}</Text>
+                    <Text style={styles.statLabel}>
+                      {act.subtitle} · {act.when}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
           </>
         )}
       </ScrollView>

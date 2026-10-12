@@ -6,6 +6,15 @@ export {
   type WarehouseAdminRouteParams,
 } from './warehouse-admin';
 
+// Which areas are offered at all: five have no API, Staff needs admin.staff.list_view (owner decision 2).
+export {
+  AREAS_WITHOUT_API,
+  isAreaAvailable,
+  storageRouteArea,
+  STAFF_AREA_CODE,
+  type WarehouseArea,
+} from './availability';
+
 // Holds the Sub warehouse screens until the admin's own warehouse (GET /auth/me, BR-30) is known.
 export { WarehouseScopeGate, type WarehouseScopeGateProps } from './WarehouseScopeGate';
 

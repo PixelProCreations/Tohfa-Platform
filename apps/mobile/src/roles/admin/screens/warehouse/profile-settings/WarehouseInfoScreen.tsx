@@ -34,6 +34,7 @@ import {
   WalletScreen,
   WarehouseTabBar,
 } from '../wallet-cashtopup/WalletParts';
+import { isAreaAvailable } from '../availability';
 import { MenuCard, MenuRow } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo, StorageLocationItem } from './types';
 import { PROFILE_WAREHOUSES, STORAGE_LOCATIONS, WAREHOUSE_PROFILES } from './warehouseFixtures';
@@ -67,6 +68,7 @@ export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, Ware
 
 export function WarehouseInfoScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   onOpen,
@@ -167,7 +169,10 @@ export function WarehouseInfoScreen({
                 <MenuRow icon={<StorageRackIcon />} title="Storage Information" onPress={() => onOpen('StorageInfo')} />
                 <MenuRow icon={<ClockIcon />} title="Operating Information" onPress={() => onOpen('OperatingInfo')} />
                 <MenuRow icon={<PhoneIcon />} title="Warehouse Contact" onPress={() => onOpen('Contact')} />
-                <MenuRow icon={<DocumentIcon />} title="Warehouse Documents" onPress={() => onOpen('Documents')} />
+                {/* Documents has no API yet (owner decision 2): the row is hidden, the screen stays. */}
+                {isAreaAvailable('warehouseDocuments', can) ? (
+                  <MenuRow icon={<DocumentIcon />} title="Warehouse Documents" onPress={() => onOpen('Documents')} />
+                ) : null}
               </MenuCard>
             </>
           ) : null}

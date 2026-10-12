@@ -26,6 +26,7 @@ import { FinanceFlow } from '../finance-expenses/FinanceFlow';
 import { ProfileFlow } from '../profile-settings';
 import { StorageFlow } from '../storage-ops';
 import { CustomersFlow } from '../customers';
+import { isAreaAvailable } from '../availability';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
@@ -33,11 +34,10 @@ import type { MoreOptionItem, OptionGroup } from './types';
 // Menu items whose visibility depends on a docs/rbac.json permission. Items not
 // listed here are shown to every warehouse admin. The server re-checks each of
 // these when the destination screen loads its data.
-// `staff` opens the driver / warehouse-staff roster, not the admin-account list,
-// so it is gated by warehouse.staff.list_view (Main and Sub both hold it, owner
-// decision 2026-10-09) rather than admin.staff.list_view.
+// `staff` is not listed: it is the Staff area, shown only when isAreaAvailable
+// says so (admin.staff.list_view: Main own, Sub none, owner decision
+// 2026-10-11, which withdrew warehouse.staff.list_view). See ../availability.ts.
 const ITEM_PERMISSION: Readonly<Record<string, string>> = {
-  staff: 'warehouse.staff.list_view',
   finance: 'finance.dashboard.view',
   reports: 'report.export.file',
 };
@@ -564,6 +564,7 @@ export function MoreScreen({
   const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      if (item.id === 'staff') return isAreaAvailable('staff', can);
       const code = ITEM_PERMISSION[item.id];
       return code === undefined || can(code);
     }),

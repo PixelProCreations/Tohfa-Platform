@@ -165,6 +165,9 @@ import {
   type StorageRouteParams,
   type WarehouseScope,
   WarehouseScopeGate,
+  isAreaAvailable,
+  storageRouteArea,
+  type WarehouseArea,
   FinanceFlow,
   type FinanceRoute,
   NotificationsFlow,
@@ -792,6 +795,19 @@ const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
   SubWarehouseContact: 'Contact',
   SubWarehouseDocuments: 'Documents',
 };
+/**
+ * The warehouse area a route key opens, for isAreaAvailable; undefined when the
+ * key is not gated. Five areas have no API and Staff needs admin.staff.list_view
+ * (owner decision 2), so navigate() refuses these keys even if a stale handler
+ * or notification still points at one. The screens stay in the code.
+ */
+function warehouseAreaForScreen(screen: ScreenName): WarehouseArea | undefined {
+  if (screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer') return 'interWarehouseTransfers';
+  if (STAFF_ROUTE_ENTRY[screen] !== undefined) return 'staff';
+  if (PROFILE_ROUTE_ENTRY[screen] === 'Documents') return 'warehouseDocuments';
+  const storage = STORAGE_ROUTE_ENTRY[screen];
+  return storage !== undefined ? storageRouteArea(storage.route) : undefined;
+}
 /** NotificationsFlow params for a legacy key (detail carries `notification`). */
 function notificationsParamsFor(screen: ScreenName, params: Record<string, unknown>): NotificationsRouteParams {
   if (screen === 'SubWarehouseSystemMessages') return { filter: 'System' };
@@ -1069,6 +1085,8 @@ export default function App(): React.JSX.Element {
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {
+      const area = warehouseAreaForScreen(nextScreen);
+      if (area !== undefined && !isAreaAvailable(area, warehouseCan)) return;
       if (nextScreen === screen) {
         setParams(nextParams);
         return;
@@ -1085,7 +1103,7 @@ export default function App(): React.JSX.Element {
       setParams(nextParams);
       setScreen(nextScreen);
     },
-    [screen, params, currentTab],
+    [screen, params, currentTab, warehouseCan],
   );
 
   /**
@@ -1142,7 +1160,7 @@ export default function App(): React.JSX.Element {
       else if (module === 'storage') navigate('SubWarehouseStorageInfo');
       else if (module === 'orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
       else if (module === 'cash') navigate('SubWarehouseCashTopUp');
-      else if (module === 'staff') navigate('SubWarehouseTodayAttendance');
+      else if (module === 'staff' && isAreaAvailable('staff', warehouseCan)) navigate('SubWarehouseTodayAttendance');
       else if (module === 'qc') {
         const notification: NotificationItem = {
           id: 'qc-1',
@@ -1460,7 +1478,8 @@ export default function App(): React.JSX.Element {
                 if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
                 else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
                 else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
-                else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
+                else if (alert.record === 'Transfer' && isAreaAvailable('interWarehouseTransfers', warehouseCan))
+                  navigate('InterWarehouseTransfer', { transferScope: 'sub' });
               }}
             />
           ))
@@ -1582,8 +1601,8 @@ export default function App(): React.JSX.Element {
               onNavigateToReturnHistory={() => navigate('SubWarehouseReturnHistory')}
               onNavigateToFinance={() => navigate('SubWarehouseFinance')}
               onNavigateToReports={() => navigate('SubWarehouseReports')}
-              onNavigateToStaff={() => navigate('SubWarehouseStaff')}
-              onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
+              onNavigateToStaff={isAreaAvailable('staff', warehouseCan) ? () => navigate('SubWarehouseStaff') : undefined}
+              onNavigateToAttendance={isAreaAvailable('staff', warehouseCan) ? () => navigate('SubWarehouseAttendance') : undefined}
               onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
               onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
               onNavigateToSettings={() => navigate('SubWarehouseSettings')}
@@ -1860,7 +1879,9 @@ export default function App(): React.JSX.Element {
             initialScreen={INVENTORY_ROUTE_ENTRY[screen]}
             initialParams={params}
             onBack={goBack}
-            onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
+            onInitiateTransfer={
+              isAreaAvailable('interWarehouseTransfers', warehouseCan) ? () => navigate('InterWarehouseTransfer') : undefined
+            }
           />
         ) : screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer' ? (
           // Shared transfers flow (W4). The key is reached from the Main

@@ -1,0 +1,135 @@
+/**
+ * Source scan: every entry point into an area with no API (materials,
+ * operational issues, warehouse activity, documents, transfers), and into
+ * Staff for a Sub admin, is behind isAreaAvailable. The screens themselves stay
+ * in the code; only the button, row, tile or route that opens them is hidden.
+ * Hooks and JSX cannot render in this plain-Node vitest, so the wiring is
+ * pinned by reading the sources, as roles/farmer/tests/admin_login_signout.test.ts does.
+ *
+ * `guardedNear` checks that each line matching `anchor` has the guard on the
+ * same line or within the `before` lines above it, and that the anchor occurs
+ * at least once (so a renamed handler cannot make the check pass vacuously).
+ */
+import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+const SRC = path.join(__dirname, '..', '..', '..');
+const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+
+const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const APP = read('roles/farmer/App.tsx');
+const ORDER_ISSUE = read('roles/admin/screens/warehouse/orders/OrderIssueScreen.tsx');
+const WAREHOUSE_INFO = read('roles/admin/screens/warehouse/profile-settings/WarehouseInfoScreen.tsx');
+const OPERATIONS_HUB = read('roles/admin/screens/warehouse/storage-ops/WarehouseOperationsScreen.tsx');
+const STORAGE_FLOW = read('roles/admin/screens/warehouse/storage-ops/StorageFlow.tsx');
+const MORE = read('roles/admin/screens/warehouse/dashboard-home-more/MoreScreen.tsx');
+
+function guardedNear(source: string, anchor: RegExp, guard: RegExp, before: number): string[] {
+  const lines = source.split('\n');
+  const hits = lines.flatMap((line, i) => (anchor.test(line) ? [i] : []));
+  expect(hits.length, `anchor ${String(anchor)} not found`).toBeGreaterThan(0);
+  return hits
+    .filter((i) => !guard.test(lines.slice(Math.max(0, i - before), i + 1).join('\n')))
+    .map((i) => `line ${i + 1}: ${lines[i]?.trim()}`);
+}
+
+const STAFF = /isAreaAvailable\('staff', can\)/;
+const ISSUES = /isAreaAvailable\('operationalIssues', can\)/;
+const ACTIVITY = /isAreaAvailable\('warehouseActivity', can\)/;
+const TRANSFERS = /isAreaAvailable\('interWarehouseTransfers', can\)/;
+const DOCUMENTS = /isAreaAvailable\('warehouseDocuments', can\)/;
+
+describe('Sub warehouse dashboard', () => {
+  it('Staff: the More row handlers and the Staff Present module are gated on staff', () => {
+    expect(SUB_DASHBOARD).toMatch(/onNavigateToStaff=\{isAreaAvailable\('staff', can\)/);
+    expect(SUB_DASHBOARD).toMatch(/onNavigateToAttendance=\{isAreaAvailable\('staff', can\)/);
+    expect(guardedNear(SUB_DASHBOARD, /setStaffEntry\(\{ screen: 'Attendance', filter: 'All' \}\)/, STAFF, 2)).toEqual([]);
+  });
+
+  it('Transfers: the transfer approval alert opens transfers only when available', () => {
+    expect(guardedNear(SUB_DASHBOARD, /'InterWarehouseTransfer'/, TRANSFERS, 3)).toEqual([]);
+  });
+
+  it('Activity: the Activity quick action and the Recent Activity "View all" are gated', () => {
+    expect(guardedNear(SUB_DASHBOARD, /setShowRecentActivity\(true\)/, ACTIVITY, 3)).toEqual([]);
+  });
+
+  it('Operational issues: every handler that opens the issues list is gated', () => {
+    expect(guardedNear(SUB_DASHBOARD, /setStorageEntry\(\{ screen: 'OperationalIssues' \}\)/, ISSUES, 4)).toEqual([]);
+  });
+});
+
+describe('Warehouse Operations hub (shared Main/Sub)', () => {
+  it('tags every tile and quick action into a hidden area and filters on isAreaAvailable', () => {
+    expect(OPERATIONS_HUB).toMatch(/isAreaAvailable\(item\.area, can\)/);
+    const lines = OPERATIONS_HUB.split('\n');
+    const untagged = lines.filter(
+      (l) =>
+        /\{ label: .*onPress: (onOpenMaterials|onOpenIssues|\(\) => onOpenActivity|\(\) => onOpenModule\('staff'\))/.test(l) &&
+        !/area: '(materialHandling|operationalIssues|warehouseActivity|staff)'/.test(l),
+    );
+    expect(untagged).toEqual([]);
+  });
+
+  it('uses the raw handlers only in tagged tiles or in links that are undefined when the area is hidden', () => {
+    // Outside the props interface and the destructuring, every reference to a
+    // handler into a hidden area must be a tile tagged with its area (filtered
+    // on isAreaAvailable) or the one alias that is undefined when it is hidden.
+    const body = OPERATIONS_HUB.slice(OPERATIONS_HUB.indexOf('}: WarehouseOperationsScreenProps) {'));
+    const raw = /\b(onOpenMaterials|onOpenIssues|onOpenActivity|onSelectActivity)\b|onOpenModule\('staff'\)/;
+    const unguarded = body
+      .split('\n')
+      .filter((l) => raw.test(l))
+      .filter((l) => !/area: '(materialHandling|operationalIssues|warehouseActivity|staff)'/.test(l))
+      .filter((l) => !/^\s*const \w+Link = \w+Available \? on\w+ : undefined;$/.test(l));
+    expect(unguarded).toEqual([]);
+    expect(OPERATIONS_HUB).toMatch(/const materialsAvailable = isAreaAvailable\('materialHandling', can\)/);
+    expect(OPERATIONS_HUB).toMatch(/const issuesAvailable = isAreaAvailable\('operationalIssues', can\)/);
+    expect(OPERATIONS_HUB).toMatch(/const activityAvailable = isAreaAvailable\('warehouseActivity', can\)/);
+  });
+
+  it('StorageFlow refuses routes of hidden areas', () => {
+    expect(STORAGE_FLOW).toMatch(/storageRouteArea\(route\)/);
+    expect(STORAGE_FLOW).toMatch(/isAreaAvailable\(area, can\)/);
+  });
+});
+
+describe('More screen (shared Main/Sub)', () => {
+  it('shows the Warehouse Staff row only when the staff area is available', () => {
+    expect(MORE).toMatch(/item\.id === 'staff'\) return isAreaAvailable\('staff', can\)/);
+    expect(MORE).not.toMatch(/'warehouse\.staff\.list_view'/);
+  });
+});
+
+describe('Orders', () => {
+  it('"View Issue" on the issue confirmation is offered only when operational issues are available', () => {
+    expect(ORDER_ISSUE).toMatch(/onViewIssue=\{isAreaAvailable\('operationalIssues', can\) \? handleViewIssue : undefined\}/);
+  });
+});
+
+describe('Profile', () => {
+  it('the Warehouse Documents row is gated on the documents area', () => {
+    expect(guardedNear(WAREHOUSE_INFO, /onOpen\('Documents'\)/, DOCUMENTS, 1)).toEqual([]);
+  });
+});
+
+describe('App.tsx (Sub shell routes and links)', () => {
+  it('navigate() refuses a route key that opens a hidden area', () => {
+    expect(APP).toMatch(/const area = warehouseAreaForScreen\(nextScreen\);\s*if \(area !== undefined && !isAreaAvailable\(area, warehouseCan\)\) return;/);
+  });
+
+  it('maps the transfer, staff, documents and storage-ops keys to their area', () => {
+    expect(APP).toMatch(/screen === 'InterWarehouseTransfer' \|\| screen === 'InitiateNewTransfer'\) return 'interWarehouseTransfers'/);
+    expect(APP).toMatch(/STAFF_ROUTE_ENTRY\[screen\] !== undefined\) return 'staff'/);
+    expect(APP).toMatch(/PROFILE_ROUTE_ENTRY\[screen\] === 'Documents'\) return 'warehouseDocuments'/);
+    expect(APP).toMatch(/storageRouteArea\(storage\.route\)/);
+  });
+
+  it('the links into hidden areas are gated where they are drawn', () => {
+    // Sub transfer alert, the WarehouseMore staff rows, Main's Initiate transfer.
+    expect(guardedNear(APP, /navigate\('InterWarehouseTransfer'/, /isAreaAvailable\('interWarehouseTransfers', warehouseCan\)/, 1)).toEqual([]);
+    expect(guardedNear(APP, /navigate\('SubWarehouseStaff'\)/, /isAreaAvailable\('staff', warehouseCan\)/, 0)).toEqual([]);
+    expect(guardedNear(APP, /navigate\('SubWarehouseAttendance'\)/, /isAreaAvailable\('staff', warehouseCan\)/, 0)).toEqual([]);
+  });
+});
