@@ -10,6 +10,9 @@ import type { OrderStatus, ProduceGrade, SalesChannel, FulfillmentType, Delivery
 import { parseMoney, type Money } from '@tohfa/shared-types';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
+import { AppError } from '../../http/problem.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
+import { decodeAdminOrderCursor, encodeAdminOrderCursor } from './fulfilment.cursor.js';
 import type {
   AdminOrderChannel,
   AdminOrderFulfilmentType,
@@ -116,6 +119,8 @@ interface FulfilmentOrderRow {
   paymentStatus: string;
   deliveryDate: string | null;
   placedAt: string | Date;
+  /** Microsecond UTC text of placed_at, for the keyset cursor only (never in a response). */
+  placedAtCursor: string;
 }
 
 interface FulfilmentOrderDetailRow {
@@ -250,17 +255,18 @@ export const fulfilmentRepo: FulfilmentRepo = {
       values.push(query.deliveryDate);
     }
 
-    if (query.cursor) {
-      try {
-        const decoded = Buffer.from(query.cursor, 'base64').toString('utf8');
-        const [placedAt, id] = decoded.split('|');
-        if (placedAt && id) {
-          conditions.push(`(o.placed_at, o.id) < ($${idx++}, $${idx++})`);
-          values.push(new Date(placedAt), id);
-        }
-      } catch {
-        // Invalid cursor ignored
+    if (query.cursor !== undefined) {
+      // The route validated the cursor (adminOrdersQuerySchema). A caller that skipped validation
+      // still never reaches the ::timestamptz cast with a value we did not produce.
+      const after = decodeAdminOrderCursor(query.cursor);
+      if (after === null) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'cursor is not a value returned by this endpoint.',
+          errors: { 'query.cursor': ['Invalid cursor.'] },
+        });
       }
+      conditions.push(`(o.placed_at, o.id) < ($${idx++}::timestamptz, $${idx++}::uuid)`);
+      values.push(after.ts, after.id);
     }
 
     const limit = query.limit || 20;
@@ -271,6 +277,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
              o.fulfilment_type AS "fulfillmentType", o.warehouse_id AS "warehouseId",
              o.total_amount::text AS "totalAmount", o.payment_status AS "paymentStatus",
              o.delivery_date::text AS "deliveryDate", o.placed_at AS "placedAt",
+             ${MICRO_TS_SQL('o.placed_at')} AS "placedAtCursor",
              (SELECT count(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS "itemCount"
         FROM orders o
        WHERE ${conditions.join(' AND ')}
@@ -297,9 +304,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
     let nextCursor: string | null = null;
     if (hasMore && items.length > 0) {
       const last = res.rows[limit - 1]!;
-      nextCursor = Buffer.from(
-        `${new Date(last.placedAt).toISOString()}|${last.id}`,
-      ).toString('base64');
+      nextCursor = encodeAdminOrderCursor({ ts: last.placedAtCursor, id: last.id });
     }
 
     return { items, nextCursor, hasMore };

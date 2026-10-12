@@ -500,6 +500,42 @@ describeIfDatabase('Customers service and repo (PostgreSQL)', () => {
       });
     });
 
+    dbIt("BR-16: the farm's survey number (FMB) and the farmer's mobile are redacted for an own actor and refused in a reply", async () => {
+      await inRolledBackTx(async (w) => {
+        const t = await threadWorld(w);
+        await w.tx.query(`UPDATE farms SET survey_number = 'SY-417/2B' WHERE id = $1`, [t.farmer.farmId]);
+        const farmerMobile = (await w.tx.query<{ m: string }>(`SELECT mobile AS m FROM users WHERE id = $1`, [t.farmer.userId])).rows[0]!.m;
+        const national = farmerMobile.replace(/\D/g, '').slice(-10);
+        const spaced = `${national.slice(0, 5)} ${national.slice(5)}`;
+        const msg = await addMessage(w.tx, t.ticket, w.cOrder.userId, `FMB SY-417/2B. The farmer gave me ${spaced}`, false, 5);
+        const own = await w.svc.getSupportTicket(w.subA('customer.support_history.view'), w.cOrder.id, t.ticket);
+        const shown = own.messages.find((m) => m.id === msg)!;
+        expect(shown.redacted).toBe(true);
+        expect(JSON.stringify(own)).not.toContain('SY-417/2B');
+        expect(leaksMobile(own, farmerMobile)).toBe(false);
+        for (const message of ['Survey no. SY-417/2B', `Call the farmer on ${national}`]) {
+          const error = await rejects(w.svc.reply(w.all('support.ticket.respond'), w.all('customer.support_history.view'), w.cOrder.id, t.ticket, { message }));
+          expect(error.status, message).toBe(422);
+        }
+      });
+    });
+
+    dbIt("BR-97g: the customer's own stored mobile and e-mail typed into a ticket are masked for an own actor (BR-92a); scope all sees them", async () => {
+      await inRolledBackTx(async (w) => {
+        const ticket = await addTicket(w.tx, w.cOrder.id, null);
+        const email = (await w.tx.query<{ e: string }>(`SELECT email AS e FROM users WHERE id = $1`, [w.cOrder.userId])).rows[0]!.e;
+        const national = w.cOrder.mobile.replace(/\D/g, '').slice(-10);
+        const body = `Please call ${national} or write to ${email}`;
+        await addMessage(w.tx, ticket, w.cOrder.userId, body, false, 5);
+        const own = await w.svc.getSupportTicket(w.subA('customer.support_history.view'), w.cOrder.id, ticket);
+        expect(leaksMobile(own, w.cOrder.mobile)).toBe(false);
+        expect(JSON.stringify(own)).not.toContain(email);
+        expect(own.messages[0]!.redacted).toBe(true);
+        const all = await w.svc.getSupportTicket(w.all('customer.support_history.view'), w.cOrder.id, ticket);
+        expect(all.messages[0]!.message).toBe(body);
+      });
+    });
+
     dbIt('BR-97i: replying to a CLOSED ticket is 409 CONFLICT; a ticket of another customer is 404', async () => {
       await inRolledBackTx(async (w) => {
         const closed = await addTicket(w.tx, w.cOrder.id, null, 'CLOSED');

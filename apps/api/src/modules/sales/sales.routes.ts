@@ -16,6 +16,7 @@ import { salesService } from './sales.service.js';
 import {
   customerLookupQuery,
   listSaleProductsQuery,
+  saleCancelBody,
   saleCreateBody,
   saleIdParams,
   saleQuoteBody,
@@ -90,3 +91,18 @@ salesRouter.post(
     res.json(await salesService.confirmUpi(scope, saleId, req.header('idempotency-key'), body));
   }),
 );
+
+// POST /v1/admin/sales/:saleId/cancel  (BR-94i; Idempotency-Key required)
+salesRouter.post(
+  '/:saleId/cancel',
+  requireAuth,
+  requirePermission('sales.sale.create'),
+  validate({ params: saleIdParams, body: saleCancelBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { saleId } = getValidated(req, 'params', saleIdParams);
+    const body = getValidated(req, 'body', saleCancelBody);
+    res.json(await salesService.cancel(scope, saleId, req.header('idempotency-key'), body));
+  }),
+);
+

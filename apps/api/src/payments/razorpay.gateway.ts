@@ -5,6 +5,8 @@ import type {
   GatewayOrderResult,
   PaymentCapturedPayload,
   PaymentGateway,
+  RefundPaymentParams,
+  RefundResult,
   WebhookEvent,
 } from './gateway.js';
 
@@ -155,6 +157,29 @@ export class RazorpayPaymentGateway implements PaymentGateway {
       email: paymentEntity.email ?? null,
       contact: paymentEntity.contact ?? null,
     };
+  }
+
+  /**
+   * POST /v1/payments/{id}/refund. NOT exercised against the live Razorpay API in this repository's
+   * tests (the mock gateway and injected refunders are); verify in the Razorpay test mode before
+   * setting system_config sales.upi_refund_mode = 'auto' in production.
+   */
+  async refundPayment(params: RefundPaymentParams): Promise<RefundResult> {
+    if (!this.keyId || !this.keySecret) {
+      throw new Error('Razorpay API keys are not configured');
+    }
+    const authHeader = `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64')}`;
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(params.gatewayPaymentId)}/refund`, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: params.amountPaise, receipt: params.idempotencyKey.slice(0, 40), notes: params.notes ?? {} }),
+    });
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Razorpay refundPayment failed (${response.status}): ${errorBody}`);
+    }
+    const data = (await response.json()) as { id: string; status: string };
+    return { refundId: data.id, status: data.status };
   }
 }
 

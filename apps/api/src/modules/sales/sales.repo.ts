@@ -190,6 +190,9 @@ export interface PaymentInsert {
   createdBy: string;
 }
 
+/** sale_payments.status (0060, 0068). REFUND_DUE / REFUNDED only on a captured UPI payment (BR-94i). */
+export type SalePaymentState = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'REFUND_DUE' | 'REFUNDED';
+
 export interface SaleHeaderRow {
   id: string;
   warehouseId: string;
@@ -201,7 +204,18 @@ export interface SaleHeaderRow {
   gstAmount: Money;
   paymentId: string | null;
   paymentMethod: SalePaymentMethod | null;
-  paymentStatusDetail: 'PENDING' | 'CONFIRMED' | 'FAILED' | null;
+  paymentStatusDetail: SalePaymentState | null;
+  /** The UPI reference on the payment row: set at confirm, or kept while the gateway says pending (BR-94g). */
+  upiTxnRef: string | null;
+}
+
+/** A pending UPI sale older than the expiry window (BR-94i). */
+export interface ExpiredPendingUpiRow {
+  saleId: string;
+  warehouseId: string;
+  paymentId: string;
+  upiTxnRef: string | null;
+  totalAmount: Money;
 }
 
 export interface SaleItemRow {
@@ -237,7 +251,7 @@ export interface SaleRecord {
   items: SaleItemRow[];
   payment: {
     method: SalePaymentMethod;
-    status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+    status: SalePaymentState;
     amount: Money;
     amountReceived: Money | null;
     changeGiven: Money | null;
@@ -282,7 +296,7 @@ export interface SalesRepo {
   nextSaleNumber(db: Executor): Promise<string>;
   insertOrder(db: Executor, order: OrderInsert): Promise<string>;
   insertOrderItem(db: Executor, item: OrderItemInsert): Promise<void>;
-  insertStatusHistory(db: Executor, orderId: string, from: string | null, to: string, actorId: string, note: string): Promise<void>;
+  insertStatusHistory(db: Executor, orderId: string, from: string | null, to: string, actorId: string | null, note: string): Promise<void>;
   insertPayment(db: Executor, payment: PaymentInsert): Promise<string>;
   insertSaleLedger(db: Executor, row: { batchId: string; warehouseId: string; qtyKg: string; orderId: string; actorId: string }): Promise<void>;
   consumeAllocation(db: Executor, allocationId: string, qtyKg: string): Promise<void>;
@@ -292,6 +306,16 @@ export interface SalesRepo {
   saleItems(db: Executor, orderId: string): Promise<SaleItemRow[]>;
   completeOrder(db: Executor, orderId: string): Promise<void>;
   confirmPayment(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
+  /** BR-94g: keeps the reference of a payment the gateway reports pending, on a still-PENDING row. */
+  recordPendingUpiRef(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
+  /** BR-94i: PENDING_PAYMENT -> CANCELLED (order and its PENDING items; the hold is released). */
+  cancelSale(db: Executor, orderId: string, args: { reason: string; paymentStatus: 'FAILED' | 'REFUND_DUE' }): Promise<void>;
+  /** BR-94i: a PENDING payment -> FAILED (never arrived) or REFUND_DUE (captured, sale cancelled). */
+  settlePayment(db: Executor, paymentId: string, status: 'FAILED' | 'REFUND_DUE', upiTxnRef: string | null): Promise<void>;
+  /** BR-94i: REFUND_DUE -> REFUNDED (and the order's payment_status). False when it was not REFUND_DUE. */
+  markRefunded(db: Executor, paymentId: string, refundRef: string): Promise<boolean>;
+  /** Pending UPI DIRECT/MARKET sales whose payment row is older than `minutes`, oldest first. */
+  listExpiredPendingUpi(db: Executor, minutes: number, limit: number): Promise<ExpiredPendingUpiRow[]>;
   loadSale(db: Executor, orderId: string): Promise<SaleRecord | null>;
   insertAttempt(db: Executor, attempt: AttemptInsert): Promise<void>;
 }
@@ -337,7 +361,8 @@ interface HeaderDbRow {
   gst_amount: string;
   payment_id: string | null;
   payment_method: SalePaymentMethod | null;
-  payment_state: 'PENDING' | 'CONFIRMED' | 'FAILED' | null;
+  payment_state: SalePaymentState | null;
+  upi_txn_ref: string | null;
 }
 
 function toHeader(row: HeaderDbRow): SaleHeaderRow {
@@ -353,16 +378,17 @@ function toHeader(row: HeaderDbRow): SaleHeaderRow {
     paymentId: row.payment_id,
     paymentMethod: row.payment_method,
     paymentStatusDetail: row.payment_state,
+    upiTxnRef: row.upi_txn_ref,
   };
 }
 
 const HEADER_SELECT = `
   SELECT o.id, o.warehouse_id, o.channel, o.status::text AS status, o.payment_status, o.customer_id,
          o.total_amount::text AS total_amount, o.gst_amount::text AS gst_amount,
-         p.id AS payment_id, p.method::text AS payment_method, p.status AS payment_state
+         p.id AS payment_id, p.method::text AS payment_method, p.status AS payment_state, p.upi_txn_ref
     FROM orders o
     LEFT JOIN LATERAL (
-      SELECT sp.id, sp.method, sp.status FROM sale_payments sp
+      SELECT sp.id, sp.method, sp.status, sp.upi_txn_ref FROM sale_payments sp
        WHERE sp.order_id = o.id ORDER BY sp.created_at DESC, sp.id DESC LIMIT 1
     ) p ON TRUE`;
 
@@ -776,6 +802,78 @@ export const salesRepo: SalesRepo = {
     );
   },
 
+  async recordPendingUpiRef(db, paymentId, upiTxnRef) {
+    // The partial unique index uq_sale_payments_upi_txn_ref (0067) applies here too: a reference
+    // already on another sale's payment is refused (23505), which the service maps to 409.
+    await db.query(
+      `UPDATE sale_payments SET upi_txn_ref = $2 WHERE id = $1 AND status = 'PENDING' AND method = 'UPI'`,
+      [paymentId, upiTxnRef],
+    );
+  },
+
+  async cancelSale(db, orderId, { reason, paymentStatus }) {
+    // Guarded on PENDING_PAYMENT so a sale another transaction completed is never cancelled. The
+    // holds (HOLDS_CTE here, shelfFreeSql for the shelf) count only PENDING items of
+    // PENDING_PAYMENT orders, so this is what releases the reserved stock (BR-94i).
+    await db.query(
+      `UPDATE orders
+          SET status = 'CANCELLED', payment_status = $3, cancelled_at = now(), cancellation_reason = $2, updated_at = now()
+        WHERE id = $1 AND status = 'PENDING_PAYMENT'`,
+      [orderId, reason, paymentStatus],
+    );
+    await db.query(
+      `UPDATE order_items SET status = 'CANCELLED', updated_at = now() WHERE order_id = $1 AND status = 'PENDING'`,
+      [orderId],
+    );
+  },
+
+  async settlePayment(db, paymentId, status, upiTxnRef) {
+    await db.query(
+      `UPDATE sale_payments
+          SET status = $2, upi_txn_ref = COALESCE($3, upi_txn_ref)
+        WHERE id = $1 AND status = 'PENDING'`,
+      [paymentId, status, upiTxnRef],
+    );
+  },
+
+  async markRefunded(db, paymentId, refundRef) {
+    const result = await db.query<{ order_id: string }>(
+      `UPDATE sale_payments
+          SET status = 'REFUNDED', refund_ref = $2, refunded_at = now()
+        WHERE id = $1 AND status = 'REFUND_DUE'
+        RETURNING order_id`,
+      [paymentId, refundRef],
+    );
+    const orderId = result.rows[0]?.order_id;
+    if (orderId === undefined) return false;
+    await db.query(
+      `UPDATE orders SET payment_status = 'REFUNDED', updated_at = now() WHERE id = $1 AND payment_status = 'REFUND_DUE'`,
+      [orderId],
+    );
+    return true;
+  },
+
+  async listExpiredPendingUpi(db, minutes, limit) {
+    const result = await db.query<{ id: string; warehouse_id: string; payment_id: string; upi_txn_ref: string | null; total_amount: string }>(
+      `SELECT o.id, o.warehouse_id, sp.id AS payment_id, sp.upi_txn_ref, o.total_amount::text AS total_amount
+         FROM sale_payments sp
+         JOIN orders o ON o.id = sp.order_id
+        WHERE sp.status = 'PENDING' AND sp.method = 'UPI'
+          AND o.status = 'PENDING_PAYMENT' AND o.channel IN ('DIRECT', 'MARKET')
+          AND sp.created_at < now() - make_interval(mins => $1::int)
+        ORDER BY sp.created_at, sp.id
+        LIMIT $2`,
+      [minutes, limit],
+    );
+    return result.rows.map((row) => ({
+      saleId: row.id,
+      warehouseId: row.warehouse_id,
+      paymentId: row.payment_id,
+      upiTxnRef: row.upi_txn_ref,
+      totalAmount: money(row.total_amount),
+    }));
+  },
+
   async loadSale(db, orderId) {
     const header = await db.query<{
       id: string;
@@ -798,7 +896,7 @@ export const salesRepo: SalesRepo = {
       invoice_id: string | null;
       invoice_number: string | null;
       p_method: SalePaymentMethod | null;
-      p_status: 'PENDING' | 'CONFIRMED' | 'FAILED' | null;
+      p_status: SalePaymentState | null;
       p_amount: string | null;
       p_amount_received: string | null;
       p_change_given: string | null;

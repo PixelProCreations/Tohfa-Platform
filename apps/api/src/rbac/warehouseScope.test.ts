@@ -51,6 +51,34 @@ describe('warehouseScopeFilter / warehouseVisible', () => {
     expect(warehouseVisible(customer, W1)).toBe(false);
   });
 
+  // A self-registered customer has NO customers row, so its token carries customerId = null and
+  // resolveScope leaves `customerId` off the scope. The filter used to fail closed only when the id
+  // was present, so such a customer fell through to TRUE and read every order (GET /admin/orders).
+  it('BR-101a: a CUSTOMER scope with no customer record (no customerId) fails closed, at every level', () => {
+    for (const level of [ScopeLevel.OWN, ScopeLevel.VIEW, ScopeLevel.CONDITIONAL, ScopeLevel.ALL]) {
+      const customer = scope({ level, roleCode: RoleCode.CUSTOMER });
+      expect(customer.customerId).toBeUndefined();
+      expect(warehouseScopeFilter(customer, 'o.warehouse_id', 2)).toEqual({ sql: 'FALSE', params: [], nextIndex: 2 });
+      expect(warehouseVisible(customer, W1)).toBe(false);
+      expect(warehouseVisible(customer, null)).toBe(false);
+    }
+  });
+
+  it('BR-36: a FARMER scope with no farmer record (no farmerId) fails closed, at every level', () => {
+    for (const level of [ScopeLevel.OWN, ScopeLevel.VIEW, ScopeLevel.CONDITIONAL, ScopeLevel.ALL]) {
+      const farmer = scope({ level, roleCode: RoleCode.FARMER });
+      expect(farmer.farmerId).toBeUndefined();
+      expect(warehouseScopeFilter(farmer, 'w.id').sql).toBe('FALSE');
+      expect(warehouseVisible(farmer, W1)).toBe(false);
+    }
+  });
+
+  it('BR-30: a role whose rbac.json scope dimension is not a warehouse (FARMER_ADMIN, zone) is never widened to all warehouses', () => {
+    const farmerAdmin = scope({ roleCode: RoleCode.FARMER_ADMIN, zoneIds: [W2] });
+    expect(warehouseScopeFilter(farmerAdmin, 'w.id').sql).toBe('FALSE');
+    expect(warehouseVisible(farmerAdmin, W1)).toBe(false);
+  });
+
   it('BR-30: a Main Warehouse admin assigned to one warehouse is still confined to it', () => {
     const s = scope({ roleCode: RoleCode.MAIN_WH_ADMIN, warehouseIds: [W1, W2] });
     const f = warehouseScopeFilter(s, 'w.id');

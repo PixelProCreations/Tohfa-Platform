@@ -1993,6 +1993,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-85f` A Sub Warehouse Admin's sale is stamped with their own warehouse; a `warehouse_id` in the body that is not theirs is ignored or refused 404, never accepted (cross-scope is not 403).
 - `BR-85g` `payment.record` is checked in the service: a caller with `sales.sale.create` but not `payment.record` is refused 403 before any write.
 - `BR-85h` `GET /sales/horeca` and `GET /sales/b2b` are read-only: no mutating verb exists for them (405/404), and their responses obey BR-90.
+- `BR-85i` (derived, review of 2026-10-12) A DIRECT or MARKET counter sale stays at the warehouse that made it: `POST /admin/orders/{id}/assign-warehouse` on one (in particular a UPI sale still `PENDING_PAYMENT`, whose items already name that warehouse's batches) is 409 `COUNTER_SALE_NOT_REASSIGNABLE` and writes nothing.
 
 ---
 
@@ -2062,6 +2063,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-88e` Insufficient wallet balance is refused; balance and ledger unchanged; one `sale_attempts` row.
 - `BR-88f` No route other than `POST /sales` writes a sale debit; `wallet_transactions` accepts no UPDATE or DELETE (CLAUDE.md §2.3) and `wallets.balance` equals the sum of its ledger after the sale.
 - `BR-88g` The UPI confirm endpoint is idempotent: confirming twice (same or new key) on a sale already confirmed does not create a second `sale_payments` row or a second stock or invoice effect.
+- `BR-88h` (derived, review of 2026-10-12) A sale key replayed after the 24-hour idempotency retention, when its sale already exists (`sale_payments.idempotency_key` is kept for ever), is 409 `IDEMPOTENCY_KEY_REUSED`, never a 500, and writes nothing.
 
 ---
 
@@ -2200,6 +2202,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-94h` `POST /sales/{id}/payments/upi/confirm` permission matrix: 401 without a token; 403 for MAIN_WH_ADMIN (`none` on `payment.record`), FARMER, FARMER_ADMIN, CUSTOMER; SUB_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN reach the handler; a sale at another warehouse is 404 for SUB_WH_ADMIN, never 403.
 - `BR-94i` The reserved stock of a pending UPI sale is released or expires per the existing hold rule when the gateway times out; no negative balance results.
 - `BR-94j` Every `sale_payments` row is written once and never updated except through its documented state change; the payment amounts sum exactly to the order total.
+- `BR-94k` (derived, review of 2026-10-12) One UPI payment confirms one sale: confirming a second sale with a `upiTxnRef` that already confirmed another is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED`, and that sale stays pending (no stock, invoice or revenue). Enforced by the partial unique index `uq_sale_payments_upi_txn_ref` (migration 0067); the gateway payment carries no reference to our sale, so the reference itself is the binding.
 
 ---
 
@@ -2357,12 +2360,12 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders` (`order.list.view_all`) filters in SQL with `warehouseScopeFilter` on the resolved scope; the action routes (`assign-warehouse`, `pack`, `dispatch`, `verify-otp`) also apply `warehouseVisible` after loading the order |
 | **Scope** | Track 1 |
 
-**Rule.** `docs/rbac.json` grants CUSTOMER `own` on `order.list.view_all` (its own-orders permission), so a CUSTOMER token passes `requirePermission` on `GET /admin/orders`. The list is therefore confined by the resolved scope, never by role names: a scope carrying a customer or farmer id fails closed, so a CUSTOMER gets `200` with an empty page on the admin list (even for its own orders, which it reads through `/orders`) and 404 on `GET /admin/orders/{orderId}` (BR-99). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
+**Rule.** `docs/rbac.json` grants CUSTOMER `none` on `order.list.view_all` (customers view their own orders via `/orders` through `order.view_own`), so a CUSTOMER token gets `403 FORBIDDEN` from `requirePermission` on `GET /admin/orders` and detail. In addition, the list is confined by the resolved scope: even if granted or scoped, a scope whose winning role is not warehouse admin or higher fails closed (`FALSE` filter, 404 on detail). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
 
 **Failure mode if unenforced.** Any customer with the app lists every order of every customer and warehouse (order numbers, totals, channels, warehouses), and a Sub admin learns from a 403 that another warehouse has orders on a given day.
 
 **Test contract.**
-- `BR-101a` A CUSTOMER token on `GET /admin/orders` gets `200` and `items: []` with no filter, `limit=100`, `deliveryDate`, or a `warehouseId`, including the customer who owns the fixture orders; `GET /admin/orders/{orderId}` is 404; `assign-warehouse`, `pack`, `dispatch` and `verify-otp` are 403 and the order row (status, warehouse, OTP attempts) is unchanged; the action services return 404 and write nothing for a customer-owned scope.
+- `BR-101a` A CUSTOMER token on `GET /admin/orders` is 403 `FORBIDDEN` (held `none` on `order.list.view_all`); `GET /admin/orders/{orderId}` is 403; `assign-warehouse`, `pack`, `dispatch` and `verify-otp` are 403 and the order row (status, warehouse, OTP attempts) is unchanged; the action services return 404 and write nothing for a customer-owned scope. The same holds for a CUSTOMER token with no customer record (`customerId` null, as every self-registered customer has): the fail-closed follows the resolved role's `scopeDimension` in `docs/rbac.json`, not the presence of a customer id.
 - `BR-101b` 401 without a token; FARMER and FARMER_ADMIN get 403 on the list.
 - `BR-101c` A Sub admin lists only its warehouse; `warehouseId` of another warehouse is `200` with an empty page, the same body as an unknown warehouse id, never 403.
 - `BR-101d` MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN list both warehouses; `warehouseId` narrows to one.

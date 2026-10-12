@@ -6,7 +6,7 @@
     "all": "Unrestricted across the whole system",
     "own": "Only rows the actor owns or is assigned to (predicate injected server-side)",
     "view": "Read-only, no mutation",
-    "conditional": "Allowed except where `predicate` forbids it — see the permission's `predicate` field",
+    "conditional": "Allowed except where `predicate` forbids it \u2014 see the permission's `predicate` field",
     "none": "Denied"
   },
   "roles": [
@@ -32,7 +32,7 @@
       "level": 3,
       "colorHex": "#3F7D32",
       "scopeDimension": "zone_id",
-      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only (superseded 2026-10-01: farm ratings are derived from completed INTERNAL audits only, there is no manual rating edit — see `conflicts`). NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
+      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only (superseded 2026-10-01: farm ratings are derived from completed INTERNAL audits only, there is no manual rating edit \u2014 see `conflicts`). NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
     },
     {
       "code": "MAIN_WH_ADMIN",
@@ -64,7 +64,7 @@
       "level": 5,
       "colorHex": "#3F7D32",
       "scopeDimension": "customer_id",
-      "summary": "Customer App end user. Own data only. Browses the catalog farm-anonymously — grade, certification badges and TOHFA branding only; never farmer or farm identity."
+      "summary": "Customer App end user. Own data only. Browses the catalog farm-anonymously \u2014 grade, certification badges and TOHFA branding only; never farmer or farm identity."
     }
   ],
   "predicates": {
@@ -103,7 +103,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "matrix §1"
+      "source": "matrix \u00a71"
     },
     {
       "code": "auth.otp.request",
@@ -118,7 +118,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "matrix §1 + reqs FR-F01"
+      "source": "matrix \u00a71 + reqs FR-F01"
     },
     {
       "code": "auth.password.change_own",
@@ -133,7 +133,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "matrix §1"
+      "source": "matrix \u00a71"
     },
     {
       "code": "auth.session.terminate_other",
@@ -148,7 +148,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §1 — SA only"
+      "source": "matrix \u00a71 \u2014 SA only"
     },
     {
       "code": "auth.session.revoke_own",
@@ -163,7 +163,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — self-service counterpart of auth.session.terminate_other"
+      "source": "inferred \u2014 self-service counterpart of auth.session.terminate_other"
     },
     {
       "code": "auth.principal.view_own",
@@ -178,12 +178,12 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — every client shell reads this to render"
+      "source": "inferred \u2014 every client shell reads this to render"
     },
     {
       "code": "auth.oauth.login",
       "module": "Authentication & Onboarding",
-      "description": "Log in with a verified Google/Facebook identity already linked to an account (BR-39). Never creates or activates an account by itself — an unlinked identity gets NOT_LINKED, not a session.",
+      "description": "Log in with a verified Google/Facebook identity already linked to an account (BR-39). Never creates or activates an account by itself \u2014 an unlinked identity gets NOT_LINKED, not a session.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -193,7 +193,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — OAuth is an alternate login method for auth.session.login, same population (BR-39)"
+      "source": "inferred \u2014 OAuth is an alternate login method for auth.session.login, same population (BR-39)"
     },
     {
       "code": "auth.oauth.link_own",
@@ -208,7 +208,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — self-service counterpart of auth.session.revoke_own, scoped to BR-39"
+      "source": "inferred \u2014 self-service counterpart of auth.session.revoke_own, scoped to BR-39"
     },
     {
       "code": "auth.oauth.unlink_own",
@@ -223,7 +223,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — self-service counterpart of auth.session.revoke_own, scoped to BR-39"
+      "source": "inferred \u2014 self-service counterpart of auth.session.revoke_own, scoped to BR-39"
     },
     {
       "code": "auth.profile.edit_own",
@@ -298,7 +298,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2"
+      "source": "matrix \u00a72"
     },
     {
       "code": "farmer.application.view",
@@ -313,7 +313,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 — Farmer Admin queue is read-only (see conflicts 12)"
+      "source": "matrix \u00a72 \u2014 Farmer Admin queue is read-only (see conflicts 12)"
     },
     {
       "code": "farmer.application.approve",
@@ -358,7 +358,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "reqs FR-F02 — 5-step application"
+      "source": "reqs FR-F02 \u2014 5-step application"
     },
     {
       "code": "farmer.application.submit_own",
@@ -418,7 +418,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 + matrix §2 (see conflicts)"
+      "source": "reqs 6.1 + matrix \u00a72 (see conflicts)"
     },
     {
       "code": "farmer.profile.view_own",
@@ -433,12 +433,12 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §8 — own-data ownership (BR-36)"
+      "source": "matrix \u00a78 \u2014 own-data ownership (BR-36)"
     },
     {
       "code": "farmer.profile.edit_own",
       "module": "Farmers Management",
-      "description": "Edit own farmer profile. Aadhaar and mobile are excluded — see farmer.profile.edit_locked_field.",
+      "description": "Edit own farmer profile. Aadhaar and mobile are excluded \u2014 see farmer.profile.edit_locked_field.",
       "grants": {
         "SUPER_ADMIN": "none",
         "TOHFA_ADMIN": "none",
@@ -448,7 +448,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 + reqs FR-F02 (BR-33)"
+      "source": "matrix \u00a72 + reqs FR-F02 (BR-33)"
     },
     {
       "code": "farmer.profile.edit",
@@ -463,12 +463,12 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 + matrix §2"
+      "source": "reqs 6.1 + matrix \u00a72"
     },
     {
       "code": "farmer.profile.edit_locked_field",
       "module": "Farmers Management",
-      "description": "Edit locked identity fields (Aadhaar, mobile) — requires special verification.",
+      "description": "Edit locked identity fields (Aadhaar, mobile) \u2014 requires special verification.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "none",
@@ -478,7 +478,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 — SA only"
+      "source": "matrix \u00a72 \u2014 SA only"
     },
     {
       "code": "farmer.bank_account.manage_own",
@@ -493,7 +493,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — farmer-bank-accounts module (BR-53); owner brief 2026-10-08"
+      "source": "specification gap \u2014 farmer-bank-accounts module (BR-53); owner brief 2026-10-08"
     },
     {
       "code": "farmer.bank_account.view",
@@ -508,7 +508,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — admin read of farmer payout destinations (BR-53); no route uses it yet, kept pending owner decision"
+      "source": "specification gap \u2014 admin read of farmer payout destinations (BR-53); no route uses it yet, kept pending owner decision"
     },
     {
       "code": "farmer.documents.view_own",
@@ -523,7 +523,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — farmer-documents module (BR-54); owner brief 2026-10-08"
+      "source": "specification gap \u2014 farmer-documents module (BR-54); owner brief 2026-10-08"
     },
     {
       "code": "farmer.account.disable",
@@ -553,7 +553,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 — SA only (TA can disable but not reactivate)"
+      "source": "matrix \u00a72 \u2014 SA only (TA can disable but not reactivate)"
     },
     {
       "code": "farmer.document.view",
@@ -568,7 +568,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2"
+      "source": "matrix \u00a72"
     },
     {
       "code": "farmer.document.verify",
@@ -583,7 +583,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2"
+      "source": "matrix \u00a72"
     },
     {
       "code": "certification.manage_own",
@@ -598,7 +598,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "farmer.config.view",
@@ -613,12 +613,12 @@
         "FARMER": "all",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — no source document names this permission; added to back GET /v1/config/farmer, which the mobile client already calls"
+      "source": "specification gap \u2014 no source document names this permission; added to back GET /v1/config/farmer, which the mobile client already calls"
     },
     {
       "code": "farmer.farm.manage_own",
       "module": "Farmers Management",
-      "description": "Create, edit and delete own land locations (farms) and their zones (plots). One permission covers both tables — a plot is only ever reached through a farm the actor owns.",
+      "description": "Create, edit and delete own land locations (farms) and their zones (plots). One permission covers both tables \u2014 a plot is only ever reached through a farm the actor owns.",
       "grants": {
         "SUPER_ADMIN": "none",
         "TOHFA_ADMIN": "none",
@@ -628,7 +628,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "inferred — BR-36 (own-data ownership for farmers); db/migrations/0003_farmers_and_farms.sql farms/plots were modelled but never wired to an API before this module"
+      "source": "inferred \u2014 BR-36 (own-data ownership for farmers); db/migrations/0003_farmers_and_farms.sql farms/plots were modelled but never wired to an API before this module"
     },
     {
       "code": "farmer.soil.manage_own",
@@ -703,7 +703,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap 2026-10-01: rbac.json had no admin-read code for certifications; GET /v1/admin/certifications and GET /v1/admin/certifications/{id} reused certification.mark_verified before this fix, conflating a read with the verify/unverify action. Grants mirror the existing certification.mark_verified/verify_via_portal/block_listings codes (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here)."
+      "source": "spec gap 2026-10-01: rbac.json had no admin-read code for certifications; GET /v1/admin/certifications and GET /v1/admin/certifications/{id} reused certification.mark_verified before this fix, conflating a read with the verify/unverify action. Grants mirror the existing certification.mark_verified/verify_via_portal/block_listings codes (matrix \u00a79 \u2014 SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here)."
     },
     {
       "code": "certification.manage_any",
@@ -718,7 +718,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap 2026-10-06: no source document names an admin edit or removal of a farmer's certification record, and rbac.json had no code for it; added to back PATCH /v1/admin/certifications/{id} and DELETE /v1/admin/certifications/{id} (BR-51). Conservative default: grants mirror certification.view and certification.mark_verified (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here). See conflicts: \"Admin edit/delete of farmer certification records\" — needs client confirmation."
+      "source": "spec gap 2026-10-06: no source document names an admin edit or removal of a farmer's certification record, and rbac.json had no code for it; added to back PATCH /v1/admin/certifications/{id} and DELETE /v1/admin/certifications/{id} (BR-51). Conservative default: grants mirror certification.view and certification.mark_verified (matrix \u00a79 \u2014 SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here). See conflicts: \"Admin edit/delete of farmer certification records\" \u2014 needs client confirmation."
     },
     {
       "code": "certification.verify_via_portal",
@@ -733,7 +733,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "certification.mark_verified",
@@ -748,7 +748,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "certification.block_listings",
@@ -763,7 +763,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9 + reqs 2.1"
+      "source": "matrix \u00a79 + reqs 2.1"
     },
     {
       "code": "farmer.rating.view",
@@ -778,7 +778,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 + matrix §2 (see conflicts)"
+      "source": "reqs 6.1 + matrix \u00a72 (see conflicts)"
     },
     {
       "code": "farmer.rating.configure_tiers",
@@ -793,7 +793,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 — SA only"
+      "source": "reqs 6.1 \u2014 SA only"
     },
     {
       "code": "farmer.subscription.extend_waive",
@@ -808,7 +808,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 — SA only"
+      "source": "matrix \u00a72 \u2014 SA only"
     },
     {
       "code": "farmer.subscription.view_tier_limits",
@@ -823,12 +823,12 @@
         "FARMER": "view",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2"
+      "source": "matrix \u00a72"
     },
     {
       "code": "farmer.weather.view_own",
       "module": "Farmers Management",
-      "description": "View current weather data for own registered farm location. Scoped to the farmer's own coordinates — no other farm or global weather data is returned.",
+      "description": "View current weather data for own registered farm location. Scoped to the farmer's own coordinates \u2014 no other farm or global weather data is returned.",
       "grants": {
         "SUPER_ADMIN": "none",
         "TOHFA_ADMIN": "none",
@@ -838,7 +838,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "requirements §7.1 — farmer weather dashboard (own-farm scope)"
+      "source": "requirements \u00a77.1 \u2014 farmer weather dashboard (own-farm scope)"
     },
     {
       "code": "farmer.diary.view_own",
@@ -973,7 +973,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M3 Tree Plantings (BR-55)"
+      "source": "specification gap \u2014 added for M3 Tree Plantings (BR-55)"
     },
     {
       "code": "farmer.crop_input.manage_own",
@@ -988,7 +988,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M4 Crop Inputs (BR-56)"
+      "source": "specification gap \u2014 added for M4 Crop Inputs (BR-56)"
     },
     {
       "code": "farmer.crop_milestone.manage_own",
@@ -1003,7 +1003,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M5 Crop Milestones (BR-57)"
+      "source": "specification gap \u2014 added for M5 Crop Milestones (BR-57)"
     },
     {
       "code": "farmer.calendar.view_own",
@@ -1018,7 +1018,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M6 Tohfa Calendar (BR-58)"
+      "source": "specification gap \u2014 added for M6 Tohfa Calendar (BR-58)"
     },
     {
       "code": "platform.event.manage",
@@ -1033,7 +1033,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M6 Tohfa Calendar (BR-58)"
+      "source": "specification gap \u2014 added for M6 Tohfa Calendar (BR-58)"
     },
     {
       "code": "farmer.learning.view",
@@ -1048,7 +1048,7 @@
         "FARMER": "all",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+      "source": "specification gap \u2014 added for M7 Learning Hub (BR-59)"
     },
     {
       "code": "farmer.learning.participate_own",
@@ -1063,7 +1063,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+      "source": "specification gap \u2014 added for M7 Learning Hub (BR-59)"
     },
     {
       "code": "learning.admin.manage",
@@ -1078,7 +1078,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+      "source": "specification gap \u2014 added for M7 Learning Hub (BR-59)"
     },
     {
       "code": "farmer.support_ticket.manage_own",
@@ -1093,7 +1093,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M8 Support Tickets (BR-60)"
+      "source": "specification gap \u2014 added for M8 Support Tickets (BR-60)"
     },
     {
       "code": "support.ticket.manage_any",
@@ -1108,7 +1108,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "specification gap — added for M8 Support Tickets (BR-60)"
+      "source": "specification gap \u2014 added for M8 Support Tickets (BR-60)"
     },
     {
       "code": "admin.crop_taxonomy.manage",
@@ -1188,7 +1188,7 @@
     {
       "code": "farmer.assets.view_own",
       "module": "Farm Assets",
-      "description": "View own farm_assets records — the maintenance-tracked tool/equipment/machinery register.",
+      "description": "View own farm_assets records \u2014 the maintenance-tracked tool/equipment/machinery register.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1258,7 +1258,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §3"
+      "source": "matrix \u00a73"
     },
     {
       "code": "inputs.catalog.manage",
@@ -1273,7 +1273,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §4"
+      "source": "matrix \u00a74"
     },
     {
       "code": "pricing.fair_price.view",
@@ -1288,7 +1288,7 @@
         "FARMER": "view",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "pricing.fair_price.set",
@@ -1303,7 +1303,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 — SA only; TOHFA Admin = none"
+      "source": "reqs 6.1 \u2014 SA only; TOHFA Admin = none"
     },
     {
       "code": "pricing.fair_price.bulk_update",
@@ -1318,7 +1318,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5 — SA only"
+      "source": "matrix \u00a75 \u2014 SA only"
     },
     {
       "code": "pricing.retail_price.set",
@@ -1348,7 +1348,7 @@
         "FARMER": "view",
         "CUSTOMER": "view"
       },
-      "source": "inferred — the customer catalog cannot render without it"
+      "source": "inferred \u2014 the customer catalog cannot render without it"
     },
     {
       "code": "listing.create_own",
@@ -1363,7 +1363,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "listing.view_own",
@@ -1378,7 +1378,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §8 — own-data ownership (BR-36)"
+      "source": "matrix \u00a78 \u2014 own-data ownership (BR-36)"
     },
     {
       "code": "listing.update_own",
@@ -1393,7 +1393,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "listing.withdraw_own",
@@ -1408,7 +1408,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "listing.queue.view_pending",
@@ -1423,7 +1423,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "listing.approve",
@@ -1439,7 +1439,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 — Farmer Admin cannot approve own listings"
+      "source": "reqs 6.1 \u2014 Farmer Admin cannot approve own listings"
     },
     {
       "code": "listing.reject",
@@ -1455,7 +1455,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5 — Farmer Admin cannot reject own listings"
+      "source": "matrix \u00a75 \u2014 Farmer Admin cannot reject own listings"
     },
     {
       "code": "listing.counter_offer.send",
@@ -1471,7 +1471,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 — Farmer Admin cannot counter own listings"
+      "source": "reqs 6.1 \u2014 Farmer Admin cannot counter own listings"
     },
     {
       "code": "listing.counter_offer.respond",
@@ -1486,7 +1486,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix \u00a75"
     },
     {
       "code": "listing.approval.auto_route",
@@ -1501,7 +1501,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5 + reqs 2.5"
+      "source": "matrix \u00a75 + reqs 2.5"
     },
     {
       "code": "purchase.order.create",
@@ -1516,7 +1516,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "inferred — matrix has no PO rows; reqs 5.2 module 8"
+      "source": "inferred \u2014 matrix has no PO rows; reqs 5.2 module 8"
     },
     {
       "code": "purchase.order.view",
@@ -1531,7 +1531,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "inferred — matrix has no PO rows; reqs 5.2 module 8"
+      "source": "inferred \u2014 matrix has no PO rows; reqs 5.2 module 8"
     },
     {
       "code": "inventory.goods_receipt.record",
@@ -1561,7 +1561,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7"
+      "source": "matrix \u00a77"
     },
     {
       "code": "inventory.produce.reject_incoming",
@@ -1591,7 +1591,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7 — second counter-offer surface"
+      "source": "matrix \u00a77 \u2014 second counter-offer surface"
     },
     {
       "code": "inventory.batch.assign",
@@ -1606,7 +1606,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7 + reqs FR-A05"
+      "source": "matrix \u00a77 + reqs FR-A05"
     },
     {
       "code": "inventory.batch.view",
@@ -1621,7 +1621,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.2 — warehouse-scoped for Sub WH Admin (BR-30)"
+      "source": "reqs 6.2 \u2014 warehouse-scoped for Sub WH Admin (BR-30)"
     },
     {
       "code": "inventory.stock_ledger.view_all",
@@ -1636,7 +1636,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.2 + matrix §7"
+      "source": "reqs 6.2 + matrix \u00a77"
     },
     {
       "code": "inventory.stock_ledger.view_own",
@@ -1681,7 +1681,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7 — SW cannot approve its own adjustments"
+      "source": "matrix \u00a77 \u2014 SW cannot approve its own adjustments"
     },
     {
       "code": "inventory.stock_verification.perform",
@@ -1756,7 +1756,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.2 (matrix §7 says SA only — see conflicts)"
+      "source": "reqs 6.2 (matrix \u00a77 says SA only \u2014 see conflicts)"
     },
     {
       "code": "warehouse.storage_location.manage",
@@ -1801,7 +1801,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.2 — SA + MW only; TOHFA Admin = none"
+      "source": "reqs 6.2 \u2014 SA + MW only; TOHFA Admin = none"
     },
     {
       "code": "transfer.inter_warehouse.receive",
@@ -1816,7 +1816,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7"
+      "source": "matrix \u00a77"
     },
     {
       "code": "transfer.high_value.approve",
@@ -1831,7 +1831,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7 — SA only; threshold undefined"
+      "source": "matrix \u00a77 \u2014 SA only; threshold undefined"
     },
     {
       "code": "allocation.dashboard.view",
@@ -1846,7 +1846,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7"
+      "source": "matrix \u00a77"
     },
     {
       "code": "allocation.channel_percentage.set",
@@ -1861,7 +1861,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.4 — SA only"
+      "source": "reqs 6.4 \u2014 SA only"
     },
     {
       "code": "allocation.per_produce.adjust",
@@ -1876,7 +1876,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7"
+      "source": "matrix \u00a77"
     },
     {
       "code": "allocation.b2b_horeca.manage",
@@ -1891,7 +1891,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §7 (manual) vs reqs 2.2 (automatic) — see conflicts"
+      "source": "matrix \u00a77 (manual) vs reqs 2.2 (automatic) \u2014 see conflicts"
     },
     {
       "code": "customer.self_register",
@@ -1906,7 +1906,7 @@
         "FARMER": "none",
         "CUSTOMER": "all"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "customer.record.create",
@@ -1966,12 +1966,12 @@
         "FARMER": "none",
         "CUSTOMER": "own"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "customer.detail.view",
       "module": "Customers Management",
-      "description": "View a customer's profile detail (SWA Module 7, BR-91, BR-92). At scope `own` the customer must be in the actor's warehouse scope (order or top-up at the warehouse, or preferred warehouse) — otherwise 404, never 403; and the response is PII-masked (name, masked mobile, customer code only).",
+      "description": "View a customer's profile detail (SWA Module 7, BR-91, BR-92). At scope `own` the customer must be in the actor's warehouse scope (order or top-up at the warehouse, or preferred warehouse) \u2014 otherwise 404, never 403; and the response is PII-masked (name, masked mobile, customer code only).",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1981,7 +1981,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "customer.purchase_history.view",
@@ -1996,7 +1996,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "customer.wallet.view",
@@ -2011,7 +2011,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "customer.issues.view",
@@ -2026,7 +2026,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "customer.support_history.view",
@@ -2041,7 +2041,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "catalog.browse",
@@ -2056,7 +2056,7 @@
         "FARMER": "none",
         "CUSTOMER": "all"
       },
-      "source": "reqs 2.3 + matrix §5"
+      "source": "reqs 2.3 + matrix \u00a75"
     },
     {
       "code": "catalog.farm_identity.view",
@@ -2071,7 +2071,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "reqs 2.3 / FR-F08 — customers must never see this"
+      "source": "reqs 2.3 / FR-F08 \u2014 customers must never see this"
     },
     {
       "code": "cart.manage_own",
@@ -2131,7 +2131,7 @@
         "FARMER": "none",
         "CUSTOMER": "own"
       },
-      "source": "matrix §8 — own-data ownership (BR-36)"
+      "source": "matrix \u00a78 \u2014 own-data ownership (BR-36)"
     },
     {
       "code": "order.reorder_own",
@@ -2159,7 +2159,7 @@
         "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
-        "CUSTOMER": "own"
+        "CUSTOMER": "none"
       },
       "source": "reqs 6.3"
     },
@@ -2176,7 +2176,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 (matrix §6 is stricter — see conflicts)"
+      "source": "reqs 6.3 (matrix \u00a76 is stricter \u2014 see conflicts)"
     },
     {
       "code": "sales.sale.create",
@@ -2191,7 +2191,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "sales.history.view",
@@ -2206,7 +2206,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "sales.dashboard.view",
@@ -2221,7 +2221,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "sales.market_day.view",
@@ -2236,7 +2236,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "sales.horeca.view",
@@ -2251,7 +2251,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "sales.b2b.view",
@@ -2266,7 +2266,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "payment.record",
@@ -2281,7 +2281,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+      "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "order.warehouse.assign",
@@ -2296,7 +2296,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6 — Sub WH Admin cannot self-assign orders"
+      "source": "matrix \u00a76 \u2014 Sub WH Admin cannot self-assign orders"
     },
     {
       "code": "order.mark_packed",
@@ -2311,7 +2311,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "order.dispatch",
@@ -2326,7 +2326,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs FR-C04 — contested by matrix principle 9; no Track 1 path (rules.md contradiction 3)"
+      "source": "reqs FR-C04 \u2014 contested by matrix principle 9; no Track 1 path (rules.md contradiction 3)"
     },
     {
       "code": "order.pickup_otp.verify",
@@ -2341,7 +2341,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6 + reqs FR-C05"
+      "source": "matrix \u00a76 + reqs FR-C05"
     },
     {
       "code": "order.delivery_status.view",
@@ -2356,7 +2356,7 @@
         "FARMER": "none",
         "CUSTOMER": "own"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "order.delivery_slot.select",
@@ -2371,7 +2371,7 @@
         "FARMER": "none",
         "CUSTOMER": "own"
       },
-      "source": "reqs FR-C04 — contested by matrix principle 9"
+      "source": "reqs FR-C04 \u2014 contested by matrix principle 9"
     },
     {
       "code": "invoice.generate",
@@ -2401,7 +2401,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 — SA/TA only"
+      "source": "reqs 6.3 \u2014 SA/TA only"
     },
     {
       "code": "invoice.view_own",
@@ -2416,7 +2416,7 @@
         "FARMER": "own",
         "CUSTOMER": "own"
       },
-      "source": "matrix §8 — own-data ownership (BR-36)"
+      "source": "matrix \u00a78 \u2014 own-data ownership (BR-36)"
     },
     {
       "code": "support.ticket.create_own",
@@ -2431,7 +2431,7 @@
         "FARMER": "own",
         "CUSTOMER": "own"
       },
-      "source": "matrix §6 + reqs FR-C05"
+      "source": "matrix \u00a76 + reqs FR-C05"
     },
     {
       "code": "rma.request.process",
@@ -2446,7 +2446,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 (matrix §6 splits this — see conflicts)"
+      "source": "reqs 6.3 (matrix \u00a76 splits this \u2014 see conflicts)"
     },
     {
       "code": "rma.refund.approve",
@@ -2461,7 +2461,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "rma.refund.wallet_process",
@@ -2476,7 +2476,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6"
+      "source": "matrix \u00a76"
     },
     {
       "code": "rma.refund.bank_process",
@@ -2491,7 +2491,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §6 — SA/TA only"
+      "source": "matrix \u00a76 \u2014 SA/TA only"
     },
     {
       "code": "wallet.own.view",
@@ -2506,7 +2506,7 @@
         "FARMER": "own",
         "CUSTOMER": "own"
       },
-      "source": "matrix §8"
+      "source": "matrix \u00a78"
     },
     {
       "code": "wallet.topup.digital",
@@ -2521,7 +2521,7 @@
         "FARMER": "none",
         "CUSTOMER": "own"
       },
-      "source": "matrix §8"
+      "source": "matrix \u00a78"
     },
     {
       "code": "wallet.cash_topup.process",
@@ -2551,7 +2551,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §8 + reqs 2.3"
+      "source": "matrix \u00a78 + reqs 2.3"
     },
     {
       "code": "wallet.manual_credit_debit",
@@ -2566,7 +2566,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 'Wallet management (customers)' (matrix §8 says SA/TA only — see conflicts)"
+      "source": "reqs 6.3 'Wallet management (customers)' (matrix \u00a78 says SA/TA only \u2014 see conflicts)"
     },
     {
       "code": "wallet.checkout.enforce_wallet_first",
@@ -2581,7 +2581,7 @@
         "FARMER": "none",
         "CUSTOMER": "all"
       },
-      "source": "reqs 2.3 + matrix §8"
+      "source": "reqs 2.3 + matrix \u00a78"
     },
     {
       "code": "payout.farmer.initiate",
@@ -2626,7 +2626,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 — SA only"
+      "source": "reqs 6.3 \u2014 SA only"
     },
     {
       "code": "payout.escalate_above_10k",
@@ -2641,7 +2641,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §11"
+      "source": "matrix \u00a711"
     },
     {
       "code": "payment.method.configure",
@@ -2656,7 +2656,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §8 — SA only"
+      "source": "matrix \u00a78 \u2014 SA only"
     },
     {
       "code": "finance.expense.log",
@@ -2701,7 +2701,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §11"
+      "source": "matrix \u00a711"
     },
     {
       "code": "finance.pnl.view",
@@ -2716,7 +2716,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §11"
+      "source": "matrix \u00a711"
     },
     {
       "code": "finance.sales_income.view",
@@ -2778,7 +2778,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 — Farmer Admin attends in a support capacity only"
+      "source": "reqs 6.1 \u2014 Farmer Admin attends in a support capacity only"
     },
     {
       "code": "audit.findings.log",
@@ -2793,7 +2793,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "audit.red_flag.manage",
@@ -2808,7 +2808,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap 2026-10-01 (Audit module contract): BR-05b requires an explicit admin red-flag action and no existing code covered it. Grants mirror audit.findings.log (matrix §9)."
+      "source": "spec gap 2026-10-01 (Audit module contract): BR-05b requires an explicit admin red-flag action and no existing code covered it. Grants mirror audit.findings.log (matrix \u00a79)."
     },
     {
       "code": "audit.score.categories",
@@ -2823,7 +2823,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "audit.report.generate",
@@ -2838,7 +2838,7 @@
         "FARMER": "view",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9"
+      "source": "matrix \u00a79"
     },
     {
       "code": "audit.tier.configure_thresholds",
@@ -2853,7 +2853,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §9 — SA only"
+      "source": "matrix \u00a79 \u2014 SA only"
     },
     {
       "code": "admin.staff.list_view",
@@ -2868,7 +2868,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10"
+      "source": "matrix \u00a710"
     },
     {
       "code": "admin.staff.manage",
@@ -3004,7 +3004,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10 — TA/MW restricted to roles below their own"
+      "source": "matrix \u00a710 \u2014 TA/MW restricted to roles below their own"
     },
     {
       "code": "admin.promotion.approve",
@@ -3019,7 +3019,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 5.3 FR-A01 — SA only"
+      "source": "reqs 5.3 FR-A01 \u2014 SA only"
     },
     {
       "code": "admin.decision.override",
@@ -3034,7 +3034,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 5.3 FR-A01 — SA only"
+      "source": "reqs 5.3 FR-A01 \u2014 SA only"
     },
     {
       "code": "role.definition.view",
@@ -3049,7 +3049,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10"
+      "source": "matrix \u00a710"
     },
     {
       "code": "role.permission.edit",
@@ -3064,7 +3064,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10 — SA only"
+      "source": "matrix \u00a710 \u2014 SA only"
     },
     {
       "code": "notification.own.view",
@@ -3079,7 +3079,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "matrix §13"
+      "source": "matrix \u00a713"
     },
     {
       "code": "notification.own.mark_read",
@@ -3094,7 +3094,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "matrix §13"
+      "source": "matrix \u00a713"
     },
     {
       "code": "notification.template.configure",
@@ -3109,7 +3109,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.4 — SA only"
+      "source": "reqs 6.4 \u2014 SA only"
     },
     {
       "code": "announcement.system_wide.create",
@@ -3154,7 +3154,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13 (reqs 6.4 'Configure notifications' is SA only — see conflicts)"
+      "source": "matrix \u00a713 (reqs 6.4 'Configure notifications' is SA only \u2014 see conflicts)"
     },
     {
       "code": "task.own.view",
@@ -3199,7 +3199,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13"
+      "source": "matrix \u00a713"
     },
     {
       "code": "support.ticket.respond",
@@ -3214,7 +3214,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13; double gate on the SWA M7 reply route: owner decision 2026-10-11"
+      "source": "matrix \u00a713; double gate on the SWA M7 reply route: owner decision 2026-10-11"
     },
     {
       "code": "community.group.moderate",
@@ -3229,7 +3229,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13"
+      "source": "matrix \u00a713"
     },
     {
       "code": "dispute.farmer.mediate",
@@ -3244,7 +3244,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13 + reqs FR-A03"
+      "source": "matrix \u00a713 + reqs FR-A03"
     },
     {
       "code": "report.export.file",
@@ -3259,7 +3259,7 @@
         "FARMER": "own",
         "CUSTOMER": "own"
       },
-      "source": "matrix §12"
+      "source": "matrix \u00a712"
     },
     {
       "code": "report.bulk_data_export",
@@ -3274,7 +3274,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §12 — SA only"
+      "source": "matrix \u00a712 \u2014 SA only"
     },
     {
       "code": "system.config.manage",
@@ -3289,7 +3289,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 5.2 module 16 — SA only"
+      "source": "reqs 5.2 module 16 \u2014 SA only"
     },
     {
       "code": "system.integration_key.manage",
@@ -3304,7 +3304,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.4 — SA only (matrix §15 says infra-level/out of app — see conflicts)"
+      "source": "reqs 6.4 \u2014 SA only (matrix \u00a715 says infra-level/out of app \u2014 see conflicts)"
     },
     {
       "code": "system.db_export.raw",
@@ -3319,7 +3319,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.4 — SA only (matrix §15 says infra-level/out of app — see conflicts)"
+      "source": "reqs 6.4 \u2014 SA only (matrix \u00a715 says infra-level/out of app \u2014 see conflicts)"
     },
     {
       "code": "auditlog.view",
@@ -3334,7 +3334,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.4 (matrix §15 gives MW 'view (all)' — see conflicts)"
+      "source": "reqs 6.4 (matrix \u00a715 gives MW 'view (all)' \u2014 see conflicts)"
     },
     {
       "code": "auditlog.export",
@@ -3349,7 +3349,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §15 — SA only"
+      "source": "matrix \u00a715 \u2014 SA only"
     },
     {
       "code": "upload.signed_url.create",
@@ -3364,7 +3364,7 @@
         "FARMER": "all",
         "CUSTOMER": "all"
       },
-      "source": "inferred — every document upload path in docs/openapi.yaml uses it"
+      "source": "inferred \u2014 every document upload path in docs/openapi.yaml uses it"
     }
   ],
   "creationRules": [
@@ -3460,14 +3460,14 @@
       "reqsCh6": "MAIN_WH_ADMIN = Y, SUB_WH_ADMIN = own",
       "roleMatrix": "manual credit/debit is SUPER_ADMIN + TOHFA_ADMIN only; MW/SW get view on wallets",
       "precedence": "reqs Ch.6",
-      "decision": "`wallet.manual_credit_debit` = all for MW, own for SW. This is the loosest reading of a money-moving permission — flag it explicitly at sign-off; if the client confirms the matrix, tighten to SA/TA only."
+      "decision": "`wallet.manual_credit_debit` = all for MW, own for SW. This is the loosest reading of a money-moving permission \u2014 flag it explicitly at sign-off; if the client confirms the matrix, tighten to SA/TA only."
     },
     {
       "topic": "Process returns (RMA) for MW/SW",
       "reqsCh6": "MAIN_WH_ADMIN = Y, SUB_WH_ADMIN = Y (blanket)",
       "roleMatrix": "split: approve refund MW=full/SW=own, wallet refund MW=full/SW=own, bank refund SA/TA only",
       "precedence": "Role Matrix (adds detail Ch.6 omits)",
-      "decision": "Blanket `rma.request.process` retained per Ch.6, but the finer-grained matrix rows are the operative ones — `rma.refund.bank_process` is SA/TA only. Ch.6 does not state a bank-refund value, so the matrix does not override it."
+      "decision": "Blanket `rma.request.process` retained per Ch.6, but the finer-grained matrix rows are the operative ones \u2014 `rma.refund.bank_process` is SA/TA only. Ch.6 does not state a bank-refund value, so the matrix does not override it."
     },
     {
       "topic": "Manage sales channels for MW/SW",
@@ -3479,14 +3479,14 @@
     {
       "topic": "Manage integration keys",
       "reqsCh6": "SUPER_ADMIN = all (in-app)",
-      "roleMatrix": "§15 marks all 14 integrations EXT — infra-level, no role manages them in-app (principle 11)",
+      "roleMatrix": "\u00a715 marks all 14 integrations EXT \u2014 infra-level, no role manages them in-app (principle 11)",
       "precedence": "reqs Ch.6",
       "decision": "`system.integration_key.manage` = SA only and kept in the model, but an entire admin UI for it may be out of scope. Requires client confirmation before any screen is built."
     },
     {
       "topic": "Raw database export / emergency DB access",
       "reqsCh6": "SUPER_ADMIN = all, audit-logged",
-      "roleMatrix": "§15 marks emergency database access EXT for every role including SA",
+      "roleMatrix": "\u00a715 marks emergency database access EXT for every role including SA",
       "precedence": "reqs Ch.6",
       "decision": "`system.db_export.raw` = SA only and audit-logged. Same open question as integration keys. Confirm with client."
     },
@@ -3500,12 +3500,12 @@
     {
       "topic": "B2B/Horeca allocation",
       "reqsCh6": "Ch.2.2: allocation is automatic from consolidated inventory",
-      "roleMatrix": "§7: `Manage B2B/Horeca Manual allocation`, SA/TA full",
-      "precedence": "unresolved — affects the allocation engine, not a permission value",
+      "roleMatrix": "\u00a77: `Manage B2B/Horeca Manual allocation`, SA/TA full",
+      "precedence": "unresolved \u2014 affects the allocation engine, not a permission value",
       "decision": "Permission `allocation.b2b_horeca.manage` = SA/TA. Whether the engine allocates automatically or an admin allocates manually requires client confirmation."
     },
     {
-      "topic": "Approve farmer application — Farmer Admin",
+      "topic": "Approve farmer application \u2014 Farmer Admin",
       "reqsCh6": "FARMER_ADMIN = View on the 'Approve farmer applications' row",
       "roleMatrix": "`Approve farmer application` FA=none, with a separate `View pending applications list` FA=view",
       "precedence": "reqs Ch.6",
@@ -3515,7 +3515,7 @@
       "topic": "Delivery slots / doorstep delivery vs pickup-only",
       "reqsCh6": "Ch.2.3 + FR-C04/C05: doorstep OTP, delivery slots, out-for-delivery status, driver performance",
       "roleMatrix": "Principle 9: all orders fulfilled via warehouse pickup; no driver or delivery-fleet feature anywhere",
-      "precedence": "unresolved — scope-level conflict",
+      "precedence": "unresolved \u2014 scope-level conflict",
       "decision": "`order.delivery_slot.select` is modelled for CUSTOMER but is not implemented in Track 1. The pickup + 4-digit OTP path is the default. Requires client confirmation."
     },
     {
@@ -3527,9 +3527,9 @@
     },
     {
       "topic": "Admin edit/delete of farmer certification records (certification.manage_any)",
-      "reqsCh6": "not specified — Ch.6 has no row for an admin editing or removing a farmer's certification record; the certification rows it backs (certification.mark_verified, certification.verify_via_portal, certification.block_listings) are verification actions",
-      "roleMatrix": "not specified — §9 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
-      "precedence": "neither document — specification gap, conservative default",
+      "reqsCh6": "not specified \u2014 Ch.6 has no row for an admin editing or removing a farmer's certification record; the certification rows it backs (certification.mark_verified, certification.verify_via_portal, certification.block_listings) are verification actions",
+      "roleMatrix": "not specified \u2014 \u00a79 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
+      "precedence": "neither document \u2014 specification gap, conservative default",
       "decision": "`certification.manage_any` = all for SUPER_ADMIN and TOHFA_ADMIN, none for every other role (same grants as certification.view / certification.mark_verified). The edit resets verification to UNVERIFIED and the delete is soft, exactly as for the farmer (BR-49, BR-50, BR-51), so staff cannot use it to verify by editing. Open: whether FARMER_ADMIN should edit certificates of farmers in their own zone (would need the OWN_ZONE_ONLY predicate). Confirm with client."
     }
   ],

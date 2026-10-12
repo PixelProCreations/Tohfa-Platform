@@ -9768,12 +9768,13 @@ paths:
         Confined by the caller's resolved scope in SQL (BR-101). Scope `all` (SUPER_ADMIN,
         TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; a Sub Warehouse Admin sees only orders
         assigned to its warehouse. `warehouseId` only narrows the scope: naming another warehouse
-        (or an unknown id) returns 200 with an empty page, never 403 (BR-30). A scope carrying a
-        customer id (CUSTOMER is `own` on this code, its own-orders grant) fails closed: 200 with an
-        empty page; customers read their orders through `/orders`. FARMER and FARMER_ADMIN get 403
-        `FORBIDDEN`; a Sub Warehouse Admin with no warehouse assigned gets 403
+        (or an unknown id) returns 200 with an empty page, never 403 (BR-30). CUSTOMER, FARMER and
+        FARMER_ADMIN hold `none` on this code and get 403 `FORBIDDEN` (customers read their orders
+        through `/orders`). In addition, the warehouse scope fails closed for any non-warehouse
+        scope (`scopeDimension` outside warehouse). A Sub Warehouse Admin with no warehouse assigned gets 403
         `WAREHOUSE_SCOPE_VIOLATION` (a provisioning error, from requirePermission). Items carry no
-        farm identity and no buyer PII.
+        farm identity and no buyer PII. Paging is keyset on (`placedAt`, `id`) at microsecond
+        precision; a `cursor` this endpoint did not return is 422 `VALIDATION_FAILED`.
       x-permission: order.list.view_all
       x-business-rules: [BR-101, BR-30]
       parameters:
@@ -9808,9 +9809,9 @@ paths:
         Spec gap (owner decision 2026-10-11): the general admin order detail. Returns an order of
         any channel (ONLINE, DIRECT, MARKET, HORECA, B2B); `GET /admin/sales/{saleId}` remains the
         DIRECT/MARKET sale view. A Sub Warehouse Admin sees only its own warehouse: an order at
-        another warehouse is 404 with the same body as an unknown id, never 403 (BR-30). A scope
-        carrying a customer id (CUSTOMER is `own` on this code) fails closed with 404 on this admin
-        route. Farm-anonymous allow-list, no handover OTP, masked buyer mobile (BR-99). Read-only:
+        another warehouse is 404 with the same body as an unknown id, never 403 (BR-30). CUSTOMER,
+        FARMER and FARMER_ADMIN hold `none` on this code and get 403 `FORBIDDEN` on this admin
+        route (BR-101). Farm-anonymous allow-list, no handover OTP, masked buyer mobile (BR-99). Read-only:
         no audit row.
       x-permission: order.list.view_all
       x-business-rules: [BR-99, BR-30, BR-16, BR-20, BR-90, BR-92]
@@ -9836,9 +9837,12 @@ paths:
       description: |
         Assigns or reassigns the fulfilling warehouse for an order — a customer may collect from
         any of the four warehouses (BR-27). A Sub Warehouse Admin cannot assign orders to its
-        own warehouse.
+        own warehouse. A DIRECT or MARKET counter sale (including a UPI sale still
+        `PENDING_PAYMENT`) stays at the warehouse that made it: 409 `COUNTER_SALE_NOT_REASSIGNABLE`
+        (BR-85f); any other order outside `CONFIRMED` / `PENDING_PAYMENT` is 409
+        `INVALID_STATE_TRANSITION`.
       x-permission: order.warehouse.assign
-      x-business-rules: [BR-21, BR-27]
+      x-business-rules: [BR-21, BR-27, BR-85]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -13127,6 +13131,8 @@ paths:
         REJECTED / AWAITING_QC / QC_PENDING. The price is the active
         retail price, else the active fair-price ceiling; a product with neither is not listed (no
         default price). `batchCode` / `storageLocation` name the batch FEFO draws first.
+        404 when the warehouse (given or implied by the scope) is unknown, inactive or outside the
+        caller's scope (BR-85f), never 403.
       x-permission: sales.sale.create
       x-business-rules: [BR-95, BR-90, BR-85]
       parameters:
@@ -13148,6 +13154,7 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -13211,8 +13218,11 @@ paths:
 
         Channel HORECA or B2B is 501 `SALE_CHANNEL_NOT_SUPPORTED` and writes nothing (BR-13,
         BR-85e). The service also requires `payment.record`; a caller without it is 403 before any
-        write (BR-85g). `Idempotency-Key` is required: a replay returns the original response and
-        moves money once (BR-88).
+        write (BR-85g). `Idempotency-Key` is required: a missing or blank key is 422
+        `VALIDATION_FAILED` (the codebase convention, `requireIdempotencyKey`; 400 is only a body
+        that is not JSON). A replay returns the original response and moves money once (BR-88). A
+        key replayed after the 24-hour retention, when its sale already exists, is 409
+        `IDEMPOTENCY_KEY_REUSED`; nothing is written again.
       x-permission: sales.sale.create
       x-business-rules: [BR-85, BR-86, BR-87, BR-88, BR-89, BR-90, BR-94, BR-95, BR-98, BR-13]
       parameters:
@@ -13313,8 +13323,12 @@ paths:
         `SALE` stock ledger rows, invoice number and audit row (BR-94, BR-87). A failed or unverified
         gateway result leaves the sale pending (422, attempt logged). Confirming an already confirmed
         sale returns it unchanged with no second effect (BR-88g). A sale that is not a UPI sale, or
-        whose payment FAILED, is 409. `Idempotency-Key` is required. 404 for a sale outside the
-        caller's scope, never 403.
+        whose payment FAILED, is 409 `CONFLICT`. A UPI reference that already confirmed another
+        sale is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` and the sale stays
+        pending: one payment confirms one sale (BR-94, unique `sale_payments.upi_txn_ref`). Stock
+        that is no longer on the sale's shelf is 409 `SALE_STOCK_CHANGED`. `Idempotency-Key` is
+        required: missing or blank is 422 `VALIDATION_FAILED`. 404 for a sale outside the caller's
+        scope, never 403.
       x-permission: payment.record
       x-business-rules: [BR-94, BR-87, BR-88, BR-90]
       parameters:
@@ -13335,7 +13349,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '409': { $ref: '#/components/responses/SaleConflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -13695,9 +13709,13 @@ components:
       description: |
         `SALE_STOCK_CHANGED`: stock (or, for MARKET, the LIVE_MARKET allocation) is below a line's
         quantity (BR-89, BR-95). `SALE_PRICE_CHANGED`: the server total differs from `expectedTotal`
-        (BR-89). `IDEMPOTENCY_KEY_REUSED`: the key was used with a different body (BR-88).
+        (BR-89). `IDEMPOTENCY_KEY_REUSED`: the key was used with a different body, or (create) the
+        key already made a sale more than 24 hours ago (BR-88).
         `CONFLICT` with `meta.reason = PRICE_NOT_SET`: the product has neither an active retail
         price nor an active fair-price ceiling, so it cannot be priced (no default price is used).
+        UPI confirm: `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` (the reference already
+        confirmed another sale, BR-94), plain `CONFLICT` (not a UPI sale, or its payment is not
+        pending) and `SALE_STOCK_CHANGED` (the held stock is no longer on the sale's shelf).
         `meta` carries the fresh values so the counter can re-confirm (`meta.lines[]` with
         `requestedQtyKg` / `availableQtyKg` for stock; `meta.expectedTotal` / `meta.currentTotal` /
         `meta.quote` for price). Nothing is written but a `sale_attempts` row (a quote writes nothing).
@@ -14068,6 +14086,7 @@ components:
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
+        * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85f). HTTP 409.
       required: [type, title, status, code]
       properties:
         type:
