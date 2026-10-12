@@ -411,6 +411,8 @@ interface SubWarehouseAdminDashboardScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
   initialShowOrders?: boolean;
+  initialOrdersScreen?: string;
+  initialOrdersParams?: any;
   initialShowTodayOverview?: boolean;
   initialShowRecentActivity?: boolean;
   initialTab?: SubWHTab;
@@ -931,10 +933,10 @@ function SubWarehouseRecentActivityView({
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#E67E22' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#E67E22" />
-      {/* Orange Header */}
-      <View style={{ backgroundColor: '#E67E22', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      {/* Brand Orange Header */}
+      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={onBack}
@@ -1042,10 +1044,10 @@ function SubWarehouseRecentActivityView({
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 16,
-                  backgroundColor: dateFilter === opt ? '#FEF3C7' : '#FFFFFF',
+                  backgroundColor: dateFilter === opt ? '#FFF1EB' : '#FFFFFF',
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? '#B45309' : '#1F2937' }}>
+                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? '#F0562A' : '#1F2937' }}>
                   {opt}
                 </Text>
               </TouchableOpacity>
@@ -1080,10 +1082,10 @@ function SubWarehouseRecentActivityView({
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 16,
-                  backgroundColor: activityFilter === opt ? '#FEF3C7' : '#FFFFFF',
+                  backgroundColor: activityFilter === opt ? '#FFF1EB' : '#FFFFFF',
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? '#B45309' : '#1F2937' }}>
+                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? '#F0562A' : '#1F2937' }}>
                   {opt}
                 </Text>
               </TouchableOpacity>
@@ -1115,13 +1117,13 @@ function SubWarehouseRecentActivityView({
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
                 <View
                   style={{
-                    backgroundColor: '#FDEEE2',
+                    backgroundColor: '#FFF1EB',
                     paddingHorizontal: 12,
                     paddingVertical: 3,
                     borderRadius: 14,
                   }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#C25E1A' }}>{item.badge}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>{item.badge}</Text>
                 </View>
               </View>
 
@@ -1168,6 +1170,8 @@ export function SubWarehouseAdminDashboardScreen({
   onNavigate,
   onBack,
   initialShowOrders = false,
+  initialOrdersScreen = 'M5S01',
+  initialOrdersParams = null,
   initialShowTodayOverview = false,
   initialShowRecentActivity = false,
   initialTab,
@@ -1304,16 +1308,16 @@ export function SubWarehouseAdminDashboardScreen({
   };
 
   const [showOrdersModule, setShowOrdersModule] = useState(initialShowOrders);
-  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
-  const [ordersInitialParams, setOrdersInitialParams] = useState<any>(null);
+  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>(initialOrdersScreen);
+  const [ordersInitialParams, setOrdersInitialParams] = useState<any>(initialOrdersParams);
 
   useEffect(() => {
     if (initialShowOrders) {
       setShowOrdersModule(true);
-      setOrdersInitialScreen('M5S01');
-      setOrdersInitialParams(null);
+      setOrdersInitialScreen(initialOrdersScreen);
+      setOrdersInitialParams(initialOrdersParams);
     }
-  }, [initialShowOrders]);
+  }, [initialShowOrders, initialOrdersScreen, initialOrdersParams]);
 
   useEffect(() => {
     const onHardwareBack = () => {
@@ -2208,17 +2212,7 @@ export function SubWarehouseAdminDashboardScreen({
             {/* ─── Main Content Container ─── */}
             <View style={styles.mainContainer}>
               {/* 1. Operational Status Card */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                onPress={() => {
-                  if (onNavigate) {
-                    onNavigate('SubWarehouseOverview');
-                  } else {
-                    setHomeEntry({ screen: 'WarehouseSnapshot' });
-                  }
-                }}
-                activeOpacity={0.8}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardLeft}>
                   <Text style={styles.statusWarehouseTitle}>{warehouseLabel}</Text>
                   <View style={styles.operationalRow}>
@@ -2232,7 +2226,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.receivingValue}>3 shipments</Text>
                   <Text style={styles.syncText}>Last sync: 2 min ago</Text>
                 </View>
-              </TouchableOpacity>
+              </View>
 
               {/* 2. Today's Overview Grid */}
               <View style={styles.sectionHeaderBetween}>
@@ -2251,100 +2245,70 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <>
                 {/* 1. Pending Orders */}
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => setShowOrdersModule(true)}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
                   </View>
                   <Text style={styles.overviewNumber}>12</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
                   <Text style={styles.overviewSub}>8 need action</Text>
-                </Pressable>
+                </View>
 
                 {/* 2. Ready for Pickup */}
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => setShowOrdersModule(true)}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
                   </View>
                   <Text style={styles.overviewNumber}>08</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
                   <Text style={styles.overviewSub}>3 customers expected</Text>
-                </Pressable>
+                </View>
                 </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => openReceiving()}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
                   </View>
                   <Text style={styles.overviewNumber}>03</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
                   <Text style={styles.overviewSub}>1 awaiting QC · 2 completed</Text>
-                </Pressable>
+                </View>
 
                 {/* 4. Low Stock Items */}
                 {canStock ? (
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => setActiveTab('Inventory')}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
                   </View>
                   <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                </Pressable>
+                </View>
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseSales');
-                    } else {
-                      setShowSalesScreen(true);
-                    }
-                  }}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <BanknotesIcon />
                   </View>
                   <Text style={styles.overviewNumber}>₹24,850</Text>
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
                   <Text style={styles.overviewSub}>42 transactions</Text>
-                </Pressable>
+                </View>
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <Pressable
-                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('WarehouseWalletOperations');
-                    } else {
-                      setActiveTab('More');
-                    }
-                  }}
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <WalletIcon />
                   </View>
                   <Text style={styles.overviewNumber}>₹18,500</Text>
                   <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
                   <Text style={styles.overviewSub}>12 transactions</Text>
-                </Pressable>
+                </View>
               </View>
 
               {/* 3. Quick Actions */}
@@ -2422,14 +2386,7 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
 
               <View style={styles.alertList}>
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setSelectedShipment(findShipment(scope, 'GR-1024'));
-                    setReceivingWizardStep('receiving_in_progress');
-                  }}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.alertCard}>
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
                     <FlaskIcon />
                   </View>
@@ -2439,17 +2396,9 @@ export function SubWarehouseAdminDashboardScreen({
                       Tomato — Batch GR-1024 · Received 95 KG, awaiting quality check
                     </Text>
                   </View>
-                  <ChevronRight />
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setSelectedShipment(findShipment(scope, 'GR-1021'));
-                    setReceivingWizardStep('damage_mismatch');
-                  }}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.alertCard}>
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
                     <ExclamationCircleIcon />
                   </View>
@@ -2457,17 +2406,9 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Quantity Mismatch</Text>
                     <Text style={styles.alertCardSub}>Expected 100 KG, received 95 KG</Text>
                   </View>
-                  <ChevronRight />
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setSelectedShipment(findShipment(scope, 'GR-1018'));
-                    setReceivingWizardStep('rejected_goods');
-                  }}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.alertCard}>
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
                     <BrokenCrateIcon />
                   </View>
@@ -2475,19 +2416,10 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Damage Report</Text>
                     <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
                   </View>
-                  <ChevronRight />
-                </TouchableOpacity>
+                </View>
 
                 {canOrders ? (
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setOrdersInitialScreen('M5S09');
-                    setOrdersInitialParams(null);
-                    setShowOrdersModule(true);
-                  }}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.alertCard}>
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
                     <ClockIcon />
                   </View>
@@ -2495,20 +2427,11 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Pickup Pending</Text>
                     <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
                   </View>
-                  <ChevronRight />
-                </TouchableOpacity>
+                </View>
                 ) : null}
 
                 {canStock ? (
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setInventoryInitialScreen('M3S09');
-                    setInventoryInitialParams(null);
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.75}
-                >
+                <View style={styles.alertCard}>
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
                     <BoxIcon color="#D97706" />
                   </View>
@@ -2516,8 +2439,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Low Stock</Text>
                     <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
                   </View>
-                  <ChevronRight />
-                </TouchableOpacity>
+                </View>
                 ) : null}
               </View>
 
@@ -2528,13 +2450,7 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
 
               <View style={styles.cardStack}>
-                <TouchableOpacity
-                  style={styles.orderReceivingCard}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    openReceiving('ShipmentDetail', { shipmentId: 'GR-1024' });
-                  }}
-                >
+                <View style={styles.orderReceivingCard}>
                   <View style={styles.cardHeaderRow}>
                     <Text style={styles.itemCodeBold}>GR-00124</Text>
                     <View style={styles.awaitingQcBadge}>
@@ -2547,15 +2463,9 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.detailText}>Expected: 150 KG</Text>
                     <Text style={styles.timeText}>09:40 AM</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={styles.orderReceivingCard}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    openReceiving('ShipmentDetail', { shipmentId: 'GR-1023' });
-                  }}
-                >
+                <View style={styles.orderReceivingCard}>
                   <View style={styles.cardHeaderRow}>
                     <Text style={styles.itemCodeBold}>GR-00123</Text>
                     <View style={styles.qcCompletedBadge}>
@@ -2565,7 +2475,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
                   <Text style={styles.produceTitle}>Carrot · Grade 1</Text>
                   <Text style={styles.detailText}>Received: 80 KG</Text>
-                </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                   style={styles.linkButton}
@@ -2775,11 +2685,7 @@ export function SubWarehouseAdminDashboardScreen({
 
               <View style={styles.activityCardContainer}>
                 {/* Activity 1 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  activeOpacity={0.7}
-                  onPress={() => openReceiving()}
-                >
+                <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
                     <ReceiveGoodsActionIcon />
                   </View>
@@ -2788,18 +2694,14 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
                     <Text style={styles.activityTimeText}>10:42 AM</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {canOrders ? (
                 <>
                 <View style={styles.cardDivider} />
 
                 {/* Activity 2 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  activeOpacity={0.7}
-                  onPress={() => setShowOrdersModule(true)}
-                >
+                <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
                     <PackageBagIcon />
                   </View>
@@ -2808,18 +2710,14 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>ORD-10242</Text>
                     <Text style={styles.activityTimeText}>10:20 AM</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
                 </>
                 ) : null}
 
                 <View style={styles.cardDivider} />
 
                 {/* Activity 3 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  activeOpacity={0.7}
-                  onPress={() => setShowWalletOperations(true)}
-                >
+                <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
                     <CashTopUpActionIcon />
                   </View>
@@ -2828,7 +2726,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
                     <Text style={styles.activityTimeText}>09:55 AM</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               </View>
 
               {/* 13. Warehouse Alerts */}
@@ -2908,6 +2806,7 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── Orders Module ─── */}
         {showOrdersModule && (
           <OrdersModule
+            key={`orders-${ordersInitialScreen}-${ordersInitialParams?.fulfillment ?? ''}`}
             scope={scope}
             can={can}
             initialScreen={ordersInitialScreen}

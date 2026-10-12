@@ -1274,6 +1274,8 @@ export default function App(): React.JSX.Element {
               initialReceivingSubView={params['initialReceivingSubView'] as any}
               initialInventoryScreen={params['initialInventoryScreen'] as any}
               initialShowOrders={!!params['showOrders']}
+              initialOrdersScreen={params['ordersInitialScreen'] as any}
+              initialOrdersParams={params['ordersInitialParams'] as any}
             />
           ) : (
             <SuperAdminDashboardScreen
@@ -1316,7 +1318,9 @@ export default function App(): React.JSX.Element {
               initialReceivingSubView={params?.initialReceivingSubView as any}
               initialInventoryScreen={params?.initialInventoryScreen as any}
               initialShowOrders={!!params?.showOrders}
-              initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
+              initialOrdersScreen={params?.ordersInitialScreen as any}
+            initialOrdersParams={params?.ordersInitialParams as any}
+            initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
               onSignOut={() => navigate('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
@@ -1657,6 +1661,14 @@ export default function App(): React.JSX.Element {
             initialParams={staffParams}
             onBack={goBack}
             onTabChange={openWarehouseTab}
+            onAssignDelivery={() => {
+              navigate('SubWarehouseAdminDashboard', {
+                showOrders: true,
+                initialTab: 'Home',
+                ordersInitialScreen: 'M5S02',
+                ordersInitialParams: { fulfillment: 'Delivery' },
+              });
+            }}
           />
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area

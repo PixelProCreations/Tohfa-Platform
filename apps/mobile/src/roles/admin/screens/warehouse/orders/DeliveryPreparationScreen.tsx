@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1ECE4',
   },
   dispatchBtn: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',

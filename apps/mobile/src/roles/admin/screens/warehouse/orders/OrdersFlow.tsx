@@ -12,7 +12,7 @@
  * now inline steps (M5S06, M5S08, M5S10, M5S12, M5S14B, M5S14C, M5S15B, M5S16B)
  * are gone; callers pass `{ step }` to the survivor instead (see ./types).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
@@ -75,9 +75,12 @@ export function OrdersFlow({
   onViewIssue,
   renderExternalScreen,
 }: OrdersFlowProps) {
-  // Params live on the stack entry so going back restores the previous
-  // screen's order and step (the old shell reset them to null on back).
   const [stack, setStack] = useState<StackEntry[]>([{ screen: initialScreen, params: initialParams }]);
+
+  useEffect(() => {
+    setStack([{ screen: initialScreen, params: initialParams }]);
+  }, [initialScreen, initialParams?.fulfillment, initialParams?.orderId, initialParams?.step]);
+
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params = current.params;
 

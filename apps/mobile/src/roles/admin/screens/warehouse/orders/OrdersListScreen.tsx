@@ -14,7 +14,7 @@
  * Gates: the row actions are navigation into screens that gate themselves;
  * nothing here is gated.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -278,6 +278,16 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
 export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = DEFAULT_WAREHOUSES }: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
+  const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(
+    routeParams?.fulfillment ?? 'All',
+  );
+
+  useEffect(() => {
+    if (routeParams?.fulfillment) {
+      setFulfillmentFilter(routeParams.fulfillment);
+    }
+  }, [routeParams?.fulfillment]);
+
   // Main view only; a Sub admin is pinned to scope.warehouseId below.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
     isAllWarehouses ? routeParams?.warehouseId : undefined,
@@ -287,9 +297,12 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
   const query = searchQuery.toLowerCase();
 
   const filteredOrders = ORDERS.filter((order) => {
-    if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) return false;
+    if (fulfillmentFilter !== 'All') {
+      if (order.fulfillment !== fulfillmentFilter) return false;
+    } else if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
+      return false;
+    }
     if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;
-    if (routeParams?.fulfillment && order.fulfillment !== routeParams.fulfillment) return false;
     return order.id.toLowerCase().includes(query) || order.customer.toLowerCase().includes(query);
   });
 
@@ -339,7 +352,31 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
             </ScrollView>
           ) : null}
 
-          <Text style={styles.orderCountLabel}>{filteredOrders.length} Orders</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={styles.orderCountLabel}>
+              {filteredOrders.length} {fulfillmentFilter !== 'All' ? `${fulfillmentFilter} ` : ''}Orders
+            </Text>
+            {fulfillmentFilter !== 'All' && (
+              <TouchableOpacity
+                onPress={() => setFulfillmentFilter('All')}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFF1EB',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  gap: 4,
+                }}
+              >
+                <DeliveryTruckSmallIcon />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+                  {fulfillmentFilter} Only ✕
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.searchBox}>
             <SearchIcon />
