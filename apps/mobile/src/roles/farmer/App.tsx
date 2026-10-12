@@ -1394,7 +1394,11 @@ export default function App(): React.JSX.Element {
           // The direct sales screens live in the shared warehouse/sales-direct area
           // (W4); each old 'SubWarehouseXxx' key opens SalesFlow on the matching route.
           <SalesFlow
-            scope={SUB_WAREHOUSE_SCOPE}
+            scope={
+              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                ? MAIN_WAREHOUSE_SCOPE
+                : SUB_WAREHOUSE_SCOPE
+            }
             can={warehouseCan}
             initialScreen={SALES_ROUTE_ENTRY[screen]}
             initialParams={salesParams}
@@ -1405,7 +1409,11 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
           <ChannelSalesScreen
-            scope={SUB_WAREHOUSE_SCOPE}
+            scope={
+              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                ? MAIN_WAREHOUSE_SCOPE
+                : SUB_WAREHOUSE_SCOPE
+            }
             can={warehouseCan}
             channel={channelForRoute(screen)}
             onBack={goBack}
@@ -1416,7 +1424,11 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseB2BDetail' || screen === 'SubWarehouseHorecaDetail' ? (
           <ChannelOrderDetailScreen
-            scope={SUB_WAREHOUSE_SCOPE}
+            scope={
+              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                ? MAIN_WAREHOUSE_SCOPE
+                : SUB_WAREHOUSE_SCOPE
+            }
             can={warehouseCan}
             channel={channelForRoute(screen)}
             // Only reuse the selection if it belongs to this route's channel.

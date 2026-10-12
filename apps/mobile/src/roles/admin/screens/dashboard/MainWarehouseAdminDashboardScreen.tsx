@@ -2007,11 +2007,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
 
                 {/* Sales */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('sales')}
+                  activeOpacity={0.75}
+                >
                   <Text style={styles.kpiLabel}>SALES</Text>
                   <Text style={styles.kpiValue}>₹1,45,100</Text>
                   <Text style={styles.kpiSub}>today</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
@@ -3022,8 +3026,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'consolidated_stock' ||
             whSubView === 'low_stock_surplus' ||
             whSubView === 'transfer_tracking' ||
-            whSubView === 'quick_actions_overview')) ||
-        (activeTab === 'More' && whSubView !== 'overview') ||
+            whSubView === 'quick_actions_overview' ||
+            whSubView === 'sales')) ||
+        (activeTab === 'More' && (whSubView !== 'overview' || moreSubScreen === 'returns')) ||
         (activeTab === 'Inventory')) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}
@@ -3033,6 +3038,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setActiveTab('Home');
                 setWhSubView('overview');
                 setWhHistory([]);
+                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3049,6 +3055,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setReceivingSubView('dashboard');
                 setWhSubView('overview');
                 setWhHistory([]);
+                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3064,6 +3071,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setActiveTab('Inventory');
                 setWhSubView('overview');
                 setWhHistory([]);
+                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3079,12 +3087,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setActiveTab('More');
                 setWhSubView('overview');
                 setWhHistory([]);
+                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <MoreTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>More</Text>
+              <MoreTabNavIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
             </TouchableOpacity>
           </View>
         )}

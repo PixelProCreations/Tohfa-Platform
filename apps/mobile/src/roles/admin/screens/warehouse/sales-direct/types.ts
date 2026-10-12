@@ -25,7 +25,7 @@ export interface ChannelOrderItem {
   channel: SalesChannel;
   businessName: string;
   customerCode: string;
-  status: 'Processing' | 'Pending' | 'Completed' | 'Confirmed';
+  status: 'Processing' | 'Pending' | 'Completed' | 'Confirmed' | 'Paid';
   itemCountText: string;
   dateText: string;
   amount: number;

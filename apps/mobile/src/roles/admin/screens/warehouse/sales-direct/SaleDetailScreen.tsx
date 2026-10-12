@@ -114,7 +114,7 @@ export function SaleDetailScreen({
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.headerBanner}>
-          <View style={styles.headerRow}>
+          <View style={styles.headerTopRow}>
             <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
               <ArrowBackIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
@@ -139,14 +139,39 @@ export function SaleDetailScreen({
     );
   }
 
+  const defaultItems = [
+    {
+      name: 'Tomato',
+      grade: 'Grade 1',
+      batch: 'BTH-00231',
+      qtyText: '2 KG @ ₹100',
+      pricePerUnit: 100,
+      lineTotal: 200,
+    },
+    {
+      name: 'Carrot',
+      grade: 'Grade 1',
+      batch: 'BTH-00189',
+      qtyText: '1 KG @ ₹120',
+      pricePerUnit: 120,
+      lineTotal: 120,
+    },
+  ];
+
+  const saleItems = sale.items && sale.items.length > 0 ? sale.items : defaultItems;
+  const itemsTotal = saleItems.reduce((acc, it) => acc + (it.lineTotal ?? 0), 0);
+  const totalAmount = sale.amount || itemsTotal || 320;
+
+  const warehouseDisplayName =
+    sale.warehouseName?.replace(/ Warehouse$/, '') ??
+    scope.warehouseName?.replace(/ Warehouse$/, '') ??
+    'Coonoor';
+
   const timelineSteps = [
-    { title: 'Sale Created', time: '6:30 PM' },
-    { title: 'Products Added', time: '6:31 PM' },
-    { title: 'Stock Checked', time: '6:32 PM' },
-    { title: 'Payment Initiated', time: '6:34 PM' },
-    { title: 'Payment Confirmed', time: '6:35 PM' },
-    { title: 'Sale Completed', time: '6:35 PM' },
-    { title: 'Invoice Generated', time: '6:35 PM' },
+    { title: 'Sale Created' },
+    { title: 'Payment Confirmed' },
+    { title: 'Inventory Updated' },
+    { title: 'Sale Completed' },
   ];
 
   return (
@@ -155,7 +180,7 @@ export function SaleDetailScreen({
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
+        <View style={styles.headerTopRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
@@ -164,11 +189,13 @@ export function SaleDetailScreen({
           >
             <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-
           <Text style={styles.headerTitle}>Sale Details</Text>
+        </View>
 
-          <View style={styles.completedPill}>
-            <Text style={styles.completedPillText}>{sale.status || 'Completed'}</Text>
+        <View style={styles.headerSubRow}>
+          <Text style={styles.headerSaleId}>{sale.id || 'SALE-00251'} · </Text>
+          <View style={styles.paidBadge}>
+            <Text style={styles.paidBadgeText}>Paid</Text>
           </View>
         </View>
       </View>
@@ -185,22 +212,29 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Sale ID</Text>
-              <Text style={styles.fieldValueBold}>{sale.id}</Text>
+              <Text style={styles.fieldValueBold}>{sale.id || 'SALE-00251'}</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Created</Text>
-              <Text style={styles.fieldValueBold}>{sale.dateText || '24 Sep, 6:35 PM'}</Text>
+              <Text style={styles.fieldLabel}>Date</Text>
+              <Text style={styles.fieldValueBold}>24 Sep 2026</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Warehouse</Text>
-              <Text style={styles.fieldValueBold}>{sale.warehouseName ?? scope.warehouseName ?? '—'}</Text>
+              <Text style={styles.fieldLabel}>Time</Text>
+              <Text style={styles.fieldValueBold}>10:42 AM</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Channel</Text>
-              <Text style={styles.fieldValueBold}>{sale.channel || 'Direct Sale'}</Text>
+              <Text style={styles.fieldLabel}>Warehouse</Text>
+              <Text style={styles.fieldValueBold}>{warehouseDisplayName}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, { marginTop: 14 }]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Sales Channel</Text>
+              <Text style={styles.fieldValueBold}>Direct</Text>
             </View>
           </View>
         </View>
@@ -211,18 +245,11 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerName}</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerName || 'Arun Kumar'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer ID</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerCode || 'CUS-00291'}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Mobile</Text>
-              <Text style={styles.fieldValueBold}>+91 XXXXX XXXXX</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerCode || 'CUS-00251'}</Text>
             </View>
           </View>
         </View>
@@ -230,43 +257,25 @@ export function SaleDetailScreen({
         {/* ─── 3. Items ─── */}
         <Text style={styles.sectionHeading}>Items</Text>
         <View style={styles.card}>
-          {(sale.items && sale.items.length > 0 ? sale.items : [
-            {
-              name: 'Tomato',
-              grade: 'Grade 1',
-              batch: 'BTH-00231',
-              qtyText: '2 KG @ ₹100',
-              pricePerUnit: 100,
-              lineTotal: 200,
-            }
-          ]).map((item, idx) => (
-            <View key={idx} style={idx > 0 ? { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: adminColors.border } : {}}>
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.itemTitle}>{item.name} · {item.grade}</Text>
-                  <Text style={styles.fieldValueBold}>{item.qtyText}</Text>
-                </View>
-
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Batch</Text>
-                  <Text style={styles.fieldValueBold}>{item.batch}</Text>
-                </View>
-              </View>
-
-              <View style={{ marginTop: 10 }}>
-                <Text style={styles.fieldLabel}>Line Total</Text>
-                <Text style={[styles.fieldValueBold, { ...adminType.body }]}>₹{item.lineTotal}</Text>
+          {saleItems.map((item, idx) => (
+            <View key={idx}>
+              {idx > 0 && <View style={styles.itemDivider} />}
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLeftText}>
+                  {item.name} · {item.grade || 'Grade 1'} · {item.qtyText}
+                </Text>
+                <Text style={styles.itemRightPrice}>₹{item.lineTotal}</Text>
               </View>
             </View>
           ))}
         </View>
 
-        {/* ─── 4. Amount Breakdown ─── */}
-        <Text style={styles.sectionHeading}>Amount Breakdown</Text>
+        {/* ─── 4. Financial Summary ─── */}
+        <Text style={styles.sectionHeading}>Financial Summary</Text>
         <View style={styles.card}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Subtotal</Text>
-            <Text style={styles.breakdownValue}>₹{sale.amount || 320}</Text>
+            <Text style={styles.breakdownValue}>₹{totalAmount}</Text>
           </View>
 
           <View style={[styles.breakdownRow, { marginTop: 8 }]}>
@@ -283,7 +292,7 @@ export function SaleDetailScreen({
 
           <View style={styles.breakdownRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹{sale.amount || 320}</Text>
+            <Text style={styles.totalValue}>₹{totalAmount}</Text>
           </View>
         </View>
 
@@ -292,76 +301,95 @@ export function SaleDetailScreen({
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Payment Method</Text>
+              <Text style={styles.fieldLabel}>Method</Text>
               <Text style={styles.fieldValueBold}>{sale.paymentMethod || 'UPI'}</Text>
             </View>
 
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Payment Status</Text>
+              <Text style={styles.fieldLabel}>Status</Text>
               <Text style={styles.fieldValueBold}>Paid</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Transaction ID</Text>
-              <Text style={styles.fieldValueBold}>TXN-XXXXXX</Text>
+              <Text style={styles.fieldLabel}>Amount</Text>
+              <Text style={styles.fieldValueBold}>₹{totalAmount}</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── 6. Invoice ─── */}
+        {/* ─── 6. Inventory Reference ─── */}
+        <Text style={styles.sectionHeading}>Inventory Reference</Text>
+        <View style={styles.card}>
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Movement</Text>
+              <Text style={styles.fieldValueBold}>{sale.movementId ?? `MOV-${sale.id.replace(/^SALE-/, '')}`}</Text>
+            </View>
+
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Warehouse</Text>
+              <Text style={styles.fieldValueBold}>{warehouseDisplayName}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, { marginTop: 14 }]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Status</Text>
+              <Text style={styles.fieldValueBold}>Completed</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Reference disclaimer notice */}
+        <View style={styles.referenceNoticeBox}>
+          <Text style={styles.referenceNoticeText}>
+            🚫 This is a reference only — detailed stock movement stays in Module 3, not duplicated here.
+          </Text>
+        </View>
+
+        {/* ─── 7. Invoice ─── */}
         <Text style={styles.sectionHeading}>Invoice</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Invoice No.</Text>
+          <Text style={styles.fieldLabel}>Invoice Number</Text>
           <Text style={styles.fieldValueBold}>{sale.invoiceNo || 'INV-00251'}</Text>
         </View>
 
         {canShowInvoice && (
           <TouchableOpacity
-            style={styles.viewInvoiceBtn}
+            style={styles.viewInvoiceOutlineBtn}
             onPress={handleViewInvoice}
             activeOpacity={0.82}
           >
-            <InvoiceReceiptIcon size={20} color={adminColors.brand} />
-            <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
+            <Text style={styles.viewInvoiceOutlineBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
 
-        {/* ─── Inventory reference (from Main's Sale Details slice, M6-S09) ─── */}
-        <Text style={styles.sectionHeading}>Inventory Reference</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Movement</Text>
-          <Text style={styles.fieldValueBold}>{sale.movementId ?? `MOV-${sale.id.replace(/^SALE-/, '')}`}</Text>
-          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>
-            Reference only. The detailed stock movement stays in Inventory.
-          </Text>
-        </View>
-
-        {/* ─── 7. Sale Timeline ─── */}
-        <Text style={[styles.sectionHeading, { marginTop: 24 }]}>Sale Timeline</Text>
-        <View style={styles.timelineContainer}>
+        {/* ─── 8. Sale Timeline ─── */}
+        <Text style={[styles.sectionHeading, { marginTop: 20 }]}>Sale Timeline</Text>
+        <View style={styles.timelineCard}>
           {timelineSteps.map((step, idx) => {
             const isLast = idx === timelineSteps.length - 1;
             return (
               <View key={idx} style={styles.timelineRow}>
                 {/* Left Indicator & connecting vertical line */}
                 <View style={styles.indicatorCol}>
-                  <TimelineCheckIcon size={18} />
+                  <TimelineCheckIcon size={20} />
                   {!isLast && <View style={styles.timelineVerticalLine} />}
                 </View>
 
                 {/* Right Step Content */}
                 <View style={[styles.timelineContent, !isLast && { paddingBottom: 22 }]}>
                   <Text style={styles.timelineStepTitle}>{step.title}</Text>
-                  <Text style={styles.timelineStepTime}>{step.time}</Text>
                 </View>
               </View>
             );
           })}
         </View>
-      </ScrollView>
 
+        <View style={{ height: 28 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -380,10 +408,31 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
-  headerRow: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  headerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginLeft: 36,
+  },
+  headerSaleId: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontWeight: '600',
+  },
+  paidBadge: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  paidBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.success.text,
   },
   backBtn: {
     width: 36,
@@ -397,7 +446,61 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     letterSpacing: 0.2,
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  itemLeftText: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 14,
+    flex: 1,
+    paddingRight: 8,
+  },
+  itemRightPrice: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 8,
+  },
+  referenceNoticeBox: {
+    backgroundColor: adminColors.border,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+  },
+  referenceNoticeText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  viewInvoiceOutlineBtn: {
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  viewInvoiceOutlineBtnText: {
+    ...adminType.title,
+    color: adminColors.brand,
+    fontSize: 14,
+  },
+  timelineCard: {
+    paddingLeft: 4,
+    marginTop: 8,
   },
   completedPill: {
     backgroundColor: adminColors.success.bg,
