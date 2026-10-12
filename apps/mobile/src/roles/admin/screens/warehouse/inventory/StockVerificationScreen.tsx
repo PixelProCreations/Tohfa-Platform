@@ -1,5 +1,5 @@
 // Design id: M3S10
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,17 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  Modal,
 } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path } from 'react-native-svg';
+import { WarehouseSelector } from './WarehouseSelector';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 export type StockVerificationScreenProps = InventoryScreenBaseProps;
 
-// ─── SVG Icons matching Reference Exactly ────────────────────────────────────
+// ─── Custom Icons matching Reference Mockup Exactly ─────────────────────────
 
-function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -32,7 +33,7 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -45,7 +46,7 @@ function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
+function StockTabBoxIcon({ color = '#5C6B62' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,21 +64,22 @@ function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = adminColors.ink }: { color?: string }) {
+function LedgerTabIcon({ color = '#5C6B62' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M18 3.5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-13a2 2 0 0 0-2-2z"
+        d="M6 4.5l2 1.5 2-1.5 2 1.5 2-1.5 2 1.5 2-1.5 2 1.5V20H6V4.5z"
         stroke={color}
         strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <Path d="M8.5 8h7M8.5 12h7M8.5 16h4.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M9 3.5v2M15 3.5v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M9.5 10.5h5M9.5 14h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
+function AllocationTabIcon({ color = '#5C6B62' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="1.8" />
@@ -87,18 +89,15 @@ function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
-function VerifyTabIcon({ color = adminColors.onBrand }: { color?: string }) {
+function VerifyTabIcon({ color = '#FFFFFF' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
+      <Path d="M7 8.5h3.5M7 12h3.5M7 15.5h3.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
       <Path
-        d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15z"
+        d="M12.5 12l1.8 1.8 3.5-3.5"
         stroke={color}
         strokeWidth="1.8"
-      />
-      <Path
-        d="M9 12l2.2 2.2 4.3-4.4"
-        stroke={color}
-        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -106,7 +105,7 @@ function VerifyTabIcon({ color = adminColors.onBrand }: { color?: string }) {
   );
 }
 
-function ChevronDownIcon({ color = adminColors.ink, size = 20 }: { color?: string; size?: number }) {
+function ChevronDownIcon({ size = 20, color = '#18181B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -114,227 +113,348 @@ function ChevronDownIcon({ color = adminColors.ink, size = 20 }: { color?: strin
   );
 }
 
-function HourglassIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function HourglassIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 3h14M5 21h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Path
-        d="M6 3v3.5a5.5 5.5 0 0 0 2.5 4.5L12 13l3.5-2a5.5 5.5 0 0 0 2.5-4.5V3"
+        d="M5 2h14M5 22h14"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M6 2v4a6 6 0 0 0 6 6 6 6 0 0 0-6 6v4"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
       <Path
-        d="M6 21v-3.5a5.5 5.5 0 0 1 2.5-4.5L12 11l3.5 2a5.5 5.5 0 0 1 2.5 4.5V21"
+        d="M18 2v4a6 6 0 0 1-6 6 6 6 0 0 1 6 6v4"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
-      <Path d="M9.5 18a2.5 2.5 0 0 0 5 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M12 18v2.5M9.8 19l-.8 1.5M14.2 19l.8 1.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <Path d="M9 18h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 7h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-export function StockVerificationScreen({ scope, can, onNavigate, onBack }: StockVerificationScreenProps) {
-  // rbac: inventory.stock_verification.perform MAIN=all, SUB=own.
-  const canPerformCount = can('inventory.stock_verification.perform');
-  const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
-  return (
-    <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+const DEFAULT_WAREHOUSE_OPTIONS = [
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
+  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
+  { warehouseId: 'WH-KTYM', warehouseName: 'Kotagiri Warehouse' },
+  { warehouseId: 'WH-GDLR', warehouseName: 'Gudalur Warehouse' },
+];
 
-      {/* Top SafeArea for Caramel Header */}
-      <SafeAreaView style={styles.topSafeArea}>
-        <View style={styles.header}>
-          {/* Top Row: Back Arrow + Title */}
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={onBack}
-              activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Back"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Stock Verification</Text>
+export interface ProductOption {
+  id: string;
+  name: string;
+  singleQty: number;
+  allQty: number;
+}
+
+const PRODUCT_OPTIONS: ProductOption[] = [
+  { id: 'tomato', name: 'Tomato · Grade 1', singleQty: 100, allQty: 340 },
+  { id: 'carrot', name: 'Carrot · Grade 1', singleQty: 80, allQty: 290 },
+  { id: 'beans', name: 'Beans · Grade 1', singleQty: 50, allQty: 180 },
+  { id: 'beetroot', name: 'Beetroot · Grade 1', singleQty: 45, allQty: 160 },
+  { id: 'spinach', name: 'Spinach · Grade 2', singleQty: 20, allQty: 85 },
+];
+
+export function StockVerificationScreen({
+  scope,
+  can,
+  onBack,
+  onNavigate,
+  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+}: StockVerificationScreenProps) {
+  const canViewAll = can('inventory.stock_ledger.view_all');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
+  const [selectedProduct, setSelectedProduct] = useState<ProductOption>(
+    PRODUCT_OPTIONS[0] ?? { id: 'tomato', name: 'Tomato · Grade 1', singleQty: 100, allQty: 340 }
+  );
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const isAllWarehouses = canViewAll && selectedWarehouseId === undefined;
+  const currentQuantity = isAllWarehouses ? selectedProduct.allQty : selectedProduct.singleQty;
+
+  const verificationHistory = [
+    {
+      id: '1',
+      date: '24 Sep',
+      produce: 'Tomato',
+      grade: 'Grade 1',
+      systemQty: '100 KG',
+      countedQty: '95 KG',
+      variance: '-5 KG',
+      status: 'Pending Review',
+      badgeBg: '#FEF3C7',
+      badgeColor: '#D97706',
+      warehouse: 'Coonoor Warehouse',
+    },
+    {
+      id: '2',
+      date: '20 Sep',
+      produce: 'Carrot',
+      grade: 'Grade 1',
+      systemQty: '80 KG',
+      countedQty: '80 KG',
+      variance: '0 KG',
+      status: 'Matched',
+      badgeBg: '#DCFCE7',
+      badgeColor: '#15803D',
+      warehouse: 'Coonoor Warehouse',
+    },
+    {
+      id: '3',
+      date: '15 Sep',
+      produce: 'Beans',
+      grade: 'Grade 1',
+      systemQty: '50 KG',
+      countedQty: '48 KG',
+      variance: '-2 KG',
+      status: 'Completed',
+      badgeBg: '#DCFCE7',
+      badgeColor: '#15803D',
+      warehouse: 'Coonoor Warehouse',
+    },
+  ];
+
+  const handleStartPhysicalCount = () => {
+    onNavigate?.('M3S11', {
+      produceName: selectedProduct.name,
+      systemCount: currentQuantity,
+      batchId: 'BAT-2026-00124',
+      zone: 'Cold Storage · A03',
+    });
+  };
+
+  const handleHistoryItemPress = (item: typeof verificationHistory[0]) => {
+    if (item.status === 'Pending Review') {
+      onNavigate?.('M3S12', {
+        produceName: item.produce,
+        systemCount: 100,
+        physicalCount: 95,
+        varianceKg: -5,
+        variancePct: -5,
+        batchId: 'BAT-2026-00124',
+        zone: 'Cold Storage · A03',
+      });
+    } else {
+      onNavigate?.('M3S12', {
+        produceName: item.produce,
+        systemCount: 80,
+        physicalCount: 80,
+        varianceKg: 0,
+        variancePct: 0,
+        batchId: 'BAT-2026-00118',
+        zone: 'Storage B-01',
+      });
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.headerSafeArea}>
+        <View style={styles.headerBand}>
+          <View style={styles.headerTopRow}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
+              >
+                <BackArrowIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Stock Verification
+            </Text>
           </View>
 
-          {/* Warehouse Pill Row inside Header (Sub: locked to its own warehouse) */}
-          {scope.warehouseId !== undefined ? (
+          {/* Warehouse Selector or Locked Pill based on role */}
+          {!canViewAll || scope.warehouseId !== undefined ? (
             <View style={styles.warehousePill}>
-              <LockSmallIcon size={13} color={adminColors.onBrand} />
-              <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+              <LockSmallIcon size={13} color="#FFFFFF" />
+              <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'Coonoor Warehouse'}</Text>
             </View>
-          ) : null}
+          ) : (
+            <View style={{ marginTop: 10 }}>
+              <WarehouseSelector
+                scope={scope}
+                options={warehouseOptions}
+                selectedId={selectedWarehouseId}
+                onSelect={setSelectedWarehouseId}
+              />
+            </View>
+          )}
         </View>
       </SafeAreaView>
 
-      {/* Main Content Area */}
-      <View style={styles.body}>
+      <View style={styles.container}>
+        {/* 4 Tab Cards Row */}
+        <View style={styles.tabCardsRow}>
+          <TouchableOpacity
+            style={styles.tabCard}
+            onPress={() => onNavigate?.('M3S02')}
+            activeOpacity={0.7}
+          >
+            <StockTabBoxIcon color="#5C6B62" />
+            <Text style={styles.tabCardText}>Stock</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabCard}
+            onPress={() => onNavigate?.('M3S06')}
+            activeOpacity={0.7}
+          >
+            <LedgerTabIcon color="#5C6B62" />
+            <Text style={styles.tabCardText}>Ledger</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabCard}
+            onPress={() => onNavigate?.('M3S07')}
+            activeOpacity={0.7}
+          >
+            <AllocationTabIcon color="#5C6B62" />
+            <Text style={styles.tabCardText}>Allocation</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabCard, styles.activeTabCard]}
+            activeOpacity={0.9}
+          >
+            <VerifyTabIcon color="#FFFFFF" />
+            <Text style={[styles.tabCardText, styles.activeTabCardText]}>Verify</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           style={styles.content}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* 4 Rounded Tab Cards */}
-          <View style={styles.tabCardsRow}>
-            {/* Stock Tab */}
-            <TouchableOpacity
-              style={styles.tabCard}
-              onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
-              <StockTabBoxIcon color={adminColors.ink} />
-              <Text style={styles.tabCardText}>Stock</Text>
-            </TouchableOpacity>
-
-            {/* Ledger Tab (only with a ledger grant) */}
-            {canViewLedger ? (
-              <TouchableOpacity
-                style={styles.tabCard}
-                onPress={() => onNavigate?.('M3S06')}
-                activeOpacity={0.7}
-              >
-                <LedgerTabIcon color={adminColors.ink} />
-                <Text style={styles.tabCardText}>Ledger</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Allocation Tab */}
-            <TouchableOpacity
-              style={styles.tabCard}
-              onPress={() => onNavigate?.('M3S07')}
-              activeOpacity={0.7}
-            >
-              <AllocationTabIcon color={adminColors.ink} />
-              <Text style={styles.tabCardText}>Allocation</Text>
-            </TouchableOpacity>
-
-            {/* Verify Tab (Active) */}
-            <TouchableOpacity
-              style={[styles.tabCard, styles.activeTabCard]}
-              activeOpacity={0.85}
-            >
-              <VerifyTabIcon color={adminColors.onBrand} />
-              <Text style={[styles.tabCardText, styles.activeTabCardText]}>Verify</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Product Selector Card */}
-          <TouchableOpacity style={styles.selectorCard} activeOpacity={0.7}>
-            <View style={styles.selectorContent}>
-              <Text style={styles.selectorLabel}>PRODUCT</Text>
-              <Text style={styles.selectorText}>Tomato · Grade 1</Text>
+          {/* PRODUCT Dropdown Selector */}
+          <TouchableOpacity
+            style={styles.productPickerCard}
+            onPress={() => setIsDropdownOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.productPickerLabel}>PRODUCT</Text>
+            <View style={styles.productPickerValueRow}>
+              <Text style={styles.productPickerValueText}>{selectedProduct.name}</Text>
+              <ChevronDownIcon size={20} color="#18181B" />
             </View>
-            <ChevronDownIcon color={adminColors.ink} size={20} />
           </TouchableOpacity>
 
           {/* System Quantity */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>System Quantity</Text>
-          </View>
+          <Text style={styles.sectionHeaderTitle}>System Quantity</Text>
           <View style={styles.quantityCard}>
-            <Text style={styles.quantityValue}>100 KG</Text>
-            <Text style={styles.quantityLabel}>SYSTEM QUANTITY</Text>
+            <Text style={styles.quantityValueText}>{currentQuantity} KG</Text>
+            <Text style={styles.quantityLabelText}>SYSTEM QUANTITY</Text>
           </View>
 
           {/* Verification History */}
-          <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
-            <Text style={styles.sectionTitle}>Verification History</Text>
-            {/* M3S14 had no entry point; it is reached from here. */}
-            <TouchableOpacity onPress={() => onNavigate?.('M3S14')} activeOpacity={0.7}>
-              <Text style={styles.historyLink}>Adjustment History</Text>
+          <Text style={styles.sectionHeaderTitle}>Verification History</Text>
+          {verificationHistory.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.historyCard}
+              onPress={() => handleHistoryItemPress(item)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.historyCardTopRow}>
+                <Text style={styles.historyDateText}>{item.date}</Text>
+                <View style={[styles.historyBadge, { backgroundColor: item.badgeBg }]}>
+                  <Text style={[styles.historyBadgeText, { color: item.badgeColor }]}>{item.status}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.historyProduceTitle}>{item.produce}</Text>
+
+              <Text style={styles.historySubtitle}>
+                {item.systemQty} → {item.countedQty}
+                {item.variance !== '0 KG' && (
+                  <Text style={styles.historyVarianceText}> · Variance {item.variance}</Text>
+                )}
+              </Text>
             </TouchableOpacity>
-          </View>
+          ))}
 
-          {/* History Item 1 */}
-          <View style={styles.historyCard}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyDate}>24 Sep</Text>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>Pending Review</Text>
-              </View>
-            </View>
-            <Text style={styles.historyProduct}>Tomato</Text>
-            <Text style={styles.historyDetails}>
-              100 KG → 95 KG · Variance <Text style={styles.varianceBold}>-5 KG</Text>
-            </Text>
-          </View>
-
-          {/* History Item 2 */}
-          <View style={styles.historyCard}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyDate}>20 Sep</Text>
-              <View style={styles.matchedBadge}>
-                <Text style={styles.matchedBadgeText}>Matched</Text>
-              </View>
-            </View>
-            <Text style={styles.historyProduct}>Carrot</Text>
-            <Text style={styles.historyDetails}>80 KG → 80 KG</Text>
-          </View>
-
-          {/* History Item 3 */}
-          <View style={styles.historyCard}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyDate}>15 Sep</Text>
-              <View style={styles.completedBadge}>
-                <Text style={styles.completedBadgeText}>Completed</Text>
-              </View>
-            </View>
-            <Text style={styles.historyProduct}>Beans</Text>
-            <Text style={styles.historyDetails}>
-              50 KG → 48 KG · Variance <Text style={styles.varianceBold}>-2 KG</Text>
-            </Text>
-          </View>
-
-          <View style={{ height: 12 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Start Physical Count Action Button (Anchored at Bottom), only with stock_verification.perform */}
-        {canPerformCount ? (
-        <SafeAreaView style={styles.bottomSafeArea}>
-          <View style={styles.bottomBar}>
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={() => onNavigate?.('M3S11')}
-              activeOpacity={0.85}
-            >
-              <HourglassIcon size={22} color={adminColors.onBrand} />
-              <Text style={styles.startButtonText}>Start Physical Count</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-        ) : null}
+        {/* Bottom CTA Button */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.startCountButton}
+            onPress={handleStartPhysicalCount}
+            activeOpacity={0.85}
+          >
+            <HourglassIcon size={22} color="#FFFFFF" />
+            <Text style={styles.startCountButtonText}>Start Physical Count</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Product Selection Modal */}
+      <Modal visible={isDropdownOpen} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsDropdownOpen(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Product</Text>
+            {PRODUCT_OPTIONS.map((prod) => (
+              <TouchableOpacity
+                key={prod.id}
+                style={[
+                  styles.modalItem,
+                  selectedProduct.id === prod.id && styles.modalItemActive,
+                ]}
+                onPress={() => {
+                  setSelectedProduct(prod);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalItemText,
+                    selectedProduct.id === prod.id && styles.modalItemTextActive,
+                  ]}
+                >
+                  {prod.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyLink: { ...adminType.rowTitle, color: adminColors.brand },
-  screen: {
+  root: {
     flex: 1,
-    backgroundColor: adminColors.brand,
+    backgroundColor: '#F0562A',
   },
-  topSafeArea: {
-    backgroundColor: adminColors.brand,
+  headerSafeArea: {
+    backgroundColor: '#F0562A',
   },
-  header: {
-    backgroundColor: adminColors.brand,
-    paddingTop: Platform.OS === 'android' ? 14 : 10,
+  headerBand: {
+    backgroundColor: '#F0562A',
     paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 16,
   },
-  headerTitleRow: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -345,200 +465,243 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.title,
-    color: adminColors.onBrand,
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
-    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    paddingHorizontal: 14,
     paddingVertical: 5,
     marginTop: 10,
     gap: 6,
   },
   warehousePillText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  body: {
+  container: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 16,
+    backgroundColor: '#FAF7F2',
   },
   tabCardsRow: {
     flexDirection: 'row',
     marginTop: 16,
     marginBottom: 16,
+    paddingHorizontal: 16,
     gap: 10,
   },
   tabCard: {
     flex: 1,
-    height: 72,
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
+    height: 74,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#EAE6DF',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   activeTabCard: {
-    backgroundColor: adminColors.brand,
-    borderColor: adminColors.brand,
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
-    ...adminType.caption,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#5C6B62',
   },
   activeTabCardText: {
-    color: adminColors.onBrand,
+    color: '#FFFFFF',
   },
-  selectorCard: {
-    backgroundColor: adminColors.card,
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  contentContainer: {
+    paddingBottom: 24,
+  },
+  productPickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 16,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: adminColors.border,
+    marginBottom: 16,
+  },
+  productPickerLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#71717A',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  productPickerValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  selectorContent: {
-    justifyContent: 'center',
+  productPickerValueText: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
   },
-  selectorLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: 4,
-    letterSpacing: 0.6,
-  },
-  selectorText: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-  },
-  sectionHeader: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+  sectionHeaderTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 12,
   },
   quantityCard: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 22,
+    borderColor: '#EAE6DF',
+    paddingVertical: 24,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
-  quantityValue: {
-    ...adminType.kpiValue,
-    color: adminColors.brandDeep,
+  quantityValueText: {
+    fontFamily: 'Poppins',
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#92400E',
     marginBottom: 4,
   },
-  quantityLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 1,
+  quantityLabelText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#71717A',
+    letterSpacing: 0.5,
   },
   historyCard: {
-    backgroundColor: adminColors.card,
-    padding: 14,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: 12,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#EAE6DF',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 12,
   },
-  historyHeader: {
+  historyCardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
   },
-  historyDate: {
-    ...adminType.rowTitle,
-    color: adminColors.muted,
+  historyDateText: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#71717A',
   },
-  pendingBadge: {
-    backgroundColor: adminColors.warning.bg,
+  historyBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  pendingBadgeText: {
-    ...adminType.caption,
-    color: adminColors.warning.text,
+  historyBadgeText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  matchedBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  matchedBadgeText: {
-    ...adminType.caption,
-    color: adminColors.success.text,
-  },
-  completedBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  completedBadgeText: {
-    ...adminType.caption,
-    color: adminColors.success.text,
-  },
-  historyProduct: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginTop: 6,
+  historyProduceTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
     marginBottom: 4,
   },
-  historyDetails: {
-    ...adminType.body,
-    color: adminColors.muted,
+  historySubtitle: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#52525B',
   },
-  varianceBold: {
+  historyVarianceText: {
+    fontFamily: 'Poppins',
     fontWeight: '800',
-    color: adminColors.ink,
-  },
-  bottomSafeArea: {
-    backgroundColor: adminColors.card,
+    color: '#18181B',
   },
   bottomBar: {
-    backgroundColor: adminColors.card,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'android' ? 16 : 12,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    backgroundColor: '#FAF7F2',
   },
-  startButton: {
+  startCountButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.brand,
-    height: 54,
-    borderRadius: 16,
-    gap: 10,
+    gap: 8,
+    shadowColor: '#F0562A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  startButtonText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
+  startCountButtonText: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 16,
+  },
+  modalItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F5',
+  },
+  modalItemActive: {
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  modalItemText: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#18181B',
+  },
+  modalItemTextActive: {
+    color: '#F0562A',
+    fontWeight: '800',
   },
 });

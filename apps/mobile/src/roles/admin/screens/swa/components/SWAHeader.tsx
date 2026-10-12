@@ -51,13 +51,13 @@ function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function FilterSlidersIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        d="M3 7h18M16 4.5v5M3 12h18M8 9.5v5M3 17h18M14 14.5v5"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -192,7 +192,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    ...adminType.title,
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '700',
     color: adminColors.onBrand,
   },
   subtitle: {
@@ -207,10 +209,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },

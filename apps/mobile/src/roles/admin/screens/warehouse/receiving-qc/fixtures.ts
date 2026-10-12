@@ -565,8 +565,22 @@ export const RECEIVING_PIPELINE = [
   'Receipt Completion',
 ] as const;
 
+export const SUB_RECEIVING_PIPELINE = [
+  'Shipment Arrived',
+  'Receiving Started',
+  'Quantity Verification',
+  'Quality Check',
+  'Decision',
+  'Storage Assignment',
+  'Receipt Completion',
+] as const;
+
+export function receivingPipelineFor(scope?: WarehouseScope) {
+  return !scope || isMainScope(scope) ? RECEIVING_PIPELINE : SUB_RECEIVING_PIPELINE;
+}
+
 /** Pipeline stages a shipment has completed, by status. */
-export function pipelineStagesDone(status: ShipmentStatus): number {
+export function pipelineStagesDone(status: ShipmentStatus, scope?: WarehouseScope): number {
   switch (status) {
     case 'Expected':
       return 0;
@@ -581,7 +595,7 @@ export function pipelineStagesDone(status: ShipmentStatus): number {
     case 'Partially Accepted':
       return 5;
     default:
-      return RECEIVING_PIPELINE.length;
+      return !scope || isMainScope(scope) ? RECEIVING_PIPELINE.length : SUB_RECEIVING_PIPELINE.length;
   }
 }
 
