@@ -52,19 +52,60 @@ function ActionVerifyIcon({ color = '#8B3A1C' }: { color?: string }) {
   );
 }
 
+interface ProductStockData {
+  title: string;
+  subtitle: string;
+  availableVal: string;
+  reservedVal: string;
+  allocatedVal: string;
+}
+
+const KNOWN_PRODUCT_STOCK: Record<string, ProductStockData> = {
+  tomato: {
+    title: 'Tomato',
+    subtitle: 'Grade 1',
+    availableVal: '245 KG',
+    reservedVal: '50 KG',
+    allocatedVal: '120 KG',
+  },
+  carrot: {
+    title: 'Carrot',
+    subtitle: 'Grade 1',
+    availableVal: '12 KG',
+    reservedVal: '0 KG',
+    allocatedVal: '0 KG',
+  },
+  beetroot: {
+    title: 'Beetroot',
+    subtitle: 'Grade 1',
+    availableVal: '60 KG',
+    reservedVal: '5 KG',
+    allocatedVal: '15 KG',
+  },
+  spinach: {
+    title: 'Spinach',
+    subtitle: 'Grade 2',
+    availableVal: '0 KG',
+    reservedVal: '0 KG',
+    allocatedVal: '0 KG',
+  },
+};
+
 export function ProductStockDetailScreen({
   onNavigate,
   onBack,
   routeParams,
 }: ProductStockDetailScreenProps) {
-  const productParam = (routeParams as any)?.product;
-  const isCarrot = typeof productParam === 'string' && productParam.toLowerCase().includes('carrot');
+  const rawProduct = typeof routeParams?.['product'] === 'string' ? routeParams['product'] : undefined;
+  const productKey = rawProduct?.toLowerCase().trim() ?? '';
+  const matchingKey = Object.keys(KNOWN_PRODUCT_STOCK).find((key) => productKey.includes(key));
+  const productData = matchingKey ? KNOWN_PRODUCT_STOCK[matchingKey] : undefined;
 
-  const title = isCarrot ? 'Carrot' : 'Tomato';
-  const subtitle = 'Grade 1';
-  const availableVal = isCarrot ? '12 KG' : '245 KG';
-  const reservedVal = isCarrot ? '0 KG' : '50 KG';
-  const allocatedVal = isCarrot ? '0 KG' : '120 KG';
+  const title = productData?.title ?? (rawProduct ? rawProduct : 'Unknown Product');
+  const subtitle = productData?.subtitle ?? (productData ? 'Grade 1' : 'Unspecified');
+  const availableVal = productData?.availableVal ?? '0 KG';
+  const reservedVal = productData?.reservedVal ?? '0 KG';
+  const allocatedVal = productData?.allocatedVal ?? '0 KG';
 
   return (
     <SafeAreaView style={styles.safeArea}>
