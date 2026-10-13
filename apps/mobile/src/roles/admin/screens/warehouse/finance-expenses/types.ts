@@ -68,7 +68,7 @@ export interface ExpenseRecord {
   categoryRef: string;
   amount: number;
   timestamp: string;
-  status: 'Recorded' | 'Pending' | 'Approved' | 'Rejected';
+  status: 'Recorded' | 'Approved' | 'Rejected';
 }
 
 /**

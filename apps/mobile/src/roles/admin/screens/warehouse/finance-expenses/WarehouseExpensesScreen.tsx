@@ -14,6 +14,7 @@
  */
 import React, { useState } from 'react';
 import {
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -29,6 +30,7 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
 import { SAMPLE_EXPENSE_RECORDS } from './fixtures';
+import { useExpenseList } from './useFinanceData';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
 import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
@@ -213,8 +215,11 @@ export function WarehouseExpensesScreen({
     }
   };
 
+  const liveList = useExpenseList(scope.warehouseId);
+  const sourceRecords = liveList.items.length > 0 ? liveList.items : SAMPLE_EXPENSE_RECORDS;
+
   const filteredRecords = canLogExpense
-    ? SAMPLE_EXPENSE_RECORDS.filter((rec) => {
+    ? sourceRecords.filter((rec) => {
         const query = searchQuery.trim().toLowerCase();
         const matchesCategory =
           categoryFilter === FILTER_ALL ||
@@ -382,7 +387,6 @@ export function WarehouseExpensesScreen({
   ];
 
   const statusTone = (status: ExpenseRecord['status']) => {
-    if (status === 'Pending') return adminColors.warning;
     if (status === 'Rejected') return adminColors.danger;
     return adminColors.success; // Recorded, Approved
   };
@@ -426,6 +430,7 @@ export function WarehouseExpensesScreen({
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={liveList.isRefreshing} onRefresh={liveList.refresh} />}
       >
         {/* ─── 4 Top KPI Cards (2x2 Grid) ─── */}
         <View style={styles.kpiGrid}>

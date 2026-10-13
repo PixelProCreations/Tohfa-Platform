@@ -153,7 +153,7 @@ export const SAMPLE_EXPENSE_RECORDS: readonly ExpenseRecord[] = [
     categoryRef: 'Loading / Unloading · Morning unloading',
     amount: 1800,
     timestamp: '25 Sep - 08:15 AM',
-    status: 'Pending',
+    status: 'Recorded',
   },
   {
     id: 'EXP-001241',

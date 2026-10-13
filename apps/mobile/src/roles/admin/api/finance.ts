@@ -306,21 +306,33 @@ export function getFinanceRevenueReport(
   params: { from: string; to: string },
   signal?: AbortSignal,
 ): Promise<FinanceRevenueReportDto> {
-  return adminGet<FinanceRevenueReportDto>('/admin/finance/reports/revenue', params, signal);
+  return adminGet<FinanceRevenueReportDto>(
+    '/admin/finance/reports/revenue',
+    { from: params.from, to: params.to },
+    signal,
+  );
 }
 
 export function getFinanceExpenseReport(
   params: { from: string; to: string },
   signal?: AbortSignal,
 ): Promise<FinanceExpenseReportDto> {
-  return adminGet<FinanceExpenseReportDto>('/admin/finance/reports/expenses', params, signal);
+  return adminGet<FinanceExpenseReportDto>(
+    '/admin/finance/reports/expenses',
+    { from: params.from, to: params.to },
+    signal,
+  );
 }
 
 export function getDailyCashSummary(
   params: DailyCashSummaryParams,
   signal?: AbortSignal,
 ): Promise<DailyCashSummaryDto> {
-  return adminGet<DailyCashSummaryDto>('/admin/finance/daily-summary', params, signal);
+  return adminGet<DailyCashSummaryDto>(
+    '/admin/finance/daily-summary',
+    { date: params.date, warehouseId: params.warehouseId },
+    signal,
+  );
 }
 
 export function createCashClose(
