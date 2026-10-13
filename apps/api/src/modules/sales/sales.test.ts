@@ -259,7 +259,9 @@ function harness(options: { gst?: unknown; available?: string; price?: Money | n
     },
     insertSaleLedger: record('insertSaleLedger'),
     consumeAllocation: record('consumeAllocation'),
-    lockSale: async () => null,
+    // Like the real repo, lockSale is findSaleHeader read under a row lock: a test that stubs the
+    // header stubs what the transaction sees once it holds the lock, unless it overrides lockSale.
+    lockSale: async (db, saleId, visible) => repo.findSaleHeader(db, saleId, visible),
     findSaleHeader: async () => null,
     saleItems: async () => [],
     completeOrder: record('completeOrder'),

@@ -984,6 +984,29 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(replay.body.status).toBe('CANCELLED');
   });
 
+  it('BR-94i (HTTP): cancelling a UPI sale that is already confirmed (PICKED_UP / PAID) is 409 CONFLICT and changes nothing', async () => {
+    const crop = await newCrop({ ceiling: '6.00' });
+    const batch = await newBatch({ crop, qty: '2' });
+    const created = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'Paid' }, items: [item(crop, '1')], expectedTotal: '6.00', payment: { method: 'UPI' } });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const saleId = created.body.id as string;
+    const confirmed = await request(server)
+      .post(`/v1/admin/sales/${saleId}/payments/upi/confirm`)
+      .set('Authorization', auth('subOoty'))
+      .set('Idempotency-Key', key('paid-confirm'))
+      .send({ upiTxnRef: `pay_ci_paid_${newId().slice(0, 12)}` });
+    expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
+
+    const res = await request(server).post(`/v1/admin/sales/${saleId}/cancel`).set('Authorization', auth('subOoty')).set('Idempotency-Key', key('paid-cancel')).send({});
+    expect(res.status, JSON.stringify(res.body)).toBe(409);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.body.code).toBe('CONFLICT');
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleId])).toBe('PICKED_UP');
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleId])).toBe('CONFIRMED');
+    expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleId])).toBe('0');
+    expect(await qtyAvailable(batch.id)).toBe('1.000');
+  });
+
   it('BR-94l (PostgreSQL race): a confirm that commits while a stock-conflicted confirm is cancelling makes the cancel 409: no refund, no CANCELLED history, no cancel audit', async () => {
     const [{ createSalesService }, { salesRepo }] = await Promise.all([import('./sales.service.js'), import('./sales.repo.js')]);
     const crop = await newCrop({ ceiling: '7.00' });

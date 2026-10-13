@@ -163,7 +163,8 @@ export interface FulfilmentRepo {
    * BR-101 / BR-30: the warehouse scope is an explicit SQL predicate built from the RESOLVED scope
    * (`warehouseScopeFilter`), and `query.warehouseId` is ANDed on top of it. So a Sub admin naming
    * another warehouse gets an empty page (never 403), and a scope carrying a customer or farmer id
-   * (CUSTOMER is `own` on `order.list.view_all`) fails closed to an empty page.
+   * fails closed to an empty page (belt and braces: CUSTOMER now holds `none` on
+   * `order.list.view_all` and is refused 403 before this runs, BR-101a).
    */
   listAdminOrders(
     db: Executor,

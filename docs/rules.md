@@ -2328,7 +2328,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-99c` The customer mobile and a walk-in mobile are masked to the last four digits for `own` and `all`; no run of five consecutive digits of a stored mobile appears anywhere in the JSON; a missing mobile is null.
 - `BR-99d` Totals and line amounts are the stored values as exact `Money` strings (`950.50`, `0.10`, `47.53`), and quantities keep three decimals (`0.125`).
 - `BR-99e` Reading a detail writes no `audit_log` row and performs no write.
-- `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 404 on this admin route; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
+- `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 403 on this admin route (it holds `none` on `order.list.view_all`, BR-101a), the same for its own order and for an unknown id, so the 403 reveals no row; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
 - `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
 - `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
 

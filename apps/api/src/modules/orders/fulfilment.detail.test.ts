@@ -619,10 +619,19 @@ describeIfDatabase('admin order detail route (HTTP, PostgreSQL)', () => {
     expect((await request(server).get(path(gudalurOrder)).set('Authorization', auth('main'))).status).toBe(200);
   });
 
-  it('BR-99f (HTTP): a CUSTOMER (`own` on order.list.view_all) gets 404 even for its own order on this admin route; a malformed id is 422', async () => {
+  // docs/rbac.json grants CUSTOMER `none` on order.list.view_all (customers read their own orders
+  // through /orders, order.view_own), so requirePermission answers 403 before the handler. That
+  // 403 is the same for every id, existing or not, so it reveals no row: CLAUDE.md §2.1's "empty,
+  // not 403" governs a caller who HOLDS the permission reading outside its scope (BR-99a), not a
+  // caller with no grant at all (FARMER and FARMER_ADMIN get the same 403 above). BR-101a.
+  it('BR-99f (HTTP): a CUSTOMER (`none` on order.list.view_all) gets 403 on this admin route even for its own order, the same as for an unknown id; a malformed id is 422', async () => {
     if (!ready) return;
     const res = await request(server).get(path(coonoorOrder)).set('Authorization', auth('customer'));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    const unknown = await request(server).get(path(newId())).set('Authorization', auth('customer'));
+    expect(unknown.status).toBe(403);
+    expect(unknown.body.code).toBe(res.body.code);
     const bad = await request(server).get(path('not-a-uuid')).set('Authorization', auth('super'));
     expect(bad.status).toBe(422);
   });
