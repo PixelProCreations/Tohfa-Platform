@@ -31,6 +31,7 @@
   "admin.error.COUNTER_OFFER_EXPIRED": "This counter-offer has expired.",
   "admin.error.LISTING_NOT_PENDING": "This listing is no longer pending.",
   "admin.error.SELF_APPROVAL_FORBIDDEN": "You cannot approve something you submitted yourself.",
+  "admin.error.COUNTER_SALE_NOT_REASSIGNABLE": "A direct or market sale cannot be moved to another warehouse.",
   "admin.error.WAREHOUSE_SCOPE_VIOLATION": "This belongs to a different warehouse.",
   "admin.error.WAREHOUSE_REQUIRED": "A warehouse must be selected for this action.",
   "admin.error.WALLET_INSUFFICIENT": "The wallet balance is too low for this payment.",
