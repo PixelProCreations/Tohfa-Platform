@@ -1468,8 +1468,8 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onViewBatch={(batchId) => {
           setReceivingWizardStep(null);
-          setInventoryInitialScreen('M3S04');
-          setInventoryInitialParams({ batchId });
+          setInventoryInitialScreen('M3S05');
+          setInventoryInitialParams({ batchId }); // pass parameter if M3S05 uses it
           setActiveTab('Inventory');
         }}
       />
@@ -1741,7 +1741,7 @@ export function SubWarehouseAdminDashboardScreen({
       <GoodsReceivingWizardScreen
         scope={scope}
         can={can}
-        initialStep="quality_check"
+        initialStep="review_receiving"
         shipment={findShipment(scope, 'GR-1024')}
         receiverName={userName}
         onBack={() => {
@@ -1869,9 +1869,9 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToNeedsAttention={
           onNavigate
             ? (category) => {
-              setShowSalesScreen(false);
-              onNavigate('SubWarehouseNeedsAttention', category ? { category } : undefined);
-            }
+                setShowSalesScreen(false);
+                onNavigate('SubWarehouseNeedsAttention', category ? { category } : undefined);
+              }
             : undefined
         }
       />
@@ -2269,8 +2269,8 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
               <View style={styles.overviewGrid}>
                 {canOrders ? (
-                  <>
-                    {/* 1. Pending Orders */}
+                <>
+                {/* 1. Pending Orders */}
                     <TouchableOpacity
                       style={styles.overviewCard}
                       onPress={() => {
@@ -2281,15 +2281,15 @@ export function SubWarehouseAdminDashboardScreen({
                       activeOpacity={0.7}
                       accessibilityRole="button"
                     >
-                      <View style={styles.overviewIconWrap}>
-                        <ClipboardClockIcon />
-                      </View>
-                      <Text style={styles.overviewNumber}>12</Text>
-                      <Text style={styles.overviewTitle}>Pending Orders</Text>
-                      <Text style={styles.overviewSub}>8 need action</Text>
+                  <View style={styles.overviewIconWrap}>
+                    <ClipboardClockIcon />
+                  </View>
+                  <Text style={styles.overviewNumber}>12</Text>
+                  <Text style={styles.overviewTitle}>Pending Orders</Text>
+                  <Text style={styles.overviewSub}>8 need action</Text>
                     </TouchableOpacity>
 
-                    {/* 2. Ready for Pickup */}
+                {/* 2. Ready for Pickup */}
                     <TouchableOpacity
                       style={styles.overviewCard}
                       onPress={() => {
@@ -2300,14 +2300,14 @@ export function SubWarehouseAdminDashboardScreen({
                       activeOpacity={0.7}
                       accessibilityRole="button"
                     >
-                      <View style={styles.overviewIconWrap}>
-                        <PersonCheckIcon />
-                      </View>
-                      <Text style={styles.overviewNumber}>08</Text>
-                      <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                      <Text style={styles.overviewSub}>3 customers expected</Text>
+                  <View style={styles.overviewIconWrap}>
+                    <PersonCheckIcon />
+                  </View>
+                  <Text style={styles.overviewNumber}>08</Text>
+                  <Text style={styles.overviewTitle}>Ready for Pickup</Text>
+                  <Text style={styles.overviewSub}>3 customers expected</Text>
                     </TouchableOpacity>
-                  </>
+                </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
@@ -2336,12 +2336,12 @@ export function SubWarehouseAdminDashboardScreen({
                     activeOpacity={0.7}
                     accessibilityRole="button"
                   >
-                    <View style={styles.overviewIconWrap}>
-                      <BoxIcon color={PALETTE.primary} />
-                    </View>
-                    <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
-                    <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                    <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
+                  <View style={styles.overviewIconWrap}>
+                    <BoxIcon color={PALETTE.primary} />
+                  </View>
+                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
+                  <Text style={styles.overviewTitle}>Low Stock Items</Text>
+                  <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
                   </TouchableOpacity>
                 ) : null}
 
@@ -2359,12 +2359,12 @@ export function SubWarehouseAdminDashboardScreen({
                     activeOpacity={0.7}
                     accessibilityRole="button"
                   >
-                    <View style={styles.overviewIconWrap}>
-                      <BanknotesIcon />
-                    </View>
-                    <Text style={styles.overviewNumber}>₹24,850</Text>
-                    <Text style={styles.overviewTitle}>Today's Sales</Text>
-                    <Text style={styles.overviewSub}>42 transactions</Text>
+                  <View style={styles.overviewIconWrap}>
+                    <BanknotesIcon />
+                  </View>
+                  <Text style={styles.overviewNumber}>₹24,850</Text>
+                  <Text style={styles.overviewTitle}>Today's Sales</Text>
+                  <Text style={styles.overviewSub}>42 transactions</Text>
                   </TouchableOpacity>
                 ) : null}
 
@@ -2416,13 +2416,13 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 {canOrders ? (
-                  <Pressable
-                    style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                    onPress={() => setShowOrdersModule(true)}
-                  >
-                    <ViewOrdersActionIcon />
-                    <Text style={styles.quickActionLabel}>View Orders</Text>
-                  </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  onPress={() => setShowOrdersModule(true)}
+                >
+                  <ViewOrdersActionIcon />
+                  <Text style={styles.quickActionLabel}>View Orders</Text>
+                </Pressable>
                 ) : null}
 
                 <Pressable
@@ -2440,13 +2440,13 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 {canStock ? (
-                  <Pressable
-                    style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                    onPress={() => setActiveTab('Inventory')}
-                  >
-                    <StockVerifyActionIcon />
-                    <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
-                  </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  onPress={() => setActiveTab('Inventory')}
+                >
+                  <StockVerifyActionIcon />
+                  <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
+                </Pressable>
                 ) : null}
 
                 <Pressable
@@ -2467,7 +2467,12 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.alertList}>
                 <TouchableOpacity
                   style={styles.alertCard}
-                  onPress={() => openReceiving('ShipmentDetail', { shipmentId: 'SHP-000124' })}
+                  // The shipment this alert names (GR-1024, resolved in this warehouse's scope), not a fixed id.
+                  onPress={() =>
+                    selectedShipment
+                      ? openReceiving('ShipmentDetail', { shipmentId: selectedShipment.code })
+                      : openReceiving('Shipments')
+                  }
                   activeOpacity={0.7}
                 >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
@@ -2479,7 +2484,6 @@ export function SubWarehouseAdminDashboardScreen({
                       Tomato — Batch GR-1024 · Received 95 KG, awaiting quality check
                     </Text>
                   </View>
-                  <ChevronRight />
                 </TouchableOpacity>
 
                 <View style={styles.alertCard}>
@@ -2490,7 +2494,6 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Quantity Mismatch</Text>
                     <Text style={styles.alertCardSub}>Expected 100 KG, received 95 KG</Text>
                   </View>
-                  <ChevronRight />
                 </View>
 
                 <View style={styles.alertCard}>
@@ -2501,33 +2504,30 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Damage Report</Text>
                     <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
                   </View>
-                  <ChevronRight />
                 </View>
 
                 {canOrders ? (
-                  <View style={styles.alertCard}>
-                    <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                      <ClockIcon />
-                    </View>
-                    <View style={styles.alertCardTextWrap}>
-                      <Text style={styles.alertCardTitle}>Pickup Pending</Text>
-                      <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
-                    </View>
-                    <ChevronRight />
+                <View style={styles.alertCard}>
+                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
+                    <ClockIcon />
                   </View>
+                  <View style={styles.alertCardTextWrap}>
+                    <Text style={styles.alertCardTitle}>Pickup Pending</Text>
+                    <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
+                  </View>
+                </View>
                 ) : null}
 
                 {canStock ? (
-                  <View style={styles.alertCard}>
-                    <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                      <BoxIcon color="#D97706" />
-                    </View>
-                    <View style={styles.alertCardTextWrap}>
-                      <Text style={styles.alertCardTitle}>Low Stock</Text>
-                      <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
-                    </View>
-                    <ChevronRight />
+                <View style={styles.alertCard}>
+                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
+                    <BoxIcon color="#D97706" />
                   </View>
+                  <View style={styles.alertCardTextWrap}>
+                    <Text style={styles.alertCardTitle}>Low Stock</Text>
+                    <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
+                  </View>
+                </View>
                 ) : null}
               </View>
 
@@ -2578,13 +2578,13 @@ export function SubWarehouseAdminDashboardScreen({
 
               {/* 6. Today's Orders + 7. Order Status Summary: order.list.view_all */}
               {canOrders ? (
-                <>
-                  <View style={styles.sectionHeaderBetween}>
-                    <Text style={styles.sectionHeading}>Today's Orders</Text>
-                    <Text style={styles.sectionHeaderSub}>12 Orders</Text>
-                  </View>
+              <>
+              <View style={styles.sectionHeaderBetween}>
+                <Text style={styles.sectionHeading}>Today's Orders</Text>
+                <Text style={styles.sectionHeaderSub}>12 Orders</Text>
+              </View>
 
-                  <View style={styles.cardStack}>
+              <View style={styles.cardStack}>
                     <TouchableOpacity
                       style={styles.orderReceivingCard}
                       onPress={() => {
@@ -2595,32 +2595,32 @@ export function SubWarehouseAdminDashboardScreen({
                       activeOpacity={0.75}
                       accessibilityRole="button"
                     >
-                      <View style={styles.cardHeaderRow}>
-                        <Text style={styles.itemCodeBold}>#ORD-10245</Text>
-                        <View style={styles.readyPickupBadge}>
-                          <Text style={styles.readyPickupText}>Ready for Pickup</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
-                      <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.itemCodeBold}>#ORD-10245</Text>
+                    <View style={styles.readyPickupBadge}>
+                      <Text style={styles.readyPickupText}>Ready for Pickup</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
+                  <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.linkButton}
+                <TouchableOpacity
+                  style={styles.linkButton}
                       onPress={() => {
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.linkButtonText}>View All Orders →</Text>
-                    </TouchableOpacity>
-                  </View>
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkButtonText}>View All Orders →</Text>
+                </TouchableOpacity>
+              </View>
 
-                  {/* 7. Order Status Summary */}
-                  <Text style={styles.sectionHeading}>Order Status Summary</Text>
-                  <View style={styles.statusSummaryGrid}>
+              {/* 7. Order Status Summary */}
+              <Text style={styles.sectionHeading}>Order Status Summary</Text>
+              <View style={styles.statusSummaryGrid}>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
@@ -2630,8 +2630,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <Text style={styles.statusSummaryNum}>04</Text>
-                      <Text style={styles.statusSummaryLabel}>NEW</Text>
+                  <Text style={styles.statusSummaryNum}>04</Text>
+                  <Text style={styles.statusSummaryLabel}>NEW</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -2642,8 +2642,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <Text style={styles.statusSummaryNum}>03</Text>
-                      <Text style={styles.statusSummaryLabel}>PACKING</Text>
+                  <Text style={styles.statusSummaryNum}>03</Text>
+                  <Text style={styles.statusSummaryLabel}>PACKING</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -2654,8 +2654,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <Text style={styles.statusSummaryNum}>08</Text>
-                      <Text style={styles.statusSummaryLabel}>READY</Text>
+                  <Text style={styles.statusSummaryNum}>08</Text>
+                  <Text style={styles.statusSummaryLabel}>READY</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -2666,122 +2666,122 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <Text style={styles.statusSummaryNum}>27</Text>
-                      <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
+                  <Text style={styles.statusSummaryNum}>27</Text>
+                  <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
                     </TouchableOpacity>
-                  </View>
-                </>
+              </View>
+              </>
               ) : null}
 
               {/* 8. Inventory Snapshot + 9. Stock Allocation: inventory.batch.view */}
               {canStock ? (
-                <>
-                  <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
-                  <View style={styles.infoTableCard}>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Available Stock</Text>
-                      <Text style={styles.infoTableValue}>1,245 KG</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Reserved</Text>
-                      <Text style={styles.infoTableValue}>320 KG</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Allocated</Text>
-                      <Text style={styles.infoTableValue}>580 KG</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Low Stock</Text>
-                      <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
-                    </View>
-                    {/* Ported from the absorbed Today's Overview (Inventory card). */}
-                    <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                      <Text style={styles.infoTableLabel}>Verification Pending</Text>
-                      <Text style={styles.infoTableValue}>02</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.tableLinkButton}
-                      onPress={() => setActiveTab('Inventory')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.linkButtonText}>View Inventory →</Text>
-                    </TouchableOpacity>
-                  </View>
+              <>
+              <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
+              <View style={styles.infoTableCard}>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Available Stock</Text>
+                  <Text style={styles.infoTableValue}>1,245 KG</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Reserved</Text>
+                  <Text style={styles.infoTableValue}>320 KG</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Allocated</Text>
+                  <Text style={styles.infoTableValue}>580 KG</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Low Stock</Text>
+                  <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
+                </View>
+                {/* Ported from the absorbed Today's Overview (Inventory card). */}
+                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoTableLabel}>Verification Pending</Text>
+                  <Text style={styles.infoTableValue}>02</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tableLinkButton}
+                  onPress={() => setActiveTab('Inventory')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkButtonText}>View Inventory →</Text>
+                </TouchableOpacity>
+              </View>
 
-                  {/* 9. Stock Allocation */}
-                  <Text style={styles.sectionHeading}>Stock Allocation</Text>
-                  <View style={styles.infoTableCard}>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>ONLINE</Text>
-                      <Text style={styles.infoTableValue}>420 KG</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
-                      <Text style={styles.infoTableValue}>120 KG</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>RESERVE</Text>
-                      <Text style={styles.infoTableValue}>80 KG</Text>
-                    </View>
-                    <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                      <Text style={styles.infoTableLabel}>BUFFER</Text>
-                      <Text style={styles.infoTableValue}>60 KG</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.tableLinkButton}
-                      onPress={() => {
-                        setInventoryInitialScreen('M3S02');
-                        setInventoryInitialParams({ initialTab: 'Allocation' });
-                        setActiveTab('Inventory');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
+              {/* 9. Stock Allocation */}
+              <Text style={styles.sectionHeading}>Stock Allocation</Text>
+              <View style={styles.infoTableCard}>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>ONLINE</Text>
+                  <Text style={styles.infoTableValue}>420 KG</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
+                  <Text style={styles.infoTableValue}>120 KG</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>RESERVE</Text>
+                  <Text style={styles.infoTableValue}>80 KG</Text>
+                </View>
+                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoTableLabel}>BUFFER</Text>
+                  <Text style={styles.infoTableValue}>60 KG</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tableLinkButton}
+                  onPress={() => {
+                    setInventoryInitialScreen('M3S02');
+                    setInventoryInitialParams({ initialTab: 'Allocation' });
+                    setActiveTab('Inventory');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
+                </TouchableOpacity>
+              </View>
+              </>
               ) : null}
 
               {/* 10. Today's Sales Summary: finance.sales_income.view */}
               {canSales ? (
-                <>
-                  <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
-                  <View style={styles.infoTableCard}>
-                    <View style={styles.salesHeaderRow}>
-                      <Text style={styles.salesTotalAmount}>₹24,850</Text>
-                      <Text style={styles.salesTxnCount}>42 transactions</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Online</Text>
-                      <Text style={styles.infoTableValue}>₹12,400</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>Market</Text>
-                      <Text style={styles.infoTableValue}>₹7,250</Text>
-                    </View>
-                    <View style={styles.infoTableRow}>
-                      <Text style={styles.infoTableLabel}>HORECA</Text>
-                      <Text style={styles.infoTableValue}>₹3,200</Text>
-                    </View>
-                    <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                      <Text style={styles.infoTableLabel}>B2B</Text>
-                      <Text style={styles.infoTableValue}>₹2,000</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.tableLinkButton}
-                      onPress={() => {
-                        if (onNavigate) {
-                          onNavigate('SubWarehouseSales');
-                        } else {
-                          setShowSalesScreen(true);
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.linkButtonText}>View Sales Report →</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
+              <>
+              <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
+              <View style={styles.infoTableCard}>
+                <View style={styles.salesHeaderRow}>
+                  <Text style={styles.salesTotalAmount}>₹24,850</Text>
+                  <Text style={styles.salesTxnCount}>42 transactions</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Online</Text>
+                  <Text style={styles.infoTableValue}>₹12,400</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Market</Text>
+                  <Text style={styles.infoTableValue}>₹7,250</Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>HORECA</Text>
+                  <Text style={styles.infoTableValue}>₹3,200</Text>
+                </View>
+                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoTableLabel}>B2B</Text>
+                  <Text style={styles.infoTableValue}>₹2,000</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tableLinkButton}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseSales');
+                    } else {
+                      setShowSalesScreen(true);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkButtonText}>View Sales Report →</Text>
+                </TouchableOpacity>
+              </View>
+              </>
               ) : null}
 
               {/* 11. Cash Operations */}
@@ -2830,21 +2830,21 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
 
                 {canOrders ? (
-                  <>
-                    <View style={styles.cardDivider} />
+                <>
+                <View style={styles.cardDivider} />
 
-                    {/* Activity 2 */}
-                    <View style={styles.activityItemRow}>
-                      <View style={styles.activityIconBox}>
-                        <PackageBagIcon />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.activityItemTitle}>Order Packed</Text>
-                        <Text style={styles.activityItemSub}>ORD-10242</Text>
-                        <Text style={styles.activityTimeText}>10:20 AM</Text>
-                      </View>
-                    </View>
-                  </>
+                {/* Activity 2 */}
+                <View style={styles.activityItemRow}>
+                  <View style={styles.activityIconBox}>
+                    <PackageBagIcon />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.activityItemTitle}>Order Packed</Text>
+                    <Text style={styles.activityItemSub}>ORD-10242</Text>
+                    <Text style={styles.activityTimeText}>10:20 AM</Text>
+                  </View>
+                </View>
+                </>
                 ) : null}
 
                 <View style={styles.cardDivider} />
