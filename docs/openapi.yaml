@@ -13331,7 +13331,11 @@ paths:
         sale returns it unchanged with no second effect (BR-88g). A sale that is not a UPI sale, or
         whose payment FAILED, is 409 `CONFLICT`. A UPI reference that already confirmed another
         sale is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` and the sale stays
-        pending: one payment confirms one sale (BR-94, unique `sale_payments.upi_txn_ref`). Stock
+        pending: one payment confirms one sale (BR-94, unique `sale_payments.upi_txn_ref`). A
+        verified reference is kept on the still-pending payment before the completing transaction
+        runs, so a confirm that fails after verification leaves the sale pending WITH its reference
+        (BR-94q; `upiTxnRef` is then non-null on a `PENDING` payment); an unverified reference is
+        never kept. Stock
         that is no longer on the sale's shelf is 409 `SALE_STOCK_CHANGED`: the sale is cancelled and
         its captured payment is `REFUND_DUE` (refunded at once when `sales.upi_refund_mode = auto`),
         `meta.reason = UPI_REFUND_DUE`. That cancel decides on the sale row locked in its own
@@ -13378,10 +13382,14 @@ paths:
         transaction. The decision is made on the sale row locked in that transaction (BR-94l): a sale
         that is not a UPI sale, or is already paid, picked up or cancelled, is 409 `CONFLICT`; a sale
         another request changed while this one was writing is 409 `CONFLICT` with
-        `meta.reason = SALE_STATE_CHANGED`; in every 409 case nothing is written. Cancelling an
-        already cancelled sale with the same key replays the original response. `Idempotency-Key`
-        is required: missing or blank is 422 `VALIDATION_FAILED`. 404 for a sale outside the
-        caller's scope, never 403.
+        `meta.reason = SALE_STATE_CHANGED`; in every 409 case nothing is written. When the pending
+        payment carries a UPI reference (kept by a verified confirm whose transaction then failed,
+        BR-94q), the gateway is asked first: a captured payment is 409 `CONFLICT` with
+        `meta.reason = UPI_PAYMENT_CAPTURED` and the sale stays pending (confirm it instead); a
+        payment the gateway does not report captured, or one with no reference, is cancelled as
+        above. Cancelling an already cancelled sale with the same key replays the original
+        response. `Idempotency-Key` is required: missing or blank is 422 `VALIDATION_FAILED`. 404
+        for a sale outside the caller's scope, never 403.
       x-permission: sales.sale.cancel
       x-business-rules: [BR-94, BR-88, BR-90]
       parameters:
@@ -13771,6 +13779,8 @@ components:
         pending) and `SALE_STOCK_CHANGED` (the held stock is no longer on the sale's shelf).
         UPI confirm stock conflict and cancel: `CONFLICT` with `meta.reason = SALE_STATE_CHANGED`
         (another request confirmed, cancelled or refunded the sale first; nothing written, BR-94l).
+        Cancel: `CONFLICT` with `meta.reason = UPI_PAYMENT_CAPTURED` (the pending payment's kept
+        reference is captured at the gateway; nothing written, confirm the sale instead, BR-94q).
         `meta` carries the fresh values so the counter can re-confirm (`meta.lines[]` with
         `requestedQtyKg` / `availableQtyKg` for stock; `meta.expectedTotal` / `meta.currentTotal` /
         `meta.quote` for price). Nothing is written but a `sale_attempts` row (a quote writes nothing).

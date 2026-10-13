@@ -222,9 +222,10 @@ function isUniqueViolation(error: unknown, constraint: string): boolean {
 }
 
 /**
- * BR-94k / BR-94n, migration 0067: a UPI reference binds one sale payment. Every write that stores
- * a reference (the confirm, and the REFUND_DUE settle of the stock-conflict cancel) re-throws the
- * index's 23505 as 409 UPI_TXN_REF_ALREADY_USED; anything else passes through unchanged.
+ * BR-94k / BR-94n / BR-94q, migration 0067: a UPI reference binds one sale payment. Every write that
+ * stores a reference (keeping the verified reference before the confirm transaction, the confirm,
+ * and the REFUND_DUE settle of the stock-conflict cancel) re-throws the index's 23505 as 409
+ * UPI_TXN_REF_ALREADY_USED; anything else passes through unchanged.
  */
 function mapUpiRefCollision(error: unknown): unknown {
   if (!isUniqueViolation(error, 'uq_sale_payments_upi_txn_ref')) return error;
@@ -852,6 +853,26 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
           await recordAttempt(scope, header.warehouseId, error, context);
           throw error;
         }
+
+        // BR-94q: keep the verified reference on the still-PENDING payment NOW, on the pool, before
+        // the confirm transaction. The counter collects UPI outside a gateway order, so sale create
+        // has no gateway call and no reference: this is the earliest point one exists. Written inside
+        // the confirm transaction only, it would vanish with any rollback (lost connection, crash, a
+        // failed invoice step) and leave a captured payment that the manual cancel could mark FAILED
+        // without asking anyone. Only a VERIFIED reference is kept: an unverified one may be another
+        // sale's in-flight payment, and the 0067 unique index would let it block that sale's confirm.
+        // A single conditional UPDATE (PENDING UPI rows only), so no transaction or row lock is held
+        // across the gateway call above. No audit row: the payment's state does not change here; the
+        // confirm's own audit row (payment.record) records the reference's outcome.
+        if (header.paymentId !== null) {
+          try {
+            await repo.recordPendingUpiRef(db, header.paymentId, upiTxnRef);
+          } catch (recordError) {
+            const mapped = mapUpiRefCollision(recordError);
+            await recordAttempt(scope, header.warehouseId, mapped, context);
+            throw mapped;
+          }
+        }
       }
 
       let outcome: { sale: Sale; changed: boolean };
@@ -1067,6 +1088,25 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
         throw new AppError('CONFLICT', { detail: 'Only a pending UPI sale can be cancelled.' });
       }
 
+      // BR-94q: a pending payment that carries a reference (kept by a verified confirm whose
+      // transaction then failed) may be money the customer already paid. Ask the gateway BEFORE
+      // opening the transaction (no row lock across a network call, as in confirmUpi); captured is
+      // 409, never a silent FAILED. With no reference there is nothing the gateway can be asked
+      // about and nothing has been verified as paid, so the cancel proceeds as before. Only the
+      // reference checked here may be cancelled: the transaction below refuses a different one.
+      const checkedRef = header.upiTxnRef;
+      if (header.status === 'PENDING_PAYMENT' && header.paymentStatusDetail === 'PENDING' && checkedRef !== null) {
+        // The shared verifier: "captured, for this sale's amount". A gateway error also answers
+        // false here (see gatewayUpiVerifier), so an unreachable gateway does not block the cancel.
+        if (await verifyUpi(checkedRef, toPaise(header.totalAmount))) {
+          throw new AppError('CONFLICT', {
+            detail:
+              'The gateway reports this sale\'s UPI payment as captured, so it cannot be cancelled as unpaid. Confirm the sale with its reference instead; if the stock is gone, the confirm cancels it and marks the payment for refund.',
+            meta: { reason: 'UPI_PAYMENT_CAPTURED' },
+          });
+        }
+      }
+
       const reason = body?.reason?.trim() || 'Cancelled by operator';
       const outcome = await runTx(async (tx) => {
         const idem = await beginIdempotent<Sale>(idempotency, tx, {
@@ -1095,6 +1135,8 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
         if (locked.status !== 'PENDING_PAYMENT' || locked.paymentStatusDetail !== 'PENDING' || locked.paymentId === null) {
           throw new AppError('CONFLICT', { detail: 'This sale is no longer pending payment; it cannot be cancelled.' });
         }
+        // BR-94q / BR-94l: a reference recorded after the gateway check above was never asked about.
+        if (locked.upiTxnRef !== null && locked.upiTxnRef !== checkedRef) throw saleStateChanged(saleId);
 
         // BR-94l: conditional UPDATEs; 0 rows rolls the transaction back as a 409.
         if (!(await repo.cancelSale(tx, saleId, { reason, paymentStatus: 'FAILED' }))) throw saleStateChanged(saleId);

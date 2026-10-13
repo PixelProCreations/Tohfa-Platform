@@ -1023,3 +1023,151 @@ describe('salesService: UPI confirm stock conflict races (mocked repo)', () => {
     expect(r.audits()).toBe(0);
   });
 });
+
+// ===========================================================================
+// 5. BR-94q: a verified UPI reference is kept on the pending payment, and the manual cancel asks
+//    the gateway about it before marking the payment FAILED
+// ===========================================================================
+describe('salesService: UPI reference kept for the manual cancel (mocked repo, BR-94q)', () => {
+  function pendingWithRef(id: string, paymentId: string, upiTxnRef: string | null): SaleHeaderRow {
+    return {
+      id,
+      warehouseId: OOTY,
+      channel: 'DIRECT',
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      customerId: null,
+      totalAmount: parseMoney('45.50'),
+      gstAmount: parseMoney('0.00'),
+      paymentId,
+      paymentMethod: 'UPI',
+      paymentStatusDetail: 'PENDING',
+      upiTxnRef,
+    };
+  }
+
+  /** A pending UPI sale; `steps` records repo writes and transaction openings in order. */
+  function refHarness(upiTxnRef: string | null) {
+    const saleId = newId();
+    const paymentId = newId();
+    const h = harness();
+    const steps: string[] = [];
+    const recorded: Array<{ db: Executor; paymentId: string; upiTxnRef: string }> = [];
+    h.repo.findSaleHeader = async () => pendingWithRef(saleId, paymentId, upiTxnRef);
+    h.repo.lockSale = async () => pendingWithRef(saleId, paymentId, upiTxnRef);
+    h.repo.saleItems = async () => fakeRecord(saleId).items;
+    h.repo.recordPendingUpiRef = async (db, id, ref) => {
+      steps.push('recordPendingUpiRef');
+      recorded.push({ db, paymentId: id, upiTxnRef: ref });
+    };
+    h.repo.cancelSale = async () => {
+      steps.push('cancelSale');
+      return true;
+    };
+    h.repo.settlePayment = async (_db, _id, status) => {
+      steps.push(`settlePayment:${status}`);
+      return true;
+    };
+    const runTx = h.deps.runTx!;
+    h.deps.runTx = async (fn) => {
+      steps.push('tx');
+      return runTx(fn);
+    };
+    const verifierCalls: Array<[string, number]> = [];
+    const verifier = (captured: boolean) => async (ref: string, paise: number) => {
+      verifierCalls.push([ref, paise]);
+      return captured;
+    };
+    return { h, saleId, paymentId, steps, recorded, verifierCalls, verifier };
+  }
+
+  it('BR-94q: a verified UPI reference is recorded on the pending payment, outside and before the confirm transaction, so it survives a confirm that rolls back', async () => {
+    const r = refHarness(null);
+    // The confirm transaction fails for a reason that is not a stock conflict (connection lost,
+    // a bug, a crash): everything it wrote rolls back, but the reference must already be kept.
+    r.h.repo.completeOrder = async () => {
+      throw new Error('connection terminated unexpectedly');
+    };
+    await expect(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-keep', { upiTxnRef: ' pay_keep_1 ' })).rejects.toThrow(
+      'connection terminated unexpectedly',
+    );
+    expect(r.recorded).toHaveLength(1);
+    expect(r.recorded[0]).toMatchObject({ paymentId: r.paymentId, upiTxnRef: 'pay_keep_1' });
+    // On the pool, not on a transaction client that is about to roll back.
+    expect(r.recorded[0]!.db).toBe(r.h.deps.db);
+    expect(r.steps.indexOf('recordPendingUpiRef')).toBeLessThan(r.steps.indexOf('tx'));
+  });
+
+  it('BR-94q: an unverified UPI reference is never recorded on the payment (it would bind a reference that may be another sale\'s)', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = async () => false;
+    const error = await failure(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-unverified', { upiTxnRef: 'pay_unverified_1' }));
+    expect(error.status).toBe(422);
+    expect(r.recorded).toEqual([]);
+    expect(r.steps).toEqual([]);
+  });
+
+  it('BR-94q: recording a reference already bound to another sale is 409 UPI_TXN_REF_ALREADY_USED, never a 500; no confirm transaction opens and the attempt is logged', async () => {
+    const r = refHarness(null);
+    r.h.repo.recordPendingUpiRef = async () => {
+      r.steps.push('recordPendingUpiRef');
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_upi_txn_ref"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_upi_txn_ref',
+      });
+    };
+    const error = await failure(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-dup-early', { upiTxnRef: 'pay_dup_early' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_TXN_REF_ALREADY_USED' });
+    expect(r.steps).toEqual(['recordPendingUpiRef']);
+    expect(r.h.attempts.map((a) => a.reasonCode)).toEqual(['CONFLICT']);
+    expect(JSON.stringify(r.h.attempts)).not.toContain('pay_dup_early');
+    expect(r.h.afterCommit).not.toHaveBeenCalled();
+  });
+
+  it('BR-94q: cancelling a pending UPI sale whose recorded reference the gateway reports captured is 409 CONFLICT (UPI_PAYMENT_CAPTURED); nothing is cancelled or marked FAILED', async () => {
+    const r = refHarness('pay_captured_1');
+    r.h.deps.verifyUpi = r.verifier(true);
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-captured', { reason: 'Gave up waiting' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_PAYMENT_CAPTURED' });
+    // Asked about THIS payment, for the sale total in paise.
+    expect(r.verifierCalls).toEqual([['pay_captured_1', 4550]]);
+    expect(r.steps).toEqual([]);
+  });
+
+  it('BR-94q: cancelling a pending UPI sale whose recorded reference the gateway reports NOT captured cancels it (CANCELLED, payment FAILED)', async () => {
+    const r = refHarness('pay_not_captured_1');
+    r.h.deps.verifyUpi = r.verifier(false);
+    r.h.repo.loadSale = async (_db, id) => ({ ...fakeRecord(id), status: 'CANCELLED', paymentStatus: 'FAILED' });
+    const sale = await createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-not-captured', { reason: 'Payment never arrived' });
+    expect(sale.status).toBe('CANCELLED');
+    expect(r.verifierCalls).toEqual([['pay_not_captured_1', 4550]]);
+    expect(r.steps).toEqual(['tx', 'cancelSale', 'settlePayment:FAILED']);
+  });
+
+  it('BR-94q: cancelling a pending UPI sale with no recorded reference does not ask the gateway (there is nothing to ask about) and cancels as before', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = r.verifier(true);
+    r.h.repo.loadSale = async (_db, id) => ({ ...fakeRecord(id), status: 'CANCELLED', paymentStatus: 'FAILED' });
+    const sale = await createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-no-ref', { reason: 'Walked away' });
+    expect(sale.status).toBe('CANCELLED');
+    expect(r.verifierCalls).toEqual([]);
+    expect(r.steps).toEqual(['tx', 'cancelSale', 'settlePayment:FAILED']);
+  });
+
+  it('BR-94q: a reference recorded after the gateway check but before the cancel locked the sale is 409 SALE_STATE_CHANGED; nothing is cancelled', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = r.verifier(true);
+    // The unlocked read saw no reference; by the time the cancel holds the row a confirm recorded one.
+    r.h.repo.lockSale = async () => pendingWithRef(r.saleId, r.paymentId, 'pay_arrived_late');
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-late-ref'));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'SALE_STATE_CHANGED' });
+    expect(r.verifierCalls).toEqual([]);
+    expect(r.steps).toEqual(['tx']);
+  });
+});

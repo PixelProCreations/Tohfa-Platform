@@ -1113,8 +1113,12 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
       repo: {
         ...salesRepo,
         configValue: async (db, k) => (k === 'sales.upi_refund_mode' ? 'auto' : salesRepo.configValue(db, k)),
-        // The stock conflict fires before confirmPayment, so the real settlePayment of the cancel
-        // transaction is the first write to meet uq_sale_payments_upi_txn_ref.
+        // BR-94q keeps a verified reference on the pending payment before the confirm transaction,
+        // and that write would meet uq_sale_payments_upi_txn_ref first (its own 409 is proven by
+        // the BR-94 test above). Skipped here so this test keeps proving the path it names: the
+        // stock conflict fires before confirmPayment, so the real settlePayment of the cancel
+        // transaction is the first write to meet the index.
+        recordPendingUpiRef: async () => {},
         insertSaleLedger: async () => {
           throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
         },
@@ -1135,6 +1139,50 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(await one(`SELECT count(*)::text FROM sale_payments WHERE upi_txn_ref = $1`, [ref])).toBe('1');
     expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleB])).toBe('0');
     expect(await one(`SELECT count(*)::text FROM audit_log WHERE entity_id = $1 AND action_code IN ('order.cancel', 'payment.refund')`, [saleB])).toBe('0');
+  });
+
+  it('BR-94q (PostgreSQL): a verified reference survives a confirm that rolls back; the manual cancel then asks the gateway: captured is 409 and changes nothing, not captured cancels', async () => {
+    const [{ createSalesService }, { salesRepo }] = await Promise.all([import('./sales.service.js'), import('./sales.repo.js')]);
+    const crop = await newCrop({ ceiling: '11.00' });
+    const batch = await newBatch({ crop, qty: '3' });
+    const created = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'Kept ref' }, items: [item(crop, '1')], expectedTotal: '11.00', payment: { method: 'UPI' } });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const saleId = created.body.id as string;
+    const ref = `pay_ci_kept_${newId().slice(0, 12)}`;
+
+    // The gateway verified the payment, then the confirm transaction failed (not a stock conflict).
+    const failingConfirm = createSalesService({
+      verifyUpi: async () => true,
+      repo: {
+        ...salesRepo,
+        completeOrder: async () => {
+          throw new Error('connection terminated unexpectedly');
+        },
+      },
+    });
+    await expect(failingConfirm.confirmUpi(subScope(ooty, users.subOoty, 'payment.record'), saleId, key('kept-confirm'), { upiTxnRef: ref })).rejects.toThrow(
+      'connection terminated unexpectedly',
+    );
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleId])).toBe('PENDING_PAYMENT');
+    expect(await one(`SELECT status || ':' || coalesce(upi_txn_ref, '-') FROM sale_payments WHERE order_id = $1`, [saleId])).toBe(`PENDING:${ref}`);
+    expect(await one(`SELECT count(*)::text FROM stock_ledger WHERE ref_id = $1`, [saleId])).toBe('0');
+
+    // The real route, with the configured (mock) gateway, which reports every reference captured.
+    const captured = await request(server).post(`/v1/admin/sales/${saleId}/cancel`).set('Authorization', auth('subOoty')).set('Idempotency-Key', key('kept-cancel')).send({ reason: 'Gave up' });
+    expect(captured.status, JSON.stringify(captured.body)).toBe(409);
+    expect(captured.headers['content-type']).toContain('application/problem+json');
+    expect(captured.body).toMatchObject({ code: 'CONFLICT', meta: { reason: 'UPI_PAYMENT_CAPTURED' } });
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleId])).toBe('PENDING_PAYMENT');
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleId])).toBe('PENDING');
+    expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleId])).toBe('0');
+    expect(await one(`SELECT count(*)::text FROM audit_log WHERE entity_id = $1 AND action_code = 'order.cancel'`, [saleId])).toBe('0');
+
+    // The gateway reports the same reference NOT captured: the cancel goes ahead as before.
+    const notCaptured = createSalesService({ verifyUpi: async () => false });
+    const cancelled = await notCaptured.cancel(subScope(ooty, users.subOoty, 'sales.sale.cancel'), saleId, key('kept-cancel-2'), { reason: 'Never paid' });
+    expect(cancelled).toMatchObject({ status: 'CANCELLED', paymentStatus: 'FAILED' });
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleId])).toBe('FAILED');
+    expect(await qtyAvailable(batch.id)).toBe('3.000');
   });
 });
 

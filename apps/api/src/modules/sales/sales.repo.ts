@@ -306,7 +306,11 @@ export interface SalesRepo {
   saleItems(db: Executor, orderId: string): Promise<SaleItemRow[]>;
   completeOrder(db: Executor, orderId: string): Promise<void>;
   confirmPayment(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
-  /** BR-94g: keeps the reference of a payment the gateway reports pending, on a still-PENDING row. */
+  /**
+   * BR-94q: keeps a gateway-VERIFIED reference on a still-PENDING UPI row, before the confirm
+   * transaction, so a confirm that rolls back cannot lose it and the manual cancel can ask the
+   * gateway about it. A no-op on any other row.
+   */
   recordPendingUpiRef(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
   /**
    * BR-94i: PENDING_PAYMENT -> CANCELLED (order and its PENDING items; the hold is released).
