@@ -128,6 +128,21 @@ export function setOnAuthFailure(callback: (() => void) | null): void {
   onAuthFailureCallback = callback;
 }
 
+/**
+ * Forget this device's credentials: the in-memory access token and whatever
+ * the configured token store holds.
+ *
+ * For callers that know the server has ALREADY ended the session — e.g. after
+ * `POST /auth/me/change-password`, which revokes every session of the account
+ * including the caller's. Such a caller cannot reach the role's own token
+ * store (a role must not import another role's storage), but it can reach the
+ * store the host configured here. Navigation stays the host's job.
+ */
+export async function clearLocalAuth(): Promise<void> {
+  accessToken = null;
+  await tokenStorage?.clearTokens();
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' | undefined;
   body?: unknown | undefined;

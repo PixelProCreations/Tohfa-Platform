@@ -21,6 +21,11 @@ function cleanParams(params: QueryParams | undefined): Record<string, unknown> {
 
 export const adminKeys = {
   all: ALL,
+  /**
+   * `GET /auth/me` as the admin session. Deliberately outside the warehouse
+   * namespace: it is the query that DECIDES the warehouse.
+   */
+  session: () => [...ALL, 'session'] as const,
   /** `null` = an HQ admin with no assigned warehouse. */
   scope: (warehouseId: string | null) => [...ALL, 'wh', warehouseId ?? '*'] as const,
   resource: (warehouseId: string | null, resource: string) =>

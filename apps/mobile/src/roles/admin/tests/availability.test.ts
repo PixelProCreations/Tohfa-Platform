@@ -42,4 +42,43 @@ describe('warehouse feature availability', () => {
     expect(isWarehouseFeatureVisible('returnsRefundBank', can)).toBe(false);
     expect(isWarehouseFeatureVisible('returnsRefundWallet', can)).toBe(true);
   });
+  it('BR-82/BR-67/BR-66: a Sub Warehouse Admin (rbac.json grants) sees profile, sessions, password, notification settings, help, its warehouse and storage locations', () => {
+    const can = createAdminCan(subWarehouseAdminGrants());
+    for (const id of [
+      'profileView',
+      'adminProfile',
+      'activeSessions',
+      'changePassword',
+      'notificationSettings',
+      'helpSupport',
+      'warehouseProfile',
+      'warehouseCapacity',
+      'storageLocations',
+    ] as const) {
+      expect(isWarehouseFeatureVisible(id, can), id).toBe(true);
+    }
+  });
+
+  it('BR-66: warehouse edit and performance stay hidden for a Sub Warehouse Admin (rbac.json none)', () => {
+    const can = createAdminCan(subWarehouseAdminGrants());
+    expect(isWarehouseFeatureVisible('warehouseProfileEdit', can)).toBe(false);
+    expect(isWarehouseFeatureVisible('warehousePerformance', can)).toBe(false);
+    expect(WAREHOUSE_FEATURES.warehousePerformance.permission).toBe('warehouse.all.view');
+  });
+
+  it('BR-67: terminating an own session and admin support tickets stay hidden (no endpoint), even for Super Admin', () => {
+    const can = createAdminCan(['auth.session.terminate_other', 'help.article.view', 'help.article.manage']);
+    expect(isWarehouseFeatureVisible('terminateOwnSession', can)).toBe(false);
+    expect(isWarehouseFeatureVisible('helpTickets', can)).toBe(false);
+    expect(WAREHOUSE_FEATURES.terminateOwnSession.specGap).toContain('/auth/sessions/{id}/terminate');
+  });
 });
+
+function subWarehouseAdminGrants(): string[] {
+  const rbac = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../../../../../../docs/rbac.json'), 'utf8'),
+  ) as { permissions: { code: string; grants: Record<string, string> }[] };
+  return rbac.permissions
+    .filter((p) => (p.grants['SUB_WH_ADMIN'] ?? 'none') !== 'none')
+    .map((p) => p.code);
+}

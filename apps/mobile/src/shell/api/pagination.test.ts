@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildQueryString, flattenPages, nextCursorOf, type Page } from './pagination';
+import {
+  buildQueryString,
+  flattenOffsetPages,
+  flattenPages,
+  nextCursorOf,
+  nextOffsetPageOf,
+  type Page,
+} from './pagination';
 
 describe('buildQueryString', () => {
   it('returns an empty string when there is nothing to send', () => {
@@ -40,5 +47,27 @@ describe('cursor page helpers', () => {
   it('flattenPages concatenates items in page order', () => {
     expect(flattenPages([p1, p2])).toEqual([1, 2, 3]);
     expect(flattenPages(undefined)).toEqual([]);
+  });
+});
+
+describe('offset page helpers', () => {
+  it('asks for the next page only while rows remain', () => {
+    expect(nextOffsetPageOf({ items: [1, 2], page: 1, pageSize: 2, total: 5 })).toBe(2);
+    expect(nextOffsetPageOf({ items: [5], page: 3, pageSize: 2, total: 5 })).toBeUndefined();
+    expect(nextOffsetPageOf({ items: [], page: 1, pageSize: 20, total: 0 })).toBeUndefined();
+  });
+
+  it('stops on an empty page even if total claims more (rows deleted meanwhile)', () => {
+    expect(nextOffsetPageOf({ items: [], page: 2, pageSize: 20, total: 50 })).toBeUndefined();
+  });
+
+  it('flattens pages in order', () => {
+    expect(
+      flattenOffsetPages([
+        { items: ['a'], page: 1, pageSize: 1, total: 2 },
+        { items: ['b'], page: 2, pageSize: 1, total: 2 },
+      ]),
+    ).toEqual(['a', 'b']);
+    expect(flattenOffsetPages(undefined)).toEqual([]);
   });
 });

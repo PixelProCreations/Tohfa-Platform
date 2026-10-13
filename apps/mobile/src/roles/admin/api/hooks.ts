@@ -5,6 +5,8 @@
  *  - useAdminQuery: a plain query with the caller's signal threaded through.
  *  - useCursorList: cursor-paged lists (docs/openapi.yaml `PageMeta`) with
  *    pull-to-refresh and load-more; the cursor is passed back verbatim.
+ *  - useOffsetList: the same for the older offset envelope (`OffsetPage`,
+ *    e.g. storage locations): `page` 1, 2, ... until `total` is reached.
  *  - useAdminMutation: a write that invalidates the given key prefixes on
  *    success only (a failed write changed nothing server-side).
  *  - useIdempotencyKey: the per-screen key for money-moving writes. Same body
@@ -19,7 +21,14 @@ import {
   useQueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
-import { flattenPages, nextCursorOf, type Page } from '../../../shell/api/pagination';
+import {
+  flattenOffsetPages,
+  flattenPages,
+  nextCursorOf,
+  nextOffsetPageOf,
+  type OffsetPage,
+  type Page,
+} from '../../../shell/api/pagination';
 import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
 
 export interface AdminQueryOptions {
@@ -52,6 +61,41 @@ export function useCursorList<T>(
   });
 
   const items = useMemo(() => flattenPages(query.data?.pages), [query.data]);
+  const { hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = query;
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const refresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  return {
+    ...query,
+    items,
+    hasMore: hasNextPage,
+    isLoadingMore: isFetchingNextPage,
+    isRefreshing: query.isRefetching && !isFetchingNextPage,
+    loadMore,
+    refresh,
+  };
+}
+
+export function useOffsetList<T>(
+  key: QueryKey,
+  fetchPage: (page: number, signal: AbortSignal) => Promise<OffsetPage<T>>,
+  options: AdminQueryOptions = {},
+) {
+  const query = useInfiniteQuery({
+    queryKey: key,
+    queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
+    initialPageParam: 1,
+    getNextPageParam: (last: OffsetPage<T>) => nextOffsetPageOf(last),
+    enabled: options.enabled ?? true,
+  });
+
+  const items = useMemo(() => flattenOffsetPages(query.data?.pages), [query.data]);
   const { hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = query;
 
   const loadMore = useCallback(() => {

@@ -59,3 +59,18 @@ export function flattenPages<T>(pages: readonly Page<T>[] | undefined): T[] {
   if (pages === undefined) return [];
   return pages.flatMap((p) => p.items);
 }
+
+/**
+ * The 1-based page after `page` of an `OffsetPage`, or `undefined` when every
+ * row has been fetched. An empty page also stops, so a `total` that went stale
+ * (rows removed between requests) cannot cause an endless load-more loop.
+ */
+export function nextOffsetPageOf<T>(page: OffsetPage<T>): number | undefined {
+  if (page.items.length === 0) return undefined;
+  return page.page * page.pageSize < page.total ? page.page + 1 : undefined;
+}
+
+export function flattenOffsetPages<T>(pages: readonly OffsetPage<T>[] | undefined): T[] {
+  if (pages === undefined) return [];
+  return pages.flatMap((p) => p.items);
+}

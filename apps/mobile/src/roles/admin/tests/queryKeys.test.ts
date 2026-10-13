@@ -26,4 +26,7 @@ describe('adminKeys', () => {
   it('keys work with no warehouse (HQ admins) without colliding with a warehouse id', () => {
     expect(adminKeys.scope(null)).toEqual(['admin', 'wh', '*']);
   });
+  it('the session key is outside every warehouse namespace (it is what decides the warehouse)', () => {
+    expect(adminKeys.session()).toEqual(['admin', 'session']);
+  });
 });

@@ -30,9 +30,47 @@ export const WAREHOUSE_FEATURES = {
       'there is no JSON response carrying the signed URL, RN fetch follows the 302 itself, ' +
       'and the app has no file-saving dependency, so mobile cannot consume it yet.',
   },
+  /** Profile entry + read-only view (GET /auth/me). */
+  profileView: { permission: 'auth.principal.view_own', endpoint: '/auth/me' },
+  /** Edit name/locale (PATCH /auth/me, BR-82). */
   adminProfile: { permission: 'auth.profile.edit_own', endpoint: '/auth/me' },
+  activeSessions: { permission: 'auth.principal.view_own', endpoint: '/auth/me/sessions' },
+  changePassword: {
+    permission: 'auth.password.change_own',
+    endpoint: '/auth/me/change-password',
+  },
+  terminateOwnSession: {
+    permission: 'auth.session.terminate_other',
+    endpoint: null,
+    specGap:
+      'No endpoint ends one of the caller’s OWN other sessions. /auth/sessions/{id}/terminate ' +
+      'is auth.session.terminate_other (Super Admin only, SUB_WH_ADMIN none) for ANOTHER ' +
+      'admin’s session; GET /auth/me/sessions returns no isCurrent flag (BR-67).',
+  },
+  notificationSettings: {
+    permission: 'notification.own.admin_preferences',
+    endpoint: '/notification-preferences/admin',
+  },
+  helpSupport: { permission: 'help.article.view', endpoint: '/admin/help' },
+  helpTickets: {
+    permission: 'help.article.view',
+    endpoint: null,
+    specGap: 'Admin support tickets are not built (docs/rules.md BR-82 rule 3); no endpoint.',
+  },
   warehouseProfile: { permission: 'warehouse.own.view', endpoint: '/warehouses/{id}' },
   warehouseProfileEdit: { permission: 'warehouse.profile.edit', endpoint: '/warehouses/{id}' },
+  warehouseCapacity: { permission: 'warehouse.own.view', endpoint: '/warehouses/{id}/capacity' },
+  storageLocations: {
+    permission: 'inventory.batch.view',
+    endpoint: '/warehouses/{id}/storage-locations',
+  },
+  warehousePerformance: {
+    permission: 'warehouse.all.view',
+    endpoint: null,
+    specGap:
+      'No warehouse performance/KPI endpoint exists; warehouse.all.view only backs the ' +
+      'GET /warehouses master list. SUB_WH_ADMIN holds none of warehouse.all.view either.',
+  },
   customerWallet: {
     permission: 'customer.wallet.view',
     endpoint: '/admin/customers/{customerId}/wallet',

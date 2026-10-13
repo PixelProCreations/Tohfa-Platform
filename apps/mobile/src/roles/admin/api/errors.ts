@@ -30,6 +30,7 @@ const CODE_KEYS = {
   STOCK_UNAVAILABLE: 'admin.errors.STOCK_UNAVAILABLE',
   DUAL_APPROVAL_REQUIRED: 'admin.errors.DUAL_APPROVAL_REQUIRED',
   SAME_ACTOR_APPROVAL: 'admin.errors.SAME_ACTOR_APPROVAL',
+  FIELD_LOCKED: 'admin.errors.FIELD_LOCKED',
 } as const satisfies Record<string, TranslationKey>;
 
 const GENERIC: TranslationKey = 'admin.errors.generic';

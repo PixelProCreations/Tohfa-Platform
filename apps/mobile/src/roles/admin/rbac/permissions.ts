@@ -27,6 +27,12 @@ export const ADMIN_PERMISSION_CODES = [
   'rma.refund.approve',
   'rma.refund.wallet_process',
   'rma.refund.bank_process',
+  'auth.password.change_own',
+  'auth.session.terminate_other',
+  'notification.own.admin_preferences',
+  'help.article.view',
+  'inventory.batch.view',
+  'warehouse.all.view',
 ] as const;
 
 export type AdminPermissionCode = (typeof ADMIN_PERMISSION_CODES)[number];
