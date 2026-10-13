@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Pressable,
   SafeAreaView,
@@ -1204,15 +1203,32 @@ export function SubWarehouseAdminDashboardScreen({
     setActiveTab('Receiving');
   };
   // Shipment the Home-tab receiving shortcuts open the wizard on.
-  const [selectedShipment, setSelectedShipment] = useState<IncomingShipment | undefined>(() =>
+  const [selectedShipment] = useState<IncomingShipment | undefined>(() =>
     findShipment(scope, 'GR-1024'),
   );
   const subShipments = useMemo(() => shipmentsInScope(scope), [scope]);
-  const awaitingQcCount = useMemo(() => subShipments.filter((s) => s.status === 'Awaiting QC').length, [subShipments]);
-  const completedShipmentsCount = useMemo(() => subShipments.filter((s) => s.status === 'Completed').length, [subShipments]);
-  const receivingKpiCount = useMemo(
-    () => subShipments.filter((s) => s.status === 'Expected' || s.status === 'Arrived' || s.status === 'Awaiting QC' || s.status === 'Receiving').length,
+  const isTodayShipment = (s: IncomingShipment) =>
+    (s.arrival?.includes('Today') ?? false) ||
+    (s.actualArrival?.includes('Today') ?? false) ||
+    s.dispatchStatus?.toLowerCase() === 'today' ||
+    (s.actualArrival?.includes('24 Sep') ?? false) ||
+    (s.dispatchDate?.includes('24 Sep 2026') ?? false) ||
+    (s.expectedArrival?.includes('24 Sep 2026') ?? false);
+  const todayShipments = useMemo(
+    () => subShipments.filter(isTodayShipment),
     [subShipments],
+  );
+  const awaitingQcCount = useMemo(
+    () => todayShipments.filter((s) => s.status === 'Awaiting QC').length,
+    [todayShipments],
+  );
+  const completedShipmentsCount = useMemo(
+    () => todayShipments.filter((s) => s.status === 'Completed').length,
+    [todayShipments],
+  );
+  const receivingKpiCount = useMemo(
+    () => todayShipments.length,
+    [todayShipments],
   );
   const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   // The open notifications module: NotificationsFlow (list, detail, approval
@@ -2304,9 +2320,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>{String(receivingKpiCount || 3).padStart(2, '0')}</Text>
+                  <Text style={styles.overviewNumber}>{String(receivingKpiCount).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{awaitingQcCount || 1} awaiting QC · {completedShipmentsCount || 2} completed</Text>
+                  <Text style={styles.overviewSub}>{awaitingQcCount} awaiting QC · {completedShipmentsCount} completed</Text>
                 </TouchableOpacity>
 
                 {/* 4. Low Stock Items */}
