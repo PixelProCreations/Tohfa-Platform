@@ -25,7 +25,9 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import { WarehouseSelector } from '../inventory';
 import type { InvoiceStatus, WarehouseScope } from './types';
 
@@ -300,6 +302,35 @@ export function StatusBadge({ status }: { status: InvoiceStatus | 'Completed' | 
   );
 }
 
+/** A live status badge: the label and tone come from the mappers (./mappers.ts). */
+export function ToneBadge({ label, tone }: { label: string; tone: AdminTone }) {
+  const colors = adminColors[tone];
+  return (
+    <View style={[styles.badge, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.badgeText, { color: colors.text }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** A failed action (e.g. the invoice download), worded for warehouse staff (adminErrorKey), never the server's detail. */
+export function ActionError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.actionError}>
+      <Text style={styles.actionErrorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
+/** "Load more" under a paged list. */
+export function LoadMoreButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.loadMore} onPress={onPress} activeOpacity={0.75} accessibilityRole="button">
+      <Text style={styles.loadMoreText}>{t('billing.loadMore')}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export function SearchBar({
   value,
   onChangeText,
@@ -505,6 +536,16 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
   },
   badgeText: { ...adminType.caption },
+
+  actionError: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+  },
+  actionErrorText: { ...adminType.rowMeta, color: adminColors.danger.text },
+  loadMore: { alignItems: 'center', paddingVertical: adminSpacing.md },
+  loadMoreText: { ...adminType.rowTitle, color: adminColors.brand },
 
   searchBar: {
     flexDirection: 'row',

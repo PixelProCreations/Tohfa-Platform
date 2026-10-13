@@ -163,6 +163,7 @@ import {
   type WarehouseScope,
   WarehouseScopeGate,
   isAreaAvailable,
+  billingRouteArea,
   inventoryRouteArea,
   storageRouteArea,
   type WarehouseArea,
@@ -805,6 +806,8 @@ function warehouseAreaForScreen(screen: ScreenName): WarehouseArea | undefined {
   if (screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer') return 'interWarehouseTransfers';
   if (STAFF_ROUTE_ENTRY[screen] !== undefined) return 'staff';
   if (PROFILE_ROUTE_ENTRY[screen] === 'Documents') return 'warehouseDocuments';
+  const billing = BILLING_ROUTE_ENTRY[screen];
+  if (billing !== undefined) return billingRouteArea(billing);
   const inventory = INVENTORY_ROUTE_ENTRY[screen];
   if (inventory !== undefined) return inventoryRouteArea(inventory);
   const storage = STORAGE_ROUTE_ENTRY[screen];
