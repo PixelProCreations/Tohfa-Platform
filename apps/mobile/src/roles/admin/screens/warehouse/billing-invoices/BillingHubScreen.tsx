@@ -291,7 +291,7 @@ export function BillingHubScreen({
           onSelectWarehouse={setSelectedWarehouseId}
         />
       }
-      footer={onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
+      footer={!isAllWarehouses(scope) && onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
@@ -330,7 +330,7 @@ export function BillingHubScreen({
               <Text style={styles.requiredOrderId}>{required.orderNumber}</Text>
               <Text style={styles.requiredCustomer}>{required.customerName}</Text>
               <Text style={styles.requiredAmount}>{required.amount}</Text>
-              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice(required)} />
+              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice()} />
             </View>
           </>
         ) : null}

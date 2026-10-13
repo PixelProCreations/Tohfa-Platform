@@ -69,6 +69,26 @@ export const SAMPLE_REVENUE_RECORDS: readonly RevenueRecord[] = [
     status: 'Completed',
     ...warehouse('WH-KOTA'),
   },
+  {
+    id: 'REV-000824',
+    orderRef: 'Market Sale · Gudalur Mandi Counter',
+    category: 'Direct Sales',
+    amount: 3200,
+    paymentMethod: 'Cash',
+    timestamp: '24 Sep 2026 · 11:45 AM',
+    status: 'Completed',
+    ...warehouse('WH-GUDA'),
+  },
+  {
+    id: 'REV-000819',
+    orderRef: 'Customer Order · ORD-10260',
+    category: 'Orders',
+    amount: 6600,
+    paymentMethod: 'UPI',
+    timestamp: '23 Sep 2026 · 3:20 PM',
+    status: 'Completed',
+    ...warehouse('WH-OOTY'),
+  },
 ];
 
 export const SAMPLE_VOUCHERS: readonly VoucherRecord[] = [

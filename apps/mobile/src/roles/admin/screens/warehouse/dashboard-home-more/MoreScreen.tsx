@@ -26,6 +26,8 @@ import { FinanceFlow } from '../finance-expenses/FinanceFlow';
 import { ProfileFlow } from '../profile-settings';
 import { StorageFlow } from '../storage-ops';
 import { CustomersFlow } from '../customers';
+import { StaffFlow } from '../staff-attendance';
+import { WarehouseAdminFlow } from '../warehouse-admin';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
@@ -33,13 +35,10 @@ import type { MoreOptionItem, OptionGroup } from './types';
 // Menu items whose visibility depends on a docs/rbac.json permission. Items not
 // listed here are shown to every warehouse admin. The server re-checks each of
 // these when the destination screen loads its data.
-// `staff` opens the driver / warehouse-staff roster, not the admin-account list,
-// so it is gated by warehouse.staff.list_view (Main and Sub both hold it, owner
-// decision 2026-10-09) rather than admin.staff.list_view.
 const ITEM_PERMISSION: Readonly<Record<string, string>> = {
-  staff: 'warehouse.staff.list_view',
   finance: 'finance.dashboard.view',
   reports: 'report.export.file',
+  warehouse_management: 'warehouse.all.view',
 };
 
 const OPTION_GROUPS: OptionGroup[] = [
@@ -112,6 +111,12 @@ const OPTION_GROUPS: OptionGroup[] = [
         title: 'Warehouse Staff',
         subtitle: 'View warehouse staff and attendance',
         iconType: 'staff',
+      },
+      {
+        id: 'warehouse_management',
+        title: 'Warehouse Management',
+        subtitle: 'Manage warehouses and administrators',
+        iconType: 'warehouse_management',
       },
       {
         id: 'warehouse_operations',
@@ -515,6 +520,7 @@ export interface MoreScreenProps extends WarehouseScreenBaseProps {
   onNavigateToReports?: (() => void) | undefined;
   onNavigateToStaff?: (() => void) | undefined;
   onNavigateToAttendance?: (() => void) | undefined;
+  onNavigateToWarehouseManagement?: (() => void) | undefined;
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
@@ -547,6 +553,7 @@ export function MoreScreen({
   onNavigateToReports,
   onNavigateToStaff,
   onNavigateToAttendance,
+  onNavigateToWarehouseManagement,
   onNavigateToSettings,
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
@@ -561,9 +568,13 @@ export function MoreScreen({
   const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
 
   // Hide gated rows and any group left empty. Display only: the server enforces.
+  // Warehouse Management tab and its screens are only for main warehouse, not for subwarehouse.
   const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      if (item.id === 'warehouse_management' && !isMain) {
+        return false;
+      }
       const code = ITEM_PERMISSION[item.id];
       return code === undefined || can(code);
     }),
@@ -577,6 +588,8 @@ export function MoreScreen({
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
   const [showCustomersScreen, setShowCustomersScreen] = useState(false);
+  const [showStaffScreen, setShowStaffScreen] = useState(false);
+  const [showWarehouseManagementScreen, setShowWarehouseManagementScreen] = useState(false);
 
   const handleBackToDashboard = () => {
     if (onNavigateToDashboard) {
@@ -657,7 +670,12 @@ export function MoreScreen({
         break;
       case 'staff':
         if (onNavigateToStaff) onNavigateToStaff();
-        else Alert.alert(item.title, 'Opening Warehouse Staff...');
+        else setShowStaffScreen(true);
+        break;
+      case 'warehouse_management':
+        if (!isMain) break;
+        if (onNavigateToWarehouseManagement) onNavigateToWarehouseManagement();
+        else setShowWarehouseManagementScreen(true);
         break;
       case 'attendance':
       case 'today_attendance':
@@ -744,6 +762,8 @@ export function MoreScreen({
         return <HelpSupportIcon color={adminColors.muted} size={20} />;
       case 'warehouse_operations':
         return <WarehouseOperationsIcon color={adminColors.muted} />;
+      case 'warehouse_management':
+        return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
       default:
         return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
     }
@@ -867,6 +887,32 @@ export function MoreScreen({
     );
   }
 
+  if (showStaffScreen) {
+    return (
+      <StaffFlow
+        scope={scope}
+        can={can}
+        initialScreen="Staff"
+        onBack={() => setShowStaffScreen(false)}
+        onTabChange={handleTabPress}
+      />
+    );
+  }
+
+  if (showWarehouseManagementScreen && isMain) {
+    return (
+      <WarehouseAdminFlow
+        scope={scope}
+        can={can}
+        initialScreen="WarehouseOverview"
+        onBack={() => setShowWarehouseManagementScreen(false)}
+        onNavigateComparison={() => {
+          setShowWarehouseManagementScreen(false);
+        }}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -896,7 +942,7 @@ export function MoreScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* â”€â”€â”€ Profile Card â”€â”€â”€ */}
+        {/* Profile Card */}
         {(() => {
           const profileContent = (
             <>
@@ -905,15 +951,26 @@ export function MoreScreen({
                   <WarehouseOutlineIcon color={adminColors.muted} size={22} />
                 </View>
                 <View style={styles.profileInfoCol}>
-                  <Text style={styles.profileRoleTitle}>{roleTitle}</Text>
-                  <Text style={styles.profileLocationText}>{warehouseLabel}</Text>
+                  {isMain ? (
+                    <>
+                      <Text style={styles.profileRoleTitle}>Rajesh Kumar</Text>
+                      <Text style={styles.profileSubRoleText}>Main Warehouse Admin</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.profileRoleTitle}>Suresh</Text>
+                      <Text style={styles.profileSubRoleText}>Sub Warehouse Admin</Text>
+                    </>
+                  )}
                 </View>
               </View>
 
               <View style={styles.profileDivider} />
 
               <View style={styles.profileBottomRow}>
-                {!isMain && <Text style={styles.warehouseCodeText}>{scope.warehouseId}</Text>}
+                <Text style={styles.warehouseCodeText}>
+                  {isMain ? 'All Warehouses' : scope.warehouseId}
+                </Text>
                 <View style={styles.activeStatusRow}>
                   <View style={styles.activeDot} />
                   <Text style={styles.activeStatusText}>Active</Text>
@@ -921,13 +978,7 @@ export function MoreScreen({
               </View>
             </>
           );
-          return onProfileCardPress ? (
-            <TouchableOpacity style={styles.profileCard} onPress={onProfileCardPress} activeOpacity={0.75}>
-              {profileContent}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.profileCard}>{profileContent}</View>
-          );
+          return <View style={styles.profileCard}>{profileContent}</View>;
         })()}
 
         {/* â”€â”€â”€ Grouped Section Cards â”€â”€â”€ */}
@@ -1109,6 +1160,11 @@ const styles = StyleSheet.create({
   profileRoleTitle: {
     ...adminType.title,
     color: adminColors.ink,
+  },
+  profileSubRoleText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginTop: 2,
   },
   profileLocationText: {
     ...adminType.body,

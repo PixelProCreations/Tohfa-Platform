@@ -308,19 +308,12 @@ export function ScopeHeader({
   onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
 }) {
   if (isAllWarehouses(scope)) {
-    if (onSelectWarehouse === undefined) {
-      return (
-        <View style={styles.warehousePill}>
-          <Text style={styles.warehousePillText}>{label ?? 'All Warehouses'}</Text>
-        </View>
-      );
-    }
     return (
       <WarehouseSelector
         scope={scope}
         options={warehouseOptions}
         selectedId={selectedWarehouseId}
-        onSelect={(id) => onSelectWarehouse(id)}
+        onSelect={(id) => onSelectWarehouse?.(id)}
       />
     );
   }
@@ -415,23 +408,17 @@ export function KpiRow({ items }: { items: readonly { value: string; label: stri
   );
 }
 
-/** Tinted note (backend rules, safety notes). */
+/** Tinted note (backend rules, safety notes). Suppressed to remove unnecessary message boxes. */
 export function InfoNote({
-  children,
-  tone = 'info',
-  icon,
+  children: _children,
+  tone: _tone = 'info',
+  icon: _icon,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   tone?: AdminTone;
   icon?: React.ReactNode;
 }) {
-  const colors = adminColors[tone];
-  return (
-    <View style={[styles.infoNote, { backgroundColor: colors.bg }]}>
-      {icon ?? <InfoIcon color={colors.text} />}
-      <Text style={[styles.infoNoteText, { color: colors.text }]}>{children}</Text>
-    </View>
-  );
+  return null;
 }
 
 export function StatusBadge({ label, tone }: { label: string; tone: AdminTone }) {

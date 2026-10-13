@@ -54,7 +54,12 @@ export function WarehouseChips({
     ...options.map((w) => ({ id: w.warehouseId, label: w.warehouseName ?? w.warehouseId ?? '' })),
   ];
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.row}
+    >
       {chips.map((c) => {
         const active = c.id === selected;
         return (
@@ -73,28 +78,37 @@ export function WarehouseChips({
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,
+    marginBottom: adminSpacing.md,
+  },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: adminSpacing.sm,
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: 2,
   },
   chip: {
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs + 2,
+    paddingVertical: adminSpacing.sm,
     borderRadius: adminRadius.full,
     borderWidth: 1,
     borderColor: adminColors.border,
     backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipActive: {
     backgroundColor: adminColors.brandSoft.bg,
     borderColor: adminColors.brandSoft.border,
   },
   chipText: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
   },
   chipTextActive: {
     ...adminType.caption,
     color: adminColors.brandSoft.text,
+    fontWeight: '700',
   },
 });

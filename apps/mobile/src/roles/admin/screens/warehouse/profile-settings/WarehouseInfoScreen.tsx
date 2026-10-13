@@ -136,7 +136,7 @@ export function WarehouseInfoScreen({
               ],
               [
                 { label: 'Region', value: profile.region },
-                { label: 'Assigned Admin', value: profile.assignedAdmin },
+                { label: 'Assigned SWA', value: profile.assignedAdmin },
               ],
             ]}
           />

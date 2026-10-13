@@ -207,12 +207,6 @@ function VerifyStep({
         </View>
 
         <Text style={styles.sectionTitle}>Customer Verification</Text>
-        <View style={styles.infoBox}>
-          <InfoCircleIcon />
-          <Text style={styles.infoText}>
-            Ask the customer to confirm the Order ID and their name before continuing to OTP.
-          </Text>
-        </View>
 
         <View style={[styles.card, styles.cardAfterInfo]}>
           <View style={styles.twoColRow}>
@@ -266,12 +260,7 @@ function OtpStep({ orderId, onBack, onConfirm }: StepProps & { onConfirm: (() =>
           </View>
         )}
 
-        <View style={styles.infoBox}>
-          <InfoCircleIcon />
-          <Text style={styles.infoText}>
-            No retry limit is enforced here — the source doesn't define one, so none is invented.
-          </Text>
-        </View>
+
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

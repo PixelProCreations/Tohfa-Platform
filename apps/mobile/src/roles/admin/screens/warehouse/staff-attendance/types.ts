@@ -104,4 +104,5 @@ export interface StaffRouteParams {
   record?: AttendanceRecord | undefined;
   /** Attendance opened on a filter chip (the old Today's Attendance key opens 'All'). */
   attendanceFilter?: AttendanceFilter | undefined;
+  warehouseId?: string | undefined;
 }

@@ -130,13 +130,9 @@ export function PermissionNote({ message }: { message: string }) {
   );
 }
 
-/** Orange-tint notice box (business-rule reminders absorbed from the standalone screens). */
-export function NoticeBox({ text }: { text: string }) {
-  return (
-    <View style={partStyles.noticeBox}>
-      <Text style={partStyles.noticeText}>{text}</Text>
-    </View>
-  );
+/** Orange-tint notice box (business-rule reminders absorbed from the standalone screens). Suppressed. */
+export function NoticeBox({ text: _text }: { text: string }) {
+  return null;
 }
 
 /** Icon of a QC criterion. */

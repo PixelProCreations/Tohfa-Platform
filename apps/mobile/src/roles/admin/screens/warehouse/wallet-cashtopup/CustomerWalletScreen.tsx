@@ -135,13 +135,7 @@ export function CustomerWalletScreen({
           )}
         </Card>
 
-        <View style={styles.notice}>
-          <LockIcon size={16} color={adminColors.brandDeep} />
-          <Text style={styles.noticeText}>
-            No Edit Balance / Set Balance / Manual Credit action exists on this screen. Cash top-up happens through the
-            authorized transaction flow; wallet credit only happens server-side.
-          </Text>
-        </View>
+
       </ScrollView>
     </WalletScreen>
   );

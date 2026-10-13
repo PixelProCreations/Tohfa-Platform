@@ -21,7 +21,7 @@ export const PERMISSION_RETRY_BACKOFF_MS: readonly number[] = [1000, 2000, 4000]
 /** Delay between attempts once the backoff is used up, for as long as the shell is mounted. */
 export const PERMISSION_RETRY_STEADY_MS = 10_000;
 /** Light poll while no token exists yet (the demo login is still in flight). */
-export const PERMISSION_TOKEN_POLL_MS = 1000;
+export const PERMISSION_TOKEN_POLL_MS = 200;
 /** The initial attempt plus one per backoff step. */
 export const PERMISSION_ATTEMPTS_BEFORE_FALLBACK = PERMISSION_RETRY_BACKOFF_MS.length + 1;
 

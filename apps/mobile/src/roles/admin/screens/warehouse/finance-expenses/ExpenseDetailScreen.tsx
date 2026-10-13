@@ -362,14 +362,16 @@ export function ExpenseDetailScreen({
                 </View>
 
                 {/* Explanatory only: no approve code exists in rbac.json, so there is no control. */}
-                <View style={styles.lockNoticeCard}>
-                  <View style={styles.lockIconBox}>
-                    <LockIcon size={14} color={adminColors.muted} />
+                {!isMain && (
+                  <View style={styles.lockNoticeCard}>
+                    <View style={styles.lockIconBox}>
+                      <LockIcon size={14} color={adminColors.muted} />
+                    </View>
+                    <Text style={styles.lockNoticeText}>
+                      Approve/Reject is not available on this screen — the role matrix marks "Approve expense claims" as not granted.
+                    </Text>
                   </View>
-                  <Text style={styles.lockNoticeText}>
-                    Approve/Reject is not available on this screen — the role matrix marks "Approve expense claims" as not granted.
-                  </Text>
-                </View>
+                )}
               </View>
             </View>
 

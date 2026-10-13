@@ -29,7 +29,7 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
-import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScreenBaseProps } from './types';
+import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
 
@@ -37,7 +37,21 @@ const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
 const FILTER_ALL = 'All';
 // Category chips offered by the filter view (ported from the Main filter screen).
-const FILTER_CATEGORIES = [FILTER_ALL, 'Transport', 'Loading'] as const;
+const FILTER_CATEGORIES = [
+  FILTER_ALL,
+  'Transport',
+  'Loading',
+  'Warehouse Operations',
+  'Utilities',
+  'Maintenance',
+] as const;
+
+export const DEFAULT_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
+  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
+  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
+  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
+];
 
 const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
   {
@@ -46,6 +60,8 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     amount: 2400,
     timestamp: '25 Sep - 09:30 AM',
     status: 'Recorded',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'EXP-001244',
@@ -53,6 +69,8 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     amount: 1800,
     timestamp: '25 Sep - 08:15 AM',
     status: 'Pending',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Ooty Warehouse',
   },
   {
     id: 'EXP-001241',
@@ -60,6 +78,8 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     amount: 1200,
     timestamp: '24 Sep - 05:45 PM',
     status: 'Approved',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'EXP-001238',
@@ -67,6 +87,8 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     amount: 620,
     timestamp: '24 Sep - 02:30 PM',
     status: 'Recorded',
+    warehouseId: 'WH-KOTA',
+    warehouseName: 'Kotagiri Warehouse',
   },
   {
     id: 'EXP-001235',
@@ -74,6 +96,35 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     amount: 400,
     timestamp: '24 Sep - 11:00 AM',
     status: 'Recorded',
+    warehouseId: 'WH-GUDA',
+    warehouseName: 'Gudalur Market Warehouse',
+  },
+  {
+    id: 'EXP-001230',
+    categoryRef: 'Transport · Inter-warehouse shuttle transfer',
+    amount: 3200,
+    timestamp: '23 Sep - 04:30 PM',
+    status: 'Recorded',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Ooty Warehouse',
+  },
+  {
+    id: 'EXP-001228',
+    categoryRef: 'Loading / Unloading · Evening shift crates',
+    amount: 1450,
+    timestamp: '23 Sep - 06:15 PM',
+    status: 'Approved',
+    warehouseId: 'WH-KOTA',
+    warehouseName: 'Kotagiri Warehouse',
+  },
+  {
+    id: 'EXP-001225',
+    categoryRef: 'Utilities · Cold Storage Electricity Bill',
+    amount: 5100,
+    timestamp: '22 Sep - 10:00 AM',
+    status: 'Recorded',
+    warehouseId: 'WH-GUDA',
+    warehouseName: 'Gudalur Market Warehouse',
   },
 ];
 
@@ -81,6 +132,9 @@ export interface WarehouseExpensesScreenProps extends WarehouseScreenBaseProps {
   onAddExpense?: (() => void) | undefined;
   /** Passed through to ExpenseDetailScreen's compact layout (ported from the Main copy). */
   isShortVersion?: boolean | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
+  initialWarehouseId?: string | undefined;
+  hideWarehouseFilter?: boolean | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -148,22 +202,36 @@ function FilterSlidersIcon({ size = 18, color = adminColors.muted }: { size?: nu
 // ─── Absorbed filter view (was MainWarehouseExpensesFilterScreen) ────────────
 
 interface ExpenseCategoryFilterViewProps {
-  selected: string;
+  selectedCategory: string;
+  selectedWarehouseId?: string | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
+  isMain: boolean;
+  hideWarehouseFilter?: boolean | undefined;
   canLogExpense: boolean;
   onBack: () => void;
-  onApply: (category: string) => void;
+  onApply: (category: string, warehouseId?: string | undefined) => void;
   onAddExpense: () => void;
 }
 
-/** Category chooser. Local to this file: nothing else filters expenses by category. */
+/** Category & Warehouse chooser. */
 function ExpenseCategoryFilterView({
-  selected,
+  selectedCategory,
+  selectedWarehouseId,
+  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  isMain,
+  hideWarehouseFilter = false,
   canLogExpense,
   onBack,
   onApply,
   onAddExpense,
 }: ExpenseCategoryFilterViewProps) {
-  const [draft, setDraft] = useState(selected);
+  const [draftCategory, setDraftCategory] = useState(selectedCategory);
+  const [draftWarehouse, setDraftWarehouse] = useState<string | undefined>(selectedWarehouseId);
+
+  const handleReset = () => {
+    setDraftCategory(FILTER_ALL);
+    setDraftWarehouse(undefined);
+  };
 
   return (
     <SafeAreaView style={styles.filterRoot}>
@@ -179,7 +247,7 @@ function ExpenseCategoryFilterView({
           >
             <ArrowBackIcon size={22} />
           </TouchableOpacity>
-          <Text style={styles.filterHeaderTitle}>Expenses</Text>
+          <Text style={styles.filterHeaderTitle}>Filter Expenses</Text>
           {canLogExpense ? (
             <TouchableOpacity style={styles.addButton} onPress={onAddExpense} activeOpacity={0.75}>
               <PlusIcon size={18} />
@@ -188,28 +256,75 @@ function ExpenseCategoryFilterView({
         </View>
       </View>
 
-      <View style={styles.filterContent}>
-        <Text style={styles.sectionHeading}>Category</Text>
-        <View style={styles.chipsRow}>
-          {FILTER_CATEGORIES.map((cat) => {
-            const isSelected = draft === cat;
-            return (
+      <ScrollView style={styles.filterContentScroll} contentContainerStyle={styles.filterContent}>
+        {/* Warehouse Selection (Main Warehouse only when not fixed from hub) */}
+        {isMain && !hideWarehouseFilter ? (
+          <View style={styles.filterSection}>
+            <Text style={styles.sectionHeading}>Warehouses</Text>
+            <View style={styles.chipsRow}>
               <TouchableOpacity
-                key={cat}
-                style={[styles.chip, isSelected && styles.chipSelected]}
-                onPress={() => setDraft(cat)}
+                style={[styles.chip, (!draftWarehouse || draftWarehouse === 'All') && styles.chipSelected]}
+                onPress={() => setDraftWarehouse(undefined)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{cat}</Text>
+                <Text style={[styles.chipText, (!draftWarehouse || draftWarehouse === 'All') && styles.chipTextSelected]}>
+                  All Warehouses
+                </Text>
               </TouchableOpacity>
-            );
-          })}
+              {warehouseOptions.map((w) => {
+                const id = w.warehouseId;
+                const name = w.warehouseName ?? w.warehouseId ?? '';
+                const isSelected = draftWarehouse === id || draftWarehouse === name;
+                return (
+                  <TouchableOpacity
+                    key={id ?? name}
+                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    onPress={() => setDraftWarehouse(id ?? name)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                      {name.replace(/ Warehouse$/, '')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Category Selection */}
+        <View style={styles.filterSection}>
+          <Text style={styles.sectionHeading}>Category</Text>
+          <View style={styles.chipsRow}>
+            {FILTER_CATEGORIES.map((cat) => {
+              const isSelected = draftCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.chip, isSelected && styles.chipSelected]}
+                  onPress={() => setDraftCategory(cat)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{cat}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.applyButton} onPress={() => onApply(draft)} activeOpacity={0.8}>
-          <Text style={styles.applyButtonText}>Apply</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.filterButtonsRow}>
+          <TouchableOpacity style={styles.resetButton} onPress={handleReset} activeOpacity={0.8}>
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={() => onApply(draftCategory, draftWarehouse)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.applyButtonText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -223,9 +338,13 @@ export function WarehouseExpensesScreen({
   onTabChange,
   onAddExpense,
   isShortVersion,
+  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  initialWarehouseId,
+  hideWarehouseFilter = false,
 }: WarehouseExpensesScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const [showAddExpenseScreen, setShowAddExpenseScreen] = useState(false);
   const [showCategoriesScreen, setShowCategoriesScreen] = useState(false);
   const [showFilterScreen, setShowFilterScreen] = useState(false);
@@ -240,6 +359,10 @@ export function WarehouseExpensesScreen({
     ? ALL_WAREHOUSES_LABEL
     : (scope.warehouseName ?? ALL_WAREHOUSES_LABEL);
 
+  const selectedWhOption = warehouseOptions.find(
+    (w) => w.warehouseId === selectedWarehouseId || w.warehouseName === selectedWarehouseId
+  );
+
   const handleAddNewExpense = () => {
     if (!canLogExpense) return;
     if (onAddExpense) {
@@ -252,6 +375,20 @@ export function WarehouseExpensesScreen({
 
   const filteredRecords = canLogExpense
     ? SAMPLE_EXPENSE_RECORDS.filter((rec) => {
+        // Warehouse filter
+        if (isAllWarehouses) {
+          if (selectedWarehouseId && selectedWarehouseId !== 'All') {
+            if (rec.warehouseId !== selectedWarehouseId && rec.warehouseName !== selectedWarehouseId) {
+              return false;
+            }
+          }
+        } else {
+          // Subwarehouse: lock to scope if warehouseId is set
+          if (scope.warehouseId && rec.warehouseId && rec.warehouseId !== scope.warehouseId) {
+            return false;
+          }
+        }
+
         const query = searchQuery.trim().toLowerCase();
         const matchesCategory =
           categoryFilter === FILTER_ALL ||
@@ -260,7 +397,8 @@ export function WarehouseExpensesScreen({
           !query ||
           rec.id.toLowerCase().includes(query) ||
           rec.categoryRef.toLowerCase().includes(query) ||
-          rec.status.toLowerCase().includes(query);
+          rec.status.toLowerCase().includes(query) ||
+          (rec.warehouseName && rec.warehouseName.toLowerCase().includes(query));
         return matchesCategory && matchesQuery;
       })
     : [];
@@ -279,11 +417,16 @@ export function WarehouseExpensesScreen({
   if (showFilterScreen) {
     return (
       <ExpenseCategoryFilterView
-        selected={categoryFilter}
+        selectedCategory={categoryFilter}
+        selectedWarehouseId={selectedWarehouseId}
+        warehouseOptions={warehouseOptions}
+        isMain={isAllWarehouses}
+        hideWarehouseFilter={hideWarehouseFilter}
         canLogExpense={canLogExpense}
         onBack={() => setShowFilterScreen(false)}
-        onApply={(cat) => {
+        onApply={(cat, whId) => {
           setCategoryFilter(cat);
+          setSelectedWarehouseId(whId);
           setShowFilterScreen(false);
         }}
         onAddExpense={handleAddNewExpense}
@@ -327,7 +470,7 @@ export function WarehouseExpensesScreen({
         description="Transport from collection point to warehouse"
         paymentMethod="Cash"
         vendorPayee="Local Transport Co."
-        warehouse={warehouseLabel}
+        warehouse={isAllWarehouses ? (selectedExpense.warehouseName ?? warehouseLabel) : warehouseLabel}
         createdBy="Warehouse Admin"
         status={selectedExpense.status}
         isShortVersion={isShortVersion}
@@ -350,7 +493,7 @@ export function WarehouseExpensesScreen({
         description="Transport from collection point to warehouse"
         paymentMethod="Cash"
         vendorPayee="Local Transport Co."
-        warehouse={warehouseLabel}
+        warehouse={isAllWarehouses ? (selectedExpense.warehouseName ?? warehouseLabel) : warehouseLabel}
         createdBy="Warehouse Admin"
         status={selectedExpense.status}
         isShortVersion={isShortVersion}
@@ -387,6 +530,8 @@ export function WarehouseExpensesScreen({
             amount: 2400,
             timestamp: '25 Sep - 09:30 AM',
             status: 'Recorded',
+            warehouseId: 'WH-COON',
+            warehouseName: 'Coonoor Warehouse',
           });
         }}
         initialExpense={initialExpense}
@@ -394,13 +539,18 @@ export function WarehouseExpensesScreen({
     );
   }
 
-  // Main view shows portfolio-wide totals; a single warehouse shows its day/month view.
+  const totalFilteredAmount = filteredRecords.reduce((sum, r) => sum + r.amount, 0);
+  const pendingCount = filteredRecords.filter((r) => r.status === 'Pending').length;
+  const avgExpense = filteredRecords.length > 0 ? Math.round(totalFilteredAmount / filteredRecords.length) : 0;
+  const isSpecificWarehouseFilter = isAllWarehouses && selectedWarehouseId && selectedWarehouseId !== 'All';
+
+  // Main view shows portfolio-wide totals when All Warehouses is chosen; single warehouse shows filtered view.
   const kpis = isAllWarehouses
     ? [
-        { label: 'TOTAL EXPENSES', value: '₹1,48,600' },
-        { label: 'TRANSACTIONS', value: '82' },
-        { label: 'AVERAGE', value: '₹1,812' },
-        { label: 'PENDING', value: '8' },
+        { label: 'TOTAL EXPENSES', value: isSpecificWarehouseFilter ? `₹${totalFilteredAmount.toLocaleString()}` : '₹1,48,600' },
+        { label: 'TRANSACTIONS', value: isSpecificWarehouseFilter ? `${filteredRecords.length}` : '82' },
+        { label: 'AVERAGE', value: isSpecificWarehouseFilter ? `₹${avgExpense.toLocaleString()}` : '₹1,812' },
+        { label: 'PENDING', value: isSpecificWarehouseFilter ? `${pendingCount}` : '8' },
       ]
     : [
         { label: "TODAY'S EXPENSES", value: '₹6,420' },
@@ -423,6 +573,10 @@ export function WarehouseExpensesScreen({
     if (status === 'Rejected') return adminColors.danger;
     return adminColors.success; // Recorded, Approved
   };
+
+  const hasActiveFilters =
+    categoryFilter !== FILTER_ALL ||
+    (isAllWarehouses && selectedWarehouseId !== undefined && selectedWarehouseId !== 'All');
 
   return (
     <SafeAreaView style={styles.root}>
@@ -450,12 +604,15 @@ export function WarehouseExpensesScreen({
           ) : null}
         </View>
 
-        <View style={styles.warehousePillRow}>
-          <View style={styles.warehousePill}>
-            <LockIcon size={11} />
-            <Text style={styles.warehousePillText}>{warehouseLabel}</Text>
+        {/* Removed All Warehouses button for Main Warehouse; kept only for Sub Warehouse */}
+        {!isAllWarehouses && (
+          <View style={styles.warehousePillRow}>
+            <View style={styles.warehousePill}>
+              <LockIcon size={11} />
+              <Text style={styles.warehousePillText}>{warehouseLabel}</Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {/* ─── Main Content Scroll ─── */}
@@ -519,12 +676,34 @@ export function WarehouseExpensesScreen({
             clearButtonMode="while-editing"
           />
           <TouchableOpacity onPress={() => setShowFilterScreen(true)} activeOpacity={0.7}>
-            <FilterSlidersIcon size={18} />
+            <FilterSlidersIcon size={18} color={hasActiveFilters ? adminColors.brand : adminColors.muted} />
           </TouchableOpacity>
         </View>
 
-        {categoryFilter !== FILTER_ALL ? (
-          <Text style={styles.activeFilterText}>Category: {categoryFilter}</Text>
+        {hasActiveFilters ? (
+          <View style={styles.activeFilterRow}>
+            <Text style={styles.activeFilterText}>
+              {[
+                isSpecificWarehouseFilter
+                  ? `Warehouse: ${selectedWhOption?.warehouseName?.replace(/ Warehouse$/, '') ?? selectedWarehouseId}`
+                  : null,
+                categoryFilter !== FILTER_ALL ? `Category: ${categoryFilter}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setCategoryFilter(FILTER_ALL);
+                if (!hideWarehouseFilter) {
+                  setSelectedWarehouseId(undefined);
+                }
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.clearFilterText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
         ) : null}
 
         {/* ─── Expense Records List (the expense log) ─── */}
@@ -551,7 +730,9 @@ export function WarehouseExpensesScreen({
                   </View>
                   <View style={styles.cardDivider} />
                   <View style={styles.recordFooterRow}>
-                    <Text style={styles.recordTimestamp}>{item.timestamp}</Text>
+                    <Text style={styles.recordTimestamp}>
+                      {item.timestamp}{isAllWarehouses ? ` · ${item.warehouseName ?? 'Coonoor Warehouse'}` : ''}
+                    </Text>
                     <Text style={styles.recordAmount}>-₹{item.amount.toLocaleString()}</Text>
                   </View>
                 </TouchableOpacity>
@@ -905,7 +1086,46 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     color: adminColors.brandDeep,
   },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+    paddingHorizontal: 2,
+  },
+  clearFilterText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  filterContentScroll: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  filterSection: {
+    marginBottom: adminSpacing.lg,
+  },
+  filterButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
+  },
+  resetButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetButtonText: {
+    ...adminType.rowTitle,
+    color: adminColors.muted,
+  },
   applyButton: {
+    flex: 2,
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
     paddingVertical: 14,

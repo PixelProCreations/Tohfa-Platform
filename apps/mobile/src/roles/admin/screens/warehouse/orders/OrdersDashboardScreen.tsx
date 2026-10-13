@@ -13,11 +13,12 @@
  * `order.warehouse.assign` currently has nothing to hide. Every other tile is
  * navigation and stays ungated, as it was in the design.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { WarehouseSelector } from '../inventory';
 import type { OrderScreenBaseProps } from './types';
 
 interface WarehouseOption {
@@ -28,6 +29,7 @@ interface WarehouseOption {
 export interface OrdersDashboardScreenProps extends OrderScreenBaseProps {
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
   warehouses?: WarehouseOption[] | undefined;
+  routeParams?: Record<string, any> | undefined;
 }
 
 /**
@@ -44,6 +46,73 @@ const DEFAULT_WAREHOUSES: WarehouseOption[] = [
 const WAREHOUSE_SUMMARY = [
   { id: 'WH-COON', name: 'Coonoor', orders: 16 },
   { id: 'WH-OOTY', name: 'Ooty', orders: 12 },
+];
+
+interface RecentOrderItem {
+  id: string;
+  warehouseId: string;
+  warehouseName: string;
+  customer: string;
+  status: string;
+  items: string;
+  amount: string;
+}
+
+const RECENT_ORDERS_BY_WH: RecentOrderItem[] = [
+  {
+    id: 'ORD-1024',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor',
+    customer: 'Arun Kumar',
+    status: 'Confirmed',
+    items: '4 items',
+    amount: '₹850',
+  },
+  {
+    id: 'ORD-1021',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor',
+    customer: 'Divya R.',
+    status: 'Confirmed',
+    items: '4 items',
+    amount: '₹960',
+  },
+  {
+    id: 'ORD-1019',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor',
+    customer: 'Kavitha M.',
+    status: 'Packing',
+    items: '3 items',
+    amount: '₹720',
+  },
+  {
+    id: 'ORD-1022',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Ooty',
+    customer: 'Ganesh K.',
+    status: 'Packing',
+    items: '2 items',
+    amount: '₹420',
+  },
+  {
+    id: 'ORD-1018',
+    warehouseId: 'WH-KOTA',
+    warehouseName: 'Kotagiri',
+    customer: 'Meena S.',
+    status: 'Quantity Issue',
+    items: '2 items',
+    amount: '₹310',
+  },
+  {
+    id: 'ORD-1016',
+    warehouseId: 'WH-GUDA',
+    warehouseName: 'Gudalur',
+    customer: 'Ravi P.',
+    status: 'Confirmed',
+    items: '3 items',
+    amount: '₹640',
+  },
 ];
 
 
@@ -73,11 +142,13 @@ function GridMenuIcon() {
   );
 }
 
-function ChevronDownSmallIcon() {
+function ChevronDownSmallIcon({ color = adminColors.brandDeep, rotated = false }: { color?: string | undefined; rotated?: boolean | undefined }) {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={rotated ? { transform: [{ rotate: '180deg' }] } : undefined}>
+      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+        <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </View>
   );
 }
 
@@ -292,22 +363,36 @@ export function OrdersDashboardScreen({
   onBack,
   onNavigate,
   onTabChange,
+  routeParams,
   warehouses = DEFAULT_WAREHOUSES,
 }: OrdersDashboardScreenProps) {
   const [activeFilterPill, setActiveFilterPill] = useState('All');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    routeParams?.warehouseId,
+  );
+  const warehouseOptions = React.useMemo(
+    () => warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
+    [warehouses]
+  );
+
+  useEffect(() => {
+    if (routeParams?.warehouseId !== undefined) {
+      setSelectedWarehouseId(routeParams.warehouseId);
+    }
+  }, [routeParams?.warehouseId]);
 
   const isAllWarehouses = scope.warehouseId === undefined;
 
   const listParams = (extra?: Record<string, unknown>): Record<string, unknown> =>
     isAllWarehouses && selectedWarehouseId !== undefined ? { ...extra, warehouseId: selectedWarehouseId } : { ...extra };
 
-
-
   const visibleWarehouseSummary = selectedWarehouseId
     ? WAREHOUSE_SUMMARY.filter((w) => w.id === selectedWarehouseId)
     : WAREHOUSE_SUMMARY;
+
+  const visibleRecentOrders = selectedWarehouseId
+    ? RECENT_ORDERS_BY_WH.filter((o) => o.warehouseId === selectedWarehouseId)
+    : RECENT_ORDERS_BY_WH;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -330,76 +415,12 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.dropdownBtn}
-              activeOpacity={0.8}
-              onPress={() => setShowWarehouseModal(true)}
-            >
-              <BuildingWarehouseIcon color={adminColors.onBrand} />
-              <Text style={styles.dropdownBtnText}>
-                {selectedWarehouseId
-                  ? (warehouses.find((w) => w.id === selectedWarehouseId)?.name ?? selectedWarehouseId)
-                  : 'All Warehouses'}
-              </Text>
-              <ChevronDownSmallIcon />
-            </TouchableOpacity>
-
-            <Modal
-              visible={showWarehouseModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowWarehouseModal(false)}
-            >
-              <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowWarehouseModal(false)}
-              >
-                <View style={styles.dropdownModalMenu}>
-                  <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
-                  <TouchableOpacity
-                    style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
-                    onPress={() => {
-                      setSelectedWarehouseId(undefined);
-                      setShowWarehouseModal(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownModalItemText,
-                        selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
-                      ]}
-                    >
-                      All Warehouses
-                    </Text>
-                    {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
-                  </TouchableOpacity>
-                  {warehouses.map((w) => {
-                    const isSelected = selectedWarehouseId === w.id;
-                    return (
-                      <TouchableOpacity
-                        key={w.id}
-                        style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
-                        onPress={() => {
-                          setSelectedWarehouseId(w.id);
-                          setShowWarehouseModal(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownModalItemText,
-                            isSelected && styles.dropdownModalItemTextActive,
-                          ]}
-                        >
-                          {w.name}
-                        </Text>
-                        {isSelected ? <CheckSmallIcon /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </TouchableOpacity>
-            </Modal>
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
           </View>
         ) : (
           // Sub Warehouse Header (unchanged)
@@ -526,24 +547,27 @@ export function OrdersDashboardScreen({
 
             {/* Recent Orders */}
             <Text style={styles.mainSectionTitleStandalone}>Recent Orders</Text>
-            <TouchableOpacity
-              style={styles.recentOrderCard}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S04', { orderId: 'ORD-1024', customerName: 'Arun Kumar' })}
-            >
-              <View style={styles.recentOrderTopRow}>
-                <Text style={styles.recentOrderId}>ORD-1024</Text>
-                <View style={styles.confirmedBadge}>
-                  <Text style={styles.confirmedBadgeText}>Confirmed</Text>
+            {visibleRecentOrders.map((order) => (
+              <TouchableOpacity
+                key={order.id}
+                style={styles.recentOrderCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S04', { orderId: order.id, customerName: order.customer })}
+              >
+                <View style={styles.recentOrderTopRow}>
+                  <Text style={styles.recentOrderId}>{order.id}</Text>
+                  <View style={styles.confirmedBadge}>
+                    <Text style={styles.confirmedBadgeText}>{order.status}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.recentOrderCustomer}>Arun Kumar</Text>
-              <View style={styles.recentOrderDivider} />
-              <View style={styles.recentOrderBottomRow}>
-                <Text style={styles.recentOrderMeta}>Coonoor · 4 items</Text>
-                <Text style={styles.recentOrderAmount}>₹850</Text>
-              </View>
-            </TouchableOpacity>
+                <Text style={styles.recentOrderCustomer}>{order.customer}</Text>
+                <View style={styles.recentOrderDivider} />
+                <View style={styles.recentOrderBottomRow}>
+                  <Text style={styles.recentOrderMeta}>{order.warehouseName} · {order.items}</Text>
+                  <Text style={styles.recentOrderAmount}>{order.amount}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -798,65 +822,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropdownBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 6,
-    gap: 6,
-    marginTop: 4,
-  },
-  dropdownBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: adminColors.toast.bg,
-    opacity: 0.96,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: adminSpacing.lg,
-  },
-  dropdownModalMenu: {
-    width: '85%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    ...adminShadow.md,
-  },
-  dropdownModalTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
-    paddingBottom: adminSpacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  dropdownModalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-  },
-  dropdownModalItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownModalItemText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  dropdownModalItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
+
   warehousePill: {
     alignSelf: 'flex-start',
     backgroundColor: adminColors.brandDeep,

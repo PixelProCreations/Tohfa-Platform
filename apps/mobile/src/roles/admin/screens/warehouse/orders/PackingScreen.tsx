@@ -313,12 +313,6 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
             <Text style={styles.unitText}>KG</Text>
           </View>
 
-          <View style={styles.infoBox}>
-            <InfoCircleIcon />
-            <Text style={styles.infoText}>
-              Packed quantity cannot exceed the ordered quantity without a supported exception workflow.
-            </Text>
-          </View>
 
           <Text style={styles.sectionTitle}>Package Information</Text>
 

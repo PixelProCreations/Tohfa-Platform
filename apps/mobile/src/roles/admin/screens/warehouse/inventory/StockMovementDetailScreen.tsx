@@ -211,13 +211,6 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
               </View>
             </View>
 
-            {/* Blue Info Notice */}
-            <View style={styles.blueNoticeBox}>
-              <InfoCircleIcon />
-              <Text style={styles.blueNoticeText}>
-                Values shown are returned by the backend — never calculated or overwritten in this app.
-              </Text>
-            </View>
           </View>
 
           {/* Storage Location - 2-Column Grid */}
@@ -357,13 +350,7 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
             </TouchableOpacity>
           </View>
 
-          {/* Disclaimer Banner */}
-          <View style={styles.disclaimerBox}>
-            <LockNoticeIcon color={adminColors.brand} size={18} />
-            <Text style={styles.disclaimerText}>
-              No Edit Balance action exists on this screen. Stock changes only ever happen through a new ledger movement — never a direct edit here.
-            </Text>
-          </View>
+
 
           <View style={{ height: 28 }} />
         </ScrollView>

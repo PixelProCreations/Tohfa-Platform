@@ -35,7 +35,12 @@ export interface UseWarehousePermissionsOptions {
   hasCredentials: () => Promise<boolean>;
 }
 
-export function useWarehousePermissions(options: UseWarehousePermissionsOptions): ResolvedWarehousePermissions {
+export interface UseWarehousePermissionsResult extends ResolvedWarehousePermissions {
+  /** True while the initial permissions list is loading and retries have not been exhausted. */
+  isLoading: boolean;
+}
+
+export function useWarehousePermissions(options: UseWarehousePermissionsOptions): UseWarehousePermissionsResult {
   const { enabled, adminRole, isDev } = options;
   const [fetched, setFetched] = useState<readonly string[] | undefined>(undefined);
   const [failures, setFailures] = useState(0);
@@ -78,10 +83,16 @@ export function useWarehousePermissions(options: UseWarehousePermissionsOptions)
     };
   }, [enabled, fetched]);
 
-  return resolveWarehousePermissions({
+  const exhausted = permissionAttemptsExhausted(failures);
+  const resolved = resolveWarehousePermissions({
     fetched,
     adminRole,
     isDev,
-    attemptsExhausted: permissionAttemptsExhausted(failures),
+    attemptsExhausted: exhausted,
   });
+
+  return {
+    ...resolved,
+    isLoading: enabled && fetched === undefined && !exhausted,
+  };
 }

@@ -27,6 +27,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -39,6 +40,7 @@ import {
 import { adminColors, adminShadow, adminType } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
+import { WarehouseSelector } from '../inventory';
 import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
 import {
@@ -160,6 +162,88 @@ export function ReportsScreen({
 
   // Returns filter
   const [returnCategory, setReturnCategory] = useState<'All' | 'Quality' | 'Quantity' | 'Missing' | 'Wrong' | 'Damaged' | 'Late'>('All');
+
+  // Reports Filter Modal State & Warehouse Scoping (matches Warehouse Finance logic)
+  const [showReportFilterModal, setShowReportFilterModal] = useState(false);
+  const [reportWarehouseId, setReportWarehouseId] = useState<string | undefined>(undefined);
+  const [tempReportWarehouseId, setTempReportWarehouseId] = useState<string | undefined>(undefined);
+
+  const [revChannel, setRevChannel] = useState<string>('All');
+  const [expenseCategory, setExpenseCategory] = useState<string>('All');
+
+  // Temp states for inside the filter modal
+  const [tempSalesChannel, setTempSalesChannel] = useState<'All' | 'Online' | 'Market' | 'HORECA' | 'B2B'>('All');
+  const [tempInvFilter, setTempInvFilter] = useState<'All' | 'Available' | 'Low Stock' | 'Out of Stock'>('All');
+  const [tempRecFilter, setTempRecFilter] = useState<'All' | 'Accepted' | 'Partial' | 'Rejected'>('All');
+  const [tempCustChannel, setTempCustChannel] = useState<'All' | 'Online' | 'Market' | 'B2B'>('All');
+  const [tempTopupPeriod, setTempTopupPeriod] = useState<'All' | 'Today' | 'This Month'>('All');
+  const [tempRevChannel, setTempRevChannel] = useState<string>('All');
+  const [tempExpenseCategory, setTempExpenseCategory] = useState<string>('All');
+  const [tempReturnCategory, setTempReturnCategory] = useState<'All' | 'Quality' | 'Quantity' | 'Missing' | 'Wrong' | 'Damaged' | 'Late'>('All');
+
+  const isSpecificWarehouseChosen = isMain && Boolean(selectedWarehouseId && selectedWarehouseId !== 'all');
+  const effectiveWarehouseId = isSpecificWarehouseChosen ? selectedWarehouseId : reportWarehouseId;
+
+  const normalizeWh = (val?: string) => {
+    if (!val) return '';
+    const v = val.toLowerCase().trim();
+    if (v.includes('ooty')) return 'ooty';
+    if (v.includes('coon')) return 'coonoor';
+    if (v.includes('kota')) return 'kotagiri';
+    if (v.includes('guda')) return 'gudalur';
+    return v.replace(/^wh[-_]?/, '').replace(/\s+warehouse$/, '').replace(/[^a-z0-9]/g, '');
+  };
+
+  const matchWarehouse = (itemWarehouse?: string, itemWarehouseId?: string) => {
+    if (!isMain) return true;
+    const target = effectiveWarehouseId;
+    if (!target || target === 'all') return true;
+
+    const normTarget = normalizeWh(target);
+    const normItemWh = normalizeWh(itemWarehouse);
+    const normItemId = normalizeWh(itemWarehouseId);
+
+    if (normTarget && (normTarget === normItemWh || normTarget === normItemId)) {
+      return true;
+    }
+
+    const targetLower = target.toLowerCase();
+    if (itemWarehouseId && itemWarehouseId.toLowerCase() === targetLower) return true;
+    if (itemWarehouse && itemWarehouse.toLowerCase() === targetLower) return true;
+
+    const targetObj = warehouseOptions.find(
+      (w) =>
+        w.warehouseId?.toLowerCase() === targetLower ||
+        w.warehouseName?.toLowerCase() === targetLower ||
+        normalizeWh(w.warehouseId) === normTarget ||
+        normalizeWh(w.warehouseName) === normTarget
+    );
+
+    if (targetObj) {
+      if (normalizeWh(targetObj.warehouseId) === normItemWh || normalizeWh(targetObj.warehouseId) === normItemId) return true;
+      if (normalizeWh(targetObj.warehouseName) === normItemWh || normalizeWh(targetObj.warehouseName) === normItemId) return true;
+
+      const objName = (targetObj.warehouseName ?? '').toLowerCase();
+      const objId = (targetObj.warehouseId ?? '').toLowerCase();
+      if (itemWarehouse && objName.includes(itemWarehouse.toLowerCase())) return true;
+      if (itemWarehouseId && objId.includes(itemWarehouseId.toLowerCase())) return true;
+    }
+
+    return false;
+  };
+
+  const openFilterModal = () => {
+    setTempReportWarehouseId(reportWarehouseId);
+    setTempSalesChannel(salesChannel);
+    setTempInvFilter(invFilter);
+    setTempRecFilter(recFilter);
+    setTempCustChannel(custChannel);
+    setTempTopupPeriod(topupPeriod);
+    setTempRevChannel(revChannel);
+    setTempExpenseCategory(expenseCategory);
+    setTempReturnCategory(returnCategory);
+    setShowReportFilterModal(true);
+  };
 
   // Selected Order for Sales Report Details
   const [selectedOrder, setSelectedOrder] = useState({
@@ -364,10 +448,374 @@ export function ReportsScreen({
     }
   };
 
+  const renderReportFilterModal = () => (
+    <Modal
+      visible={showReportFilterModal}
+      animationType="slide"
+      onRequestClose={() => setShowReportFilterModal(false)}
+    >
+      <SafeAreaView style={styles.fullScreenFilterModal}>
+        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+
+        {/* Top Header */}
+        <View style={styles.filterModalHeader}>
+          <TouchableOpacity
+            onPress={() => setShowReportFilterModal(false)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.75}
+          >
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.filterModalTitle}>Filter Report</Text>
+          <TouchableOpacity
+            onPress={() => setShowReportFilterModal(false)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.filterCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={styles.filterModalScroll}
+          contentContainerStyle={styles.filterModalScrollContent}
+        >
+          {/* Section 1: Warehouse (only for Main Warehouse when not fixed from hub) */}
+          {isMain && !isSpecificWarehouseChosen ? (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Warehouses</Text>
+              <View style={styles.chipWrap}>
+                <TouchableOpacity
+                  style={[styles.filterModalChip, tempReportWarehouseId === undefined && styles.filterModalChipActive]}
+                  onPress={() => setTempReportWarehouseId(undefined)}
+                >
+                  <Text style={[styles.filterModalChipText, tempReportWarehouseId === undefined && styles.filterModalChipTextActive]}>
+                    All Warehouses
+                  </Text>
+                </TouchableOpacity>
+                {warehouseOptions.map((wh) => {
+                  if (!wh.warehouseId) return null;
+                  const active = tempReportWarehouseId === wh.warehouseId;
+                  return (
+                    <TouchableOpacity
+                      key={wh.warehouseId}
+                      style={[styles.filterModalChip, active && styles.filterModalChipActive]}
+                      onPress={() => setTempReportWarehouseId(wh.warehouseId)}
+                    >
+                      <Text style={[styles.filterModalChipText, active && styles.filterModalChipTextActive]}>
+                        {wh.warehouseName ?? wh.warehouseId}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Section 2: Report-specific categories */}
+          {currentScreen === 'sales_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Sales Channel</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Online', 'Market', 'HORECA', 'B2B'] as const).map((ch) => (
+                  <TouchableOpacity
+                    key={ch}
+                    style={[styles.filterModalChip, tempSalesChannel === ch && styles.filterModalChipActive]}
+                    onPress={() => setTempSalesChannel(ch)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempSalesChannel === ch && styles.filterModalChipTextActive]}>
+                      {ch}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'inventory_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Stock Status</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Available', 'Low Stock', 'Out of Stock'] as const).map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.filterModalChip, tempInvFilter === st && styles.filterModalChipActive]}
+                    onPress={() => setTempInvFilter(st)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempInvFilter === st && styles.filterModalChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'receiving_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Receiving QC Status</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.filterModalChip, tempRecFilter === st && styles.filterModalChipActive]}
+                    onPress={() => setTempRecFilter(st)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempRecFilter === st && styles.filterModalChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'customer_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Customer Channel</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Online', 'Market', 'B2B'] as const).map((ch) => (
+                  <TouchableOpacity
+                    key={ch}
+                    style={[styles.filterModalChip, tempCustChannel === ch && styles.filterModalChipActive]}
+                    onPress={() => setTempCustChannel(ch)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempCustChannel === ch && styles.filterModalChipTextActive]}>
+                      {ch}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'cash_topup_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Period</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Today', 'This Month'] as const).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.filterModalChip, tempTopupPeriod === p && styles.filterModalChipActive]}
+                    onPress={() => setTempTopupPeriod(p)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempTopupPeriod === p && styles.filterModalChipTextActive]}>
+                      {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'revenue_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Revenue Channel</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Online Order', 'Market Sale'] as const).map((ch) => (
+                  <TouchableOpacity
+                    key={ch}
+                    style={[styles.filterModalChip, tempRevChannel === ch && styles.filterModalChipActive]}
+                    onPress={() => setTempRevChannel(ch)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempRevChannel === ch && styles.filterModalChipTextActive]}>
+                      {ch}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'expense_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Expense Category</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Transport', 'Loading', 'Unloading', 'Maintenance', 'Other'] as const).map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.filterModalChip, tempExpenseCategory === cat && styles.filterModalChipActive]}
+                    onPress={() => setTempExpenseCategory(cat)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempExpenseCategory === cat && styles.filterModalChipTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {currentScreen === 'returns_report' && (
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Issue Category</Text>
+              <View style={styles.chipWrap}>
+                {(['All', 'Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'] as const).map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.filterModalChip, tempReturnCategory === cat && styles.filterModalChipActive]}
+                    onPress={() => setTempReturnCategory(cat)}
+                  >
+                    <Text style={[styles.filterModalChipText, tempReturnCategory === cat && styles.filterModalChipTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Footer Buttons */}
+        <View style={styles.filterFooter}>
+          <TouchableOpacity
+            style={styles.modalResetBtn}
+            onPress={() => {
+              setTempReportWarehouseId(undefined);
+              setTempSalesChannel('All');
+              setTempInvFilter('All');
+              setTempRecFilter('All');
+              setTempCustChannel('All');
+              setTempTopupPeriod('All');
+              setTempRevChannel('All');
+              setTempExpenseCategory('All');
+              setTempReturnCategory('All');
+            }}
+          >
+            <Text style={styles.modalResetBtnText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalApplyBtn}
+            onPress={() => {
+              setReportWarehouseId(tempReportWarehouseId);
+              setSalesChannel(tempSalesChannel);
+              setInvFilter(tempInvFilter);
+              setRecFilter(tempRecFilter);
+              setCustChannel(tempCustChannel);
+              setTopupPeriod(tempTopupPeriod);
+              setRevChannel(tempRevChannel);
+              setExpenseCategory(tempExpenseCategory);
+              setReturnCategory(tempReturnCategory);
+              setShowReportFilterModal(false);
+            }}
+          >
+            <Text style={styles.modalApplyBtnText}>Apply</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SCREEN 1: SALES REPORT (M12-S02)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'sales_report') {
+    const SALES_REPORTS_DATA = [
+      {
+        orderId: 'ORD-10284',
+        date: '25 Sep · 11:20 AM',
+        channel: 'Online' as const,
+        customerRef: 'Customer #C1024',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
+        product: 'Tomato',
+        grade: 'Grade 1',
+        quantity: '4 KG',
+        unitPrice: '₹100',
+        amount: '₹1,240',
+        amountNum: 1240,
+        items: 4,
+        paymentMethod: 'Wallet',
+        paymentStatus: 'Completed',
+        txnRef: 'TXN-882145',
+        invoiceNumber: 'INV-2026-010284',
+        invoiceStatus: 'Generated',
+        status: 'Completed',
+      },
+      {
+        orderId: 'ORD-10283',
+        date: '25 Sep · 10:45 AM',
+        channel: 'Market' as const,
+        customerRef: 'Walk-in Buyer',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
+        product: 'Potato',
+        grade: 'Grade 1',
+        quantity: '2 KG',
+        unitPrice: '₹425',
+        amount: '₹850',
+        amountNum: 850,
+        items: 2,
+        paymentMethod: 'Cash',
+        paymentStatus: 'Completed',
+        txnRef: 'TXN-882144',
+        invoiceNumber: 'INV-2026-010283',
+        invoiceStatus: 'Generated',
+        status: 'Completed',
+      },
+      {
+        orderId: 'ORD-10280',
+        date: '24 Sep · 04:15 PM',
+        channel: 'HORECA' as const,
+        customerRef: 'Hillview Resort',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
+        product: 'Carrot & Beans',
+        grade: 'Grade 1',
+        quantity: '25 KG',
+        unitPrice: '₹120',
+        amount: '₹3,200',
+        amountNum: 3200,
+        items: 6,
+        paymentMethod: 'UPI',
+        paymentStatus: 'Completed',
+        txnRef: 'TXN-882142',
+        invoiceNumber: 'INV-2026-010280',
+        invoiceStatus: 'Generated',
+        status: 'Completed',
+      },
+      {
+        orderId: 'ORD-10278',
+        date: '24 Sep · 02:30 PM',
+        channel: 'B2B' as const,
+        customerRef: 'Nilgiri Traders',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
+        product: 'Cabbage',
+        grade: 'Grade 1',
+        quantity: '50 KG',
+        unitPrice: '₹45',
+        amount: '₹2,250',
+        amountNum: 2250,
+        items: 8,
+        paymentMethod: 'Bank Transfer',
+        paymentStatus: 'Completed',
+        txnRef: 'TXN-882138',
+        invoiceNumber: 'INV-2026-010278',
+        invoiceStatus: 'Generated',
+        status: 'Completed',
+      },
+    ];
+
+    const filteredSales = SALES_REPORTS_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (salesChannel !== 'All' && item.channel !== salesChannel) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        item.orderId.toLowerCase().includes(q) ||
+        item.customerRef.toLowerCase().includes(q) ||
+        item.product.toLowerCase().includes(q) ||
+        item.invoiceNumber.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
+      );
+    });
+
+    const totalSalesAmount = filteredSales.reduce((a, b) => a + b.amountNum, 0);
+    const totalOrdersCount = isSpecificWarehouseChosen || reportWarehouseId ? filteredSales.length : 284;
+    const totalItemsCount = isSpecificWarehouseChosen || reportWarehouseId ? filteredSales.reduce((a, b) => a + b.items, 0) : 1248;
+
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -393,36 +841,43 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL SALES</Text>
-              <Text style={styles.kpiValue}>₹1,84,500</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${totalSalesAmount.toLocaleString('en-IN')}` : '₹1,84,500'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ORDERS</Text>
-              <Text style={styles.kpiValue}>284</Text>
+              <Text style={styles.kpiValue}>{totalOrdersCount}</Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ITEMS SOLD</Text>
-              <Text style={styles.kpiValue}>1,248</Text>
+              <Text style={styles.kpiValue}>{totalItemsCount}</Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG ORDER</Text>
-              <Text style={styles.kpiValue}>₹649</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId && filteredSales.length > 0
+                  ? `₹${Math.round(totalSalesAmount / filteredSales.length).toLocaleString('en-IN')}`
+                  : '₹649'}
+              </Text>
             </View>
           </View>
 
-          {/* Channel Filters. HORECA / B2B stay ungated: rbac.json has no per-channel
-              view code (SPEC_GAPS.md #5, W3a-1; matrix says MW=view, SW=none). */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Online', 'Market', 'HORECA', 'B2B'] as const).map((ch) => (
-              <TouchableOpacity
-                key={ch}
-                style={[styles.filterChip, salesChannel === ch && styles.filterChipActive]}
-                onPress={() => setSalesChannel(ch)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, salesChannel === ch && styles.filterChipTextActive]}>{ch}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Channel Filters: Subwarehouse only (for Main Warehouse, removed from top of search bar) */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Online', 'Market', 'HORECA', 'B2B'] as const).map((ch) => (
+                <TouchableOpacity
+                  key={ch}
+                  style={[styles.filterChip, salesChannel === ch && styles.filterChipActive]}
+                  onPress={() => setSalesChannel(ch)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, salesChannel === ch && styles.filterChipTextActive]}>{ch}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Input with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -434,80 +889,58 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || salesChannel !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Sales Transaction Cards */}
           <View style={styles.recordsStack}>
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedOrder({
-                  orderId: 'ORD-10284',
-                  date: '25 Sep, 11:20 AM',
-                  channel: 'Online',
-                  customerRef: 'C1024',
-                  warehouse: rowWarehouse,
-                  product: 'Tomato',
-                  grade: 'Grade 1',
-                  quantity: '4 KG',
-                  unitPrice: '₹100',
-                  amount: '₹1,240',
-                  paymentMethod: 'Wallet',
-                  paymentStatus: 'Completed',
-                  txnRef: 'TXN-882145',
-                  invoiceNumber: 'INV-2026-010284',
-                  invoiceStatus: 'Generated',
-                });
-                setCurrentScreen('sales_order_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>ORD-10284</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>Completed</Text>
+            {filteredSales.map((item) => (
+              <TouchableOpacity
+                key={item.orderId}
+                style={styles.recordCard}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedOrder({
+                    orderId: item.orderId,
+                    date: item.date,
+                    channel: item.channel,
+                    customerRef: item.customerRef,
+                    warehouse: item.warehouse,
+                    product: item.product,
+                    grade: item.grade,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    amount: item.amount,
+                    paymentMethod: item.paymentMethod,
+                    paymentStatus: item.paymentStatus,
+                    txnRef: item.txnRef,
+                    invoiceNumber: item.invoiceNumber,
+                    invoiceStatus: item.invoiceStatus,
+                  });
+                  setCurrentScreen('sales_order_detail');
+                }}
+              >
+                <View style={styles.recordHeaderRow}>
+                  <Text style={styles.recordIdText}>{item.orderId}</Text>
+                  <View style={styles.greenBadgePill}>
+                    <Text style={styles.greenBadgeText}>Completed</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.recordSubText}>Customer #C1024 · Online · 4 items</Text>
-              <Text style={styles.recordAmountText}>₹1,240</Text>
-              <Text style={styles.recordDateText}>25 Sep · 11:20 AM</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedOrder({
-                  orderId: 'ORD-10283',
-                  date: '25 Sep, 10:45 AM',
-                  channel: 'Market',
-                  customerRef: 'Walk-in Buyer',
-                  warehouse: rowWarehouse,
-                  product: 'Potato',
-                  grade: 'Grade 1',
-                  quantity: '2 KG',
-                  unitPrice: '₹425',
-                  amount: '₹850',
-                  paymentMethod: 'Cash',
-                  paymentStatus: 'Completed',
-                  txnRef: 'TXN-882144',
-                  invoiceNumber: 'INV-2026-010283',
-                  invoiceStatus: 'Generated',
-                });
-                setCurrentScreen('sales_order_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>ORD-10283</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>Completed</Text>
-                </View>
-              </View>
-              <Text style={styles.recordSubText}>Walk-in Buyer · Market · 2 items</Text>
-              <Text style={styles.recordAmountText}>₹850</Text>
-              <Text style={styles.recordDateText}>25 Sep · 10:45 AM</Text>
-            </TouchableOpacity>
+                <Text style={styles.recordSubText}>
+                  {item.customerRef} · {item.channel} · {item.items} items{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}
+                </Text>
+                <Text style={styles.recordAmountText}>{item.amount}</Text>
+                <Text style={styles.recordDateText}>{item.date}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Sales Chart Section */}
@@ -546,7 +979,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -979,6 +1412,120 @@ export function ReportsScreen({
   // SCREEN 2: INVENTORY REPORT (M12-S03)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'inventory_report') {
+    const INVENTORY_REPORTS_DATA = [
+      {
+        productName: 'Carrot',
+        productCode: 'CRT-001',
+        crop: 'Carrot',
+        grade: 'Grade 1',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
+        availableQty: '420 kg',
+        reservedQty: '35 kg',
+        allocatedQty: '20 kg',
+        consumedQty: '—',
+        batchCode: 'BAT-CR-0245',
+        receivedDate: '23 Sep 2026',
+        storageLocation: 'Cold Storage A',
+        status: 'Available' as const,
+        movementReceived: '475 kg',
+        movementAvailable: '420 kg',
+        movementReserved: '35 kg',
+        movementSold: '20 kg',
+        lastVerification: '20 Sep 2026',
+        verifiedQty: '418 kg',
+        difference: '-2 kg',
+        verificationStatus: 'Reconciled',
+      },
+      {
+        productName: 'Nilgiris Potato',
+        productCode: 'POT-002',
+        crop: 'Potato',
+        grade: 'Grade 1',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
+        availableQty: '1,250 kg',
+        reservedQty: '150 kg',
+        allocatedQty: '80 kg',
+        consumedQty: '—',
+        batchCode: 'BAT-PT-0189',
+        receivedDate: '22 Sep 2026',
+        storageLocation: 'Zone 2 - Bay 4',
+        status: 'Available' as const,
+        movementReceived: '1,480 kg',
+        movementAvailable: '1,250 kg',
+        movementReserved: '150 kg',
+        movementSold: '80 kg',
+        lastVerification: '19 Sep 2026',
+        verifiedQty: '1,250 kg',
+        difference: '0 kg',
+        verificationStatus: 'Reconciled',
+      },
+      {
+        productName: 'Tomato',
+        productCode: 'TOM-003',
+        crop: 'Tomato',
+        grade: 'Grade 1',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
+        availableQty: '45 kg',
+        reservedQty: '10 kg',
+        allocatedQty: '5 kg',
+        consumedQty: '—',
+        batchCode: 'BAT-TM-0312',
+        receivedDate: '24 Sep 2026',
+        storageLocation: 'Cold Storage B',
+        status: 'Low Stock' as const,
+        movementReceived: '120 kg',
+        movementAvailable: '45 kg',
+        movementReserved: '10 kg',
+        movementSold: '65 kg',
+        lastVerification: '23 Sep 2026',
+        verifiedQty: '45 kg',
+        difference: '0 kg',
+        verificationStatus: 'Reconciled',
+      },
+      {
+        productName: 'Green Peas',
+        productCode: 'PEA-004',
+        crop: 'Peas',
+        grade: 'Grade 1',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
+        availableQty: '0 kg',
+        reservedQty: '0 kg',
+        allocatedQty: '0 kg',
+        consumedQty: '—',
+        batchCode: 'BAT-PE-0105',
+        receivedDate: '21 Sep 2026',
+        storageLocation: 'Cold Storage C',
+        status: 'Out of Stock' as const,
+        movementReceived: '200 kg',
+        movementAvailable: '0 kg',
+        movementReserved: '0 kg',
+        movementSold: '200 kg',
+        lastVerification: '24 Sep 2026',
+        verifiedQty: '0 kg',
+        difference: '0 kg',
+        verificationStatus: 'Reconciled',
+      },
+    ];
+
+    const filteredInventory = INVENTORY_REPORTS_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (invFilter !== 'All' && item.status !== invFilter) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        item.productName.toLowerCase().includes(q) ||
+        item.productCode.toLowerCase().includes(q) ||
+        item.crop.toLowerCase().includes(q) ||
+        item.batchCode.toLowerCase().includes(q) ||
+        item.storageLocation.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
+      );
+    });
+
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1004,36 +1551,51 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL PRODUCTS</Text>
-              <Text style={styles.kpiValue}>84</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredInventory.length : 84}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVAILABLE STOCK</Text>
-              <Text style={styles.kpiValue}>12,480 kg</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? `${filteredInventory.reduce((sum, item) => sum + (parseInt(item.availableQty.replace(/[^0-9]/g, ''), 10) || 0), 0).toLocaleString('en-IN')} kg`
+                  : '12,480 kg'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>LOW STOCK</Text>
-              <Text style={styles.kpiValue}>12</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? filteredInventory.filter((i) => i.status === 'Low Stock').length
+                  : 12}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>OUT OF STOCK</Text>
-              <Text style={styles.kpiValue}>4</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? filteredInventory.filter((i) => i.status === 'Out of Stock').length
+                  : 4}
+              </Text>
             </View>
           </View>
 
-
-          {/* Stock Filters */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Available', 'Low Stock', 'Out of Stock'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.filterChip, invFilter === st && styles.filterChipActive]}
-                onPress={() => setInvFilter(st)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, invFilter === st && styles.filterChipTextActive]}>{st}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Stock Filters: Subwarehouse only (for Main Warehouse, removed from top of search bar) */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Available', 'Low Stock', 'Out of Stock'] as const).map((st) => (
+                <TouchableOpacity
+                  key={st}
+                  style={[styles.filterChip, invFilter === st && styles.filterChipActive]}
+                  onPress={() => setInvFilter(st)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, invFilter === st && styles.filterChipTextActive]}>{st}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -1045,133 +1607,72 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || invFilter !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Produce Inventory Items */}
           <View style={styles.recordsStack}>
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedInventoryItem({
-                  productName: 'Carrot',
-                  productCode: 'CRT-001',
-                  crop: 'Carrot',
-                  grade: 'Grade 1',
-                  availableQty: '420 kg',
-                  reservedQty: '35 kg',
-                  allocatedQty: '20 kg',
-                  consumedQty: '—',
-                  batchCode: 'BAT-CR-0245',
-                  receivedDate: '23 Sep 2026',
-                  storageLocation: 'Cold Storage A',
-                  status: 'Available',
-                  movementReceived: '475 kg',
-                  movementAvailable: '420 kg',
-                  movementReserved: '35 kg',
-                  movementSold: '20 kg',
-                  lastVerification: '20 Sep 2026',
-                  verifiedQty: '418 kg',
-                  difference: '-2 kg',
-                  verificationStatus: 'Reconciled',
-                });
-                setCurrentScreen('inventory_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>Carrot — Grade 1</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>Available</Text>
+            {filteredInventory.map((item) => (
+              <TouchableOpacity
+                key={item.productCode}
+                style={styles.recordCard}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedInventoryItem({
+                    productName: item.productName,
+                    productCode: item.productCode,
+                    crop: item.crop,
+                    grade: item.grade,
+                    availableQty: item.availableQty,
+                    reservedQty: item.reservedQty,
+                    allocatedQty: item.allocatedQty,
+                    consumedQty: item.consumedQty,
+                    batchCode: item.batchCode,
+                    receivedDate: item.receivedDate,
+                    storageLocation: item.storageLocation,
+                    status: item.status,
+                    movementReceived: item.movementReceived,
+                    movementAvailable: item.movementAvailable,
+                    movementReserved: item.movementReserved,
+                    movementSold: item.movementSold,
+                    lastVerification: item.lastVerification,
+                    verifiedQty: item.verifiedQty,
+                    difference: item.difference,
+                    verificationStatus: item.verificationStatus,
+                  });
+                  setCurrentScreen('inventory_item_detail');
+                }}
+              >
+                <View style={styles.recordHeaderRow}>
+                  <Text style={styles.recordIdText}>{item.productName} — {item.grade}</Text>
+                  <View style={item.status === 'Available' ? styles.greenBadgePill : item.status === 'Low Stock' ? [styles.badgePillBase, { backgroundColor: adminColors.warning.bg }] : [styles.badgePillBase, { backgroundColor: adminColors.danger.bg }]}>
+                    <Text style={item.status === 'Available' ? styles.greenBadgeText : item.status === 'Low Stock' ? [styles.badgeTextBase, { color: adminColors.warning.text }] : [styles.badgeTextBase, { color: adminColors.danger.text }]}>
+                      {item.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.recordSubText}>Cold Storage A · Batch BAT-CR-0245</Text>
-              <Text style={styles.recordAmountText}>420 kg</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedInventoryItem({
-                  productName: 'Nilgiris Potato',
-                  productCode: 'POT-002',
-                  crop: 'Potato',
-                  grade: 'Grade 1',
-                  availableQty: '1,250 kg',
-                  reservedQty: '150 kg',
-                  allocatedQty: '80 kg',
-                  consumedQty: '—',
-                  batchCode: 'BAT-PT-0189',
-                  receivedDate: '22 Sep 2026',
-                  storageLocation: 'Zone 2 - Bay 4',
-                  status: 'Available',
-                  movementReceived: '1,480 kg',
-                  movementAvailable: '1,250 kg',
-                  movementReserved: '150 kg',
-                  movementSold: '80 kg',
-                  lastVerification: '19 Sep 2026',
-                  verifiedQty: '1,250 kg',
-                  difference: '0 kg',
-                  verificationStatus: 'Reconciled',
-                });
-                setCurrentScreen('inventory_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>Nilgiris Potato</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>Available</Text>
-                </View>
-              </View>
-              <Text style={styles.recordSubText}>Zone 2 - Bay 4 · Batch BAT-PT-0189</Text>
-              <Text style={styles.recordAmountText}>1,250 kg</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedInventoryItem({
-                  productName: 'Tomato',
-                  productCode: 'TOM-003',
-                  crop: 'Tomato',
-                  grade: 'Grade 1',
-                  availableQty: '45 kg',
-                  reservedQty: '10 kg',
-                  allocatedQty: '5 kg',
-                  consumedQty: '—',
-                  batchCode: 'BAT-TM-0312',
-                  receivedDate: '24 Sep 2026',
-                  storageLocation: 'Cold Storage B',
-                  status: 'Low Stock',
-                  movementReceived: '120 kg',
-                  movementAvailable: '45 kg',
-                  movementReserved: '10 kg',
-                  movementSold: '65 kg',
-                  lastVerification: '23 Sep 2026',
-                  verifiedQty: '45 kg',
-                  difference: '0 kg',
-                  verificationStatus: 'Reconciled',
-                });
-                setCurrentScreen('inventory_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>Tomato — Grade 1</Text>
-                <View style={[styles.badgePillBase, { backgroundColor: adminColors.warning.bg }]}>
-                  <Text style={[styles.badgeTextBase, { color: adminColors.warning.text }]}>Low Stock</Text>
-                </View>
-              </View>
-              <Text style={styles.recordSubText}>Cold Storage B · Batch BAT-TM-0312</Text>
-              <Text style={[styles.recordAmountText, { color: adminColors.warning.text }]}>45 kg</Text>
-            </TouchableOpacity>
+                <Text style={styles.recordSubText}>
+                  {item.storageLocation} · Batch {item.batchCode}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}
+                </Text>
+                <Text style={[styles.recordAmountText, item.status !== 'Available' ? { color: adminColors.warning.text } : undefined]}>
+                  {item.availableQty}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -1343,6 +1844,118 @@ export function ReportsScreen({
   // SCREEN 3: RECEIVING REPORT (M12-S04)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'receiving_report') {
+    const RECEIVING_REPORTS_DATA = [
+      {
+        receiptId: 'GR-00245',
+        dateTime: '25 Sep, 10:20 AM',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
+        sourceRef: 'Farmer #FRM-0842',
+        product: 'Carrot',
+        grade: 'Grade 1',
+        qtyReceived: '420 kg',
+        qtyNum: 420,
+        acceptedNum: 400,
+        rejectedNum: 5,
+        partialNum: 15,
+        qualityStatus: 'Accepted' as const,
+        acceptedQty: '400 kg',
+        partialQty: '15 kg',
+        rejectedQty: '5 kg',
+        qcNotes: 'Minor surface blemish on rejected portion.',
+        timeline: [
+          { title: 'Goods Received', time: '10:20 AM' },
+          { title: 'QC Started', time: '10:25 AM' },
+          { title: 'QC Completed', time: '10:40 AM' },
+        ],
+      },
+      {
+        receiptId: 'GR-00244',
+        dateTime: '25 Sep, 09:15 AM',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
+        sourceRef: 'Farmer #FRM-0714',
+        product: 'Nilgiris Potato',
+        grade: 'Grade 1',
+        qtyReceived: '1,250 kg',
+        qtyNum: 1250,
+        acceptedNum: 1250,
+        rejectedNum: 0,
+        partialNum: 0,
+        qualityStatus: 'Accepted' as const,
+        acceptedQty: '1,250 kg',
+        partialQty: '0 kg',
+        rejectedQty: '0 kg',
+        qcNotes: 'Full batch verified and meets grade 1 quality standards.',
+        timeline: [
+          { title: 'Goods Received', time: '09:15 AM' },
+          { title: 'QC Started', time: '09:20 AM' },
+          { title: 'QC Completed', time: '09:35 AM' },
+        ],
+      },
+      {
+        receiptId: 'GR-00243',
+        dateTime: '24 Sep, 04:45 PM',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
+        sourceRef: 'Farmer #FRM-0690',
+        product: 'Tomato',
+        grade: 'Grade 2',
+        qtyReceived: '320 kg',
+        qtyNum: 320,
+        acceptedNum: 0,
+        rejectedNum: 320,
+        partialNum: 0,
+        qualityStatus: 'Rejected' as const,
+        acceptedQty: '0 kg',
+        partialQty: '0 kg',
+        rejectedQty: '320 kg',
+        qcNotes: 'Excessive moisture and rot detected — rejected per quality threshold.',
+        timeline: [
+          { title: 'Goods Received', time: '04:45 PM' },
+          { title: 'QC Started', time: '04:50 PM' },
+          { title: 'QC Completed', time: '05:05 PM' },
+        ],
+      },
+      {
+        receiptId: 'GR-00242',
+        dateTime: '24 Sep, 01:10 PM',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
+        sourceRef: 'Farmer #FRM-0512',
+        product: 'Beans',
+        grade: 'Grade 1',
+        qtyReceived: '150 kg',
+        qtyNum: 150,
+        acceptedNum: 135,
+        rejectedNum: 0,
+        partialNum: 15,
+        qualityStatus: 'Partial' as const,
+        acceptedQty: '135 kg',
+        partialQty: '15 kg',
+        rejectedQty: '0 kg',
+        qcNotes: 'Partial acceptance due to packaging discrepancy.',
+        timeline: [
+          { title: 'Goods Received', time: '01:10 PM' },
+          { title: 'QC Started', time: '01:15 PM' },
+          { title: 'QC Completed', time: '01:30 PM' },
+        ],
+      },
+    ];
+
+    const filteredReceiving = RECEIVING_REPORTS_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (recFilter !== 'All' && item.qualityStatus !== recFilter) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        item.receiptId.toLowerCase().includes(q) ||
+        item.sourceRef.toLowerCase().includes(q) ||
+        item.product.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
+      );
+    });
+
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1368,39 +1981,59 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>RECEIPTS</Text>
-              <Text style={styles.kpiValue}>24</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredReceiving.length : 24}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>QTY RECEIVED</Text>
-              <Text style={styles.kpiValue}>8,420 kg</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? `${filteredReceiving.reduce((sum, item) => sum + item.qtyNum, 0)} kg`
+                  : '8,420 kg'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ACCEPTED</Text>
-              <Text style={styles.kpiValue}>7,950 kg</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? `${filteredReceiving.reduce((sum, item) => sum + item.acceptedNum, 0)} kg`
+                  : '7,950 kg'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>REJECTED</Text>
-              <Text style={styles.kpiValue}>320 kg</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? `${filteredReceiving.reduce((sum, item) => sum + item.rejectedNum, 0)} kg`
+                  : '320 kg'}
+              </Text>
             </View>
             <View style={[styles.kpiCard, styles.kpiCardFull]}>
               <Text style={styles.kpiLabel}>PARTIAL</Text>
-              <Text style={styles.kpiValue}>150 kg</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? `${filteredReceiving.reduce((sum, item) => sum + item.partialNum, 0)} kg`
+                  : '150 kg'}
+              </Text>
             </View>
           </View>
 
-          {/* Receiving Filters */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.filterChip, recFilter === st && styles.filterChipActive]}
-                onPress={() => setRecFilter(st)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, recFilter === st && styles.filterChipTextActive]}>{st}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Receiving Filters: Subwarehouse only (for Main Warehouse, removed from top of search bar) */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map((st) => (
+                <TouchableOpacity
+                  key={st}
+                  style={[styles.filterChip, recFilter === st && styles.filterChipActive]}
+                  onPress={() => setRecFilter(st)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, recFilter === st && styles.filterChipTextActive]}>{st}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Input with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -1412,137 +2045,67 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || recFilter !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
-
 
           {/* Receiving Report Items */}
           <View style={styles.recordsStack}>
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedReceivingItem({
-                  receiptId: 'GR-00245',
-                  dateTime: '25 Sep, 10:20 AM',
-                  warehouse: rowWarehouse,
-                  sourceRef: 'Farmer #FRM-0842',
-                  product: 'Carrot',
-                  grade: 'Grade 1',
-                  qtyReceived: '420 kg',
-                  qualityStatus: 'Accepted',
-                  acceptedQty: '400 kg',
-                  partialQty: '15 kg',
-                  rejectedQty: '5 kg',
-                  qcNotes: 'Minor surface blemish on rejected portion.',
-                  timeline: [
-                    { title: 'Goods Received', time: '10:20 AM' },
-                    { title: 'QC Started', time: '10:25 AM' },
-                    { title: 'QC Completed', time: '10:40 AM' },
-                  ],
-                });
-                setCurrentScreen('receiving_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>GR-00245</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>QC Accepted</Text>
+            {filteredReceiving.map((item) => (
+              <TouchableOpacity
+                key={item.receiptId}
+                style={styles.recordCard}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedReceivingItem({
+                    receiptId: item.receiptId,
+                    dateTime: item.dateTime,
+                    warehouse: item.warehouse,
+                    sourceRef: item.sourceRef,
+                    product: item.product,
+                    grade: item.grade,
+                    qtyReceived: item.qtyReceived,
+                    qualityStatus: item.qualityStatus === 'Accepted' ? 'Accepted' : item.qualityStatus === 'Rejected' ? 'QC Rejected' : 'QC Partial',
+                    acceptedQty: item.acceptedQty,
+                    partialQty: item.partialQty,
+                    rejectedQty: item.rejectedQty,
+                    qcNotes: item.qcNotes,
+                    timeline: item.timeline,
+                  });
+                  setCurrentScreen('receiving_item_detail');
+                }}
+              >
+                <View style={styles.recordHeaderRow}>
+                  <Text style={styles.recordIdText}>{item.receiptId}</Text>
+                  <View style={item.qualityStatus === 'Accepted' ? styles.greenBadgePill : item.qualityStatus === 'Rejected' ? [styles.badgePillBase, { backgroundColor: adminColors.danger.bg }] : [styles.badgePillBase, { backgroundColor: adminColors.warning.bg }]}>
+                    <Text style={item.qualityStatus === 'Accepted' ? styles.greenBadgeText : item.qualityStatus === 'Rejected' ? [styles.badgeTextBase, { color: adminColors.danger.text }] : [styles.badgeTextBase, { color: adminColors.warning.text }]}>
+                      {item.qualityStatus === 'Accepted' ? 'QC Accepted' : item.qualityStatus === 'Rejected' ? 'QC Rejected' : 'QC Partial'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.recordSubText}>Carrot — Grade 1</Text>
-              <View style={styles.receivingAmountRow}>
-                <Text style={styles.receivedQtyMuted}>Received 420 kg</Text>
-                <Text style={styles.acceptedQtyBold}>Accepted 400 kg</Text>
-              </View>
-              <Text style={styles.recordDateText}>25 Sep 2026 · 10:20 AM</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedReceivingItem({
-                  receiptId: 'GR-00244',
-                  dateTime: '25 Sep, 09:15 AM',
-                  warehouse: rowWarehouse,
-                  sourceRef: 'Farmer #FRM-0714',
-                  product: 'Nilgiris Potato',
-                  grade: 'Grade 1',
-                  qtyReceived: '1,250 kg',
-                  qualityStatus: 'Accepted',
-                  acceptedQty: '1,250 kg',
-                  partialQty: '0 kg',
-                  rejectedQty: '0 kg',
-                  qcNotes: 'Full batch verified and meets grade 1 quality standards.',
-                  timeline: [
-                    { title: 'Goods Received', time: '09:15 AM' },
-                    { title: 'QC Started', time: '09:20 AM' },
-                    { title: 'QC Completed', time: '09:35 AM' },
-                  ],
-                });
-                setCurrentScreen('receiving_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>GR-00244</Text>
-                <View style={styles.greenBadgePill}>
-                  <Text style={styles.greenBadgeText}>QC Accepted</Text>
+                <Text style={styles.recordSubText}>{item.product} — {item.grade}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}</Text>
+                <View style={styles.receivingAmountRow}>
+                  <Text style={styles.receivedQtyMuted}>Received {item.qtyReceived}</Text>
+                  <Text style={[styles.acceptedQtyBold, item.qualityStatus === 'Rejected' ? { color: adminColors.danger.text } : undefined]}>
+                    {item.qualityStatus === 'Rejected' ? `Rejected ${item.rejectedQty}` : `Accepted ${item.acceptedQty}`}
+                  </Text>
                 </View>
-              </View>
-              <Text style={styles.recordSubText}>Nilgiris Potato</Text>
-              <View style={styles.receivingAmountRow}>
-                <Text style={styles.receivedQtyMuted}>Received 1,250 kg</Text>
-                <Text style={styles.acceptedQtyBold}>Accepted 1,250 kg</Text>
-              </View>
-              <Text style={styles.recordDateText}>25 Sep 2026 · 09:15 AM</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.recordCard}
-              activeOpacity={0.75}
-              onPress={() => {
-                setSelectedReceivingItem({
-                  receiptId: 'GR-00243',
-                  dateTime: '24 Sep, 04:45 PM',
-                  warehouse: rowWarehouse,
-                  sourceRef: 'Farmer #FRM-0690',
-                  product: 'Tomato',
-                  grade: 'Grade 2',
-                  qtyReceived: '320 kg',
-                  qualityStatus: 'QC Rejected',
-                  acceptedQty: '0 kg',
-                  partialQty: '0 kg',
-                  rejectedQty: '320 kg',
-                  qcNotes: 'Excessive moisture and rot detected — rejected per quality threshold.',
-                  timeline: [
-                    { title: 'Goods Received', time: '04:45 PM' },
-                    { title: 'QC Started', time: '04:50 PM' },
-                    { title: 'QC Completed', time: '05:05 PM' },
-                  ],
-                });
-                setCurrentScreen('receiving_item_detail');
-              }}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordIdText}>GR-00243</Text>
-                <View style={[styles.badgePillBase, { backgroundColor: adminColors.danger.bg }]}>
-                  <Text style={[styles.badgeTextBase, { color: adminColors.danger.text }]}>QC Rejected</Text>
-                </View>
-              </View>
-              <Text style={styles.recordSubText}>Tomato — Grade 2</Text>
-              <View style={styles.receivingAmountRow}>
-                <Text style={styles.receivedQtyMuted}>Received 320 kg</Text>
-                <Text style={[styles.acceptedQtyBold, { color: adminColors.danger.text }]}>Rejected 320 kg</Text>
-              </View>
-              <Text style={styles.recordDateText}>24 Sep 2026 · 04:45 PM</Text>
-            </TouchableOpacity>
+                <Text style={styles.recordDateText}>{item.dateTime}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -1684,6 +2247,8 @@ export function ReportsScreen({
         id: 'CUS-10284',
         name: 'Customer #10284',
         channel: 'Online',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         orders: 12,
         completedOrders: 11,
         cancelledOrders: 1,
@@ -1700,6 +2265,8 @@ export function ReportsScreen({
         id: 'CUS-10283',
         name: 'Customer #10283',
         channel: 'Market',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         orders: 8,
         completedOrders: 8,
         cancelledOrders: 0,
@@ -1716,6 +2283,8 @@ export function ReportsScreen({
         id: 'CUS-10280',
         name: 'Customer #10280',
         channel: 'B2B',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
         orders: 24,
         completedOrders: 23,
         cancelledOrders: 1,
@@ -1732,6 +2301,8 @@ export function ReportsScreen({
         id: 'CUS-10275',
         name: 'Customer #10275',
         channel: 'Online',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
         orders: 5,
         completedOrders: 5,
         cancelledOrders: 0,
@@ -1748,6 +2319,8 @@ export function ReportsScreen({
         id: 'CUS-10268',
         name: 'Customer #10268',
         channel: 'Market',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         orders: 19,
         completedOrders: 18,
         cancelledOrders: 1,
@@ -1764,6 +2337,8 @@ export function ReportsScreen({
         id: 'CUS-10260',
         name: 'Customer #10260',
         channel: 'B2B',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         orders: 31,
         completedOrders: 30,
         cancelledOrders: 1,
@@ -1779,11 +2354,13 @@ export function ReportsScreen({
     ];
 
     const filteredCustomers = CUSTOMER_DATA.filter((cust) => {
+      if (!matchWarehouse(cust.warehouse, cust.warehouseId)) return false;
       const matchQuery =
         !searchQuery ||
         cust.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         cust.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        cust.mobile.includes(searchQuery);
+        cust.mobile.includes(searchQuery) ||
+        cust.warehouse.toLowerCase().includes(searchQuery.toLowerCase());
       const matchChannel = custChannel === 'All' || cust.channel === custChannel;
       return matchQuery && matchChannel;
     });
@@ -1813,35 +2390,47 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL CUSTOMERS</Text>
-              <Text style={styles.kpiValue}>1,248</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredCustomers.length : 1248}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ACTIVE CUSTOMERS</Text>
-              <Text style={styles.kpiValue}>986</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredCustomers.length : 986}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>NEW CUSTOMERS</Text>
-              <Text style={styles.kpiValue}>42</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? Math.min(filteredCustomers.length, 2) : 42}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ORDERS</Text>
-              <Text style={styles.kpiValue}>284</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? filteredCustomers.reduce((sum, c) => sum + c.orders, 0)
+                  : 284}
+              </Text>
             </View>
           </View>
 
-          {/* Customer Channel Filters */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Online', 'Market', 'B2B'] as const).map((ch) => (
-              <TouchableOpacity
-                key={ch}
-                style={[styles.filterChip, custChannel === ch && styles.filterChipActive]}
-                onPress={() => setCustChannel(ch)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, custChannel === ch && styles.filterChipTextActive]}>{ch}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Customer Channel Filters: Subwarehouse only (for Main Warehouse, removed from top of search bar) */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Online', 'Market', 'B2B'] as const).map((ch) => (
+                <TouchableOpacity
+                  key={ch}
+                  style={[styles.filterChip, custChannel === ch && styles.filterChipActive]}
+                  onPress={() => setCustChannel(ch)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, custChannel === ch && styles.filterChipTextActive]}>{ch}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -1853,7 +2442,15 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || custChannel !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Customer Records Stack */}
@@ -1885,7 +2482,9 @@ export function ReportsScreen({
                   <Text style={styles.recordIdText}>{cust.id}</Text>
                   <Text style={styles.recordAmountText}>{cust.totalSpent}</Text>
                 </View>
-                <Text style={styles.recordSubText}>{cust.name}</Text>
+                <Text style={styles.recordSubText}>
+                  {cust.name}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${cust.warehouse}` : ''}
+                </Text>
                 <Text style={styles.custOrdersText}>{cust.orders} orders</Text>
                 <Text style={styles.recordDateText}>Last order {cust.lastOrder}</Text>
               </TouchableOpacity>
@@ -1895,7 +2494,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -2033,7 +2632,10 @@ export function ReportsScreen({
         id: 'TOP-002845',
         customerId: 'CUS-1024',
         customer: 'Customer CUS-1024 · Cash',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         amount: '₹2,000',
+        amountNum: 2000,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2048,7 +2650,10 @@ export function ReportsScreen({
         id: 'TOP-002844',
         customerId: 'CUS-1018',
         customer: 'Customer CUS-1018 · Cash',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         amount: '₹1,500',
+        amountNum: 1500,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2063,7 +2668,10 @@ export function ReportsScreen({
         id: 'TOP-002843',
         customerId: 'CUS-1092',
         customer: 'Customer CUS-1092 · Cash',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
         amount: '₹5,000',
+        amountNum: 5000,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2078,7 +2686,10 @@ export function ReportsScreen({
         id: 'TOP-002840',
         customerId: 'CUS-0984',
         customer: 'Customer CUS-0984 · Cash',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
         amount: '₹3,000',
+        amountNum: 3000,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2093,7 +2704,10 @@ export function ReportsScreen({
         id: 'TOP-002838',
         customerId: 'CUS-1002',
         customer: 'Customer CUS-1002 · Cash',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         amount: '₹7,000',
+        amountNum: 7000,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2108,7 +2722,10 @@ export function ReportsScreen({
         id: 'TOP-002835',
         customerId: 'CUS-0950',
         customer: 'Customer CUS-0950 · Cash',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         amount: '₹10,000',
+        amountNum: 10000,
         paymentMethod: 'Cash',
         auth: 'SWA',
         processedBy: 'SWA – Suresh',
@@ -2122,13 +2739,17 @@ export function ReportsScreen({
     ];
 
     const filteredTopups = TOPUP_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
       const matchQuery =
         !searchQuery ||
         item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.customer.toLowerCase().includes(searchQuery.toLowerCase());
+        item.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.warehouse.toLowerCase().includes(searchQuery.toLowerCase());
       const matchPeriod = topupPeriod === 'All' || item.period === topupPeriod || (topupPeriod === 'This Month');
       return matchQuery && matchPeriod;
     });
+
+    const topupsSum = filteredTopups.reduce((sum, item) => sum + item.amountNum, 0);
 
     return (
       <SafeAreaView style={styles.root}>
@@ -2155,15 +2776,23 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TODAY'S TOP-UPS</Text>
-              <Text style={styles.kpiValue}>₹18,500</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${topupsSum.toLocaleString('en-IN')}` : '₹18,500'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
-              <Text style={styles.kpiValue}>26</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredTopups.length : 26}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG TOP-UP</Text>
-              <Text style={styles.kpiValue}>₹712</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId && filteredTopups.length > 0
+                  ? `₹${Math.round(topupsSum / filteredTopups.length).toLocaleString('en-IN')}`
+                  : '₹712'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>THIS MONTH</Text>
@@ -2171,20 +2800,21 @@ export function ReportsScreen({
             </View>
           </View>
 
-
-          {/* Filter Chips */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Today', 'This Month'] as const).map((p) => (
-              <TouchableOpacity
-                key={p}
-                style={[styles.filterChip, topupPeriod === p && styles.filterChipActive]}
-                onPress={() => setTopupPeriod(p)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, topupPeriod === p && styles.filterChipTextActive]}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Filter Chips: Subwarehouse only (for Main Warehouse, removed from top of search bar) */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Today', 'This Month'] as const).map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[styles.filterChip, topupPeriod === p && styles.filterChipActive]}
+                  onPress={() => setTopupPeriod(p)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, topupPeriod === p && styles.filterChipTextActive]}>{p}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -2196,7 +2826,15 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || topupPeriod !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Top-Up Record Cards */}
@@ -2227,7 +2865,9 @@ export function ReportsScreen({
                     <Text style={styles.greenBadgeText}>{item.status}</Text>
                   </View>
                 </View>
-                <Text style={styles.recordSubText}>{item.customer}</Text>
+                <Text style={styles.recordSubText}>
+                  {item.customer}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}
+                </Text>
                 <View style={styles.topupAmountRow}>
                   <Text style={styles.topupAmountBold}>{item.amount}</Text>
                   <Text style={styles.swaTagText}>{item.auth}</Text>
@@ -2240,7 +2880,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -2345,10 +2985,12 @@ export function ReportsScreen({
         quantity: '3 KG',
         order: 'Order ORD-10284',
         amount: '₹3,450',
+        amountNum: 3450,
         paymentMethod: 'Wallet',
         status: 'Completed',
         dateTime: '25 Sep, 11:20 AM',
-        warehouse: rowWarehouse,
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
       },
       {
         id: 'REV-000844',
@@ -2359,10 +3001,12 @@ export function ReportsScreen({
         quantity: '4 KG',
         order: 'Order ORD-10280',
         amount: '₹1,850',
+        amountNum: 1850,
         paymentMethod: 'UPI',
         status: 'Completed',
         dateTime: '25 Sep, 10:45 AM',
-        warehouse: rowWarehouse,
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
       },
       {
         id: 'REV-000842',
@@ -2373,10 +3017,12 @@ export function ReportsScreen({
         quantity: '6 KG',
         order: 'Order ORD-10275',
         amount: '₹4,200',
+        amountNum: 4200,
         paymentMethod: 'Card',
         status: 'Completed',
         dateTime: '24 Sep, 04:30 PM',
-        warehouse: rowWarehouse,
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
       },
       {
         id: 'REV-000840',
@@ -2387,27 +3033,34 @@ export function ReportsScreen({
         quantity: '5 KG',
         order: 'Order ORD-10268',
         amount: '₹6,100',
+        amountNum: 6100,
         paymentMethod: 'Cash',
         status: 'Completed',
         dateTime: '24 Sep, 02:15 PM',
-        warehouse: rowWarehouse,
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
       },
     ];
 
     const filteredRevenue = REVENUE_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (revChannel !== 'All' && !item.type.toLowerCase().includes(revChannel.toLowerCase())) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
         item.id.toLowerCase().includes(q) ||
         item.type.toLowerCase().includes(q) ||
         item.order.toLowerCase().includes(q) ||
-        item.paymentMethod.toLowerCase().includes(q)
+        item.paymentMethod.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
       );
     });
 
+    const revSum = filteredRevenue.reduce((sum, item) => sum + item.amountNum, 0);
+
     const REVENUE_SOURCES = [
-      { channel: 'Online Orders', value: '₹2,80,000' },
-      { channel: 'Market Sales', value: '₹2,40,000' },
+      { channel: 'Online Orders', value: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredRevenue.filter((i) => i.type === 'Online Order').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹2,80,000' },
+      { channel: 'Market Sales', value: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredRevenue.filter((i) => i.type === 'Market Sale').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹2,40,000' },
       { channel: 'HORECA', value: '—' },
       { channel: 'B2B', value: '—' },
     ];
@@ -2437,19 +3090,29 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL REVENUE</Text>
-              <Text style={styles.kpiValue}>₹5,84,200</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${revSum.toLocaleString('en-IN')}` : '₹5,84,200'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TODAY</Text>
-              <Text style={styles.kpiValue}>₹24,850</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${revSum.toLocaleString('en-IN')}` : '₹24,850'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ORDERS</Text>
-              <Text style={styles.kpiValue}>284</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredRevenue.length : 284}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG SALE</Text>
-              <Text style={styles.kpiValue}>₹2,057</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId && filteredRevenue.length > 0
+                  ? `₹${Math.round(revSum / filteredRevenue.length).toLocaleString('en-IN')}`
+                  : '₹2,057'}
+              </Text>
             </View>
           </View>
 
@@ -2467,7 +3130,6 @@ export function ReportsScreen({
             ))}
           </View>
 
-
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
             <SearchIcon size={16} color={adminColors.muted} />
@@ -2478,7 +3140,15 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || revChannel !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Revenue Records Stack */}
@@ -2511,7 +3181,9 @@ export function ReportsScreen({
                     <Text style={styles.greenBadgeText}>{item.status}</Text>
                   </View>
                 </View>
-                <Text style={styles.recordSubText}>{item.type} · {item.order}</Text>
+                <Text style={styles.recordSubText}>
+                  {item.type} · {item.order}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}
+                </Text>
                 <View style={styles.topupAmountRow}>
                   <Text style={[styles.topupAmountBold, { color: adminColors.success.text }]}>{item.amount}</Text>
                   <Text style={styles.swaTagText}>{item.paymentMethod}</Text>
@@ -2546,7 +3218,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -2661,12 +3333,15 @@ export function ReportsScreen({
         category: 'Transport',
         voucher: 'Voucher VCH-000821',
         amount: '₹2,400',
+        amountNum: 2400,
         status: 'Recorded',
         date: '25 Sep 2026',
         paymentMethod: 'Cash',
         vendorPayee: 'Local Transport Co.',
         description: 'Transport from the collection point to the warehouse',
         createdBy: 'SWA – Suresh',
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         timeline: [
           { title: 'Expense Created' },
           { title: 'Recorded' },
@@ -2677,12 +3352,15 @@ export function ReportsScreen({
         category: 'Loading',
         voucher: 'VCH-000820',
         amount: '₹1,800',
+        amountNum: 1800,
         status: 'Recorded',
         date: '25 Sep 2026',
         paymentMethod: 'Cash',
         vendorPayee: 'Local Handlers',
         description: 'Unloading & stacking produce crates at dock 2',
         createdBy: 'SWA – Suresh',
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         timeline: [
           { title: 'Expense Created' },
           { title: 'Recorded' },
@@ -2693,12 +3371,15 @@ export function ReportsScreen({
         category: 'Maintenance',
         voucher: 'VCH-000818',
         amount: '₹4,200',
+        amountNum: 4200,
         status: 'Recorded',
         date: '24 Sep 2026',
         paymentMethod: 'UPI',
         vendorPayee: 'CoolTech Ref Services',
         description: 'Chiller room condenser maintenance and refilling',
         createdBy: 'SWA – Suresh',
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
         timeline: [
           { title: 'Expense Created' },
           { title: 'Recorded' },
@@ -2709,12 +3390,15 @@ export function ReportsScreen({
         category: 'Other',
         voucher: 'VCH-000815',
         amount: '₹3,500',
+        amountNum: 3500,
         status: 'Pending',
         date: '24 Sep 2026',
         paymentMethod: 'Card',
         vendorPayee: 'Nilgiris Packaging Supplies',
         description: 'Purchase of carton boxes and barcode roll labels',
         createdBy: 'SWA – Suresh',
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
         timeline: [
           { title: 'Expense Created' },
           { title: 'Pending Approval' },
@@ -2723,22 +3407,27 @@ export function ReportsScreen({
     ];
 
     const filteredExpenses = EXPENSE_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (expenseCategory !== 'All' && item.category !== expenseCategory) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
         item.id.toLowerCase().includes(q) ||
         item.voucher.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
-        item.vendorPayee.toLowerCase().includes(q)
+        item.vendorPayee.toLowerCase().includes(q) ||
+        item.warehouse.toLowerCase().includes(q)
       );
     });
 
+    const expSum = filteredExpenses.reduce((sum, item) => sum + item.amountNum, 0);
+
     const BREAKDOWN_CATEGORIES = [
-      { name: 'Transport', amount: '₹42,500' },
-      { name: 'Loading', amount: '₹18,400' },
+      { name: 'Transport', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Transport').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹42,500' },
+      { name: 'Loading', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Loading').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹18,400' },
       { name: 'Unloading', amount: '₹12,600' },
-      { name: 'Maintenance', amount: '₹21,800' },
-      { name: 'Other', amount: '₹53,300' },
+      { name: 'Maintenance', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Maintenance').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹21,800' },
+      { name: 'Other', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Other').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹53,300' },
     ];
 
     return (
@@ -2766,19 +3455,31 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL EXPENSES</Text>
-              <Text style={styles.kpiValue}>₹1,48,600</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${expSum.toLocaleString('en-IN')}` : '₹1,48,600'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
-              <Text style={styles.kpiValue}>82</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId ? filteredExpenses.length : 82}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG EXPENSE</Text>
-              <Text style={styles.kpiValue}>₹1,812</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId && filteredExpenses.length > 0
+                  ? `₹${Math.round(expSum / filteredExpenses.length).toLocaleString('en-IN')}`
+                  : '₹1,812'}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>PENDING</Text>
-              <Text style={styles.kpiValue}>8</Text>
+              <Text style={styles.kpiValue}>
+                {isSpecificWarehouseChosen || reportWarehouseId
+                  ? filteredExpenses.filter((i) => i.status === 'Pending').length
+                  : 8}
+              </Text>
             </View>
           </View>
 
@@ -2796,7 +3497,6 @@ export function ReportsScreen({
             ))}
           </View>
 
-
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
             <SearchIcon size={16} color={adminColors.muted} />
@@ -2807,7 +3507,15 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterIcon size={16} color={reportWarehouseId || expenseCategory !== 'All' ? adminColors.brand : adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Expense Records Stack */}
@@ -2854,7 +3562,9 @@ export function ReportsScreen({
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.recordSubText}>{item.category} · {item.voucher}</Text>
+                <Text style={styles.recordSubText}>
+                  {item.category} · {item.voucher}{isMain && !isSpecificWarehouseChosen && !reportWarehouseId ? ` · ${item.warehouse}` : ''}
+                </Text>
                 <Text style={styles.expenseAmountRed}>{item.amount}</Text>
                 <Text style={styles.recordDateText}>{item.date}</Text>
               </TouchableOpacity>
@@ -2872,7 +3582,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -3683,6 +4393,8 @@ export function ReportsScreen({
         status: 'Approved',
         resolution: 'Refund Completed',
         resolutionColor: adminColors.success.text,
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3714,6 +4426,8 @@ export function ReportsScreen({
         status: 'Approved',
         resolution: 'Replacement Dispatched',
         resolutionColor: adminColors.success.text,
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3745,6 +4459,8 @@ export function ReportsScreen({
         status: 'Pending',
         resolution: 'Under Review',
         resolutionColor: adminColors.warning.text,
+        warehouse: 'Ooty',
+        warehouseId: 'ooty',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3773,6 +4489,8 @@ export function ReportsScreen({
         status: 'Rejected',
         resolution: 'Dispute Closed',
         resolutionColor: adminColors.danger.text,
+        warehouse: 'Kotagiri',
+        warehouseId: 'kotagiri',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3803,6 +4521,8 @@ export function ReportsScreen({
         status: 'Approved',
         resolution: 'Wallet Credited',
         resolutionColor: adminColors.success.text,
+        warehouse: 'Gudalur Market',
+        warehouseId: 'gudalur',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3834,6 +4554,8 @@ export function ReportsScreen({
         status: 'Pending',
         resolution: 'Carrier Tracing',
         resolutionColor: adminColors.warning.text,
+        warehouse: 'Coonoor',
+        warehouseId: 'coonoor',
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -3843,6 +4565,7 @@ export function ReportsScreen({
     ];
 
     const filteredReturns = RETURN_DATA.filter((item) => {
+      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
       const matchQuery =
         !searchQuery ||
         item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -3893,22 +4616,23 @@ export function ReportsScreen({
             </View>
           </View>
 
-          {/* Issue Category Filter Chips */}
-          <View style={styles.filterChipRow}>
-            {(['All', 'Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'] as const).map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.filterChip, returnCategory === cat && styles.filterChipActive]}
-                onPress={() => setReturnCategory(cat)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, returnCategory === cat && styles.filterChipTextActive]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
+          {/* Issue Category Filter Chips - Only for Subwarehouse */}
+          {!isMain && (
+            <View style={styles.filterChipRow}>
+              {(['All', 'Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'] as const).map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.filterChip, returnCategory === cat && styles.filterChipActive]}
+                  onPress={() => setReturnCategory(cat)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, returnCategory === cat && styles.filterChipTextActive]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
@@ -3920,7 +4644,9 @@ export function ReportsScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color={adminColors.muted} />
+            <TouchableOpacity onPress={openFilterModal} activeOpacity={0.7}>
+              <FilterIcon size={16} color={adminColors.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Returns Records Stack */}
@@ -3985,7 +4711,10 @@ export function ReportsScreen({
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.recordSubText}>{item.order} · {item.category}</Text>
+                <Text style={styles.recordSubText}>
+                  {item.order} · {item.category}
+                  {isMain && !isSpecificWarehouseChosen && !reportWarehouseId && item.warehouse ? ` · ${item.warehouse}` : ''}
+                </Text>
                 <View style={styles.returnResolutionRow}>
                   <Text style={styles.returnQtyText}>{item.affectedQty}</Text>
                   <Text style={[styles.returnResolutionText, { color: item.resolutionColor }]}>
@@ -3999,7 +4728,7 @@ export function ReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-
+        {renderReportFilterModal()}
       </SafeAreaView>
     );
   }
@@ -4218,76 +4947,41 @@ export function ReportsScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Warehouse & Date Scope Pill: Sub is locked and cycles the period;
-            Main opens the all-warehouses selector (from MainWarehouseReportsScreen). */}
-        <TouchableOpacity
-          style={styles.warehouseBadgeRow}
-          onPress={() => {
-            if (isMain) {
-              setPendingWarehouseId(selectedWarehouseId);
-              setShowWarehousePicker((open) => !open);
-              return;
-            }
-            const next = timeFilter === 'Today' ? 'Week' : timeFilter === 'Week' ? 'Month' : 'Today';
-            setTimeFilter(next);
-          }}
-          activeOpacity={0.8}
-        >
-          <View style={styles.warehouseBadge}>
-            {isMain ? null : <LockBadgeIcon />}
-            <Text style={styles.warehouseBadgeText}>{warehouseLabel} · {timeFilter} ▾</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Warehouse Scope Selector: Sub is locked and cycles the period;
+            Main opens the inline warehouse dropdown selector. */}
+        <View style={styles.warehouseBadgeRow}>
+          {isMain ? (
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions}
+              selectedId={selectedWarehouseId}
+              onSelect={(id) => {
+                setSelectedWarehouseId(id);
+                setReportWarehouseId(id);
+              }}
+            />
+          ) : (
+            <TouchableOpacity
+              onPress={() => {
+                const next = timeFilter === 'Today' ? 'Week' : timeFilter === 'Week' ? 'Month' : 'Today';
+                setTimeFilter(next);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.warehouseBadge}>
+                <LockBadgeIcon />
+                <Text style={styles.warehouseBadgeText}>{warehouseLabel} · {timeFilter}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {isMain && showWarehousePicker ? (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.exportFilterGroupTitle}>Warehouse</Text>
-          <View style={styles.filterChipRow}>
-            {[{ warehouseId: undefined, warehouseName: 'All Warehouses' }, ...warehouseOptions].map((wh) => {
-              const active = pendingWarehouseId === wh.warehouseId;
-              return (
-                <TouchableOpacity
-                  key={wh.warehouseId ?? 'all'}
-                  style={[styles.filterChip, active && styles.filterChipActive]}
-                  onPress={() => setPendingWarehouseId(wh.warehouseId)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{wh.warehouseName}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={[styles.exportFilterGroupTitle, styles.pickerGroupGap]}>Period</Text>
-          <View style={styles.filterChipRow}>
-            {(['Today', 'Week', 'Month'] as const).map((p) => (
-              <TouchableOpacity
-                key={p}
-                style={[styles.filterChip, timeFilter === p && styles.filterChipActive]}
-                onPress={() => setTimeFilter(p)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterChipText, timeFilter === p && styles.filterChipTextActive]}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TouchableOpacity
-            style={[styles.nextActionButton, styles.pickerApplyGap]}
-            activeOpacity={0.8}
-            onPress={() => {
-              setSelectedWarehouseId(pendingWarehouseId);
-              setShowWarehousePicker(false);
-            }}
-          >
-            <Text style={styles.nextActionButtonText}>Apply</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
           {/* ─── 1. KPI Metric Cards (2 Columns Grid) ─── */}
           {hubKpis.length > 0 ? (
             <View style={styles.kpiGrid}>
@@ -4356,7 +5050,6 @@ export function ReportsScreen({
 
           <View style={styles.hubBottomSpacer} />
         </ScrollView>
-      )}
     </SafeAreaView>
   );
 }
@@ -4371,9 +5064,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...adminShadow.md,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -5421,5 +6111,108 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  // Filter Full Screen Modal Styles
+  fullScreenFilterModal: {
+    flex: 1,
+    backgroundColor: '#FAF7F2',
+  },
+  filterModalHeader: {
+    backgroundColor: '#F0562A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  filterCloseText: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  filterModalScroll: {
+    flex: 1,
+  },
+  filterModalScrollContent: {
+    padding: 20,
+    paddingBottom: 24,
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#5F5E5A',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterModalChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3EFE9',
+    borderWidth: 1,
+    borderColor: '#EEDCD3',
+  },
+  filterModalChipActive: {
+    backgroundColor: '#FDF3F0',
+    borderColor: '#F0562A',
+  },
+  filterModalChipText: {
+    fontSize: 14,
+    color: '#5F5E5A',
+    fontWeight: '500',
+  },
+  filterModalChipTextActive: {
+    color: '#F0562A',
+    fontWeight: '700',
+  },
+  filterFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EEDCD3',
+  },
+  modalResetBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F3EFE9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEDCD3',
+  },
+  modalResetBtnText: {
+    color: '#5F5E5A',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalApplyBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F0562A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalApplyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

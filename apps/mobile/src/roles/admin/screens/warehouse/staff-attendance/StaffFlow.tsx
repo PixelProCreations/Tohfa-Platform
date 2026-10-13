@@ -65,13 +65,17 @@ export function StaffFlow({
   onAssignDelivery,
 }: StaffFlowProps) {
   const [stack, setStack] = useState<StaffStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialParams?.warehouseId);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
   // builds the params inline does not reset it on every render.
-  const presetKey = `${initialParams?.staff?.id ?? ''}|${initialParams?.record?.id ?? ''}|${initialParams?.attendanceFilter ?? ''}`;
+  const presetKey = `${initialParams?.staff?.id ?? ''}|${initialParams?.record?.id ?? ''}|${initialParams?.attendanceFilter ?? ''}|${initialParams?.warehouseId ?? ''}`;
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
+    if (initialParams?.warehouseId !== undefined) {
+      setSelectedWarehouseId(initialParams.warehouseId);
+    }
     // initialParams is read through presetKey on purpose (see above).
   }, [initialScreen, presetKey]);
 
@@ -107,9 +111,17 @@ export function StaffFlow({
       return (
         <StaffScreen
           {...common}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelectWarehouse={setSelectedWarehouseId}
           onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
-          onNavigateToAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
-          onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToAttendance={(whId) => {
+            const effectiveWh = whId !== undefined ? whId : selectedWarehouseId;
+            navigate('Attendance', { attendanceFilter: 'All', warehouseId: effectiveWh });
+          }}
+          onNavigateToHistory={(whId) => {
+            const effectiveWh = whId !== undefined ? whId : selectedWarehouseId;
+            navigate('AttendanceHistory', { warehouseId: effectiveWh });
+          }}
         />
       );
     case 'StaffDetail':
@@ -118,35 +130,45 @@ export function StaffFlow({
           {...common}
           staff={params.staff}
           onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
-          onViewAttendanceHistory={() => navigate('AttendanceHistory')}
-          onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}
+          onViewAttendanceHistory={() => navigate('AttendanceHistory', { warehouseId: selectedWarehouseId })}
+          onAssignDelivery={onAssignDelivery ? (driver) => onAssignDelivery(driver ?? params.staff) : undefined}
         />
       );
     case 'EditStaffProfile':
       return <EditStaffProfileScreen {...common} staff={params.staff} onSave={backToStaffList} />;
-    case 'Attendance':
+    case 'Attendance': {
+      const activeWh = params.warehouseId !== undefined ? params.warehouseId : selectedWarehouseId;
+      const isOutsideSelected = Boolean(activeWh && activeWh !== 'all');
       return (
         <AttendanceScreen
           {...common}
           initialFilter={params.attendanceFilter}
+          initialWarehouseId={activeWh}
+          isOutsideWarehouseSelected={isOutsideSelected}
           onSelectRecord={(record) => navigate('AttendanceDetail', { record })}
-          onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToHistory={() => navigate('AttendanceHistory', { warehouseId: activeWh })}
         />
       );
+    }
     case 'AttendanceDetail':
       return <AttendanceDetailScreen {...common} record={params.record} />;
-    case 'AttendanceHistory':
+    case 'AttendanceHistory': {
+      const activeWh = params.warehouseId !== undefined ? params.warehouseId : selectedWarehouseId;
+      const isOutsideSelected = Boolean(activeWh && activeWh !== 'all');
       return (
         <AttendanceHistoryScreen
           {...common}
+          initialWarehouseId={activeWh}
+          isOutsideWarehouseSelected={isOutsideSelected}
           onNavigateToToday={() => {
             // Back to the overview when History was opened from it; otherwise open it.
             const prev = stack[stack.length - 2];
             if (prev?.screen === 'Attendance') back();
-            else navigate('Attendance', { attendanceFilter: 'All' });
+            else navigate('Attendance', { attendanceFilter: 'All', warehouseId: activeWh });
           }}
         />
       );
+    }
     default:
       return null;
   }

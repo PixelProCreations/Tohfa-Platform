@@ -220,17 +220,7 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
             );
           })}
 
-          {hasShortage ? (
-            <View style={styles.statusBox}>
-              <WarningTriangleIcon />
-              <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
-            </View>
-          ) : (
-            <View style={[styles.statusBox, styles.statusBoxSuccess]}>
-              <CheckCircleIcon />
-              <Text style={[styles.statusText, styles.statusTextSuccess]}>All items in stock — ready for packing</Text>
-            </View>
-          )}
+
 
           <View style={styles.scrollSpacer} />
         </ScrollView>
@@ -315,13 +305,6 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
             </View>
           </View>
 
-          <View style={styles.noticeBox}>
-            <InfoCircleIcon />
-            <Text style={styles.noticeText}>
-              Partial fulfillment or substitution isn&apos;t defined by the source requirements, so no such action is
-              offered here.
-            </Text>
-          </View>
 
           <View style={styles.scrollSpacer} />
         </ScrollView>

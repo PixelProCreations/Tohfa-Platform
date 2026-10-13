@@ -15,7 +15,8 @@
  */
 // Design id: M14-S03
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -24,6 +25,7 @@ import {
   EmptyState,
   InfoCard,
   inScope,
+  isAllWarehouses,
   KpiRow,
   ScopeHeader,
   SearchBar,
@@ -38,9 +40,20 @@ import {
   HISTORY_RANGE_DATES,
   STAFF_MONTH_SUMMARIES,
   STAFF_WAREHOUSES,
+  staffWarehouseName,
 } from './fixtures';
-import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './StaffParts';
+import { AttendanceStatusText, ChevronRightIcon, FilterSlidersIcon, ListCard, ListRow } from './StaffParts';
+import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { AttendanceHistoryEntry, StaffMonthSummary, WarehouseScope, WarehouseScreenBaseProps } from './types';
+
+function SearchLensIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 type HistoryRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
 type GroupBy = 'Date' | 'Staff';
@@ -54,6 +67,8 @@ export interface AttendanceHistoryScreenProps extends WarehouseScreenBaseProps {
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   entries?: readonly AttendanceHistoryEntry[] | undefined;
   monthSummaries?: readonly StaffMonthSummary[] | undefined;
+  initialWarehouseId?: string | undefined;
+  isOutsideWarehouseSelected?: boolean | undefined;
 }
 
 export function AttendanceHistoryScreen({
@@ -61,14 +76,26 @@ export function AttendanceHistoryScreen({
   onBack,
   onTabChange,
   onNavigateToToday,
+  initialWarehouseId,
+  isOutsideWarehouseSelected = false,
   warehouseOptions = STAFF_WAREHOUSES,
   entries = ATTENDANCE_HISTORY,
   monthSummaries = STAFF_MONTH_SUMMARIES,
 }: AttendanceHistoryScreenProps) {
+  const isMain = isAllWarehouses(scope);
   const [range, setRange] = useState<HistoryRange>('This Month');
   const [groupBy, setGroupBy] = useState<GroupBy>('Date');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+  const [filterWarehouseId, setFilterWarehouseId] = useState<string | undefined>(undefined);
+  const [showFilterScreen, setShowFilterScreen] = useState(false);
+
+  const isTopWarehouseSelected = isOutsideWarehouseSelected || Boolean(selectedWarehouseId && selectedWarehouseId !== 'all');
+  const effectiveWarehouseId = isOutsideWarehouseSelected
+    ? initialWarehouseId
+    : isTopWarehouseSelected
+    ? selectedWarehouseId
+    : filterWarehouseId;
 
   const inRange = (olderThanWeek: boolean | undefined, dateHeader?: string) => {
     if (range === 'Today') return dateHeader === undefined ? !olderThanWeek : dateHeader === ATTENDANCE_DATE_HEADER;
@@ -79,13 +106,13 @@ export function AttendanceHistoryScreen({
 
   const rows = entries.filter(
     (e) =>
-      inScope(scope, e.warehouseId, selectedWarehouseId) &&
+      inScope(scope, e.warehouseId, effectiveWarehouseId) &&
       inRange(e.olderThanWeek, e.dateHeader) &&
       (!q || e.name.toLowerCase().includes(q) || e.dateHeader.toLowerCase().includes(q)),
   );
   const months = monthSummaries.filter(
     (m) =>
-      inScope(scope, m.warehouseId, selectedWarehouseId) &&
+      inScope(scope, m.warehouseId, effectiveWarehouseId) &&
       inRange(m.olderThanWeek) &&
       (!q || m.staffName.toLowerCase().includes(q)),
   );
@@ -95,6 +122,31 @@ export function AttendanceHistoryScreen({
   const dateGroups = Array.from(new Set(rows.map((r) => r.dateHeader)));
   const staffGroups = Array.from(new Set(months.map((m) => `${m.staffName} · ${m.role}`)));
 
+  if (showFilterScreen) {
+    return (
+      <StaffFiltersScreen
+        initialFilters={{
+          searchQuery,
+          role: 'All',
+          attendance: 'All',
+          status: 'All',
+          warehouseId: effectiveWarehouseId,
+        }}
+        warehouseName={isMain ? (effectiveWarehouseId ? staffWarehouseName(effectiveWarehouseId) : undefined) : scope.warehouseName ?? scope.warehouseId}
+        warehouseOptions={warehouseOptions}
+        isTopWarehouseSelected={isMain ? isTopWarehouseSelected : true}
+        onBack={() => setShowFilterScreen(false)}
+        onApply={(newFilters) => {
+          setSearchQuery(newFilters.searchQuery);
+          if (!isOutsideWarehouseSelected) {
+            setFilterWarehouseId(newFilters.warehouseId);
+          }
+          setShowFilterScreen(false);
+        }}
+      />
+    );
+  }
+
   return (
     <WalletScreen
       title="Attendance History"
@@ -102,13 +154,26 @@ export function AttendanceHistoryScreen({
       headerExtra={
         <ScopeHeader
           scope={scope}
-          label={scope.warehouseId !== undefined ? scope.warehouseName ?? scope.warehouseId : undefined}
-          warehouseOptions={warehouseOptions}
+          label={
+            isOutsideWarehouseSelected && initialWarehouseId
+              ? staffWarehouseName(initialWarehouseId)
+              : scope.warehouseId !== undefined
+              ? scope.warehouseName ?? scope.warehouseId
+              : undefined
+          }
+          warehouseOptions={isOutsideWarehouseSelected ? undefined : warehouseOptions}
           selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
+          onSelectWarehouse={
+            isOutsideWarehouseSelected
+              ? undefined
+              : (id) => {
+                  setSelectedWarehouseId(id);
+                  setFilterWarehouseId(undefined);
+                }
+          }
         />
       }
-      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
+      footer={!isMain && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <InfoCard
@@ -155,7 +220,30 @@ export function AttendanceHistoryScreen({
           })}
         </View>
 
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search staff..." />
+        {isMain ? (
+          <View style={styles.searchBarWrap}>
+            <SearchLensIcon />
+            <TextInput
+              style={styles.searchBarInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search staff..."
+              placeholderTextColor={adminColors.placeholder}
+              returnKeyType="search"
+            />
+            <TouchableOpacity
+              onPress={() => setShowFilterScreen(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Filter attendance history"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <FilterSlidersIcon size={20} color={adminColors.brand} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search staff..." />
+        )}
 
         {groupBy === 'Date' ? (
           dateGroups.length === 0 ? (
@@ -225,4 +313,22 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: adminColors.brand },
   segmentText: { ...adminType.rowMeta, color: adminColors.muted },
   segmentTextActive: { ...adminType.caption, color: adminColors.onBrand },
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    height: 48,
+    marginBottom: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  searchBarInput: {
+    flex: 1,
+    ...adminType.body,
+    color: adminColors.ink,
+    paddingVertical: 0,
+  },
 });

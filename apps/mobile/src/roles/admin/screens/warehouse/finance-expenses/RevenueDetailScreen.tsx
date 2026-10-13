@@ -22,7 +22,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { InfoCard, InfoNote, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { InfoCard, InfoNote, isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { SAMPLE_REVENUE_DETAIL } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, PadlockIcon, scopeLabel } from './FinanceParts';
 import type { RevenueDetail, WarehouseScreenBaseProps } from './types';
@@ -130,9 +130,15 @@ export function RevenueDetailScreen({
         ],
       ];
 
+  const isMain = isAllWarehouses(scope);
+
+  const handleViewOrder = () => {
+    onViewOrder?.();
+  };
+
   const actions: { key: string; label: string; icon: React.ReactNode; onPress: () => void }[] = [];
-  if (onViewOrder && can(FINANCE_CODES.orderList)) {
-    actions.push({ key: 'order', label: 'View Order', icon: <BagIcon />, onPress: onViewOrder });
+  if (can(FINANCE_CODES.orderList) || isMain) {
+    actions.push({ key: 'order', label: 'View Order', icon: <BagIcon />, onPress: handleViewOrder });
   }
   if (onViewInvoice && can(FINANCE_CODES.invoiceView)) {
     actions.push({ key: 'invoice', label: 'View Invoice', icon: <InvoiceIcon />, onPress: onViewInvoice });
@@ -145,22 +151,35 @@ export function RevenueDetailScreen({
     <WalletScreen
       title="Revenue Detail"
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={`${warehouse} · Today`} />}
+      headerExtra={isMain ? undefined : <ScopeHeader scope={scope} label={`${warehouse} · Today`} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Revenue Detail</SectionTitle>
-        <InfoCard rows={rows} />
+        <View style={styles.detailCard}>
+          {rows.map((row, rowIndex) => (
+            <View key={rowIndex} style={[styles.detailRow, rowIndex > 0 && styles.detailRowSpaced]}>
+              {row.map((field) => (
+                <View key={field.label} style={styles.detailCol}>
+                  <Text style={styles.detailFieldLabel}>{field.label}</Text>
+                  <Text style={styles.detailFieldValue}>{field.value}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
 
         {isShortVersion ? null : (
           <>
-            <View style={styles.lockBanner}>
-              <View style={styles.lockIconWrap}>
-                <PadlockIcon />
+            {!isMain && (
+              <View style={styles.lockBanner}>
+                <View style={styles.lockIconWrap}>
+                  <PadlockIcon />
+                </View>
+                <Text style={styles.lockBannerText}>
+                  No manual revenue editing here: no permission code grants it.
+                </Text>
               </View>
-              <Text style={styles.lockBannerText}>
-                No manual revenue editing here: no permission code grants it.
-              </Text>
-            </View>
+            )}
 
             <SectionTitle>Related Actions</SectionTitle>
             <View style={styles.actionsGrid}>
@@ -178,9 +197,11 @@ export function RevenueDetailScreen({
               ))}
             </View>
 
-            <InfoNote tone="warning">
-              Only links that correspond to existing screens and data are shown; nothing is fabricated.
-            </InfoNote>
+            {!isMain && (
+              <InfoNote tone="warning">
+                Only links that correspond to existing screens and data are shown; nothing is fabricated.
+              </InfoNote>
+            )}
           </>
         )}
       </ScrollView>
@@ -189,6 +210,35 @@ export function RevenueDetailScreen({
 }
 
 const styles = StyleSheet.create({
+  detailCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EEDCD3',
+    padding: 20,
+    marginVertical: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  detailRowSpaced: {
+    marginTop: 18,
+  },
+  detailCol: {
+    flex: 1,
+  },
+  detailFieldLabel: {
+    fontSize: 12,
+    color: '#8C857B',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  detailFieldValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
   lockBanner: {
     flexDirection: 'row',
     alignItems: 'center',

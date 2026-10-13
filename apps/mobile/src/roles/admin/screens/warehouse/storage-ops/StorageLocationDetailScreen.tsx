@@ -136,12 +136,7 @@ export function StorageLocationDetailScreen({
           <Text style={styles.actionButtonText}>View Activity</Text>
         </TouchableOpacity>
 
-        <View style={styles.noteCard}>
-          <LockIcon size={16} color="#9A3412" />
-          <Text style={styles.noteText}>
-            SWA views this location's stock and activity here — this is a deep-link into inventory data, not a second stock-editing system.
-          </Text>
-        </View>
+
       </ScrollView>
     </WalletScreen>
   );

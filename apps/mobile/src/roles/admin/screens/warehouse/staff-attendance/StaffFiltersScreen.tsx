@@ -12,6 +12,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors } from '../../../theme';
+import type { WarehouseScope } from './types';
 
 function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -86,16 +87,33 @@ function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
   );
 }
 
+function WarehouseIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M5 21V9l7-5 7 5v12M9 13h6M9 17h6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export interface StaffFilterValues {
   searchQuery: string;
   role: 'All' | 'Warehouse Staff' | 'Driver';
   attendance: 'All' | 'Present' | 'Absent' | 'On Leave';
   status: 'All' | 'Active' | 'Inactive';
+  warehouseId?: string | undefined;
 }
 
 export interface StaffFiltersScreenProps {
   initialFilters: StaffFilterValues;
   warehouseName?: string | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
+  isTopWarehouseSelected?: boolean;
   onBack: () => void;
   onApply: (filters: StaffFilterValues) => void;
 }
@@ -106,7 +124,9 @@ const STATUS_OPTIONS = ['All', 'Active', 'Inactive'] as const;
 
 export function StaffFiltersScreen({
   initialFilters,
-  warehouseName = 'Coonoor Warehouse',
+  warehouseName,
+  warehouseOptions,
+  isTopWarehouseSelected = false,
   onBack,
   onApply,
 }: StaffFiltersScreenProps) {
@@ -114,12 +134,16 @@ export function StaffFiltersScreen({
   const [role, setRole] = useState(initialFilters.role);
   const [attendance, setAttendance] = useState(initialFilters.attendance);
   const [status, setStatus] = useState(initialFilters.status);
+  const [warehouseId, setWarehouseId] = useState<string | undefined>(initialFilters.warehouseId);
 
   const clearAll = () => {
     setSearchQuery('');
     setRole('All');
     setAttendance('All');
     setStatus('All');
+    if (!isTopWarehouseSelected) {
+      setWarehouseId(undefined);
+    }
   };
 
   const handleApply = () => {
@@ -128,6 +152,7 @@ export function StaffFiltersScreen({
       role,
       attendance,
       status,
+      warehouseId: isTopWarehouseSelected ? undefined : warehouseId,
     });
   };
 
@@ -241,11 +266,49 @@ export function StaffFiltersScreen({
           })}
         </View>
 
+        {/* Warehouse Selection (Only shown when 'All Warehouses' is active at the top) */}
+        {!isTopWarehouseSelected && warehouseOptions && warehouseOptions.length > 0 ? (
+          <>
+            <View style={styles.sectionHeadRow}>
+              <WarehouseIcon size={17} color="#1E293B" />
+              <Text style={styles.sectionTitle}>Warehouse</Text>
+            </View>
+            <View style={styles.chipWrap}>
+              <TouchableOpacity
+                style={[styles.chip, !warehouseId && styles.chipActive]}
+                onPress={() => setWarehouseId(undefined)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, !warehouseId && styles.chipTextActive]}>All Warehouses</Text>
+              </TouchableOpacity>
+              {warehouseOptions.map((item) => {
+                const wId = item.warehouseId;
+                const wName = item.warehouseName ?? item.warehouseId;
+                const active = wId === warehouseId;
+                return (
+                  <TouchableOpacity
+                    key={wId ?? wName}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setWarehouseId(wId)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{wName}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
         {/* Scoped Warehouse Lock Note (Orange) */}
         <View style={styles.orangeNote}>
           <LockIcon size={18} color="#9A3412" />
           <Text style={styles.orangeNoteText}>
-            No warehouse selector — results always scoped to {warehouseName}.
+            {isTopWarehouseSelected
+              ? `Results are locked to ${warehouseName ?? 'selected warehouse'} selected on the main screen.`
+              : warehouseName
+              ? `No warehouse selector — results always scoped to ${warehouseName}.`
+              : 'Main Warehouse view — searches across staff in all warehouses.'}
           </Text>
         </View>
       </ScrollView>

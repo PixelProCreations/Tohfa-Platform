@@ -369,21 +369,6 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
           })}
         </View>
 
-        {/* Note Box 1 (Orange) */}
-        <View style={styles.orangeNote}>
-          <LockIcon size={18} color="#9A3412" />
-          <Text style={styles.orangeNoteText}>
-            No warehouse selector — results always scoped to {warehouseName}.
-          </Text>
-        </View>
-
-        {/* Note Box 2 (Blue) */}
-        <View style={styles.blueNote}>
-          <InfoCircleIcon size={18} color="#0284C7" />
-          <Text style={styles.blueNoteText}>
-            Direct Customer Purchase has its own workflow in Module 6 and isn't filtered here.
-          </Text>
-        </View>
       </ScrollView>
 
       {/* Footer */}

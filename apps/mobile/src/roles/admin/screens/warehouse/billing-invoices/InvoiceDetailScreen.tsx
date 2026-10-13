@@ -19,7 +19,7 @@
  *     the invoice id.
  */
 // Design id: M9-S03
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -50,8 +50,6 @@ export interface InvoiceDetailScreenProps extends WarehouseScreenBaseProps {
   onShare?: ((invoiceId: string) => void) | undefined;
 }
 
-const TOAST_MS = 3000;
-
 function TimelineCheckIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -79,7 +77,6 @@ export function InvoiceDetailScreen({
 }: InvoiceDetailScreenProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!showPreview) return;
@@ -89,13 +86,6 @@ export function InvoiceDetailScreen({
     });
     return () => sub.remove();
   }, [showPreview]);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
 
   const canView = can('invoice.view_own');
   const allWarehouses = isAllWarehouses(scope);
@@ -112,9 +102,8 @@ export function InvoiceDetailScreen({
   }
 
   const handlePdfDownload = () => {
-    setShowToast(true);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setShowToast(false), TOAST_MS);
+    setShowToast(false);
+    setTimeout(() => setShowToast(true), 10);
     onDownload?.(invoiceId);
   };
 
@@ -133,10 +122,18 @@ export function InvoiceDetailScreen({
       <BillingScreen
         title="Invoice Preview"
         onBack={() => setShowPreview(false)}
+        toast={
+          showToast ? (
+            <BillingToast
+              message="Invoice downloaded"
+              visible={showToast}
+              onDismiss={() => setShowToast(false)}
+            />
+          ) : null
+        }
         footer={
           canView ? (
             <BillingFooter>
-              {showToast ? <BillingToast message="Invoice downloaded" /> : null}
               <BillingButton label="Download PDF" icon={<DownloadIcon />} onPress={handlePdfDownload} />
               <BillingButton label="Share" variant="outline" onPress={handleShare} />
             </BillingFooter>
@@ -210,10 +207,18 @@ export function InvoiceDetailScreen({
           </HeaderIconButton>
         ) : null
       }
+      toast={
+        showToast ? (
+          <BillingToast
+            message="Invoice downloaded"
+            visible={showToast}
+            onDismiss={() => setShowToast(false)}
+          />
+        ) : null
+      }
       footer={
         canView ? (
           <BillingFooter>
-            {showToast ? <BillingToast message="Invoice downloaded" /> : null}
             <BillingButton label="Download Invoice" icon={<DownloadIcon />} onPress={handleDownload} />
             <BillingButton label="Share" variant="outline" onPress={handleShare} />
           </BillingFooter>
