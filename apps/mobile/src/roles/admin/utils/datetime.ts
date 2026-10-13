@@ -112,3 +112,8 @@ export function relativeTime(iso: string | Date, now: Date): string {
   if (daysBack < RELATIVE_DAYS_LIMIT) return t('datetime.daysAgo', { count: daysBack });
   return dayLabel(p);
 }
+
+/** The IST weekday of `now`, 0 = Sunday ... 6 = Saturday (same fixed +05:30 shift as above). */
+export function istWeekday(now: Date): number {
+  return new Date(now.getTime() + IST_OFFSET_MS).getUTCDay();
+}

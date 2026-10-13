@@ -69,6 +69,61 @@ export interface CurrentSessionInfo {
   sessionId: string;
 }
 
+/**
+ * The signed-in admin's own account, as the profile and settings screens show
+ * it: exactly what GET /auth/me sends (plan phase 8, ./mappers.ts
+ * toAccountProfile). There is no admin id, access level or password-changed
+ * date in the API, so none is shown.
+ */
+export interface AccountProfileView {
+  fullName: string;
+  /** 'Sub Warehouse Admin' / 'Main Warehouse Admin'. */
+  roleLabel: string;
+  /** The warehouse the account is scoped to, or 'All Warehouses' for Main. */
+  warehouseLabel: string;
+  /** Locked identity field (BR-33): shown, never edited. */
+  mobileNumber: string | null;
+  /** Locked identity field (BR-33): shown, never edited. */
+  email: string | null;
+  preferredLocale: 'en' | 'ta';
+  /** Translated account status ('Active', 'Pending', 'Disabled' or 'Unknown'). */
+  status: string;
+  statusTone: 'success' | 'warning' | 'danger';
+  /** Account creation day, or null when not sent. */
+  createdDate: string | null;
+  /** Last successful login, or null when the user never logged in (BR-67g). */
+  lastLogin: string | null;
+}
+
+/**
+ * One of the admin's own live sessions (GET /auth/me/sessions, BR-67). The
+ * API cannot tell which one is this device, so none is marked current.
+ */
+export interface SessionRowView {
+  id: string;
+  device: string;
+  userAgent: string | null;
+  started: string;
+  lastActive: string | null;
+  ip: string | null;
+  expires: string;
+}
+
+/** One published help article (GET /admin/help); its category is server text, not a fixed list. */
+export interface HelpArticleView {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+}
+
+/** The Help & Support screen's data (GET /admin/help). A null channel is not configured and is hidden. */
+export interface HelpView {
+  articles: readonly HelpArticleView[];
+  categories: readonly string[];
+  contact: { phone: string | null; email: string | null };
+}
+
 /** One help-centre FAQ. */
 export interface FaqItem {
   id: string;
@@ -259,4 +314,54 @@ export interface WarehouseSettingsValues {
   discrepancyEscalation: boolean;
   /** Quantity-mismatch share above which the escalation rule fires (display; server-owned). */
   escalationThresholdPercent: number;
+}
+
+// ─── Live warehouse views (plan phase 8, ./mappers.ts) ───────────────────────
+
+/** GET /warehouses/{id} as the warehouse-facing screens show it (BR-66). */
+export interface WarehouseProfileView {
+  /** The server uuid. */
+  warehouseId: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  statusLabel: string;
+  kindLabel: string;
+  /** Address, city and pincode, the parts that are set; null when none is. */
+  address: string | null;
+  /** '11.353° N, 76.7959° E', or null without coordinates. */
+  coordinates: string | null;
+  contactPhone: string | null;
+}
+
+/** GET /warehouses/{id}/capacity in integer grams (BR-66b). */
+export interface CapacityView {
+  capacityGrams: number | null;
+  usedGrams: number;
+  /** Negative when over capacity (never clamped); null without a capacity. */
+  availableGrams: number | null;
+  /** The server's utilisation, '41.67%'; null without a capacity. */
+  utilizationLabel: string | null;
+  /** 0..100, for the fill bar only. */
+  fillPercent: number;
+}
+
+/** One storage location (GET /warehouses/{id}/storage-locations, BR-79). */
+export interface StorageLocationView {
+  id: string;
+  code: string;
+  name: string;
+  /** Free text from the server, or null. */
+  type: string | null;
+  isActive: boolean;
+  statusLabel: string;
+  /** Display-only capacity of the location, or null. No occupancy: batches are not linked to locations. */
+  capacityGrams: number | null;
+}
+
+/** One weekday of the stored operating hours, Monday first. `hours` null = closed. */
+export interface OperatingDayView {
+  day: string;
+  hours: string | null;
+  isToday: boolean;
 }
