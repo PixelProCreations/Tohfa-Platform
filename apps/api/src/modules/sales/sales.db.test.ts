@@ -1087,6 +1087,55 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleId])).toBe('0');
     expect(await one(`SELECT count(*)::text FROM audit_log WHERE entity_id = $1 AND action_code IN ('order.cancel', 'payment.refund')`, [saleId])).toBe('0');
   });
+
+  it('BR-94n (PostgreSQL): a stock-conflicted confirm with a UPI reference that already confirmed another sale is 409 UPI_TXN_REF_ALREADY_USED, not a 500; the sale stays pending and nothing is refunded', async () => {
+    const [{ createSalesService }, { salesRepo }] = await Promise.all([import('./sales.service.js'), import('./sales.repo.js')]);
+    const crop = await newCrop({ ceiling: '9.00' });
+    await newBatch({ crop, qty: '3' });
+    const upiSale = async (): Promise<string> => {
+      const res = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'UPI dup cancel' }, items: [item(crop, '1')], expectedTotal: '9.00', payment: { method: 'UPI' } });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      return res.body.id as string;
+    };
+    const [saleA, saleB] = [await upiSale(), await upiSale()];
+    const ref = `pay_ci_dupcancel_${newId().slice(0, 12)}`;
+    const a = await request(server)
+      .post(`/v1/admin/sales/${saleA}/payments/upi/confirm`)
+      .set('Authorization', auth('subOoty'))
+      .set('Idempotency-Key', key('dupcancel-a'))
+      .send({ upiTxnRef: ref });
+    expect(a.status, JSON.stringify(a.body)).toBe(200);
+
+    const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_ci_dupcancel', status: 'processed' }));
+    const service = createSalesService({
+      verifyUpi: async () => true,
+      gateway: { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment },
+      repo: {
+        ...salesRepo,
+        configValue: async (db, k) => (k === 'sales.upi_refund_mode' ? 'auto' : salesRepo.configValue(db, k)),
+        // The stock conflict fires before confirmPayment, so the real settlePayment of the cancel
+        // transaction is the first write to meet uq_sale_payments_upi_txn_ref.
+        insertSaleLedger: async () => {
+          throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+        },
+      },
+    });
+    const outcome = await service
+      .confirmUpi(subScope(ooty, users.subOoty, 'payment.record'), saleB, key('dupcancel-b'), { upiTxnRef: ref })
+      .then(
+        () => ({ ok: true as const, error: undefined }),
+        (error: unknown) => ({ ok: false as const, error: error as { status?: number; code?: string; meta?: unknown } }),
+      );
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toMatchObject({ status: 409, code: 'CONFLICT', meta: { reason: 'UPI_TXN_REF_ALREADY_USED' } });
+    expect(refundPayment).not.toHaveBeenCalled();
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleB])).toBe('PENDING_PAYMENT');
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleB])).toBe('PENDING');
+    expect(await one(`SELECT count(*)::text FROM sale_payments WHERE upi_txn_ref = $1`, [ref])).toBe('1');
+    expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleB])).toBe('0');
+    expect(await one(`SELECT count(*)::text FROM audit_log WHERE entity_id = $1 AND action_code IN ('order.cancel', 'payment.refund')`, [saleB])).toBe('0');
+  });
 });
 
 

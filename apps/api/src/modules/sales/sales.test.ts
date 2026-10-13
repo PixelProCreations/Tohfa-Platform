@@ -953,6 +953,27 @@ describe('salesService: UPI confirm stock conflict races (mocked repo)', () => {
     expect(r.audits()).toBe(1);
   });
 
+  it('BR-94n: a stock conflict whose cancel writes a UPI reference already on another sale is 409 UPI_TXN_REF_ALREADY_USED, never a 500: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    // The stock check runs before confirmPayment, so a reused reference first meets the 0067
+    // index when the cancel transaction records it on the REFUND_DUE payment.
+    r.h.repo.settlePayment = async () => {
+      r.calls.push('settlePayment');
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_upi_txn_ref"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_upi_txn_ref',
+      });
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_TXN_REF_ALREADY_USED' });
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+    expect(r.h.attempts.map((a) => a.reasonCode)).toEqual(['CONFLICT']);
+  });
+
   it('BR-94l: a manual cancel whose order UPDATE matches no row is 409 CONFLICT and writes no history row', async () => {
     const r = raceHarness();
     r.h.repo.cancelSale = async () => {

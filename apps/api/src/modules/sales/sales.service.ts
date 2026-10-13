@@ -221,6 +221,20 @@ function isUniqueViolation(error: unknown, constraint: string): boolean {
   return pg.code === '23505' && pg.constraint === constraint;
 }
 
+/**
+ * BR-94k / BR-94n, migration 0067: a UPI reference binds one sale payment. Every write that stores
+ * a reference (the confirm, and the REFUND_DUE settle of the stock-conflict cancel) re-throws the
+ * index's 23505 as 409 UPI_TXN_REF_ALREADY_USED; anything else passes through unchanged.
+ */
+function mapUpiRefCollision(error: unknown): unknown {
+  if (!isUniqueViolation(error, 'uq_sale_payments_upi_txn_ref')) return error;
+  return new AppError('CONFLICT', {
+    detail: 'This UPI reference has already confirmed another sale. Check the reference; the sale stays pending.',
+    meta: { reason: 'UPI_TXN_REF_ALREADY_USED' },
+    cause: error,
+  });
+}
+
 /** Group order_items (one row per batch drawn) back into one line per product, grade and price. */
 export function aggregateLines(items: readonly SaleItemRow[]): SaleLine[] {
   const lines = new Map<string, { line: SaleLine; grams: number; paise: number }>();
@@ -890,14 +904,7 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
             // BR-94, migration 0067: a UPI reference confirms one sale. The gateway payment names
             // no sale of ours, so a captured reference of the same amount would otherwise confirm
             // every pending sale it is typed into. Everything above rolls back with this throw.
-            if (isUniqueViolation(error, 'uq_sale_payments_upi_txn_ref')) {
-              throw new AppError('CONFLICT', {
-                detail: 'This UPI reference has already confirmed another sale. Check the reference; the sale stays pending.',
-                meta: { reason: 'UPI_TXN_REF_ALREADY_USED' },
-                cause: error,
-              });
-            }
-            throw error;
+            throw mapUpiRefCollision(error);
           }
           await repo.insertStatusHistory(tx, saleId, 'PENDING_PAYMENT', 'PICKED_UP', scope.userId, 'UPI payment confirmed');
 
@@ -957,9 +964,16 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
               if (!(await repo.cancelSale(cancelTx, saleId, { reason: 'Stock unavailable at confirmation', paymentStatus: 'REFUND_DUE' }))) {
                 throw saleStateChanged(saleId);
               }
-              if (!(await repo.settlePayment(cancelTx, locked.paymentId, 'REFUND_DUE', upiTxnRef))) {
-                throw saleStateChanged(saleId);
+              // BR-94n: the stock guard fires before confirmPayment, so a reference already bound to
+              // another sale first meets the 0067 index here. That payment is not proven to be this
+              // sale's money: roll the cancel back (the sale stays pending) and refund nothing.
+              let settled: boolean;
+              try {
+                settled = await repo.settlePayment(cancelTx, locked.paymentId, 'REFUND_DUE', upiTxnRef);
+              } catch (settleError) {
+                throw mapUpiRefCollision(settleError);
               }
+              if (!settled) throw saleStateChanged(saleId);
               await repo.insertStatusHistory(
                 cancelTx,
                 saleId,
