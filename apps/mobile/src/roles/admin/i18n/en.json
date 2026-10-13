@@ -233,5 +233,22 @@
   "admin.errors.STOCK_UNAVAILABLE": "Not enough stock is available.",
   "admin.errors.DUAL_APPROVAL_REQUIRED": "This action needs a second approver.",
   "admin.errors.SAME_ACTOR_APPROVAL": "You cannot approve your own request.",
-  "admin.errors.FIELD_LOCKED": "Mobile number and e-mail cannot be changed here."
+  "admin.errors.FIELD_LOCKED": "Mobile number and e-mail cannot be changed here.",
+  "admin.wallet.topup.errors.amountInvalid": "Enter an amount greater than zero, with at most 2 decimals.",
+  "admin.wallet.topup.errors.amountAboveCap": "A single cash top-up cannot be more than {cap}.",
+  "admin.wallet.topup.errors.fiscalTagTooShort": "The fiscal cash tag must be at least 3 characters.",
+  "admin.wallet.topup.errors.fiscalTagTooLong": "The fiscal cash tag can be at most 60 characters.",
+  "admin.wallet.topup.errors.remarksTooLong": "Remarks can be at most 300 characters.",
+  "admin.wallet.topup.errors.CONFLICT": "This fiscal cash tag has already been recorded. The top-up may already have gone through — check the customer's wallet before trying again.",
+  "admin.wallet.topup.errors.NOT_FOUND": "This customer's wallet could not be found.",
+  "admin.wallet.topup.errors.uncertain": "We could not confirm the top-up. It may have gone through. Try again — the same request is resent, so the wallet is credited only once.",
+  "admin.wallet.txnType.TOPUP_CASH": "Cash top-up",
+  "admin.wallet.txnType.TOPUP_DIGITAL": "Online top-up",
+  "admin.wallet.txnType.ORDER_DEBIT": "Order payment",
+  "admin.wallet.txnType.ORDER_REFUND": "Order refund",
+  "admin.wallet.txnType.PAYOUT_DEBIT": "Payout",
+  "admin.wallet.txnType.SALE_CREDIT": "Sale credit",
+  "admin.wallet.txnType.SUBSCRIPTION_DEBIT": "Subscription payment",
+  "admin.wallet.txnType.ADJUSTMENT": "Adjustment",
+  "admin.wallet.txnType.unknown": "Wallet transaction"
 }

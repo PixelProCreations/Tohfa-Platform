@@ -72,6 +72,19 @@ describe('warehouse feature availability', () => {
     expect(isWarehouseFeatureVisible('helpTickets', can)).toBe(false);
     expect(WAREHOUSE_FEATURES.terminateOwnSession.specGap).toContain('/auth/sessions/{id}/terminate');
   });
+
+  it('BR-91: the cash top-up customer search stays hidden (first-time customers are un-findable), even with every grant', () => {
+    const can = createAdminCan(subWarehouseAdminGrants());
+    expect(can('wallet.cash_topup.process')).toBe(true);
+    expect(isWarehouseFeatureVisible('cashTopupCustomerLookup', can)).toBe(false);
+    expect(WAREHOUSE_FEATURES.cashTopupCustomerLookup.specGap).toContain('/admin/sales/customers/lookup');
+  });
+
+  it('BR-64: top-up history stays hidden — /admin/reports/cash-topups is an aggregate, not a list', () => {
+    const can = createAdminCan(subWarehouseAdminGrants());
+    expect(isWarehouseFeatureVisible('cashTopupHistory', can)).toBe(false);
+    expect(WAREHOUSE_FEATURES.cashTopupHistory.specGap).toContain('/admin/reports/cash-topups');
+  });
 });
 
 function subWarehouseAdminGrants(): string[] {

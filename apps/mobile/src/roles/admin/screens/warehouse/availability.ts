@@ -79,6 +79,31 @@ export const WAREHOUSE_FEATURES = {
     permission: 'wallet.cash_topup.process',
     endpoint: '/admin/wallets/{customerId}/cash-topup',
   },
+  /**
+   * The ONLY way the app can obtain a customerId to top up. Hidden — and with
+   * it the whole cash top-up entry (navigation/adminEntries.ts does not list
+   * CashTopupFlow) — until the scope question below is answered.
+   */
+  cashTopupCustomerLookup: {
+    permission: 'wallet.cash_topup.process',
+    endpoint: null,
+    specGap:
+      'GET /admin/sales/customers/lookup (sales.sale.create) matches only customers in the ' +
+      'BR-91 scope: an order or a SUCCESS top-up at the warehouse, or preferred_warehouse_id ' +
+      '(apps/api/src/modules/sales/sales.repo.ts customerVisibility). Nothing outside ' +
+      'db/seed/004_demo.js ever sets preferred_warehouse_id (auth registerCustomer accepts it ' +
+      'but auth.repo createCustomerUser does not store it), so a customer making a FIRST cash ' +
+      'top-up at this warehouse without an order here cannot be found, while POST ' +
+      '/admin/wallets/{customerId}/cash-topup itself has no such restriction. Needs an owner ' +
+      'decision (widen the lookup for top-up, or a dedicated top-up lookup) before shipping.',
+  },
+  cashTopupHistory: {
+    permission: 'wallet.cash_topup.process',
+    endpoint: null,
+    specGap:
+      'No list endpoint for cash top-ups. GET /admin/reports/cash-topups (BR-64) returns only ' +
+      'the count/total overall and per day (CashTopupsReport), not individual top-ups.',
+  },
   returns: { permission: 'rma.request.process', endpoint: '/admin/returns' },
   returnsInspect: {
     permission: 'inventory.quality_check.perform',
