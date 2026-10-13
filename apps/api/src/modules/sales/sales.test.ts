@@ -265,8 +265,15 @@ function harness(options: { gst?: unknown; available?: string; price?: Money | n
     completeOrder: record('completeOrder'),
     confirmPayment: record('confirmPayment'),
     recordPendingUpiRef: record('recordPendingUpiRef'),
-    cancelSale: record('cancelSale'),
-    settlePayment: record('settlePayment'),
+    // BR-94l: the conditional UPDATEs report whether they changed the row; default "it did".
+    cancelSale: async () => {
+      writes.push('cancelSale');
+      return true;
+    },
+    settlePayment: async () => {
+      writes.push('settlePayment');
+      return true;
+    },
     markRefunded: async () => true,
     listExpiredPendingUpi: async () => [],
     loadSale: async (_db, id) => fakeRecord(id),
@@ -628,9 +635,11 @@ describe('salesService (mocked repo)', () => {
       expect(id).toBe(saleId);
       expect(args.paymentStatus).toBe('REFUND_DUE');
       cancelCalled = true;
+      return true;
     };
     h.repo.settlePayment = async (_db, _id, status) => {
       paymentSettledStatus = status;
+      return true;
     };
 
     const service = createSalesService(h.deps);
@@ -687,9 +696,11 @@ describe('salesService (mocked repo)', () => {
       expect(id).toBe(saleId);
       expect(args.paymentStatus).toBe('FAILED');
       cancelled = true;
+      return true;
     };
     h.repo.settlePayment = async (_db, _id, status) => {
       paymentStatus = status;
+      return true;
     };
     h.repo.loadSale = async (_db, id) => {
       const rec = fakeRecord(id);
@@ -734,6 +745,7 @@ describe('salesService (mocked repo)', () => {
 
     h.repo.cancelSale = async () => {
       cancelCalled = true;
+      return true;
     };
 
     // When config is null (default)
@@ -759,5 +771,196 @@ describe('salesService (mocked repo)', () => {
     const res2 = await service2.expirePendingUpi();
     expect(res2.expiredCount).toBe(1);
     expect(cancelCalled).toBe(true);
+  });
+});
+
+// ===========================================================================
+// 4. BR-94l: the stock-conflict cancel + refund path decides on the LOCKED sale row
+// ===========================================================================
+describe('salesService: UPI confirm stock conflict races (mocked repo)', () => {
+  function pendingHeader(id: string, paymentId: string): SaleHeaderRow {
+    return {
+      id,
+      warehouseId: OOTY,
+      channel: 'DIRECT',
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      customerId: null,
+      totalAmount: parseMoney('45.50'),
+      gstAmount: parseMoney('0.00'),
+      paymentId,
+      paymentMethod: 'UPI',
+      paymentStatusDetail: 'PENDING',
+      upiTxnRef: null,
+    };
+  }
+
+  /**
+   * A pending UPI sale whose confirm hits a stock conflict, in sales.upi_refund_mode = auto, with
+   * every transaction statement recorded per transaction so a test can see what the cancel
+   * transaction wrote (status history, audit) and whether the gateway refund was called.
+   */
+  function raceHarness() {
+    const saleId = newId();
+    const paymentId = newId();
+    const h = harness();
+    const statements: string[][] = [];
+    const calls: string[] = [];
+    h.repo.configValue = async (_db, key) => (key === 'sales.upi_refund_mode' ? 'auto' : undefined);
+    h.repo.findSaleHeader = async () => pendingHeader(saleId, paymentId);
+    h.repo.lockSale = async () => pendingHeader(saleId, paymentId);
+    h.repo.saleItems = async () => fakeRecord(saleId).items;
+    h.repo.insertSaleLedger = async () => {
+      throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+    };
+    h.repo.cancelSale = async () => {
+      calls.push('cancelSale');
+      return true;
+    };
+    h.repo.settlePayment = async () => {
+      calls.push('settlePayment');
+      return true;
+    };
+    h.repo.insertStatusHistory = async (_db, _id, from, to) => {
+      calls.push(`history:${from ?? 'null'}->${to}`);
+    };
+    h.repo.markRefunded = async () => {
+      calls.push('markRefunded');
+      return true;
+    };
+    const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_race_1', status: 'processed' }));
+    h.deps.gateway = { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment };
+    h.deps.runTx = async (fn) => {
+      const log: string[] = [];
+      statements.push(log);
+      const tx: Executor = {
+        query: (async (sql: string) => {
+          log.push(sql);
+          return { rows: [{ id: newId() }], rowCount: 1 };
+        }) as unknown as Executor['query'],
+      };
+      return fn(tx);
+    };
+    const audits = (): number => statements.flat().filter((sql) => /INSERT INTO audit_log/i.test(sql)).length;
+    const confirm = () => createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-race', { upiTxnRef: 'pay_race_1' });
+    return { h, saleId, paymentId, calls, refundPayment, audits, confirm };
+  }
+
+  it('BR-94l: a sale another request confirmed before the cancel transaction locked it is 409 CONFLICT: no cancel, no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    let lockCalls = 0;
+    // First lock: the confirm's own transaction (still pending). Second lock: the cancel
+    // transaction, by which time a concurrent confirm committed PICKED_UP / CONFIRMED.
+    r.h.repo.lockSale = async () => {
+      lockCalls += 1;
+      const header = pendingHeader(r.saleId, r.paymentId);
+      return lockCalls === 1 ? header : { ...header, status: 'PICKED_UP', paymentStatus: 'PAID', paymentStatusDetail: 'CONFIRMED', upiTxnRef: 'pay_race_1' };
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'SALE_STATE_CHANGED' });
+    expect(lockCalls).toBe(2);
+    expect(r.calls).toEqual([]);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: a sale another request already cancelled is 409 CONFLICT and is not refunded a second time', async () => {
+    const r = raceHarness();
+    let lockCalls = 0;
+    r.h.repo.lockSale = async () => {
+      lockCalls += 1;
+      const header = pendingHeader(r.saleId, r.paymentId);
+      return lockCalls === 1 ? header : { ...header, status: 'CANCELLED', paymentStatus: 'REFUND_DUE', paymentStatusDetail: 'REFUND_DUE' };
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(r.calls).toEqual([]);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: when the order UPDATE matches no row (cancelSale changed nothing) the cancel is 409 CONFLICT: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    r.h.repo.cancelSale = async () => {
+      r.calls.push('cancelSale');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: when the payment UPDATE matches no row (settlePayment changed nothing) the cancel is 409 CONFLICT: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    r.h.repo.settlePayment = async () => {
+      r.calls.push('settlePayment');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: the cancel decides on the locked row of the transaction it writes in (lockSale runs on the cancel transaction client)', async () => {
+    const r = raceHarness();
+    const lockedOn: Executor[] = [];
+    const wroteOn: Executor[] = [];
+    r.h.repo.lockSale = async (db) => {
+      lockedOn.push(db);
+      return pendingHeader(r.saleId, r.paymentId);
+    };
+    r.h.repo.cancelSale = async (db) => {
+      wroteOn.push(db);
+      return true;
+    };
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(lockedOn).toHaveLength(2);
+    expect(wroteOn).toHaveLength(1);
+    expect(lockedOn[1]).toBe(wroteOn[0]);
+  });
+
+  it('BR-94l: the happy path still cancels, writes one history and one cancel audit, refunds once and marks REFUNDED', async () => {
+    const r = raceHarness();
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUNDED' });
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment', 'history:PENDING_PAYMENT->CANCELLED', 'markRefunded']);
+    expect(r.refundPayment).toHaveBeenCalledTimes(1);
+    expect(r.audits()).toBe(2);
+  });
+
+  it('BR-94l: a refund whose REFUND_DUE row is no longer REFUND_DUE (markRefunded false) is not reported REFUNDED and writes no refund audit row', async () => {
+    const r = raceHarness();
+    r.h.repo.markRefunded = async () => {
+      r.calls.push('markRefunded');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ refundStatus: 'REFUND_DUE' });
+    // Only the cancel transaction's audit row; the refund transaction rolled its row back.
+    expect(r.audits()).toBe(1);
+  });
+
+  it('BR-94l: a manual cancel whose order UPDATE matches no row is 409 CONFLICT and writes no history row', async () => {
+    const r = raceHarness();
+    r.h.repo.cancelSale = async () => {
+      r.calls.push('cancelSale');
+      return false;
+    };
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-manual-race'));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale']);
+    expect(r.audits()).toBe(0);
   });
 });

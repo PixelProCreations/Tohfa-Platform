@@ -10,7 +10,7 @@
  *     and farmer created here (src/test/committedFixtureCleanup.ts). Before this, ACTIVE
  *     'Fixture Crop' batches stayed at WH-COON and broke reports.test.ts BR-64a in a full run.
  */
-import { afterAll, beforeAll, expect, it as vitestIt } from 'vitest';
+import { afterAll, beforeAll, expect, it as vitestIt, vi } from 'vitest';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import type { Server } from 'node:http';
@@ -982,6 +982,67 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
 
     expect(replay.status).toBe(200);
     expect(replay.body.status).toBe('CANCELLED');
+  });
+
+  it('BR-94l (PostgreSQL race): a confirm that commits while a stock-conflicted confirm is cancelling makes the cancel 409: no refund, no CANCELLED history, no cancel audit', async () => {
+    const [{ createSalesService }, { salesRepo }] = await Promise.all([import('./sales.service.js'), import('./sales.repo.js')]);
+    const crop = await newCrop({ ceiling: '7.00' });
+    await newBatch({ crop, qty: '3' });
+    const created = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'Race' }, items: [item(crop, '1')], expectedTotal: '7.00', payment: { method: 'UPI' } });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const saleId = created.body.id as string;
+    const ref = `pay_ci_race_${newId().slice(0, 12)}`;
+
+    // The competing confirm: queued on the sale row while the stock-conflicted confirm still holds
+    // it, so it is granted the row the moment that transaction rolls back - before the cancel
+    // transaction can lock it - and commits PICKED_UP / CONFIRMED.
+    let competitor: Promise<void> | undefined;
+    const competingConfirm = async (): Promise<void> => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`SELECT id FROM orders WHERE id = $1 FOR UPDATE`, [saleId]);
+        await client.query(`UPDATE orders SET status = 'PICKED_UP', payment_status = 'PAID', completed_at = now() WHERE id = $1`, [saleId]);
+        await client.query(`UPDATE sale_payments SET status = 'CONFIRMED', upi_txn_ref = $2, confirmed_at = now() WHERE order_id = $1`, [saleId, ref]);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
+    const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_ci_race', status: 'processed' }));
+    const service = createSalesService({
+      verifyUpi: async () => true,
+      gateway: { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment },
+      repo: {
+        ...salesRepo,
+        configValue: async (db, k) => (k === 'sales.upi_refund_mode' ? 'auto' : salesRepo.configValue(db, k)),
+        // The stock conflict, raised inside the confirm transaction while it holds the sale row.
+        insertSaleLedger: async () => {
+          competitor = competingConfirm();
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+        },
+      },
+    });
+
+    const outcome = await service
+      .confirmUpi(subScope(ooty, users.subOoty, 'payment.record'), saleId, key('race'), { upiTxnRef: ref })
+      .then(
+        () => ({ ok: true as const, error: undefined }),
+        (error: unknown) => ({ ok: false as const, error: error as { status?: number; code?: string } }),
+      );
+    await competitor;
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toMatchObject({ status: 409, code: 'CONFLICT' });
+    expect(refundPayment).not.toHaveBeenCalled();
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleId])).toBe('PICKED_UP');
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleId])).toBe('CONFIRMED');
+    expect(await one(`SELECT count(*)::text FROM order_status_history WHERE order_id = $1 AND to_status = 'CANCELLED'`, [saleId])).toBe('0');
+    expect(await one(`SELECT count(*)::text FROM audit_log WHERE entity_id = $1 AND action_code IN ('order.cancel', 'payment.refund')`, [saleId])).toBe('0');
   });
 });
 

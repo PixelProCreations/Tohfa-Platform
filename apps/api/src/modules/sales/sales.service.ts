@@ -189,6 +189,17 @@ function saleNotFound(id: string): AppError {
 }
 
 /**
+ * BR-94l: the sale row moved (confirmed, cancelled, refunded) between the caller's read and its
+ * conditional write. Thrown inside the transaction so everything it wrote rolls back.
+ */
+function saleStateChanged(id: string): AppError {
+  return new AppError('CONFLICT', {
+    detail: `Sale ${id} changed while this action was in progress; reload it and try again.`,
+    meta: { reason: 'SALE_STATE_CHANGED' },
+  });
+}
+
+/**
  * Re-throws a Postgres CHECK violation (23514) raised while drawing stock as the domain conflict it
  * means. Only the stock-ledger inserts and the allocation consumption run inside the guarded block,
  * so every 23514 there is a stock guard: INSUFFICIENT_STOCK and allocations_not_oversold_chk, but
@@ -923,57 +934,96 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
           // BR-94i: The UPI money was verified/captured, but the stock commit failed.
           // Cancel the sale (releases the hold), set payment to REFUND_DUE, and attempt auto-refund if configured.
           let refundStatus: 'REFUND_DUE' | 'REFUNDED' = 'REFUND_DUE';
-          await runTx(async (cancelTx) => {
-            await repo.cancelSale(cancelTx, saleId, {
-              reason: 'Stock unavailable at confirmation',
-              paymentStatus: 'REFUND_DUE',
+          let paymentId: string;
+          try {
+            paymentId = await runTx(async (cancelTx) => {
+              // BR-94l: the confirm transaction above rolled back and released the sale row, so a
+              // concurrent confirm or cancel may have committed since. Decide on the row locked in
+              // THIS transaction, never on `header` (an unlocked read from before the confirm):
+              // cancelling a sale someone else completed would write a false PENDING_PAYMENT ->
+              // CANCELLED history and audit row and, in auto mode, refund a sale that was kept.
+              const locked = await repo.lockSale(cancelTx, saleId, visible);
+              if (locked === null) throw saleNotFound(saleId);
+              if (
+                locked.paymentMethod !== 'UPI' ||
+                locked.status !== 'PENDING_PAYMENT' ||
+                locked.paymentStatusDetail !== 'PENDING' ||
+                locked.paymentId === null
+              ) {
+                throw saleStateChanged(saleId);
+              }
+              // Both UPDATEs are conditional; 0 rows means another writer got there first. The
+              // throw rolls back everything this transaction wrote, so no ledger claims a cancel.
+              if (!(await repo.cancelSale(cancelTx, saleId, { reason: 'Stock unavailable at confirmation', paymentStatus: 'REFUND_DUE' }))) {
+                throw saleStateChanged(saleId);
+              }
+              if (!(await repo.settlePayment(cancelTx, locked.paymentId, 'REFUND_DUE', upiTxnRef))) {
+                throw saleStateChanged(saleId);
+              }
+              await repo.insertStatusHistory(
+                cancelTx,
+                saleId,
+                'PENDING_PAYMENT',
+                'CANCELLED',
+                scope.userId,
+                'Stock unavailable at confirmation; refund due',
+              );
+              await writeAuditLog(cancelTx, {
+                actorId: scope.userId,
+                actorRole: scope.roleCode,
+                actionCode: 'order.cancel',
+                entityType: 'order',
+                entityId: saleId,
+                warehouseId: locked.warehouseId,
+                before: { orderId: saleId, status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
+                after: { orderId: saleId, status: 'CANCELLED', paymentStatus: 'REFUND_DUE' },
+                changedFields: ['status', 'paymentStatus'],
+              });
+              return locked.paymentId;
             });
-            await repo.settlePayment(cancelTx, header.paymentId!, 'REFUND_DUE', upiTxnRef);
-            await repo.insertStatusHistory(
-              cancelTx,
-              saleId,
-              'PENDING_PAYMENT',
-              'CANCELLED',
-              scope.userId,
-              'Stock unavailable at confirmation; refund due',
-            );
-            await writeAuditLog(cancelTx, {
-              actorId: scope.userId,
-              actorRole: scope.roleCode,
-              actionCode: 'order.cancel',
-              entityType: 'order',
-              entityId: saleId,
-              warehouseId: header.warehouseId,
-              before: { orderId: saleId, status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
-              after: { orderId: saleId, status: 'CANCELLED', paymentStatus: 'REFUND_DUE' },
-              changedFields: ['status', 'paymentStatus'],
-            });
-          });
+          } catch (cancelError) {
+            // Nothing was cancelled and nothing is refunded: the sale is whatever the other writer left.
+            await recordAttempt(scope, header.warehouseId, cancelError, context);
+            throw cancelError;
+          }
 
+          // Only reached once THIS request's cancel committed: the sale is CANCELLED (terminal) with
+          // a REFUND_DUE payment, so it can no longer be confirmed and the refund is owed exactly once.
           const mode = await upiRefundMode(db);
           const activeGateway = deps.gateway ?? paymentGateway;
           if (mode === 'auto' && activeGateway.refundPayment) {
+            let refundId: string | null = null;
             try {
               const refundRes = await activeGateway.refundPayment({
                 gatewayPaymentId: upiTxnRef,
                 amountPaise: toPaise(header.totalAmount),
-                idempotencyKey: `sale_refund:${header.paymentId}`,
+                idempotencyKey: `sale_refund:${paymentId}`,
               });
+              refundId = refundRes.refundId;
               await runTx(async (refundTx) => {
-                await repo.markRefunded(refundTx, header.paymentId!, refundRes.refundId);
+                if (!(await repo.markRefunded(refundTx, paymentId, refundRes.refundId))) {
+                  // Rolls back the refund audit row below: the payment is not recorded REFUNDED.
+                  throw saleStateChanged(saleId);
+                }
                 await writeAuditLog(refundTx, {
                   actorId: scope.userId,
                   actorRole: scope.roleCode,
                   actionCode: 'payment.refund',
                   entityType: 'sale_payments',
-                  entityId: header.paymentId!,
+                  entityId: paymentId,
                   warehouseId: header.warehouseId,
                   after: { status: 'REFUNDED', refundRef: refundRes.refundId },
                 });
               });
               refundStatus = 'REFUNDED';
             } catch (refundErr) {
-              logger.error({ err: refundErr, saleId, upiTxnRef }, 'sales: automatic UPI refund failed; keeping REFUND_DUE');
+              if (refundId === null) {
+                logger.error({ err: refundErr, saleId }, 'sales: automatic UPI refund failed; keeping REFUND_DUE');
+              } else {
+                // The provider accepted the refund but the row could not be marked: reconcile by
+                // hand against this refund id before anyone refunds the payment again.
+                logger.error({ err: refundErr, saleId, refundId }, 'sales: UPI refund sent but not recorded; payment stays REFUND_DUE, reconcile manually');
+              }
             }
           }
 
@@ -1032,8 +1082,9 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
           throw new AppError('CONFLICT', { detail: 'This sale is no longer pending payment; it cannot be cancelled.' });
         }
 
-        await repo.cancelSale(tx, saleId, { reason, paymentStatus: 'FAILED' });
-        await repo.settlePayment(tx, locked.paymentId, 'FAILED', null);
+        // BR-94l: conditional UPDATEs; 0 rows rolls the transaction back as a 409.
+        if (!(await repo.cancelSale(tx, saleId, { reason, paymentStatus: 'FAILED' }))) throw saleStateChanged(saleId);
+        if (!(await repo.settlePayment(tx, locked.paymentId, 'FAILED', null))) throw saleStateChanged(saleId);
         await repo.insertStatusHistory(tx, saleId, 'PENDING_PAYMENT', 'CANCELLED', scope.userId, reason);
 
         await writeAuditLog(tx, {
@@ -1086,8 +1137,9 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
               return;
             }
             const reason = `Pending UPI payment expired after ${minutes} minutes`;
-            await repo.cancelSale(tx, row.saleId, { reason, paymentStatus: 'FAILED' });
-            await repo.settlePayment(tx, locked.paymentId, 'FAILED', null);
+            // BR-94l: 0 rows rolls back (the loop logs it); nothing claims an expiry that did not happen.
+            if (!(await repo.cancelSale(tx, row.saleId, { reason, paymentStatus: 'FAILED' }))) throw saleStateChanged(row.saleId);
+            if (!(await repo.settlePayment(tx, locked.paymentId, 'FAILED', null))) throw saleStateChanged(row.saleId);
             await repo.insertStatusHistory(tx, row.saleId, 'PENDING_PAYMENT', 'CANCELLED', null, reason);
             await writeAuditLog(tx, {
               actorId: null,

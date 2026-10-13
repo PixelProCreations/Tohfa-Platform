@@ -308,10 +308,17 @@ export interface SalesRepo {
   confirmPayment(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
   /** BR-94g: keeps the reference of a payment the gateway reports pending, on a still-PENDING row. */
   recordPendingUpiRef(db: Executor, paymentId: string, upiTxnRef: string): Promise<void>;
-  /** BR-94i: PENDING_PAYMENT -> CANCELLED (order and its PENDING items; the hold is released). */
-  cancelSale(db: Executor, orderId: string, args: { reason: string; paymentStatus: 'FAILED' | 'REFUND_DUE' }): Promise<void>;
-  /** BR-94i: a PENDING payment -> FAILED (never arrived) or REFUND_DUE (captured, sale cancelled). */
-  settlePayment(db: Executor, paymentId: string, status: 'FAILED' | 'REFUND_DUE', upiTxnRef: string | null): Promise<void>;
+  /**
+   * BR-94i: PENDING_PAYMENT -> CANCELLED (order and its PENDING items; the hold is released).
+   * BR-94l: false when the order was no longer PENDING_PAYMENT (nothing changed); the caller turns
+   * that into a 409 that rolls its transaction back, so no history or audit row claims a cancel.
+   */
+  cancelSale(db: Executor, orderId: string, args: { reason: string; paymentStatus: 'FAILED' | 'REFUND_DUE' }): Promise<boolean>;
+  /**
+   * BR-94i: a PENDING payment -> FAILED (never arrived) or REFUND_DUE (captured, sale cancelled).
+   * BR-94l: false when the payment was no longer PENDING (nothing changed).
+   */
+  settlePayment(db: Executor, paymentId: string, status: 'FAILED' | 'REFUND_DUE', upiTxnRef: string | null): Promise<boolean>;
   /** BR-94i: REFUND_DUE -> REFUNDED (and the order's payment_status). False when it was not REFUND_DUE. */
   markRefunded(db: Executor, paymentId: string, refundRef: string): Promise<boolean>;
   /** Pending UPI DIRECT/MARKET sales whose payment row is older than `minutes`, oldest first. */
@@ -815,25 +822,29 @@ export const salesRepo: SalesRepo = {
     // Guarded on PENDING_PAYMENT so a sale another transaction completed is never cancelled. The
     // holds (HOLDS_CTE here, shelfFreeSql for the shelf) count only PENDING items of
     // PENDING_PAYMENT orders, so this is what releases the reserved stock (BR-94i).
-    await db.query(
+    const updated = await db.query(
       `UPDATE orders
           SET status = 'CANCELLED', payment_status = $3, cancelled_at = now(), cancellation_reason = $2, updated_at = now()
         WHERE id = $1 AND status = 'PENDING_PAYMENT'`,
       [orderId, reason, paymentStatus],
     );
+    // BR-94l: another writer moved the order first; touch nothing else and let the caller refuse.
+    if ((updated.rowCount ?? 0) === 0) return false;
     await db.query(
       `UPDATE order_items SET status = 'CANCELLED', updated_at = now() WHERE order_id = $1 AND status = 'PENDING'`,
       [orderId],
     );
+    return true;
   },
 
   async settlePayment(db, paymentId, status, upiTxnRef) {
-    await db.query(
+    const updated = await db.query(
       `UPDATE sale_payments
           SET status = $2, upi_txn_ref = COALESCE($3, upi_txn_ref)
         WHERE id = $1 AND status = 'PENDING'`,
       [paymentId, status, upiTxnRef],
     );
+    return (updated.rowCount ?? 0) > 0;
   },
 
   async markRefunded(db, paymentId, refundRef) {
