@@ -214,11 +214,7 @@ export function ReceivingFlow({
           filters={filters}
           onOpenFilters={() => navigate('SearchFilters')}
           onClearFilters={() => setFilters(EMPTY_RECEIVING_FILTERS)}
-          onSelectShipment={(shipmentId) =>
-            navigate('ShipmentDetail', {
-              shipmentId: shipmentId === 'GR-1024' ? 'SHP-000124' : shipmentId,
-            })
-          }
+          onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
         />
       );
     case 'SearchFilters':
@@ -236,7 +232,7 @@ export function ReceivingFlow({
       return (
         <ShipmentDetailScreen
           {...common}
-          shipmentId={params.shipmentId === 'GR-1024' ? 'SHP-000124' : (params.shipmentId ?? firstShipment()?.code)}
+          shipmentId={params.shipmentId ?? firstShipment()?.code}
           onStartReceiving={(s, resume) => openWizard(resume ? 'receiving_in_progress' : 'start_receiving', s.code)}
           onViewProductDetail={(s) => openWizard('quantity_verification', s.code)}
           onViewTimeline={(s) => openWizard('receipt_summary', s.code)}
