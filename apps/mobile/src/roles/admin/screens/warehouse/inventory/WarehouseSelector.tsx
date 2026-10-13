@@ -88,8 +88,8 @@ export function WarehouseSelector({ scope, options = [], selectedId, onSelect, a
       setShowModal(false);
       return;
     }
-    if (dropdownBtnRef.current && 'measureInWindow' in dropdownBtnRef.current) {
-      (dropdownBtnRef.current as any).measureInWindow((x: number, y: number, width: number, height: number) => {
+    if (dropdownBtnRef.current) {
+      dropdownBtnRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
         if (x !== undefined && y !== undefined && height !== undefined) {
           setDropdownLayout({ top: y + height + 6, left: x, width: Math.max(width, 210) });
         }
@@ -206,8 +206,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   dropdownBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   dropdownBackdrop: {
@@ -226,11 +226,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 4,
     ...adminShadow.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 12,
   },
   dropdownItem: {
     flexDirection: 'row',
@@ -246,7 +241,6 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     ...adminType.body,
     color: adminColors.ink,
-    fontSize: 14,
     fontWeight: '500',
   },
   dropdownItemTextActive: {

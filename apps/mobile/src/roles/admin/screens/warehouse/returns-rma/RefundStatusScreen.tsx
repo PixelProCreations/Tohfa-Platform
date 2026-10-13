@@ -147,6 +147,14 @@ export function RefundStatusScreen({ scope, can, rma, refundAmount, onBack, onCo
             <SectionTitle>Refund Method</SectionTitle>
             <InfoCard rows={[[{ label: 'Method', value: REFUND_METHOD }]]} />
 
+            {isAllWarehouses(scope) ? (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  Return-window eligibility is always determined by the backend — never a hard-coded rule in this UI.
+                </Text>
+              </View>
+            ) : null}
+
             <SectionTitle>Wallet Refund</SectionTitle>
             {canWalletRefund ? (
               <View style={styles.walletActions}>
@@ -155,10 +163,22 @@ export function RefundStatusScreen({ scope, can, rma, refundAmount, onBack, onCo
                   icon={<WalletCardIcon />}
                   onPress={() => setShowConfirmRefund(true)}
                 />
+                <View style={styles.permissionBox}>
+                  <ShieldCheckIcon />
+                  <Text style={styles.permissionText}>
+                    Available because you hold the wallet-refund permission and the RMA is approved and eligible for
+                    refund.
+                  </Text>
+                </View>
               </View>
             ) : (
               <PermissionNote>Processing a wallet refund needs the wallet-refund permission.</PermissionNote>
             )}
+
+            <Text style={styles.noBankNotice}>
+              Bank refunds are handled by an authorized finance/admin role and cannot be processed from the warehouse
+              app.
+            </Text>
           </>
         )}
       </ScrollView>

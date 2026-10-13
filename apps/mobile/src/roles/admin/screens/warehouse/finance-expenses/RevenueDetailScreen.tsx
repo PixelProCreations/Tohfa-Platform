@@ -18,11 +18,11 @@
  * There is no revenue edit code, so nothing here edits revenue.
  */
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { InfoCard, InfoNote, isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { InfoNote, isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { SAMPLE_REVENUE_DETAIL } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, PadlockIcon, scopeLabel } from './FinanceParts';
 import type { RevenueDetail, WarehouseScreenBaseProps } from './types';
@@ -137,7 +137,7 @@ export function RevenueDetailScreen({
   };
 
   const actions: { key: string; label: string; icon: React.ReactNode; onPress: () => void }[] = [];
-  if (can(FINANCE_CODES.orderList) || isMain) {
+  if (can(FINANCE_CODES.orderList)) {
     actions.push({ key: 'order', label: 'View Order', icon: <BagIcon />, onPress: handleViewOrder });
   }
   if (onViewInvoice && can(FINANCE_CODES.invoiceView)) {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
     padding: 20,
     marginVertical: 4,
   },
@@ -229,15 +229,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailFieldLabel: {
-    fontSize: 12,
-    color: '#8C857B',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
     fontWeight: '500',
   },
   detailFieldValue: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: adminColors.ink,
   },
   lockBanner: {
     flexDirection: 'row',

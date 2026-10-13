@@ -86,41 +86,30 @@ export function StaffDetailScreen({
   const isDriver = member.type === 'driver';
   const isMain = isAllWarehouses(scope);
   const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? '';
-  const shortWarehouseName = warehouseName.replace(/ Warehouse$/, '');
   const summary = STAFF_ATTENDANCE_SUMMARY;
   const timeline = STAFF_ACTIVITY.map((item) => ({
     id: item.id,
-    title: item.id === 'a-2' && shortWarehouseName ? `Assigned to ${shortWarehouseName}` : item.title,
-    subtitle: isMain ? undefined : item.when,
+    title: item.id === 'a-2' && warehouseName ? `Assigned to ${warehouseName}` : item.title,
+    subtitle: item.when,
   }));
 
   const handleAssignDelivery = () => {
     if (onAssignDelivery) {
       onAssignDelivery(member);
     } else if (onNavigate) {
-      onNavigate('M5S01', { warehouseId: member.warehouseId });
+      onNavigate('M5S02', { fulfillment: 'Delivery' });
     }
   };
 
   const attendanceCard = (
     <InfoCard
-      rows={
-        isMain
-          ? [
-              [
-                { label: 'Present', value: `${summary.present} days` },
-                { label: 'Absent', value: `${summary.absent} days` },
-              ],
-              [{ label: 'Leave', value: `${summary.leave} day${summary.leave === 1 ? '' : 's'}` }],
-            ]
-          : [
-              [
-                { label: 'Present', value: `${summary.present} days` },
-                { label: 'Absent', value: `${summary.absent} days` },
-                { label: 'Leave', value: `${summary.leave} day${summary.leave === 1 ? '' : 's'}` },
-              ],
-            ]
-      }
+      rows={[
+        [
+          { label: 'Present', value: `${summary.present} days` },
+          { label: 'Absent', value: `${summary.absent} days` },
+          { label: 'Leave', value: `${summary.leave} day${summary.leave === 1 ? '' : 's'}` },
+        ],
+      ]}
     />
   );
 
@@ -170,14 +159,28 @@ export function StaffDetailScreen({
                   { label: 'Status', value: member.status },
                 ],
                 [{ label: 'Assigned Warehouse', value: warehouseName || '—' }],
+                ...(isMain
+                  ? [
+                      [
+                        { label: 'Contact', value: member.phone ?? '—' },
+                        { label: 'Vehicle Details', value: member.vehicleDetails ?? '—' },
+                      ],
+                    ]
+                  : []),
               ]}
             />
+            {isMain ? (
+              <InfoNote>
+                Vehicle, license and document fields are illustrative and must be confirmed against the final driver data model
+                before becoming mandatory.
+              </InfoNote>
+            ) : null}
 
             <SectionTitle>Delivery Summary</SectionTitle>
             <InfoCard
               rows={[
                 [
-                  { label: "Today's Deliveries", value: String(member.deliveriesToday ?? 6) },
+                  { label: "Today's Deliveries", value: String(member.deliveriesToday ?? 0) },
                   { label: 'Completed', value: String(DRIVER_DELIVERY_SUMMARY.completedToday) },
                 ],
                 [{ label: 'Pending', value: String(DRIVER_DELIVERY_SUMMARY.pendingToday) }],

@@ -21,10 +21,9 @@
  */
 // Design id: M14-S03
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminSpacing } from '../../../theme';
 import {
   ChipGroup,
   EmptyState,
@@ -47,30 +46,18 @@ import {
   ATTENDANCE_MONTH_SHORT,
   ATTENDANCE_RECORDS,
   STAFF_WAREHOUSES,
-  staffWarehouseName,
 } from './fixtures';
 import {
   AttendanceStatusText,
   DateNavigator,
   DatePickerModal,
-  FilterSlidersIcon,
   HistoryIcon,
   ListCard,
   ListRow,
   StaffAvatar,
   attendanceTone,
 } from './StaffParts';
-import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { AttendanceFilter, AttendanceRecord, AttendanceStatus, WarehouseScope, WarehouseScreenBaseProps } from './types';
-
-function SearchLensIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
-      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 const FILTERS: readonly AttendanceFilter[] = ['All', 'Present', 'Absent', 'On Leave'];
 const SECTIONS: readonly AttendanceStatus[] = ['Present', 'Absent', 'On Leave', 'Not Checked In'];
@@ -78,8 +65,6 @@ const SECTIONS: readonly AttendanceStatus[] = ['Present', 'Absent', 'On Leave', 
 export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
   /** Chip selected on entry (the old Today's Attendance key opens 'All'). */
   initialFilter?: AttendanceFilter | undefined;
-  initialWarehouseId?: string | undefined;
-  isOutsideWarehouseSelected?: boolean | undefined;
   onSelectRecord?: ((record: AttendanceRecord) => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
@@ -93,8 +78,6 @@ export function AttendanceScreen({
   onBack,
   onTabChange,
   initialFilter = 'All',
-  initialWarehouseId,
-  isOutsideWarehouseSelected = false,
   onSelectRecord,
   onNavigateToHistory,
   warehouseOptions = STAFF_WAREHOUSES,
@@ -103,8 +86,7 @@ export function AttendanceScreen({
   const isMain = isAllWarehouses(scope);
   const [filter, setFilter] = useState<AttendanceFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
-  const [showFilterScreen, setShowFilterScreen] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerDay, setPickerDay] = useState(ATTENDANCE_DAY);
   const [day, setDay] = useState(ATTENDANCE_DAY);
@@ -122,9 +104,7 @@ export function AttendanceScreen({
   });
   const count = (status: AttendanceStatus) => String(dayRecords.filter((r) => r.status === status).length);
   const shiftDay = (delta: number) => setDay((d) => Math.min(ATTENDANCE_MONTH_DAYS, Math.max(1, d + delta)));
-  const scopeLabel = isMain
-    ? (selectedWarehouseId ? staffWarehouseName(selectedWarehouseId) : 'All Warehouses')
-    : scope.warehouseName ?? (scope.warehouseId ? staffWarehouseName(scope.warehouseId) : 'Coonoor Warehouse');
+  const scopeLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? scope.warehouseId ?? '';
 
   const renderRow = (record: AttendanceRecord, index: number, list: readonly AttendanceRecord[]) => (
     <ListRow
@@ -145,62 +125,39 @@ export function AttendanceScreen({
 
   const grouped = isMain && filter === 'All';
 
-  if (showFilterScreen) {
-    const isTopLocked = isOutsideWarehouseSelected || Boolean(isMain && selectedWarehouseId && selectedWarehouseId !== 'all');
-    return (
-      <StaffFiltersScreen
-        initialFilters={{
-          searchQuery,
-          role: 'All',
-          attendance: filter,
-          status: 'All',
-          warehouseId: selectedWarehouseId,
-        }}
-        warehouseName={isMain ? (selectedWarehouseId ? staffWarehouseName(selectedWarehouseId) : undefined) : scope.warehouseName ?? scope.warehouseId}
-        warehouseOptions={warehouseOptions}
-        isTopWarehouseSelected={isTopLocked}
-        onBack={() => setShowFilterScreen(false)}
-        onApply={(newFilters) => {
-          setSearchQuery(newFilters.searchQuery);
-          setFilter(newFilters.attendance);
-          if (!isOutsideWarehouseSelected) {
-            setSelectedWarehouseId(newFilters.warehouseId);
-          }
-          setShowFilterScreen(false);
-        }}
-      />
-    );
-  }
-
   return (
     <WalletScreen
       title="Attendance"
       onBack={onBack}
       headerRight={
         onNavigateToHistory ? (
-          <TouchableOpacity
-            style={styles.historyButton}
-            onPress={onNavigateToHistory}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Attendance history"
-          >
-            <HistoryIcon size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          <HeaderIconButton onPress={onNavigateToHistory} accessibilityLabel="Attendance history">
+            <HistoryIcon />
+          </HeaderIconButton>
         ) : undefined
       }
       headerExtra={
-        <DateNavigator
-          label={`${scopeLabel} · ${dateText}`}
-          onPrev={() => shiftDay(-1)}
-          onNext={() => shiftDay(1)}
-          onPressLabel={() => {
-            setPickerDay(day);
-            setPickerOpen(true);
-          }}
-        />
+        <>
+          <DateNavigator
+            label={`${scopeLabel} · ${dateText}`}
+            onPrev={() => shiftDay(-1)}
+            onNext={() => shiftDay(1)}
+            onPressLabel={() => {
+              setPickerDay(day);
+              setPickerOpen(true);
+            }}
+          />
+          {isMain ? (
+            <ScopeHeader
+              scope={scope}
+              warehouseOptions={warehouseOptions}
+              selectedWarehouseId={selectedWarehouseId}
+              onSelectWarehouse={setSelectedWarehouseId}
+            />
+          ) : null}
+        </>
       }
-      footer={!isMain && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
+      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <KpiRow
@@ -213,30 +170,7 @@ export function AttendanceScreen({
         />
         <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
         <View style={styles.gap} />
-        {isMain ? (
-          <View style={styles.searchBarWrap}>
-            <SearchLensIcon />
-            <TextInput
-              style={styles.searchBarInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search employee..."
-              placeholderTextColor={adminColors.placeholder}
-              returnKeyType="search"
-            />
-            <TouchableOpacity
-              onPress={() => setShowFilterScreen(true)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Filter attendance"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <FilterSlidersIcon size={20} color={adminColors.brand} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search employee..." />
-        )}
+        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search employee..." />
 
         {visible.length === 0 ? (
           <EmptyState title="No attendance records" subtitle={`Nothing recorded for ${dateText} with this filter.`} />
@@ -275,30 +209,4 @@ export function AttendanceScreen({
 
 const styles = StyleSheet.create({
   gap: { height: adminSpacing.md },
-  historyButton: {
-    width: 36,
-    height: 36,
-    borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    height: 48,
-    marginBottom: adminSpacing.md,
-    gap: adminSpacing.sm,
-  },
-  searchBarInput: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.ink,
-    paddingVertical: 0,
-  },
 });

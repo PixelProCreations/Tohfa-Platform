@@ -62,8 +62,6 @@ export interface HomeFlowProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   /** Task list (mock); defaults to the seeded TASKS. */
   tasks?: readonly TaskRecord[] | undefined;
-  /** Warehouse options for dropdown selector */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
 export function HomeFlow({
@@ -75,7 +73,6 @@ export function HomeFlow({
   onOpenTarget,
   onTabChange,
   tasks: initialTasks = TASKS,
-  warehouseOptions,
 }: HomeFlowProps) {
   const [stack, setStack] = useState<HomeStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // Mock task list owned by the flow so Mark as In Progress shows up in the list.
@@ -169,16 +166,7 @@ export function HomeFlow({
         />
       );
     case 'TaskActionCenter':
-      return (
-        <TaskActionCenterScreen
-          scope={scope}
-          can={can}
-          onBack={back}
-          tasks={tasks}
-          onOpenTask={openTask}
-          warehouseOptions={warehouseOptions}
-        />
-      );
+      return <TaskActionCenterScreen scope={scope} can={can} onBack={back} tasks={tasks} onOpenTask={openTask} />;
     case 'TaskDetail':
       return (
         <TaskDetailScreen

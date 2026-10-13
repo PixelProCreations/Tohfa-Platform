@@ -13,8 +13,8 @@
  * `order.warehouse.assign` currently has nothing to hide. Every other tile is
  * navigation and stays ungated, as it was in the design.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
@@ -29,7 +29,7 @@ interface WarehouseOption {
 export interface OrdersDashboardScreenProps extends OrderScreenBaseProps {
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
   warehouses?: WarehouseOption[] | undefined;
-  routeParams?: Record<string, any> | undefined;
+  routeParams?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -142,23 +142,6 @@ function GridMenuIcon() {
   );
 }
 
-function ChevronDownSmallIcon({ color = adminColors.brandDeep, rotated = false }: { color?: string | undefined; rotated?: boolean | undefined }) {
-  return (
-    <View style={rotated ? { transform: [{ rotate: '180deg' }] } : undefined}>
-      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-        <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </View>
-  );
-}
-
-function CheckSmallIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={adminColors.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function WarningTriangleAccentIcon() {
   return (
@@ -234,19 +217,6 @@ function LockSmallIcon() {
   );
 }
 
-function BuildingWarehouseIcon({ color }: { color: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function NewBadgeIcon() {
   return (
@@ -362,13 +332,13 @@ export function OrdersDashboardScreen({
   scope,
   onBack,
   onNavigate,
-  onTabChange,
+  onTabChange: _onTabChange,
   routeParams,
   warehouses = DEFAULT_WAREHOUSES,
 }: OrdersDashboardScreenProps) {
   const [activeFilterPill, setActiveFilterPill] = useState('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
-    routeParams?.warehouseId,
+    typeof routeParams?.warehouseId === 'string' ? routeParams.warehouseId : undefined,
   );
   const warehouseOptions = React.useMemo(
     () => warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
@@ -376,7 +346,7 @@ export function OrdersDashboardScreen({
   );
 
   useEffect(() => {
-    if (routeParams?.warehouseId !== undefined) {
+    if (typeof routeParams?.warehouseId === 'string') {
       setSelectedWarehouseId(routeParams.warehouseId);
     }
   }, [routeParams?.warehouseId]);

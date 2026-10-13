@@ -89,10 +89,6 @@ export interface NotificationItem {
   date?: string | undefined;
   /** Action button target; none for plain messages. */
   target?: NotificationTarget | undefined;
-  /** Warehouse id the notification originates from (e.g. WH-COON, WH-OOTY). */
-  warehouseId?: string | undefined;
-  /** Warehouse name display (e.g. Coonoor Warehouse, Ooty Warehouse). */
-  warehouseName?: string | undefined;
 }
 
 /** Filter tabs of the notifications list (category groups plus Unread). */

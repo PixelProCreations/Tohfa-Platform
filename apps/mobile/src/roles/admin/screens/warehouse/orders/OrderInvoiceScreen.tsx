@@ -173,6 +173,14 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
             </View>
           </View>
 
+          <View style={styles.gstInfoBox}>
+            <View style={styles.infoIconNudge}>
+              <InfoCircleIcon />
+            </View>
+            <Text style={styles.gstInfoText}>
+              GST invoice generation for B2B/HORECA is a separate permission from ordinary invoice generation — not assumed here unless granted.
+            </Text>
+          </View>
 
           {/* Hidden, not disabled, without invoice.view_own. */}
           {canViewInvoice ? (

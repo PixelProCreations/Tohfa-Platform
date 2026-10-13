@@ -20,7 +20,7 @@
  */
 // Design id: M4-S01
 import React, { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
@@ -39,24 +39,15 @@ import { WarehouseSelector } from '../inventory';
 import { ACTIVITIES, ATTENTION_ITEMS, OPERATIONS_SUMMARY, OPERATIONAL_ISSUES, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
 import {
   AlertCircleIcon,
-  CheckCircleIcon,
-  ChevronDownIcon,
   ChevronRightIcon,
   ClipboardIcon,
   DonutIcon,
-  GridSquaresIcon,
-  HeaderOperationsTitleIcon,
   HistoryIcon,
-  PeopleIcon,
   ReceiveGoodsIcon,
-  ReceiveIcon,
   ReportIssueIcon,
   STORAGE_CODES,
   ShelfIcon,
   StaffBadgeIcon,
-  StockVerificationIcon,
-  TrendingUpIcon,
-  WarehouseIcon,
   WarningTriangleIcon,
 } from './StorageParts';
 import type { ActivityModule, WarehouseScreenBaseProps } from './types';
@@ -96,7 +87,6 @@ export function WarehouseOperationsScreen({
   onSelectWarehouse,
 }: WarehouseOperationsScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {

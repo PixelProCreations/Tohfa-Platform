@@ -19,8 +19,8 @@
  *     the invoice id.
  */
 // Design id: M9-S03
-import React, { useEffect, useState } from 'react';
-import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -101,9 +101,18 @@ export function InvoiceDetailScreen({
     );
   }
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const handlePdfDownload = () => {
     setShowToast(false);
-    setTimeout(() => setShowToast(true), 10);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setShowToast(true), 10);
     onDownload?.(invoiceId);
   };
 

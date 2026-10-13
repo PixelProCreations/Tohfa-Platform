@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -24,7 +22,6 @@ import {
   type AttentionFilter,
   type HomeTarget,
 } from '../warehouse/dashboard-home-more';
-import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
@@ -43,6 +40,7 @@ import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance'
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
+import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   MAIN_NOTIFICATIONS,
@@ -243,27 +241,10 @@ function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 12v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -332,66 +313,7 @@ function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: num
   );
 }
 
-function ReviewReceivingIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Checklist card with 3 bars & checkmark (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M7 8h4M7 12h4M7 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M14 12.5l2 2 3.5-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function BuildingOfficeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons building-office-2 stepped building with 11 windows and door (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2.5 21h19M4.5 21V9a1 1 0 0 1 1-1h2.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9h3a1 1 0 0 1 1 1v7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M10.5 21v-4h3v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Windows Left Wing */}
-      <Path d="M6.5 11h1M6.5 14h1M6.5 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Center Tower */}
-      <Path d="M10.5 6.5h1M13 6.5h1M10.5 9.5h1M13 9.5h1M10.5 12.5h1M13 12.5h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Right Wing */}
-      <Path d="M16.5 15.5h1M16.5 18h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ManageSwasBadgeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons identification badge with top clip, avatar & text lines (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Clip at top */}
-      <Rect x="10.5" y="1.5" width="3" height="4.5" rx="1" stroke={color} strokeWidth="1.8" />
-      <Line x1="12" y1="1.5" x2="12" y2="4" stroke={color} strokeWidth="1.8" />
-      {/* Badge outer border */}
-      <Rect x="3" y="6" width="18" height="15" rx="2.5" stroke={color} strokeWidth="2" />
-      {/* Avatar on left */}
-      <Circle cx="8" cy="11.5" r="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M5.5 17c0-1.6 1.1-2.5 2.5-2.5s2.5.9 2.5 2.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      {/* Lines on right */}
-      <Line x1="13.5" y1="11" x2="18.5" y2="11" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="13.5" y1="15" x2="17" y2="15" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
@@ -865,10 +787,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
-  const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, any> | null>(null);
+  const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
   const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
-  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
@@ -907,47 +828,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
   const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
 
-  // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
-  const WAREHOUSE_OPTIONS = [
-    'All Warehouses',
-    ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
-  ];
 
-  const HOME_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
-    { warehouseId: 'WH-OOTY', warehouseName: 'Ooty' },
-    { warehouseId: 'WH-COON', warehouseName: 'Coonoor' },
-    { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri' },
-    { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market' },
-  ];
+  const HOME_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = PROFILE_WAREHOUSES;
 
   const selectedWHId =
     selectedWHFilter === 'All Warehouses'
       ? undefined
-      : selectedWHFilter === 'Ooty'
-        ? 'WH-OOTY'
-        : selectedWHFilter === 'Coonoor'
-          ? 'WH-COON'
-          : selectedWHFilter === 'Kotagiri'
-            ? 'WH-KOTA'
-            : selectedWHFilter === 'Gudalur Market'
-              ? 'WH-GUDA'
-              : undefined;
+      : PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '') === selectedWHFilter)?.warehouseId;
 
   const handleSelectWarehouseScope = (whId: string | undefined) => {
     if (whId === undefined) {
       setSelectedWHFilter('All Warehouses');
-    } else if (whId === 'WH-OOTY') {
-      setSelectedWHFilter('Ooty');
-      setSelectedWHName('Ooty Warehouse');
-    } else if (whId === 'WH-COON') {
-      setSelectedWHFilter('Coonoor');
-      setSelectedWHName('Coonoor Warehouse');
-    } else if (whId === 'WH-KOTA') {
-      setSelectedWHFilter('Kotagiri');
-      setSelectedWHName('Kotagiri Warehouse');
-    } else if (whId === 'WH-GUDA') {
-      setSelectedWHFilter('Gudalur Market');
-      setSelectedWHName('Gudalur Market Warehouse');
+    } else {
+      const match = PROFILE_WAREHOUSES.find((w) => w.warehouseId === whId);
+      if (match) {
+        const shortName = (match.warehouseName ?? '').replace(/ Warehouse$/, '');
+        setSelectedWHFilter(shortName);
+        setSelectedWHName(match.warehouseName ?? 'All Warehouses');
+      }
     }
   };
 
@@ -1201,6 +1099,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
             </TouchableOpacity>
           </View>
+
+          {can('admin.sub_wh_admin.create') && (
+            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
+              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
+              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
+                Manage role access, account status, and credentials for regional sub-warehouse admins.
+              </Text>
+              <TouchableOpacity
+                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
+                onPress={() => navigateWh('manage_swas')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 24 }} />
         </ScrollView>
       </View>
     );
@@ -2816,12 +2732,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             }}
             onLogout={onSignOut}
             onTabChange={handleMoreTabChange}
+            onProfileCardPress={() => setMoreSubScreen('admin')}
+            onNavigateToWarehouseManagement={() => setMoreSubScreen('admin')}
             onNavigateToWallet={() => setMoreSubScreen('wallet')}
             onNavigateToReturns={() => setMoreSubScreen('returns')}
             onNavigateToFinance={() => setMoreSubScreen('finance')}
             onNavigateToReports={() => setMoreSubScreen('reports')}
             onNavigateToStaff={() => setMoreSubScreen('staff')}
-            onNavigateToWarehouseManagement={() => setMoreSubScreen('admin')}
             onNavigateToOrders={() => {
               setOrdersInitialScreen('M5S01');
               navigateWh('customer_orders');
@@ -2830,7 +2747,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             onNavigateToCustomers={() => navigateWh('customers_list')}
             onNavigateToBilling={() => navigateWh('billing_invoices')}
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
-            onNavigateToProfile={() => navigateWh('warehouse_profile')}
+            onNavigateToProfile={() => navigateWh('profile')}
             onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
             // The More row is the account hub ("Manage account and application settings",
             // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
@@ -2840,14 +2757,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
         {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
         {whSubView !== 'overview' && (
-          whSubView === 'warehouse_profile' || whSubView === 'profile' ? (
-            // Warehouse Profile (M15-S01) and all its child screens (Storage, Operating, Contact, Docs)
-            // matching the subwarehouse More > Warehouse Profile experience.
+          whSubView === 'profile' ? (
+            // The admin's own profile is the shared UserProfileScreen (W4, absorbs
+            // MainWarehouseProfileScreen); Main sees the all-warehouses account.
             <ProfileFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
-              initialScreen="WarehouseProfile"
-              initialWarehouseId={warehouseIdForName(selectedWHName) ?? 'WH-COON'}
+              initialScreen="UserProfile"
               onBack={goBackWh}
               onLogout={onSignOut}
               onTabChange={handleMoreTabChange}
@@ -3222,6 +3138,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'warehouse_activity' ||
             whSubView === 'operational_issues' ||
             whSubView === 'report_operational_issue' ||
+            whSubView === 'staff_attendance' ||
             whSubView === 'operations_history' ||
             whSubView === 'incoming_goods_ops' ||
             whSubView === 'order_fulfilment_ops' ||
@@ -3238,7 +3155,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'transfer_tracking' ||
             whSubView === 'quick_actions_overview' ||
             whSubView === 'sales')) ||
-        (activeTab === 'More' && ((whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'admin' && moreSubScreen !== 'staff')) || moreSubScreen === 'returns')) ||
+        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff'))) ||
         (activeTab === 'Inventory')) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}

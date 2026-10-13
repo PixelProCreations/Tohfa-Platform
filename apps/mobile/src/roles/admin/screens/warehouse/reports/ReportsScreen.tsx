@@ -37,7 +37,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
@@ -101,8 +101,6 @@ export function ReportsScreen({
   // server scopes every report again (CLAUDE.md 2.1).
   const isMain = scope.warehouseId === undefined;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
-  const [pendingWarehouseId, setPendingWarehouseId] = useState<string | undefined>(undefined);
   const warehouseLabel = isMain
     ? (warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses')
     : (scope.warehouseName ?? 'My warehouse');
@@ -1552,31 +1550,25 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL PRODUCTS</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? filteredInventory.length : 84}
+                {filteredInventory.length}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVAILABLE STOCK</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId
-                  ? `${filteredInventory.reduce((sum, item) => sum + (parseInt(item.availableQty.replace(/[^0-9]/g, ''), 10) || 0), 0).toLocaleString('en-IN')} kg`
-                  : '12,480 kg'}
+                {`${filteredInventory.reduce((sum, item) => sum + (parseInt(item.availableQty.replace(/[^0-9]/g, ''), 10) || 0), 0).toLocaleString('en-IN')} kg`}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>LOW STOCK</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId
-                  ? filteredInventory.filter((i) => i.status === 'Low Stock').length
-                  : 12}
+                {filteredInventory.filter((i) => i.status === 'Low Stock').length}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>OUT OF STOCK</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId
-                  ? filteredInventory.filter((i) => i.status === 'Out of Stock').length
-                  : 4}
+                {filteredInventory.filter((i) => i.status === 'Out of Stock').length}
               </Text>
             </View>
           </View>
@@ -6115,104 +6107,99 @@ const styles = StyleSheet.create({
   // Filter Full Screen Modal Styles
   fullScreenFilterModal: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   filterModalHeader: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 14,
   },
   filterModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   filterCloseText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   filterModalScroll: {
     flex: 1,
   },
   filterModalScrollContent: {
-    padding: 20,
-    paddingBottom: 24,
+    padding: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   filterSection: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   filterSectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5F5E5A',
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
     textTransform: 'uppercase',
   },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   filterModalChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3EFE9',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
   },
   filterModalChipActive: {
-    backgroundColor: '#FDF3F0',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
   },
   filterModalChipText: {
-    fontSize: 14,
-    color: '#5F5E5A',
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '500',
   },
   filterModalChipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
     fontWeight: '700',
   },
   filterFooter: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    gap: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#EEDCD3',
+    borderTopColor: adminColors.border,
   },
   modalResetBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#F3EFE9',
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
   },
   modalResetBtnText: {
-    color: '#5F5E5A',
-    fontSize: 16,
-    fontWeight: '600',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   modalApplyBtn: {
     flex: 2,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#F0562A',
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalApplyBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

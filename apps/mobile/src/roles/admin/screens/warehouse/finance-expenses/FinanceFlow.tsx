@@ -99,7 +99,7 @@ export function FinanceFlow({
   onNavigateToInvoiceList,
   warehouseOptions = FINANCE_WAREHOUSES,
 }: FinanceFlowProps) {
-  const [hubWarehouseId, setHubWarehouseId] = useState<string | undefined>(undefined);
+  const hubWarehouseId: string | undefined = undefined;
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
@@ -143,8 +143,6 @@ export function FinanceFlow({
       return (
         <FinanceHubScreen
           {...common}
-          selectedWarehouseId={hubWarehouseId}
-          onSelectWarehouse={setHubWarehouseId}
           onOpen={(route) => navigate(route)}
           onOpenWallet={onOpenWallet}
           onNavigateToNotifications={onNavigateToNotifications}
@@ -197,10 +195,10 @@ export function FinanceFlow({
                     expenseId: savedRecord.id,
                     amount: savedRecord.amount,
                     category: savedRecord.categoryRef.split('·')[0]?.trim(),
-                    date: 'Today',
+                    date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                     description: savedRecord.categoryRef,
                     paymentMethod: 'Cash',
-                    vendorPayee: 'Local Transport Co.',
+                    vendorPayee: params.expenseDraft?.vendorPayee || 'Transport & Logistics Payee',
                     warehouse: savedRecord.warehouseName,
                     status: 'Recorded',
                   }

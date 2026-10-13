@@ -14,8 +14,7 @@
  */
 // Design id: M7-S01
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   BellIcon,
   cardStyles,
@@ -32,38 +31,8 @@ import {
 } from './CustomersParts';
 import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
 import { WarehouseSelector } from '../inventory';
-
-function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
@@ -79,7 +48,7 @@ export function CustomersListScreen({
   scope,
   can,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   onSelectCustomer,
   onNavigateToSearch,
   onNavigateToNotifications,
@@ -119,9 +88,6 @@ export function CustomersListScreen({
       <BellIcon />
     </HeaderIconButton>
   );
-
-  const selectedWarehouseName =
-    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
 
   return (
     <CustomersScreen

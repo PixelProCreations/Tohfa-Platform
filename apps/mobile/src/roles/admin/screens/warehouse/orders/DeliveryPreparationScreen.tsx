@@ -150,6 +150,12 @@ export function DeliveryPreparationScreen({
             })}
           </View>
 
+          <View style={styles.infoBox}>
+            <InfoCircleIcon />
+            <Text style={styles.infoText}>
+              Slot codes are configuration/API-driven, not hard-coded into the design.
+            </Text>
+          </View>
 
           <Text style={styles.sectionTitle}>Packing Status</Text>
           <View style={styles.packingCard}>

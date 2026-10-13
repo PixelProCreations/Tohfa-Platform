@@ -100,6 +100,15 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Info Banner */}
+          <View style={styles.infoBanner}>
+            <View style={styles.infoIconWrap}>
+              <InfoCircleIcon />
+            </View>
+            <Text style={styles.infoText}>
+              Thresholds shown below are read from system configuration — never a fixed number in this app.
+            </Text>
+          </View>
 
           {/* Low Stock Items matching Image 4 Left */}
           {lowStockItems.map((item, index) => (

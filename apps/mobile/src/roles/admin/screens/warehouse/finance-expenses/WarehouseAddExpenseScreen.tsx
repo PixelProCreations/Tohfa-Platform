@@ -272,7 +272,7 @@ export function WarehouseAddExpenseScreen({
   const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
-  const [amount, setAmount] = useState(initialExpense?.amount || '2400');
+  const [amount, setAmount] = useState(initialExpense?.amount ? String(initialExpense.amount) : '');
   const [description, setDescription] = useState(initialExpense?.description || 'Transport · Collection point → Warehouse');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
@@ -342,7 +342,9 @@ export function WarehouseAddExpenseScreen({
 
   const handleSaveExpense = () => {
     if (!canLog) return;
-    if (!amount.trim() || isNaN(Number(amount.replace(/[^0-9.]/g, '')))) {
+    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
+    const parsed = Number(cleanAmount);
+    if (!cleanAmount || isNaN(parsed) || parsed <= 0) {
       Alert.alert('Validation Error', 'Please enter a valid expense amount.');
       return;
     }
@@ -558,10 +560,11 @@ export function WarehouseAddExpenseScreen({
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
+                const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
                 const newRecord: ExpenseRecord = {
-                  id: initialExpense?.expenseId || `EXP-${String(Math.floor(1000 + Math.random() * 9000))}`,
+                  id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
                   categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                  amount: Number(amount.replace(/[^0-9.]/g, '')) || 2400,
+                  amount: parsedAmt,
                   timestamp: `${expenseDate} - 10:00 AM`,
                   status: 'Recorded',
                   warehouseId: selectedWarehouse.id,
@@ -599,10 +602,11 @@ export function WarehouseAddExpenseScreen({
           <TouchableOpacity
             style={styles.viewExpenseBtn}
             onPress={() => {
+              const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
               const newRecord: ExpenseRecord = {
-                id: initialExpense?.expenseId || `EXP-${String(Math.floor(1000 + Math.random() * 9000))}`,
+                id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
                 categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                amount: Number(amount.replace(/[^0-9.]/g, '')) || 2400,
+                amount: parsedAmt,
                 timestamp: `${expenseDate} - 10:00 AM`,
                 status: 'Recorded',
                 warehouseId: selectedWarehouse.id,

@@ -263,7 +263,15 @@ export function InvoiceWizardScreen({
                 ],
               ]}
             />
-
+            {canGenerate ? (
+              <View style={styles.demoButton}>
+                <BillingButton
+                  label="Simulate generation failure (demo)"
+                  variant="outline"
+                  onPress={() => setShowFailure(true)}
+                />
+              </View>
+            ) : null}
           </>
         ) : null}
       </ScrollView>

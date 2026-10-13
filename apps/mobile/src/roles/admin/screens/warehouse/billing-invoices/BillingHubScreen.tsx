@@ -330,7 +330,7 @@ export function BillingHubScreen({
               <Text style={styles.requiredOrderId}>{required.orderNumber}</Text>
               <Text style={styles.requiredCustomer}>{required.customerName}</Text>
               <Text style={styles.requiredAmount}>{required.amount}</Text>
-              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice()} />
+              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice(required)} />
             </View>
           </>
         ) : null}

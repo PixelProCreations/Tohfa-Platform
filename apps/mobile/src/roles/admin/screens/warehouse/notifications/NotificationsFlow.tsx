@@ -130,7 +130,6 @@ export function NotificationsFlow({
         <NotificationsScreen
           {...common}
           notifications={items}
-          warehouseOptions={warehouseOptions}
           initialFilter={params.filter}
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}

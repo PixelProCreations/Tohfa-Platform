@@ -33,8 +33,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'GR-1024',
     date: '25 Sep 2026',
     target: 'ReviewReceiving',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n2',
@@ -47,8 +45,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'ORD-10245',
     date: '25 Sep 2026',
     target: 'Orders',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n4',
@@ -61,8 +57,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'Carrot Grade 1',
     date: '25 Sep 2026',
     target: 'Stock',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n5',
@@ -75,8 +69,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'TOP-002845',
     date: '25 Sep 2026',
     target: 'Wallet',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n7',
@@ -89,8 +81,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'ORD-20260921-006',
     date: '24 Sep 2026',
     target: 'Returns',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'MSG-03',
@@ -100,8 +90,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     timestamp: '2 days ago',
     isRead: true,
     date: '23 Sep 2026',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n3',
@@ -114,8 +102,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'GR-1025',
     date: '25 Sep 2026',
     target: 'Receiving',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'n6',
@@ -128,8 +114,6 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'GR-1022',
     date: '25 Sep 2026',
     target: 'Receiving',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'MSG-01',
@@ -192,34 +176,28 @@ export const MAIN_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'SHP-2026-098',
     date: '25 Sep 2026',
     target: 'Receiving',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'm2',
     category: 'received',
     title: 'Goods Received',
-    message: 'New goods receiving activity is available.',
+    message: 'New goods receiving activity is available. Received: 420 kg.',
     timestamp: 'Today · 10:20 AM',
     isRead: false,
     reference: 'GR-00245',
     date: '25 Sep 2026',
     target: 'Receiving',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'm3',
     category: 'wallet',
     title: 'Wallet Credited',
-    message: 'A customer wallet transaction has been completed.',
+    message: 'A customer wallet transaction has been completed. Amount: ₹500.',
     timestamp: 'Today · 09:45 AM',
     isRead: false,
     reference: 'TOP-002845',
     date: '25 Sep 2026',
     target: 'Wallet',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
   },
   {
     id: 'm4',
@@ -232,8 +210,6 @@ export const MAIN_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'B-104',
     date: '25 Sep 2026',
     target: 'ReviewReceiving',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri Warehouse',
   },
   {
     id: 'm5',
@@ -245,8 +221,6 @@ export const MAIN_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'ORD-10284',
     date: '25 Sep 2026',
     target: 'Orders',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
   },
   {
     id: 'm6',
@@ -259,8 +233,6 @@ export const MAIN_NOTIFICATIONS: readonly NotificationItem[] = [
     reference: 'Carrot Grade 1',
     date: '25 Sep 2026',
     target: 'Stock',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur Market Warehouse',
   },
 ];
 

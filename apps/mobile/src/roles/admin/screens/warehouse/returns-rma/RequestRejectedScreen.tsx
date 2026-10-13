@@ -66,7 +66,13 @@ export function RequestRejectedScreen({ rma, onDone }: RequestRejectedScreenProp
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <ResultHero tone="danger" icon={<CloseCircleIcon />} title="Return Request Rejected" subtitle={rma.rmaId} />
-
+        <View style={styles.infoBox}>
+          <BellOutlineIcon />
+          <Text style={styles.infoText}>
+            Customer notification will follow the configured notification workflow — shown as sent only once the
+            backend confirms it.
+          </Text>
+        </View>
       </ScrollView>
     </ReturnsScreen>
   );

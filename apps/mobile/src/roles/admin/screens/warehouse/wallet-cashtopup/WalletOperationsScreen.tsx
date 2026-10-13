@@ -1,6 +1,6 @@
 // Design id: M8-S01
 import React from 'react';
-import { Alert, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -176,35 +176,6 @@ function AlertTriangleIcon({ size = 16, color = adminColors.ink }: { size?: numb
   );
 }
 
-function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function WarningTriangleAccentIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
@@ -284,8 +255,6 @@ export function WalletOperationsScreen({
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
 
-  const selectedWarehouseName =
-    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
 
   const visibleWarehouseSummaries = selectedWarehouseId
     ? WAREHOUSE_WALLET_SUMMARIES.filter((w) => w.id === selectedWarehouseId)

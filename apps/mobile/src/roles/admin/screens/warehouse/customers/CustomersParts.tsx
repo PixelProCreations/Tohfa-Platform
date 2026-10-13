@@ -390,9 +390,14 @@ export function Timeline({ steps }: { steps: readonly TimelineStep[] }) {
   );
 }
 
-/** Tinted note box (view-only notices, warehouse lock notice). Suppressed. */
-export function NoteBox({ text: _text, icon: _icon }: { text: string; icon?: React.ReactNode }) {
-  return null;
+/** Tinted note box (view-only notices, warehouse lock notice). */
+export function NoteBox({ text, icon }: { text: string; icon?: React.ReactNode }) {
+  return (
+    <View style={styles.note}>
+      {icon}
+      <Text style={styles.noteText}>{text}</Text>
+    </View>
+  );
 }
 
 /** Full-width filled orange button. */

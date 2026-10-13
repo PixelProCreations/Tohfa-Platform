@@ -462,7 +462,7 @@ export function FinanceHistoryScreen({
         onRequestClose={() => setShowFilterModal(false)}
       >
         <SafeAreaView style={styles.fullScreenFilterModal}>
-          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
           {/* Top Orange Header */}
           <View style={styles.filterModalHeader}>
@@ -473,7 +473,7 @@ export function FinanceHistoryScreen({
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.filterModalTitle}>Filter History</Text>
             <TouchableOpacity
@@ -864,104 +864,99 @@ const styles = StyleSheet.create({
   // Filter Full Screen Modal Styles
   fullScreenFilterModal: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   filterModalHeader: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 14,
   },
   filterModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   filterCloseText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   filterModalScroll: {
     flex: 1,
   },
   filterModalScrollContent: {
-    padding: 20,
-    paddingBottom: 24,
+    padding: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   filterSection: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   filterSectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5F5E5A',
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
     textTransform: 'uppercase',
   },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3EFE9',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
   },
   filterChipActive: {
-    backgroundColor: '#FDF3F0',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
   },
   filterChipText: {
-    fontSize: 14,
-    color: '#5F5E5A',
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
     fontWeight: '700',
   },
   filterFooter: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    gap: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#EEDCD3',
+    borderTopColor: adminColors.border,
   },
   modalApplyBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#F0562A',
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalApplyBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   modalResetBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalResetBtnText: {
-    color: '#5F5E5A',
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
 });

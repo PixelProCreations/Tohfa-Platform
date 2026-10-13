@@ -102,7 +102,10 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
       }
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
+        <View style={styles.eligibleBanner}>
+          <VerifiedCheckIcon />
+          <Text style={styles.eligibleBannerText}>Reported within return window — Eligible</Text>
+        </View>
 
         <SectionTitle>Customer</SectionTitle>
         <InfoCard

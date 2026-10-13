@@ -41,28 +41,19 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import {
   ActionGrid,
-  BankIcon,
   BellIcon,
-  BuildingWarehouseIcon,
-  ChevronDownIcon,
-  CreditCardPlusIcon,
   DailyCashIcon,
   FINANCE_CODES,
   FinanceNotAvailable,
   GridIcon,
-  HistoryClockIcon,
   LedgerIcon,
   ListDocIcon,
   PlusCircleIcon,
   ReportFileIcon,
-  ScaleIcon,
-  ShapesCategoryIcon,
   ShieldIcon,
   TableRow,
-  TrendDownIcon,
   TrendUpIcon,
   TruckIcon,
   VoucherIcon,
@@ -116,8 +107,6 @@ export interface FinanceHubScreenProps extends WarehouseScreenBaseProps {
   /** Open the wallet & cash top-up module; without it the Wallet action is not shown. */
   onOpenWallet?: (() => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  selectedWarehouseId?: string | undefined;
-  onSelectWarehouse?: (id: string | undefined) => void;
 }
 
 export function FinanceHubScreen({
@@ -127,16 +116,8 @@ export function FinanceHubScreen({
   onOpen,
   onOpenWallet,
   onNavigateToNotifications,
-  selectedWarehouseId: controlledWarehouseId,
-  onSelectWarehouse,
 }: FinanceHubScreenProps) {
   const [trendTab, setTrendTab] = useState<TrendTab>('Revenue');
-  const [internalWarehouseId, setInternalWarehouseId] = useState<string | undefined>(undefined);
-  const selectedWarehouseId = controlledWarehouseId !== undefined ? controlledWarehouseId : internalWarehouseId;
-  const setSelectedWarehouseId = (id: string | undefined) => {
-    setInternalWarehouseId(id);
-    onSelectWarehouse?.(id);
-  };
 
   if (!can(FINANCE_CODES.dashboard)) {
     return (
@@ -154,26 +135,25 @@ export function FinanceHubScreen({
   const opener = (route: FinanceRoute) => (allowed(route) ? () => onOpen(route) : undefined);
 
   const iconColor = adminColors.brandDeep;
-  const iconSize = isMain ? 24 : 20;
   const candidates: (FinanceAction & { route?: FinanceRoute })[] = [
-    { key: 'revenue', route: 'Revenue', label: isMain ? 'Revenue' : 'View Revenue', icon: <TrendUpIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('Revenue') },
-    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: isMain ? <TrendDownIcon size={iconSize} color={iconColor} /> : <ListDocIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('Expenses') },
-    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: isMain ? <CreditCardPlusIcon size={iconSize} color={iconColor} /> : <PlusCircleIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('AddExpense') },
-    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: isMain ? <ShapesCategoryIcon size={iconSize} color={iconColor} /> : <GridIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('ExpenseCategories') },
-    { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('Vouchers') },
-    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: isMain ? <ScaleIcon size={iconSize} color={iconColor} /> : <DailyCashIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('DailyCash') },
-    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: isMain ? <HistoryClockIcon size={iconSize} color={iconColor} /> : <LedgerIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('FinanceHistory') },
-    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon size={iconSize} color={iconColor} />, onPress: () => onOpen('FinanceReports') },
+    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: <PlusCircleIcon color={iconColor} />, onPress: () => onOpen('AddExpense') },
+    { key: 'revenue', route: 'Revenue', label: isMain ? 'Revenue' : 'View Revenue', icon: <TrendUpIcon color={iconColor} />, onPress: () => onOpen('Revenue') },
+    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: <ListDocIcon color={iconColor} />, onPress: () => onOpen('Expenses') },
+    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: <GridIcon color={iconColor} />, onPress: () => onOpen('ExpenseCategories') },
+    { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon color={iconColor} />, onPress: () => onOpen('Vouchers') },
+    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash') },
+    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory') },
+    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon color={iconColor} />, onPress: () => onOpen('FinanceReports') },
   ];
-  if (!isMain && onOpenWallet && can(FINANCE_CODES.cashTopUp)) {
+  if (onOpenWallet && can(FINANCE_CODES.cashTopUp)) {
     candidates.push({ key: 'wallet', label: 'Wallet', icon: <WalletIcon color={iconColor} />, onPress: onOpenWallet });
   }
-  // Sub's hub led with 6 quick actions; Main's grid has full set of 8.
+  // Sub's hub led with 6 quick actions; Main's grid has full set.
   const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history', 'reports'];
-  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports'];
+  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports', 'wallet'];
   const order = isMain ? MAIN_ORDER : SUB_ORDER;
   const actions = candidates
-    .filter((a) => (isMain ? MAIN_ORDER.includes(a.key) : SUB_ORDER.includes(a.key)))
+    .filter((a) => (isMain ? true : SUB_ORDER.includes(a.key)))
     .filter((a) => a.route === undefined || allowed(a.route))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
@@ -181,7 +161,7 @@ export function FinanceHubScreen({
     ? [
         { label: 'REVENUE', value: '₹24,850', route: 'Revenue' },
         { label: 'EXPENSES', value: '₹6,420', route: 'Expenses' },
-        { label: 'NET MOVEMENT', value: '₹18,430' },
+        { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
         { label: 'CASH BALANCE', value: '₹22,080' },
       ]
     : [
@@ -193,18 +173,13 @@ export function FinanceHubScreen({
         { label: 'CASH OUT', value: '₹6,420', route: 'Expenses' },
       ];
 
-  const expenseRows = isMain
-    ? [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-      ]
-    : [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-        { label: 'Warehouse Operations', value: '₹1,200' },
-        { label: 'Utilities', value: '₹620' },
-        { label: 'Maintenance', value: '₹400' },
-      ];
+  const expenseRows = [
+    { label: 'Transport', value: '₹2,400' },
+    { label: 'Loading / Unloading', value: '₹1,800' },
+    { label: 'Warehouse Operations', value: '₹1,200' },
+    { label: 'Utilities', value: '₹620' },
+    { label: 'Maintenance', value: '₹400' },
+  ];
 
   const revenuePress = opener('Revenue');
   const expensesPress = opener('Expenses');
@@ -213,12 +188,7 @@ export function FinanceHubScreen({
 
   return (
     <WalletScreen
-      title={
-        <View style={styles.titleContainer}>
-          <BankIcon size={20} color="#FFFFFF" />
-          <Text style={styles.headerTitleText}>Warehouse Finance</Text>
-        </View>
-      }
+      title="Warehouse Finance"
       onBack={onBack}
       headerRight={
         <HeaderIconButton
@@ -231,17 +201,7 @@ export function FinanceHubScreen({
           <BellIcon />
         </HeaderIconButton>
       }
-      headerExtra={
-        isMain ? (
-          <WarehouseSelector
-            scope={scope}
-            selectedId={selectedWarehouseId}
-            onSelect={(id) => setSelectedWarehouseId(id)}
-          />
-        ) : (
-          <ScopeHeader scope={scope} label={`${scopeLabel(scope)} · Today`} />
-        )
-      }
+      headerExtra={<ScopeHeader scope={scope} label={isMain ? 'All Warehouses' : `${scopeLabel(scope)} · Today`} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
@@ -270,7 +230,7 @@ export function FinanceHubScreen({
           </>
         ) : null}
 
-        {!isMain && can(FINANCE_CODES.salesIncome) ? (
+        {can(FINANCE_CODES.salesIncome) ? (
           <>
             <SectionTitle>Revenue Breakdown</SectionTitle>
             <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
@@ -292,19 +252,19 @@ export function FinanceHubScreen({
               <TableRow label="Total Expenses" value="₹6,420" total divider />
             </TouchableOpacity>
 
-            {!isMain && (
-              <TouchableOpacity onPress={categoriesPress} disabled={categoriesPress === undefined} activeOpacity={0.8}>
-                <InfoNote tone="info">
-                  Categories are sourced from the configurable Expense Categories screen (S06); tap to view them.
-                </InfoNote>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity onPress={categoriesPress} disabled={categoriesPress === undefined} activeOpacity={0.8}>
+              <InfoNote tone={isMain ? 'brandSoft' : 'info'}>
+                {isMain
+                  ? 'Categories mirror Expense Categories (S06) exactly; they are never invented independently on this dashboard.'
+                  : 'Categories are sourced from the configurable Expense Categories screen (S06); tap to view them.'}
+              </InfoNote>
+            </TouchableOpacity>
           </>
         ) : null}
 
         <SectionTitle
           right={
-            !isMain && historyPress ? (
+            historyPress ? (
               <TouchableOpacity onPress={historyPress} activeOpacity={0.7} hitSlop={HIT_SLOP}>
                 <Text style={styles.sectionAction}>History ›</Text>
               </TouchableOpacity>
@@ -328,51 +288,39 @@ export function FinanceHubScreen({
             );
           })}
         </View>
-        {isMain ? (
-          <TouchableOpacity style={styles.chartTrendBox} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
-            <Text style={styles.chartTrendText}>
-              {trendTab === 'Revenue'
-                ? 'Daily revenue trend — 7-day view'
-                : trendTab === 'Expenses'
-                ? 'Daily expense trend — 7-day view'
-                : 'Daily net movement trend — 7-day view'}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
-            <View style={styles.chartRow}>
-              <View style={styles.chartAxis}>
-                {TREND_AXIS.map((label) => (
-                  <Text key={label} style={styles.chartAxisText}>
-                    {label}
+        <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
+          <View style={styles.chartRow}>
+            <View style={styles.chartAxis}>
+              {TREND_AXIS.map((label) => (
+                <Text key={label} style={styles.chartAxisText}>
+                  {label}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.chartBody}>
+              <View style={styles.chartBars}>
+                {TREND_BARS[trendTab].map((height, index) => (
+                  <View
+                    key={TREND_DAYS[index]}
+                    style={[
+                      styles.bar,
+                      { height: `${height}%` },
+                      index === TREND_DAYS.length - 1 && styles.barToday,
+                    ]}
+                  />
+                ))}
+              </View>
+              <View style={styles.chartDays}>
+                {TREND_DAYS.map((day, index) => (
+                  <Text key={day} style={[styles.chartAxisText, index === TREND_DAYS.length - 1 && styles.chartDayToday]}>
+                    {day}
                   </Text>
                 ))}
               </View>
-              <View style={styles.chartBody}>
-                <View style={styles.chartBars}>
-                  {TREND_BARS[trendTab].map((height, index) => (
-                    <View
-                      key={TREND_DAYS[index]}
-                      style={[
-                        styles.bar,
-                        { height: `${height}%` },
-                        index === TREND_DAYS.length - 1 && styles.barToday,
-                      ]}
-                    />
-                  ))}
-                </View>
-                <View style={styles.chartDays}>
-                  {TREND_DAYS.map((day, index) => (
-                    <Text key={day} style={[styles.chartAxisText, index === TREND_DAYS.length - 1 && styles.chartDayToday]}>
-                      {day}
-                    </Text>
-                  ))}
-                </View>
-              </View>
             </View>
-            <Text style={styles.chartCaption}>{TREND_CAPTION[trendTab]}</Text>
-          </TouchableOpacity>
-        )}
+          </View>
+          <Text style={styles.chartCaption}>{TREND_CAPTION[trendTab]}</Text>
+        </TouchableOpacity>
 
         {isMain ? null : (
           <>
@@ -429,12 +377,10 @@ export function FinanceHubScreen({
           </>
         )}
 
-        {!isMain && (
-          <InfoNote tone="warning" icon={<ShieldIcon />}>
-            Quick Actions shown here reflect your granted permissions: an action you are not granted is hidden, never
-            shown active and blocked later.
-          </InfoNote>
-        )}
+        <InfoNote tone="warning" icon={<ShieldIcon />}>
+          Quick Actions shown here reflect your granted permissions: an action you are not granted is hidden, never
+          shown active and blocked later.
+        </InfoNote>
       </ScrollView>
     </WalletScreen>
   );
@@ -525,46 +471,4 @@ const styles = StyleSheet.create({
   activityAmount: { ...adminType.rowTitle },
   amountCredit: { color: adminColors.success.text },
   amountDebit: { color: adminColors.danger.text },
-
-  mainScopePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 6,
-    gap: 6,
-  },
-  mainScopePillText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  chartTrendBox: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    marginTop: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
-  },
-  chartTrendText: {
-    ...adminType.body,
-    fontWeight: '600',
-    color: adminColors.ink,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitleText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
 });

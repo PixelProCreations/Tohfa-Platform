@@ -340,6 +340,13 @@ export function ReportIssueScreen({
           </Text>
         </TouchableOpacity>
 
+        <Text style={[styles.labelTitle, { marginTop: adminSpacing.lg }]}>Priority</Text>
+        <View style={styles.infoCard}>
+          <InfoCircleIcon size={18} color="#0284C7" />
+          <Text style={styles.infoCardText}>
+            Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
+          </Text>
+        </View>
       </ScrollView>
     </WalletScreen>
   );
