@@ -106,10 +106,8 @@ function SearchIcon({ color = adminColors.muted }: { color?: string }) {
 
 export function StockListScreen({
   scope,
-  can,
   onNavigate,
   onBack,
-  onTabChange,
   initialTab = 'Stock',
 }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
@@ -172,6 +170,8 @@ export function StockListScreen({
         <SWAHeader
           title="Stock List"
           onBack={onBack}
+          showWarehouse={true}
+          warehouseName={scope.warehouseName ?? 'All Warehouses'}
           showFilter={true}
           onFilterPress={() => onNavigate?.('M3S16')}
         />
@@ -194,7 +194,6 @@ export function StockListScreen({
           <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Ledger' && styles.activeTabCard]}
             onPress={() => {
-              setActiveTab('Ledger');
               onNavigate?.('M3S06');
             }}
             activeOpacity={0.7}
@@ -209,7 +208,6 @@ export function StockListScreen({
           <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Allocation' && styles.activeTabCard]}
             onPress={() => {
-              setActiveTab('Allocation');
               onNavigate?.('M3S07');
             }}
             activeOpacity={0.7}
@@ -224,7 +222,6 @@ export function StockListScreen({
           <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
-              setActiveTab('Verify');
               onNavigate?.('M3S10');
             }}
             activeOpacity={0.7}
