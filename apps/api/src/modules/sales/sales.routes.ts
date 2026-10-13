@@ -92,11 +92,11 @@ salesRouter.post(
   }),
 );
 
-// POST /v1/admin/sales/:saleId/cancel  (BR-94i; Idempotency-Key required)
+// POST /v1/admin/sales/:saleId/cancel  (BR-94i, BR-94l; Idempotency-Key required)
 salesRouter.post(
   '/:saleId/cancel',
   requireAuth,
-  requirePermission('sales.sale.create'),
+  requirePermission('sales.sale.cancel'),
   validate({ params: saleIdParams, body: saleCancelBody }),
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);

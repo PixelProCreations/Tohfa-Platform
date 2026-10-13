@@ -13363,6 +13363,46 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/sales/{saleId}/cancel:
+    post:
+      tags: [Sales]
+      operationId: cancelAdminSale
+      summary: Cancel an unpaid pending UPI sale
+      description: |
+        Cancels a `PENDING_PAYMENT` DIRECT/MARKET sale whose UPI payment is still `PENDING`: the order
+        and its items become `CANCELLED`, the payment `FAILED`, the stock hold is released (BR-94i),
+        and one `order_status_history` row and one `order.cancel` audit row are written in the same
+        transaction. The decision is made on the sale row locked in that transaction (BR-94l): a sale
+        that is not a UPI sale, or is already paid, picked up or cancelled, is 409 `CONFLICT`; a sale
+        another request changed while this one was writing is 409 `CONFLICT` with
+        `meta.reason = SALE_STATE_CHANGED`; in every 409 case nothing is written. Cancelling an
+        already cancelled sale with the same key replays the original response. `Idempotency-Key`
+        is required: missing or blank is 422 `VALIDATION_FAILED`. 404 for a sale outside the
+        caller's scope, never 403.
+      x-permission: sales.sale.cancel
+      x-business-rules: [BR-94, BR-88, BR-90]
+      parameters:
+        - { $ref: '#/components/parameters/SaleIdPathParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleCancelRequest' }
+      responses:
+        '200':
+          description: The cancelled sale (`status = CANCELLED`, `paymentStatus = FAILED`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sale' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SaleConflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/sales/market-day:
     get:
       tags: [Sales]
@@ -13726,6 +13766,8 @@ components:
         UPI confirm: `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` (the reference already
         confirmed another sale, BR-94), plain `CONFLICT` (not a UPI sale, or its payment is not
         pending) and `SALE_STOCK_CHANGED` (the held stock is no longer on the sale's shelf).
+        UPI confirm stock conflict and cancel: `CONFLICT` with `meta.reason = SALE_STATE_CHANGED`
+        (another request confirmed, cancelled or refunded the sale first; nothing written, BR-94l).
         `meta` carries the fresh values so the counter can re-confirm (`meta.lines[]` with
         `requestedQtyKg` / `availableQtyKg` for stock; `meta.expectedTotal` / `meta.currentTotal` /
         `meta.quote` for price). Nothing is written but a `sale_attempts` row (a quote writes nothing).
@@ -19987,6 +20029,12 @@ components:
       required: [upiTxnRef]
       properties:
         upiTxnRef: { type: string, minLength: 1, maxLength: 120, description: The gateway / UPI transaction reference to verify. }
+
+    SaleCancelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 300, description: 'Why the sale is abandoned; trimmed. Defaults to "Cancelled by operator".' }
 
     SaleLine:
       type: object

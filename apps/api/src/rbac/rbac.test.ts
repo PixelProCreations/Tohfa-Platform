@@ -974,6 +974,15 @@ const GRANT_CASES: readonly GrantCase[] = [
   { permission: 'sales.sale.create', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.OWN, because: 'BR-85: a Sub admin acts only within its own warehouse; masking and scope follow from own (D8, D9).' },
   { permission: 'sales.sale.create', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-85: farmers have no admin access.' },
   { permission: 'sales.sale.create', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-85: customers have no admin access.' },
+  // BR-94m: cancelling an unpaid pending UPI sale (BR-94i) is its own code, granted as sales.sale.create
+  // (the counter that made the sale may abandon it; Main does not sell at the counter, D1).
+  { permission: 'sales.sale.cancel', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-94m: SA sees and acts on every warehouse.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-94m: TA is the operational head across sales and customers.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-94m: sales and customer records are not a Farmer Admin duty.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-94m: Direct/Market selling is a Sub Warehouse counter operation (owner decision D1); same grant as sales.sale.create.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.OWN, because: 'BR-94m: a Sub admin cancels only its own warehouse\'s pending sales.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-94m: farmers have no admin access.' },
+  { permission: 'sales.sale.cancel', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-94m: customers have no admin access.' },
   { permission: 'sales.history.view', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-85, BR-90: SA sees and acts on every warehouse.' },
   { permission: 'sales.history.view', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-85, BR-90: TA is the operational head across sales and customers.' },
   { permission: 'sales.history.view', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-85, BR-90: sales and customer records are not a Farmer Admin duty.' },

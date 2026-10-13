@@ -984,6 +984,26 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(replay.body.status).toBe('CANCELLED');
   });
 
+  it('BR-94m (HTTP): POST /sales/{id}/cancel is gated by sales.sale.cancel: 401 anonymous; 403 MAIN_WH_ADMIN, FARMER, FARMER_ADMIN, CUSTOMER; another warehouse\'s sale is 404 for a Sub admin', async () => {
+    const crop = await newCrop({ ceiling: '2.00' });
+    await newBatch({ crop, qty: '2' });
+    const created = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'Gate' }, items: [item(crop, '1')], expectedTotal: '2.00', payment: { method: 'UPI' } });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const saleId = created.body.id as string;
+    const cancel = (token?: string) => {
+      const req = request(server).post(`/v1/admin/sales/${saleId}/cancel`).set('Idempotency-Key', key('gate'));
+      return (token === undefined ? req : req.set('Authorization', auth(token))).send({});
+    };
+    expect((await cancel()).status).toBe(401);
+    for (const who of ['main', 'farmer', 'farmerAdmin', 'customer']) {
+      const res = await cancel(who);
+      expect(res.status, who).toBe(403);
+      expect(res.body.meta?.permission, who).toBe('sales.sale.cancel');
+    }
+    expect((await cancel('subCoonoor')).status).toBe(404);
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleId])).toBe('PENDING_PAYMENT');
+  });
+
   it('BR-94i (HTTP): cancelling a UPI sale that is already confirmed (PICKED_UP / PAID) is 409 CONFLICT and changes nothing', async () => {
     const crop = await newCrop({ ceiling: '6.00' });
     const batch = await newBatch({ crop, qty: '2' });
