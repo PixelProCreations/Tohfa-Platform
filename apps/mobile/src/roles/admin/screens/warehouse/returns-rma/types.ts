@@ -115,6 +115,47 @@ export interface InspectionResultData {
   notes: string;
 }
 
+// ─── Live views (plan phase 10, ./mappers.ts) ────────────────────────────────
+
+/** One return of the queue (GET /admin/returns). */
+export interface ReturnRowView {
+  /** The return uuid. */
+  id: string;
+  /** 'RET-7A7A7A7A': a display label (docs/rules.md BR-91h), not a key. */
+  reference: string;
+  orderId: string;
+  /** The API status, kept as sent (unknown values included) for returnActions. */
+  status: string;
+  statusLabel: string;
+  statusTone: 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'brandSoft';
+  reason: string;
+  note: string | null;
+  created: string;
+}
+
+/** One returned order item in integer grams. accepted / damaged / condition are null until inspected. */
+export interface ReturnItemView {
+  orderItemId: string;
+  requestedGrams: number;
+  acceptedGrams: number | null;
+  damagedGrams: number | null;
+  condition: InspectionCondition | null;
+}
+
+/** One return with its items (GET /admin/returns/{id}). */
+export interface ReturnDetailView extends ReturnRowView {
+  customerId: string;
+  items: readonly ReturnItemView[];
+}
+
+/** One status change (GET /admin/returns/{id}/history), oldest first. */
+export interface ReturnTimelineEntry {
+  id: string;
+  title: string;
+  time: string;
+  note: string | null;
+}
+
 /** InspectProductScreen steps (M10-S03 form, then the folded "Inspection Saved" page). */
 export type InspectStep = 'form' | 'saved';
 

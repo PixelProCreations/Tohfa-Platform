@@ -256,6 +256,17 @@
   "profile.help.categoryTitle": "{{category}} FAQS",
   "profile.help.empty": "No help articles have been published yet.",
 
+  "returns.status.PENDING": "New",
+  "returns.status.INSPECTED": "Inspected",
+  "returns.status.APPROVED": "Approved",
+  "returns.status.REJECTED": "Rejected",
+  "returns.status.REFUND_PENDING_BANK": "Bank Refund Pending",
+  "returns.status.REFUNDED": "Refunded",
+  "returns.status.unknown": "Unknown",
+  "returns.inspect.error.incomplete": "Pick a condition and enter the accepted quantity for every returned item.",
+  "returns.inspect.error.quantity": "Enter quantities in kg, with at most 3 decimals.",
+  "returns.inspect.error.overRequested": "Accepted plus damaged quantity cannot be more than the quantity returned.",
+
   "inventory.crop.unnamed": "Unnamed crop",
   "inventory.product.label": "{{product}} · {{grade}}",
   "inventory.grade.GRADE_1": "Grade 1",
