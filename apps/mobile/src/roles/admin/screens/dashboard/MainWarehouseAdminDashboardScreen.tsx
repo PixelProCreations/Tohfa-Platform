@@ -9,12 +9,10 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -379,13 +377,6 @@ function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number;
   );
 }
 
-function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
@@ -445,82 +436,6 @@ function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: numbe
   );
 }
 
-function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons arrows-right-left (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7.5 7.5h13.5m0 0L16.5 3m4.5 4.5L16.5 12M16.5 16.5H3m0 0L7.5 12m-4.5 4.5L7.5 21"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ReviewReceivingIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Checklist card with 3 bars & checkmark (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M7 8h4M7 12h4M7 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M14 12.5l2 2 3.5-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BuildingOfficeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons building-office-2 stepped building with 11 windows and door (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2.5 21h19M4.5 21V9a1 1 0 0 1 1-1h2.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9h3a1 1 0 0 1 1 1v7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M10.5 21v-4h3v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Windows Left Wing */}
-      <Path d="M6.5 11h1M6.5 14h1M6.5 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Center Tower */}
-      <Path d="M10.5 6.5h1M13 6.5h1M10.5 9.5h1M13 9.5h1M10.5 12.5h1M13 12.5h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Right Wing */}
-      <Path d="M16.5 15.5h1M16.5 18h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ManageSwasBadgeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons identification badge with top clip, avatar & text lines (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Clip at top */}
-      <Rect x="10.5" y="1.5" width="3" height="4.5" rx="1" stroke={color} strokeWidth="1.8" />
-      <Line x1="12" y1="1.5" x2="12" y2="4" stroke={color} strokeWidth="1.8" />
-      {/* Badge outer border */}
-      <Rect x="3" y="6" width="18" height="15" rx="2.5" stroke={color} strokeWidth="2" />
-      {/* Avatar on left */}
-      <Circle cx="8" cy="11.5" r="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M5.5 17c0-1.6 1.1-2.5 2.5-2.5s2.5.9 2.5 2.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      {/* Lines on right */}
-      <Line x1="13.5" y1="11" x2="18.5" y2="11" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="13.5" y1="15" x2="17" y2="15" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -555,251 +470,6 @@ function StockBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; c
     </Svg>
   );
 }
-
-function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ScaleBalanceIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 21h10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 3v18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function TrendingUpLineIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="m22 7-8.5 8.5-5-5L2 17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 7h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CapacityCircularIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12a9 9 0 1 1-6.219-8.56" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function GearCogIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-      <Path
-        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-        stroke={color}
-        strokeWidth="2"
-      />
-    </Svg>
-  );
-}
-
-const OVERVIEW_WAREHOUSES = [
-  {
-    id: 'wh-ooty',
-    name: 'Ooty',
-    capacityLabel: '82% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
-    progressWidth: '82%' as const,
-    progressColor: PALETTE.goldProgress,
-    stock: '3,420 KG',
-    receipts: '420 KG',
-    issues: '2',
-    comparisonStat: '3,420 KG · 82%',
-  },
-  {
-    id: 'wh-coonoor',
-    name: 'Coonoor',
-    capacityLabel: '68% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
-    progressWidth: '68%' as const,
-    progressColor: PALETTE.greenProgress,
-    stock: '3,180 KG',
-    receipts: '380 KG',
-    issues: '3',
-    comparisonStat: '3,180 KG · 68%',
-  },
-  {
-    id: 'wh-kotagiri',
-    name: 'Kotagiri',
-    capacityLabel: '74% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
-    progressWidth: '74%' as const,
-    progressColor: PALETTE.goldProgress,
-    stock: '2,940 KG',
-    receipts: '310 KG',
-    issues: '1',
-    comparisonStat: '2,940 KG · 74%',
-  },
-  {
-    id: 'wh-gudalur',
-    name: 'Gudalur Market',
-    capacityLabel: '61% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
-    progressWidth: '61%' as const,
-    progressColor: PALETTE.greenProgress,
-    stock: '3,300 KG',
-    receipts: '360 KG',
-    issues: '1',
-    comparisonStat: '3,300 KG · 61%',
-  },
-] as const;
-
-function AlertEscalationIcon({ size = 20, color = PALETTE.red }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function AlertClockIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-interface WarehouseAlertItem {
-  id: string;
-  title: string;
-  category: string;
-  warehouse: string;
-  priority: 'Critical' | 'High' | 'Medium' | 'Low';
-  time: string;
-  subtitle: string;
-  description: string;
-  status: 'unread' | 'resolved';
-  relatedRoute: WarehouseSubView;
-}
-
-const DEFAULT_ALERTS: WarehouseAlertItem[] = [
-  {
-    id: 'ALT-00812',
-    title: 'Coonoor stock below target',
-    category: 'Low Stock',
-    warehouse: 'Coonoor',
-    priority: 'Medium',
-    time: 'Today, 08:30 AM',
-    subtitle: 'Low stock alert · Today 08:30 AM',
-    description: 'Beans Grade 1 stock has fallen below the configured target for Coonoor.',
-    status: 'unread',
-    relatedRoute: 'low_stock_alerts',
-  },
-  {
-    id: 'ALT-00811',
-    title: 'SWA issue escalated — Ooty',
-    category: 'Operational',
-    warehouse: 'Ooty',
-    priority: 'Critical',
-    time: 'Today, 07:15 AM',
-    subtitle: 'Warehouse-level issue · Today 07:15 AM',
-    description: 'Cold storage unit #2 temperature variance reported by SWA in Ooty.',
-    status: 'unread',
-    relatedRoute: 'operational_issues',
-  },
-  {
-    id: 'ALT-00810',
-    title: 'Follow-up: Transfer TRF-00284 variance',
-    category: 'Transfer',
-    warehouse: 'Kotagiri',
-    priority: 'High',
-    time: 'Today, 06:45 AM',
-    subtitle: 'Assigned action · Due today',
-    description: 'Variance of 40 KG noted on transfer from Coonoor to Kotagiri awaiting reconciliation.',
-    status: 'unread',
-    relatedRoute: 'inter_warehouse_transfer',
-  },
-];
-
-function TransferArrowsWhiteIcon({ size = 18 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4" stroke={PALETTE.headerText} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function SearchIcon({ size = 18, color = PALETTE.subTextMuted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
-      <Line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-const CONSOLIDATED_PRODUCTS = [
-  {
-    product: 'Carrot Grade 1',
-    rows: [
-      { wh: 'Ooty', kg: '850 KG' },
-      { wh: 'Coonoor', kg: '620 KG' },
-      { wh: 'Kotagiri', kg: '490 KG' },
-      { wh: 'Gudalur Market', kg: '710 KG' },
-    ],
-    total: '2,670 KG',
-  },
-  {
-    product: 'Beans Grade 1',
-    rows: [
-      { wh: 'Ooty', kg: '900 KG' },
-      { wh: 'Coonoor', kg: '750 KG' },
-      { wh: 'Kotagiri', kg: '680 KG' },
-      { wh: 'Gudalur Market', kg: '810 KG' },
-    ],
-    total: '3,140 KG',
-  },
-];
-
-const LOW_STOCK_ITEMS = [
-  {
-    product: 'Beans Grade 1',
-    warehouse: 'Ooty',
-    current: '90 KG',
-    target: '300 KG',
-  },
-  {
-    product: 'Carrot Grade 1',
-    warehouse: 'Coonoor',
-    current: '120 KG',
-    target: '250 KG',
-  },
-];
-
-const TRACKING_TRANSFERS = [
-  {
-    id: 'TRF-00284',
-    route: 'Coonoor → Ooty',
-    status: 'In Transit',
-    details: '200 KG · Carrot Grade 1',
-  },
-  {
-    id: 'TRF-00279',
-    route: 'Kotagiri → Gudalur',
-    status: 'Received',
-    details: '150 KG · Cabbage Grade 1',
-  },
-];
 
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
@@ -907,6 +577,7 @@ function warehouseIdForName(name: string): string | undefined {
 const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
   inter_warehouse_transfer: 'Transfers',
   initiate_new_transfer: 'InitiateNewTransfer',
+  transfer_tracking: 'Transfers',
 };
 
 /**
@@ -916,8 +587,14 @@ const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
  * quick action (it used to open the Sub roster key 'SubWarehouseStaff').
  */
 const WAREHOUSE_ADMIN_ENTRY: Partial<Record<WarehouseSubView, WarehouseAdminRoute>> = {
+  warehouse_overview: 'WarehouseOverview',
+  warehouse_comparison: 'WarehouseOverview',
   warehouse_city_detail: 'WarehouseCityDetail',
+  manage_warehouses: 'WarehouseOverview',
   manage_swas: 'ManageSubWarehouseAdmins',
+  warehouse_capacity: 'WarehouseCapacity',
+  warehouse_performance: 'WarehousePerformance',
+  warehouse_settings: 'WarehouseSettings',
 };
 
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
@@ -928,6 +605,7 @@ const INVENTORY_ENTRY = {
   verify_stock: 'M3S10',
   stock_adjustment_approval: 'M3S17',
   low_stock_alerts: 'M3S09',
+  low_stock_surplus: 'M3S09',
 } as const;
 
 /**
@@ -1006,12 +684,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [selectedMaterialId] = useState('MAT-0021');
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
-  const [alertsList, setAlertsList] = useState<WarehouseAlertItem[]>(DEFAULT_ALERTS);
-  const [selectedAlert, setSelectedAlert] = useState<WarehouseAlertItem>(DEFAULT_ALERTS[0]!);
-  const [alertStatusFilter, setAlertStatusFilter] = useState<'All' | 'Unread' | 'Resolved'>('All');
-  const [alertPriorityFilter, setAlertPriorityFilter] = useState<'All Priority' | 'Critical'>('All Priority');
-  const [alertWhFilter, setAlertWhFilter] = useState('All Warehouses');
-  const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
   // sign-in opens this shell without waiting for its token, so a one-shot fetch
@@ -1485,7 +1157,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
               </View>
 
-
+              {/* KPI Info Notice Banner */}
+              <View style={styles.kpiInfoBanner}>
+                <InfoCircleIcon size={16} color={PALETTE.primary} />
+                <Text style={styles.kpiInfoText}>
+                  Every KPI shows its own unit — KG, order counts, and currency are never added together into one blended figure.
+                </Text>
+              </View>
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2193,12 +1871,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             }}
             onManageCapacity={() => navigateWh('warehouse_settings')}
           />
-        ) : whSubView === 'warehouse_overview' ? (
-          renderWarehouseOverviewScreen()
-        ) : whSubView === 'warehouse_comparison' ? (
-          renderWarehouseComparisonScreen()
-        ) : whSubView === 'manage_warehouses' ? (
-          renderManageWarehousesScreen()
         ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
           // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
           // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
@@ -2260,8 +1932,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             onBack={goBackWh}
             onViewActivity={() => navigateWh('warehouse_activity')}
           />
-        ) : whSubView === 'warehouse_capacity' ? (
-          renderWarehouseCapacityScreen()
+
         ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
           // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
           // shared activity log (All preset): search, warehouse selector, rows with
@@ -2300,14 +1971,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             initialParams={{ category: attentionCategory }}
             onBack={goBackWh}
           />
-        ) : whSubView === 'stock_and_transfer' ? (
-          renderStockAndTransferScreen()
-        ) : whSubView === 'consolidated_stock' ? (
+        ) : whSubView === 'stock_and_transfer' || whSubView === 'consolidated_stock' ? (
           renderConsolidatedStockScreen()
-        ) : whSubView === 'low_stock_surplus' ? (
-          renderLowStockSurplusScreen()
-        ) : whSubView === 'transfer_tracking' ? (
-          renderTransferTrackingScreen()
         ) : whSubView === 'quick_actions_overview' ? (
           <HomeFlow
             scope={MAIN_WAREHOUSE_SCOPE}
@@ -2323,7 +1988,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           whSubView === 'stock_allocation' ||
           whSubView === 'verify_stock' ||
           whSubView === 'stock_adjustment_approval' ||
-          whSubView === 'low_stock_alerts' ? (
+          whSubView === 'low_stock_alerts' ||
+          whSubView === 'low_stock_surplus' ? (
           // The four Main-only inventory screens were folded into the shared
           // inventory area (W4); each old sub-view opens the flow on its survivor.
           <InventoryFlow
@@ -2360,8 +2026,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             initialWarehouseId={warehouseIdForName(selectedWHName)}
             onBack={goBackWh}
           />
-        ) : whSubView === 'warehouse_performance' ? (
-          renderWarehousePerformanceScreen()
         ) : whSubView === 'incoming_goods_ops' ? (
           // Incoming Goods was the receiving summary again: it is the shared
           // receiving dashboard now (W4), opened from the operations hub.
@@ -2502,8 +2166,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               navigateWh('needs_attention');
             }}
           />
-        ) : whSubView === 'consolidated_stock' ? (
-          renderConsolidatedStockScreen()
+
         ) : whSubView === 'consolidated_stock_detail' ? (
           renderConsolidatedStockDetailScreen()
         ) : whSubView === 'pending_actions' ? (
