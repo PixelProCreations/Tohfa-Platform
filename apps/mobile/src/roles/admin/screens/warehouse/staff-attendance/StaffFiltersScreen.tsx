@@ -95,7 +95,7 @@ export interface StaffFilterValues {
 
 export interface StaffFiltersScreenProps {
   initialFilters: StaffFilterValues;
-  warehouseName?: string;
+  warehouseName?: string | undefined;
   onBack: () => void;
   onApply: (filters: StaffFilterValues) => void;
 }
