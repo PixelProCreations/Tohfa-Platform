@@ -5,32 +5,48 @@
  * and the "request submitted" page inline. Those are now the shared
  * storage-ops ReportIssueScreen / IssueSubmittedScreen ('support' mode, W4
  * storage-ops part B); this screen hands a report request to its host
- * (`onReportIssue`, which opens StorageFlow on ReportIssue) instead of
- * importing another area.
+ * (`onReportIssue`) instead of importing another area.
+ *
+ * Live (plan phase 8, BR-82): GET /admin/help in the admin's language gives
+ * the PUBLISHED articles, the categories that have one, and the contact card.
+ * Content is admin-managed and nothing is seeded, so a fresh system shows the
+ * empty state. A contact channel the Super Admin / TOHFA Admin has not set is
+ * null and its card is hidden: no phone number or address is invented.
+ * Categories are the server's text, so the chips show them as sent (the
+ * design's fixed eight-tile icon grid had nothing to key on and is gone).
  *
  * Gates (docs/rbac.json):
- *   - FAQs, search, categories and contact cards: open to every signed-in admin.
- *   - "Report an Issue" (the primary CTA and each FAQ's "Report an issue" link):
- *     only with support.ticket.create_own, which is `none` for MAIN_WH_ADMIN
- *     and SUB_WH_ADMIN today, so it is effectively hidden (SPEC_GAPS W4l-5).
- *   - "My Support Requests" list: only with support.ticket.view_all (`view`
- *     for both warehouse roles).
+ *   - Articles, search, categories and contact cards: help.article.view (`all`
+ *     for every admin role; the server enforces it).
+ *   - "Report an Issue" (the CTA and each article's link): only with
+ *     support.ticket.create_own, `none` for MAIN_WH_ADMIN and SUB_WH_ADMIN, so
+ *     it is hidden. Admin support tickets are not built (BR-82).
+ *   - The "My Support Requests" list is hidden: there is no endpoint for an
+ *     admin's own support requests (BR-82: admin support tickets are NOT built;
+ *     support.ticket.view_all covers customer tickets, Customers area).
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import { EmptyState, SearchBar, SectionTitle, StatusBadge, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { FAQ_ITEMS, SUPPORT_CONTACT, SUPPORT_TICKETS } from './fixtures';
-import { ChevronRightIcon, HelpCircleIcon, PROFILE_CODES, profileLayout } from './ProfileParts';
-import type { FaqCategory, FaqItem, SupportTicketItem, WarehouseScreenBaseProps } from './types';
+import { HelpCircleIcon, PROFILE_CODES, profileLayout } from './ProfileParts';
+import type { FaqCategory, HelpArticleView, HelpView, WarehouseScreenBaseProps } from './types';
 
 export interface HelpSupportScreenProps extends WarehouseScreenBaseProps {
-  faqs?: readonly FaqItem[] | undefined;
-  tickets?: readonly SupportTicketItem[] | undefined;
+  /** The live help (GET /admin/help); undefined until it loads. */
+  help?: HelpView | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
   /**
-   * Open the host's report-issue form for a category. Offered only when
+   * Open the host's report-issue form. Offered only when
    * can('support.ticket.create_own') also passes.
    */
   onReportIssue?: ((category: FaqCategory) => void) | undefined;
@@ -38,84 +54,6 @@ export interface HelpSupportScreenProps extends WarehouseScreenBaseProps {
 
 interface IconProps {
   color: string;
-}
-
-function GettingStartedIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 19l7-7 3 3-7 7-3-3z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M2 2l7.586 7.586" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="11" cy="11" r="1.5" fill={color} />
-    </Svg>
-  );
-}
-
-function WarehouseIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21V10l9-6 9 6v11H3z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 21v-6a3 3 0 0 1 6 0v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BagIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BoxIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InvoiceIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function WalletIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M18 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" stroke={color} strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function DocumentIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="3" width="14" height="18" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M9 7h6M9 11h6M9 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ShieldIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
 }
 
 function PhoneIcon({ color }: IconProps) {
@@ -141,21 +79,6 @@ function MailIcon({ color }: IconProps) {
   );
 }
 
-function TicketIcon({ color }: IconProps) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M13 5v2M13 11v2M13 17v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function ChevronIcon({ up, color }: { up: boolean; color: string }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -164,68 +87,59 @@ function ChevronIcon({ up, color }: { up: boolean; color: string }) {
   );
 }
 
-const CATEGORIES: readonly { id: FaqCategory; shortLabel: string; Icon: (props: IconProps) => React.JSX.Element }[] = [
-  { id: 'Getting Started', shortLabel: 'Start', Icon: GettingStartedIcon },
-  { id: 'Warehouse Operations', shortLabel: 'Operations', Icon: WarehouseIcon },
-  { id: 'Orders', shortLabel: 'Orders', Icon: BagIcon },
-  { id: 'Inventory', shortLabel: 'Inventory', Icon: BoxIcon },
-  { id: 'Billing', shortLabel: 'Billing', Icon: InvoiceIcon },
-  { id: 'Wallet', shortLabel: 'Wallet', Icon: WalletIcon },
-  { id: 'Reports', shortLabel: 'Reports', Icon: DocumentIcon },
-  { id: 'Account & Security', shortLabel: 'Security', Icon: ShieldIcon },
-];
+/** What "Report an Issue" opens on: the host form takes one of the design's categories. */
+const REPORT_CATEGORY: FaqCategory = 'Warehouse Operations';
 
-const TICKET_TONE = { Open: 'warning', 'Under Review': 'warning', Resolved: 'success' } as const;
+function call(phone: string) {
+  Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => Alert.alert(t('profile.help.callTitle'), phone));
+}
+
+function email(address: string) {
+  Linking.openURL(`mailto:${address}`).catch(() => Alert.alert(t('profile.help.emailTitle'), address));
+}
 
 export function HelpSupportScreen({
   can,
   onBack,
-  faqs = FAQ_ITEMS,
-  tickets = SUPPORT_TICKETS,
+  help,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
   onReportIssue,
 }: HelpSupportScreenProps) {
-  const [category, setCategory] = useState<FaqCategory | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(faqs[0]?.id ?? null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleReportIssue = (cat: FaqCategory) => {
-    if (onReportIssue) {
-      onReportIssue(cat);
-    } else {
-      Alert.alert(
-        'Report an Issue',
-        `Submit a support request for ${cat}?\nOur support desk will respond shortly.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Proceed', onPress: () => Alert.alert('Request Received', `Issue logged under category: ${cat}`) },
-        ],
-      );
-    }
-  };
+  const articles: readonly HelpArticleView[] = help?.articles ?? [];
+  const categories: readonly string[] = help?.categories ?? [];
+  // support.ticket.create_own is `none` for both warehouse roles: no report path is offered.
+  const reportIssue = can(PROFILE_CODES.ticketCreate) && onReportIssue ? () => onReportIssue(REPORT_CATEGORY) : undefined;
 
-  const showTickets = can(PROFILE_CODES.ticketViewAll);
-
-  const visibleFaqs = useMemo(() => {
+  const visibleArticles = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return faqs.filter(
-      (faq) =>
-        (category === null || faq.category === category) &&
+    return articles.filter(
+      (article) =>
+        (category === null || article.category === category) &&
         (q === '' ||
-          faq.question.toLowerCase().includes(q) ||
-          faq.answer.toLowerCase().includes(q) ||
-          faq.category.toLowerCase().includes(q)),
+          article.question.toLowerCase().includes(q) ||
+          article.answer.toLowerCase().includes(q) ||
+          article.category.toLowerCase().includes(q)),
     );
-  }, [faqs, category, query]);
+  }, [articles, category, query]);
 
-  const toggleCategory = (next: FaqCategory) => {
-    if (category === next) {
-      setCategory(null);
-      return;
-    }
-    setCategory(next);
-    const first = faqs.find((faq) => faq.category === next);
-    if (first) setExpandedId(first.id);
-  };
+  const state = help !== undefined ? 'ready' : queryViewState({ isLoading, error, itemCount: 0 });
+  if (state !== 'ready' || help === undefined) {
+    return (
+      <WalletScreen title="Help & Support" onBack={onBack}>
+        {state === 'loading' ? <AdminLoadingState /> : <AdminErrorState error={error} onRetry={onRetry} />}
+      </WalletScreen>
+    );
+  }
+
+  const { phone, email: mailbox } = help.contact;
 
   return (
     <WalletScreen title="Help & Support" onBack={onBack}>
@@ -233,63 +147,48 @@ export function HelpSupportScreen({
         contentContainerStyle={profileLayout.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
       >
         <View style={styles.searchWrap}>
           <SearchBar value={query} onChangeText={setQuery} placeholder="Search FAQs, topics, or issues..." />
         </View>
 
-        <SectionTitle
-          right={
-            category !== null ? (
-              <TouchableOpacity onPress={() => setCategory(null)} accessibilityRole="button">
-                <Text style={styles.link}>Show All ({faqs.length})</Text>
-              </TouchableOpacity>
-            ) : undefined
-          }
-        >
-          HELP CATEGORIES
-        </SectionTitle>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-          <CategoryChip label="All Topics" count={faqs.length} active={category === null} onPress={() => setCategory(null)} />
-          {CATEGORIES.map(({ id, shortLabel, Icon }) => (
-            <CategoryChip
-              key={id}
-              label={shortLabel}
-              count={faqs.filter((faq) => faq.category === id).length}
-              active={category === id}
-              icon={<Icon color={category === id ? adminColors.onBrand : adminColors.brandDeep} />}
-              onPress={() => toggleCategory(id)}
-            />
-          ))}
-        </ScrollView>
+        {categories.length > 0 ? (
+          <>
+            <SectionTitle
+              right={
+                category !== null ? (
+                  <TouchableOpacity onPress={() => setCategory(null)} accessibilityRole="button">
+                    <Text style={styles.link}>{t('profile.help.showAll', { count: articles.length })}</Text>
+                  </TouchableOpacity>
+                ) : undefined
+              }
+            >
+              HELP CATEGORIES
+            </SectionTitle>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+              <CategoryChip label="All Topics" count={articles.length} active={category === null} onPress={() => setCategory(null)} />
+              {categories.map((name) => (
+                <CategoryChip
+                  key={name}
+                  label={name}
+                  count={articles.filter((article) => article.category === name).length}
+                  active={category === name}
+                  onPress={() => setCategory(category === name ? null : name)}
+                />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
 
-        <View style={styles.grid}>
-          {CATEGORIES.map(({ id, Icon }) => {
-            const active = category === id;
-            return (
-              <TouchableOpacity
-                key={`grid-${id}`}
-                style={[styles.gridTile, active && styles.gridTileActive]}
-                onPress={() => toggleCategory(id)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <View style={[styles.gridIcon, active && styles.gridIconActive]}>
-                  <Icon color={active ? adminColors.brand : adminColors.brandDeep} />
-                </View>
-                <Text style={[styles.gridLabel, active && styles.gridLabelActive]} numberOfLines={1}>
-                  {id}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <SectionTitle right={<StatusBadge label={`${visibleFaqs.length} Questions`} tone="brandSoft" />}>
-          {category ? `${category.toUpperCase()} FAQS` : 'FREQUENTLY ASKED QUESTIONS'}
+        <SectionTitle right={<StatusBadge label={t('profile.help.questionCount', { count: visibleArticles.length })} tone="brandSoft" />}>
+          {category !== null ? t('profile.help.categoryTitle', { category: category.toUpperCase() }) : 'FREQUENTLY ASKED QUESTIONS'}
         </SectionTitle>
-        {visibleFaqs.length === 0 ? (
+        {articles.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <EmptyState title={t('profile.help.empty')} />
+          </View>
+        ) : visibleArticles.length === 0 ? (
           <View style={styles.emptyCard}>
             <EmptyState title="No matching questions found." />
             <TouchableOpacity
@@ -304,7 +203,7 @@ export function HelpSupportScreen({
           </View>
         ) : (
           <View style={styles.faqList}>
-            {visibleFaqs.map((faq) => {
+            {visibleArticles.map((faq) => {
               const expanded = expandedId === faq.id;
               return (
                 <View key={faq.id} style={[styles.faqCard, expanded && styles.faqCardExpanded]}>
@@ -326,9 +225,11 @@ export function HelpSupportScreen({
                   {expanded ? (
                     <View style={styles.faqAnswerBox}>
                       <Text style={styles.faqAnswer}>{faq.answer}</Text>
-                      <TouchableOpacity style={styles.faqReport} onPress={() => handleReportIssue(faq.category)} accessibilityRole="button">
-                        <Text style={styles.link}>Need help with this? Report an issue →</Text>
-                      </TouchableOpacity>
+                      {reportIssue ? (
+                        <TouchableOpacity style={styles.faqReport} onPress={reportIssue} accessibilityRole="button">
+                          <Text style={styles.link}>Need help with this? Report an issue →</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -337,65 +238,24 @@ export function HelpSupportScreen({
           </View>
         )}
 
-        <SectionTitle>NEED MORE HELP?</SectionTitle>
-        <View style={styles.contactGrid}>
-          <ContactCard
-            icon={<PhoneIcon color={adminColors.brand} />}
-            title="Call Helpline"
-            value={SUPPORT_CONTACT.phone}
-            badge={SUPPORT_CONTACT.phoneHours}
-            onPress={() => Alert.alert('Customer Support', `Calling TOHFA Warehouse Helpdesk:\n${SUPPORT_CONTACT.phone}`)}
-          />
-          <ContactCard
-            icon={<MailIcon color={adminColors.brand} />}
-            title="Email Support"
-            value={SUPPORT_CONTACT.email}
-            badge={SUPPORT_CONTACT.emailHours}
-            onPress={() => Alert.alert('Email Support', `Drafting email to:\n${SUPPORT_CONTACT.email}`)}
-          />
-        </View>
-
-        <View style={styles.reportButton}>
-          <WalletButton
-            label="Report an Issue"
-            icon={<HelpCircleIcon color={adminColors.onBrand} />}
-            onPress={() => handleReportIssue(category ?? 'Warehouse Operations')}
-          />
-        </View>
-
-        {showTickets ? (
+        {phone !== null || mailbox !== null ? (
           <>
-            <SectionTitle right={<Text style={styles.meta}>{tickets.length} Active Ticket{tickets.length === 1 ? '' : 's'}</Text>}>
-              MY SUPPORT REQUESTS
-            </SectionTitle>
-            {tickets.length === 0 ? (
-              <EmptyState title="No support requests." />
-            ) : (
-              tickets.map((ticket) => (
-                <TouchableOpacity
-                  key={ticket.id}
-                  style={styles.ticketCard}
-                  onPress={() =>
-                    Alert.alert(`Ticket ${ticket.id}`, `Subject: ${ticket.subject}\nStatus: ${ticket.status}\nOpened: ${ticket.openedOn}`)
-                  }
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                >
-                  <View style={styles.ticketIcon}>
-                    <TicketIcon color={adminColors.brand} />
-                  </View>
-                  <View style={styles.ticketText}>
-                    <Text style={styles.ticketTitle}>{ticket.subject}</Text>
-                    <Text style={styles.meta}>
-                      {ticket.id} · {ticket.openedOn} · {ticket.category}
-                    </Text>
-                  </View>
-                  <StatusBadge label={ticket.status} tone={TICKET_TONE[ticket.status]} />
-                  <ChevronRightIcon />
-                </TouchableOpacity>
-              ))
-            )}
+            <SectionTitle>NEED MORE HELP?</SectionTitle>
+            <View style={styles.contactGrid}>
+              {phone !== null ? (
+                <ContactCard icon={<PhoneIcon color={adminColors.brand} />} title="Call Helpline" value={phone} onPress={() => call(phone)} />
+              ) : null}
+              {mailbox !== null ? (
+                <ContactCard icon={<MailIcon color={adminColors.brand} />} title="Email Support" value={mailbox} onPress={() => email(mailbox)} />
+              ) : null}
+            </View>
           </>
+        ) : null}
+
+        {reportIssue ? (
+          <View style={styles.reportButton}>
+            <WalletButton label="Report an Issue" icon={<HelpCircleIcon color={adminColors.onBrand} />} onPress={reportIssue} />
+          </View>
         ) : null}
       </ScrollView>
     </WalletScreen>
@@ -437,13 +297,11 @@ function ContactCard({
   icon,
   title,
   value,
-  badge,
   onPress,
 }: {
   icon: React.ReactNode;
   title: string;
   value: string;
-  badge: string;
   onPress: () => void;
 }) {
   return (
@@ -451,18 +309,13 @@ function ContactCard({
       <View style={styles.contactIcon}>{icon}</View>
       <Text style={styles.contactTitle}>{title}</Text>
       <Text style={styles.meta}>{value}</Text>
-      <View style={styles.contactBadge}>
-        <Text style={styles.contactBadgeText}>{badge}</Text>
-      </View>
     </TouchableOpacity>
   );
 }
 
 // Icon circle diameters: icon sizes, not spacing.
-const GRID_ICON = 32;
 const FAQ_CHEVRON = 28;
 const CONTACT_ICON = 36;
-const TICKET_ICON = 40;
 
 const styles = StyleSheet.create({
   searchWrap: { marginTop: adminSpacing.sm },
@@ -492,37 +345,6 @@ const styles = StyleSheet.create({
   chipBadgeActive: { backgroundColor: adminColors.brandDeep },
   chipBadgeText: { ...adminType.caption, color: adminColors.muted },
   chipBadgeTextActive: { color: adminColors.onBrand },
-
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: adminSpacing.sm,
-    marginTop: adminSpacing.sm,
-  },
-  gridTile: {
-    width: '23%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.sm,
-    paddingHorizontal: adminSpacing.xs,
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-  },
-  gridTileActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  gridIcon: {
-    width: GRID_ICON,
-    height: GRID_ICON,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridIconActive: { backgroundColor: adminColors.card },
-  gridLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
-  gridLabelActive: { color: adminColors.brand },
 
   emptyCard: {
     backgroundColor: adminColors.card,
@@ -596,36 +418,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.xs,
   },
   contactTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: 2 },
-  contactBadge: {
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.xs,
-    marginTop: adminSpacing.xs,
-  },
-  contactBadgeText: { ...adminType.caption, color: adminColors.brandDeep },
 
   reportButton: { marginTop: adminSpacing.lg },
-  scrollPaddingBottom: { paddingBottom: 80 },
 
-  ticketCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
-  },
-  ticketIcon: {
-    width: TICKET_ICON,
-    height: TICKET_ICON,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ticketText: { flex: 1 },
-  ticketTitle: { ...adminType.rowTitle, color: adminColors.ink },
 });

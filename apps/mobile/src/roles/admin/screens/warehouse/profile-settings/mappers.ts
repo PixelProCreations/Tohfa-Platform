@@ -11,6 +11,7 @@
  * through an exhaustive table with an explicit fallback.
  */
 import { ApiError } from '../../../../../shell/api/client';
+import type { OffsetPage } from '../../../../../shell/api/pagination';
 import { adminErrorKey } from '../../../api/errors';
 import {
   ADMIN_NOTIFICATION_CATEGORIES,
@@ -87,6 +88,11 @@ function localeOf(value: unknown): AdminLocale {
 /** 'Sub Warehouse Admin' / 'Main Warehouse Admin' for the scope the account runs in. */
 export function roleLabelFor(scope: WarehouseScope): string {
   return t(isMainScope(scope) ? 'profile.role.MAIN_WH_ADMIN' : 'profile.role.SUB_WH_ADMIN');
+}
+
+/** 'All Warehouses' for Main, else the scope's warehouse name. */
+export function scopeLabelFor(scope: WarehouseScope): string {
+  return isMainScope(scope) ? t('profile.scope.allWarehouses') : (scope.warehouseName ?? '');
 }
 
 /** 'All Warehouses' for Main, else the account's warehouse (from /auth/me, then the scope). */
@@ -312,6 +318,14 @@ export function toCapacityView(dto: WarehouseCapacityDto): CapacityView {
     utilizationLabel: percent === null ? null : t('profile.capacity.percent', { value: String(percent) }),
     fillPercent: percent === null ? 0 : Math.min(100, Math.max(0, percent)),
   };
+}
+
+/**
+ * The next page number of GET /warehouses/{id}/storage-locations, which pages
+ * by number (OffsetPage), not by cursor; undefined once every row is loaded.
+ */
+export function nextStoragePage(lastPage: OffsetPage<unknown>): number | undefined {
+  return lastPage.page * lastPage.pageSize < lastPage.total ? lastPage.page + 1 : undefined;
 }
 
 export function toStorageLocation(dto: StorageLocationDto): StorageLocationView {

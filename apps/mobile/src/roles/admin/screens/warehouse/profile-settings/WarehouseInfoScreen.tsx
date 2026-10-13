@@ -8,24 +8,30 @@
  * `activeSubScreen` switch; they are ProfileFlow routes now and this screen
  * lists them (`onOpen`).
  *
- * Gate: none. Read-only for both roles: no rbac code covers warehouse master
- * data (SPEC_GAPS W4m-1) and there is no edit control. Sub sees its own
- * warehouse on the locked pill; Main picks one of the four warehouses in the
- * header selector (a profile of "all warehouses" means nothing, so there is no
- * All chip). The old hard-coded "Coonoor Warehouse" now comes from the scope /
- * the warehouse record.
+ * Live (plan phase 8, BR-66): the record is GET /warehouses/{id}, the stock
+ * figure GET /warehouses/{id}/capacity (used kg, derived from ACTIVE batches)
+ * and the location count the total of GET /warehouses/{id}/storage-locations.
+ * A Sub admin reads only its own warehouse (scope.warehouseId; any other id is
+ * 404). Read-only for Sub: warehouse.profile.edit is `none` for it, and there
+ * is no edit control. Main picks a warehouse in the header selector; its
+ * options are still the design's sample codes until the Main phase, which the
+ * API does not know, so Main sees "not available" here for now.
  *
- * Not ported: three modal sheets (Operating / Contact / Documents) that nothing
- * could open (only the map sheet was reachable); the sections they duplicated
- * are the sub-screens. The fake bottom tab bar is the shared WarehouseTabBar,
- * shown when the host passes onTabChange.
+ * Hidden, because GET /warehouses/{id} has no such field: Region and Assigned
+ * Admin. Not ported: three modal sheets (Operating / Contact / Documents) that
+ * nothing could open (only the map sheet was reachable); the sections they
+ * duplicated are the sub-screens. The fake bottom tab bar is the shared
+ * WarehouseTabBar, shown when the host passes onTabChange.
  */
 import React, { useState } from 'react';
-import { Alert, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
-  EmptyState,
   HeaderIconButton,
   InfoCard,
   SectionTitle,
@@ -36,8 +42,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { isAreaAvailable } from '../availability';
 import { MenuCard, MenuRow } from './ProfileParts';
-import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo, StorageLocationItem } from './types';
-import { PROFILE_WAREHOUSES, STORAGE_LOCATIONS, WAREHOUSE_PROFILES } from './warehouseFixtures';
+import type { CapacityView, WarehouseProfileView, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import {
   ClockIcon,
   CloseIcon,
@@ -46,7 +51,6 @@ import {
   MapFoldedIcon,
   MapPinIcon,
   PhoneIcon,
-  recordFor,
   RefreshIcon,
   singleWarehouseId,
   SingleWarehouseHeader,
@@ -61,9 +65,19 @@ export type WarehouseProfileChildRoute = 'StorageInfo' | 'OperatingInfo' | 'Cont
 export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   /** Open a sub-screen. Without it the section list is not shown. */
   onOpen?: ((route: WarehouseProfileChildRoute) => void) | undefined;
-  profiles?: readonly WarehouseProfileInfo[] | undefined;
-  /** Used for the storage-location count of the overview card. */
-  storageLocations?: readonly StorageLocationItem[] | undefined;
+  /** The live warehouse (GET /warehouses/{id}); undefined until it loads. */
+  profile?: WarehouseProfileView | undefined;
+  /** GET /warehouses/{id}/capacity; undefined while loading or on failure (the field shows no value). */
+  capacity?: CapacityView | undefined;
+  /** The total of GET /warehouses/{id}/storage-locations; null while unknown. */
+  locationCount?: number | null | undefined;
+  /** There is no warehouse the API knows to ask for (Main with a sample selection). */
+  unavailable?: boolean | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
 }
 
 export function WarehouseInfoScreen({
@@ -72,27 +86,31 @@ export function WarehouseInfoScreen({
   onBack,
   onTabChange,
   onOpen,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  profiles = WAREHOUSE_PROFILES,
-  storageLocations = STORAGE_LOCATIONS,
+  profile,
+  capacity,
+  locationCount = null,
+  unavailable = false,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
 }: WarehouseInfoScreenProps) {
   const [showMap, setShowMap] = useState(false);
 
-  const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
-  const profile = recordFor(profiles, warehouseId);
-  const locationCount = storageLocations.filter((loc) => loc.warehouseId === warehouseId).length;
-
-  const handleRefresh = () => {
-    Alert.alert('Profile Refreshed', `${profile?.warehouseName ?? 'Warehouse'} profile data is up to date.`);
-  };
+  const headerWarehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
+  const state = unavailable ? 'unavailable' : profile !== undefined ? 'ready' : queryViewState({ isLoading, error, itemCount: 0 });
+  const noValue = t('profile.noValue');
+  const mapTarget = profile?.address ?? profile?.coordinates ?? null;
 
   const openDirections = () => {
-    if (!profile) return;
+    if (!profile || mapTarget === null) return;
     setShowMap(false);
-    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(profile.address)}`).catch(() => {
-      Alert.alert('Directions', `Opening GPS navigation to ${profile.warehouseName}...`);
+    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(mapTarget)}`).catch(() => {
+      Alert.alert(t('profile.warehouse.directionsTitle'), mapTarget);
     });
   };
 
@@ -101,27 +119,37 @@ export function WarehouseInfoScreen({
       title="Warehouse Profile"
       onBack={onBack}
       headerRight={
-        <HeaderIconButton onPress={handleRefresh} accessibilityLabel="Refresh profile">
-          <RefreshIcon />
-        </HeaderIconButton>
+        onRefresh ? (
+          <HeaderIconButton onPress={onRefresh} accessibilityLabel="Refresh profile">
+            <RefreshIcon />
+          </HeaderIconButton>
+        ) : undefined
       }
       headerExtra={
-        <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
+        <SingleWarehouseHeader scope={scope} warehouseId={headerWarehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
       footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
-      {profile === undefined ? (
-        <EmptyState title="No warehouse profile" subtitle="This warehouse has no profile data yet." />
+      {state === 'unavailable' ? (
+        <AdminEmptyState title={t('profile.warehouse.unavailable')} />
+      ) : state === 'loading' ? (
+        <AdminLoadingState />
+      ) : state !== 'ready' || profile === undefined ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
       ) : (
-        <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={warehouseProfileLayout.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
+        >
           <View style={styles.hero}>
             <View style={styles.heroIcon}>
               <WarehouseBuildingIcon size={28} />
             </View>
-            <Text style={styles.heroTitle}>{profile.warehouseName}</Text>
+            <Text style={styles.heroTitle}>{profile.name}</Text>
             <Text style={styles.heroMeta}>Warehouse ID: {profile.code}</Text>
             <View style={styles.heroBadge}>
-              <StatusBadge label={profile.status} tone={profile.status === 'Active' ? 'success' : 'danger'} />
+              <StatusBadge label={profile.statusLabel} tone={profile.isActive ? 'success' : 'danger'} />
             </View>
           </View>
 
@@ -129,36 +157,33 @@ export function WarehouseInfoScreen({
           <InfoCard
             rows={[
               [
-                { label: 'Warehouse Name', value: profile.warehouseName },
+                { label: 'Warehouse Name', value: profile.name },
                 { label: 'Warehouse ID', value: profile.code },
               ],
               [
-                { label: 'Status', value: profile.status },
-                { label: 'Warehouse Type', value: profile.kind },
-              ],
-              [
-                { label: 'Region', value: profile.region },
-                { label: 'Assigned Admin', value: profile.assignedAdmin },
+                { label: 'Status', value: profile.statusLabel },
+                { label: 'Warehouse Type', value: profile.kindLabel },
               ],
             ]}
           />
 
           <SectionTitle>Location</SectionTitle>
-          <InfoCard rows={[[{ label: 'Location', value: profile.address }]]} />
-          <View style={warehouseProfileLayout.gap} />
-          <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
+          <InfoCard rows={[[{ label: 'Location', value: profile.address ?? noValue }]]} />
+          {mapTarget !== null ? (
+            <>
+              <View style={warehouseProfileLayout.gap} />
+              <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
+            </>
+          ) : null}
 
           <SectionTitle>Warehouse Overview</SectionTitle>
           <InfoCard
             rows={[
               [
-                { label: 'Storage Locations', value: String(locationCount) },
-                { label: 'Active', value: profile.status === 'Active' ? 'Yes' : 'No' },
+                { label: 'Storage Locations', value: locationCount === null ? noValue : String(locationCount) },
+                { label: 'Active', value: t(profile.isActive ? 'profile.yes' : 'profile.no') },
               ],
-              [
-                { label: 'Assigned Admin', value: profile.assignedAdmin },
-                { label: 'Current Stock', value: profile.currentStock },
-              ],
+              [{ label: 'Current Stock', value: capacity === undefined ? noValue : formatKg(capacity.usedGrams) }],
             ]}
           />
 
@@ -195,8 +220,8 @@ export function WarehouseInfoScreen({
           <View style={styles.mapBody}>
             <View style={styles.mapPlaceholder}>
               <MapPinIcon size={36} />
-              <Text style={styles.mapCoords}>{profile?.coordinates}</Text>
-              <Text style={styles.mapAddress}>{profile?.mapAddress}</Text>
+              {profile?.coordinates ? <Text style={styles.mapCoords}>{profile.coordinates}</Text> : null}
+              {profile?.address ? <Text style={styles.mapAddress}>{profile.address}</Text> : null}
             </View>
             <WalletButton label="Start GPS Navigation" onPress={openDirections} />
           </View>

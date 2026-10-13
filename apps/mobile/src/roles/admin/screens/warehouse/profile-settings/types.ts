@@ -28,47 +28,6 @@ export type {
 } from '../finance-expenses/types';
 import type { WarehouseScope } from '../finance-expenses/types';
 
-/** The signed-in admin's own account, as the profile and settings screens show it. */
-export interface AdminAccountProfile {
-  fullName: string;
-  /** 'Sub Warehouse Admin' / 'Main Warehouse Admin' (derived from scope, see roleLabelOf). */
-  roleLabel: string;
-  adminId: string;
-  /** Locked identity field: shown, never edited here (SPEC_GAPS W4l-2). */
-  mobileNumber: string;
-  email: string;
-  /** Warehouse the account is scoped to, or 'All Warehouses' for Main. */
-  warehouseLabel: string;
-  accessLevel: string;
-  createdDate: string;
-  lastLogin: string;
-  /** Display date the password was last changed. */
-  passwordChanged: string;
-  status: 'Active' | 'Inactive';
-}
-
-/** Preferred language options (the Sub profile design). */
-export type ProfileLanguage = 'English' | 'Tamil';
-
-/** One row of the login history (Session & Security). */
-export interface LoginHistoryItem {
-  id: string;
-  device: string;
-  time: string;
-  result: 'Successful' | 'Failed';
-}
-
-/** The device this session runs on (Session & Security). */
-export interface CurrentSessionInfo {
-  device: string;
-  browser: string;
-  location: string;
-  started: string;
-  lastActive: string;
-  /** Masked session id. */
-  sessionId: string;
-}
-
 /**
  * The signed-in admin's own account, as the profile and settings screens show
  * it: exactly what GET /auth/me sends (plan phase 8, ./mappers.ts
@@ -141,15 +100,6 @@ export type FaqCategory =
   | 'Wallet'
   | 'Reports'
   | 'Account & Security';
-
-/** One support request in the help centre's ticket list. */
-export interface SupportTicketItem {
-  id: string;
-  subject: string;
-  category: FaqCategory;
-  openedOn: string;
-  status: 'Open' | 'Under Review' | 'Resolved';
-}
 
 /** Legal pages of the About screen. */
 export type AboutView = 'main' | 'privacy' | 'terms' | 'licenses';

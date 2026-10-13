@@ -50,7 +50,8 @@ import { StockMovementReceiptScreen } from './StockMovementReceiptScreen';
 import { StockVerificationScreen } from './StockVerificationScreen';
 import { VarianceReviewScreen } from './VarianceReviewScreen';
 // File import, not the profile-settings barrel: the barrel pulls in ProfileFlow, which this flow never needs.
-import { StorageInfoScreen } from '../profile-settings/StorageInfoScreen';
+import { profileWarehouseId } from '../profile-settings/mappers';
+import { LiveStorageInfo } from '../profile-settings/ProfileFlow';
 import type { Grade } from '../../../api/inventory';
 import { inventoryWarehouseFilter } from './mappers';
 import type {
@@ -373,7 +374,14 @@ export function InventoryFlow({
       case 'M3S07':
         return <LiveAllocationRoute {...live} />;
       case 'M3S08':
-        return <StorageInfoScreen scope={scope} can={can} onBack={back} onTabChange={onTabChange} warehouseOptions={warehouseOptions} />;
+        // Live storage locations and capacity (plan phase 8), for the scope's own warehouse (BR-30).
+        return (
+          <LiveStorageInfo
+            base={{ scope, can, onBack: back, onTabChange }}
+            selection={{ warehouseOptions }}
+            warehouseId={profileWarehouseId(scope, undefined)}
+          />
+        );
       case 'M3S09':
         return <LiveLowStockRoute {...live} onInitiateTransfer={onInitiateTransfer} />;
       case 'M3S10':

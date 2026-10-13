@@ -16,6 +16,7 @@ import {
   NOTIFICATION_PREFERENCE_GROUPS,
   changedPreferences,
   defaultPreferenceState,
+  nextStoragePage,
   passwordFormErrorKey,
   passwordChangeErrorKey,
   toAccountProfile,
@@ -340,6 +341,16 @@ describe('toStorageLocation (BR-79)', () => {
     expect(view.capacityGrams).toBeNull();
     expect(view.statusLabel).toBe('Inactive');
     expect(view).not.toHaveProperty('currentKg');
+  });
+});
+
+describe('nextStoragePage (OffsetPage paging, storage locations only)', () => {
+  it('asks for the next page number while page x pageSize is below the total', () => {
+    expect(nextStoragePage({ items: [], page: 1, pageSize: 20, total: 45 })).toBe(2);
+    expect(nextStoragePage({ items: [], page: 2, pageSize: 20, total: 45 })).toBe(3);
+    expect(nextStoragePage({ items: [], page: 3, pageSize: 20, total: 45 })).toBeUndefined();
+    expect(nextStoragePage({ items: [], page: 1, pageSize: 20, total: 20 })).toBeUndefined();
+    expect(nextStoragePage({ items: [], page: 1, pageSize: 20, total: 0 })).toBeUndefined();
   });
 });
 

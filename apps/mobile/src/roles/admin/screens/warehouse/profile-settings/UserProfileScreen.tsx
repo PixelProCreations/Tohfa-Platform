@@ -15,14 +15,26 @@
  * both keep the edit page.
  *
  * Gate: viewable with login (auth.principal.view_own is `all` for both roles).
- * Own-profile edit has NO rbac code (SPEC_GAPS §1.14 / W4l-2): the mobile
- * number is a locked identity field and is read-only here; name (and email)
- * edit stays available as both designs had it, pending a code.
+ *
+ * Live (plan phase 8): the account is GET /auth/me; Edit Profile saves the
+ * display name and the language radio saves preferredLocale, both through
+ * PATCH /auth/me (auth.profile.edit_own, BR-82). Mobile and email are locked
+ * identity fields (BR-33: the server refuses either with 403 FIELD_LOCKED), so
+ * both are shown read-only and the edit page no longer offers an email field.
+ * The saved language is the account's preference only; it does not switch the
+ * app's display language here.
+ *
+ * Hidden, because GET /auth/me has no such field: the Admin ID, the Access
+ * Level and the password-changed date.
  */
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   Card,
   InfoCard,
@@ -35,7 +47,7 @@ import {
   WalletFooter,
   WalletScreen,
 } from '../wallet-cashtopup/WalletParts';
-import { defaultProfile, isMainScope } from './fixtures';
+import { isMainScope } from './mappers';
 import {
   BlockIcon,
   ConfirmDialog,
@@ -48,14 +60,29 @@ import {
   SignedOutView,
   UserIcon,
 } from './ProfileParts';
-import type { AdminAccountProfile, ProfileLanguage, WarehouseScreenBaseProps } from './types';
+import type { AccountProfileView, WarehouseScreenBaseProps } from './types';
 
 /** openapi `fullName` minLength (RegisterRequest / admin create). */
 const FULL_NAME_MIN_LENGTH = 2;
 
+type ProfileLanguage = AccountProfileView['preferredLocale'];
+
 export interface UserProfileScreenProps extends WarehouseScreenBaseProps {
-  /** The account to show (defaults to the mock account for the scope). */
-  profile?: AdminAccountProfile | undefined;
+  /** The live account (GET /auth/me); undefined until it loads. */
+  profile?: AccountProfileView | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+  /** PATCH /auth/me {fullName}; `onDone` after the server saved it. Without it Edit Profile is not offered. */
+  onSaveName?: ((fullName: string, onDone: () => void) => void) | undefined;
+  isSavingName?: boolean | undefined;
+  saveNameError?: unknown;
+  /** PATCH /auth/me {preferredLocale}. Without it the language card is read-only. */
+  onChangeLanguage?: ((locale: ProfileLanguage) => void) | undefined;
+  isSavingLanguage?: boolean | undefined;
+  languageError?: unknown;
   /** Main's Security card: open the change-password form. */
   onChangePassword?: (() => void) | undefined;
   /** Main's Security card: sign out (host navigates to login). Without it the signed-out state is shown. */
@@ -64,40 +91,56 @@ export interface UserProfileScreenProps extends WarehouseScreenBaseProps {
 
 type ProfileView = 'profile' | 'edit' | 'updated' | 'signedOut';
 
+/** docs/openapi.yaml UpdateCurrentUserRequest fullName maxLength (the request schema's bound). */
+const FULL_NAME_MAX_LENGTH = 120;
+
 const LANGUAGES: readonly { value: ProfileLanguage; label: string }[] = [
-  { value: 'English', label: 'English' },
-  { value: 'Tamil', label: 'Tamil (தமிழ்)' },
+  { value: 'en', label: 'English' },
+  { value: 'ta', label: 'Tamil (தமிழ்)' },
 ];
 
-export function UserProfileScreen({ scope, onBack, profile, onChangePassword, onLogout }: UserProfileScreenProps) {
+export function UserProfileScreen({
+  scope,
+  onBack,
+  profile,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onSaveName,
+  isSavingName = false,
+  saveNameError,
+  onChangeLanguage,
+  isSavingLanguage = false,
+  languageError,
+  onChangePassword,
+  onLogout,
+}: UserProfileScreenProps) {
   const isMain = isMainScope(scope);
-  const [account, setAccount] = useState<AdminAccountProfile>(() => profile ?? defaultProfile(scope));
   const [view, setView] = useState<ProfileView>('profile');
-  const [language, setLanguage] = useState<ProfileLanguage>('English');
-  const [editName, setEditName] = useState(account.fullName);
-  const [editEmail, setEditEmail] = useState(account.email);
+  const [editName, setEditName] = useState('');
   const [confirmSave, setConfirmSave] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const openEdit = () => {
-    setEditName(account.fullName);
-    setEditEmail(account.email);
+    setEditName(profile?.fullName ?? '');
     setView('edit');
   };
 
   const requestSave = () => {
-    if (editName.trim().length < FULL_NAME_MIN_LENGTH) {
-      Alert.alert('Validation Error', 'Please enter your full name.');
+    const trimmed = editName.trim();
+    if (trimmed.length < FULL_NAME_MIN_LENGTH || trimmed.length > FULL_NAME_MAX_LENGTH) {
+      Alert.alert(t('profile.edit.invalidTitle'), t('profile.edit.nameLength', { min: FULL_NAME_MIN_LENGTH, max: FULL_NAME_MAX_LENGTH }));
       return;
     }
     setConfirmSave(true);
   };
 
-  // No own-profile update endpoint or code exists (SPEC_GAPS W4l-2): local update only.
   const save = () => {
     setConfirmSave(false);
-    setAccount((prev) => ({ ...prev, fullName: editName.trim(), email: editEmail.trim() }));
-    setView('updated');
+    if (!onSaveName || isSavingName) return;
+    onSaveName(editName.trim(), () => setView('updated'));
   };
 
   const signOut = () => {
@@ -141,8 +184,8 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
         onBack={() => setView('profile')}
         footer={
           <WalletFooter>
-            <WalletButton label="Save Changes" onPress={requestSave} />
-            <WalletButton label="Cancel" variant="neutral" onPress={() => setView('profile')} />
+            <WalletButton label={isSavingName ? t('profile.edit.saving') : 'Save Changes'} onPress={requestSave} disabled={isSavingName} />
+            <WalletButton label="Cancel" variant="neutral" onPress={() => setView('profile')} disabled={isSavingName} />
           </WalletFooter>
         }
       >
@@ -160,28 +203,25 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
             <Text style={styles.inputLabel}>Mobile Number</Text>
             {/* Locked identity field: no rbac code lets an admin change it (SPEC_GAPS §1.14). */}
             <View style={[styles.input, styles.inputLocked]}>
-              <Text style={styles.lockedText}>{account.mobileNumber}</Text>
+              <Text style={styles.lockedText}>{profile?.mobileNumber ?? t('profile.noValue')}</Text>
               <LockIcon color={adminColors.muted} />
             </View>
             <Text style={styles.inputLabel}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              value={editEmail}
-              onChangeText={setEditEmail}
-              placeholder="Enter email address"
-              placeholderTextColor={adminColors.placeholder}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+            {/* Locked identity field (BR-33): PATCH /auth/me refuses it with 403 FIELD_LOCKED. */}
+            <View style={[styles.input, styles.inputLocked]}>
+              <Text style={styles.lockedText}>{profile?.email ?? t('profile.noValue')}</Text>
+              <LockIcon color={adminColors.muted} />
+            </View>
           </Card>
-          <InfoNote tone="brandSoft">
-            Mobile Number, Admin ID, Role and Warehouse Scope are read-only here.
-          </InfoNote>
+          {saveNameError !== null && saveNameError !== undefined ? (
+            <InfoNote tone="danger">{t(adminErrorKey(saveNameError))}</InfoNote>
+          ) : null}
+          <InfoNote tone="brandSoft">{t('profile.edit.lockedNote')}</InfoNote>
         </ScrollView>
         <ConfirmDialog
           visible={confirmSave}
           title="Save Changes?"
-          message="Your name and email will be updated on your admin account."
+          message={t('profile.edit.confirmMessage')}
           confirmLabel="Confirm"
           icon={<PencilIcon color={adminColors.brand} />}
           onConfirm={save}
@@ -191,9 +231,24 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
     );
   }
 
+  const state = profile !== undefined ? 'ready' : queryViewState({ isLoading, error, itemCount: 0 });
+  if (state !== 'ready' || profile === undefined) {
+    return (
+      <WalletScreen title="Profile" onBack={onBack}>
+        {state === 'loading' ? <AdminLoadingState /> : <AdminErrorState error={error} onRetry={onRetry} />}
+      </WalletScreen>
+    );
+  }
+  const account = profile;
+  const noValue = t('profile.noValue');
+
   return (
     <WalletScreen title="Profile" onBack={onBack}>
-      <ScrollView contentContainerStyle={profileLayout.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={profileLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
+      >
         <Card centered>
           <View style={styles.avatar}>
             <UserIcon size={28} />
@@ -203,13 +258,11 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
             {account.roleLabel} · {account.warehouseLabel}
           </Text>
           <View style={styles.badgeRow}>
-            <StatusBadge label={account.status === 'Active' ? 'Active Staff' : 'Inactive'} tone={account.status === 'Active' ? 'success' : 'danger'} />
+            <StatusBadge label={account.status} tone={account.statusTone} />
             {isMain ? <StatusBadge label={account.warehouseLabel} tone="brandSoft" /> : null}
           </View>
-          {isMain ? (
-            <Text style={styles.loginLine}>
-              Admin ID: {account.adminId} · Last login: {account.lastLogin}
-            </Text>
+          {isMain && account.lastLogin !== null ? (
+            <Text style={styles.loginLine}>{t('profile.lastLoginLine', { when: account.lastLogin })}</Text>
           ) : null}
         </Card>
 
@@ -220,10 +273,7 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
               { label: 'Full Name', value: account.fullName },
               { label: 'Role', value: account.roleLabel },
             ],
-            [
-              { label: isMain ? 'Warehouse Scope' : 'Warehouse', value: account.warehouseLabel },
-              { label: 'Admin ID', value: account.adminId },
-            ],
+            [{ label: isMain ? 'Warehouse Scope' : 'Warehouse', value: account.warehouseLabel }],
           ]}
         />
 
@@ -231,8 +281,8 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
         <InfoCard
           rows={[
             [
-              { label: 'Mobile Number', value: account.mobileNumber },
-              { label: 'Email', value: account.email },
+              { label: 'Mobile Number', value: account.mobileNumber ?? noValue },
+              { label: 'Email', value: account.email ?? noValue },
             ],
           ]}
         />
@@ -243,12 +293,8 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
             <InfoCard
               rows={[
                 [
-                  { label: 'Access Level', value: account.accessLevel },
-                  { label: 'Warehouse Scope', value: account.warehouseLabel },
-                ],
-                [
-                  { label: 'Created Date', value: account.createdDate },
-                  { label: 'Last Login', value: account.lastLogin },
+                  { label: 'Created Date', value: account.createdDate ?? noValue },
+                  { label: 'Last Login', value: account.lastLogin ?? noValue },
                 ],
               ]}
             />
@@ -261,15 +307,19 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
         <SectionTitle>PREFERRED LANGUAGE</SectionTitle>
         <View style={styles.languageCard}>
           {LANGUAGES.map((option, index) => {
-            const selected = option.value === language;
+            const selected = option.value === account.preferredLocale;
+            const disabled = onChangeLanguage === undefined || isSavingLanguage;
             return (
               <TouchableOpacity
                 key={option.value}
                 style={[styles.languageRow, index > 0 && styles.languageRowDivided]}
-                onPress={() => setLanguage(option.value)}
+                onPress={() => {
+                  if (!selected && onChangeLanguage && !isSavingLanguage) onChangeLanguage(option.value);
+                }}
+                disabled={disabled}
                 activeOpacity={0.75}
                 accessibilityRole="radio"
-                accessibilityState={{ selected }}
+                accessibilityState={{ selected, disabled }}
               >
                 <Text style={[styles.languageText, selected && styles.languageTextSelected]}>{option.label}</Text>
                 <View style={[styles.radio, selected && styles.radioSelected]} />
@@ -277,22 +327,24 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
             );
           })}
         </View>
+        {languageError !== null && languageError !== undefined ? (
+          <View style={styles.editButton}>
+            <InfoNote tone="danger">{t(adminErrorKey(languageError))}</InfoNote>
+          </View>
+        ) : null}
 
-        <View style={styles.editButton}>
-          <WalletButton label="Edit Profile" icon={<PencilIcon />} onPress={openEdit} />
-        </View>
+        {onSaveName ? (
+          <View style={styles.editButton}>
+            <WalletButton label="Edit Profile" icon={<PencilIcon />} onPress={openEdit} />
+          </View>
+        ) : null}
 
         {isMain ? (
           <>
             <SectionTitle>SECURITY</SectionTitle>
             <MenuCard>
               {onChangePassword ? (
-                <MenuRow
-                  icon={<KeyIcon />}
-                  title="Change Password"
-                  subtitle={`Last changed ${account.passwordChanged}`}
-                  onPress={onChangePassword}
-                />
+                <MenuRow icon={<KeyIcon />} title="Change Password" subtitle="Update your password" onPress={onChangePassword} />
               ) : null}
               <MenuRow icon={<LogoutIcon />} title="Sign Out" danger onPress={() => setConfirmSignOut(true)} />
             </MenuCard>
