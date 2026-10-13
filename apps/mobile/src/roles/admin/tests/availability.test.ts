@@ -31,6 +31,12 @@ describe('warehouse feature availability', () => {
     expect(isWarehouseFeatureVisible('returns', can)).toBe(false);
   });
 
+  it('invoice PDF download stays hidden (spec gap cited) even with invoice.view_own', () => {
+    const can = createAdminCan(['invoice.view_own']);
+    expect(isWarehouseFeatureVisible('invoiceDownload', can)).toBe(false);
+    expect(WAREHOUSE_FEATURES.invoiceDownload.specGap).toContain('/invoices/{id}/download');
+  });
+
   it('BR-61: bank refunds stay hidden for a role the server grants none (MW/SW default)', () => {
     const can = createAdminCan(['rma.request.process', 'rma.refund.wallet_process']);
     expect(isWarehouseFeatureVisible('returnsRefundBank', can)).toBe(false);

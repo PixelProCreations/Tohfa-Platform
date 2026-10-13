@@ -22,7 +22,14 @@ export interface WarehouseFeature {
 
 export const WAREHOUSE_FEATURES = {
   invoices: { permission: 'invoice.view_own', endpoint: '/invoices' },
-  invoiceDownload: { permission: 'invoice.view_own', endpoint: '/invoices/{id}/download' },
+  invoiceDownload: {
+    permission: 'invoice.view_own',
+    endpoint: null,
+    specGap:
+      '/invoices/{id}/download returns application/pdf bytes or a 302 to a signed link; ' +
+      'there is no JSON response carrying the signed URL, RN fetch follows the 302 itself, ' +
+      'and the app has no file-saving dependency, so mobile cannot consume it yet.',
+  },
   adminProfile: { permission: 'auth.profile.edit_own', endpoint: '/auth/me' },
   warehouseProfile: { permission: 'warehouse.own.view', endpoint: '/warehouses/{id}' },
   warehouseProfileEdit: { permission: 'warehouse.profile.edit', endpoint: '/warehouses/{id}' },

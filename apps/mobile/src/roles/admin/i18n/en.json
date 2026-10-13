@@ -27,6 +27,8 @@
   "admin.invoices.emptyTitle": "No invoices yet",
   "admin.invoices.emptyMessage": "Invoices for orders placed at your warehouse will appear here.",
   "admin.invoices.rowA11y": "Invoice {number}, {status}, {amount}",
+  "admin.invoices.rowMeta": "{type} · {date}",
+  "admin.invoices.forbidden": "You do not have permission to view invoices.",
   "admin.invoices.type.SALE_RETAIL": "Retail sale",
   "admin.invoices.type.SALE_B2B": "B2B sale",
   "admin.invoices.type.PURCHASE_FARMER": "Farmer purchase",
@@ -54,6 +56,7 @@
   "admin.invoices.detail.lineHsn": "HSN {code}",
   "admin.invoices.detail.lineTax": "GST {rate}%: {tax}",
   "admin.invoices.detail.notAvailable": "—",
+  "admin.invoices.detail.download": "Download PDF",
 
   "admin.scope.warehouseRequired": "Your account is not assigned to a warehouse. Ask a TOHFA admin to assign one.",
   "admin.scope.notAdmin": "This account does not have admin access.",
