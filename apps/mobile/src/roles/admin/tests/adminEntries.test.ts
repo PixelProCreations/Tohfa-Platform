@@ -23,4 +23,15 @@ describe('admin home entries', () => {
     expect(visible(['invoice.view_own'])).toContain('invoices');
     expect(visible([])).not.toContain('invoices');
   });
+  it('show profile and warehouse info to a Sub Warehouse Admin, and neither without the grants', () => {
+    const visible = (perms: string[]) =>
+      ADMIN_ENTRIES.filter((e) => isWarehouseFeatureVisible(e.feature, createAdminCan(perms))).map(
+        (e) => e.id,
+      );
+    expect(visible(['auth.principal.view_own', 'warehouse.own.view'])).toEqual(
+      expect.arrayContaining(['profile', 'warehouseInfo']),
+    );
+    expect(visible([])).not.toContain('profile');
+    expect(visible([])).not.toContain('warehouseInfo');
+  });
 });

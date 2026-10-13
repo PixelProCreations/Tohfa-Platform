@@ -10,9 +10,14 @@ import type React from 'react';
 import type { TranslationKey } from '../i18n';
 import type { WarehouseFeatureId } from '../screens/warehouse/availability';
 import { BillingFlow } from '../screens/warehouse/billing-invoices/BillingFlow';
+import { ProfileFlow } from '../screens/warehouse/profile/ProfileFlow';
+import { WarehouseInfoFlow } from '../screens/warehouse/warehouse-info/WarehouseInfoFlow';
+import type { AdminSignOut } from '../session/signOut';
 
 export interface AdminFlowProps {
   onExit: () => void;
+  /** Host-backed sign-out (TohfaAdminApp); flows that end the session use it. */
+  signOut: AdminSignOut;
 }
 
 export interface AdminEntry {
@@ -33,5 +38,21 @@ export const ADMIN_ENTRIES: readonly AdminEntry[] = [
     hintKey: 'admin.invoices.entryHint',
     icon: 'receipt_long',
     Flow: BillingFlow,
+  },
+  {
+    id: 'warehouseInfo',
+    feature: 'warehouseProfile',
+    titleKey: 'admin.warehouseInfo.entry',
+    hintKey: 'admin.warehouseInfo.entryHint',
+    icon: 'storefront',
+    Flow: WarehouseInfoFlow,
+  },
+  {
+    id: 'profile',
+    feature: 'profileView',
+    titleKey: 'admin.profile.entry',
+    hintKey: 'admin.profile.entryHint',
+    icon: 'person',
+    Flow: ProfileFlow,
   },
 ];

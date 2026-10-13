@@ -6,6 +6,7 @@ import { isTranslationKey } from '../i18n';
 import {
   PROFILE_STATUSES,
   SESSION_PLATFORMS,
+  adminRoleLabelKey,
   buildProfilePatch,
   changePasswordErrorKey,
   groupAdminPreferences,
@@ -82,6 +83,12 @@ describe('profile mappers — own profile (BR-82)', () => {
       expect(isTranslationKey(profileStatusMeta(status).labelKey)).toBe(true);
     }
     expect(profileStatusMeta('SOMETHING_NEW').labelKey).toBe('admin.profile.status.unknown');
+  });
+  it('every admin role has a real catalogue key, and unknown falls back', () => {
+    for (const code of ['SUPER_ADMIN', 'TOHFA_ADMIN', 'FARMER_ADMIN', 'MAIN_WH_ADMIN', 'SUB_WH_ADMIN']) {
+      expect(isTranslationKey(adminRoleLabelKey(code))).toBe(true);
+    }
+    expect(adminRoleLabelKey('FARMER')).toBe('admin.profile.role.unknown');
   });
 });
 

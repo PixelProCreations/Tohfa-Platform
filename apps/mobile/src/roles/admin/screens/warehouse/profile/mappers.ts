@@ -29,6 +29,7 @@ import {
   type UpdateMeBody,
 } from '../../../api/profile';
 import type { TranslationKey } from '../../../i18n';
+import type { AdminRoleCode } from '../../../session/scope';
 import { formatIstDateTime } from '../../../utils/datetime';
 
 export type StatusTone = 'success' | 'danger' | 'warning' | 'info';
@@ -78,6 +79,19 @@ function asLocale(value: string | undefined): LocaleDto | null {
   return value !== undefined && (LOCALES as readonly string[]).includes(value)
     ? (value as LocaleDto)
     : null;
+}
+
+/** docs/openapi.yaml `RoleAssignment.code` (the five admin roles). */
+const ROLE_LABEL: Record<AdminRoleCode, TranslationKey> = {
+  SUPER_ADMIN: 'admin.profile.role.SUPER_ADMIN',
+  TOHFA_ADMIN: 'admin.profile.role.TOHFA_ADMIN',
+  FARMER_ADMIN: 'admin.profile.role.FARMER_ADMIN',
+  MAIN_WH_ADMIN: 'admin.profile.role.MAIN_WH_ADMIN',
+  SUB_WH_ADMIN: 'admin.profile.role.SUB_WH_ADMIN',
+};
+
+export function adminRoleLabelKey(code: string): TranslationKey {
+  return has(ROLE_LABEL, code) ? ROLE_LABEL[code] : 'admin.profile.role.unknown';
 }
 
 export interface ProfileModel {

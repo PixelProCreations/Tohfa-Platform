@@ -10,19 +10,20 @@ import { t } from '../i18n';
 import { isWarehouseFeatureVisible } from '../screens/warehouse/availability';
 import { ScreenHeader } from '../screens/warehouse/shared/ScreenHeader';
 import { useAdminSession } from '../session/AdminSession';
+import type { AdminSignOut } from '../session/signOut';
 import { adminTheme } from '../theme';
 import { ADMIN_ENTRIES, type AdminEntry } from './adminEntries';
 
 const { colors, spacing, typography, weights, radius, minTouchTarget } = adminTheme;
 
-export function AdminHome(): React.JSX.Element {
+export function AdminHome(props: { signOut: AdminSignOut }): React.JSX.Element {
   const { scope, can } = useAdminSession();
   const [openId, setOpenId] = useState<string | null>(null);
   const entries = ADMIN_ENTRIES.filter((e) => isWarehouseFeatureVisible(e.feature, can));
   const open = entries.find((e) => e.id === openId);
 
   if (open !== undefined) {
-    return <open.Flow onExit={() => setOpenId(null)} />;
+    return <open.Flow onExit={() => setOpenId(null)} signOut={props.signOut} />;
   }
 
   return (
