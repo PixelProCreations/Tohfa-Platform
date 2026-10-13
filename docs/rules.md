@@ -2332,6 +2332,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 403 on this admin route (it holds `none` on `order.list.view_all`, BR-101a), the same for its own order and for an unknown id, so the 403 reveals no row; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
 - `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
 - `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
+- `BR-99i` (derived, review of 2026-10-13) A DIRECT/MARKET sale cancelled after its UPI payment was captured carries `payment_status = REFUND_DUE` (migration 0068, BR-94i); its detail is 200 with `paymentStatus = REFUND_DUE`, never a 500 from the response schema.
 
 ---
 

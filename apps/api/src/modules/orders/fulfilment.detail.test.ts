@@ -167,6 +167,13 @@ describe('admin order detail service (fake repo)', () => {
     expect(result.timeline[0]).toEqual({ fromStatus: null, toStatus: 'CONFIRMED', at: '2031-05-10T04:00:00.000Z' });
   });
 
+  it('BR-99i: a counter sale cancelled with its captured UPI payment REFUND_DUE (BR-94i) is serialized, not a 500', async () => {
+    const service = createFulfilmentService({ repo: fakeRepo(aRecord({ status: 'CANCELLED', paymentStatus: 'REFUND_DUE' })), db: {} as Executor });
+    const detail = await service.getAdminOrderDetail(subScope(), ORDER_ID);
+    expect(detail.paymentStatus).toBe('REFUND_DUE');
+    expect(adminOrderDetailResponse.parse(detail)).toEqual(detail);
+  });
+
   it('BR-99b: the strict response schema rejects an unknown key at any depth', () => {
     const ok = {
       id: ORDER_ID,
@@ -417,6 +424,21 @@ describeIfDatabase('admin order detail repo + service (PostgreSQL)', () => {
         expect(detail.warehouse).toEqual({ id: f.coonoor, name: 'Coonoor Warehouse' });
         expect(detail.timeline.map((t) => t.toStatus)).toEqual(['CONFIRMED', 'PACKED']);
       }
+    });
+  });
+
+  it('BR-99i (DB): GET detail of a cancelled sale whose UPI payment is REFUND_DUE returns it with that payment status', async () => {
+    if (!ready) return;
+    await inRolledBackTx(async (tx) => {
+      const f = await seed(tx);
+      await tx.query(
+        `UPDATE orders SET status = 'CANCELLED', payment_status = 'REFUND_DUE', cancelled_at = now(), cancellation_reason = 'Stock unavailable at confirmation' WHERE id = $1`,
+        [f.orders.market],
+      );
+      const service = await serviceOn(tx);
+      const detail = await service.getAdminOrderDetail(subScope([f.coonoor]), f.orders.market);
+      expect(detail).toMatchObject({ status: 'CANCELLED', paymentStatus: 'REFUND_DUE' });
+      expect(adminOrderDetailResponse.parse(detail)).toEqual(detail);
     });
   });
 

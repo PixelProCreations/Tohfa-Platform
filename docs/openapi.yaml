@@ -20092,7 +20092,7 @@ components:
         status: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED] }
         fulfilmentType: { type: string, enum: [PICKUP, DELIVERY] }
         paymentMethod: { type: string, enum: [WALLET, UPI, CARD, NETBANKING, CASH] }
-        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED] }
+        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED, REFUND_DUE] }
         warehouse:
           type: object
           additionalProperties: false
