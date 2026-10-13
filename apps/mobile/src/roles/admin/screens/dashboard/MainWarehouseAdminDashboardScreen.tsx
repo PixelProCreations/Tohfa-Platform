@@ -804,6 +804,53 @@ const INVENTORY_ENTRY = {
  */
 type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings';
 
+const MAIN_HOME_KPIS: Record<string, {
+  totalStock: string;
+  incomingGoods: string;
+  pendingTransfers: string;
+  todayOrders: string;
+  sales: string;
+  openIssues: string;
+}> = {
+  'All Warehouses': { totalStock: '12,840', incomingGoods: '1,240', pendingTransfers: '5', todayOrders: '312', sales: '₹1,45,100', openIssues: '7' },
+  'Ooty': { totalStock: '5,420', incomingGoods: '580', pendingTransfers: '2', todayOrders: '142', sales: '₹68,400', openIssues: '3' },
+  'Coonoor': { totalStock: '3,850', incomingGoods: '350', pendingTransfers: '1', todayOrders: '96', sales: '₹44,200', openIssues: '2' },
+  'Kotagiri': { totalStock: '2,320', incomingGoods: '210', pendingTransfers: '1', todayOrders: '52', sales: '₹22,100', openIssues: '1' },
+  'Gudalur Market': { totalStock: '1,250', incomingGoods: '100', pendingTransfers: '1', todayOrders: '22', sales: '₹10,400', openIssues: '1' },
+};
+
+const MAIN_TODAYS_OPERATIONS: Record<string, {
+  incoming: { expected: number; arrived: number; discrepancies: number };
+  orders: { ready: number; dispatched: number; exceptions: number };
+  quality: { pending: number; damage: number; rejected: number };
+}> = {
+  'All Warehouses': {
+    incoming: { expected: 24, arrived: 19, discrepancies: 2 },
+    orders: { ready: 86, dispatched: 154, exceptions: 3 },
+    quality: { pending: 6, damage: 3, rejected: 1 },
+  },
+  'Ooty': {
+    incoming: { expected: 10, arrived: 8, discrepancies: 1 },
+    orders: { ready: 38, dispatched: 72, exceptions: 1 },
+    quality: { pending: 3, damage: 1, rejected: 1 },
+  },
+  'Coonoor': {
+    incoming: { expected: 7, arrived: 6, discrepancies: 1 },
+    orders: { ready: 26, dispatched: 48, exceptions: 1 },
+    quality: { pending: 2, damage: 1, rejected: 0 },
+  },
+  'Kotagiri': {
+    incoming: { expected: 5, arrived: 4, discrepancies: 0 },
+    orders: { ready: 16, dispatched: 24, exceptions: 1 },
+    quality: { pending: 1, damage: 1, rejected: 0 },
+  },
+  'Gudalur Market': {
+    incoming: { expected: 2, arrived: 1, discrepancies: 0 },
+    orders: { ready: 6, dispatched: 10, exceptions: 0 },
+    quality: { pending: 0, damage: 0, rejected: 0 },
+  },
+};
+
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   /** Kept for hosts (App.tsx passes it); the shell no longer leaves to an App key (Create SWA is in-shell, W4). */
@@ -815,6 +862,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
+  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -860,12 +908,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
   ];
 
+  const homeKpi = MAIN_HOME_KPIS[selectedWHFilter] ?? MAIN_HOME_KPIS['All Warehouses']!;
+  const homeOps = MAIN_TODAYS_OPERATIONS[selectedWHFilter] ?? MAIN_TODAYS_OPERATIONS['All Warehouses']!;
+
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
     setWhSubView(view);
   };
 
   const goBackWh = () => {
+    setOrdersInitialScreen('M5S01');
     if (whHistory.length > 0) {
       setWhHistory((prev) => {
         const next = [...prev];
@@ -1981,30 +2033,38 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 {/* Total Stock */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.totalStock}</Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </View>
 
                 {/* Incoming Goods */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>1,240</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.incomingGoods}</Text>
                   <Text style={styles.kpiSub}>KG today</Text>
                 </View>
 
                 {/* Pending Transfers */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.pendingTransfers}</Text>
                   <Text style={styles.kpiSub}>transfers</Text>
                 </View>
 
                 {/* Today's Orders */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setOrdersInitialScreen('M5S02');
+                    navigateWh('customer_orders');
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>312</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.todayOrders}</Text>
                   <Text style={styles.kpiSub}>orders</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Sales */}
                 <TouchableOpacity
@@ -2013,14 +2073,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.75}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>₹1,45,100</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.sales}</Text>
                   <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>7</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.openIssues}</Text>
                   <Text style={styles.kpiSub}>issues</Text>
                 </View>
               </View>
@@ -2089,38 +2149,70 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>24</Text>
+                      Expected <Text style={styles.operationsMetricBold}>{homeOps.incoming.expected}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Arrived <Text style={styles.operationsMetricBold}>19</Text>
+                      Arrived <Text style={styles.operationsMetricBold}>{homeOps.incoming.arrived}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Discrepancies <Text style={styles.operationsMetricRed}>2</Text>
+                      Discrepancies <Text style={styles.operationsMetricRed}>{homeOps.incoming.discrepancies}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
 
                 <View style={styles.operationsDivider} />
 
-                {/* Order Fulfilment */}
-                <TouchableOpacity
-                  style={styles.operationsSection}
-                  onPress={() => navigateWh('customer_orders')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                {/* Order Fulfilment — each metric deep-links to its own OrdersFlow screen. */}
+                <View style={styles.operationsSection}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setOrdersInitialScreen('M5S02');
+                      navigateWh('customer_orders');
+                    }}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                  </TouchableOpacity>
                   <View style={styles.operationsMetricsRow}>
-                    <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>86</Text>
-                    </Text>
-                    <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>154</Text>
-                    </Text>
-                    <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>3</Text>
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S09');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Ready <Text style={styles.operationsMetricBold}>{homeOps.orders.ready}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S02');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Dispatched <Text style={styles.operationsMetricBold}>{homeOps.orders.dispatched}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S16');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Exceptions <Text style={styles.operationsMetricRed}>{homeOps.orders.exceptions}</Text>
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <View style={styles.operationsDivider} />
 
@@ -2133,13 +2225,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Quality Issues</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Pending <Text style={styles.operationsMetricBold}>6</Text>
+                      Pending <Text style={styles.operationsMetricBold}>{homeOps.quality.pending}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Damage <Text style={styles.operationsMetricBold}>3</Text>
+                      Damage <Text style={styles.operationsMetricBold}>{homeOps.quality.damage}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Rejected <Text style={styles.operationsMetricRed}>1</Text>
+                      Rejected <Text style={styles.operationsMetricRed}>{homeOps.quality.rejected}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2632,7 +2724,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             onNavigateToFinance={() => setMoreSubScreen('finance')}
             onNavigateToReports={() => setMoreSubScreen('reports')}
             onNavigateToStaff={() => setMoreSubScreen('staff')}
-            onNavigateToOrders={() => navigateWh('customer_orders')}
+            onNavigateToOrders={() => {
+              setOrdersInitialScreen('M5S01');
+              navigateWh('customer_orders');
+            }}
             onNavigateToSales={() => navigateWh('sales')}
             onNavigateToCustomers={() => navigateWh('customers_list')}
             onNavigateToBilling={() => navigateWh('billing_invoices')}
@@ -2874,6 +2969,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                initialScreen={ordersInitialScreen}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
@@ -2952,6 +3048,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                initialScreen={ordersInitialScreen}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {

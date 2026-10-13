@@ -130,22 +130,27 @@ export function StockListScreen({
 
   const stockItems = [
     {
+      id: 'tomato',
       name: 'Tomato',
       grade: 'Grade 1',
       status: 'Healthy Stock',
       available: '245 KG',
       reserved: '50 KG',
       allocated: '120 KG',
+      detailProduct: 'Tomato G1',
     },
     {
+      id: 'carrot',
       name: 'Carrot',
       grade: 'Grade 1',
       status: 'Low Stock',
       available: '12 KG',
       reserved: '0 KG',
       allocated: '0 KG',
+      detailProduct: 'Carrot G1',
     },
     {
+      id: 'beetroot',
       name: 'Beetroot',
       grade: 'Grade 1',
       status: 'Healthy Stock',
@@ -154,6 +159,7 @@ export function StockListScreen({
       allocated: '15 KG',
     },
     {
+      id: 'spinach',
       name: 'Spinach',
       grade: 'Grade 2',
       status: 'Out of Stock',
@@ -162,6 +168,13 @@ export function StockListScreen({
       allocated: '0 KG',
     },
   ];
+
+  // Rows without a product-detail fixture (detailProduct) are not tappable, so
+  // M3S03 never opens on a product it would have to render as someone else's.
+  const query = searchQuery.trim().toLowerCase();
+  const filteredItems = query
+    ? stockItems.filter((item) => item.name.toLowerCase().includes(query) || item.grade.toLowerCase().includes(query))
+    : stockItems;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -251,13 +264,17 @@ export function StockListScreen({
           </View>
 
           {/* Stock Items */}
-          {stockItems.map((item, index) => {
+          {filteredItems.map((item) => {
             const isHealthy = item.status === 'Healthy Stock';
+            const detailProduct = item.detailProduct;
             return (
               <TouchableOpacity
-                key={index}
+                key={item.id}
                 style={styles.stockCard}
-                onPress={() => onNavigate?.('M3S03', { product: item })}
+                disabled={detailProduct === undefined}
+                onPress={() => {
+                  if (detailProduct !== undefined) onNavigate?.('M3S03', { product: detailProduct });
+                }}
                 activeOpacity={0.7}
               >
                 <View style={styles.stockHeader}>
@@ -289,10 +306,12 @@ export function StockListScreen({
                     </View>
                   </View>
 
-                  <View style={styles.viewLinkRow}>
-                    <Text style={styles.viewLink}>View</Text>
-                    <Text style={styles.viewChevron}>›</Text>
-                  </View>
+                  {detailProduct !== undefined ? (
+                    <View style={styles.viewLinkRow}>
+                      <Text style={styles.viewLink}>View</Text>
+                      <Text style={styles.viewChevron}>›</Text>
+                    </View>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
