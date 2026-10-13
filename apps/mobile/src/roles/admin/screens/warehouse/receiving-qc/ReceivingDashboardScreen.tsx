@@ -33,6 +33,7 @@ import {
   INCOMING_SHIPMENTS,
   QUALITY_ISSUES,
   RECEIVING_RECORDS,
+  inReceivingScope,
   isMainScope,
 } from './fixtures';
 import {
@@ -428,6 +429,17 @@ export function ReceivingDashboardScreen({
   if (!mainView) {
     const warehouseDisplayName = scope.warehouseName || 'Coonoor Warehouse';
 
+    const inScopeShipments = shipments.filter((s) => inReceivingScope(scope, s.warehouseId));
+    const inScopeRecords = records.filter((r) => inReceivingScope(scope, r.warehouseId));
+    const inScopeIssues = issues.filter((i) => inReceivingScope(scope, i.warehouseId));
+
+    const subExpectedToday = inScopeShipments.filter((s) => s.status === 'Expected').length;
+    const subAwaitingReceiving = inScopeShipments.filter((s) => s.status === 'Arrived' || s.status === 'Receiving').length;
+    const subAwaitingQc = inScopeShipments.filter((s) => s.status === 'Awaiting QC').length;
+    const subPartiallyAccepted = inScopeRecords.filter((r) => r.result === 'Partially Accepted').length;
+    const subCompletedToday = inScopeRecords.filter((r) => r.result === 'Accepted' || r.result === 'Partially Accepted').length;
+    const subIssues = inScopeIssues.length;
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor={THEME_ACCENT} />
@@ -481,46 +493,46 @@ export function ReceivingDashboardScreen({
           {/* 6 KPI Cards Grid */}
           <View style={styles.subKpiGrid}>
             {/* Card 1: Expected Today */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={() => onOpenShipments('Expected')} activeOpacity={0.7} accessibilityRole="button">
               <CalendarOverviewIcon size={20} color="#8A4E15" />
-              <Text style={styles.subKpiValue}>03</Text>
+              <Text style={styles.subKpiValue}>{String(subExpectedToday).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Expected Today</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 2: Awaiting Receiving */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={() => onOpenShipments('Arrived')} activeOpacity={0.7} accessibilityRole="button">
               <DotsCircleOverviewIcon size={20} color="#8A4E15" />
-              <Text style={styles.subKpiValue}>02</Text>
+              <Text style={styles.subKpiValue}>{String(subAwaitingReceiving).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Awaiting Receiving</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 3: Awaiting QC (Value in RED) */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={() => onOpenShipments('QC Pending')} activeOpacity={0.7} accessibilityRole="button">
               <FlaskOverviewIcon size={20} color="#8A4E15" />
-              <Text style={[styles.subKpiValue, { color: '#E24B4A' }]}>01</Text>
+              <Text style={[styles.subKpiValue, { color: '#E24B4A' }]}>{String(subAwaitingQc).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Awaiting QC</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 4: Partially Accepted */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={() => onOpenHistory('Partial')} activeOpacity={0.7} accessibilityRole="button">
               <BranchingArrowsOverviewIcon size={20} color="#8A4E15" />
-              <Text style={styles.subKpiValue}>01</Text>
+              <Text style={styles.subKpiValue}>{String(subPartiallyAccepted).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Partially Accepted</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 5: Completed Today */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={() => onOpenHistory('Accepted')} activeOpacity={0.7} accessibilityRole="button">
               <CheckCircleOverviewIcon size={20} color="#8A4E15" />
-              <Text style={styles.subKpiValue}>05</Text>
+              <Text style={styles.subKpiValue}>{String(subCompletedToday).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Completed Today</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Card 6: Issues (Value in RED) */}
-            <View style={styles.subKpiCard}>
+            <TouchableOpacity style={styles.subKpiCard} onPress={onOpenQualityIssues} activeOpacity={0.7} accessibilityRole="button">
               <AlertCircleOverviewIcon size={20} color="#8A4E15" />
-              <Text style={[styles.subKpiValue, { color: '#E24B4A' }]}>02</Text>
+              <Text style={[styles.subKpiValue, { color: '#E24B4A' }]}>{String(subIssues).padStart(2, '0')}</Text>
               <Text style={styles.subKpiLabel}>Issues</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Shipment Arrived Button (kept as requested) */}
@@ -544,24 +556,35 @@ export function ReceivingDashboardScreen({
 
           <View style={styles.attentionCardList}>
             {/* Card 1: QC Pending */}
+            {canRecord ? (
+              <TouchableOpacity
+                style={styles.attentionCard}
+                onPress={onStartReceiving}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <View style={[styles.attentionIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                  <FlaskOverviewIcon size={20} color="#D97706" />
+                </View>
+                <View style={styles.attentionTextWrap}>
+                  <Text style={styles.attentionTitle}>QC Pending</Text>
+                  <Text style={styles.attentionSub}>Tomato — GR-1024</Text>
+                </View>
+                <ChevronRightIcon size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            ) : null}
+
+            {/* Card 2: Quantity Mismatch */}
             <TouchableOpacity
               style={styles.attentionCard}
-              onPress={onStartReceiving}
+              onPress={() => {
+                const issue = issues.find((i) => i.shipmentCode === 'GR-1021') ?? issues[1] ?? issues[0];
+                if (issue) onSelectIssue(issue);
+                else onOpenQualityIssues();
+              }}
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <View style={[styles.attentionIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                <FlaskOverviewIcon size={20} color="#D97706" />
-              </View>
-              <View style={styles.attentionTextWrap}>
-                <Text style={styles.attentionTitle}>QC Pending</Text>
-                <Text style={styles.attentionSub}>Tomato — GR-1024</Text>
-              </View>
-              <ChevronRightIcon size={18} color="#9CA3AF" />
-            </TouchableOpacity>
-
-            {/* Card 2: Quantity Mismatch */}
-            <View style={styles.attentionCard}>
               <View style={[styles.attentionIconCircle, { backgroundColor: '#FEE2E2' }]}>
                 <AlertCircleOverviewIcon size={20} color="#EF4444" />
               </View>
@@ -570,10 +593,19 @@ export function ReceivingDashboardScreen({
                 <Text style={styles.attentionSub}>Carrot — GR-1021</Text>
               </View>
               <ChevronRightIcon size={18} color="#9CA3AF" />
-            </View>
+            </TouchableOpacity>
 
             {/* Card 3: Damage Report */}
-            <View style={styles.attentionCard}>
+            <TouchableOpacity
+              style={styles.attentionCard}
+              onPress={() => {
+                const issue = issues.find((i) => i.shipmentCode === 'GR-1020') ?? issues[2] ?? issues[0];
+                if (issue) onSelectIssue(issue);
+                else onOpenQualityIssues();
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
               <View style={[styles.attentionIconCircle, { backgroundColor: '#FEE2E2' }]}>
                 <DamagePhotoIcon size={20} color="#EF4444" />
               </View>
@@ -582,7 +614,7 @@ export function ReceivingDashboardScreen({
                 <Text style={styles.attentionSub}>Beans — GR-1020</Text>
               </View>
               <ChevronRightIcon size={18} color="#9CA3AF" />
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* 3. Incoming Shipments */}
@@ -595,24 +627,31 @@ export function ReceivingDashboardScreen({
 
           <View style={styles.incomingShipmentsList}>
             {/* Shipment 1: GR-1024 */}
+            {canRecord ? (
+              <TouchableOpacity
+                style={styles.incomingShipmentCard}
+                onPress={onStartReceiving}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <View style={styles.shipmentCardHeader}>
+                  <Text style={styles.shipmentCode}>GR-1024</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.statusBadgeText, { color: '#B45309' }]}>Awaiting QC</Text>
+                  </View>
+                </View>
+                <Text style={styles.shipmentProduct}>Tomato · Grade 1</Text>
+                <Text style={styles.shipmentWeight}>150 KG</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {/* Shipment 2: GR-1023 */}
             <TouchableOpacity
               style={styles.incomingShipmentCard}
-              onPress={onStartReceiving}
+              onPress={() => onSelectRecord('GR-1023')}
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <View style={styles.shipmentCardHeader}>
-                <Text style={styles.shipmentCode}>GR-1024</Text>
-                <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7' }]}>
-                  <Text style={[styles.statusBadgeText, { color: '#B45309' }]}>Awaiting QC</Text>
-                </View>
-              </View>
-              <Text style={styles.shipmentProduct}>Tomato · Grade 1</Text>
-              <Text style={styles.shipmentWeight}>150 KG</Text>
-            </TouchableOpacity>
-
-            {/* Shipment 2: GR-1023 */}
-            <View style={styles.incomingShipmentCard}>
               <View style={styles.shipmentCardHeader}>
                 <Text style={styles.shipmentCode}>GR-1023</Text>
                 <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
@@ -621,7 +660,7 @@ export function ReceivingDashboardScreen({
               </View>
               <Text style={styles.shipmentProduct}>Carrot · Grade 1</Text>
               <Text style={styles.shipmentWeight}>80 KG</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={{ height: 28 }} />
