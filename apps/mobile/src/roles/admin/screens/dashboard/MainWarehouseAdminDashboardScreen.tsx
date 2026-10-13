@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
-  Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminSpacing } from '../../theme';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -34,13 +33,14 @@ import { makeCan } from '../../permissions/can';
 import { useWarehousePermissions } from '../../permissions/useWarehousePermissions';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
-import { InventoryFlow } from '../warehouse/inventory';
+import { InventoryFlow, WarehouseSelector } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
+import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   MAIN_NOTIFICATIONS,
@@ -169,6 +169,7 @@ type WarehouseSubView =
   | 'customer_orders'
   | 'warehouse_notifications'
   | 'profile'
+  | 'warehouse_profile'
   // Module 7: Customers (the shared CustomersFlow owns its own sub-screens, W4)
   | 'customers_list'
   // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
@@ -240,27 +241,10 @@ function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 12v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -329,66 +313,7 @@ function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: num
   );
 }
 
-function ReviewReceivingIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Checklist card with 3 bars & checkmark (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M7 8h4M7 12h4M7 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M14 12.5l2 2 3.5-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function BuildingOfficeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons building-office-2 stepped building with 11 windows and door (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2.5 21h19M4.5 21V9a1 1 0 0 1 1-1h2.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9h3a1 1 0 0 1 1 1v7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M10.5 21v-4h3v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Windows Left Wing */}
-      <Path d="M6.5 11h1M6.5 14h1M6.5 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Center Tower */}
-      <Path d="M10.5 6.5h1M13 6.5h1M10.5 9.5h1M13 9.5h1M10.5 12.5h1M13 12.5h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      {/* Windows Right Wing */}
-      <Path d="M16.5 15.5h1M16.5 18h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ManageSwasBadgeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  // Heroicons identification badge with top clip, avatar & text lines (exact match to design)
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Clip at top */}
-      <Rect x="10.5" y="1.5" width="3" height="4.5" rx="1" stroke={color} strokeWidth="1.8" />
-      <Line x1="12" y1="1.5" x2="12" y2="4" stroke={color} strokeWidth="1.8" />
-      {/* Badge outer border */}
-      <Rect x="3" y="6" width="18" height="15" rx="2.5" stroke={color} strokeWidth="2" />
-      {/* Avatar on left */}
-      <Circle cx="8" cy="11.5" r="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M5.5 17c0-1.6 1.1-2.5 2.5-2.5s2.5.9 2.5 2.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      {/* Lines on right */}
-      <Line x1="13.5" y1="11" x2="18.5" y2="11" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="13.5" y1="15" x2="17" y2="15" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
@@ -861,11 +786,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [activeTab, setActiveTab] = useState<MainWHTab>('Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
-  const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
+  const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
+  const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
+  const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
   // Only the old Warehouse Activity / Operations History rows set this (now inside
@@ -886,7 +812,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // fails closed; in __DEV__ only, after the retries, the MAIN_WH_ADMIN grants
   // from docs/rbac.json stand in (../../permissions/warehousePermissions.ts).
   // The server still authorises every call (CLAUDE.md 2.1).
-  const { permissions } = useWarehousePermissions({
+  const { permissions, isLoading } = useWarehousePermissions({
     enabled: true,
     adminRole: 'MAIN_WH_ADMIN',
     isDev: __DEV__,
@@ -902,11 +828,26 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
   const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
 
-  // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
-  const WAREHOUSE_OPTIONS = [
-    'All Warehouses',
-    ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
-  ];
+
+  const HOME_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = PROFILE_WAREHOUSES;
+
+  const selectedWHId =
+    selectedWHFilter === 'All Warehouses'
+      ? undefined
+      : PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '') === selectedWHFilter)?.warehouseId;
+
+  const handleSelectWarehouseScope = (whId: string | undefined) => {
+    if (whId === undefined) {
+      setSelectedWHFilter('All Warehouses');
+    } else {
+      const match = PROFILE_WAREHOUSES.find((w) => w.warehouseId === whId);
+      if (match) {
+        const shortName = (match.warehouseName ?? '').replace(/ Warehouse$/, '');
+        setSelectedWHFilter(shortName);
+        setSelectedWHName(match.warehouseName ?? 'All Warehouses');
+      }
+    }
+  };
 
   const homeKpi = MAIN_HOME_KPIS[selectedWHFilter] ?? MAIN_HOME_KPIS['All Warehouses']!;
   const homeOps = MAIN_TODAYS_OPERATIONS[selectedWHFilter] ?? MAIN_TODAYS_OPERATIONS['All Warehouses']!;
@@ -936,6 +877,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     setWhSubView('overview');
     setWhHistory([]);
     setMoreSubScreen(null);
+    setOrdersInitialScreen('M5S01');
+    setReturnToMoreSubScreen(null);
   };
 
   // The old MainWarehouseMoreScreen kept its sub-screen in local state, so it
@@ -1029,6 +972,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
 
   const renderWarehouseOverviewScreen = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
+            </View>
+          </View>
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        </View>
+      );
+    }
+
     if (!canAllView) {
       return (
         <View style={styles.subScreenContainer}>
@@ -1138,12 +1099,48 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
             </TouchableOpacity>
           </View>
+
+          {can('admin.sub_wh_admin.create') && (
+            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
+              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
+              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
+                Manage role access, account status, and credentials for regional sub-warehouse admins.
+              </Text>
+              <TouchableOpacity
+                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
+                onPress={() => navigateWh('manage_swas')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 24 }} />
         </ScrollView>
       </View>
     );
   };
 
   const renderWarehouseComparisonScreen = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
+            </View>
+          </View>
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        </View>
+      );
+    }
+
     if (!canAllView) {
       return (
         <View style={styles.subScreenContainer}>
@@ -1197,6 +1194,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderWarehousePerformanceScreen = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
+            </View>
+          </View>
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        </View>
+      );
+    }
+
     if (!canAllView) {
       return (
         <View style={styles.subScreenContainer}>
@@ -1261,6 +1276,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderWarehouseCapacityScreen = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
+            </View>
+          </View>
+          <View style={styles.loadingCenter}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        </View>
+      );
+    }
+
     if (!canAllView) {
       return (
         <View style={styles.subScreenContainer}>
@@ -1377,22 +1410,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           ))}
-
-          {can('admin.sub_wh_admin.create') && (
-            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
-              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                Manage role access, account status, and credentials for regional sub-warehouse admins.
-              </Text>
-              <TouchableOpacity
-                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
-                onPress={() => navigateWh('manage_swas')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <View style={{ height: 24 }} />
         </ScrollView>
@@ -1956,9 +1973,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
       <View style={{ flex: 1 }}>
         {/* ─── Main Dashboard View (Module 1 - Main Dashboard) ─── */}
-        {/* FINAL_LIST 20: the multi-warehouse Home needs warehouse.all.view (MAIN all, SUB none);
-            without it (or until /auth/me resolves: makeCan fails closed) a note renders instead. */}
-        {activeTab === 'Home' && whSubView === 'overview' && !canAllView && (
+        {/* Multi-warehouse Home needs warehouse.all.view; while permissions are loading show indicator. */}
+        {activeTab === 'Home' && whSubView === 'overview' && isLoading && (
+          <View style={[styles.scroll, styles.loadingCenter]}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        )}
+        {activeTab === 'Home' && whSubView === 'overview' && !isLoading && !canAllView && (
           <View style={styles.scroll}>
             <EmptyState
               title="Multi-warehouse view not available"
@@ -2014,15 +2035,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.headerSubtitle}>Main Warehouse Admin · Today</Text>
 
               {/* Warehouse Dropdown Filter Pill */}
-              <TouchableOpacity
-                style={styles.whFilterPill}
-                onPress={() => setShowFilterModal(true)}
-                activeOpacity={0.8}
-              >
-                <BuildingWarehouseIcon size={16} color="#FFFFFF" />
-                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
-                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
-              </TouchableOpacity>
+              <WarehouseSelector
+                scope={MAIN_WAREHOUSE_SCOPE}
+                options={HOME_WAREHOUSE_OPTIONS}
+                selectedId={selectedWHId}
+                onSelect={handleSelectWarehouseScope}
+              />
             </View>
 
             {/* Content Container */}
@@ -2428,15 +2446,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
 
               {/* Warehouse Dropdown Filter Pill */}
-              <TouchableOpacity
-                style={styles.whFilterPill}
-                onPress={() => setShowFilterModal(true)}
-                activeOpacity={0.8}
-              >
-                <BuildingWarehouseIcon size={15} color="#FFFFFF" />
-                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
-                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
-              </TouchableOpacity>
+              <WarehouseSelector
+                scope={MAIN_WAREHOUSE_SCOPE}
+                options={HOME_WAREHOUSE_OPTIONS}
+                selectedId={selectedWHId}
+                onSelect={handleSelectWarehouseScope}
+              />
             </View>
 
             {/* Content Container */}
@@ -2639,6 +2654,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               }}
               onOpenWallet={() => setMoreSubScreen('wallet')}
               onNavigateToCustomerOrders={() => {
+                setOrdersInitialScreen('M5S02');
+                setReturnToMoreSubScreen('finance');
                 setMoreSubScreen(null);
                 navigateWh('customer_orders');
               }}
@@ -2678,6 +2695,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               initialScreen="Staff"
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
+              onAssignDelivery={(driver) => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams({
+                  warehouseId: driver?.warehouseId,
+                });
+                setReturnToMoreSubScreen('staff');
+                setMoreSubScreen(null);
+                navigateWh('customer_orders');
+              }}
             />
           ) : moreSubScreen === 'settings' ? (
             // Shared account hub (W4): Profile, Notification Settings, Security,
@@ -2691,18 +2717,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               onTabChange={handleMoreTabChange}
             />
           ) : (
-            // The old Warehouse Management hub (MainWarehouseAdminScreen) was absorbed into the
-            // shared Warehouse Overview (W4 warehouse-admin); its Add Warehouse action was dropped (BR-23).
-            <WarehouseAdminFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="WarehouseOverview"
-              onBack={() => setMoreSubScreen(null)}
-              onNavigateComparison={() => {
-                setMoreSubScreen(null);
-                navigateWh('stock_and_transfer');
-              }}
-            />
+            <MainWarehouseAdminScreen onBack={() => setMoreSubScreen(null)} />
           )
         )}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
@@ -2717,8 +2732,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             }}
             onLogout={onSignOut}
             onTabChange={handleMoreTabChange}
-            // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view).
-            onProfileCardPress={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
+            onProfileCardPress={() => setMoreSubScreen('admin')}
+            onNavigateToWarehouseManagement={() => setMoreSubScreen('admin')}
             onNavigateToWallet={() => setMoreSubScreen('wallet')}
             onNavigateToReturns={() => setMoreSubScreen('returns')}
             onNavigateToFinance={() => setMoreSubScreen('finance')}
@@ -3049,9 +3064,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={ordersInitialScreen}
-                onBack={goBackWh}
+                initialParams={ordersInitialParams}
+                onBack={() => {
+                  setOrdersInitialScreen('M5S01');
+                  setOrdersInitialParams(null);
+                  if (returnToMoreSubScreen) {
+                    const target = returnToMoreSubScreen;
+                    setReturnToMoreSubScreen(null);
+                    setWhSubView('overview');
+                    setMoreSubScreen(target);
+                  } else {
+                    goBackWh();
+                  }
+                }}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
+                  setOrdersInitialScreen('M5S01');
+                  setOrdersInitialParams(null);
+                  setReturnToMoreSubScreen(null);
                   setActiveTab(tab);
                   setWhSubView('overview');
                   setWhHistory([]);
@@ -3125,7 +3155,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'transfer_tracking' ||
             whSubView === 'quick_actions_overview' ||
             whSubView === 'sales')) ||
-        (activeTab === 'More' && (whSubView !== 'overview' || moreSubScreen === 'returns')) ||
+        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff'))) ||
         (activeTab === 'Inventory')) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}
@@ -3133,6 +3163,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab('Home');
+                setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
                 setMoreSubScreen(null);
@@ -3149,6 +3180,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab('Receiving');
+                setMoreSubScreen(null);
                 setReceivingSubView('dashboard');
                 setWhSubView('overview');
                 setWhHistory([]);
@@ -3166,6 +3198,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab('Inventory');
+                setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
                 setMoreSubScreen(null);
@@ -3182,6 +3215,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab('More');
+                setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
                 setMoreSubScreen(null);
@@ -3194,42 +3228,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </TouchableOpacity>
           </View>
         )}
-
-      {/* ─── Warehouse Filter Dropdown Modal ─── */}
-      <Modal
-        visible={showFilterModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
-          <View style={styles.filterModalCard}>
-            <Text style={styles.filterModalTitle}>Select Warehouse Scope</Text>
-            {WAREHOUSE_OPTIONS.map((wh) => {
-              const isSelected = selectedWHFilter === wh;
-              return (
-                <TouchableOpacity
-                  key={wh}
-                  style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
-                  onPress={() => {
-                    setSelectedWHFilter(wh);
-                    if (wh !== 'All Warehouses') {
-                      setSelectedWHName(`${wh} Warehouse`);
-                    }
-                    setShowFilterModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
-                    {wh}
-                  </Text>
-                  {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -3841,8 +3839,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 18,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   subHeaderRow: {
     flexDirection: 'row',
@@ -4365,6 +4361,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: PALETTE.subTextMuted,
     fontWeight: '500',
+  },
+  loadingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.xxl,
   },
 });
 

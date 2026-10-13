@@ -13,16 +13,23 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { ExpenseDraft, WarehouseScreenBaseProps } from './types';
+import type { ExpenseDraft, ExpenseRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 /**
  * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
  * - Save Expense is enabled only when can('finance.expense.log'); otherwise it is
  *   rendered disabled and the handler no-ops.
  * - There is no approve control: rbac.json has no approve code for expenses.
- * - The form has no warehouse selector; the expense is logged against the viewer's scope.
+ * - Main Warehouse admins can select the destination warehouse from a dropdown list.
  * The server re-checks every permission (CLAUDE.md 2.1); `can` only decides what to render.
  */
+
+const DEFAULT_WAREHOUSES: readonly WarehouseScope[] = [
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
+  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
+  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
+  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
+];
 
 const EXPENSE_CATEGORIES = [
   'Transport',
@@ -35,8 +42,10 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export interface WarehouseAddExpenseScreenProps extends WarehouseScreenBaseProps {
-  onSaveSuccess?: (() => void) | undefined;
+  onSaveSuccess?: ((savedRecord?: ExpenseRecord) => void) | undefined;
   initialExpense?: ExpenseDraft | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
+  initialWarehouseId?: string | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -234,16 +243,36 @@ const MONTH_SHORT = [
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export function WarehouseAddExpenseScreen({
+  scope,
   can,
   onBack,
   onSaveSuccess,
   initialExpense,
+  warehouseOptions = DEFAULT_WAREHOUSES,
+  initialWarehouseId,
 }: WarehouseAddExpenseScreenProps) {
   const canLog = can('finance.expense.log');
+  const isMain = scope.warehouseId === undefined;
+  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string }>(() => {
+    if (initialExpense?.warehouseId && initialExpense?.warehouseName) {
+      return { id: initialExpense.warehouseId, name: initialExpense.warehouseName };
+    }
+    if (initialWarehouseId) {
+      const match = warehouseOptions.find((w) => w.warehouseId === initialWarehouseId || w.warehouseName === initialWarehouseId);
+      if (match) {
+        return { id: match.warehouseId ?? initialWarehouseId, name: match.warehouseName ?? initialWarehouseId };
+      }
+    }
+    if (scope.warehouseId && scope.warehouseName) {
+      return { id: scope.warehouseId, name: scope.warehouseName };
+    }
+    return { id: 'WH-COON', name: 'Coonoor Warehouse' };
+  });
+  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
-  const [amount, setAmount] = useState(initialExpense?.amount || '2400');
+  const [amount, setAmount] = useState(initialExpense?.amount ? String(initialExpense.amount) : '');
   const [description, setDescription] = useState(initialExpense?.description || 'Transport · Collection point → Warehouse');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
@@ -313,7 +342,9 @@ export function WarehouseAddExpenseScreen({
 
   const handleSaveExpense = () => {
     if (!canLog) return;
-    if (!amount.trim() || isNaN(Number(amount.replace(/[^0-9.]/g, '')))) {
+    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
+    const parsed = Number(cleanAmount);
+    if (!cleanAmount || isNaN(parsed) || parsed <= 0) {
       Alert.alert('Validation Error', 'Please enter a valid expense amount.');
       return;
     }
@@ -483,6 +514,12 @@ export function WarehouseAddExpenseScreen({
                   <Text style={styles.confirmDetailLabel}>Date</Text>
                   <Text style={styles.confirmDetailValue}>{expenseDate}</Text>
                 </View>
+                {isMain ? (
+                  <View style={styles.confirmDetailCol}>
+                    <Text style={styles.confirmDetailLabel}>Warehouse</Text>
+                    <Text style={styles.confirmDetailValue}>{selectedWarehouse.name}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -523,7 +560,18 @@ export function WarehouseAddExpenseScreen({
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
-                if (onBack) onBack();
+                const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
+                const newRecord: ExpenseRecord = {
+                  id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
+                  categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
+                  amount: parsedAmt,
+                  timestamp: `${expenseDate} - 10:00 AM`,
+                  status: 'Recorded',
+                  warehouseId: selectedWarehouse.id,
+                  warehouseName: selectedWarehouse.name,
+                };
+                if (onSaveSuccess) onSaveSuccess(newRecord);
+                else if (onBack) onBack();
                 else setIsSuccess(false);
               }}
               activeOpacity={0.75}
@@ -554,7 +602,17 @@ export function WarehouseAddExpenseScreen({
           <TouchableOpacity
             style={styles.viewExpenseBtn}
             onPress={() => {
-              if (onSaveSuccess) onSaveSuccess();
+              const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
+              const newRecord: ExpenseRecord = {
+                id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
+                categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
+                amount: parsedAmt,
+                timestamp: `${expenseDate} - 10:00 AM`,
+                status: 'Recorded',
+                warehouseId: selectedWarehouse.id,
+                warehouseName: selectedWarehouse.name,
+              };
+              if (onSaveSuccess) onSaveSuccess(newRecord);
               else if (onBack) onBack();
             }}
             activeOpacity={0.8}
@@ -596,6 +654,57 @@ export function WarehouseAddExpenseScreen({
         {/* Section Heading: Expense Information */}
         <Text style={styles.sectionHeading}>Expense Information</Text>
 
+        {/* Field: Select Warehouse (Main Warehouse only) */}
+        {isMain && (
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Select Warehouse</Text>
+            <TouchableOpacity
+              style={styles.dropdownBtn}
+              onPress={() => {
+                setShowWarehousePicker(!showWarehousePicker);
+                setShowCategoryPicker(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownValueText}>{selectedWarehouse.name || 'Select Warehouse'}</Text>
+              <ChevronDownIcon size={16} color={adminColors.ink} />
+            </TouchableOpacity>
+
+            {/* Warehouse Dropdown List */}
+            {showWarehousePicker && (
+              <View style={styles.pickerDropdown}>
+                {warehouseOptions.map((wh) => {
+                  const whId = wh.warehouseId ?? '';
+                  const whName = wh.warehouseName ?? whId;
+                  const isSelected = selectedWarehouse.id === whId || selectedWarehouse.name === whName;
+                  return (
+                    <TouchableOpacity
+                      key={whId || whName}
+                      style={[
+                        styles.pickerOption,
+                        isSelected && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedWarehouse({ id: whId, name: whName });
+                        setShowWarehousePicker(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          isSelected && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {whName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Field 1: Expense Category */}
         <View style={styles.fieldGroup}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm }}>
@@ -606,7 +715,10 @@ export function WarehouseAddExpenseScreen({
           </View>
           <TouchableOpacity
             style={styles.dropdownBtn}
-            onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+            onPress={() => {
+              setShowCategoryPicker(!showCategoryPicker);
+              setShowWarehousePicker(false);
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.dropdownValueText}>{selectedCategory || 'Select Category'}</Text>
@@ -641,12 +753,14 @@ export function WarehouseAddExpenseScreen({
             </View>
           )}
 
-          {/* Ported from the Main copy: the list is configuration, not a local list. */}
-          <View style={styles.blueCallout}>
-            <Text style={styles.blueCalloutText}>
-              This list reflects Expense Categories (S06) configuration — never a separately maintained list.
-            </Text>
-          </View>
+          {/* Ported from the Main copy: the list is configuration, not a local list. Hidden for Main Warehouse */}
+          {!isMain && (
+            <View style={styles.blueCallout}>
+              <Text style={styles.blueCalloutText}>
+                This list reflects Expense Categories (S06) configuration — never a separately maintained list.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Field 2: Expense Date */}
@@ -765,14 +879,16 @@ export function WarehouseAddExpenseScreen({
           </View>
         </View>
 
-        {/* Callout 3: SWA Permissions Notice */}
-        <View style={styles.amberCallout}>
-          <Text style={styles.amberCalloutText}>
-            {canLog
-              ? 'Log Operational Expenses is granted — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.'
-              : 'Log Operational Expenses is not granted for your role, so Save Expense is disabled.'}
-          </Text>
-        </View>
+        {/* Callout 3: SWA Permissions Notice (Hidden for Main Warehouse) */}
+        {!isMain && (
+          <View style={styles.amberCallout}>
+            <Text style={styles.amberCalloutText}>
+              {canLog
+                ? 'Log Operational Expenses is granted — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.'
+                : 'Log Operational Expenses is not granted for your role, so Save Expense is disabled.'}
+            </Text>
+          </View>
+        )}
 
         {/* ─── Bottom Actions ─── */}
         <TouchableOpacity

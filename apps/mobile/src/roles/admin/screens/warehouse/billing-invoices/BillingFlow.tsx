@@ -117,9 +117,7 @@ export function BillingFlow({
           onNavigateToInvoiceList={() => openList('list')}
           onNavigateToInvoiceHistory={() => openList('history')}
           onNavigateToInvoiceDetail={openDetail}
-          onGenerateInvoice={(transaction) =>
-            transaction ? openWizard(transaction) : navigate('GenerateInvoice')
-          }
+          onGenerateInvoice={() => navigate('GenerateInvoice')}
           onNavigateToNotifications={onNavigateToNotifications}
         />
       );

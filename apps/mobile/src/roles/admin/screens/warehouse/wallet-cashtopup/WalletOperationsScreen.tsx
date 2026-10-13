@@ -1,12 +1,13 @@
 // Design id: M8-S01
 import React from 'react';
-import { Alert, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
+import { WarehouseSelector } from '../inventory';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -175,35 +176,6 @@ function AlertTriangleIcon({ size = 16, color = adminColors.ink }: { size?: numb
   );
 }
 
-function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function WarningTriangleAccentIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
@@ -277,15 +249,12 @@ export function WalletOperationsScreen({
   const isLockedToWarehouse = scope.warehouseId !== undefined;
   const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
   const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = React.useState(false);
 
   // BR-18: a cash top-up cannot complete without the fiscal cash tag, so the
   // flow is only offered to admins who hold both permissions. Server re-checks.
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
 
-  const selectedWarehouseName =
-    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
 
   const visibleWarehouseSummaries = selectedWarehouseId
     ? WAREHOUSE_WALLET_SUMMARIES.filter((w) => w.id === selectedWarehouseId)
@@ -342,81 +311,12 @@ export function WalletOperationsScreen({
               <Text style={styles.assignedWarehouseText}>{`${warehouseLabel} · Active`}</Text>
             </View>
           ) : (
-            /* Main Warehouse Dropdown Pill */
-            <>
-              <TouchableOpacity
-                style={styles.dropdownBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowWarehouseModal(true)}
-              >
-                <BuildingWarehouseIcon color={adminColors.onBrand} />
-                <Text style={styles.dropdownBtnText}>
-                  {selectedWarehouseId ? selectedWarehouseName : 'All Warehouses'}
-                </Text>
-                <ChevronDownSmallIcon />
-              </TouchableOpacity>
-
-              <Modal
-                visible={showWarehouseModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowWarehouseModal(false)}
-              >
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setShowWarehouseModal(false)}
-                >
-                  <View style={styles.dropdownModalCard}>
-                    <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
-
-                    <TouchableOpacity
-                      style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
-                      onPress={() => {
-                        setSelectedWarehouseId(undefined);
-                        setShowWarehouseModal(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.dropdownModalItemText,
-                          selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
-                        ]}
-                      >
-                        All Warehouses
-                      </Text>
-                      {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
-                    </TouchableOpacity>
-
-                    {warehouseOptions
-                      .filter((w) => w.warehouseId !== undefined)
-                      .map((w) => {
-                        const isSelected = selectedWarehouseId === w.warehouseId;
-                        return (
-                          <TouchableOpacity
-                            key={w.warehouseId}
-                            style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
-                            onPress={() => {
-                              setSelectedWarehouseId(w.warehouseId);
-                              setShowWarehouseModal(false);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.dropdownModalItemText,
-                                isSelected && styles.dropdownModalItemTextActive,
-                              ]}
-                            >
-                              {w.warehouseName ?? w.warehouseId}
-                            </Text>
-                            {isSelected ? <CheckSmallIcon /> : null}
-                          </TouchableOpacity>
-                        );
-                      })}
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-            </>
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
           )}
         </View>
 
@@ -807,7 +707,7 @@ export function WalletOperationsScreen({
         )}
       </ScrollView>
 
-      <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />
+      {isLockedToWarehouse && <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     </SafeAreaView>
   );
 }
@@ -1084,59 +984,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ─── Main Warehouse Styles ───
-  dropdownBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  dropdownBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: adminSpacing.xl,
-  },
-  dropdownModalCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.lg,
-    ...adminShadow.md,
-  },
-  dropdownModalTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
-  },
-  dropdownModalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-  },
-  dropdownModalItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownModalItemText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  dropdownModalItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
+
   mainKpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

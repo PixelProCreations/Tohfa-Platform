@@ -14,8 +14,7 @@
  */
 // Design id: M7-S01
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   BellIcon,
   cardStyles,
@@ -32,37 +31,8 @@ import {
 } from './CustomersParts';
 import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-
-function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
+import { WarehouseSelector } from '../inventory';
 
 export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
@@ -78,7 +48,7 @@ export function CustomersListScreen({
   scope,
   can,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   onSelectCustomer,
   onNavigateToSearch,
   onNavigateToNotifications,
@@ -87,7 +57,6 @@ export function CustomersListScreen({
 }: CustomersListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
   const allWarehouses = isAllWarehouses(scope);
 
   if (!can('customer.list.view')) {
@@ -120,9 +89,6 @@ export function CustomersListScreen({
     </HeaderIconButton>
   );
 
-  const selectedWarehouseName =
-    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
-
   return (
     <CustomersScreen
       title="Customers"
@@ -131,80 +97,12 @@ export function CustomersListScreen({
       headerRight={headerRight}
       headerExtra={
         allWarehouses ? (
-          <>
-            <TouchableOpacity
-              style={styles.dropdownBtn}
-              activeOpacity={0.8}
-              onPress={() => setShowWarehouseModal(true)}
-            >
-              <BuildingWarehouseIcon color={adminColors.onBrand} />
-              <Text style={styles.dropdownBtnText}>
-                {selectedWarehouseId ? selectedWarehouseName : 'All Warehouses'}
-              </Text>
-              <ChevronDownSmallIcon />
-            </TouchableOpacity>
-
-            <Modal
-              visible={showWarehouseModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowWarehouseModal(false)}
-            >
-              <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowWarehouseModal(false)}
-              >
-                <View style={styles.dropdownModalCard}>
-                  <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
-
-                  <TouchableOpacity
-                    style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
-                    onPress={() => {
-                      setSelectedWarehouseId(undefined);
-                      setShowWarehouseModal(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownModalItemText,
-                        selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
-                      ]}
-                    >
-                      All Warehouses
-                    </Text>
-                    {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
-                  </TouchableOpacity>
-
-                  {warehouseOptions
-                    .filter((w) => w.warehouseId !== undefined)
-                    .map((w) => {
-                      const isSelected = selectedWarehouseId === w.warehouseId;
-                      return (
-                        <TouchableOpacity
-                          key={w.warehouseId}
-                          style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
-                          onPress={() => {
-                            setSelectedWarehouseId(w.warehouseId);
-                            setShowWarehouseModal(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownModalItemText,
-                              isSelected && styles.dropdownModalItemTextActive,
-                            ]}
-                          >
-                            {w.warehouseName ?? w.warehouseId}
-                          </Text>
-                          {isSelected ? <CheckSmallIcon /> : null}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
-              </TouchableOpacity>
-            </Modal>
-          </>
+          <WarehouseSelector
+            scope={scope}
+            options={warehouseOptions}
+            selectedId={selectedWarehouseId}
+            onSelect={setSelectedWarehouseId}
+          />
         ) : undefined
       }
     >
@@ -297,58 +195,7 @@ export function CustomersListScreen({
 }
 
 const styles = StyleSheet.create({
-  dropdownBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  dropdownBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: adminSpacing.xl,
-  },
-  dropdownModalCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.lg,
-    ...adminShadow.md,
-  },
-  dropdownModalTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
-  },
-  dropdownModalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-  },
-  dropdownModalItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownModalItemText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  dropdownModalItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
+
   mainKpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -291,7 +291,7 @@ export function BillingHubScreen({
           onSelectWarehouse={setSelectedWarehouseId}
         />
       }
-      footer={onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
+      footer={!isAllWarehouses(scope) && onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>

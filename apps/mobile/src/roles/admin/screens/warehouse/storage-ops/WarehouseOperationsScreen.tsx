@@ -20,7 +20,7 @@
  */
 // Design id: M4-S01
 import React, { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
@@ -35,27 +35,19 @@ import {
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import { WarehouseSelector } from '../inventory';
 import { ACTIVITIES, ATTENTION_ITEMS, OPERATIONS_SUMMARY, OPERATIONAL_ISSUES, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
 import {
   AlertCircleIcon,
-  CheckCircleIcon,
-  ChevronDownIcon,
   ChevronRightIcon,
   ClipboardIcon,
   DonutIcon,
-  GridSquaresIcon,
-  HeaderOperationsTitleIcon,
   HistoryIcon,
-  PeopleIcon,
   ReceiveGoodsIcon,
-  ReceiveIcon,
   ReportIssueIcon,
   STORAGE_CODES,
   ShelfIcon,
   StaffBadgeIcon,
-  StockVerificationIcon,
-  TrendingUpIcon,
-  WarehouseIcon,
   WarningTriangleIcon,
 } from './StorageParts';
 import type { ActivityModule, WarehouseScreenBaseProps } from './types';
@@ -95,7 +87,6 @@ export function WarehouseOperationsScreen({
   onSelectWarehouse,
 }: WarehouseOperationsScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -168,18 +159,12 @@ export function WarehouseOperationsScreen({
       }
       headerExtra={
         mainView ? (
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setShowDropdown(true)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <WarehouseIcon size={16} color={adminColors.onBrand} />
-            <Text style={styles.dropdownButtonText}>
-              {selectedWarehouseId ? storageWarehouseName(selectedWarehouseId) : 'All Warehouses'}
-            </Text>
-            <ChevronDownIcon size={14} color={adminColors.onBrand} />
-          </TouchableOpacity>
+          <WarehouseSelector
+            scope={scope}
+            options={STORAGE_WAREHOUSES}
+            selectedId={selectedWarehouseId}
+            onSelect={setSelectedWarehouseId}
+          />
         ) : (
           <ScopeHeader
             scope={scope}
@@ -187,56 +172,8 @@ export function WarehouseOperationsScreen({
           />
         )
       }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
+      footer={!mainView && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
-      {mainView ? (
-        <Modal
-          visible={showDropdown}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowDropdown(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowDropdown(false)}
-          >
-            <View style={styles.dropdownMenu}>
-              <Text style={styles.dropdownMenuTitle}>Select Warehouse</Text>
-              <TouchableOpacity
-                style={[styles.dropdownMenuItem, selectedWarehouseId === undefined && styles.dropdownMenuItemActive]}
-                onPress={() => {
-                  setSelectedWarehouseId(undefined);
-                  setShowDropdown(false);
-                }}
-              >
-                <Text style={[styles.dropdownMenuItemText, selectedWarehouseId === undefined && styles.dropdownMenuItemTextActive]}>
-                  All Warehouses
-                </Text>
-                {selectedWarehouseId === undefined ? <CheckCircleIcon size={16} color={adminColors.brand} /> : null}
-              </TouchableOpacity>
-              {STORAGE_WAREHOUSES.filter((w) => w.warehouseId !== undefined).map((w) => {
-                const isSelected = selectedWarehouseId === w.warehouseId;
-                return (
-                  <TouchableOpacity
-                    key={w.warehouseId}
-                    style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                    onPress={() => {
-                      setSelectedWarehouseId(w.warehouseId);
-                      setShowDropdown(false);
-                    }}
-                  >
-                    <Text style={[styles.dropdownMenuItemText, isSelected && styles.dropdownMenuItemTextActive]}>
-                      {w.warehouseName ?? w.warehouseId}
-                    </Text>
-                    {isSelected ? <CheckCircleIcon size={16} color={adminColors.brand} /> : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      ) : null}
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <View style={styles.grid}>

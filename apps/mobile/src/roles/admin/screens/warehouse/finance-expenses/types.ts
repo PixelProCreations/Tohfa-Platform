@@ -45,6 +45,8 @@ export interface FinanceHistoryItem {
   title: string;
   amount: number;
   time: string;
+  warehouseId?: string | undefined;
+  warehouseName?: string | undefined;
 }
 
 /** One report card on the finance reports screen. */
@@ -62,6 +64,8 @@ export interface ExpenseRecord {
   amount: number;
   timestamp: string;
   status: 'Recorded' | 'Pending' | 'Approved' | 'Rejected';
+  warehouseId?: string | undefined;
+  warehouseName?: string | undefined;
 }
 
 /**
@@ -180,4 +184,6 @@ export interface ExpenseDraft {
   description: string;
   paymentMethod: 'Cash' | 'UPI' | 'Bank';
   vendorPayee: string;
+  warehouseId?: string | undefined;
+  warehouseName?: string | undefined;
 }

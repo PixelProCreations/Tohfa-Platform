@@ -16,6 +16,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
+import { WarehouseSelector } from '../inventory';
 import type { WarehouseScope } from './types';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 
@@ -88,23 +89,13 @@ export function SingleWarehouseHeader({
     );
   }
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-      {options.map((option) => {
-        const active = option.warehouseId === warehouseId;
-        return (
-          <TouchableOpacity
-            key={option.warehouseId ?? 'none'}
-            style={[styles.chip, active && styles.chipActive]}
-            onPress={() => onSelect(option.warehouseId)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-          >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.warehouseName ?? option.warehouseId}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    <WarehouseSelector
+      scope={scope}
+      options={options}
+      selectedId={warehouseId}
+      onSelect={(id) => onSelect(id ?? options[0]?.warehouseId)}
+      allowAll={false}
+    />
   );
 }
 

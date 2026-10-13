@@ -268,6 +268,87 @@ export function PadlockIcon({ size = 16, color = adminColors.muted }: IconProps)
   );
 }
 
+export function BankIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function BuildingWarehouseIcon({ size = 14, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21V9l9-6 9 6v12M9 21V13h6v8M9 9h.01M15 9h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 14, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function TrendDownIcon({ size = 20, color = adminColors.brandDeep }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 17l-7-7-4 4-7-7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 17h6v-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CreditCardPlusIcon({ size = 20, color = adminColors.brandDeep }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M2 10h20M12 14v4M10 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ShapesCategoryIcon({ size = 20, color = adminColors.brandDeep }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3l4.5 7h-9L12 3z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <Rect x="4" y="14" width="6" height="6" rx="1" stroke={color} strokeWidth="2" />
+      <Circle cx="17" cy="17" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function ScaleIcon({ size = 20, color = adminColors.brandDeep }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3v18M3 21h18M5 7l7-2 7 2M5 7l-2 5a3 3 0 0 0 6 0L7 7M19 7l-2 5a3 3 0 0 0 6 0L21 7" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function HistoryClockIcon({ size = 20, color = adminColors.brandDeep }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 3v5h5M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function FilterIcon({ size = 18, color = adminColors.muted }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -283,18 +364,18 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
   tile: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 18,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.xs,
+    gap: 8,
   },
-  tileThird: { width: '31.5%' },
-  tileHalf: { width: '48.5%' },
-  tileLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
+  tileThird: { width: '31.5%', minHeight: 72, paddingVertical: adminSpacing.md },
+  tileHalf: { width: '48.5%', minHeight: 86, paddingVertical: 18 },
+  tileLabel: { ...adminType.caption, fontSize: 13, fontWeight: '600', color: adminColors.ink, textAlign: 'center' },
 
   tableRow: {
     flexDirection: 'row',

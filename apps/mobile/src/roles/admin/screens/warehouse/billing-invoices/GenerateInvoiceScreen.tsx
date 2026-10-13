@@ -16,9 +16,8 @@
  * Absorbs the Main GenerateInvoiceScreen (pair M9-S04). Its two backend-rule
  * notes are ported for the Main view (scope.warehouseId undefined).
  */
-// Design id: M9-S04
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -80,7 +79,14 @@ export function GenerateInvoiceScreen({
         {filtered.map((tx) => {
           const eligible = tx.status === 'Completed';
           return (
-            <View key={tx.id} style={styles.card}>
+            <TouchableOpacity
+              key={tx.id}
+              style={styles.card}
+              activeOpacity={eligible ? 0.75 : 1}
+              onPress={() => {
+                if (eligible) onSelectTransaction(tx);
+              }}
+            >
               <View style={styles.cardTopRow}>
                 <View style={styles.cardTitleCol}>
                   <Text style={styles.orderIdText}>{tx.id}</Text>
@@ -98,7 +104,7 @@ export function GenerateInvoiceScreen({
                 disabled={!eligible}
                 onPress={() => onSelectTransaction(tx)}
               />
-            </View>
+            </TouchableOpacity>
           );
         })}
         {filtered.length === 0 ? <Text style={styles.emptyText}>No eligible transactions.</Text> : null}

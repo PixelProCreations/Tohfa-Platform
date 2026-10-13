@@ -115,7 +115,7 @@ export function OrdersFlow({
     switch (current.screen) {
       case 'M5S01':
       case 'M5S01_OrdersDashboard':
-        return <OrdersDashboardScreen {...common} onTabChange={onTabChange} />;
+        return <OrdersDashboardScreen {...common} routeParams={params ?? undefined} onTabChange={onTabChange} />;
       case 'M5S02':
       case 'M5S02_OrdersList':
         return <OrdersListScreen {...common} routeParams={params ?? undefined} />;

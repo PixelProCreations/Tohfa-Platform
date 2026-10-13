@@ -49,6 +49,8 @@ export interface DailyCashScreenProps extends WarehouseScreenBaseProps {
   entries?: readonly CashLedgerEntry[] | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
+  initialWarehouseId?: string | undefined;
+  hideWarehouseFilter?: boolean | undefined;
 }
 
 /** Mock day figures (whole rupees) until the cash ledger API exists. */
@@ -68,11 +70,13 @@ export function DailyCashScreen({
   date = SAMPLE_DATE,
   entries = CASH_LEDGER,
   warehouseOptions = WALLET_WAREHOUSES,
+  initialWarehouseId,
+  hideWarehouseFilter = false,
 }: DailyCashScreenProps) {
   const [actualCash, setActualCash] = useState('21,980');
   const [differenceReason, setDifferenceReason] = useState('');
   const [breakdown, setBreakdown] = useState<Breakdown>('Cash In');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
 
   // NO CODE for the daily cash ledger yet (SPEC_GAPS W4i-3): show it only to
   // admins who can see the finance data it is built from.
@@ -107,13 +111,15 @@ export function DailyCashScreen({
       subtitle={isAllWarehouses(scope) ? date : undefined}
       onBack={onBack}
       headerExtra={
-        <ScopeHeader
-          scope={scope}
-          label={headerLabel}
-          warehouseOptions={warehouseOptions}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
+        hideWarehouseFilter ? undefined : (
+          <ScopeHeader
+            scope={scope}
+            label={headerLabel}
+            warehouseOptions={warehouseOptions}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={setSelectedWarehouseId}
+          />
+        )
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>

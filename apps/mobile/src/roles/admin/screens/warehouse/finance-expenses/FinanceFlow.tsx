@@ -99,6 +99,7 @@ export function FinanceFlow({
   onNavigateToInvoiceList,
   warehouseOptions = FINANCE_WAREHOUSES,
 }: FinanceFlowProps) {
+  const hubWarehouseId: string | undefined = undefined;
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
@@ -112,6 +113,7 @@ export function FinanceFlow({
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: FinanceRouteParams = current.params ?? {};
   const isMain = scope.warehouseId === undefined;
+  const isSpecificWarehouseChosen = isMain && Boolean(hubWarehouseId && hubWarehouseId !== 'All');
 
   const navigate = (screen: FinanceRoute, nextParams?: FinanceRouteParams) => {
     if (!canOpenFinanceRoute(can, screen)) return;
@@ -151,7 +153,11 @@ export function FinanceFlow({
         <RevenueScreen
           {...common}
           warehouseOptions={warehouseOptions}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
+          hideWarehouseFilter={isSpecificWarehouseChosen}
           onSelectRevenue={(record) => navigate('RevenueDetail', { revenue: revenueDetailOf(record) })}
+          onViewOrder={onNavigateToCustomerOrders}
+          onViewInvoice={onNavigateToInvoiceList}
         />
       );
     case 'RevenueDetail':
@@ -166,15 +172,37 @@ export function FinanceFlow({
         />
       );
     case 'Expenses':
-      return <WarehouseExpensesScreen {...common} onAddExpense={() => navigate('AddExpense')} />;
+      return (
+        <WarehouseExpensesScreen
+          {...common}
+          warehouseOptions={warehouseOptions}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
+          hideWarehouseFilter={isSpecificWarehouseChosen}
+          onAddExpense={() => navigate('AddExpense')}
+        />
+      );
     case 'AddExpense':
       return (
         <WarehouseAddExpenseScreen
           {...common}
+          warehouseOptions={warehouseOptions}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
           initialExpense={params.expenseDraft}
-          onSaveSuccess={() =>
+          onSaveSuccess={(savedRecord) =>
             replace('ExpenseDetail', {
-              expense: params.expenseDraft
+              expense: savedRecord
+                ? {
+                    expenseId: savedRecord.id,
+                    amount: savedRecord.amount,
+                    category: savedRecord.categoryRef.split('·')[0]?.trim(),
+                    date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    description: savedRecord.categoryRef,
+                    paymentMethod: 'Cash',
+                    vendorPayee: params.expenseDraft?.vendorPayee || 'Transport & Logistics Payee',
+                    warehouse: savedRecord.warehouseName,
+                    status: 'Recorded',
+                  }
+                : params.expenseDraft
                 ? {
                     expenseId: params.expenseDraft.expenseId,
                     amount: params.expenseDraft.amount,
@@ -211,6 +239,8 @@ export function FinanceFlow({
         <VouchersScreen
           {...common}
           warehouseOptions={warehouseOptions}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
+          hideWarehouseFilter={isSpecificWarehouseChosen}
           onSelectVoucher={(voucher) => navigate('VoucherDetail', { voucher })}
         />
       );
@@ -220,6 +250,8 @@ export function FinanceFlow({
       return (
         <FinanceHistoryScreen
           {...common}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
+          hideWarehouseFilter={isSpecificWarehouseChosen}
           onSelectItem={(item) => {
             // Main opened history rows in the compact layout (ported isShortVersion).
             if (item.type === 'Revenue') {
@@ -255,7 +287,15 @@ export function FinanceFlow({
         />
       );
     case 'DailyCash':
-      return <DailyCashScreen {...common} date={FINANCE_TODAY} warehouseOptions={warehouseOptions} />;
+      return (
+        <DailyCashScreen
+          {...common}
+          date={FINANCE_TODAY}
+          warehouseOptions={warehouseOptions}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
+          hideWarehouseFilter={isSpecificWarehouseChosen}
+        />
+      );
     default:
       return null;
   }

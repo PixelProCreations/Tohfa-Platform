@@ -293,13 +293,20 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
     isAllWarehouses ? routeParams?.warehouseId : undefined,
   );
 
+  useEffect(() => {
+    if (routeParams?.warehouseId !== undefined) {
+      setSelectedWarehouseId(routeParams.warehouseId);
+    }
+  }, [routeParams?.warehouseId]);
+
   const warehouseFilter = isAllWarehouses ? selectedWarehouseId : scope.warehouseId;
   const query = searchQuery.toLowerCase();
 
   const filteredOrders = ORDERS.filter((order) => {
-    if (fulfillmentFilter !== 'All') {
-      if (order.fulfillment !== fulfillmentFilter) return false;
-    } else if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
+    if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
+      return false;
+    }
+    if (fulfillmentFilter !== 'All' && order.fulfillment !== fulfillmentFilter) {
       return false;
     }
     if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;

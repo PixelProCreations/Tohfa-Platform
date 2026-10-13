@@ -314,15 +314,7 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack, routePa
             <Text style={styles.actionBtnText}>View Ledger History</Text>
           </TouchableOpacity>
 
-          {/* Section 11: Disclaimer Notice Box */}
-          <View style={styles.disclaimerBox}>
-            <ProhibitedRedIcon />
-            <Text style={styles.disclaimerText}>
-              {canApprove
-                ? 'Routed to the Super Admin dual-approval queue. Dual approval safeguards inventory integrity: the stock ledger updates automatically the moment Super Admin signs off.'
-                : 'No approval action is shown here — you can create and submit adjustments but not approve them. Once approved, the resulting ADJUSTMENT_DOWN movement becomes visible through the Stock Ledger, not through an action on this screen.'}
-            </Text>
-          </View>
+
 
           <View style={{ height: 28 }} />
         </ScrollView>
