@@ -37,7 +37,6 @@ import { StockVerificationScreen } from './StockVerificationScreen';
 import { VarianceReviewScreen } from './VarianceReviewScreen';
 // File import, not the profile-settings barrel: the barrel pulls in ProfileFlow, which this flow never needs.
 import { StorageInfoScreen } from '../profile-settings/StorageInfoScreen';
-import { ShipmentDetailScreen } from '../receiving-qc/ShipmentDetailScreen';
 import type { InventoryRouteParams, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
 
 /** Navigation handle given to `renderExternalScreen`. */
@@ -158,16 +157,6 @@ export function InventoryFlow({
         return <AdjustmentDetailScreen {...common} />;
       case 'M3S18':
         return <StockMovementReceiptScreen {...common} />;
-      case 'ShipmentDetail':
-        return (
-          <ShipmentDetailScreen
-            scope={scope}
-            can={can}
-            onBack={back}
-            shipmentId={((params as any)?.shipmentId as string) ?? 'SHP-000124'}
-            onStartReceiving={() => {}}
-          />
-        );
       default: {
         const external = renderExternalScreen?.(current.screen, params, { navigate, back });
         return external ?? <InventoryDashboardScreen {...common} />;
