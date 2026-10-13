@@ -24,6 +24,7 @@ import { logger, newTraceId, runWithContext } from './logger.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { warehousesRouter } from './modules/warehouses/warehouses.routes.js';
 import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/routes.js';
+import { warehouseTransfersRouter } from './modules/warehouse-transfers/warehouse-transfers.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
@@ -143,6 +144,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/warehouses', router: warehousesRouter },
   { prefix: '/v1/warehouses', router: warehouseOpsRouter },
   { prefix: '/v1/admin/sub-warehouse-admins', router: subAdminsRouter },
+  { prefix: '/v1/warehouse-transfers', router: warehouseTransfersRouter },
   { prefix: '/v1/auth', router: authRouter },
   { prefix: '/v1/uploads', router: uploadsRouter },
   { prefix: '/v1/farmers', router: farmerApplicationsRouter },

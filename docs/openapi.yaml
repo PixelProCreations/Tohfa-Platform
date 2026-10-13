@@ -1145,6 +1145,629 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /warehouse-transfers:
+    get:
+      tags: [Inventory]
+      operationId: listWarehouseTransfers
+      summary: List inter-warehouse transfers
+      description: |
+        Newest first (`createdAt` DESC, then id). Requires `transfer.inter_warehouse.view`: Super,
+        Tohfa and Main Warehouse Admin see every transfer; a Sub Warehouse Admin only transfers whose
+        source OR destination is its warehouse, and a `warehouseId` of another warehouse is an empty
+        page, never 403 (BR-30, BR-102). Filters: `status`; `warehouseId` (either side); `direction`
+        (`INBOUND` = `warehouseId` is the destination, `OUTBOUND` = it is the source), which requires
+        `warehouseId` (422 without it). Strict query. List items carry the transfer header only
+        (no `lines`); read one transfer for its lines.
+      x-permission: transfer.inter_warehouse.view
+      x-business-rules: [BR-30, BR-102]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING_APPROVAL, IN_TRANSIT, RECEIVED, CANCELLED] } }
+        - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+        - { name: direction, in: query, description: 'Relative to warehouseId, which it then requires.', schema: { type: string, enum: [INBOUND, OUTBOUND] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of transfers (headers only).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransferList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Inventory]
+      operationId: createWarehouseTransfer
+      summary: Initiate an inter-warehouse transfer
+      description: |
+        Requires `transfer.inter_warehouse.initiate` (Super Admin and Main Warehouse Admin only;
+        TOHFA Admin and Sub Warehouse Admin are 403, BR-26) and an `Idempotency-Key` (a replay returns
+        the original 201 response and moves nothing twice; the same key with another body is 409
+        `IDEMPOTENCY_KEY_REUSED`).
+
+        The source and destination must differ (422) and both exist and be active (422 on
+        `body.fromWarehouseId` / `body.toWarehouseId`); a caller whose scope does not reach the
+        source gets 404. 1-50 lines with distinct batches; every batch must exist, be `ACTIVE` and be
+        in the source warehouse (422 on `body.lines.{i}.batchId`), and `qtyKg` may not exceed the
+        batch's free shelf (`qty_available` minus cart holds and pending UPI counter sales, BR-100),
+        else 409 `STOCK_UNAVAILABLE`. The batches are row-locked for the check.
+
+        Each line snapshots the batch's `cost_per_kg`; its value is `round(qtyKg x cost x 100)`
+        integer paise computed in SQL numeric. When the total is at or above
+        `system_config.transfer_high_value_threshold_paise` (fallback Rs 50,000) or any line has no
+        cost, the transfer is created `PENDING_APPROVAL` and no stock moves. Otherwise it is
+        dispatched in the same transaction: one `TRANSFER_OUT` ledger row per line and status
+        `IN_TRANSIT`. One masked `transfer.inter_warehouse.initiate` audit row is written in the same
+        transaction (ids, status, warehouses, line count, total paise; never notes or vehicle).
+      x-permission: transfer.inter_warehouse.initiate
+      x-business-rules: [BR-26, BR-35, BR-100, BR-102]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseTransferCreate' }
+      responses:
+        '201':
+          description: The transfer, `PENDING_APPROVAL` or `IN_TRANSIT`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransfer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouse-transfers/{id}:
+    get:
+      tags: [Inventory]
+      operationId: getWarehouseTransfer
+      summary: One inter-warehouse transfer with its lines
+      description: |
+        A Sub Warehouse Admin reads only a transfer whose source or destination is its warehouse;
+        any other transfer and an unknown id are the same 404 `NOT_FOUND` (BR-30, BR-102). Lines
+        carry batch id and code, crop id, grade, quantities, cost, value and the destination batch,
+        never a farmer id (BR-16).
+      x-permission: transfer.inter_warehouse.view
+      x-business-rules: [BR-16, BR-30, BR-102]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The transfer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransfer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouse-transfers/{id}/approve:
+    post:
+      tags: [Inventory]
+      operationId: approveWarehouseTransfer
+      summary: Approve a high-value transfer, which dispatches it
+      description: |
+        Requires `transfer.high_value.approve` (Super Admin only) and an `Idempotency-Key`. Only a
+        `PENDING_APPROVAL` transfer (else 409 `INVALID_STATE_TRANSITION`); the initiator may not
+        approve it (403 `SELF_APPROVAL_FORBIDDEN`, also a DB CHECK). In one transaction the batches
+        are row-locked, the free-shelf check is repeated (409 `STOCK_UNAVAILABLE`, nothing written),
+        one `TRANSFER_OUT` ledger row per line is written and the status becomes `IN_TRANSIT` with
+        `approvedBy`/`approvedAt`/`dispatchedAt`. One masked `transfer.high_value.approve` audit row.
+        No request body.
+      x-permission: transfer.high_value.approve
+      x-business-rules: [BR-35, BR-100, BR-102]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: The transfer, now `IN_TRANSIT`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransfer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouse-transfers/{id}/receive:
+    post:
+      tags: [Inventory]
+      operationId: receiveWarehouseTransfer
+      summary: Receive an in-transit transfer at its destination
+      description: |
+        Requires `transfer.inter_warehouse.receive` and an `Idempotency-Key`. Only from `IN_TRANSIT`
+        (else 409 `INVALID_STATE_TRANSITION`), by a scope that reaches the DESTINATION warehouse: a
+        Sub Warehouse Admin of the source gets 403 `WAREHOUSE_SCOPE_VIOLATION`, any other Sub admin
+        (and an unknown id) 404.
+
+        `lines` must give `qtyReceivedKg` for EVERY line exactly once (422 on `body.lines`, or on
+        `body.lines.{i}.itemId` for a line of another transfer), from 0 to `qtySentKg` (more is 422
+        on `body.lines.{i}.qtyReceivedKg`). Any short line sets `hasDiscrepancy` and then requires
+        `receiptNote` (422 on `body.receiptNote`); the shortfall is not written off. For each line
+        with a positive quantity a new `ACTIVE` destination batch is created (same crop, grade,
+        cost and expiry as the source batch; code `<source batch code>/<transfer number>`) and one
+        `TRANSFER_IN` ledger row adds the quantity. Status becomes `RECEIVED`. One masked
+        `transfer.inter_warehouse.receive` audit row (never the receipt note).
+      x-permission: transfer.inter_warehouse.receive
+      x-business-rules: [BR-30, BR-35, BR-102]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseTransferReceive' }
+      responses:
+        '200':
+          description: The transfer, now `RECEIVED`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransfer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouse-transfers/{id}/cancel:
+    post:
+      tags: [Inventory]
+      operationId: cancelWarehouseTransfer
+      summary: Cancel a transfer that is still waiting for approval
+      description: |
+        Requires `transfer.inter_warehouse.initiate` (BR-26). Only from `PENDING_APPROVAL`, when no
+        stock has moved; an `IN_TRANSIT` or later transfer is 409 `INVALID_STATE_TRANSITION` (once
+        dispatched it can only be received). `reason` is required. One masked
+        `transfer.inter_warehouse.cancel` audit row (never the reason). An unknown id is 404.
+      x-permission: transfer.inter_warehouse.initiate
+      x-business-rules: [BR-26, BR-35, BR-102]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseTransferCancel' }
+      responses:
+        '200':
+          description: The transfer, now `CANCELLED`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseTransfer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/activity:
+    get:
+      tags: [Inventory]
+      operationId: listWarehouseActivity
+      summary: A warehouse's activity feed (read-only)
+      description: |
+        A read-only, newest-first merge of records that already exist for one warehouse (BR-104):
+        `STOCK_MOVEMENT` (each stock-ledger row: `reference` = movement type, `qtyKg` = signed kg,
+        `actorId` = created_by), `GOODS_RECEIPT` (each goods receipt at `received_at`: `reference` = GRN
+        number, `status`, `qtyKg` = gross kg, `actorId` = received_by), `TRANSFER` (each transfer sent
+        or received by the warehouse, at creation: `reference` = transfer number, current `status`,
+        `direction` OUTBOUND/INBOUND relative to this warehouse, `actorId` = initiated_by), `ISSUE`
+        (each BR-103 issue at creation: `reference` = issue number, current `status`, `severity`,
+        `actorId` = reported_by), `RETURN` (each return request against the warehouse's orders, at
+        creation: `reference` = return request id, `status`; no actor) and `DOCUMENT` (each BR-105
+        document at creation: `reference` = document type, `status` = `ARCHIVED` when archived else
+        null, `actorId` = uploaded_by). One `UNION ALL` query; there is no activity table.
+
+        Order is `occurredAt DESC, type DESC (byte order), sourceId DESC`; keyset paging through the
+        opaque `cursor` never repeats or skips an event. An event never carries a farmer id, customer
+        data or free text (titles, notes, reasons).
+
+        Requires `warehouse.activity.view` (Sub Warehouse Admin: own warehouse only). Another and an
+        unknown warehouse are the same 404 `NOT_FOUND`. A malformed cursor, an unknown type, a bad
+        date, `from` without `to` (or the reverse), `from > to`, a span above
+        `system_config.report_max_range_days` (fallback 366), a `limit` outside 1-100 or an unknown
+        query parameter is 422 `VALIDATION_FAILED`. Reading writes nothing.
+      x-permission: warehouse.activity.view
+      x-business-rules: [BR-30, BR-104]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: type
+          in: query
+          required: false
+          description: |
+            One comma-separated parameter of one or more event types, e.g. `type=ISSUE,RETURN`
+            (duplicates are ignored). A repeated `type` parameter is refused with 422. Omit for all six.
+          schema:
+            type: string
+            pattern: '^(STOCK_MOVEMENT|GOODS_RECEIPT|TRANSFER|ISSUE|RETURN|DOCUMENT)(,(STOCK_MOVEMENT|GOODS_RECEIPT|TRANSFER|ISSUE|RETURN|DOCUMENT))*$'
+          example: TRANSFER,ISSUE
+        - name: from
+          in: query
+          required: false
+          description: First Asia/Kolkata calendar day, inclusive. Give together with `to`.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Last Asia/Kolkata calendar day, inclusive. Give together with `from`; `from <= to`.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: One page of activity events, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseActivityPage' }
+              example:
+                items:
+                  - type: ISSUE
+                    sourceId: 6c1d2f3a-7b8c-4d9e-8f01-23456789abcd
+                    occurredAt: '2026-10-11T07:00:00.000001Z'
+                    reference: ISS-000012
+                    status: OPEN
+                    severity: HIGH
+                    qtyKg: null
+                    direction: null
+                    actorId: 0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d
+                  - type: STOCK_MOVEMENT
+                    sourceId: 9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a
+                    occurredAt: '2026-10-10T08:00:00.000002Z'
+                    reference: SALE
+                    status: null
+                    severity: null
+                    qtyKg: '-20.250'
+                    direction: null
+                    actorId: 0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d
+                page: { nextCursor: WyIyMDI2LTEwLTEwVDA4OjAwOjAwLjAwMDAwMloiXQ, hasMore: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/issues:
+    get:
+      tags: [Inventory]
+      operationId: listWarehouseIssues
+      summary: List a warehouse's operational issues
+      description: |
+        The operational issues (equipment, storage, quality, safety, staffing, other) of one
+        warehouse, newest first (`createdAt` desc, then `id` desc), optionally filtered by `status`,
+        `severity`, `category`, `assignedTo` and free text `q` (case-insensitive substring of the
+        title or the issue number; `%` and `_` match literally). Requires `warehouse.issue.view`:
+        a Sub Warehouse Admin reads only its own warehouse; another and an unknown warehouse return
+        the same 404 `NOT_FOUND`, never 403 (BR-30, BR-103). Reading writes nothing.
+      x-permission: warehouse.issue.view
+      x-business-rules: [BR-30, BR-103]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] } }
+        - { name: severity, in: query, schema: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] } }
+        - { name: category, in: query, schema: { type: string, enum: [EQUIPMENT, STORAGE, QUALITY, SAFETY, STAFFING, OTHER] } }
+        - { name: assignedTo, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 160 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of issues.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseIssueList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Inventory]
+      operationId: createWarehouseIssue
+      summary: Report an operational issue in a warehouse
+      description: |
+        Creates an `OPEN` issue numbered `WI-000001`, `WI-000002`, ... with the caller as reporter.
+        Requires `warehouse.issue.manage` (a Sub Warehouse Admin only in its own warehouse; another
+        or an unknown warehouse is 404). An `assignedTo` must be an active admin with a live
+        `SUPER_ADMIN`, `TOHFA_ADMIN` or `MAIN_WH_ADMIN` assignment, or a live `SUB_WH_ADMIN`
+        assignment to THIS warehouse; anyone else (including an unknown user) is 422
+        `VALIDATION_FAILED` on `body.assignedTo`. One `warehouse.issue.create` audit row is written
+        in the same transaction with a masked image (issue number, category, severity, status,
+        assignee id; never the title or description) (BR-35, BR-103).
+      x-permission: warehouse.issue.manage
+      x-business-rules: [BR-30, BR-35, BR-103]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseIssueCreate' }
+      responses:
+        '201':
+          description: Issue created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseIssue' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/issues/{issueId}:
+    get:
+      tags: [Inventory]
+      operationId: getWarehouseIssue
+      summary: One operational issue with its comment thread
+      description: |
+        The issue and its comments, oldest first. Same scoping as the list: another or an unknown
+        warehouse, and an issue id that is not in this warehouse, are 404 `NOT_FOUND` (BR-30, BR-103).
+      x-permission: warehouse.issue.view
+      x-business-rules: [BR-30, BR-103]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: issueId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The issue and its comments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseIssueDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Inventory]
+      operationId: updateWarehouseIssue
+      summary: Edit, assign, progress, resolve, reopen or close an issue
+      description: |
+        At least one field is required. Status transitions: `OPEN -> IN_PROGRESS | RESOLVED`;
+        `IN_PROGRESS -> OPEN | RESOLVED`; `RESOLVED -> CLOSED | IN_PROGRESS`; `CLOSED` is terminal.
+        Any other move is 409 `INVALID_STATE_TRANSITION`, and a `CLOSED` issue accepts no PATCH at
+        all (409). Moving to `RESOLVED` requires `resolutionNote` in the same request (422 without
+        it) and records the caller as `resolvedBy` with `resolvedAt`. `resolutionNote` is accepted
+        only when the issue is, or is being moved to, `RESOLVED` (422 otherwise); on a `RESOLVED`
+        issue it corrects the note. Reopening (`RESOLVED -> IN_PROGRESS`) clears `resolvedBy`,
+        `resolvedAt` and `resolutionNote`, so a later resolve needs a fresh note. Closing sets
+        `closedAt` and keeps the note. `null` clears `description` and unassigns `assignedTo`; a new
+        assignee follows the same rule as POST (422 otherwise). Every refusal is decided before
+        anything is written. A request that changes nothing (including a same-status "transition")
+        writes nothing and audits nothing; otherwise one `warehouse.issue.update` audit row is
+        written in the same transaction with masked before/after images and the names of the changed
+        fields (title, description and resolutionNote by name only) (BR-35, BR-103).
+      x-permission: warehouse.issue.manage
+      x-business-rules: [BR-30, BR-35, BR-103]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: issueId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseIssueUpdate' }
+      responses:
+        '200':
+          description: The issue after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseIssue' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/issues/{issueId}/comments:
+    post:
+      tags: [Inventory]
+      operationId: createWarehouseIssueComment
+      summary: Add a comment to an issue
+      description: |
+        Appends a comment (the caller is the author) to the issue's thread. Comments are append-only:
+        the database refuses UPDATE and DELETE, and there is no route to edit or remove one. A
+        `CLOSED` issue takes no new comment (409 `INVALID_STATE_TRANSITION`). Same scoping as the
+        other issue routes (404). One `warehouse.issue.comment` audit row is written in the same
+        transaction with the masked issue image and `changedFields: [comments]`; never the comment
+        body (BR-35, BR-103).
+      x-permission: warehouse.issue.manage
+      x-business-rules: [BR-30, BR-35, BR-103]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: issueId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseIssueCommentCreate' }
+      responses:
+        '201':
+          description: Comment added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseIssueComment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/documents:
+    get:
+      tags: [Inventory]
+      operationId: listWarehouseDocuments
+      summary: List a warehouse's documents
+      description: |
+        Compliance and property documents of one warehouse (licence, FSSAI, fire safety, lease,
+        insurance, other). `status` is DERIVED at read time, never stored: `ARCHIVED` when archived;
+        otherwise `EXPIRED` when `expiryDate` is before today (Asia/Kolkata), `EXPIRING_SOON` when it is
+        within `system_config.warehouse_document_expiry_warning_days` days (boundary day included;
+        fallback 30 when the row is missing or unusable), else `ACTIVE` (also with no expiry date).
+        The `status` filter is applied with the same derivation, the same day and the same window as
+        the response, which reports the window as `expiryWarningDays`. Archived documents are excluded
+        unless `status=ARCHIVED`. `q` matches title or document number (wildcards are literal).
+        Ordered by expiry date (soonest first, no expiry last), then title. List items carry no
+        `fileUrl`. Requires `warehouse.document.view`: a Sub Warehouse Admin reads only its own
+        warehouse; another and an unknown warehouse are the same 404 `NOT_FOUND` (BR-30, BR-105).
+      x-permission: warehouse.document.view
+      x-business-rules: [BR-30, BR-105]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: docType, in: query, schema: { type: string, enum: [LICENSE, FSSAI, FIRE_SAFETY, LEASE, INSURANCE, OTHER] } }
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, EXPIRING_SOON, EXPIRED, ARCHIVED] } }
+        - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of documents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseDocumentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Inventory]
+      operationId: createWarehouseDocument
+      summary: Add a document to a warehouse
+      description: |
+        Metadata over a file uploaded through `POST /uploads/sign` with purpose `WAREHOUSE_DOCUMENT`.
+        `uploadId` must be a non-deleted upload the caller itself uploaded; an unknown, a deleted and
+        another user's upload are the same 422 on `body.uploadId`. One upload backs at most one live
+        document (409 `CONFLICT`). Dates are real `YYYY-MM-DD` days and `expiryDate >= issueDate`
+        (422). Requires `warehouse.document.manage` (Super, Tohfa and Main Warehouse Admin; a Sub
+        Warehouse Admin is 403, UNCONFIRMED). One `warehouse.document.create` audit row is written in
+        the same transaction with a masked image (doc type, dates, upload id, archived flag; never the
+        title or document number) (BR-35, BR-105).
+      x-permission: warehouse.document.manage
+      x-business-rules: [BR-30, BR-35, BR-105]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseDocumentCreate' }
+      responses:
+        '201':
+          description: Document created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/documents/{documentId}:
+    get:
+      tags: [Inventory]
+      operationId: getWarehouseDocument
+      summary: One warehouse document, with a short-lived signed file URL
+      description: |
+        Same scoping as the list: another or an unknown warehouse, and a document id that is not in
+        this warehouse, are 404 `NOT_FOUND`. The file is never public: `fileUrl` is a signed read URL
+        valid for 15 minutes; `fileUrl` and `mimeType` are null when the backing upload has since been
+        deleted. Archived documents are still readable (BR-30, BR-105).
+      x-permission: warehouse.document.view
+      x-business-rules: [BR-30, BR-105]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseDocumentDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Inventory]
+      operationId: updateWarehouseDocument
+      summary: Edit a warehouse document or replace its file
+      description: |
+        Changes any of `docType`, `title`, `documentNumber`, `issueDate`, `expiryDate` (`null` clears
+        the last three) and may replace the file (`uploadId`, a renewal; the same upload rule as POST,
+        and the caller becomes `uploadedBy`). At least one field; strict body. The merged result must
+        still satisfy `expiryDate >= issueDate` (422 on `body.expiryDate`). An archived document is 409
+        `INVALID_STATE_TRANSITION`. A request that changes nothing writes and audits nothing;
+        otherwise one `warehouse.document.update` audit row with masked before/after images and the
+        names of the changed fields. Requires `warehouse.document.manage` (BR-35, BR-105).
+      x-permission: warehouse.document.manage
+      x-business-rules: [BR-30, BR-35, BR-105]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarehouseDocumentUpdate' }
+      responses:
+        '200':
+          description: The document after the edit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/documents/{documentId}/archive:
+    post:
+      tags: [Inventory]
+      operationId: archiveWarehouseDocument
+      summary: Archive a warehouse document
+      description: |
+        Archives once (`archivedAt`, `archivedBy`); a repeat is a 200 no-op that writes and audits
+        nothing. There is no delete and no un-archive (UNCONFIRMED). One `warehouse.document.archive`
+        audit row with masked images is written in the same transaction. Requires
+        `warehouse.document.manage` (BR-35, BR-105).
+      x-permission: warehouse.document.manage
+      x-business-rules: [BR-30, BR-35, BR-105]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The archived document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WarehouseDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/sub-warehouse-admins:
     get:
       tags: [Inventory]
@@ -14229,7 +14852,7 @@ components:
       properties:
         purpose:
           type: string
-          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE, SOIL_TEST_REPORT, PEST_PHOTO, WORKER_PHOTO, WORKER_ID_PROOF, AUDIT_REPORT]
+          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE, SOIL_TEST_REPORT, PEST_PHOTO, WORKER_PHOTO, WORKER_ID_PROOF, AUDIT_REPORT, WAREHOUSE_DOCUMENT]
         contentType: { type: string, examples: [image/jpeg, application/pdf] }
         sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
         fileName: { type: string, maxLength: 200 }
@@ -20421,3 +21044,329 @@ components:
         itemCount: { type: integer, minimum: 0 }
         total: { $ref: '#/components/schemas/Money' }
         placedAt: { type: string, format: date-time }
+    WarehouseTransferCreate:
+      type: object
+      additionalProperties: false
+      description: BR-102. The two warehouses must differ; batches must be distinct.
+      required: [fromWarehouseId, toWarehouseId, lines]
+      properties:
+        fromWarehouseId: { type: string, format: uuid }
+        toWarehouseId: { type: string, format: uuid, description: Must differ from fromWarehouseId. }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [batchId, qtyKg]
+            properties:
+              batchId: { type: string, format: uuid, description: An ACTIVE batch in the source warehouse; distinct across lines. }
+              qtyKg: { type: string, pattern: '^\d{1,9}(\.\d{1,3})?$', description: 'Decimal string greater than 0 and at most the free shelf of the batch.', example: '12.5' }
+        vehicleNumber: { type: string, minLength: 1, maxLength: 20 }
+        notes: { type: string, minLength: 1, maxLength: 1000 }
+
+    WarehouseTransferReceive:
+      type: object
+      additionalProperties: false
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: Every line of the transfer exactly once.
+          items:
+            type: object
+            additionalProperties: false
+            required: [itemId, qtyReceivedKg]
+            properties:
+              itemId: { type: string, format: uuid, description: The line id (`WarehouseTransferLine.id`). }
+              qtyReceivedKg: { type: string, pattern: '^\d{1,9}(\.\d{1,3})?$', description: 'From 0 to qtySentKg.', example: '12.000' }
+        receiptNote: { type: string, minLength: 1, maxLength: 1000, description: Required when any line is received short. }
+
+    WarehouseTransferCancel:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+
+    WarehouseTransferLine:
+      type: object
+      description: One transfer line. Never carries the source farmer (BR-16).
+      required: [id, batchId, batchCode, cropId, grade, qtySentKg, qtyReceivedKg, varianceKg, costPerKg, lineValue, destBatchId]
+      properties:
+        id: { type: string, format: uuid }
+        batchId: { type: string, format: uuid, description: The source batch. }
+        batchCode: { type: string }
+        cropId: { type: string, format: uuid }
+        grade: { type: string, example: GRADE_1 }
+        qtySentKg: { type: string, pattern: '^\d+\.\d{3}$', example: '12.500' }
+        qtyReceivedKg: { type: string, nullable: true, pattern: '^\d+\.\d{3}$', description: Null until received. }
+        varianceKg: { type: string, nullable: true, pattern: '^-?\d+\.\d{3}$', description: qtyReceivedKg - qtySentKg (zero or negative); null until received. }
+        costPerKg:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          nullable: true
+          description: Snapshot of the source batch cost at creation; null when the batch had none.
+        lineValue:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          nullable: true
+          description: round(qtySentKg x costPerKg x 100) paise; null when costPerKg is null.
+        destBatchId: { type: string, format: uuid, nullable: true, description: The batch created at the destination; null until received or when 0 was received. }
+
+    WarehouseTransferSummary:
+      type: object
+      description: The transfer header (list items carry no lines).
+      required: [id, transferNumber, fromWarehouseId, toWarehouseId, status, totalValue, hasUnvaluedLines, requiresApproval, hasDiscrepancy, vehicleNumber, notes, receiptNote, cancelReason, initiatedBy, approvedBy, approvedAt, dispatchedAt, receivedBy, receivedAt, cancelledBy, cancelledAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        transferNumber: { type: string, example: TRF-000001 }
+        fromWarehouseId: { type: string, format: uuid }
+        toWarehouseId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING_APPROVAL, IN_TRANSIT, RECEIVED, CANCELLED] }
+        totalValue: { $ref: '#/components/schemas/Money' }
+        hasUnvaluedLines: { type: boolean, description: Some line's batch had no cost; such a transfer always needs approval. }
+        requiresApproval: { type: boolean }
+        hasDiscrepancy: { type: boolean, description: Some line was received short. }
+        vehicleNumber: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        receiptNote: { type: string, nullable: true }
+        cancelReason: { type: string, nullable: true }
+        initiatedBy: { type: string, format: uuid }
+        approvedBy: { type: string, format: uuid, nullable: true }
+        approvedAt: { type: string, format: date-time, nullable: true }
+        dispatchedAt: { type: string, format: date-time, nullable: true }
+        receivedBy: { type: string, format: uuid, nullable: true }
+        receivedAt: { type: string, format: date-time, nullable: true }
+        cancelledBy: { type: string, format: uuid, nullable: true }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, nullable: true }
+
+    WarehouseTransfer:
+      description: One transfer with its lines (BR-102).
+      allOf:
+        - $ref: '#/components/schemas/WarehouseTransferSummary'
+        - type: object
+          required: [lines]
+          properties:
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/WarehouseTransferLine' }
+
+    WarehouseTransferList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WarehouseTransferSummary' }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    WarehouseActivityEvent:
+      type: object
+      description: |
+        One event of the warehouse activity feed (BR-104). An allow-list: it never carries a farmer
+        id, customer data or free text.
+      additionalProperties: false
+      required: [type, sourceId, occurredAt, reference, status, severity, qtyKg, direction, actorId]
+      properties:
+        type:
+          type: string
+          enum: [STOCK_MOVEMENT, GOODS_RECEIPT, TRANSFER, ISSUE, RETURN, DOCUMENT]
+        sourceId:
+          type: string
+          format: uuid
+          description: Id of the source row (stock-ledger row, goods receipt, transfer, issue, return request or document).
+        occurredAt:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$'
+          description: |
+            The immutable instant the event is anchored to, UTC with microsecond precision (ledger,
+            transfer, issue, return and document: creation; goods receipt: `received_at`).
+        reference:
+          type: string
+          description: Movement type, GRN number, transfer number, issue number, return request id or document type.
+        status:
+          type: [string, 'null']
+          description: |
+            Current status of a goods receipt, transfer, issue or return request; `ARCHIVED` for an
+            archived document; null for a stock movement and a live document.
+        severity:
+          type: [string, 'null']
+          enum: [LOW, MEDIUM, HIGH, CRITICAL, null]
+          description: Issue severity; null for every other type.
+        qtyKg:
+          type: [string, 'null']
+          pattern: '^-?\d{1,9}\.\d{3}$'
+          description: Signed kg of a stock movement, gross kg of a goods receipt; null otherwise.
+        direction:
+          type: [string, 'null']
+          enum: [OUTBOUND, INBOUND, null]
+          description: For a transfer, relative to the requested warehouse; null otherwise.
+        actorId:
+          type: [string, 'null']
+          format: uuid
+          description: The user recorded on the source row, where it records one (null for a return request).
+
+    WarehouseActivityPage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WarehouseActivityEvent' }
+        page: { $ref: '#/components/schemas/PageMeta' }
+    WarehouseIssue:
+      type: object
+      description: An operational issue of one warehouse (BR-103).
+      required: [id, issueNumber, warehouseId, category, severity, title, description, status, reportedBy, assignedTo, resolutionNote, resolvedBy, resolvedAt, closedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        issueNumber: { type: string, pattern: '^WI-\d{6,}$', example: WI-000001 }
+        warehouseId: { type: string, format: uuid }
+        category: { type: string, enum: [EQUIPMENT, STORAGE, QUALITY, SAFETY, STAFFING, OTHER] }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        title: { type: string, maxLength: 160 }
+        description: { type: string, nullable: true, maxLength: 4000 }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        reportedBy: { type: string, format: uuid }
+        assignedTo: { type: string, format: uuid, nullable: true }
+        resolutionNote: { type: string, nullable: true, maxLength: 2000, description: 'Set when RESOLVED, kept when CLOSED, cleared on reopen.' }
+        resolvedBy: { type: string, format: uuid, nullable: true }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        closedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, nullable: true }
+
+    WarehouseIssueComment:
+      type: object
+      description: One comment of an issue's append-only thread (BR-103).
+      required: [id, authorId, body, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        authorId: { type: string, format: uuid }
+        body: { type: string, maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+
+    WarehouseIssueDetail:
+      allOf:
+        - $ref: '#/components/schemas/WarehouseIssue'
+        - type: object
+          required: [comments]
+          properties:
+            comments:
+              type: array
+              description: Oldest first.
+              items: { $ref: '#/components/schemas/WarehouseIssueComment' }
+
+    WarehouseIssueCreate:
+      type: object
+      additionalProperties: false
+      required: [category, severity, title]
+      properties:
+        category: { type: string, enum: [EQUIPMENT, STORAGE, QUALITY, SAFETY, STAFFING, OTHER] }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        title: { type: string, minLength: 1, maxLength: 160, description: Trimmed. }
+        description: { type: string, nullable: true, minLength: 1, maxLength: 4000, description: Trimmed. }
+        assignedTo: { type: string, format: uuid, nullable: true, description: 'An active admin who can reach this warehouse (see the operation).' }
+
+    WarehouseIssueUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        category: { type: string, enum: [EQUIPMENT, STORAGE, QUALITY, SAFETY, STAFFING, OTHER] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string, nullable: true, minLength: 1, maxLength: 4000, description: null clears it. }
+        assignedTo: { type: string, format: uuid, nullable: true, description: null unassigns. }
+        resolutionNote: { type: string, minLength: 1, maxLength: 2000, description: 'Required when moving to RESOLVED; accepted only when the issue is, or is being, RESOLVED.' }
+
+    WarehouseIssueCommentCreate:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 2000, description: Trimmed. }
+
+    WarehouseIssueList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WarehouseIssue' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer }
+    WarehouseDocument:
+      type: object
+      description: |
+        A compliance or property document of one warehouse (BR-105). `status` is derived at read time
+        from `expiryDate`, `archivedAt` and the configured warning window; it is never stored.
+      required: [id, warehouseId, docType, title, documentNumber, issueDate, expiryDate, status, uploadId, uploadedBy, archivedAt, archivedBy, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        docType: { type: string, enum: [LICENSE, FSSAI, FIRE_SAFETY, LEASE, INSURANCE, OTHER], description: Fixed list (UNCONFIRMED). }
+        title: { type: string, maxLength: 160, example: FSSAI licence 2026 }
+        documentNumber: { type: string, nullable: true, maxLength: 80 }
+        issueDate: { type: string, format: date, nullable: true }
+        expiryDate: { type: string, format: date, nullable: true }
+        status: { type: string, enum: [ACTIVE, EXPIRING_SOON, EXPIRED, ARCHIVED] }
+        uploadId: { type: string, format: uuid }
+        uploadedBy: { type: string, format: uuid, description: The user who uploaded the current file. }
+        archivedAt: { type: string, format: date-time, nullable: true }
+        archivedBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, nullable: true }
+
+    WarehouseDocumentDetail:
+      allOf:
+        - $ref: '#/components/schemas/WarehouseDocument'
+        - type: object
+          required: [fileUrl, mimeType]
+          properties:
+            fileUrl: { type: string, nullable: true, description: 'Signed read URL valid for 15 minutes; null when the upload has been deleted.' }
+            mimeType: { type: string, nullable: true, example: application/pdf }
+
+    WarehouseDocumentCreate:
+      type: object
+      additionalProperties: false
+      required: [docType, title, uploadId]
+      properties:
+        docType: { type: string, enum: [LICENSE, FSSAI, FIRE_SAFETY, LEASE, INSURANCE, OTHER] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        documentNumber: { type: string, nullable: true, minLength: 1, maxLength: 80 }
+        issueDate: { type: string, format: date, nullable: true }
+        expiryDate: { type: string, format: date, nullable: true, description: 'Must be on or after issueDate.' }
+        uploadId: { type: string, format: uuid, description: 'A non-deleted upload the caller itself uploaded (purpose WAREHOUSE_DOCUMENT).' }
+
+    WarehouseDocumentUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        docType: { type: string, enum: [LICENSE, FSSAI, FIRE_SAFETY, LEASE, INSURANCE, OTHER] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        documentNumber: { type: string, nullable: true, minLength: 1, maxLength: 80 }
+        issueDate: { type: string, format: date, nullable: true }
+        expiryDate: { type: string, format: date, nullable: true }
+        uploadId: { type: string, format: uuid, description: Replaces the file (a renewal); same rule as on create. }
+
+    WarehouseDocumentList:
+      type: object
+      required: [items, page, pageSize, total, expiryWarningDays]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WarehouseDocument' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer }
+        expiryWarningDays: { type: integer, minimum: 0, description: The EXPIRING_SOON window the statuses were derived with. }

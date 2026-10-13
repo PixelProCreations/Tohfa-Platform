@@ -10,12 +10,18 @@
 import { Router } from 'express';
 import { storageLocationsRouter } from './storage-locations.routes.js';
 import { warehousePerformanceRouter } from './warehouse-performance.routes.js';
+import { warehouseActivityRouter } from './warehouse-activity.routes.js';
+import { warehouseDocumentsRouter } from './warehouse-documents.routes.js';
+import { warehouseIssuesRouter } from './warehouse-issues.routes.js';
 import { warehouseProfileRouter } from './warehouse-profile.routes.js';
 
 export const warehouseOpsRouter: Router = Router();
 warehouseOpsRouter.use(storageLocationsRouter);
 warehouseOpsRouter.use(warehouseProfileRouter);
 warehouseOpsRouter.use(warehousePerformanceRouter);
+warehouseOpsRouter.use(warehouseActivityRouter);
+warehouseOpsRouter.use(warehouseIssuesRouter);
+warehouseOpsRouter.use(warehouseDocumentsRouter);
 
 /** BR-81, mounted at /v1/admin/sub-warehouse-admins. */
 export { subAdminsRouter } from './sub-admins.routes.js';

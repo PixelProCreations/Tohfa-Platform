@@ -1834,6 +1834,96 @@
       "source": "matrix \u00a77 \u2014 SA only; threshold undefined"
     },
     {
+      "code": "transfer.inter_warehouse.view",
+      "module": "Inventory & Warehouse",
+      "description": "List and read inter-warehouse transfers (a Sub Warehouse Admin only those its own warehouse sends or receives).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-102): no code governed reading transfers; the receiver must see what it receives; owner approval pending"
+    },
+    {
+      "code": "warehouse.issue.view",
+      "module": "Inventory & Warehouse",
+      "description": "List and read the operational issues of a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-103): no requirement or screen covers warehouse operational issues; owner approval pending"
+    },
+    {
+      "code": "warehouse.issue.manage",
+      "module": "Inventory & Warehouse",
+      "description": "Report, assign, progress, resolve, close and comment on the operational issues of a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-103): the Sub Warehouse Admin runs day-to-day operations of its warehouse, so it reports and works its own issues; owner approval pending"
+    },
+    {
+      "code": "warehouse.activity.view",
+      "module": "Inventory & Warehouse",
+      "description": "Read the activity feed of a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-104): a read-only merge of rows each role can already read for its warehouse; owner approval pending"
+    },
+    {
+      "code": "warehouse.document.view",
+      "module": "Inventory & Warehouse",
+      "description": "List and read the compliance and property documents of a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-105): no requirement or screen covers warehouse documents; owner approval pending"
+    },
+    {
+      "code": "warehouse.document.manage",
+      "module": "Inventory & Warehouse",
+      "description": "Add, edit and archive the compliance and property documents of a warehouse.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-12 (BR-105): licences, leases and insurance are warehouse master data, which a Sub Warehouse Admin does not edit (as BR-79, BR-80); SUB_WH_ADMIN none is UNCONFIRMED; owner approval pending"
+    },
+    {
       "code": "allocation.dashboard.view",
       "module": "Reserve & Allocation",
       "description": "View the 70/10/10/10 allocation dashboard.",
