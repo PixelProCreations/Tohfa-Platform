@@ -99,6 +99,7 @@ export function ProductStockDetailScreen({
   const rawProduct = typeof routeParams?.['product'] === 'string' ? routeParams['product'] : undefined;
   const productKey = rawProduct?.toLowerCase().trim() ?? '';
   const matchingKey = Object.keys(KNOWN_PRODUCT_STOCK).find((key) => productKey.includes(key));
+  const isCarrot = matchingKey === 'carrot';
   const productData = matchingKey ? KNOWN_PRODUCT_STOCK[matchingKey] : undefined;
 
   const title = productData?.title ?? (rawProduct ? rawProduct : 'Unknown Product');
