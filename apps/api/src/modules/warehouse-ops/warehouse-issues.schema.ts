@@ -4,7 +4,7 @@
  * (a `warehouseId`, an `issueNumber`, a `reportedBy`) is a 422 rather than silently ignored.
  *
  * Categories and severities are fixed lists (BR-103 rule 1, UNCONFIRMED) mirrored by the CHECK
- * constraints in db/migrations/0067_warehouse_operations.sql; the lengths below mirror the same CHECKs.
+ * constraints in db/migrations/0069_warehouse_operations.sql; the lengths below mirror the same CHECKs.
  */
 import { z } from 'zod';
 

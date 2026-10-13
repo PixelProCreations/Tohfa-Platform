@@ -2388,7 +2388,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 |---|---|
 | **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; implements BR-26 and the `stock_transfers` model of `0005_warehouse_inventory.sql`; no requirement document or screen exists |
 | **Status** | DERIVED |
-| **Layer** | Server-side, `apps/api/src/modules/warehouse-transfers/`; `stock_transfers`, `stock_transfer_items` (`0067_warehouse_operations.sql`); `system_config.transfer_high_value_threshold_paise` |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-transfers/`; `stock_transfers`, `stock_transfer_items` (`0069_warehouse_operations.sql`); `system_config.transfer_high_value_threshold_paise` |
 | **Scope** | Track 1 |
 
 **Rule.**
@@ -2422,7 +2422,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 |---|---|
 | **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; no requirement document or screen exists |
 | **Status** | DERIVED |
-| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (issues); `warehouse_issues`, `warehouse_issue_comments` (`0067_warehouse_operations.sql`) |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (issues); `warehouse_issues`, `warehouse_issue_comments` (`0069_warehouse_operations.sql`) |
 | **Scope** | Track 1 |
 
 **Rule.**
@@ -2479,7 +2479,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 |---|---|
 | **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; closes BR-80 item 3 ("warehouse documents not built"); no requirement document or screen exists |
 | **Status** | DERIVED |
-| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (documents); `warehouse_documents` (`0067_warehouse_operations.sql`); `system_config.warehouse_document_expiry_warning_days`; the file is an `uploads` row signed through `POST /uploads/sign` with purpose `WAREHOUSE_DOCUMENT` |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (documents); `warehouse_documents` (`0069_warehouse_operations.sql`); `system_config.warehouse_document_expiry_warning_days`; the file is an `uploads` row signed through `POST /uploads/sign` with purpose `WAREHOUSE_DOCUMENT` |
 | **Scope** | Track 1 |
 
 **Rule.**

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0067_warehouse_operations.sql
+-- 0069_warehouse_operations.sql
 -- Four warehouse-operations features, all DERIVED rules (no requirement document or screen):
 --   * BR-102 inter-warehouse transfers: completes the stock_transfers model of 0005 (BR-26);
 --   * BR-103 warehouse operational issues (+ an append-only comment thread);
