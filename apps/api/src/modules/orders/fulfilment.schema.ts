@@ -139,7 +139,8 @@ export const adminOrderFulfilmentTypes = ['PICKUP', 'DELIVERY'] as const;
 export type AdminOrderFulfilmentType = (typeof adminOrderFulfilmentTypes)[number];
 export const adminOrderPaymentMethods = ['WALLET', 'UPI', 'CARD', 'NETBANKING', 'CASH'] as const;
 export type AdminOrderPaymentMethod = (typeof adminOrderPaymentMethods)[number];
-export const adminOrderPaymentStatuses = ['PENDING', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'FAILED'] as const;
+// REFUND_DUE (migration 0068, BR-94i): a counter sale cancelled after its UPI payment was captured.
+export const adminOrderPaymentStatuses = ['PENDING', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'FAILED', 'REFUND_DUE'] as const;
 export type AdminOrderPaymentStatus = (typeof adminOrderPaymentStatuses)[number];
 export const adminOrderInvoiceStatuses = ['DRAFT', 'ISSUED', 'CANCELLED', 'CREDIT_NOTED'] as const;
 export type AdminOrderInvoiceStatus = (typeof adminOrderInvoiceStatuses)[number];

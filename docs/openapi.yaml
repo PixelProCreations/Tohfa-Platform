@@ -8915,6 +8915,7 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/batches/{id}:
@@ -8969,6 +8970,7 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/stock-adjustments:
@@ -9044,6 +9046,7 @@ paths:
                 page: { nextCursor: null, hasMore: false }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/allocation-config:
@@ -9839,8 +9842,11 @@ paths:
         any of the four warehouses (BR-27). A Sub Warehouse Admin cannot assign orders to its
         own warehouse. A DIRECT or MARKET counter sale (including a UPI sale still
         `PENDING_PAYMENT`) stays at the warehouse that made it: 409 `COUNTER_SALE_NOT_REASSIGNABLE`
-        (BR-85f); any other order outside `CONFIRMED` / `PENDING_PAYMENT` is 409
-        `INVALID_STATE_TRANSITION`.
+        (BR-85i); any other order outside `CONFIRMED` / `PENDING_PAYMENT` is 409
+        `INVALID_STATE_TRANSITION`. These checks are made on the order row locked inside the
+        reassign transaction (BR-85j), so a pack or cancel that commits first makes the reassign
+        409 `INVALID_STATE_TRANSITION`; an update that changes no row is 409 `CONFLICT`. Either
+        way nothing is written (no history row, no audit row).
       x-permission: order.warehouse.assign
       x-business-rules: [BR-21, BR-27, BR-85]
       parameters:
@@ -13325,10 +13331,21 @@ paths:
         sale returns it unchanged with no second effect (BR-88g). A sale that is not a UPI sale, or
         whose payment FAILED, is 409 `CONFLICT`. A UPI reference that already confirmed another
         sale is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` and the sale stays
-        pending: one payment confirms one sale (BR-94, unique `sale_payments.upi_txn_ref`). Stock
-        that is no longer on the sale's shelf is 409 `SALE_STOCK_CHANGED`. `Idempotency-Key` is
-        required: missing or blank is 422 `VALIDATION_FAILED`. 404 for a sale outside the caller's
-        scope, never 403.
+        pending: one payment confirms one sale (BR-94, unique `sale_payments.upi_txn_ref`). A
+        verified reference is kept on the still-pending payment before the completing transaction
+        runs, so a confirm that fails after verification leaves the sale pending WITH its reference
+        (BR-94q; `upiTxnRef` is then non-null on a `PENDING` payment); an unverified reference is
+        never kept. Stock
+        that is no longer on the sale's shelf is 409 `SALE_STOCK_CHANGED`: the sale is cancelled and
+        its captured payment is `REFUND_DUE` (refunded at once when `sales.upi_refund_mode = auto`),
+        `meta.reason = UPI_REFUND_DUE`. That cancel decides on the sale row locked in its own
+        transaction (BR-94l): a sale another request confirmed or cancelled meanwhile is 409
+        `CONFLICT` with `meta.reason = SALE_STATE_CHANGED`, nothing is cancelled and nothing is
+        refunded. A stock conflict with a UPI reference that already confirmed another sale is
+        likewise 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` (BR-94n): the cancel
+        rolls back, the sale stays pending and nothing is refunded. `Idempotency-Key` is required:
+        missing or blank is 422 `VALIDATION_FAILED`. 404 for a sale outside the caller's scope,
+        never 403.
       x-permission: payment.record
       x-business-rules: [BR-94, BR-87, BR-88, BR-90]
       parameters:
@@ -13342,6 +13359,50 @@ paths:
       responses:
         '200':
           description: The completed sale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sale' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SaleConflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/{saleId}/cancel:
+    post:
+      tags: [Sales]
+      operationId: cancelAdminSale
+      summary: Cancel an unpaid pending UPI sale
+      description: |
+        Cancels a `PENDING_PAYMENT` DIRECT/MARKET sale whose UPI payment is still `PENDING`: the order
+        and its items become `CANCELLED`, the payment `FAILED`, the stock hold is released (BR-94i),
+        and one `order_status_history` row and one `order.cancel` audit row are written in the same
+        transaction. The decision is made on the sale row locked in that transaction (BR-94l): a sale
+        that is not a UPI sale, or is already paid, picked up or cancelled, is 409 `CONFLICT`; a sale
+        another request changed while this one was writing is 409 `CONFLICT` with
+        `meta.reason = SALE_STATE_CHANGED`; in every 409 case nothing is written. When the pending
+        payment carries a UPI reference (kept by a verified confirm whose transaction then failed,
+        BR-94q), the gateway is asked first: a captured payment is 409 `CONFLICT` with
+        `meta.reason = UPI_PAYMENT_CAPTURED` and the sale stays pending (confirm it instead); a
+        payment the gateway does not report captured, or one with no reference, is cancelled as
+        above. Cancelling an already cancelled sale with the same key replays the original
+        response. `Idempotency-Key` is required: missing or blank is 422 `VALIDATION_FAILED`. 404
+        for a sale outside the caller's scope, never 403.
+      x-permission: sales.sale.cancel
+      x-business-rules: [BR-94, BR-88, BR-90]
+      parameters:
+        - { $ref: '#/components/parameters/SaleIdPathParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleCancelRequest' }
+      responses:
+        '200':
+          description: The cancelled sale (`status = CANCELLED`, `paymentStatus = FAILED`).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Sale' }
@@ -13716,6 +13777,10 @@ components:
         UPI confirm: `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED` (the reference already
         confirmed another sale, BR-94), plain `CONFLICT` (not a UPI sale, or its payment is not
         pending) and `SALE_STOCK_CHANGED` (the held stock is no longer on the sale's shelf).
+        UPI confirm stock conflict and cancel: `CONFLICT` with `meta.reason = SALE_STATE_CHANGED`
+        (another request confirmed, cancelled or refunded the sale first; nothing written, BR-94l).
+        Cancel: `CONFLICT` with `meta.reason = UPI_PAYMENT_CAPTURED` (the pending payment's kept
+        reference is captured at the gateway; nothing written, confirm the sale instead, BR-94q).
         `meta` carries the fresh values so the counter can re-confirm (`meta.lines[]` with
         `requestedQtyKg` / `availableQtyKg` for stock; `meta.expectedTotal` / `meta.currentTotal` /
         `meta.quote` for price). Nothing is written but a `sale_attempts` row (a quote writes nothing).
@@ -14086,7 +14151,7 @@ components:
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
-        * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85f). HTTP 409.
+        * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
       required: [type, title, status, code]
       properties:
         type:
@@ -19978,6 +20043,12 @@ components:
       properties:
         upiTxnRef: { type: string, minLength: 1, maxLength: 120, description: The gateway / UPI transaction reference to verify. }
 
+    SaleCancelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 300, description: 'Why the sale is abandoned; trimmed. Defaults to "Cancelled by operator".' }
+
     SaleLine:
       type: object
       description: Farm-anonymous allow-list (BR-90). Lines are informational and sum to `subtotal` exactly (BR-98).
@@ -20034,7 +20105,7 @@ components:
         status: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED] }
         fulfilmentType: { type: string, enum: [PICKUP, DELIVERY] }
         paymentMethod: { type: string, enum: [WALLET, UPI, CARD, NETBANKING, CASH] }
-        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED] }
+        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED, REFUND_DUE] }
         warehouse:
           type: object
           additionalProperties: false

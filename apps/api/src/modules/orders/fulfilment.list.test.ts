@@ -3,10 +3,10 @@
  * CUSTOMER token and the warehouse roles.
  *
  * BR-101 = the admin order routes are confined by the RESOLVED scope, not by role names:
- *   - CUSTOMER holds `own` on `order.list.view_all` (that grant is its own-orders permission), so it
- *     passes requirePermission on the list. Its scope carries a customer id, and on these admin
- *     routes a customer-owned scope fails closed: an empty list, a 404 detail, never another
- *     customer's order. On the action routes it holds `none` and requirePermission answers 403.
+ *   - CUSTOMER holds `none` on `order.list.view_all` (customers read their own orders through
+ *     /orders, `order.view_own`), so requirePermission answers 403 on the list, the detail and the
+ *     action routes (BR-101a). A customer-owned scope still fails closed in the repo (an empty
+ *     list, a 404 detail), so a future grant cannot open another customer's order.
  *   - A Sub Warehouse Admin sees only its warehouse; a `warehouseId` filter naming another
  *     warehouse is an EMPTY list, never 403 (BR-30: a 403 confirms the other warehouse's data).
  *   - scope `all` (MAIN_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN) sees every warehouse; the filter narrows.
@@ -85,13 +85,16 @@ describe('admin order list service (fake repo)', () => {
     const order = { id: newId(), status: 'CONFIRMED', fulfillmentType: 'PICKUP', warehouseId: WH_A };
     const repo = {
       findOrderForFulfilment: vi.fn(async () => order),
+      // assign-warehouse decides on the row locked inside its transaction (BR-85j).
+      lockOrderForUpdate: vi.fn(async () => ({ ...order, channel: 'ONLINE' })),
       getOrderDeliveryOtpHolder: vi.fn(async () => ({
         id: order.id, status: 'READY_FOR_PICKUP', fulfilmentType: 'PICKUP', deliveryOtpHash: 'x', otpAttempts: 0, customerId: newId(), warehouseId: WH_A,
       })),
       updateOrderStatus: vi.fn(),
       incrementOtpAttempts: vi.fn(),
     } as unknown as FulfilmentRepo;
-    const service = createFulfilmentService({ repo, db: {} as Executor });
+    const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
+    const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
     const actor = { userId: newId(), roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: newId() };
     const customer: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.CUSTOMER, customerId: actor.customerId });
     for (const call of [
@@ -111,9 +114,12 @@ describe('admin order list service (fake repo)', () => {
       const order = { id: newId(), status: 'PENDING_PAYMENT', channel, fulfillmentType: 'PICKUP', warehouseId: WH_A };
       const repo = {
         findOrderForFulfilment: vi.fn(async () => order),
+        // assign-warehouse decides on the row locked inside its transaction (BR-85j).
+        lockOrderForUpdate: vi.fn(async () => order),
         updateOrderStatus: vi.fn(),
       } as unknown as FulfilmentRepo;
-      const service = createFulfilmentService({ repo, db: {} as Executor });
+      const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
+      const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
       const actor = { userId: newId(), roles: [{ code: RoleCode.MAIN_WH_ADMIN }], farmerId: null, customerId: null };
       const main: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.MAIN_WH_ADMIN, permission: 'order.warehouse.assign' });
       await expect(service.assignWarehouse(actor, main, order.id, { warehouseId: WH_B })).rejects.toMatchObject({

@@ -259,14 +259,23 @@ function harness(options: { gst?: unknown; available?: string; price?: Money | n
     },
     insertSaleLedger: record('insertSaleLedger'),
     consumeAllocation: record('consumeAllocation'),
-    lockSale: async () => null,
+    // Like the real repo, lockSale is findSaleHeader read under a row lock: a test that stubs the
+    // header stubs what the transaction sees once it holds the lock, unless it overrides lockSale.
+    lockSale: async (db, saleId, visible) => repo.findSaleHeader(db, saleId, visible),
     findSaleHeader: async () => null,
     saleItems: async () => [],
     completeOrder: record('completeOrder'),
     confirmPayment: record('confirmPayment'),
     recordPendingUpiRef: record('recordPendingUpiRef'),
-    cancelSale: record('cancelSale'),
-    settlePayment: record('settlePayment'),
+    // BR-94l: the conditional UPDATEs report whether they changed the row; default "it did".
+    cancelSale: async () => {
+      writes.push('cancelSale');
+      return true;
+    },
+    settlePayment: async () => {
+      writes.push('settlePayment');
+      return true;
+    },
     markRefunded: async () => true,
     listExpiredPendingUpi: async () => [],
     loadSale: async (_db, id) => fakeRecord(id),
@@ -628,9 +637,11 @@ describe('salesService (mocked repo)', () => {
       expect(id).toBe(saleId);
       expect(args.paymentStatus).toBe('REFUND_DUE');
       cancelCalled = true;
+      return true;
     };
     h.repo.settlePayment = async (_db, _id, status) => {
       paymentSettledStatus = status;
+      return true;
     };
 
     const service = createSalesService(h.deps);
@@ -687,9 +698,11 @@ describe('salesService (mocked repo)', () => {
       expect(id).toBe(saleId);
       expect(args.paymentStatus).toBe('FAILED');
       cancelled = true;
+      return true;
     };
     h.repo.settlePayment = async (_db, _id, status) => {
       paymentStatus = status;
+      return true;
     };
     h.repo.loadSale = async (_db, id) => {
       const rec = fakeRecord(id);
@@ -734,6 +747,7 @@ describe('salesService (mocked repo)', () => {
 
     h.repo.cancelSale = async () => {
       cancelCalled = true;
+      return true;
     };
 
     // When config is null (default)
@@ -759,5 +773,401 @@ describe('salesService (mocked repo)', () => {
     const res2 = await service2.expirePendingUpi();
     expect(res2.expiredCount).toBe(1);
     expect(cancelCalled).toBe(true);
+  });
+
+  it('BR-94o: sales.upi_pending_expiry_minutes disables expiry unless it is a positive whole number, and the window passed to the sweep is the configured one', async () => {
+    const h = harness();
+    const windows: number[] = [];
+    h.repo.listExpiredPendingUpi = async (_db, minutes) => {
+      windows.push(minutes);
+      return [];
+    };
+    for (const disabled of [null, undefined, 0, -5, 2.5, 'never', '0']) {
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_pending_expiry_minutes' ? disabled : undefined);
+      expect(await createSalesService(h.deps).expirePendingUpi()).toEqual({ expiredCount: 0 });
+    }
+    expect(windows).toEqual([]);
+
+    for (const enabled of [45, '30']) {
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_pending_expiry_minutes' ? enabled : undefined);
+      await createSalesService(h.deps).expirePendingUpi();
+    }
+    expect(windows).toEqual([45, 30]);
+  });
+
+  it('BR-94p: sales.upi_refund_mode refunds through the gateway only when it is exactly "auto"; any other value is manual (REFUND_DUE kept, no gateway call)', async () => {
+    for (const mode of ['manual', undefined, null, 'AUTO', 'yes']) {
+      const saleId = newId();
+      const h = upiHarness(saleId);
+      const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_never', status: 'processed' }));
+      h.deps.gateway = { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment };
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_refund_mode' ? mode : undefined);
+      h.repo.insertSaleLedger = async () => {
+        throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+      };
+      const error = await failure(createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-mode', { upiTxnRef: 'pay_mode_1' }));
+      expect(error.meta, String(mode)).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUND_DUE' });
+      expect(refundPayment, String(mode)).not.toHaveBeenCalled();
+    }
+  });
+});
+
+// ===========================================================================
+// 4. BR-94l: the stock-conflict cancel + refund path decides on the LOCKED sale row
+// ===========================================================================
+describe('salesService: UPI confirm stock conflict races (mocked repo)', () => {
+  function pendingHeader(id: string, paymentId: string): SaleHeaderRow {
+    return {
+      id,
+      warehouseId: OOTY,
+      channel: 'DIRECT',
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      customerId: null,
+      totalAmount: parseMoney('45.50'),
+      gstAmount: parseMoney('0.00'),
+      paymentId,
+      paymentMethod: 'UPI',
+      paymentStatusDetail: 'PENDING',
+      upiTxnRef: null,
+    };
+  }
+
+  /**
+   * A pending UPI sale whose confirm hits a stock conflict, in sales.upi_refund_mode = auto, with
+   * every transaction statement recorded per transaction so a test can see what the cancel
+   * transaction wrote (status history, audit) and whether the gateway refund was called.
+   */
+  function raceHarness() {
+    const saleId = newId();
+    const paymentId = newId();
+    const h = harness();
+    const statements: string[][] = [];
+    const calls: string[] = [];
+    h.repo.configValue = async (_db, key) => (key === 'sales.upi_refund_mode' ? 'auto' : undefined);
+    h.repo.findSaleHeader = async () => pendingHeader(saleId, paymentId);
+    h.repo.lockSale = async () => pendingHeader(saleId, paymentId);
+    h.repo.saleItems = async () => fakeRecord(saleId).items;
+    h.repo.insertSaleLedger = async () => {
+      throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+    };
+    h.repo.cancelSale = async () => {
+      calls.push('cancelSale');
+      return true;
+    };
+    h.repo.settlePayment = async () => {
+      calls.push('settlePayment');
+      return true;
+    };
+    h.repo.insertStatusHistory = async (_db, _id, from, to) => {
+      calls.push(`history:${from ?? 'null'}->${to}`);
+    };
+    h.repo.markRefunded = async () => {
+      calls.push('markRefunded');
+      return true;
+    };
+    const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_race_1', status: 'processed' }));
+    h.deps.gateway = { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment };
+    h.deps.runTx = async (fn) => {
+      const log: string[] = [];
+      statements.push(log);
+      const tx: Executor = {
+        query: (async (sql: string) => {
+          log.push(sql);
+          return { rows: [{ id: newId() }], rowCount: 1 };
+        }) as unknown as Executor['query'],
+      };
+      return fn(tx);
+    };
+    const audits = (): number => statements.flat().filter((sql) => /INSERT INTO audit_log/i.test(sql)).length;
+    const confirm = () => createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-race', { upiTxnRef: 'pay_race_1' });
+    return { h, saleId, paymentId, calls, refundPayment, audits, confirm };
+  }
+
+  it('BR-94l: a sale another request confirmed before the cancel transaction locked it is 409 CONFLICT: no cancel, no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    let lockCalls = 0;
+    // First lock: the confirm's own transaction (still pending). Second lock: the cancel
+    // transaction, by which time a concurrent confirm committed PICKED_UP / CONFIRMED.
+    r.h.repo.lockSale = async () => {
+      lockCalls += 1;
+      const header = pendingHeader(r.saleId, r.paymentId);
+      return lockCalls === 1 ? header : { ...header, status: 'PICKED_UP', paymentStatus: 'PAID', paymentStatusDetail: 'CONFIRMED', upiTxnRef: 'pay_race_1' };
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'SALE_STATE_CHANGED' });
+    expect(lockCalls).toBe(2);
+    expect(r.calls).toEqual([]);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: a sale another request already cancelled is 409 CONFLICT and is not refunded a second time', async () => {
+    const r = raceHarness();
+    let lockCalls = 0;
+    r.h.repo.lockSale = async () => {
+      lockCalls += 1;
+      const header = pendingHeader(r.saleId, r.paymentId);
+      return lockCalls === 1 ? header : { ...header, status: 'CANCELLED', paymentStatus: 'REFUND_DUE', paymentStatusDetail: 'REFUND_DUE' };
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(r.calls).toEqual([]);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: when the order UPDATE matches no row (cancelSale changed nothing) the cancel is 409 CONFLICT: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    r.h.repo.cancelSale = async () => {
+      r.calls.push('cancelSale');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: when the payment UPDATE matches no row (settlePayment changed nothing) the cancel is 409 CONFLICT: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    r.h.repo.settlePayment = async () => {
+      r.calls.push('settlePayment');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+  });
+
+  it('BR-94l: the cancel decides on the locked row of the transaction it writes in (lockSale runs on the cancel transaction client)', async () => {
+    const r = raceHarness();
+    const lockedOn: Executor[] = [];
+    const wroteOn: Executor[] = [];
+    r.h.repo.lockSale = async (db) => {
+      lockedOn.push(db);
+      return pendingHeader(r.saleId, r.paymentId);
+    };
+    r.h.repo.cancelSale = async (db) => {
+      wroteOn.push(db);
+      return true;
+    };
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(lockedOn).toHaveLength(2);
+    expect(wroteOn).toHaveLength(1);
+    expect(lockedOn[1]).toBe(wroteOn[0]);
+  });
+
+  it('BR-94l: the happy path still cancels, writes one history and one cancel audit, refunds once and marks REFUNDED', async () => {
+    const r = raceHarness();
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUNDED' });
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment', 'history:PENDING_PAYMENT->CANCELLED', 'markRefunded']);
+    expect(r.refundPayment).toHaveBeenCalledTimes(1);
+    expect(r.audits()).toBe(2);
+  });
+
+  it('BR-94l: a refund whose REFUND_DUE row is no longer REFUND_DUE (markRefunded false) is not reported REFUNDED and writes no refund audit row', async () => {
+    const r = raceHarness();
+    r.h.repo.markRefunded = async () => {
+      r.calls.push('markRefunded');
+      return false;
+    };
+    const error = await failure(r.confirm());
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ refundStatus: 'REFUND_DUE' });
+    // Only the cancel transaction's audit row; the refund transaction rolled its row back.
+    expect(r.audits()).toBe(1);
+  });
+
+  it('BR-94n: a stock conflict whose cancel writes a UPI reference already on another sale is 409 UPI_TXN_REF_ALREADY_USED, never a 500: no history, no audit, no refund', async () => {
+    const r = raceHarness();
+    // The stock check runs before confirmPayment, so a reused reference first meets the 0067
+    // index when the cancel transaction records it on the REFUND_DUE payment.
+    r.h.repo.settlePayment = async () => {
+      r.calls.push('settlePayment');
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_upi_txn_ref"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_upi_txn_ref',
+      });
+    };
+    const error = await failure(r.confirm());
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_TXN_REF_ALREADY_USED' });
+    expect(r.calls).toEqual(['cancelSale', 'settlePayment']);
+    expect(r.audits()).toBe(0);
+    expect(r.refundPayment).not.toHaveBeenCalled();
+    expect(r.h.attempts.map((a) => a.reasonCode)).toEqual(['CONFLICT']);
+  });
+
+  it('BR-94l: a manual cancel whose order UPDATE matches no row is 409 CONFLICT and writes no history row', async () => {
+    const r = raceHarness();
+    r.h.repo.cancelSale = async () => {
+      r.calls.push('cancelSale');
+      return false;
+    };
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-manual-race'));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(r.calls).toEqual(['cancelSale']);
+    expect(r.audits()).toBe(0);
+  });
+});
+
+// ===========================================================================
+// 5. BR-94q: a verified UPI reference is kept on the pending payment, and the manual cancel asks
+//    the gateway about it before marking the payment FAILED
+// ===========================================================================
+describe('salesService: UPI reference kept for the manual cancel (mocked repo, BR-94q)', () => {
+  function pendingWithRef(id: string, paymentId: string, upiTxnRef: string | null): SaleHeaderRow {
+    return {
+      id,
+      warehouseId: OOTY,
+      channel: 'DIRECT',
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      customerId: null,
+      totalAmount: parseMoney('45.50'),
+      gstAmount: parseMoney('0.00'),
+      paymentId,
+      paymentMethod: 'UPI',
+      paymentStatusDetail: 'PENDING',
+      upiTxnRef,
+    };
+  }
+
+  /** A pending UPI sale; `steps` records repo writes and transaction openings in order. */
+  function refHarness(upiTxnRef: string | null) {
+    const saleId = newId();
+    const paymentId = newId();
+    const h = harness();
+    const steps: string[] = [];
+    const recorded: Array<{ db: Executor; paymentId: string; upiTxnRef: string }> = [];
+    h.repo.findSaleHeader = async () => pendingWithRef(saleId, paymentId, upiTxnRef);
+    h.repo.lockSale = async () => pendingWithRef(saleId, paymentId, upiTxnRef);
+    h.repo.saleItems = async () => fakeRecord(saleId).items;
+    h.repo.recordPendingUpiRef = async (db, id, ref) => {
+      steps.push('recordPendingUpiRef');
+      recorded.push({ db, paymentId: id, upiTxnRef: ref });
+    };
+    h.repo.cancelSale = async () => {
+      steps.push('cancelSale');
+      return true;
+    };
+    h.repo.settlePayment = async (_db, _id, status) => {
+      steps.push(`settlePayment:${status}`);
+      return true;
+    };
+    const runTx = h.deps.runTx!;
+    h.deps.runTx = async (fn) => {
+      steps.push('tx');
+      return runTx(fn);
+    };
+    const verifierCalls: Array<[string, number]> = [];
+    const verifier = (captured: boolean) => async (ref: string, paise: number) => {
+      verifierCalls.push([ref, paise]);
+      return captured;
+    };
+    return { h, saleId, paymentId, steps, recorded, verifierCalls, verifier };
+  }
+
+  it('BR-94q: a verified UPI reference is recorded on the pending payment, outside and before the confirm transaction, so it survives a confirm that rolls back', async () => {
+    const r = refHarness(null);
+    // The confirm transaction fails for a reason that is not a stock conflict (connection lost,
+    // a bug, a crash): everything it wrote rolls back, but the reference must already be kept.
+    r.h.repo.completeOrder = async () => {
+      throw new Error('connection terminated unexpectedly');
+    };
+    await expect(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-keep', { upiTxnRef: ' pay_keep_1 ' })).rejects.toThrow(
+      'connection terminated unexpectedly',
+    );
+    expect(r.recorded).toHaveLength(1);
+    expect(r.recorded[0]).toMatchObject({ paymentId: r.paymentId, upiTxnRef: 'pay_keep_1' });
+    // On the pool, not on a transaction client that is about to roll back.
+    expect(r.recorded[0]!.db).toBe(r.h.deps.db);
+    expect(r.steps.indexOf('recordPendingUpiRef')).toBeLessThan(r.steps.indexOf('tx'));
+  });
+
+  it('BR-94q: an unverified UPI reference is never recorded on the payment (it would bind a reference that may be another sale\'s)', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = async () => false;
+    const error = await failure(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-unverified', { upiTxnRef: 'pay_unverified_1' }));
+    expect(error.status).toBe(422);
+    expect(r.recorded).toEqual([]);
+    expect(r.steps).toEqual([]);
+  });
+
+  it('BR-94q: recording a reference already bound to another sale is 409 UPI_TXN_REF_ALREADY_USED, never a 500; no confirm transaction opens and the attempt is logged', async () => {
+    const r = refHarness(null);
+    r.h.repo.recordPendingUpiRef = async () => {
+      r.steps.push('recordPendingUpiRef');
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_upi_txn_ref"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_upi_txn_ref',
+      });
+    };
+    const error = await failure(createSalesService(r.h.deps).confirmUpi(subScope(OOTY, 'payment.record'), r.saleId, 'k-dup-early', { upiTxnRef: 'pay_dup_early' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_TXN_REF_ALREADY_USED' });
+    expect(r.steps).toEqual(['recordPendingUpiRef']);
+    expect(r.h.attempts.map((a) => a.reasonCode)).toEqual(['CONFLICT']);
+    expect(JSON.stringify(r.h.attempts)).not.toContain('pay_dup_early');
+    expect(r.h.afterCommit).not.toHaveBeenCalled();
+  });
+
+  it('BR-94q: cancelling a pending UPI sale whose recorded reference the gateway reports captured is 409 CONFLICT (UPI_PAYMENT_CAPTURED); nothing is cancelled or marked FAILED', async () => {
+    const r = refHarness('pay_captured_1');
+    r.h.deps.verifyUpi = r.verifier(true);
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-captured', { reason: 'Gave up waiting' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_PAYMENT_CAPTURED' });
+    // Asked about THIS payment, for the sale total in paise.
+    expect(r.verifierCalls).toEqual([['pay_captured_1', 4550]]);
+    expect(r.steps).toEqual([]);
+  });
+
+  it('BR-94q: cancelling a pending UPI sale whose recorded reference the gateway reports NOT captured cancels it (CANCELLED, payment FAILED)', async () => {
+    const r = refHarness('pay_not_captured_1');
+    r.h.deps.verifyUpi = r.verifier(false);
+    r.h.repo.loadSale = async (_db, id) => ({ ...fakeRecord(id), status: 'CANCELLED', paymentStatus: 'FAILED' });
+    const sale = await createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-not-captured', { reason: 'Payment never arrived' });
+    expect(sale.status).toBe('CANCELLED');
+    expect(r.verifierCalls).toEqual([['pay_not_captured_1', 4550]]);
+    expect(r.steps).toEqual(['tx', 'cancelSale', 'settlePayment:FAILED']);
+  });
+
+  it('BR-94q: cancelling a pending UPI sale with no recorded reference does not ask the gateway (there is nothing to ask about) and cancels as before', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = r.verifier(true);
+    r.h.repo.loadSale = async (_db, id) => ({ ...fakeRecord(id), status: 'CANCELLED', paymentStatus: 'FAILED' });
+    const sale = await createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-no-ref', { reason: 'Walked away' });
+    expect(sale.status).toBe('CANCELLED');
+    expect(r.verifierCalls).toEqual([]);
+    expect(r.steps).toEqual(['tx', 'cancelSale', 'settlePayment:FAILED']);
+  });
+
+  it('BR-94q: a reference recorded after the gateway check but before the cancel locked the sale is 409 SALE_STATE_CHANGED; nothing is cancelled', async () => {
+    const r = refHarness(null);
+    r.h.deps.verifyUpi = r.verifier(true);
+    // The unlocked read saw no reference; by the time the cancel holds the row a confirm recorded one.
+    r.h.repo.lockSale = async () => pendingWithRef(r.saleId, r.paymentId, 'pay_arrived_late');
+    const error = await failure(createSalesService(r.h.deps).cancel(subScope(OOTY), r.saleId, 'k-cancel-late-ref'));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'SALE_STATE_CHANGED' });
+    expect(r.verifierCalls).toEqual([]);
+    expect(r.steps).toEqual(['tx']);
   });
 });

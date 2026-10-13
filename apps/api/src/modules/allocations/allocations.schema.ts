@@ -1,11 +1,17 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 
 export const allocationChannels = ['ONLINE', 'LIVE_MARKET', 'RESERVE', 'BUFFER'] as const;
 export type AllocationChannel = (typeof allocationChannels)[number];
 
 export const listAllocationsQuery = z
   .object({
-    cursor: z.string().optional(),
+    // Opaque keyset cursor (http/keysetCursor.ts); anything this list did not produce is 422.
+    cursor: z
+      .string()
+      .max(512)
+      .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.allocations, raw) !== null, { message: 'Invalid cursor.' })
+      .optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     warehouseId: z.string().uuid().optional(),
     allocationDate: z

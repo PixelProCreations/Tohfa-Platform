@@ -167,6 +167,13 @@ describe('admin order detail service (fake repo)', () => {
     expect(result.timeline[0]).toEqual({ fromStatus: null, toStatus: 'CONFIRMED', at: '2031-05-10T04:00:00.000Z' });
   });
 
+  it('BR-99i: a counter sale cancelled with its captured UPI payment REFUND_DUE (BR-94i) is serialized, not a 500', async () => {
+    const service = createFulfilmentService({ repo: fakeRepo(aRecord({ status: 'CANCELLED', paymentStatus: 'REFUND_DUE' })), db: {} as Executor });
+    const detail = await service.getAdminOrderDetail(subScope(), ORDER_ID);
+    expect(detail.paymentStatus).toBe('REFUND_DUE');
+    expect(adminOrderDetailResponse.parse(detail)).toEqual(detail);
+  });
+
   it('BR-99b: the strict response schema rejects an unknown key at any depth', () => {
     const ok = {
       id: ORDER_ID,
@@ -420,6 +427,21 @@ describeIfDatabase('admin order detail repo + service (PostgreSQL)', () => {
     });
   });
 
+  it('BR-99i (DB): GET detail of a cancelled sale whose UPI payment is REFUND_DUE returns it with that payment status', async () => {
+    if (!ready) return;
+    await inRolledBackTx(async (tx) => {
+      const f = await seed(tx);
+      await tx.query(
+        `UPDATE orders SET status = 'CANCELLED', payment_status = 'REFUND_DUE', cancelled_at = now(), cancellation_reason = 'Stock unavailable at confirmation' WHERE id = $1`,
+        [f.orders.market],
+      );
+      const service = await serviceOn(tx);
+      const detail = await service.getAdminOrderDetail(subScope([f.coonoor]), f.orders.market);
+      expect(detail).toMatchObject({ status: 'CANCELLED', paymentStatus: 'REFUND_DUE' });
+      expect(adminOrderDetailResponse.parse(detail)).toEqual(detail);
+    });
+  });
+
   it('BR-99a (DB): an order at another warehouse is null for a Sub admin, exactly like an unknown id; scope all sees it', async () => {
     if (!ready) return;
     await inRolledBackTx(async (tx) => {
@@ -619,10 +641,19 @@ describeIfDatabase('admin order detail route (HTTP, PostgreSQL)', () => {
     expect((await request(server).get(path(gudalurOrder)).set('Authorization', auth('main'))).status).toBe(200);
   });
 
-  it('BR-99f (HTTP): a CUSTOMER (`own` on order.list.view_all) gets 404 even for its own order on this admin route; a malformed id is 422', async () => {
+  // docs/rbac.json grants CUSTOMER `none` on order.list.view_all (customers read their own orders
+  // through /orders, order.view_own), so requirePermission answers 403 before the handler. That
+  // 403 is the same for every id, existing or not, so it reveals no row: CLAUDE.md §2.1's "empty,
+  // not 403" governs a caller who HOLDS the permission reading outside its scope (BR-99a), not a
+  // caller with no grant at all (FARMER and FARMER_ADMIN get the same 403 above). BR-101a.
+  it('BR-99f (HTTP): a CUSTOMER (`none` on order.list.view_all) gets 403 on this admin route even for its own order, the same as for an unknown id; a malformed id is 422', async () => {
     if (!ready) return;
     const res = await request(server).get(path(coonoorOrder)).set('Authorization', auth('customer'));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    const unknown = await request(server).get(path(newId())).set('Authorization', auth('customer'));
+    expect(unknown.status).toBe(403);
+    expect(unknown.body.code).toBe(res.body.code);
     const bad = await request(server).get(path('not-a-uuid')).set('Authorization', auth('super'));
     expect(bad.status).toBe(422);
   });

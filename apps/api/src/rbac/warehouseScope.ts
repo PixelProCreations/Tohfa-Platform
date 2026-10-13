@@ -34,7 +34,8 @@ export interface WarehouseScopeFilter {
  * Why not just "has a customerId / farmerId": a self-registered customer has no customers row,
  * so its token carries customerId = null and resolveScope leaves the key off. Keying the fail-closed
  * on the id's PRESENCE let exactly that customer fall through to TRUE and read every order on
- * GET /admin/orders (CUSTOMER is `own` on order.list.view_all). The role dimension is always there.
+ * GET /admin/orders (while CUSTOMER held `own` on order.list.view_all; it now holds `none`, BR-101a).
+ * The role dimension is always there.
  * The id checks stay as a belt-and-braces second condition.
  */
 function isWarehouseConfinable(scope: ResolvedScope): boolean {

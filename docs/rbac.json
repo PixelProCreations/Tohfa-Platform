@@ -2194,6 +2194,21 @@
       "source": "spec gap \u2014 SWA M6/M7, approved by owner 2026-10-11"
     },
     {
+      "code": "sales.sale.cancel",
+      "module": "Sales Management",
+      "description": "Cancel an unpaid pending UPI Direct/Market sale and release its stock hold (POST /admin/sales/{saleId}/cancel, BR-94i, BR-94l, BR-94m). Same actors as sales.sale.create: the counter that made the sale may abandon it. A sale already paid, picked up or cancelled by another request is 409. Idempotency-Key required.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap \u2014 review of PR #109 (2026-10-13): split from sales.sale.create, grants copied from it"
+    },
+    {
       "code": "sales.history.view",
       "module": "Sales Management",
       "description": "View the sales history list and sale detail (SWA Module 6, BR-90). At scope `own` only sales at the actor's warehouse.",
