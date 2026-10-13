@@ -205,13 +205,22 @@ export function FinanceHubScreen({
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => (
-            <View key={kpi.label} style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{kpi.label}</Text>
-              <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
-              {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
-            </View>
-          ))}
+          {kpis.map((kpi) => {
+            const onPress = kpi.route ? opener(kpi.route) : undefined;
+            return (
+              <TouchableOpacity
+                key={kpi.label}
+                style={styles.kpiCard}
+                onPress={onPress}
+                disabled={onPress === undefined}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.kpiLabel}>{kpi.label}</Text>
+                <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
+                {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {isMain && actions.length > 0 ? (
