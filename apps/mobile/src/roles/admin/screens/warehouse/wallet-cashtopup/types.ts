@@ -42,10 +42,17 @@ export interface WalletCustomer {
   balance?: string | undefined;
   totalCredited?: string | undefined;
   totalUsed?: string | undefined;
+  /**
+   * The customer uuid, when known (opened from the live customer screens).
+   * With it the wallet reads GET /admin/customers/{id}/wallet (plan phase 6).
+   */
+  customerUuid?: string | undefined;
 }
 
-/** A wallet customer with every field filled (demo fallbacks applied). */
-export type ResolvedWalletCustomer = { [K in keyof WalletCustomer]-?: string };
+/** A wallet customer with every display field filled (the uuid stays optional). */
+export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'customerUuid'>]-?: string } & {
+  customerUuid?: string | undefined;
+};
 
 /**
  * A cash top-up as it moves through the wizard: Cash Top-Up -> Fiscal Cash Tag
@@ -165,5 +172,7 @@ export interface WalletRouteParams {
   customer?: WalletCustomer | undefined;
   draft?: Partial<CashTopUpDraft> | undefined;
   transaction?: WalletTransactionRecord | undefined;
+  /** The transaction is a live ledger row: show only what the server sent (no sample fallbacks). */
+  liveTransaction?: boolean | undefined;
   category?: AttentionCategory | undefined;
 }

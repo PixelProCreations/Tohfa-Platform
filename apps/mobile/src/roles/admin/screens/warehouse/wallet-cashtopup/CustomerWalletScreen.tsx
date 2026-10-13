@@ -9,17 +9,33 @@
  *     None exists today (there is deliberately no Edit / Set Balance field:
  *     wallet balances are ledger-derived, CLAUDE.md 2.3); if one is ever added
  *     it must sit behind that code and call the server, never edit the display.
- * Scope: a Sub admin sees only transactions recorded at its own warehouse.
+ * Scope (samples only): a Sub admin sees only transactions recorded at its own
+ * warehouse. Live rows are not filtered (see below).
  *
  * Absorbs dashboard/MainWarehouseCustomerWalletScreen and
  * customers/WalletSummaryScreen (same content, nothing role-specific). The
  * transaction detail it used to nest is the flow's TransactionDetail route.
+ *
+ * Live (plan phase 6): opened for a customer with a uuid (`customerUuid`), the
+ * flow passes `live`: the balance, status, transaction count and last
+ * movement are GET /admin/customers/{id}/wallet, and the transactions are its
+ * ledger, newest first, with the server's own sign, paged with "Load more".
+ * Nothing is filtered by warehouse here (the ledger is the customer's whole
+ * wallet, and the balance is its sum, BR-93e). The read is GET-only (BR-93):
+ * no route under /admin/customers moves money. Total Credited / Total Used are
+ * hidden in live mode (the API has no such figures).
+ *
+ * Without `live` (the wallet hub's sample search, plan phase 9), the caller
+ * passes the customer and transactions to show; this screen holds no samples.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
+import type { CustomerWalletView } from '../customers/types';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -35,11 +51,29 @@ import {
   walletLayout,
 } from './WalletParts';
 
+/** The live wallet of a customer (GET /admin/customers/{id}/wallet and its ledger). */
+export interface LiveWalletProps {
+  /** The summary, once loaded. */
+  wallet: CustomerWalletView | undefined;
+  isLoading: boolean;
+  error: unknown;
+  /** The ledger's own first load and failure. */
+  transactionsLoading: boolean;
+  transactionsError: unknown;
+  onRetry: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  onLoadMore: () => void;
+  hasMore: boolean;
+}
+
 export interface CustomerWalletScreenProps extends WarehouseScreenBaseProps {
   customer?: WalletCustomer | undefined;
   transactions?: readonly WalletTransactionRecord[] | undefined;
+  /** Server data and its states; when given, nothing but server values is shown. */
+  live?: LiveWalletProps | undefined;
   /** Start a cash top-up for this customer. */
-  onCashTopUp?: ((customer: WalletCustomer) => void) | undefined;
+  onCashTopUp?: ((customer: ResolvedWalletCustomer) => void) | undefined;
   onOpenTransaction?: ((transaction: WalletTransactionRecord) => void) | undefined;
 }
 
@@ -52,20 +86,30 @@ export function CustomerWalletScreen({
   can,
   onBack,
   customer,
-  transactions = CUSTOMER_WALLET_TRANSACTIONS,
+  transactions = [],
+  live,
   onCashTopUp,
   onOpenTransaction,
 }: CustomerWalletScreenProps) {
+  const noValue = t('customers.noValue');
   const active: ResolvedWalletCustomer = {
-    name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
-    id: customer?.id ?? SAMPLE_WALLET_CUSTOMER.id,
-    mobile: customer?.mobile ?? SAMPLE_WALLET_CUSTOMER.mobile,
-    balance: customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance,
-    totalCredited: customer?.totalCredited ?? SAMPLE_WALLET_CUSTOMER.totalCredited,
-    totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
+    name: customer?.name ?? noValue,
+    id: customer?.id ?? noValue,
+    mobile: customer?.mobile ?? '',
+    balance: live ? live.wallet?.balanceLabel ?? noValue : customer?.balance ?? noValue,
+    totalCredited: customer?.totalCredited ?? noValue,
+    totalUsed: customer?.totalUsed ?? noValue,
+    ...(customer?.customerUuid === undefined ? {} : { customerUuid: customer.customerUuid }),
   };
-  const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
+  // Live rows are the customer's whole ledger as the server scoped it; samples keep the old warehouse filter.
+  const visible = live ? transactions : transactions.filter((tx) => inScope(scope, tx.warehouseId));
   const showTopUp = can('wallet.cash_topup.process') && onCashTopUp !== undefined;
+  const summaryView = live ? queryViewState({ isLoading: live.isLoading, error: live.error, itemCount: live.wallet ? 1 : 0 }) : 'ready';
+  const txView = live
+    ? queryViewState({ isLoading: live.transactionsLoading, error: live.transactionsError, itemCount: visible.length })
+    : visible.length === 0
+      ? 'empty'
+      : 'ready';
 
   return (
     <WalletScreen
@@ -80,7 +124,15 @@ export function CustomerWalletScreen({
         ) : undefined
       }
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={walletLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          live ? (
+            <RefreshControl refreshing={live.isRefreshing} onRefresh={live.onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+          ) : undefined
+        }
+      >
         <Card>
           <Text style={styles.customerName}>{active.name}</Text>
           <Text style={styles.customerMeta}>Customer ID: {active.id}</Text>
@@ -98,16 +150,41 @@ export function CustomerWalletScreen({
         </View>
 
         <SectionTitle>Wallet Summary</SectionTitle>
-        <Card>
-          <AmountRow label="Total Credited" value={active.totalCredited} />
-          <AmountRow divider label="Total Used" value={active.totalUsed} />
-          <AmountRow divider label="Current Balance" value={active.balance.split('.')[0] ?? active.balance} emphasis="total" />
-        </Card>
+        {summaryView === 'loading' ? (
+          <AdminLoadingState />
+        ) : summaryView === 'error' ? (
+          <AdminErrorState error={live?.error} onRetry={live?.onRetry} />
+        ) : live ? (
+          <Card>
+            <AmountRow label={t('customers.wallet.statusLabel')} value={live.wallet?.statusLabel ?? noValue} />
+            <AmountRow
+              divider
+              label={t('customers.wallet.transactions')}
+              value={String(live.wallet?.transactionCount ?? noValue)}
+            />
+            <AmountRow divider label={t('customers.wallet.lastTransaction')} value={live.wallet?.lastTransactionLabel ?? noValue} />
+            <AmountRow divider label="Current Balance" value={active.balance} emphasis="total" />
+          </Card>
+        ) : (
+          <Card>
+            <AmountRow label="Total Credited" value={active.totalCredited} />
+            <AmountRow divider label="Total Used" value={active.totalUsed} />
+            <AmountRow divider label="Current Balance" value={active.balance.split('.')[0] ?? active.balance} emphasis="total" />
+          </Card>
+        )}
 
         <SectionTitle>Recent Wallet Transactions</SectionTitle>
         <Card>
-          {visible.length === 0 ? (
-            <EmptyState title="No transactions" subtitle="No wallet movements recorded at your warehouse." />
+          {txView === 'loading' ? (
+            <AdminLoadingState />
+          ) : txView === 'error' ? (
+            <AdminErrorState error={live?.transactionsError} onRetry={live?.onRetry} />
+          ) : txView === 'empty' ? (
+            live ? (
+              <EmptyState title={t('customers.wallet.noTransactions')} />
+            ) : (
+              <EmptyState title="No transactions" subtitle="No wallet movements recorded at your warehouse." />
+            )
           ) : (
             visible.map((tx, index) => {
               const debit = isDebit(tx);
@@ -133,6 +210,11 @@ export function CustomerWalletScreen({
               );
             })
           )}
+          {live && txView === 'ready' && live.hasMore ? (
+            <TouchableOpacity style={styles.loadMore} onPress={live.onLoadMore} activeOpacity={0.7} accessibilityRole="button">
+              <Text style={styles.loadMoreText}>{t('customers.loadMore')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </Card>
 
         <View style={styles.notice}>
@@ -182,4 +264,6 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.md,
   },
   noticeText: { ...adminType.rowMeta, flex: 1, color: adminColors.brandDeep },
+  loadMore: { alignItems: 'center', paddingVertical: adminSpacing.sm },
+  loadMoreText: { ...adminType.rowTitle, color: adminColors.brand },
 });

@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
+import { CUSTOMER_WALLET_TRANSACTIONS } from '../wallet-cashtopup/fixtures';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import type { CustomerSearchItem } from './types';
@@ -144,6 +145,7 @@ export function CustomerSearchScreen({
           totalCredited: '₹25,000',
           totalUsed: '₹20,500',
         }}
+        transactions={CUSTOMER_WALLET_TRANSACTIONS}
         onBack={() => setSelectedCustomerForWallet(null)}
         onCashTopUp={() => {
           if (onNavigateToCashTopUp) {

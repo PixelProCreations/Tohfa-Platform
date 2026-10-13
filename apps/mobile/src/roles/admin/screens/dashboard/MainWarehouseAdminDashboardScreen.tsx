@@ -2929,7 +2929,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         scope={MAIN_WAREHOUSE_SCOPE}
                         can={can}
                         initialScreen="M5S04"
-                        initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
+                        initialParams={{ orderId: p.orderId, customerName: p.customer?.name }}
                         onBack={nav.back}
                         onViewIssue={() => navigateWh('operational_issues')}
                       />

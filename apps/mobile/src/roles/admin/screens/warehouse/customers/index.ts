@@ -19,10 +19,11 @@ export {
 } from './CustomersFlow';
 export { CUSTOMER_WAREHOUSES, DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
 export type {
-  CustomerIssueRecord,
-  CustomerOrderRecord,
-  CustomerRecord,
+  CustomerIssueRow,
+  CustomerOrderRow,
+  CustomerProfileView,
   CustomerRef,
+  CustomerRow,
   CustomersExternalRoute,
   CustomersRoute,
   CustomersRouteParams,
@@ -31,6 +32,6 @@ export type {
   OrderFiltersVariant,
   OrderFilterState,
   PurchaseFilterState,
-  PurchaseRecord,
-  SupportTicketRecord,
+  PurchaseLineRow,
+  SupportTicketRow,
 } from './types';

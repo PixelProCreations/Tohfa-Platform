@@ -48,93 +48,6 @@ export interface CustomerSearchItem {
   status?: string;
 }
 
-/** A customer as listed and shown on the details hub. */
-export interface CustomerRecord {
-  id: string;
-  name: string;
-  code: string;
-  phone: string;
-  email?: string | undefined;
-  status: 'Active' | 'Inactive';
-  /** Primary warehouse. The list filters on it for a Sub scope; Main shows it per row. */
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
-  ordersCount: number;
-  lastPurchase: string;
-  totalPurchases?: string | undefined;
-  walletBalance?: string | undefined;
-  openIssues?: number | undefined;
-  completedOrders?: number | undefined;
-  cancelledOrders?: number | undefined;
-  regDate?: string | undefined;
-}
-
-/** Every field optional and explicitly `undefined`-able (deep-link params). */
-export type Loose<T> = { [K in keyof T]?: T[K] | undefined };
-
-/** What a caller knows about the customer in focus (deep links carry only some fields). */
-export type CustomerRef = Loose<CustomerRecord>;
-
-/** Order status bucket used by the customer-order tabs and filters. */
-export type CustomerOrderCategory = 'Active' | 'Completed' | 'Cancelled';
-
-/** One order of a customer. */
-export interface CustomerOrderRecord {
-  id: string;
-  orderNo: string;
-  date: string;
-  items: string;
-  products?: string | undefined;
-  type: 'Pickup' | 'Delivery';
-  paymentStatus: string;
-  price: string;
-  status: string;
-  statusCategory: CustomerOrderCategory;
-  /** Warehouse that fulfils the order; a Sub scope lists only its own. */
-  warehouseId?: string | undefined;
-}
-
-/** One issue a customer raised. */
-export interface CustomerIssueRecord {
-  id: string;
-  issueNo: string;
-  category: string;
-  orderNo: string;
-  dateText: string;
-  status: 'In Review' | 'Open' | 'Resolved';
-  product?: string | undefined;
-  quantity?: string | undefined;
-  description?: string | undefined;
-}
-
-/** One support ticket of a customer. */
-export interface SupportTicketRecord {
-  id: string;
-  ticketNo: string;
-  subject: string;
-  orderRef: string;
-  dateText: string;
-  status: 'Resolved' | 'Open';
-  resolvedBy?: string | undefined;
-}
-
-/** One purchase (invoiced sale) of a customer. */
-export interface PurchaseRecord {
-  id: string;
-  invoiceNo: string;
-  dateText: string;
-  itemsSummary: string;
-  items?: readonly string[] | undefined;
-  amount: string;
-  status: 'Paid' | 'Pending';
-  /** Sales channel (Main twin showed it, e.g. "Direct Sale"). */
-  channel?: string | undefined;
-  /** Order the purchase belongs to; tapping the purchase opens that order. */
-  orderNo?: string | undefined;
-}
-
-// ─── Live types (customers API, plan phase 6) ───────────────────────────────
-
 /** A customer status as the screens show it; 'unknown' for a value the app does not know yet. */
 export type CustomerUiStatus = 'active' | 'inactive' | 'unknown';
 
@@ -202,6 +115,18 @@ export interface CustomerProfileView {
   lastActivityLabel: string;
   registeredLabel: string;
 }
+
+/** Every field optional and explicitly `undefined`-able (deep-link params). */
+export type Loose<T> = { [K in keyof T]?: T[K] | undefined };
+
+/**
+ * What a caller knows about the customer in focus: a list row, or a deep link
+ * that may carry only a name or a code. Only a uuid `id` can be fetched.
+ */
+export type CustomerRef = Loose<Pick<CustomerRow, 'id' | 'code' | 'name' | 'mobileMasked' | 'piiMasked'>>;
+
+/** Order status bucket used by the customer-order tabs. */
+export type CustomerOrderCategory = 'Active' | 'Completed' | 'Cancelled';
 
 /** One order of a customer (GET /admin/customers/{id}/orders). `id` is the order uuid. */
 export interface CustomerOrderRow {
@@ -422,11 +347,13 @@ export type CustomersExternalRoute = 'CustomerWallet' | 'CashTopUp' | 'NewSale' 
 /** Params carried between customer routes and to external routes. */
 export interface CustomersRouteParams {
   customer?: CustomerRef | undefined;
-  order?: CustomerOrderRecord | undefined;
-  /** Order number for 'OrderDetail' (a purchase knows only the number). */
+  order?: CustomerOrderRow | undefined;
+  /** Order uuid for 'OrderDetail' (the order detail looks orders up by id). */
+  orderId?: string | undefined;
+  /** Order number, for a host that shows it while the detail loads. */
   orderNo?: string | undefined;
-  issue?: Loose<CustomerIssueRecord> | undefined;
-  ticket?: Loose<SupportTicketRecord> | undefined;
-  /** CustomerOrders: open pre-filtered (status bucket or order type). */
+  issue?: CustomerIssueRow | undefined;
+  ticket?: SupportTicketRow | undefined;
+  /** CustomerOrders: open on a status bucket tab ('Active', 'Completed', 'Cancelled'). */
   defaultFilter?: string | undefined;
 }

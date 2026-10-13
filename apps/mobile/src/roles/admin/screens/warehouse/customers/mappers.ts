@@ -117,6 +117,11 @@ function textOrNull(value: unknown): string | null {
  * screen shows "not found" instead of sending it.
  */
 export function customerIdParam(value: unknown): string | undefined {
+  return uuidParam(value);
+}
+
+/** Any uuid route value (a ticket id), or undefined. */
+export function uuidParam(value: unknown): string | undefined {
   return typeof value === 'string' && UUID_RE.test(value) ? value : undefined;
 }
 

@@ -967,48 +967,18 @@ export default function App(): React.JSX.Element {
     [params, screen],
   );
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
-  // stack on every App render. Deep links carry flat customer / issue / ticket
-  // fields (customerName, issueNo, ticketNo, ...); the flow wants records.
+  // stack on every App render. Deep links carry a flat customer name and id;
+  // the customer screens look a customer up by its uuid only (a CUS- code
+  // shows "not found"). Issue and ticket detail open from their live lists,
+  // so flat issueNo / ticketNo deep-link fields are no longer turned into
+  // sample records.
   const customersParams = useMemo<CustomersRouteParams>(() => {
     const customerName = stringParam(params['customerName']) ?? stringParam(params['name']);
     const customerId = stringParam(params['customerId']) ?? stringParam(params['id']);
-    const issueNo = stringParam(params['issueNo']);
-    const ticketNo = stringParam(params['ticketNo']);
     return {
       customer:
         customerName !== undefined || customerId !== undefined
-          ? {
-            name: customerName,
-            id: customerId,
-            code: customerId,
-            phone: stringParam(params['customerPhone']),
-            ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : undefined,
-            lastPurchase: stringParam(params['customerPurchases']),
-          }
-          : undefined,
-      issue:
-        issueNo !== undefined
-          ? ({
-            issueNo,
-            orderNo: stringParam(params['orderNo']),
-            category: stringParam(params['category']),
-            status: stringParam(params['status']),
-            dateText: stringParam(params['dateText']),
-            product: stringParam(params['product']),
-            quantity: stringParam(params['quantity']),
-            description: stringParam(params['description']),
-          } as CustomersRouteParams['issue'])
-          : undefined,
-      ticket:
-        ticketNo !== undefined
-          ? ({
-            ticketNo,
-            orderRef: stringParam(params['orderRef']),
-            subject: stringParam(params['subject']),
-            status: stringParam(params['status']),
-            dateText: stringParam(params['dateText']),
-            resolvedBy: stringParam(params['resolvedBy']),
-          } as CustomersRouteParams['ticket'])
+          ? { name: customerName, id: customerId, code: stringParam(params['customerCode']) ?? customerId }
           : undefined,
       defaultFilter: stringParam(params['defaultFilter']),
     };
@@ -1076,7 +1046,13 @@ export default function App(): React.JSX.Element {
     return {
       customer:
         customerName !== undefined || customerId !== undefined
-          ? { name: customerName, id: customerId, mobile: stringParam(params['mobile']), balance }
+          ? {
+            name: customerName,
+            id: customerId,
+            mobile: stringParam(params['mobile']),
+            balance,
+            customerUuid: stringParam(params['customerUuid']),
+          }
           : undefined,
       category:
         category === 'pending' || category === 'failed' || category === 'fiscal' || category === 'reconciliation'
@@ -1620,34 +1596,24 @@ export default function App(): React.JSX.Element {
               onTabChange={openWarehouseTab}
               onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
                 const customerName = p.customer?.name;
-                const customerCode = p.customer?.code ?? p.customer?.id;
+                const customerCode = p.customer?.code;
                 if (target === 'CustomerWallet') {
+                  // The wallet reads the live summary by the customer uuid (plan phase 6).
                   navigate('SubWarehouseCustomerWallet', {
                     customerName,
                     name: customerName,
                     id: customerCode,
                     customerId: customerCode,
-                    mobile: p.customer?.phone,
-                    balance: p.customer?.walletBalance,
+                    customerUuid: p.customer?.id,
+                    mobile: p.customer?.mobileMasked,
                   });
                 } else if (target === 'CashTopUp') {
-                  navigate('SubWarehouseCashTopUp', {
-                    customerName,
-                    customerCode,
-                    currentBalance: p.customer?.walletBalance,
-                  });
+                  navigate('SubWarehouseCashTopUp', { customerName, customerCode });
                 } else if (target === 'NewSale') {
                   navigate('SubWarehouseNewSale', { customerName });
                 } else if (target === 'OrderDetail') {
-                  navigate('SubWarehouseOrderDetail', {
-                    orderNo: p.order?.orderNo ?? p.orderNo,
-                    orderStatus: p.order?.status,
-                    orderItems: p.order?.items,
-                    orderPrice: p.order?.price,
-                    orderDate: p.order?.date,
-                    orderType: p.order?.type,
-                    customerName,
-                  });
+                  // The order detail looks the order up by its uuid.
+                  navigate('SubWarehouseOrderDetail', { orderId: p.orderId, orderNo: p.orderNo, customerName });
                 } else if (target === 'RmaDetail') {
                   navigate('SubWarehouseReturnsIssues');
                 }
@@ -1761,9 +1727,11 @@ export default function App(): React.JSX.Element {
               scope={subScope}
               can={warehouseCan}
               initialScreen="M5S04"
+              // An order uuid (customer screens send orderId); a task's sample
+              // reference in orderNo still gets "not found" (plan phase 14).
               initialParams={{
-                orderId: (params['orderNo'] as string) || 'ORD-00251',
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
+                orderId: stringParam(params['orderId']) ?? stringParam(params['orderNo']),
+                customerName: stringParam(params['customerName']),
               }}
               onBack={goBack}
               onTabChange={openWarehouseTab}

@@ -1,51 +1,72 @@
 /**
- * Support History: one customer's support tickets with search.
+ * Support History: one customer's support tickets with search
+ * (GET /admin/customers/{id}/support-tickets, newest first).
  *
- * Gates (FINAL_LIST row 19): read-only (support.ticket.view_all is `view` for
- * both warehouse roles). There is no reply/respond control on this screen;
- * if one is added it must render only with can('support.ticket.respond').
+ * Gates (FINAL_LIST row 19): read-only list (customer.support_history.view).
+ * The ticket shape carries no farmer field and no customer contact (BR-97,
+ * BR-92); the subject arrives already redacted for an `own` actor.
  *
- * Absorbs Main SupportHistoryScreen (pair M7-S08: "SW 344 vs MWA 226"): same
- * three tiles and ticket card; nothing Main-only remained.
+ * Each row shows the ticket number, subject, category, created time and
+ * status. The search box narrows the tickets already loaded by ticket number
+ * or subject. "Load more" pages on.
+ *
+ * Hidden, because the API has no such figure or field: the Total / Open /
+ * Resolved tiles (no ticket summary) and the order reference (a ticket carries
+ * no order).
  */
 // Design id: M7-S08
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
-import { cardStyles, CustomersScreen, EmptyState, SearchField, StatTiles, StatusBadge } from './CustomersParts';
-import { DEFAULT_CUSTOMER, INITIAL_SUPPORT_TICKETS, SUPPORT_KPIS } from './fixtures';
-import type { CustomerRef, SupportTicketRecord, WarehouseScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { cardStyles, CustomersScreen, LinkButton, SearchField, StatusBadge } from './CustomersParts';
+import type { CustomerRef, CustomersLiveStateProps, SupportTicketRow, WarehouseScreenBaseProps } from './types';
 
-export interface SupportHistoryScreenProps extends WarehouseScreenBaseProps {
+export interface SupportHistoryScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
   customer?: CustomerRef | undefined;
-  onSelectTicket?: ((ticket: SupportTicketRecord) => void) | undefined;
-  tickets?: readonly SupportTicketRecord[] | undefined;
+  onSelectTicket?: ((ticket: SupportTicketRow) => void) | undefined;
+  /** The loaded rows, page by page. */
+  tickets?: readonly SupportTicketRow[] | undefined;
+  /** The route carried no customer uuid: nothing can be looked up. */
+  notFound?: boolean | undefined;
 }
 
 export function SupportHistoryScreen({
   onBack,
   customer,
   onSelectTicket,
-  tickets = INITIAL_SUPPORT_TICKETS,
+  tickets = [],
+  notFound = false,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
 }: SupportHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const view = notFound ? 'notFound' : queryViewState({ isLoading, error, itemCount: tickets.length });
   const query = searchQuery.trim().toLowerCase();
-  const rows = tickets.filter(
-    (t) =>
-      !query ||
-      t.ticketNo.toLowerCase().includes(query) ||
-      t.subject.toLowerCase().includes(query) ||
-      t.orderRef.toLowerCase().includes(query),
-  );
+  const rows =
+    query === ''
+      ? tickets
+      : tickets.filter((ticket) => ticket.ticketNumber.toLowerCase().includes(query) || ticket.subject.toLowerCase().includes(query));
 
   return (
-    <CustomersScreen title="Support History" subtitle={customerName} onBack={onBack}>
-      <StatTiles items={SUPPORT_KPIS} />
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search ticket ID, subject or order" />
+    <CustomersScreen title="Support History" subtitle={customer?.name} onBack={onBack} onRefresh={notFound ? undefined : onRefresh} isRefreshing={isRefreshing}>
+      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder={t('customers.support.searchPlaceholder')} />
 
-      {rows.length === 0 ? (
-        <EmptyState title="No support tickets found" />
+      {view === 'loading' ? (
+        <AdminLoadingState />
+      ) : view === 'error' ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : view === 'notFound' ? (
+        <AdminEmptyState title={t('customers.empty.notFound')} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState title={t(tickets.length === 0 ? 'customers.empty.tickets' : 'customers.empty.filtered')} />
       ) : (
         rows.map((ticket) => (
           <TouchableOpacity
@@ -55,17 +76,18 @@ export function SupportHistoryScreen({
             onPress={() => onSelectTicket?.(ticket)}
             accessibilityRole="button"
           >
-            <Text style={cardStyles.code}>{ticket.ticketNo}</Text>
+            <Text style={cardStyles.code}>{ticket.ticketNumber}</Text>
             <Text style={cardStyles.body}>
-              {ticket.subject} · Order {ticket.orderRef}
+              {ticket.subject} · {ticket.categoryLabel}
             </Text>
             <View style={cardStyles.rowBetween}>
-              <Text style={cardStyles.meta}>{ticket.dateText}</Text>
-              <StatusBadge label={ticket.status} tone={ticket.status === 'Resolved' ? 'success' : 'info'} />
+              <Text style={cardStyles.meta}>{ticket.createdLabel}</Text>
+              <StatusBadge label={ticket.statusLabel} tone={ticket.tone} />
             </View>
           </TouchableOpacity>
         ))
       )}
+      {view === 'ready' && hasMore && onLoadMore ? <LinkButton label={t('customers.loadMore')} onPress={onLoadMore} /> : null}
     </CustomersScreen>
   );
 }

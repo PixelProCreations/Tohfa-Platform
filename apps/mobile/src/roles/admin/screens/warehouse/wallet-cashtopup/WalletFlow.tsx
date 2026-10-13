@@ -15,24 +15,33 @@
  * Route keys are the old App.tsx keys without the 'SubWarehouse' / 'Warehouse'
  * prefix (WalletRoute). TransactionDetail is TopUpDetailsScreen's
  * 'transaction' variant (SubWarehouseTransactionDetailScreen was absorbed).
+ *
+ * Customer Wallet is live when the customer carries its uuid (opened from the
+ * live customer screens, plan phase 6): the summary and the ledger come from
+ * GET /admin/customers/{id}/wallet[/transactions] (read-only, BR-93), and a
+ * ledger row opens as a live Transaction Detail. Opened from the wallet hub's
+ * sample search (no uuid), it still shows the samples until plan phase 9.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
+import { customerIdParam, toWalletScreenTransaction } from '../customers/mappers';
+import { useCustomerWallet, useCustomerWalletTxns } from '../customers/useCustomersData';
 import { CashTopUpScreen } from './CashTopUpScreen';
 import { ConfirmCashTopUpScreen } from './ConfirmCashTopUpScreen';
 import { CustomerWalletScreen } from './CustomerWalletScreen';
 import { DailyCashScreen } from './DailyCashScreen';
 import { DailyCashSummaryScreen } from './DailyCashSummaryScreen';
 import { FiscalTagScreen } from './FiscalTagScreen';
-import { SAMPLE_TRANSACTION_ID, WALLET_WAREHOUSES } from './fixtures';
+import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_TRANSACTION_ID, SAMPLE_WALLET_CUSTOMER, WALLET_WAREHOUSES } from './fixtures';
 import { TopUpDetailsScreen } from './TopUpDetailsScreen';
 import { TopUpHistoryScreen } from './TopUpHistoryScreen';
 import { TopUpSuccessScreen } from './TopUpSuccessScreen';
 import type {
   CashTopUpDraft,
   PermissionCheck,
+  ResolvedWalletCustomer,
   WalletCustomer,
   WalletRoute,
   WalletRouteParams,
@@ -78,18 +87,69 @@ export function walletParamsForCustomer(customer?: {
   name?: string | undefined;
   code?: string | undefined;
   id?: string | undefined;
+  mobileMasked?: string | undefined;
   phone?: string | undefined;
   walletBalance?: string | undefined;
 }): WalletRouteParams {
   if (customer === undefined) return {};
+  // `id` is the customer uuid on the live customer screens; the wallet shows the code.
+  const customerUuid = customerIdParam(customer.id);
   return {
     customer: {
       name: customer.name,
-      id: customer.code ?? customer.id,
-      mobile: customer.phone,
+      id: customer.code ?? (customerUuid === undefined ? customer.id : undefined),
+      mobile: customer.mobileMasked ?? customer.phone,
       balance: customer.walletBalance,
+      customerUuid,
     },
   };
+}
+
+/** The wallet hub's sample customer behind every field a deep link left out (plan phase 9 replaces it). */
+function withSampleCustomer(customer: WalletCustomer | undefined): WalletCustomer {
+  const known = Object.fromEntries(Object.entries(customer ?? {}).filter(([, value]) => value !== undefined));
+  return { ...SAMPLE_WALLET_CUSTOMER, ...known };
+}
+
+interface LiveCustomerWalletRouteProps {
+  base: { scope: WarehouseScope; can: PermissionCheck; onBack: () => void; onTabChange?: ((tab: WarehouseTab) => void) | undefined };
+  customer: WalletCustomer;
+  customerUuid: string;
+  onCashTopUp: (customer: ResolvedWalletCustomer) => void;
+  onOpenTransaction: (transaction: WalletTransactionRecord) => void;
+}
+
+/** Customer Wallet on the live summary and ledger (read-only, BR-93). */
+function LiveCustomerWalletRoute({ base, customer, customerUuid, onCashTopUp, onOpenTransaction }: LiveCustomerWalletRouteProps) {
+  const warehouseId = base.scope.warehouseId;
+  const summary = useCustomerWallet(warehouseId, customerUuid);
+  const txns = useCustomerWalletTxns(warehouseId, customerUuid);
+  const transactions = useMemo(() => txns.items.map(toWalletScreenTransaction), [txns.items]);
+  const refresh = () => {
+    summary.refresh();
+    txns.refresh();
+  };
+  return (
+    <CustomerWalletScreen
+      {...base}
+      customer={customer}
+      transactions={transactions}
+      live={{
+        wallet: summary.wallet,
+        isLoading: summary.isLoading,
+        error: summary.error,
+        transactionsLoading: txns.isLoading,
+        transactionsError: txns.error,
+        onRetry: refresh,
+        onRefresh: refresh,
+        isRefreshing: summary.isRefreshing || txns.isRefreshing,
+        onLoadMore: txns.loadMore,
+        hasMore: txns.hasMore,
+      }}
+      onCashTopUp={onCashTopUp}
+      onOpenTransaction={onOpenTransaction}
+    />
+  );
 }
 
 export function WalletFlow({
@@ -172,15 +232,29 @@ export function WalletFlow({
           onNavigateToCashTopUp={(c) => startTopUp(c ? fromSearch(c) : undefined)}
         />
       );
-    case 'CustomerWallet':
+    case 'CustomerWallet': {
+      const customerUuid = customerIdParam(params.customer?.customerUuid);
+      if (customerUuid !== undefined && params.customer !== undefined) {
+        return (
+          <LiveCustomerWalletRoute
+            base={common}
+            customer={params.customer}
+            customerUuid={customerUuid}
+            onCashTopUp={(customer) => startTopUp(customer)}
+            onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction, liveTransaction: true })}
+          />
+        );
+      }
       return (
         <CustomerWalletScreen
           {...common}
-          customer={params.customer}
+          customer={withSampleCustomer(params.customer)}
+          transactions={CUSTOMER_WALLET_TRANSACTIONS}
           onCashTopUp={(customer) => startTopUp(customer)}
           onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
         />
       );
+    }
     case 'CashTopUp':
       return (
         <CashTopUpScreen
@@ -238,7 +312,7 @@ export function WalletFlow({
     case 'TopUpDetails':
       return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="topUp" />;
     case 'TransactionDetail':
-      return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="transaction" />;
+      return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="transaction" live={params.liveTransaction} />;
     case 'TopUpHistory':
       return <TopUpHistoryScreen {...common} warehouseOptions={warehouseOptions} onSelectTransaction={openTopUpDetails} />;
     case 'DailyCashSummary':

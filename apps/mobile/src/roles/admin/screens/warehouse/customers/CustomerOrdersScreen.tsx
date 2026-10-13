@@ -1,176 +1,130 @@
 /**
- * Customer Orders: one customer's orders with status tabs, search and filters.
+ * Customer Orders: one customer's orders with status tabs and search
+ * (GET /admin/customers/{id}/orders, every channel, newest first).
  *
- * Scope (FINAL_LIST row 13): read-only (customer.list.view + order.list.view_all,
- * SUB grant `own`). A Sub scope lists only orders of its own warehouse; the
- * All-warehouses selector renders only for the Main view (scope.warehouseId
- * undefined). Every row button opens the order (the host's order detail).
+ * Scope (FINAL_LIST row 13): read-only (customer.purchase_history.view, SUB
+ * grant `own`). For an `own` actor the server returns only orders at its
+ * warehouse (BR-91g); nothing is filtered by warehouse here. Every row opens
+ * the order (the host's order detail) by the order uuid.
  *
- * The filter screen (OrderFiltersScreen, 'order' config) now actually narrows
- * the list; the old screen accepted `appliedFilters` but ignored them.
+ * The tabs (All / Active / Completed / Cancelled) and the search box narrow
+ * the rows already loaded, by status bucket and by order or invoice number:
+ * the API has no status filter or search for this list. "Load more" pages on.
+ *
+ * Hidden, because the API cannot do them: the filter screen (order type,
+ * payment status, date range) and the Main warehouse selector; the
+ * pickup/delivery type, which this list does not carry (the channel is shown).
  */
 // Design id: M7-S06
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
-import {
-  cardStyles,
-  ChipRow,
-  CustomersScreen,
-  EmptyState,
-  FilterIcon,
-  HeaderIconButton,
-  inScope,
-  isAllWarehouses,
-  SearchField,
-  StatusBadge,
-} from './CustomersParts';
-import { CUSTOMER_WAREHOUSES, DEFAULT_CUSTOMER, INITIAL_CUSTOMER_ORDERS } from './fixtures';
-import type { CustomerOrderRecord, CustomerRef, OrderFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { cardStyles, ChipRow, CustomersScreen, LinkButton, SearchField, StatusBadge } from './CustomersParts';
+import type {
+  CustomerOrderCategory,
+  CustomerOrderRow,
+  CustomerRef,
+  CustomersLiveStateProps,
+  WarehouseScreenBaseProps,
+} from './types';
 
-export interface CustomerOrdersScreenProps extends WarehouseScreenBaseProps {
+export interface CustomerOrdersScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
   customer?: CustomerRef | undefined;
-  appliedFilters?: OrderFilterState | undefined;
-  /** Open pre-filtered: a status bucket, a status, or an order type (e.g. from staff "Assign Delivery"). */
+  /** Open on a status bucket tab ('Active', 'Completed' or 'Cancelled'); anything else opens All. */
   defaultFilter?: string | undefined;
-  onOpenFilters?: (() => void) | undefined;
-  onOpenOrder?: ((order: CustomerOrderRecord) => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  orders?: readonly CustomerOrderRecord[] | undefined;
+  onOpenOrder?: ((order: CustomerOrderRow) => void) | undefined;
+  /** The loaded rows, page by page. */
+  orders?: readonly CustomerOrderRow[] | undefined;
+  /** The route carried no customer uuid: nothing can be looked up. */
+  notFound?: boolean | undefined;
 }
 
-type OrderTab = 'All' | 'Active' | 'Completed' | 'Cancelled';
+type OrderTab = 'All' | CustomerOrderCategory;
 const ORDER_TABS: readonly OrderTab[] = ['All', 'Active', 'Completed', 'Cancelled'];
 
-function toneOf(status: string): AdminTone {
-  if (status === 'Cancelled') return 'danger';
-  if (status === 'Confirmed' || status === 'Packing') return 'warning';
-  return 'success';
-}
-
-function actionLabelOf(order: CustomerOrderRecord): string {
-  if (order.status === 'Ready for Pickup') return 'View Pickup Status';
-  if (order.status === 'Completed') return 'View Invoice';
-  return 'View Details';
-}
-
-function hasActiveFilters(f: OrderFilterState | undefined): boolean {
-  if (!f) return false;
-  return (
-    f.orderStatus !== 'All' ||
-    f.orderType !== 'All' ||
-    f.paymentStatus !== 'All' ||
-    f.datePreset !== 'All Time' ||
-    f.searchQuery !== '' ||
-    f.warehouseId !== undefined
-  );
+function initialTab(defaultFilter: string | undefined): OrderTab {
+  return ORDER_TABS.find((tab) => tab === defaultFilter) ?? 'All';
 }
 
 export function CustomerOrdersScreen({
-  scope,
   onBack,
   customer,
-  appliedFilters,
   defaultFilter,
-  onOpenFilters,
   onOpenOrder,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
-  orders = INITIAL_CUSTOMER_ORDERS,
+  orders = [],
+  notFound = false,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
 }: CustomerOrdersScreenProps) {
-  const [selectedTab, setSelectedTab] = useState<OrderTab>('All');
+  const [selectedTab, setSelectedTab] = useState<OrderTab>(() => initialTab(defaultFilter));
   const [searchQuery, setSearchQuery] = useState('');
-  const allWarehouses = isAllWarehouses(scope);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
-    allWarehouses ? appliedFilters?.warehouseId : undefined,
-  );
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const view = notFound ? 'notFound' : queryViewState({ isLoading, error, itemCount: orders.length });
 
   const rows = useMemo(() => {
-    const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
-    const filterStatus = appliedFilters?.orderStatus ?? 'All';
+    const query = searchQuery.trim().toLowerCase();
     return orders.filter((order) => {
-      if (!inScope(scope, order.warehouseId)) return false;
-      if (allWarehouses && selectedWarehouseId !== undefined && order.warehouseId !== selectedWarehouseId) return false;
-      if (
-        defaultFilter &&
-        defaultFilter !== 'All' &&
-        order.statusCategory !== defaultFilter &&
-        order.status !== defaultFilter &&
-        order.type !== defaultFilter
-      ) {
-        return false;
-      }
-      if (selectedTab !== 'All' && order.statusCategory !== selectedTab) return false;
-      if (filterStatus !== 'All' && order.statusCategory !== filterStatus && order.status !== filterStatus) return false;
-      if (appliedFilters && appliedFilters.orderType !== 'All' && order.type !== appliedFilters.orderType) return false;
-      if (appliedFilters && appliedFilters.paymentStatus !== 'All' && order.paymentStatus !== appliedFilters.paymentStatus) {
-        return false;
-      }
+      if (selectedTab !== 'All' && order.category !== selectedTab) return false;
       if (!query) return true;
-      return (
-        order.orderNo.toLowerCase().includes(query) ||
-        (order.products ?? '').toLowerCase().includes(query) ||
-        order.items.toLowerCase().includes(query) ||
-        order.status.toLowerCase().includes(query)
-      );
+      return order.orderNumber.toLowerCase().includes(query) || (order.invoiceNumber ?? '').toLowerCase().includes(query);
     });
-  }, [orders, scope, allWarehouses, selectedWarehouseId, defaultFilter, selectedTab, appliedFilters, searchQuery]);
+  }, [orders, selectedTab, searchQuery]);
 
   return (
-    <CustomersScreen
-      title="Customer Orders"
-      subtitle={customerName}
-      onBack={onBack}
-      headerRight={
-        <HeaderIconButton label="Open filters" onPress={onOpenFilters} showDot={hasActiveFilters(appliedFilters)}>
-          <FilterIcon />
-        </HeaderIconButton>
-      }
-      headerExtra={
-        <WarehouseSelector
-          scope={scope}
-          options={warehouseOptions}
-          selectedId={selectedWarehouseId}
-          onSelect={setSelectedWarehouseId}
-        />
-      }
-    >
+    <CustomersScreen title="Customer Orders" subtitle={customer?.name} onBack={onBack} onRefresh={notFound ? undefined : onRefresh} isRefreshing={isRefreshing}>
       <ChipRow options={ORDER_TABS} selected={selectedTab} onSelect={setSelectedTab} />
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search by Order ID or product" />
+      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder={t('customers.orders.searchPlaceholder')} />
 
-      {rows.length === 0 ? (
-        <EmptyState title="No orders found" subtitle="Try adjusting your search query or filter selection." />
+      {view === 'loading' ? (
+        <AdminLoadingState />
+      ) : view === 'error' ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : view === 'notFound' ? (
+        <AdminEmptyState title={t('customers.empty.notFound')} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState title={t(orders.length === 0 ? 'customers.empty.orders' : 'customers.empty.filtered')} />
       ) : (
         rows.map((order) => (
           <View key={order.id} style={cardStyles.card}>
             <View style={cardStyles.rowBetween}>
-              <Text style={cardStyles.code}>{order.orderNo}</Text>
-              <StatusBadge label={order.status} tone={toneOf(order.status)} />
+              <Text style={cardStyles.code}>{order.orderNumber}</Text>
+              <StatusBadge label={order.statusLabel} tone={order.tone} />
             </View>
             <Text style={cardStyles.meta}>
-              {order.date} · {order.items}
+              {order.placedLabel} · {order.itemsLabel}
             </Text>
+            {order.invoiceNumber !== null ? (
+              <Text style={cardStyles.meta}>{t('customers.orders.invoice', { number: order.invoiceNumber })}</Text>
+            ) : null}
             <View style={[cardStyles.rowBetween, styles.detailsRow]}>
-              <Text style={cardStyles.body}>{order.type}</Text>
+              <Text style={cardStyles.body}>{order.channelLabel}</Text>
               <View style={styles.priceWrap}>
-                <Text style={cardStyles.meta}>{order.paymentStatus}</Text>
-                <Text style={cardStyles.amount}>{order.price}</Text>
+                <Text style={cardStyles.meta}>{order.paymentStatusLabel}</Text>
+                <Text style={cardStyles.amount}>{order.amountLabel}</Text>
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.rowAction}
-              onPress={() => onOpenOrder?.(order)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-            >
-              <Text style={styles.rowActionText}>{actionLabelOf(order)}</Text>
-            </TouchableOpacity>
+            {onOpenOrder ? (
+              <TouchableOpacity
+                style={styles.rowAction}
+                onPress={() => onOpenOrder(order)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+              >
+                <Text style={styles.rowActionText}>View Details</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ))
       )}
+      {view === 'ready' && hasMore && onLoadMore ? <LinkButton label={t('customers.loadMore')} onPress={onLoadMore} /> : null}
     </CustomersScreen>
   );
 }

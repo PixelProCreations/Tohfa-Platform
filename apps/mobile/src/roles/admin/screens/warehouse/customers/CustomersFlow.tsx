@@ -1,34 +1,50 @@
 /**
  * In-module navigator for the warehouse customer screens (design module M7).
  *
- * The customer flows (list -> search / details -> orders / purchases / issues /
- * support -> filters / detail) used to be stitched three times: eleven `show*`
- * state branches in the Sub shell, fifteen App.tsx route keys, and six
- * `whSubView` values in the Main shell (onto the separate Main twins). They
- * live next to the screens now and take `scope` + `can`, so every host renders
- * the same flow: the Sub shell / App.tsx with the Sub warehouse scope, the
- * Main shell with MAIN_WAREHOUSE_SCOPE (all warehouses).
+ * The customer flows (list -> details -> orders / purchases / issues /
+ * support -> detail) used to be stitched three times: eleven `show*` state
+ * branches in the Sub shell, fifteen App.tsx route keys, and six `whSubView`
+ * values in the Main shell (onto the separate Main twins). They live next to
+ * the screens now and take `scope` + `can`, so every host renders the same
+ * flow: the Sub shell / App.tsx with the Sub warehouse scope, the Main shell
+ * with MAIN_WAREHOUSE_SCOPE (all warehouses).
  *
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix
  * (CustomersRoute). Removed: CustomerActions (dropped, SPEC_GAPS W4h-1).
  *
+ * Data is live and owned here (API integration plan, phase 6): each route's
+ * container fetches through ./useCustomersData.ts and passes the result to
+ * the screen. No customers route takes a warehouse; the server scopes an
+ * `own` actor (BR-91), and the scope's warehouse only keys the cache (BR-30).
+ * A customer route needs the customer uuid (customerIdParam); a host still
+ * passing a CUS- code or a name gets "not found", not a request. The list's
+ * search is the server's `q`; 'CustomerSearch' opens the same live list (the
+ * old sample search stays the wallet area's until plan phase 9).
+ *
+ * The order and purchase filter routes still render for old deep links, but
+ * nothing opens them from a live screen: the API cannot filter by any of
+ * their fields, so applying them only returns.
+ *
  * Screens outside the customer area (wallet, cash top-up, new sale, order
- * detail, RMA) are opened through the host: a shell that can
- * draw them inline passes `renderExternalScreen` (they join this flow's back
- * stack); App.tsx, and the Main shell for New Sale, pass `onOpenExternal`
- * and navigate to their own route.
+ * detail, RMA) are opened through the host: a shell that can draw them inline
+ * passes `renderExternalScreen` (they join this flow's back stack); App.tsx,
+ * and the Main shell for New Sale, pass `onOpenExternal` and navigate to their
+ * own route. 'OrderDetail' carries the order uuid (`orderId`).
  */
 import React, { useEffect, useState } from 'react';
+import { t } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import { useFlowBack } from '../useFlowBack';
 
-import { CustomerDetailsScreen } from './CustomerDetailsScreen';
+import { CustomerDetailsScreen, type CustomerPreviewTab } from './CustomerDetailsScreen';
 import { CustomerIssueDetailScreen } from './CustomerIssueDetailScreen';
 import { CustomerIssuesScreen } from './CustomerIssuesScreen';
 import { CustomerOrdersScreen } from './CustomerOrdersScreen';
-import { CustomerSearchScreen } from './CustomerSearchScreen';
 import { CustomersListScreen } from './CustomersListScreen';
+import { RecentCard, StatusBadge } from './CustomersParts';
 import { CustomerSupportDetailScreen } from './CustomerSupportDetailScreen';
-import { CUSTOMER_WAREHOUSES } from './fixtures';
+import { customerIdParam, customerSearchQuery, uuidParam } from './mappers';
 import { OrderFiltersScreen } from './OrderFiltersScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
 import { SupportHistoryScreen } from './SupportHistoryScreen';
@@ -37,12 +53,20 @@ import type {
   CustomersExternalRoute,
   CustomersRoute,
   CustomersRouteParams,
-  OrderFilterState,
   PermissionCheck,
-  PurchaseFilterState,
   WarehouseScope,
+  WarehouseScreenBaseProps,
   WarehouseTab,
 } from './types';
+import {
+  useCustomer,
+  useCustomerIssues,
+  useCustomerList,
+  useCustomerOrders,
+  useCustomerPurchases,
+  useCustomerSupportTicket,
+  useCustomerSupportTickets,
+} from './useCustomersData';
 
 const EXTERNAL_ROUTES: readonly CustomersExternalRoute[] = [
   'CustomerWallet',
@@ -51,6 +75,12 @@ const EXTERNAL_ROUTES: readonly CustomersExternalRoute[] = [
   'OrderDetail',
   'RmaDetail',
 ];
+
+/**
+ * How long the list waits after the last keystroke before it sends `q`. A
+ * typing debounce for the request, not a business threshold.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
 
 function isExternal(screen: CustomersRoute | CustomersExternalRoute): screen is CustomersExternalRoute {
   return (EXTERNAL_ROUTES as readonly string[]).includes(screen);
@@ -79,7 +109,7 @@ export interface CustomersFlowProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   /** Bell on the customers list. */
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
+  /** Warehouses for the (deep-link only) filter screens' Main selector. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Draw an external screen inside the flow; return null for routes the host does not own. */
   renderExternalScreen?:
@@ -94,6 +124,266 @@ export interface CustomersFlowProps {
   onOpenExternal?: ((screen: CustomersExternalRoute, params: CustomersRouteParams) => void) | undefined;
 }
 
+type Navigate = (screen: CustomersRoute | CustomersExternalRoute, params?: CustomersRouteParams) => void;
+
+/** What the flow hands every live route. */
+interface LiveRouteProps {
+  base: WarehouseScreenBaseProps;
+  /** Keys the cache only; no customers request sends it (BR-30, BR-91). */
+  warehouseId: string | undefined;
+  customer: CustomerRef | undefined;
+  /** The customer uuid, or undefined when the route carried none. */
+  customerId: string | undefined;
+  params: CustomersRouteParams;
+  navigate: Navigate;
+}
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+
+function LiveListRoute({
+  base,
+  warehouseId,
+  navigate,
+  onNavigateToNotifications,
+}: LiveRouteProps & { onNavigateToNotifications?: (() => void) | undefined }) {
+  const [searchText, setSearchText] = useState('');
+  const [q, setQ] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(customerSearchQuery(searchText)), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+  const list = useCustomerList(warehouseId, q);
+  return (
+    <CustomersListScreen
+      {...base}
+      customers={list.items}
+      summary={list.summary}
+      searchText={searchText}
+      onSearchTextChange={setSearchText}
+      onSelectCustomer={(selected) =>
+        navigate('CustomerDetails', {
+          customer: { id: selected.id, code: selected.code, name: selected.name, mobileMasked: selected.mobileMasked, piiMasked: selected.piiMasked },
+        })
+      }
+      onNavigateToNotifications={onNavigateToNotifications}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+/** A preview's loading / error / empty state, inside a detail tab. */
+function PreviewState({ isLoading, error, onRetry, emptyKey }: { isLoading: boolean; error: unknown; onRetry: () => void; emptyKey: 'customers.empty.orders' | 'customers.empty.purchases' | 'customers.empty.issues' | 'customers.empty.tickets' }) {
+  const view = queryViewState({ isLoading, error, itemCount: 0 });
+  if (view === 'loading') return <AdminLoadingState />;
+  if (view === 'error') return <AdminErrorState error={error} onRetry={onRetry} />;
+  return <AdminEmptyState title={t(emptyKey)} />;
+}
+
+function OrdersPreview({ warehouseId, customerId, onOpen }: { warehouseId: string | undefined; customerId: string | undefined; onOpen: () => void }) {
+  const list = useCustomerOrders(warehouseId, customerId);
+  const first = list.items[0];
+  if (first === undefined) return <PreviewState isLoading={list.isLoading} error={list.error} onRetry={list.refresh} emptyKey="customers.empty.orders" />;
+  return (
+    <RecentCard
+      code={first.orderNumber}
+      badge={<StatusBadge label={first.statusLabel} tone={first.tone} />}
+      lines={[first.itemsLabel, first.amountLabel]}
+      onPress={onOpen}
+      linkLabel="View All Orders →"
+    />
+  );
+}
+
+function PurchasesPreview({ warehouseId, customerId, onOpen }: { warehouseId: string | undefined; customerId: string | undefined; onOpen: () => void }) {
+  const list = useCustomerPurchases(warehouseId, customerId);
+  const first = list.items[0];
+  if (first === undefined) {
+    return <PreviewState isLoading={list.isLoading} error={list.error} onRetry={list.refresh} emptyKey="customers.empty.purchases" />;
+  }
+  return (
+    <RecentCard
+      code={first.orderNumber}
+      lines={[first.lineLabel, first.qtyDetail, first.amountLabel]}
+      onPress={onOpen}
+      linkLabel="View Purchase History →"
+    />
+  );
+}
+
+function IssuesPreview({ warehouseId, customerId, onOpen }: { warehouseId: string | undefined; customerId: string | undefined; onOpen: () => void }) {
+  const list = useCustomerIssues(warehouseId, customerId);
+  const first = list.items[0];
+  if (first === undefined) return <PreviewState isLoading={list.isLoading} error={list.error} onRetry={list.refresh} emptyKey="customers.empty.issues" />;
+  return (
+    <RecentCard
+      code={first.reference}
+      badge={<StatusBadge label={first.statusLabel} tone={first.tone} />}
+      lines={[first.reason ?? t('customers.noValue'), first.createdLabel]}
+      onPress={onOpen}
+      linkLabel="View All Issues →"
+    />
+  );
+}
+
+function SupportPreview({ warehouseId, customerId, onOpen }: { warehouseId: string | undefined; customerId: string | undefined; onOpen: () => void }) {
+  const list = useCustomerSupportTickets(warehouseId, customerId);
+  const first = list.items[0];
+  if (first === undefined) return <PreviewState isLoading={list.isLoading} error={list.error} onRetry={list.refresh} emptyKey="customers.empty.tickets" />;
+  return (
+    <RecentCard
+      code={first.ticketNumber}
+      badge={<StatusBadge label={first.statusLabel} tone={first.tone} />}
+      lines={[first.subject, first.createdLabel]}
+      onPress={onOpen}
+      linkLabel="View All Support Tickets →"
+    />
+  );
+}
+
+function LiveDetailRoute({ base, warehouseId, customer, customerId, navigate }: LiveRouteProps) {
+  const live = useCustomer(warehouseId, customerId);
+  const renderTabPreview = (tab: CustomerPreviewTab) => {
+    switch (tab) {
+      case 'Orders':
+        return <OrdersPreview warehouseId={warehouseId} customerId={customerId} onOpen={() => navigate('CustomerOrders')} />;
+      case 'Purchases':
+        return <PurchasesPreview warehouseId={warehouseId} customerId={customerId} onOpen={() => navigate('PurchaseHistory')} />;
+      case 'Issues':
+        return <IssuesPreview warehouseId={warehouseId} customerId={customerId} onOpen={() => navigate('CustomerIssues')} />;
+      case 'Support':
+        return <SupportPreview warehouseId={warehouseId} customerId={customerId} onOpen={() => navigate('SupportHistory')} />;
+    }
+  };
+  return (
+    <CustomerDetailsScreen
+      {...base}
+      customer={customer}
+      profile={live.customer}
+      notFound={customerId === undefined}
+      renderTabPreview={renderTabPreview}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+      onNavigateToOrders={() => navigate('CustomerOrders')}
+      onNavigateToPurchases={() => navigate('PurchaseHistory')}
+      onNavigateToWallet={() => navigate('CustomerWallet')}
+      onNavigateToIssues={() => navigate('CustomerIssues')}
+      onNavigateToNewSale={() => navigate('NewSale')}
+      onNavigateToCashTopUp={() => navigate('CashTopUp')}
+    />
+  );
+}
+
+function LiveOrdersRoute({ base, warehouseId, customer, customerId, params, navigate }: LiveRouteProps) {
+  const list = useCustomerOrders(warehouseId, customerId);
+  return (
+    <CustomerOrdersScreen
+      {...base}
+      customer={customer}
+      notFound={customerId === undefined}
+      orders={list.items}
+      defaultFilter={params.defaultFilter}
+      onOpenOrder={(order) => navigate('OrderDetail', { order, orderId: order.id, orderNo: order.orderNumber })}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+function LivePurchasesRoute({ base, warehouseId, customer, customerId, navigate }: LiveRouteProps) {
+  const list = useCustomerPurchases(warehouseId, customerId);
+  return (
+    <PurchaseHistoryScreen
+      {...base}
+      customer={customer}
+      notFound={customerId === undefined}
+      purchases={list.items}
+      onSelectPurchase={(purchase) => navigate('OrderDetail', { orderId: purchase.orderId, orderNo: purchase.orderNumber })}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+function LiveIssuesRoute({ base, warehouseId, customer, customerId, navigate }: LiveRouteProps) {
+  const list = useCustomerIssues(warehouseId, customerId);
+  return (
+    <CustomerIssuesScreen
+      {...base}
+      customer={customer}
+      notFound={customerId === undefined}
+      issues={list.items}
+      onSelectIssue={(issue) => navigate('CustomerIssueDetail', { issue })}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+function LiveSupportRoute({ base, warehouseId, customer, customerId, navigate }: LiveRouteProps) {
+  const list = useCustomerSupportTickets(warehouseId, customerId);
+  return (
+    <SupportHistoryScreen
+      {...base}
+      customer={customer}
+      notFound={customerId === undefined}
+      tickets={list.items}
+      onSelectTicket={(ticket) => navigate('SupportDetail', { ticket })}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+function LiveSupportDetailRoute({ base, warehouseId, customer, customerId, params }: LiveRouteProps) {
+  const ticketId = uuidParam(params.ticket?.id);
+  const live = useCustomerSupportTicket(warehouseId, customerId, ticketId);
+  return (
+    <CustomerSupportDetailScreen
+      {...base}
+      customer={customer}
+      ticket={params.ticket}
+      detail={live.ticket}
+      notFound={customerId === undefined || ticketId === undefined}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+// ─── Flow ────────────────────────────────────────────────────────────────────
+
 export function CustomersFlow({
   scope,
   can,
@@ -102,15 +392,12 @@ export function CustomersFlow({
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
+  warehouseOptions,
   renderExternalScreen,
   inlineExternalRoutes = EXTERNAL_ROUTES,
   onOpenExternal,
 }: CustomersFlowProps) {
   const [stack, setStack] = useState<CustomersStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  // Filters survive the trip to the filter screen and back (one set per list).
-  const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
-  const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Hosts keep these props referentially stable.
@@ -122,7 +409,7 @@ export function CustomersFlow({
   const params: CustomersRouteParams = current.params ?? {};
   const customer: CustomerRef | undefined = params.customer;
 
-  const navigate = (screen: CustomersRoute | CustomersExternalRoute, nextParams?: CustomersRouteParams) => {
+  const navigate: Navigate = (screen, nextParams) => {
     // Carry the customer in focus forward unless the caller names another.
     const merged: CustomersRouteParams = { customer, ...nextParams };
     if (isExternal(screen) && !(renderExternalScreen && inlineExternalRoutes.includes(screen))) {
@@ -143,7 +430,15 @@ export function CustomersFlow({
     return true;
   });
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const base: WarehouseScreenBaseProps = { scope, can, onBack: back, onTabChange };
+  const live: LiveRouteProps = {
+    base,
+    warehouseId: scope.warehouseId,
+    customer,
+    customerId: customerIdParam(customer?.id),
+    params,
+    navigate,
+  };
 
   if (isExternal(current.screen)) {
     return <>{renderExternalScreen?.(current.screen, params, { back, open: navigate }) ?? null}</>;
@@ -151,115 +446,35 @@ export function CustomersFlow({
 
   switch (current.screen) {
     case 'CustomersList':
-      return (
-        <CustomersListScreen
-          {...common}
-          warehouseOptions={warehouseOptions}
-          onNavigateToSearch={() => navigate('CustomerSearch')}
-          onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
-          onNavigateToNotifications={onNavigateToNotifications}
-        />
-      );
     case 'CustomerSearch':
-      return (
-        <CustomerSearchScreen
-          {...common}
-          onSelectCustomer={(name: string, id?: string) =>
-            navigate('CustomerDetails', { customer: { name, id, code: id } })
-          }
-        />
-      );
+      return <LiveListRoute {...live} onNavigateToNotifications={onNavigateToNotifications} />;
     case 'CustomerDetails':
-      return (
-        <CustomerDetailsScreen
-          {...common}
-          customer={customer}
-          onNavigateToOrders={() => navigate('CustomerOrders')}
-          onNavigateToPurchases={() => navigate('PurchaseHistory')}
-          onNavigateToWallet={() => navigate('CustomerWallet')}
-          onNavigateToIssues={() => navigate('CustomerIssues')}
-          onNavigateToSupport={() => navigate('SupportHistory')}
-          onNavigateToNewSale={() => navigate('NewSale')}
-          onNavigateToCashTopUp={() => navigate('CashTopUp')}
-        />
-      );
+      return <LiveDetailRoute {...live} />;
     case 'CustomerOrders':
-      return (
-        <CustomerOrdersScreen
-          {...common}
-          customer={customer}
-          warehouseOptions={warehouseOptions}
-          appliedFilters={orderFilters}
-          defaultFilter={params.defaultFilter}
-          onOpenFilters={() => navigate('OrderFilters')}
-          onOpenOrder={(order) => navigate('OrderDetail', { order, orderNo: order.orderNo })}
-        />
-      );
+      return <LiveOrdersRoute {...live} />;
     case 'OrderFilters':
       return (
         <OrderFiltersScreen
-          {...common}
+          {...base}
           config="order"
           variant="customer"
           customerName={customer?.name}
           warehouseOptions={warehouseOptions}
-          initialFilters={orderFilters}
-          onApplyFilters={(next) => {
-            setOrderFilters(next);
-            back();
-          }}
+          onApplyFilters={() => back()}
         />
       );
     case 'PurchaseHistory':
-      return (
-        <PurchaseHistoryScreen
-          {...common}
-          customer={customer}
-          appliedFilters={purchaseFilters}
-          onOpenFilters={() => navigate('PurchaseFilters')}
-          onSelectPurchase={(purchase) => navigate('OrderDetail', { orderNo: purchase.orderNo ?? purchase.invoiceNo })}
-        />
-      );
+      return <LivePurchasesRoute {...live} />;
     case 'PurchaseFilters':
-      return (
-        <OrderFiltersScreen
-          {...common}
-          config="purchase"
-          warehouseOptions={warehouseOptions}
-          initialFilters={purchaseFilters}
-          onApplyFilters={(next) => {
-            setPurchaseFilters(next);
-            back();
-          }}
-        />
-      );
+      return <OrderFiltersScreen {...base} config="purchase" warehouseOptions={warehouseOptions} onApplyFilters={() => back()} />;
     case 'CustomerIssues':
-      return (
-        <CustomerIssuesScreen
-          {...common}
-          customer={customer}
-          onSelectIssue={(issue) => navigate('CustomerIssueDetail', { issue })}
-        />
-      );
+      return <LiveIssuesRoute {...live} />;
     case 'CustomerIssueDetail':
-      return (
-        <CustomerIssueDetailScreen
-          {...common}
-          customer={customer}
-          issue={params.issue}
-          onViewRma={(issue) => navigate('RmaDetail', { issue })}
-        />
-      );
+      return <CustomerIssueDetailScreen {...base} customer={customer} issue={params.issue} />;
     case 'SupportHistory':
-      return (
-        <SupportHistoryScreen
-          {...common}
-          customer={customer}
-          onSelectTicket={(ticket) => navigate('SupportDetail', { ticket })}
-        />
-      );
+      return <LiveSupportRoute {...live} />;
     case 'SupportDetail':
-      return <CustomerSupportDetailScreen {...common} customer={customer} ticket={params.ticket} />;
+      return <LiveSupportDetailRoute {...live} />;
     default:
       return null;
   }

@@ -1,93 +1,82 @@
 /**
- * Customers list: the entry of the customer area.
+ * Customers list: the entry of the customer area (GET /admin/customers).
  *
- * Scope (FINAL_LIST row 16): customer.list.view is `own` for both warehouse
- * roles. A Sub scope lists only its own warehouse's customers; the Main scope
- * (scope.warehouseId undefined, `own` = all four warehouses) lists rows across
- * warehouses with a per-row Warehouse label and the All-warehouses selector.
- * No Add Customer button: customer.record.create is SA/TA only.
+ * Scope is the server's (BR-91): customer.list.view is `own` for both
+ * warehouse roles, and an `own` actor sees only the customers with an order
+ * or a top-up at its warehouse, or who prefer it. The rows come already
+ * scoped; nothing is filtered here. No Add Customer button:
+ * customer.record.create is SA/TA only.
  *
- * Absorbs Main CustomerListScreen (pair M7-S01: "MWA list shows Ooty/Coonoor
- * rows across warehouses; SW single-warehouse list w/ stat tiles"): its four
- * KPI tiles (incl. With Orders / With Issues), the per-row warehouse label and
- * purchases total, and the header search button render for the Main view.
+ * Live (plan phase 6): the KPI tiles are the server's `summary` over the whole
+ * visible set (total, active, new; BR-91e), shown as no value until it loads.
+ * The search box is the server's `q` (name or customer code; the mobile only
+ * for an unmasked actor, BR-92h). Each row shows the masked mobile exactly as
+ * sent (BR-92). Pull to refresh; "Load more" pages on.
+ *
+ * Hidden, because the API cannot do them: the Main all-warehouses selector and
+ * the per-row warehouse label (the list takes no warehouseId and carries only
+ * a preferred warehouse id), the Main "With Orders" / "With Issues" tiles and
+ * the per-row purchases total (no such figures), and the filter shortcut into
+ * the old sample search.
  */
 // Design id: M7-S01
-import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { t } from '../../../i18n';
+import { adminColors } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   BellIcon,
   cardStyles,
   CustomersScreen,
   EmptyState,
-  FilterIcon,
   HeaderIconButton,
-  inScope,
   isAllWarehouses,
+  LinkButton,
   SearchField,
   SearchIcon,
   StatTiles,
   StatusBadge,
 } from './CustomersParts';
-import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
-import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import type { CustomerRow, CustomersLiveStateProps, CustomerSummary, WarehouseScreenBaseProps } from './types';
 
-function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
-  onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
+export interface CustomersListScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
+  onSelectCustomer?: ((customer: CustomerRow) => void) | undefined;
   onNavigateToSearch?: (() => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Customer rows; defaults to the mock set until the customer API is wired. */
-  customers?: readonly CustomerRecord[] | undefined;
+  /** The loaded rows, page by page (already scoped by the server). */
+  customers?: readonly CustomerRow[] | undefined;
+  /** The server's counts over the whole visible set; null until it loads. */
+  summary?: CustomerSummary | null | undefined;
+  /** The search box text; the flow sends it as `q`. */
+  searchText?: string | undefined;
+  onSearchTextChange?: ((text: string) => void) | undefined;
+}
+
+function countLabel(value: number | undefined): string | number {
+  return value === undefined ? t('customers.noValue') : value;
 }
 
 export function CustomersListScreen({
   scope,
   can,
   onBack,
-  onTabChange,
   onSelectCustomer,
   onNavigateToSearch,
   onNavigateToNotifications,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
-  customers = INITIAL_CUSTOMERS,
+  customers = [],
+  summary = null,
+  searchText = '',
+  onSearchTextChange,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
 }: CustomersListScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
   const allWarehouses = isAllWarehouses(scope);
 
   if (!can('customer.list.view')) {
@@ -98,30 +87,19 @@ export function CustomersListScreen({
     );
   }
 
-  const query = searchQuery.trim().toLowerCase();
-  const rows = customers.filter((cust) => {
-    if (!inScope(scope, cust.warehouseId)) return false;
-    if (allWarehouses && selectedWarehouseId !== undefined && cust.warehouseId !== selectedWarehouseId) return false;
-    if (!query) return true;
-    return (
-      cust.name.toLowerCase().includes(query) ||
-      cust.code.toLowerCase().includes(query) ||
-      cust.phone.toLowerCase().includes(query)
+  const view = queryViewState({ isLoading, error, itemCount: customers.length });
+  const searching = searchText.trim() !== '';
+
+  const headerRight =
+    allWarehouses && onNavigateToSearch ? (
+      <HeaderIconButton label="Search customers" onPress={onNavigateToSearch}>
+        <SearchIcon color={adminColors.onBrand} />
+      </HeaderIconButton>
+    ) : (
+      <HeaderIconButton label="Notifications" onPress={onNavigateToNotifications}>
+        <BellIcon />
+      </HeaderIconButton>
     );
-  });
-
-  const headerRight = allWarehouses ? (
-    <HeaderIconButton label="Search customers" onPress={onNavigateToSearch}>
-      <SearchIcon color={adminColors.onBrand} />
-    </HeaderIconButton>
-  ) : (
-    <HeaderIconButton label="Notifications" onPress={onNavigateToNotifications}>
-      <BellIcon />
-    </HeaderIconButton>
-  );
-
-  const selectedWarehouseName =
-    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
 
   return (
     <CustomersScreen
@@ -129,257 +107,62 @@ export function CustomersListScreen({
       subtitle={allWarehouses ? undefined : scope.warehouseName}
       onBack={onBack}
       headerRight={headerRight}
-      headerExtra={
-        allWarehouses ? (
-          <>
-            <TouchableOpacity
-              style={styles.dropdownBtn}
-              activeOpacity={0.8}
-              onPress={() => setShowWarehouseModal(true)}
-            >
-              <BuildingWarehouseIcon color={adminColors.onBrand} />
-              <Text style={styles.dropdownBtnText}>
-                {selectedWarehouseId ? selectedWarehouseName : 'All Warehouses'}
-              </Text>
-              <ChevronDownSmallIcon />
-            </TouchableOpacity>
-
-            <Modal
-              visible={showWarehouseModal}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setShowWarehouseModal(false)}
-            >
-              <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowWarehouseModal(false)}
-              >
-                <View style={styles.dropdownModalCard}>
-                  <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
-
-                  <TouchableOpacity
-                    style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
-                    onPress={() => {
-                      setSelectedWarehouseId(undefined);
-                      setShowWarehouseModal(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownModalItemText,
-                        selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
-                      ]}
-                    >
-                      All Warehouses
-                    </Text>
-                    {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
-                  </TouchableOpacity>
-
-                  {warehouseOptions
-                    .filter((w) => w.warehouseId !== undefined)
-                    .map((w) => {
-                      const isSelected = selectedWarehouseId === w.warehouseId;
-                      return (
-                        <TouchableOpacity
-                          key={w.warehouseId}
-                          style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
-                          onPress={() => {
-                            setSelectedWarehouseId(w.warehouseId);
-                            setShowWarehouseModal(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownModalItemText,
-                              isSelected && styles.dropdownModalItemTextActive,
-                            ]}
-                          >
-                            {w.warehouseName ?? w.warehouseId}
-                          </Text>
-                          {isSelected ? <CheckSmallIcon /> : null}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
-              </TouchableOpacity>
-            </Modal>
-          </>
-        ) : undefined
-      }
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
     >
-      {allWarehouses ? (
-        // Main Warehouse 4 KPI Cards (2x2 Grid) - Static
-        <View style={styles.mainKpiGrid}>
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>TOTAL CUSTOMERS</Text>
-            <Text style={styles.mainKpiValue}>1,248</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>ACTIVE</Text>
-            <Text style={styles.mainKpiValue}>1,102</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>WITH ORDERS</Text>
-            <Text style={styles.mainKpiValue}>864</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>WITH ISSUES</Text>
-            <Text style={styles.mainKpiValue}>23</Text>
-          </View>
-        </View>
-      ) : (
-        <StatTiles items={SUB_CUSTOMER_KPIS} />
-      )}
-
-      <SearchField
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={allWarehouses ? 'Search by name, Customer ID or mobile' : 'Search customers...'}
-        onFocus={onNavigateToSearch}
-        right={
-          <TouchableOpacity onPress={onNavigateToSearch} accessibilityRole="button" accessibilityLabel="Open search">
-            <FilterIcon color={adminColors.muted} />
-          </TouchableOpacity>
-        }
+      <StatTiles
+        items={[
+          { label: t('customers.kpi.total'), value: countLabel(summary?.total) },
+          { label: t('customers.kpi.active'), value: countLabel(summary?.active) },
+          { label: t('customers.kpi.new'), value: countLabel(summary?.new) },
+        ]}
       />
 
-      {rows.length === 0 ? (
-        <EmptyState title="No customers found" subtitle="Try a different name, ID or mobile number." />
+      <SearchField
+        value={searchText}
+        onChangeText={(text) => onSearchTextChange?.(text)}
+        placeholder={t('customers.list.searchPlaceholder')}
+      />
+
+      {view === 'loading' ? (
+        <AdminLoadingState />
+      ) : view === 'error' ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : view === 'empty' ? (
+        <AdminEmptyState title={t(searching ? 'customers.empty.search' : 'customers.empty.list')} />
       ) : (
-        rows.map((customer) => (
-          <TouchableOpacity
-            key={customer.id}
-            style={cardStyles.card}
-            activeOpacity={0.8}
-            onPress={() => onSelectCustomer?.(customer)}
-            accessibilityRole="button"
-          >
-            <View style={cardStyles.rowBetween}>
-              <Text style={cardStyles.title}>{customer.name}</Text>
-              <StatusBadge label={customer.status} tone={customer.status === 'Active' ? 'success' : 'danger'} />
-            </View>
-            <Text style={cardStyles.meta}>
-              {customer.code} · {customer.phone}
-            </Text>
-            <View style={cardStyles.divider} />
-            {allWarehouses ? (
+        <>
+          {customers.map((customer) => (
+            <TouchableOpacity
+              key={customer.id}
+              style={cardStyles.card}
+              activeOpacity={0.8}
+              onPress={() => onSelectCustomer?.(customer)}
+              accessibilityRole="button"
+            >
               <View style={cardStyles.rowBetween}>
-                <Text style={cardStyles.meta}>
-                  Orders {customer.ordersCount}
-                  {customer.totalPurchases ? ` · Purchases ${customer.totalPurchases}` : ''}
-                </Text>
-                {/* Main only: warehouse city/name pill */}
-                <Text style={styles.warehouseCityTag}>
-                  {customer.warehouseName?.replace(' Warehouse', '').replace(' Market', '') ?? 'Coonoor'}
-                </Text>
+                <Text style={cardStyles.title}>{customer.name}</Text>
+                <StatusBadge label={customer.statusLabel} tone={customer.tone} />
               </View>
-            ) : (
+              <Text style={cardStyles.meta}>
+                {customer.code} · {customer.mobileMasked}
+              </Text>
+              <View style={cardStyles.divider} />
               <View style={cardStyles.rowBetween}>
                 <View>
                   <Text style={cardStyles.meta}>Orders</Text>
-                  <Text style={cardStyles.body}>{customer.ordersCount}</Text>
+                  <Text style={cardStyles.body}>{customer.totalOrders ?? t('customers.noValue')}</Text>
                 </View>
                 <View>
-                  <Text style={cardStyles.meta}>Last Purchase</Text>
-                  <Text style={cardStyles.body}>{customer.lastPurchase}</Text>
+                  <Text style={cardStyles.meta}>{t('customers.list.lastActivity')}</Text>
+                  <Text style={cardStyles.body}>{customer.lastActivityLabel}</Text>
                 </View>
               </View>
-            )}
-          </TouchableOpacity>
-        ))
+            </TouchableOpacity>
+          ))}
+          {hasMore && onLoadMore ? <LinkButton label={t('customers.loadMore')} onPress={onLoadMore} /> : null}
+        </>
       )}
     </CustomersScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  dropdownBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  dropdownBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: adminSpacing.xl,
-  },
-  dropdownModalCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.lg,
-    ...adminShadow.md,
-  },
-  dropdownModalTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
-  },
-  dropdownModalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-  },
-  dropdownModalItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownModalItemText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  dropdownModalItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  mainKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  mainKpiCard: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
-    ...adminShadow.sm,
-  },
-  mainKpiLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  mainKpiValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-  },
-  warehouseCityTag: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    fontWeight: '600',
-  },
-});

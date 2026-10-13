@@ -11,6 +11,7 @@
  */
 import React from 'react';
 import {
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -23,8 +24,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
-import { DEFAULT_CUSTOMER } from './fixtures';
-import type { CustomerRecord, CustomerRef, WarehouseScope } from './types';
+import type { WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 
@@ -40,16 +40,6 @@ export function isAllWarehouses(scope: WarehouseScope): boolean {
  */
 export function inScope(scope: WarehouseScope, warehouseId: string | undefined): boolean {
   return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === (scope.warehouseCode ?? scope.warehouseId);
-}
-
-/**
- * The customer in focus with the default filled in for every field the caller
- * did not pass (deep links carry only a name/id). Explicit `undefined`s are
- * ignored so they cannot blank a field.
- */
-export function resolveCustomer(ref?: CustomerRef): CustomerRecord {
-  const known = Object.fromEntries(Object.entries(ref ?? {}).filter(([, value]) => value !== undefined));
-  return { ...DEFAULT_CUSTOMER, ...known };
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -127,6 +117,9 @@ export interface CustomersScreenProps {
   headerExtra?: React.ReactNode;
   /** Sticky bar under the content (actions). */
   footer?: React.ReactNode;
+  /** Pull-to-refresh of a live screen. */
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
   children: React.ReactNode;
 }
 
@@ -139,6 +132,8 @@ export function CustomersScreen({
   headerRight,
   headerExtra,
   footer,
+  onRefresh,
+  isRefreshing = false,
   children,
 }: CustomersScreenProps) {
   return (
@@ -172,6 +167,11 @@ export function CustomersScreen({
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+          ) : undefined
+        }
       >
         {children}
       </ScrollView>
@@ -416,6 +416,43 @@ export function LinkButton({ label, onPress }: { label: string; onPress?: (() =>
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} accessibilityRole="button" style={styles.linkButton}>
       <Text style={styles.linkText}>{label}</Text>
     </TouchableOpacity>
+  );
+}
+
+/**
+ * One "recent" card inside a customer-detail tab, with its link to the full
+ * list. A tab whose list is empty shows `emptyTitle` instead of the card.
+ */
+export function RecentCard({
+  code,
+  badge,
+  lines,
+  onPress,
+  linkLabel,
+}: {
+  code?: string | undefined;
+  badge?: React.ReactNode;
+  lines: readonly string[];
+  onPress?: (() => void) | undefined;
+  linkLabel: string;
+}) {
+  return (
+    <>
+      <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8} accessibilityRole="button">
+        {code ? (
+          <View style={cardStyles.rowBetween}>
+            <Text style={cardStyles.code}>{code}</Text>
+            {badge}
+          </View>
+        ) : null}
+        {lines.map((line, index) => (
+          <Text key={`${index}:${line}`} style={cardStyles.meta}>
+            {line}
+          </Text>
+        ))}
+      </TouchableOpacity>
+      <LinkButton label={linkLabel} onPress={onPress} />
+    </>
   );
 }
 

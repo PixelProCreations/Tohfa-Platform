@@ -8,48 +8,65 @@
  * limit / suspend control anywhere: Customer Actions was dropped
  * (customer.profile.edit is none/none for both warehouse roles, SPEC_GAPS W4h-1).
  *
- * Absorbs Main CustomerDetailScreen (pair M7-S03: "MWA view-only w/ Primary
- * Warehouse field"): for the Main view the header carries "name · id", the
- * Basic Information card shows the Primary Warehouse, and the view-only note
- * is shown.
+ * Live (plan phase 6): the profile is GET /admin/customers/{id}, by the
+ * customer uuid. The mobile is the masked one exactly as sent; the e-mail,
+ * the full mobile and any call / e-mail action appear only when the server
+ * sent them unmasked (contactActions, BR-92). Orders, lifetime value and
+ * wallet balance are the server's figures (lifetime value is confined to the
+ * caller's warehouse for `own`, BR-91g). Each tab's recent card is the first
+ * row of that list, drawn by the flow (`renderTabPreview`), so a tab fetches
+ * only when opened.
+ *
+ * Hidden, because the API has no such figure: the Issues count tile, the
+ * Completed / Cancelled order counts, Open Issues and the Main Primary
+ * Warehouse field (the profile carries only a preferred warehouse id).
  */
 // Design id: M7-S03
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   cardStyles,
   ChipRow,
   CustomersScreen,
   InfoGrid,
-  isAllWarehouses,
-  LinkButton,
-  NoteBox,
-  resolveCustomer,
+  RecentCard,
   SectionHeading,
   StatTiles,
   StatusBadge,
   type InfoField,
 } from './CustomersParts';
-import { DEFAULT_CUSTOMER } from './fixtures';
-import type { CustomerRef, WarehouseScreenBaseProps } from './types';
+import { contactActions, mobileLabel } from './mappers';
+import type { CustomerProfileView, CustomerRef, CustomersLiveStateProps, WarehouseScreenBaseProps } from './types';
 
-export interface CustomerDetailsScreenProps extends WarehouseScreenBaseProps {
+/** A tab whose recent card is the first row of its own list. */
+export type CustomerPreviewTab = 'Orders' | 'Purchases' | 'Issues' | 'Support';
+
+export interface CustomerDetailsScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
+  /** What the caller already knows (the list row): the header while the profile loads. */
   customer?: CustomerRef | undefined;
+  /** The profile, once loaded. */
+  profile?: CustomerProfileView | undefined;
+  /** The route carried no customer uuid: nothing can be looked up. */
+  notFound?: boolean | undefined;
+  /** Draws a tab's recent card (the flow fetches it when the tab opens). */
+  renderTabPreview?: ((tab: CustomerPreviewTab) => React.ReactNode) | undefined;
   onNavigateToOrders?: (() => void) | undefined;
   onNavigateToPurchases?: (() => void) | undefined;
   onNavigateToWallet?: (() => void) | undefined;
   onNavigateToIssues?: (() => void) | undefined;
-  onNavigateToSupport?: (() => void) | undefined;
   /** Rendered only with can('invoice.generate'). */
   onNavigateToNewSale?: (() => void) | undefined;
   /** Rendered only with can('wallet.cash_topup.process'). */
   onNavigateToCashTopUp?: (() => void) | undefined;
 }
 
-type DetailTab = 'Overview' | 'Orders' | 'Purchases' | 'Wallet' | 'Issues' | 'Support';
+type DetailTab = 'Overview' | CustomerPreviewTab | 'Wallet';
 const DETAIL_TABS: readonly DetailTab[] = ['Overview', 'Orders', 'Purchases', 'Wallet', 'Issues', 'Support'];
 
 function CartIcon() {
@@ -103,115 +120,107 @@ function QuickAction({ label, icon, onPress }: { label: string; icon: React.Reac
   );
 }
 
-/** One "recent" card inside a tab, with its link to the full list. */
-function RecentCard({
-  code,
-  badge,
-  lines,
-  onPress,
-  linkLabel,
-}: {
-  code?: string | undefined;
-  badge?: React.ReactNode;
-  lines: readonly string[];
-  onPress?: (() => void) | undefined;
-  linkLabel: string;
-}) {
-  return (
-    <>
-      <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8} accessibilityRole="button">
-        {code ? (
-          <View style={cardStyles.rowBetween}>
-            <Text style={cardStyles.code}>{code}</Text>
-            {badge}
-          </View>
-        ) : null}
-        {lines.map((line) => (
-          <Text key={line} style={cardStyles.meta}>
-            {line}
-          </Text>
-        ))}
-      </TouchableOpacity>
-      <LinkButton label={linkLabel} onPress={onPress} />
-    </>
-  );
-}
-
-export function CustomerDetailsScreen({
-  scope,
-  can,
-  onBack,
-  customer,
-  onNavigateToOrders,
-  onNavigateToPurchases,
-  onNavigateToWallet,
-  onNavigateToIssues,
-  onNavigateToSupport,
-  onNavigateToNewSale,
-  onNavigateToCashTopUp,
-}: CustomerDetailsScreenProps) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
-  const allWarehouses = isAllWarehouses(scope);
-
-  const c = resolveCustomer(customer);
-  const code = customer?.code ?? customer?.id ?? DEFAULT_CUSTOMER.code;
-  const purchases = c.totalPurchases ?? '₹0';
-  const wallet = c.walletBalance ?? '₹0';
-  const openIssues = c.openIssues ?? 0;
-  const initials = c.name
+function initialsOf(name: string): string {
+  return name
     .split(' ')
     .map((part) => part[0] ?? '')
     .join('')
     .substring(0, 2)
     .toUpperCase();
+}
 
+export function CustomerDetailsScreen({
+  can,
+  onBack,
+  customer,
+  profile,
+  notFound = false,
+  renderTabPreview,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onNavigateToOrders,
+  onNavigateToPurchases,
+  onNavigateToWallet,
+  onNavigateToIssues,
+  onNavigateToNewSale,
+  onNavigateToCashTopUp,
+}: CustomerDetailsScreenProps) {
+  const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
+  const title = 'Customer Details';
+
+  if (notFound || profile === undefined) {
+    const view = notFound ? 'empty' : queryViewState({ isLoading, error, itemCount: 0 });
+    return (
+      <CustomersScreen title={title} subtitle={customer?.name} onBack={onBack} onRefresh={notFound ? undefined : onRefresh} isRefreshing={isRefreshing}>
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : (
+          <AdminEmptyState title={t('customers.empty.notFound')} />
+        )}
+      </CustomersScreen>
+    );
+  }
+
+  const c = profile;
+  const contact = contactActions(c);
   const canNewSale = can('invoice.generate');
   const canCashTopUp = can('wallet.cash_topup.process');
+  const noValue = t('customers.noValue');
+  const ordersCount = c.totalOrders ?? noValue;
 
   const basicRows: InfoField[][] = [
     [
       { label: 'Customer Name', value: c.name },
-      { label: 'Customer ID', value: code },
+      { label: 'Customer ID', value: c.code },
     ],
+    // The e-mail exists only for an unmasked actor (BR-92).
+    contact.email
+      ? [
+          { label: 'Mobile', value: mobileLabel(c) },
+          { label: 'Email', value: c.contact.email ?? noValue },
+        ]
+      : [{ label: 'Mobile', value: mobileLabel(c) }],
     [
-      { label: 'Mobile', value: c.phone },
-      { label: 'Email', value: c.email ?? '-' },
+      { label: 'Account Status', value: c.statusLabel },
+      { label: 'Registration Date', value: c.registeredLabel },
     ],
-    [
-      { label: 'Account Status', value: c.status },
-      { label: 'Registration Date', value: c.regDate ?? '-' },
-    ],
+    c.businessName === null
+      ? [{ label: t('customers.detail.type'), value: c.customerTypeLabel }]
+      : [
+          { label: t('customers.detail.type'), value: c.customerTypeLabel },
+          { label: t('customers.detail.businessName'), value: c.businessName },
+        ],
   ];
-  // Main twin: Primary Warehouse field.
-  if (allWarehouses) basicRows.push([{ label: 'Primary Warehouse', value: c.warehouseName ?? '-' }]);
+
+  const preview = (tab: CustomerPreviewTab) => renderTabPreview?.(tab) ?? null;
 
   return (
-    <CustomersScreen
-      title="Customer Details"
-      subtitle={allWarehouses ? `${c.name} · ${code}` : undefined}
-      onBack={onBack}
-    >
+    <CustomersScreen title={title} onBack={onBack} onRefresh={onRefresh} isRefreshing={isRefreshing}>
       <View style={styles.hero}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
+          <Text style={styles.avatarText}>{initialsOf(c.name)}</Text>
         </View>
         <Text style={styles.heroName}>{c.name}</Text>
         <Text style={cardStyles.meta}>
-          {code} · {c.phone}
+          {c.code} · {mobileLabel(c)}
         </Text>
-        {c.email ? <Text style={cardStyles.meta}>{c.email}</Text> : null}
+        {contact.email && c.contact.email !== null ? <Text style={cardStyles.meta}>{c.contact.email}</Text> : null}
         <View style={styles.heroBadge}>
-          <StatusBadge label={c.status} tone={c.status === 'Active' ? 'success' : 'danger'} />
+          <StatusBadge label={c.statusLabel} tone={c.tone} />
         </View>
       </View>
 
       <StatTiles
         columns={2}
         items={[
-          { label: 'Orders', value: c.ordersCount, onPress: onNavigateToOrders ?? (() => setActiveTab('Orders')) },
-          { label: 'Purchases', value: purchases, onPress: onNavigateToPurchases ?? (() => setActiveTab('Purchases')) },
-          { label: 'Wallet', value: wallet, onPress: onNavigateToWallet ?? (() => setActiveTab('Wallet')) },
-          { label: 'Issues', value: openIssues, onPress: onNavigateToIssues ?? (() => setActiveTab('Issues')) },
+          { label: 'Orders', value: ordersCount, onPress: onNavigateToOrders ?? (() => setActiveTab('Orders')) },
+          { label: 'Purchases', value: c.lifetimeValueLabel, onPress: onNavigateToPurchases ?? (() => setActiveTab('Purchases')) },
+          { label: 'Wallet', value: c.walletBalanceLabel, onPress: onNavigateToWallet ?? (() => setActiveTab('Wallet')) },
         ]}
       />
 
@@ -226,16 +235,12 @@ export function CustomerDetailsScreen({
           <InfoGrid
             rows={[
               [
-                { label: 'Total Orders', value: c.ordersCount },
-                { label: 'Completed', value: c.completedOrders ?? 0 },
+                { label: 'Total Orders', value: ordersCount },
+                { label: 'Total Purchase Value', value: c.lifetimeValueLabel },
               ],
               [
-                { label: 'Cancelled', value: c.cancelledOrders ?? 0 },
-                { label: 'Total Purchase Value', value: purchases },
-              ],
-              [
-                { label: 'Last Purchase', value: c.lastPurchase },
-                { label: 'Open Issues', value: openIssues },
+                { label: t('customers.detail.lastOrder'), value: c.lastOrderLabel },
+                { label: t('customers.list.lastActivity'), value: c.lastActivityLabel },
               ],
             ]}
           />
@@ -252,59 +257,35 @@ export function CustomerDetailsScreen({
       {activeTab === 'Orders' ? (
         <>
           <SectionHeading>Recent Orders</SectionHeading>
-          <RecentCard
-            code="ORD-00251"
-            badge={<StatusBadge label="Ready for Pickup" tone="success" />}
-            lines={['3 Items', '₹850']}
-            onPress={onNavigateToOrders}
-            linkLabel="View All Orders →"
-          />
+          {preview('Orders')}
         </>
       ) : null}
 
       {activeTab === 'Purchases' ? (
         <>
           <SectionHeading>Recent Purchases</SectionHeading>
-          <RecentCard
-            code="INV-00251"
-            badge={<StatusBadge label="Paid" tone="success" />}
-            lines={['Tomato Grade 1 · 2 KG', '₹200']}
-            onPress={onNavigateToPurchases}
-            linkLabel="View Purchase History →"
-          />
+          {preview('Purchases')}
         </>
       ) : null}
 
       {activeTab === 'Wallet' ? (
         <>
           <SectionHeading>Wallet</SectionHeading>
-          <RecentCard lines={['Available Balance', wallet]} onPress={onNavigateToWallet} linkLabel="View Wallet Summary →" />
+          <RecentCard lines={['Available Balance', c.walletBalanceLabel]} onPress={onNavigateToWallet} linkLabel="View Wallet Summary →" />
         </>
       ) : null}
 
       {activeTab === 'Issues' ? (
         <>
           <SectionHeading>Recent Issues</SectionHeading>
-          <RecentCard
-            code="ISSUE-00231"
-            badge={<StatusBadge label="In Review" tone="warning" />}
-            lines={['Quality · Tomato Grade 1', '24 Sep 2026']}
-            onPress={onNavigateToIssues}
-            linkLabel="View All Issues →"
-          />
+          {preview('Issues')}
         </>
       ) : null}
 
       {activeTab === 'Support' ? (
         <>
           <SectionHeading>Recent Support</SectionHeading>
-          <RecentCard
-            code="TKT-00104"
-            badge={<StatusBadge label="Open" tone="info" />}
-            lines={['Order Assistance & Support', '24 Sep 2026']}
-            onPress={onNavigateToSupport}
-            linkLabel="View All Support Tickets →"
-          />
+          {preview('Support')}
         </>
       ) : null}
     </CustomersScreen>

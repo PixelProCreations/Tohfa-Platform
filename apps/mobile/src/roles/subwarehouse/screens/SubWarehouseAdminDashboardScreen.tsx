@@ -453,6 +453,8 @@ const ISSUE_RMA_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
  * Opens the shared returns flow on the RMA of a customer issue. The issue is
  * mapped to an RmaRecord (mock mapping, as before the customers wave); the
  * params are memoised because ReturnsFlow restarts its stack when they change.
+ * The live customer issue detail no longer offers this (it would show sample
+ * fields beside a real issue); plan phase 10 opens the return by the issue id.
  */
 function CustomerIssueRmaFlow({
   scope,
@@ -470,28 +472,28 @@ function CustomerIssueRmaFlow({
   const initialParams = useMemo(() => {
     const issue = params.issue;
     const c = params.customer;
-    const rmaId = (issue?.issueNo ?? 'ISSUE-00231').replace('ISSUE', 'RMA');
+    const rmaId = issue?.reference ?? 'RMA-00231';
     const rma: RmaRecord = {
-      id: rmaId.toLowerCase(),
+      id: issue?.id ?? rmaId.toLowerCase(),
       rmaId,
-      orderId: issue?.orderNo ?? 'ORD-00251',
+      orderId: issue?.orderNumber ?? 'ORD-00251',
       customerName: c?.name ?? 'Rajesh Kumar',
-      customerId: c?.code ?? c?.id ?? 'CUS-00291',
-      customerPhone: c?.phone ?? '+91 98765 43210',
-      orderDate: issue?.dateText ?? '24 Sep 2026',
+      customerId: c?.code ?? 'CUS-00291',
+      customerPhone: c?.mobileMasked ?? '+91 98765 43210',
+      orderDate: issue?.createdLabel ?? '24 Sep 2026',
       salesChannel: 'Direct Sale',
       paymentStatus: 'Paid',
-      productName: issue?.product ?? 'Tomato',
+      productName: 'Tomato',
       grade: 'Grade 1',
-      quantityPurchased: issue?.quantity ?? '2 KG',
+      quantityPurchased: '2 KG',
       unitPrice: '₹100 / KG',
       lineTotal: '₹200',
-      issueCategory: (issue?.category as RmaRecord['issueCategory'] | undefined) ?? 'Quality',
-      reportedDate: issue?.dateText ?? '24 Sep 2026',
+      issueCategory: 'Quality',
+      reportedDate: issue?.createdLabel ?? '24 Sep 2026',
       timestampText: '24 Sep 2026 · 10:45 AM',
-      description: issue?.description ?? 'Customer reported quality issue.',
-      ticketId: issue?.issueNo ?? 'ISSUE-00231',
-      requestedQuantity: issue?.quantity ?? '2 KG',
+      description: issue?.reason ?? 'Customer reported quality issue.',
+      ticketId: issue?.reference ?? 'ISSUE-00231',
+      requestedQuantity: '2 KG',
       requestedResolution: 'Replacement / Refund',
       status: 'Under Review',
     };
@@ -1838,7 +1840,7 @@ export function SubWarehouseAdminDashboardScreen({
                 scope={scope}
                 can={can}
                 initialScreen="M5S04"
-                initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: c?.name }}
+                initialParams={{ orderId: p.orderId, customerName: c?.name }}
                 onBack={nav.back}
                 onTabChange={(tab) => {
                   setCustomersEntry(null);

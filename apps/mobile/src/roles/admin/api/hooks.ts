@@ -33,8 +33,10 @@ export function useAdminQuery<T>(key: QueryKey, fetcher: (signal: AbortSignal) =
   });
 }
 
-export interface CursorList<U> {
+export interface CursorList<U, P = unknown> {
   items: U[];
+  /** The first loaded page as the server sent it (e.g. a list `summary`); undefined before it loads. */
+  firstPage: P | undefined;
   loadMore: () => void;
   hasMore: boolean;
   isLoading: boolean;
@@ -43,27 +45,35 @@ export interface CursorList<U> {
   isRefreshing: boolean;
 }
 
-/** A cursor-paged list (docs/openapi.yaml PageMeta) with load-more and refresh. */
-export function useCursorList<T, U>(
+/**
+ * A cursor-paged list (docs/openapi.yaml PageMeta) with load-more and refresh.
+ * With `enabled: false` nothing is fetched and the list is not loading (e.g.
+ * no customer id to ask for yet).
+ */
+export function useCursorList<T, U, P extends Page<T> = Page<T>>(
   key: QueryKey,
-  fetchPage: (cursor: string | undefined, signal: AbortSignal) => Promise<Page<T>>,
+  fetchPage: (cursor: string | undefined, signal: AbortSignal) => Promise<P>,
   map: (item: T) => U,
-): CursorList<U> {
-  const query = useInfiniteQuery<Page<T>, Error, InfiniteData<Page<T>, string | undefined>, QueryKey, string | undefined>({
+  options: AdminQueryOptions = {},
+): CursorList<U, P> {
+  const enabled = options.enabled ?? true;
+  const query = useInfiniteQuery<P, Error, InfiniteData<P, string | undefined>, QueryKey, string | undefined>({
     queryKey: key,
     queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
     initialPageParam: undefined,
     getNextPageParam: nextPageParam,
+    enabled,
   });
   const items = useMemo(() => flattenPages(query.data?.pages, map), [query.data, map]);
   const flags = cursorListFlags(query);
   return {
     items,
+    firstPage: query.data?.pages[0],
     loadMore: () => {
       if (flags.canLoadMore) void query.fetchNextPage();
     },
     hasMore: flags.hasMore,
-    isLoading: flags.isLoading,
+    isLoading: enabled && flags.isLoading,
     error: query.error,
     refresh: () => {
       void query.refetch();
