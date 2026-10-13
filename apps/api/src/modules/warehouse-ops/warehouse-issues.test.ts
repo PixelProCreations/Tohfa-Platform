@@ -21,6 +21,7 @@ import type pg from 'pg';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
+import { loadRbac } from '../../rbac/loadRbac.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, describeIfDatabase, newId } from '../../test/factories.js';
 import { requireDatabaseTables } from '../../test/dbFixtures.js';
@@ -264,7 +265,10 @@ class FakeRepo implements WarehouseIssuesRepo {
     const { issueId: _ignored, ...rest } = comment;
     return rest;
   }
-  async isEligibleAssignee(_db: Executor, userId: string, warehouseId: string) {
+  async isEligibleAssignee(_db: Executor, userId: string, warehouseId: string, permissionCode: string) {
+    // The service must ask about the permission that governs working an issue; any other code
+    // makes nobody assignable, so every assignee test below also pins that code.
+    if (permissionCode !== 'warehouse.issue.manage') return false;
     if (userId === MAIN_ASSIGNEE || userId === ACTOR) return true;
     if (userId === SUB_A_ASSIGNEE) return warehouseId === WH_A;
     if (userId === SUB_B_ASSIGNEE) return warehouseId === WH_B;
@@ -691,6 +695,7 @@ describeIfDatabase('warehouse issues service (PostgreSQL)', () => {
 
   dbTest('BR-103a/b: create stores a WI-###### number, OPEN status and the reporter; list filters, searches (wildcards literal) and pages newest first', async () => {
     await inRolledBackTx(async (tx) => {
+      await projectGrants(tx, ISSUE_MANAGE); // `second` below is assigned, and eligibility reads the grant
       const actorId = await user(tx, { role: 'MAIN_WH_ADMIN' });
       const svc = service(tx);
       const first = await svc.create(main(actorId), wh.ooty, { category: 'EQUIPMENT', severity: 'HIGH', title: 'Chiller 100% down', description: 'd' });
@@ -761,8 +766,38 @@ describeIfDatabase('warehouse issues service (PostgreSQL)', () => {
     });
   });
 
+  /** Sets one role's grant on one permission, inside the caller's (rolled-back) transaction. */
+  async function setGrant(tx: Executor, permissionCode: string, roleCode: string, scope: string): Promise<void> {
+    await tx.query(
+      `INSERT INTO role_permissions (role_id, permission_id, scope)
+       SELECT r.id, p.id, $3 FROM roles r CROSS JOIN permissions p WHERE r.code = $1 AND p.code = $2
+       ON CONFLICT (role_id, permission_id) DO UPDATE SET scope = EXCLUDED.scope`,
+      [roleCode, permissionCode, scope],
+    );
+  }
+
+  /**
+   * Projects one permission and its grants from docs/rbac.json into the transaction, as
+   * db/seed/002_permissions.js does, so these tests read the CURRENT rbac.json rather than whatever
+   * the local database was last seeded with. Rolled back with everything else.
+   */
+  async function projectGrants(tx: Executor, permissionCode: string): Promise<void> {
+    const permission = loadRbac().permission(permissionCode);
+    await tx.query(
+      `INSERT INTO permissions (code, module, description, predicate) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (code) DO UPDATE SET module = EXCLUDED.module, description = EXCLUDED.description, predicate = EXCLUDED.predicate`,
+      [permissionCode, permission.module, permission.description ?? permissionCode, permission.predicate ?? null],
+    );
+    for (const [roleCode, scope] of Object.entries(permission.grants)) {
+      await setGrant(tx, permissionCode, roleCode, scope);
+    }
+  }
+
+  const ISSUE_MANAGE = 'warehouse.issue.manage';
+
   dbTest('BR-103d: the assignee query accepts live Super/Tohfa/Main and a Sub of THIS warehouse; refuses other Subs, ended, disabled, deleted, non-admin and unknown users', async () => {
     await inRolledBackTx(async (tx) => {
+      await projectGrants(tx, ISSUE_MANAGE);
       const ok = {
         superAdmin: await user(tx, { role: 'SUPER_ADMIN' }),
         tohfa: await user(tx, { role: 'TOHFA_ADMIN' }),
@@ -779,16 +814,52 @@ describeIfDatabase('warehouse issues service (PostgreSQL)', () => {
         unknown: newId(),
       };
       for (const [name, id] of Object.entries(ok)) {
-        expect(await warehouseIssuesRepo.isEligibleAssignee(tx, id, wh.ooty), name).toBe(true);
+        expect(await warehouseIssuesRepo.isEligibleAssignee(tx, id, wh.ooty, ISSUE_MANAGE), name).toBe(true);
       }
       for (const [name, id] of Object.entries(refused)) {
-        expect(await warehouseIssuesRepo.isEligibleAssignee(tx, id, wh.ooty), name).toBe(false);
+        expect(await warehouseIssuesRepo.isEligibleAssignee(tx, id, wh.ooty, ISSUE_MANAGE), name).toBe(false);
       }
       const svc = service(tx);
       const issue = await svc.create(main(ok.main), wh.ooty, { category: 'STAFFING', severity: 'LOW', title: 'Rota', assignedTo: ok.subHere });
       const error = await failure(svc.update(main(ok.main), wh.ooty, issue.id, { assignedTo: refused.subElsewhere }));
       expect(error.status).toBe(422);
       expect((await svc.update(main(ok.main), wh.ooty, issue.id, { assignedTo: null })).assignedTo).toBeNull();
+    });
+  });
+
+  dbTest('BR-103d: assignee eligibility follows the warehouse.issue.manage grant in role_permissions (docs/rbac.json), not a list of role names', async () => {
+    await inRolledBackTx(async (tx) => {
+      await projectGrants(tx, ISSUE_MANAGE);
+      const mainAdmin = await user(tx, { role: 'MAIN_WH_ADMIN' });
+      const subHere = await user(tx, { role: 'SUB_WH_ADMIN', warehouseId: wh.ooty });
+      const subElsewhere = await user(tx, { role: 'SUB_WH_ADMIN', warehouseId: wh.coonoor });
+      const farmerAdmin = await user(tx, { userType: 'FARMER', role: 'FARMER_ADMIN' });
+      const eligible = (id: string, warehouseId: string = wh.ooty) =>
+        warehouseIssuesRepo.isEligibleAssignee(tx, id, warehouseId, ISSUE_MANAGE);
+
+      // As rbac.json grants it today: Main `all`, Sub `own` (its warehouse only), Farmer Admin `none`.
+      expect(await eligible(mainAdmin)).toBe(true);
+      expect(await eligible(subHere)).toBe(true);
+      expect(await eligible(subElsewhere)).toBe(false);
+      expect(await eligible(subElsewhere, wh.coonoor)).toBe(true);
+      expect(await eligible(farmerAdmin)).toBe(false);
+
+      // Withdraw the Sub grant: the same Sub of this very warehouse is no longer assignable.
+      await setGrant(tx, ISSUE_MANAGE, 'SUB_WH_ADMIN', 'none');
+      expect(await eligible(subHere)).toBe(false);
+
+      // A read-only grant does not make anyone an assignee.
+      await setGrant(tx, ISSUE_MANAGE, 'MAIN_WH_ADMIN', 'view');
+      expect(await eligible(mainAdmin)).toBe(false);
+
+      // Widening Sub to `all` still confines it to its assigned warehouse (scope dimension warehouse_id).
+      await setGrant(tx, ISSUE_MANAGE, 'SUB_WH_ADMIN', 'all');
+      expect(await eligible(subHere)).toBe(true);
+      expect(await eligible(subElsewhere)).toBe(false);
+
+      // A grant to a role that is not warehouse-shaped (Farmer Admin, zone_id) never reaches a warehouse.
+      await setGrant(tx, ISSUE_MANAGE, 'FARMER_ADMIN', 'all');
+      expect(await eligible(farmerAdmin)).toBe(false);
     });
   });
 

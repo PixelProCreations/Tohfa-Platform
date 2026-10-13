@@ -33,6 +33,12 @@ import type {
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
 
+/**
+ * BR-103 rule 4: an assignee works the issue, so it must hold the same permission the update and
+ * comment routes require. Who holds it is decided by docs/rbac.json, not here.
+ */
+const ASSIGNEE_PERMISSION = 'warehouse.issue.manage';
+
 /** BR-103 rule 3. CLOSED is terminal. */
 export const LEGAL_TRANSITIONS: Readonly<Record<IssueStatus, readonly IssueStatus[]>> = {
   OPEN: ['IN_PROGRESS', 'RESOLVED'],
@@ -89,7 +95,7 @@ export function createWarehouseIssuesService(deps: Partial<WarehouseIssuesServic
   const runTx: TransactionRunner = deps.runTx ?? ((fn) => withTransaction(fn));
 
   async function requireAssignable(tx: Executor, userId: string, warehouseId: string): Promise<void> {
-    if (!(await repo.isEligibleAssignee(tx, userId, warehouseId))) {
+    if (!(await repo.isEligibleAssignee(tx, userId, warehouseId, ASSIGNEE_PERMISSION))) {
       // One message for "unknown", "not an admin" and "cannot reach this warehouse": the caller learns
       // only that this id is not assignable here, not which of the three it is.
       throw invalidField(

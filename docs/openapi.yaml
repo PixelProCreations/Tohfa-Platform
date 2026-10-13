@@ -1480,9 +1480,11 @@ paths:
       description: |
         Creates an `OPEN` issue numbered `WI-000001`, `WI-000002`, ... with the caller as reporter.
         Requires `warehouse.issue.manage` (a Sub Warehouse Admin only in its own warehouse; another
-        or an unknown warehouse is 404). An `assignedTo` must be an active admin with a live
-        `SUPER_ADMIN`, `TOHFA_ADMIN` or `MAIN_WH_ADMIN` assignment, or a live `SUB_WH_ADMIN`
-        assignment to THIS warehouse; anyone else (including an unknown user) is 422
+        or an unknown warehouse is 404). An `assignedTo` must be an active user with a live role
+        assignment whose role holds `warehouse.issue.manage` (`all` or `own`) and reaches THIS
+        warehouse - with today's grants a live `SUPER_ADMIN`, `TOHFA_ADMIN` or `MAIN_WH_ADMIN`
+        assignment, or a live `SUB_WH_ADMIN` assignment to THIS warehouse (BR-103 rule 4); anyone
+        else (including an unknown user) is 422
         `VALIDATION_FAILED` on `body.assignedTo`. One `warehouse.issue.create` audit row is written
         in the same transaction with a masked image (issue number, category, severity, status,
         assignee id; never the title or description) (BR-35, BR-103).

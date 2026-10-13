@@ -109,11 +109,12 @@ export interface WarehouseIssuesRepo {
   update(db: Executor, id: string, changes: IssueUpdate): Promise<WarehouseIssue>;
   insertComment(db: Executor, input: { issueId: string; authorId: string; body: string }): Promise<WarehouseIssueComment>;
   /**
-   * BR-103 rule 4: an active, non-deleted user with a LIVE assignment that reaches this warehouse:
-   * Super/Tohfa/Main anywhere, or a Sub admin of exactly this warehouse. "Live" is the same window the
-   * login path uses (started, and not ended).
+   * BR-103 rule 4: an active, non-deleted user with a LIVE role assignment whose role holds
+   * `permissionCode` and reaches this warehouse. "Live" is the same window the login path uses
+   * (started, and not ended). Who qualifies is read from role_permissions (the projection of
+   * docs/rbac.json), never from a list of role names, so a grant change moves eligibility with it.
    */
-  isEligibleAssignee(db: Executor, userId: string, warehouseId: string): Promise<boolean>;
+  isEligibleAssignee(db: Executor, userId: string, warehouseId: string, permissionCode: string): Promise<boolean>;
 }
 
 export const warehouseIssuesRepo: WarehouseIssuesRepo = {
@@ -210,21 +211,35 @@ export const warehouseIssuesRepo: WarehouseIssuesRepo = {
     return toComment(result.rows[0]!);
   },
 
-  async isEligibleAssignee(db, userId, warehouseId) {
+  // The role-grant join is the one support-tickets (userHoldsPermission) and listings routing use.
+  // Two narrowings on top, both read from data rather than role names:
+  //  - only `all` and `own` qualify. `view` is read-only, and a `conditional` grant carries a
+  //    predicate about the actor and a row that a "who could work this" lookup cannot evaluate, so
+  //    it fails closed (no grant on warehouse.issue.manage is conditional today);
+  //  - the warehouse reach follows roles.scope_dimension (rbac.json `scopeDimension`), as
+  //    rbac/warehouseScope.ts does: no dimension (Super, Tohfa, Main) reaches every warehouse; a
+  //    `warehouse_id` role (Sub) reaches only its assigned warehouse even on an `all` grant (the
+  //    BR-103b confinement in ./scope.ts); any other dimension (zone, farmer, customer) reaches none.
+  async isEligibleAssignee(db, userId, warehouseId, permissionCode) {
     const result = await db.query<{ eligible: boolean }>(
       `SELECT EXISTS (
          SELECT 1
            FROM users u
-           JOIN user_roles ur ON ur.user_id = u.id
+           JOIN user_roles ur       ON ur.user_id = u.id
+           JOIN roles r             ON r.id = ur.role_id
+           JOIN role_permissions rp ON rp.role_id = ur.role_id
+           JOIN permissions p       ON p.id = rp.permission_id
           WHERE u.id = $1
             AND u.deleted_at IS NULL
             AND u.status = 'ACTIVE'
             AND ur.valid_from <= now()
             AND (ur.valid_to IS NULL OR ur.valid_to > now())
-            AND (ur.role_code IN ('SUPER_ADMIN', 'TOHFA_ADMIN', 'MAIN_WH_ADMIN')
-                 OR (ur.role_code = 'SUB_WH_ADMIN' AND ur.warehouse_id = $2))
+            AND p.code = $3
+            AND rp.scope IN ('all', 'own')
+            AND (r.scope_dimension IS NULL
+                 OR (r.scope_dimension = 'warehouse_id' AND ur.warehouse_id = $2))
        ) AS eligible`,
-      [userId, warehouseId],
+      [userId, warehouseId, permissionCode],
     );
     return result.rows[0]?.eligible === true;
   },
