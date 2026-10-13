@@ -774,6 +774,42 @@ describe('salesService (mocked repo)', () => {
     expect(res2.expiredCount).toBe(1);
     expect(cancelCalled).toBe(true);
   });
+
+  it('BR-94o: sales.upi_pending_expiry_minutes disables expiry unless it is a positive whole number, and the window passed to the sweep is the configured one', async () => {
+    const h = harness();
+    const windows: number[] = [];
+    h.repo.listExpiredPendingUpi = async (_db, minutes) => {
+      windows.push(minutes);
+      return [];
+    };
+    for (const disabled of [null, undefined, 0, -5, 2.5, 'never', '0']) {
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_pending_expiry_minutes' ? disabled : undefined);
+      expect(await createSalesService(h.deps).expirePendingUpi()).toEqual({ expiredCount: 0 });
+    }
+    expect(windows).toEqual([]);
+
+    for (const enabled of [45, '30']) {
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_pending_expiry_minutes' ? enabled : undefined);
+      await createSalesService(h.deps).expirePendingUpi();
+    }
+    expect(windows).toEqual([45, 30]);
+  });
+
+  it('BR-94p: sales.upi_refund_mode refunds through the gateway only when it is exactly "auto"; any other value is manual (REFUND_DUE kept, no gateway call)', async () => {
+    for (const mode of ['manual', undefined, null, 'AUTO', 'yes']) {
+      const saleId = newId();
+      const h = upiHarness(saleId);
+      const refundPayment = vi.fn(async () => ({ refundId: 'rfnd_never', status: 'processed' }));
+      h.deps.gateway = { provider: 'mock', createOrder: vi.fn(), verifyWebhookSignature: vi.fn(), parseEvent: vi.fn(), refundPayment };
+      h.repo.configValue = async (_db, key) => (key === 'sales.upi_refund_mode' ? mode : undefined);
+      h.repo.insertSaleLedger = async () => {
+        throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+      };
+      const error = await failure(createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-mode', { upiTxnRef: 'pay_mode_1' }));
+      expect(error.meta, String(mode)).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUND_DUE' });
+      expect(refundPayment, String(mode)).not.toHaveBeenCalled();
+    }
+  });
 });
 
 // ===========================================================================
