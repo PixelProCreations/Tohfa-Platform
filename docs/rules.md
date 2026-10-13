@@ -519,7 +519,7 @@ See also BR-66.
 | **Source** | Requirements v1.0 §2.4, §6.2, FR-A04 |
 | **Status** | LOCKED |
 | **Layer** | Server-side, `transfer.inter_warehouse.initiate` permission check |
-| **Scope** | Deferred (ledger type exists; no endpoint in Track 1) |
+| **Scope** | Track 1 since 2026-10-12: the transfer endpoints are BR-102 (`apps/api/src/modules/warehouse-transfers/`) |
 
 **Rule.** Only SUPER_ADMIN and MAIN_WH_ADMIN may initiate an inter-warehouse transfer. TOHFA_ADMIN may not, despite outranking MAIN_WH_ADMIN, and SUB_WH_ADMIN may not move stock out of its own warehouse. Receiving a transfer is a separate, wider permission.
 
@@ -608,6 +608,8 @@ See also BR-66.
 **Note (2026-10-11, returns).** The same leak existed in Returns & Issues (BR-61): `rma.request.process` and `inventory.quality_check.perform` are `all` for SUB_WH_ADMIN, so a Sub Warehouse Admin could list, read, inspect, approve, reject and refund any warehouse's returns. The returns service now narrows a scope that carries assigned warehouses to them before every read and write; another warehouse's return is the same 404 as an unknown id, and the list holds only the caller's warehouses. Tests: `BR-30: ...` in `apps/api/src/modules/returnRequests/returnRequests.scope.test.ts` (real repo and SQL inside a rolled-back transaction).
 
 **Note (2026-10-11, invoices).** A Sub Warehouse Admin's invoices (`invoice.view_own` at `own`) are those of orders placed at its assigned warehouse (`invoices.order_id` → `orders.warehouse_id`), on the list, the detail and the PDF download alike; another warehouse's invoice is the same 404 as an unknown id. An invoice with no order (purchase or payout invoice) has no warehouse and is not shown to a Sub Warehouse Admin (unconfirmed default). Before this date the invoice list returned nothing to a Sub Warehouse Admin. Tests: `BR-30: ...` in `apps/api/src/modules/invoices/invoice-access.test.ts`.
+
+**Note (2026-10-13, inventory list paging).** `GET /admin/batches`, `GET /admin/stock-ledger` and `GET /admin/allocations` page with an opaque keyset cursor on `(created_at, id)` that matches their `ORDER BY created_at DESC, id DESC`, the same scheme as the wallet and admin-order lists. Their cursor used to be the last row's id alone, which skipped or repeated rows (uuids are not time-ordered) and turned a non-uuid cursor into a 500. Contract: paging with any page size returns every row exactly once in order, including rows whose `created_at` ties to the microsecond; a cursor the list did not produce (a bare uuid, garbage, another list's cursor) is 422 `VALIDATION_FAILED`. Tests: `BR-30` (batches), `BR-37` (stock ledger) and `BR-12` (allocations) in `apps/api/src/modules/inventory/inventory.paging.test.ts`.
 
 See also BR-66.
 
@@ -1832,7 +1834,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 **Rule.**
 1. **Profile:** `PATCH /warehouses/{id}` edits the contact phone (E.164 or null) and operating hours only (strict body). Permission `warehouse.profile.edit` (Super Admin, TOHFA Admin and Main all; Sub none: UNCONFIRMED). `operatingHours` has one strict shape: 7 weekdays, each closed or `HH:MM` open before close, no overnight (UNCONFIRMED default). A no-op writes nothing; otherwise one masked audit row (changed field names, never the phone or hours). No warehouse create or delete exists (BR-23).
 2. **Performance:** `GET /warehouses/{id}/performance?from&to` returns only exact counts and sums for the inclusive Asia/Kolkata range: orders placed, fulfilled (`PICKED_UP` or `DELIVERED`) and cancelled, goods receipts, return requests and stock-ledger movements. The span is capped by `report_max_range_days` (fallback 366). It is gated by the existing `warehouse.all.view`, as in the design (so Sub gets 403), and carries no score, rate, target or ranking.
-3. **Not built:** capacity targets and warehouse documents.
+3. **Not built:** capacity targets. Warehouse documents were built on 2026-10-12 as BR-105.
 
 **Failure mode if unenforced.** A profile edit overwrites an immutable column or leaks a phone number through the audit log; the performance read invents a score nobody defined.
 
@@ -1993,6 +1995,8 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-85f` A Sub Warehouse Admin's sale is stamped with their own warehouse; a `warehouse_id` in the body that is not theirs is ignored or refused 404, never accepted (cross-scope is not 403).
 - `BR-85g` `payment.record` is checked in the service: a caller with `sales.sale.create` but not `payment.record` is refused 403 before any write.
 - `BR-85h` `GET /sales/horeca` and `GET /sales/b2b` are read-only: no mutating verb exists for them (405/404), and their responses obey BR-90.
+- `BR-85i` (derived, review of 2026-10-12) A DIRECT or MARKET counter sale stays at the warehouse that made it: `POST /admin/orders/{id}/assign-warehouse` on one (in particular a UPI sale still `PENDING_PAYMENT`, whose items already name that warehouse's batches) is 409 `COUNTER_SALE_NOT_REASSIGNABLE` and writes nothing.
+- `BR-85j` (derived, review of 2026-10-13) `POST /admin/orders/{id}/assign-warehouse` decides on the order row locked with `SELECT ... FOR UPDATE` inside its transaction (existence, scope, channel and status are all checked on that locked row). A pack or cancel that commits while the reassign waits makes it 409 `INVALID_STATE_TRANSITION`, and the order keeps its status and warehouse. An order-status update (`updateOrderStatus`, used by assign-warehouse, pack, dispatch and verify-otp) that matches no row appends no `order_status_history` row and is 409 `CONFLICT`, rolling back the audit row.
 
 ---
 
@@ -2062,6 +2066,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-88e` Insufficient wallet balance is refused; balance and ledger unchanged; one `sale_attempts` row.
 - `BR-88f` No route other than `POST /sales` writes a sale debit; `wallet_transactions` accepts no UPDATE or DELETE (CLAUDE.md §2.3) and `wallets.balance` equals the sum of its ledger after the sale.
 - `BR-88g` The UPI confirm endpoint is idempotent: confirming twice (same or new key) on a sale already confirmed does not create a second `sale_payments` row or a second stock or invoice effect.
+- `BR-88h` (derived, review of 2026-10-12) A sale key replayed after the 24-hour idempotency retention, when its sale already exists (`sale_payments.idempotency_key` is kept for ever), is 409 `IDEMPOTENCY_KEY_REUSED`, never a 500, and writes nothing.
 
 ---
 
@@ -2200,6 +2205,13 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-94h` `POST /sales/{id}/payments/upi/confirm` permission matrix: 401 without a token; 403 for MAIN_WH_ADMIN (`none` on `payment.record`), FARMER, FARMER_ADMIN, CUSTOMER; SUB_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN reach the handler; a sale at another warehouse is 404 for SUB_WH_ADMIN, never 403.
 - `BR-94i` The reserved stock of a pending UPI sale is released or expires per the existing hold rule when the gateway times out; no negative balance results.
 - `BR-94j` Every `sale_payments` row is written once and never updated except through its documented state change; the payment amounts sum exactly to the order total.
+- `BR-94k` (derived, review of 2026-10-12) One UPI payment confirms one sale: confirming a second sale with a `upiTxnRef` that already confirmed another is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED`, and that sale stays pending (no stock, invoice or revenue). Enforced by the partial unique index `uq_sale_payments_upi_txn_ref` (migration 0067); the gateway payment carries no reference to our sale, so the reference itself is the binding.
+- `BR-94l` (derived, review of 2026-10-13) Every UPI cancel (the stock-conflict cancel inside the confirm, `POST /sales/{id}/cancel`, and the expiry job) decides on the sale row locked with `SELECT ... FOR UPDATE` inside the transaction that writes the cancel, never on an earlier unlocked read. If the locked sale is no longer `PENDING_PAYMENT` with a `PENDING` UPI payment (another request confirmed, cancelled or refunded it), or the conditional order or payment UPDATE changes no row, the action is 409 `CONFLICT` with `meta.reason = SALE_STATE_CHANGED` and writes nothing: no `order_status_history` row, no audit row, and no gateway refund. The automatic refund (`sales.upi_refund_mode = auto`) is only attempted after this request's cancel committed; if the payment is then no longer `REFUND_DUE` when the refund is recorded, it is not reported `REFUNDED` and no refund audit row is written.
+- `BR-94m` (derived, review of 2026-10-13) `POST /sales/{id}/cancel` is gated by its own code `sales.sale.cancel` (same grants as `sales.sale.create`): 401 without a token; 403 for MAIN_WH_ADMIN, FARMER, FARMER_ADMIN and CUSTOMER; SUB_WH_ADMIN (own warehouse), TOHFA_ADMIN and SUPER_ADMIN reach the handler; a sale at another warehouse is 404 for SUB_WH_ADMIN, never 403. Cancelling a UPI sale that is already paid or picked up is 409 `CONFLICT` and changes nothing.
+- `BR-94n` (derived, review of 2026-10-13) A UPI confirm that hits a stock conflict with a `upiTxnRef` already bound to another sale's payment (BR-94k) is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED`, never a 500 from the unique index of migration 0067 raised inside the cancel transaction. The cancel rolls back: the sale stays `PENDING_PAYMENT` with a `PENDING` payment, no `order_status_history` or audit row is written, and no gateway refund is attempted (the payment is not proven to be this sale's money).
+- `BR-94o` (derived, review of 2026-10-13; default UNCONFIRMED, pending business decision) `system_config.sales.upi_pending_expiry_minutes` is the window after which an unconfirmed UPI DIRECT/MARKET sale is expired by `expirePendingUpi`. It is read on every sweep, never a literal in the service. Migration 0068 seeds it JSON `null`, which disables expiry; `null`, a missing row, zero, a negative or non-whole number, or a non-numeric string also disable it (the sweep cancels nothing). A positive whole number of minutes (a JSON number, or a numeric string) is passed as the window to the sweep. Test: `BR-94o: sales.upi_pending_expiry_minutes disables expiry unless it is a positive whole number, and the window passed to the sweep is the configured one`.
+- `BR-94p` (derived, review of 2026-10-13; default UNCONFIRMED, pending business decision) `system_config.sales.upi_refund_mode` decides what happens to a captured UPI payment whose sale the stock-conflict cancel (BR-94i) cancelled. Migration 0068 seeds `"manual"`: the payment stays `REFUND_DUE` for a person and no money moves automatically. Only the exact value `"auto"` asks the gateway to refund once (BR-94l); any other value, a missing row, or a different case (`"AUTO"`) is manual. Test: `BR-94p: sales.upi_refund_mode refunds through the gateway only when it is exactly "auto"; any other value is manual (REFUND_DUE kept, no gateway call)`.
+- `BR-94q` (derived, review of 2026-10-13, owner choice "option (b)") A pending UPI payment is never marked `FAILED` by `POST /sales/{id}/cancel` while the gateway reports its reference captured. The counter collects UPI outside a gateway order, so sale create makes no gateway call and has no reference; the earliest point a reference exists is the confirm request. (1) When the confirm's gateway check verifies the reference (captured, for the sale amount), the reference is written to the still-`PENDING` `sale_payments` row at once, in its own statement before the confirm transaction, so a confirm transaction that then rolls back (lost connection, crash, failed invoice step) cannot lose it. An unverified reference is never written (it could be another sale's in-flight payment and would hold the 0067 unique index against that sale). A reference already bound to another sale's payment is 409 `CONFLICT` with `meta.reason = UPI_TXN_REF_ALREADY_USED`, no transaction opens, and the attempt is logged without the reference. No audit row is written for this step (the payment's state does not change; the confirm's `payment.record` audit row records the outcome). (2) The manual cancel, when the sale is still `PENDING_PAYMENT` with a `PENDING` UPI payment that carries a reference, asks the gateway through the same verifier as the confirm, before opening its transaction. Captured is 409 `CONFLICT` with `meta.reason = UPI_PAYMENT_CAPTURED`: nothing is written, and the way forward is the confirm (which completes the sale, or on a stock conflict cancels it with the payment `REFUND_DUE`, BR-94i). Not captured cancels as before (`CANCELLED`, payment `FAILED`). No reference at all asks no gateway and cancels as before: nothing was ever verified as paid. A reference that appears on the locked row after the gateway check (not the one checked) is 409 `CONFLICT` with `meta.reason = SALE_STATE_CHANGED` and writes nothing (BR-94l). Known limit: the shared verifier answers "not captured" when the gateway call itself fails, so an unreachable gateway does not block the cancel. The expiry job (`expirePendingUpi`, BR-94o) does not yet ask the gateway. Note: migration 0067's header says a `PENDING` UPI row always has `upi_txn_ref` NULL; that stopped being true with this rule (the index is unchanged and still applies). Tests: `BR-94q: a verified UPI reference is recorded on the pending payment, outside and before the confirm transaction, so it survives a confirm that rolls back`; `BR-94q: cancelling a pending UPI sale whose recorded reference the gateway reports captured is 409 CONFLICT (UPI_PAYMENT_CAPTURED); nothing is cancelled or marked FAILED`; and the BR-94q tests beside them in `sales.test.ts` and `sales.db.test.ts`.
 
 ---
 
@@ -2321,9 +2333,10 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-99c` The customer mobile and a walk-in mobile are masked to the last four digits for `own` and `all`; no run of five consecutive digits of a stored mobile appears anywhere in the JSON; a missing mobile is null.
 - `BR-99d` Totals and line amounts are the stored values as exact `Money` strings (`950.50`, `0.10`, `47.53`), and quantities keep three decimals (`0.125`).
 - `BR-99e` Reading a detail writes no `audit_log` row and performs no write.
-- `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 404 on this admin route; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
+- `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 403 on this admin route (it holds `none` on `order.list.view_all`, BR-101a), the same for its own order and for an unknown id, so the 403 reveals no row; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
 - `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
 - `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
+- `BR-99i` (derived, review of 2026-10-13) A DIRECT/MARKET sale cancelled after its UPI payment was captured carries `payment_status = REFUND_DUE` (migration 0068, BR-94i); its detail is 200 with `paymentStatus = REFUND_DUE`, never a 500 from the response schema.
 
 ---
 
@@ -2357,16 +2370,137 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders` (`order.list.view_all`) filters in SQL with `warehouseScopeFilter` on the resolved scope; the action routes (`assign-warehouse`, `pack`, `dispatch`, `verify-otp`) also apply `warehouseVisible` after loading the order |
 | **Scope** | Track 1 |
 
-**Rule.** `docs/rbac.json` grants CUSTOMER `own` on `order.list.view_all` (its own-orders permission), so a CUSTOMER token passes `requirePermission` on `GET /admin/orders`. The list is therefore confined by the resolved scope, never by role names: a scope carrying a customer or farmer id fails closed, so a CUSTOMER gets `200` with an empty page on the admin list (even for its own orders, which it reads through `/orders`) and 404 on `GET /admin/orders/{orderId}` (BR-99). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
+**Rule.** `docs/rbac.json` grants CUSTOMER `none` on `order.list.view_all` (customers view their own orders via `/orders` through `order.view_own`), so a CUSTOMER token gets `403 FORBIDDEN` from `requirePermission` on `GET /admin/orders` and detail. In addition, the list is confined by the resolved scope: even if granted or scoped, a scope whose winning role is not warehouse admin or higher fails closed (`FALSE` filter, 404 on detail). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
 
 **Failure mode if unenforced.** Any customer with the app lists every order of every customer and warehouse (order numbers, totals, channels, warehouses), and a Sub admin learns from a 403 that another warehouse has orders on a given day.
 
 **Test contract.**
-- `BR-101a` A CUSTOMER token on `GET /admin/orders` gets `200` and `items: []` with no filter, `limit=100`, `deliveryDate`, or a `warehouseId`, including the customer who owns the fixture orders; `GET /admin/orders/{orderId}` is 404; `assign-warehouse`, `pack`, `dispatch` and `verify-otp` are 403 and the order row (status, warehouse, OTP attempts) is unchanged; the action services return 404 and write nothing for a customer-owned scope.
+- `BR-101a` A CUSTOMER token on `GET /admin/orders` is 403 `FORBIDDEN` (held `none` on `order.list.view_all`); `GET /admin/orders/{orderId}` is 403; `assign-warehouse`, `pack`, `dispatch` and `verify-otp` are 403 and the order row (status, warehouse, OTP attempts) is unchanged; the action services return 404 and write nothing for a customer-owned scope. The same holds for a CUSTOMER token with no customer record (`customerId` null, as every self-registered customer has): the fail-closed follows the resolved role's `scopeDimension` in `docs/rbac.json`, not the presence of a customer id.
 - `BR-101b` 401 without a token; FARMER and FARMER_ADMIN get 403 on the list.
 - `BR-101c` A Sub admin lists only its warehouse; `warehouseId` of another warehouse is `200` with an empty page, the same body as an unknown warehouse id, never 403.
 - `BR-101d` MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN list both warehouses; `warehouseId` narrows to one.
 - `BR-101e` A list item's key set equals the documented set; no farm-identity, buyer, mobile, address or OTP key at any depth.
+
+---
+
+### BR-102 — Inter-warehouse transfers move stock only through the ledger, need a high-value approval, and are received by the destination
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; implements BR-26 and the `stock_transfers` model of `0005_warehouse_inventory.sql`; no requirement document or screen exists |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-transfers/`; `stock_transfers`, `stock_transfer_items` (`0069_warehouse_operations.sql`); `system_config.transfer_high_value_threshold_paise` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Create** `POST /warehouse-transfers` needs `transfer.inter_warehouse.initiate` (BR-26: Super Admin and Main only) and an `Idempotency-Key` (a replay returns the original transfer and moves nothing twice; the same key with another body is 409 `IDEMPOTENCY_KEY_REUSED`). The body names a source and a destination warehouse (different, both existing and active, else 422) and 1-50 lines of `{ batchId, qtyKg }` with distinct batches. Every batch must be `ACTIVE` and in the source warehouse (else 422), and `qtyKg` (a positive decimal string, at most 3 decimals) may not exceed the batch's free shelf quantity (`shelfFreeSql`, BR-100: `qty_available` minus cart holds and pending UPI counter sales), else 409 `STOCK_UNAVAILABLE`. A caller whose scope does not reach the source warehouse gets 404.
+2. **Value.** Each line snapshots the batch's `cost_per_kg`; its value is `round(qtyKg x cost_per_kg x 100)` integer paise, computed in SQL `numeric`, never a float. The transfer total is the sum, returned as `Money`. A line whose batch has no cost has no value and marks the transfer `hasUnvaluedLines` (UNCONFIRMED: such a transfer always needs approval, so a missing cost can never slip a valuable transfer past the threshold).
+3. **Approval.** When the total is at or above `system_config.transfer_high_value_threshold_paise` (seeded 5,000,000 = Rs 50,000, UNCONFIRMED; a missing or unusable row falls back to that figure) or any line is unvalued, the transfer is created `PENDING_APPROVAL` and no stock moves. `POST /warehouse-transfers/{id}/approve` (`transfer.high_value.approve`, Super Admin only; `Idempotency-Key` required) dispatches it. The approver may not be the initiator: 403 `SELF_APPROVAL_FORBIDDEN` (also a DB CHECK). Below the threshold the transfer is dispatched at creation.
+4. **Dispatch** (at creation, or at approval) runs in ONE transaction: the batches are row-locked, the free-shelf check is repeated (409 `STOCK_UNAVAILABLE` on any shortfall, nothing written), one `TRANSFER_OUT` ledger row per line (`qty_delta = -qtyKg`, `ref_type = 'STOCK_TRANSFER'`, `ref_id` = transfer) is inserted and referenced as `out_ledger_id`, and the status becomes `IN_TRANSIT` with `dispatched_at`. Stock in transit belongs to no warehouse. No balance column is written by the service (CLAUDE.md 2.3).
+5. **Receive** `POST /warehouse-transfers/{id}/receive` (`transfer.inter_warehouse.receive`; `Idempotency-Key` required) only from `IN_TRANSIT`, by a scope that reaches the DESTINATION warehouse: a Sub admin of the source warehouse gets 403 `WAREHOUSE_SCOPE_VIOLATION` (it can already read the transfer, so a 404 would hide nothing), any other Sub admin 404. The body gives `qtyReceivedKg` for EVERY line (0 to `qtySentKg`; more than sent is 422). For each line with a positive quantity a new destination batch is created (same crop, grade, source farmer, cost and expiry as the source batch; `qty_received` = received; code `<source batch code>/<transfer number>`) and one `TRANSFER_IN` ledger row adds the quantity (`in_ledger_id`). A line received short records the variance (`variance_qty`, generated) and sets `hasDiscrepancy`; a `receiptNote` is then required (422 without it). The shortfall is NOT written off automatically (UNCONFIRMED: it is evidence for a later stock adjustment or a BR-103 issue). Status becomes `RECEIVED` with `received_by`/`received_at`. Destination batches get no allocation rows (UNCONFIRMED: they sell as pooled DIRECT stock until allocated through the allocation tools).
+6. **Cancel** `POST /warehouse-transfers/{id}/cancel` (`transfer.inter_warehouse.initiate`) with a required `reason`, only from `PENDING_APPROVAL` (no stock has moved). An `IN_TRANSIT` or later transfer is 409 `INVALID_STATE_TRANSITION`: once dispatched it can only be received.
+7. **Reads** `GET /warehouse-transfers` and `GET /warehouse-transfers/{id}` need `transfer.inter_warehouse.view`. A Sub admin sees only transfers whose source OR destination is its warehouse; any other transfer and an unknown id are the same 404. Filters: `status`, `warehouseId` (either side; another warehouse for a Sub admin is an empty page), `direction` (`INBOUND` / `OUTBOUND`, relative to `warehouseId`, which it then requires). Lines carry batch id and code, crop id, grade, quantities, value and destination batch, never a farmer id.
+8. Every state change (create, approve, cancel, receive) writes one audit row in the same transaction, masked: ids, status, warehouse ids, line count and total paise; never the notes, reason or receipt note. Illegal transitions are 409 `INVALID_STATE_TRANSITION` and write nothing.
+
+**Failure mode if unenforced.** Stock is double-counted in transit or lost between two ledgers, a Sub admin empties its own warehouse (BR-26), a valuable transfer is self-approved, or a shortfall at the destination disappears without a trace.
+
+**Test contract.** (`apps/api/src/modules/warehouse-transfers/warehouse-transfers.test.ts`)
+- `BR-102a` Create body validation: distinct warehouses, 1-50 distinct lines, positive decimal-string quantities, strict body; `Idempotency-Key` is required.
+- `BR-102b` Below the threshold a transfer is created `IN_TRANSIT` and one `TRANSFER_OUT` row per line is written in the same transaction; a quantity above the free shelf is 409 `STOCK_UNAVAILABLE` and writes nothing.
+- `BR-102c` At or above the threshold (read from `system_config`, fallback when missing) or with an unvalued line it is `PENDING_APPROVAL` and no ledger row is written; the value is exact integer paise.
+- `BR-102d` Approve: only from `PENDING_APPROVAL`; the initiator is 403 `SELF_APPROVAL_FORBIDDEN`; a successful approval dispatches (ledger rows, `IN_TRANSIT`).
+- `BR-102e` Receive: only `IN_TRANSIT`; every line required; over-receipt 422; short receipt needs a note, flags the discrepancy and records the variance; one `TRANSFER_IN` row per positive line into a new destination batch.
+- `BR-102f` Receive scope: a Sub admin of the destination receives; of the source gets 403 `WAREHOUSE_SCOPE_VIOLATION`; of an unrelated warehouse gets 404.
+- `BR-102g` Cancel: only `PENDING_APPROVAL`, reason required; `IN_TRANSIT` is 409 `INVALID_STATE_TRANSITION`.
+- `BR-102h` Reads: a Sub admin sees only transfers touching its warehouse; another and an unknown id are the same 404; no farmer id in any response.
+- `BR-102i` One masked audit row per state change, in the same transaction; replaying an `Idempotency-Key` writes no second ledger or audit row.
+- `BR-26a` / `BR-26b` TOHFA Admin and a Sub admin get 403 on create (asserted again in this file through the real router).
+
+---
+
+### BR-103 — Warehouse operational issues are warehouse-scoped, move along fixed transitions, and are audited without their free text
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; no requirement document or screen exists |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (issues); `warehouse_issues`, `warehouse_issue_comments` (`0069_warehouse_operations.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. An issue belongs to one warehouse and has an `issue_number` (`WI-000001`, from a sequence), a `category` (`EQUIPMENT`, `STORAGE`, `QUALITY`, `SAFETY`, `STAFFING`, `OTHER`), a `severity` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), a title (1-160), an optional description (up to 4000), a status, the reporter, an optional assignee and, once resolved, a resolution note. Categories and severities are fixed lists (UNCONFIRMED).
+2. Reads (`warehouse.issue.view`) and writes (`warehouse.issue.manage`) are warehouse-scoped: Super Admin, TOHFA Admin and Main reach every warehouse; a Sub admin only its own (`own`, UNCONFIRMED: it runs the warehouse day to day, so it reports and works its own issues). Another or an unknown warehouse, and an issue id that is not in the named warehouse, are the same 404.
+3. Status transitions: `OPEN -> IN_PROGRESS | RESOLVED`; `IN_PROGRESS -> OPEN | RESOLVED`; `RESOLVED -> CLOSED | IN_PROGRESS` (reopen, which clears `resolved_by`/`resolved_at`); `CLOSED` is terminal. Anything else is 409 `INVALID_STATE_TRANSITION`. Moving to `RESOLVED` needs a `resolutionNote` (422 without it). Closing needs no extra role (UNCONFIRMED).
+4. The assignee must be an active user with a live role assignment whose role holds `warehouse.issue.manage` at `all` or `own` (read from `role_permissions`, the projection of `docs/rbac.json`, never from a list of role names; `view` and `conditional` do not qualify) and that reaches the warehouse by the role's `scopeDimension`: none (today Super Admin, TOHFA Admin, Main) reaches every warehouse, `warehouse_id` (Sub admin) only its assigned warehouse, any other dimension none. With today's grants that is a live Super Admin, TOHFA Admin or Main assignment, or a live Sub admin assignment to THIS warehouse; anyone else is 422. `null` unassigns.
+5. Comments are an append-only thread (`warehouse_issue_comments`, UPDATE/DELETE refused by the database); a `CLOSED` issue takes no new comment (409 `INVALID_STATE_TRANSITION`).
+6. Every create, change and comment writes one audit row in the same transaction. The image carries the issue number, category, severity, status and assignee id only, never the title, description, resolution note or comment body; `changedFields` names what changed. A change that alters nothing writes and audits nothing. Nothing is ever deleted.
+
+**Failure mode if unenforced.** A Sub admin reads or closes another warehouse's issues, an issue is "resolved" with no record of how, a closed issue silently reopens, or a name typed into a description leaks through the audit log.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/warehouse-issues.test.ts`)
+- `BR-103a` Create/update/comment/list body and query validation (fixed enums, lengths, strict bodies, paging).
+- `BR-103b` Scope: a Sub admin lists, reads and writes its own warehouse; another and an unknown warehouse are the same 404; an issue under the wrong warehouse is 404.
+- `BR-103c` Every legal transition succeeds and every illegal one is 409 `INVALID_STATE_TRANSITION` with nothing written; `RESOLVED` needs a note; reopen clears the resolver.
+- `BR-103d` The assignee rule: a Sub admin of another warehouse, a non-admin and an unknown user are 422; `null` unassigns; eligibility follows the `warehouse.issue.manage` grant (withdrawing a role's grant, or making it `view`, makes that role unassignable; a Sub widened to `all` still reaches only its own warehouse).
+- `BR-103e` Comments are append-only and refused on a `CLOSED` issue.
+- `BR-103f` One masked audit row per change in the same transaction (no free text); a no-op writes nothing.
+- `BR-103g` 401 without a token; 403 for farmer, customer and Farmer Admin on every route.
+
+---
+
+### BR-104 — The warehouse activity feed is a read-only, scoped merge of existing records
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; no requirement document or screen exists |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (activity): one `UNION ALL` query in the repo; no table of its own |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `GET /warehouses/{id}/activity` (`warehouse.activity.view`; Sub admin `own`) returns the warehouse's events newest first: `STOCK_MOVEMENT` (each `stock_ledger` row, with its movement type and signed kg), `GOODS_RECEIPT` (each goods receipt, at `received_at`), `TRANSFER` (each transfer sent or received by the warehouse, at its creation, with the current status and the direction), `ISSUE` (each BR-103 issue, at creation, with its current status and severity), `RETURN` (each return request against the warehouse's orders, at creation) and `DOCUMENT` (each BR-105 document, at creation).
+2. **Why a UNION, not an activity table (UNCONFIRMED design choice).** Every event already exists as an immutable row with an immutable timestamp in a table that is the source of truth. A separate `warehouse_activity` table would be a second copy that every writer (goods receipts, sales, returns, transfers ...) must remember to fill in the same transaction, and one forgotten writer makes the feed silently incomplete. The UNION cannot drift from the records, needs no change to any other module, and each branch is served by an existing `(warehouse_id, created_at)`-style index with a per-branch `LIMIT`.
+3. Each event is anchored to a timestamp that never changes (creation or receipt time), so keyset paging is stable: the cursor is an opaque encoding of `(occurredAt, type, sourceId)` of the last row, the order is `occurredAt DESC, type DESC, sourceId DESC`, and a page never repeats or skips a row. A malformed cursor is 422. `limit` is 1-100 (default 20).
+4. Filters: `type` (one or more of the six types), `from`/`to` (inclusive Asia/Kolkata dates, `from <= to`, span capped by `system_config.report_max_range_days`, fallback 366).
+5. An event carries `type`, `sourceId`, `occurredAt`, a `reference` (ledger movement type, GRN number, transfer number, issue number, return id or document type), `status` and `qtyKg` where they apply, `direction` for a transfer, and `actorId` where the source row records one. It never carries a farmer id, customer data or any free text (titles, notes, reasons).
+6. Another or an unknown warehouse is the same 404. There is no write route; reading writes nothing.
+
+**Failure mode if unenforced.** A Sub admin reads another warehouse's movements, the feed shows a different history from the ledger, or free text and farmer identity leak into a feed screen.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/warehouse-activity.test.ts`)
+- `BR-104a` Query validation: types, real dates with `from <= to`, span cap, `limit` 1-100, malformed cursor 422, strict query.
+- `BR-104b` Each of the six sources appears with its documented fields, newest first, and only for the requested warehouse.
+- `BR-104c` Cursor paging over a fixed fixture returns every event exactly once across pages.
+- `BR-104d` The type and date filters narrow the result.
+- `BR-104e` Scope: another and an unknown warehouse are the same 404 for a Sub admin; 401 without a token; 403 for farmer, customer and Farmer Admin.
+- `BR-104f` No event carries a farmer id, customer data or free text; reading writes nothing and there is no write route.
+
+---
+
+### BR-105 — Warehouse documents are scoped metadata over an uploaded file, with a derived expiry status, archived never deleted
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): warehouse operations backend, October 2026; closes BR-80 item 3 ("warehouse documents not built"); no requirement document or screen exists |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (documents); `warehouse_documents` (`0069_warehouse_operations.sql`); `system_config.warehouse_document_expiry_warning_days`; the file is an `uploads` row signed through `POST /uploads/sign` with purpose `WAREHOUSE_DOCUMENT` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. A document belongs to one warehouse and has a `docType` (`LICENSE`, `FSSAI`, `FIRE_SAFETY`, `LEASE`, `INSURANCE`, `OTHER`; fixed list, UNCONFIRMED), a title (1-160), an optional document number (up to 80), optional issue and expiry dates (`expiryDate >= issueDate`), the file (`uploadId`), and who uploaded it.
+2. The file is an existing, non-deleted `uploads` row that the caller itself uploaded; another user's upload, a deleted one or an unknown id is 422 on `body.uploadId`. One upload backs at most one live document (409 `CONFLICT`). The file is never public; `GET` one document returns a short-lived signed `fileUrl`, the list does not.
+3. **Status is derived at read time, never stored:** `ARCHIVED` when archived; otherwise `EXPIRED` when `expiryDate` is before today (Asia/Kolkata); `EXPIRING_SOON` when it is within `system_config.warehouse_document_expiry_warning_days` days (seeded 30, UNCONFIRMED; fallback 30 when the row is missing or unusable), the boundary day included; otherwise `ACTIVE` (including a document with no expiry date).
+4. Reads need `warehouse.document.view` (Sub admin `own`); writes need `warehouse.document.manage` (Super Admin, TOHFA Admin and Main; Sub admin none, UNCONFIRMED: licences, leases and insurance are warehouse master data, as BR-79/BR-80). Another or an unknown warehouse, and a document id under the wrong warehouse, are the same 404.
+5. `PATCH` edits `docType`, `title`, `documentNumber`, `issueDate`, `expiryDate` and may replace the file (`uploadId`, a renewal); at least one field; strict body. An archived document cannot be edited (409 `INVALID_STATE_TRANSITION`). `POST .../archive` archives once (a repeat is a 200 no-op that writes nothing). There is no delete and no un-archive (UNCONFIRMED).
+6. The list filters by `docType` and derived `status` (`ACTIVE`, `EXPIRING_SOON`, `EXPIRED`, `ARCHIVED`), excludes archived documents unless `status=ARCHIVED` is asked for, and orders by expiry date (soonest first, no expiry last), then title.
+7. Every create, edit and archive writes one audit row in the same transaction, masked: doc type, dates, archived flag and upload id, never the title or document number; `changedFields` names what changed. A no-op writes nothing.
+
+**Failure mode if unenforced.** A lapsed fire-safety certificate shows as valid because a stored status was never refreshed, a Sub admin reads another warehouse's lease, a document points at someone else's file, or deleting a record destroys compliance evidence.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/warehouse-documents.test.ts`)
+- `BR-105a` Body and query validation: fixed doc types, lengths, real dates with expiry not before issue, strict bodies, at least one field on `PATCH`.
+- `BR-105b` The derived status for no expiry, far expiry, the warning boundary day, yesterday, and archived; the window comes from `system_config` with the documented fallback.
+- `BR-105c` The upload rule: another user's, a deleted and an unknown upload are 422; a reused upload is 409.
+- `BR-105d` Scope: a Sub admin reads its own warehouse and gets the same 404 for another and an unknown warehouse; a Sub admin is 403 on every write.
+- `BR-105e` Edit changes only the given fields; an archived document is 409 on edit; archive is once and a repeat writes nothing.
+- `BR-105f` The list filters by type and derived status and excludes archived rows by default.
+- `BR-105g` One masked audit row per change in the same transaction (no title, no document number); a no-op writes nothing.
 
 ---
 
@@ -2421,7 +2555,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 10 | RMA issue category taxonomy, customer support-ticket lifecycle | FR-C05, matrix §6 | — | The return/inspect/approve/refund workflow itself is now enforced (BR-61, `apps/api/src/modules/returnRequests/`); a free-text `reason` stands in for a structured issue-category list, and the bank refund is a status + manual hand-off, not a tracked ticket. Issue categories and a support-ticket lifecycle around that are still Phase 2-3 |
 | 11 | Each warehouse has its own Sub Warehouse Admin (5 incl. standby) | §2.4 | BR-25 | Modelled in `user_roles`; no staffing management UI |
 | 12 | Main Warehouse Admin oversees all 4 warehouses | §2.4 | — | RBAC grants exist; the consolidated MW dashboard is Phase 3 |
-| 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26 | The ledger has a transfer type; there is no transfer endpoint or UI in this scope |
+| 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26, BR-102 | Backend built 2026-10-12 as DERIVED rule BR-102 (create, high-value approval, dispatch, receive with shortfall, cancel, scoped reads); the high-value threshold and the shortfall handling are UNCONFIRMED defaults. No UI in this scope |
 | 14 | Warehouse capacity limits and quotas/targets | §6.2, FR-A04 | — | Contested authority (contradiction 5); no capacity model until resolved |
 | 15 | Stock verification (physical count vs system) | §6.2 | — | Ledger supports it; the counting workflow and variance report are Phase 2 |
 | 16 | Quality counter-offer at goods receipt | matrix §7 | BR-10 | Repaired 2026-10-11 as an UNCONFIRMED default: it is a round of the listing negotiation (shares the 4-round limit and the one-PENDING-offer rule); what happens to the receipt, purchase order and payout after the farmer answers is not specified (see the BR-10 note) |

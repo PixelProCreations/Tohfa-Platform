@@ -180,10 +180,17 @@ export interface CustomersRepo {
   listMessages(db: Executor, ticketIds: string[]): Promise<MessageRow[]>;
   /**
    * The farmer-identity redaction list for a customer's tickets (BR-97): farmer id, TOHFA farmer
-   * code, farmer name, farmer and farm village, farm name, farm centroid and the batch codes of
-   * every farmer whose batch reached this customer's orders (and the ticket's own order).
+   * code, farmer name, farmer and farm village, farm name, farm survey number (FMB, BR-16), farm
+   * centroid and the batch codes of every farmer whose batch reached this customer's orders (and
+   * the ticket's own order), plus each such farmer's mobile in `phones`.
    */
-  farmerIdentityTerms(db: Executor, customerId: string, orderIds: string[]): Promise<{ terms: string[]; personNames: string[] }>;
+  farmerIdentityTerms(
+    db: Executor,
+    customerId: string,
+    orderIds: string[],
+  ): Promise<{ terms: string[]; personNames: string[]; phones?: string[] }>;
+  /** The customer's stored mobile and e-mail, for masking them in ticket text (BR-92a, BR-97g). Null if no such customer. */
+  customerContact(db: Executor, customerId: string): Promise<{ mobile: string; email: string | null } | null>;
   insertMessage(
     db: Executor,
     input: { ticketId: string; senderUserId: string; body: string; attachmentKey: string | null },
@@ -753,7 +760,7 @@ export const customersRepo: CustomersRepo = {
   },
 
   async farmerIdentityTerms(db, customerId, orderIds) {
-    const res = await db.query<{ term: string | null; is_person: boolean }>(
+    const res = await db.query<{ term: string | null; kind: 'term' | 'person' | 'phone' }>(
       `WITH lines AS (
          SELECT oi.batch_id
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
@@ -763,24 +770,37 @@ export const customersRepo: CustomersRepo = {
          SELECT DISTINCT b.source_farmer_id AS farmer_id
            FROM inventory_batches b JOIN lines l ON l.batch_id = b.id
        )
-       SELECT fr.id::text AS term, false AS is_person FROM farmers fr JOIN f ON f.farmer_id = fr.id
-       UNION SELECT fr.tohfa_farmer_id, false FROM farmers fr JOIN f ON f.farmer_id = fr.id
-       UNION SELECT fr.village, false FROM farmers fr JOIN f ON f.farmer_id = fr.id
-       UNION SELECT u.full_name, true FROM farmers fr JOIN f ON f.farmer_id = fr.id JOIN users u ON u.id = fr.user_id
-       UNION SELECT fm.name, false FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
-       UNION SELECT fm.village, false FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
-       UNION SELECT fm.centroid_lat::text, false FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
-       UNION SELECT fm.centroid_lng::text, false FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
-       UNION SELECT b.batch_code, false FROM inventory_batches b JOIN lines l ON l.batch_id = b.id`,
+       SELECT fr.id::text AS term, 'term' AS kind FROM farmers fr JOIN f ON f.farmer_id = fr.id
+       UNION SELECT fr.tohfa_farmer_id, 'term' FROM farmers fr JOIN f ON f.farmer_id = fr.id
+       UNION SELECT fr.village, 'term' FROM farmers fr JOIN f ON f.farmer_id = fr.id
+       UNION SELECT u.full_name, 'person' FROM farmers fr JOIN f ON f.farmer_id = fr.id JOIN users u ON u.id = fr.user_id
+       UNION SELECT u.mobile, 'phone' FROM farmers fr JOIN f ON f.farmer_id = fr.id JOIN users u ON u.id = fr.user_id
+       UNION SELECT fm.name, 'term' FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
+       UNION SELECT fm.village, 'term' FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
+       UNION SELECT fm.survey_number, 'term' FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
+       UNION SELECT fm.centroid_lat::text, 'term' FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
+       UNION SELECT fm.centroid_lng::text, 'term' FROM farms fm JOIN f ON f.farmer_id = fm.farmer_id
+       UNION SELECT b.batch_code, 'term' FROM inventory_batches b JOIN lines l ON l.batch_id = b.id`,
       [customerId, orderIds],
     );
     const terms: string[] = [];
     const personNames: string[] = [];
+    const phones: string[] = [];
     for (const row of res.rows) {
       if (row.term === null) continue;
-      (row.is_person ? personNames : terms).push(row.term);
+      if (row.kind === 'person') personNames.push(row.term);
+      else if (row.kind === 'phone') phones.push(row.term);
+      else terms.push(row.term);
     }
-    return { terms, personNames };
+    return { terms, personNames, phones };
+  },
+
+  async customerContact(db, customerId) {
+    const res = await db.query<{ mobile: string; email: string | null }>(
+      `SELECT u.mobile, u.email FROM customers c JOIN users u ON u.id = c.user_id WHERE c.id = $1`,
+      [customerId],
+    );
+    return res.rows[0] ?? null;
   },
 
   async insertMessage(db, input) {

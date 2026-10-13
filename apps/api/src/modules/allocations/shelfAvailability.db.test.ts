@@ -10,14 +10,14 @@
  * farmer, and removes every committed row reachable from them in afterAll. Carts are not covered by
  * the shared cleanup helper, so they are removed here first.
  */
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it as vitestIt } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { RoleCode } from '@tohfa/shared-types';
 import type { pool as poolInstance } from '../../db/pool.js';
 import type { signAccessToken as signAccessTokenFn } from '../../auth/jwt.js';
-import { databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
-import { ensureStandardUsers, insertCrop, insertFarmerWithPlot, randomMobile } from '../../test/dbFixtures.js';
+import { describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { ensureStandardUsers, insertCrop, insertFarmerWithPlot, randomMobile, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { removeCommittedFixtures } from '../../test/committedFixtureCleanup.js';
 
 describeIfDatabase('BR-100 shelf-capped availability (PostgreSQL, real HTTP)', () => {
@@ -33,8 +33,20 @@ describeIfDatabase('BR-100 shelf-capped availability (PostgreSQL, real HTTP)', (
   const RUN_KEY_PREFIX = `ci-shelf-${newId().slice(0, 8)}-`;
   const key = (): string => `${RUN_KEY_PREFIX}${Date.now()}-${(seq += 1)}`;
 
+  // No database configured (pnpm test's defaulted DATABASE_URL, unreachable): every test SKIPS
+  // visibly instead of the beforeAll throwing. A database that WAS configured but is unreachable or
+  // unmigrated still fails loudly (requireDatabaseTables), like every other integration suite.
+  let ready = false;
+  const it = (name: string, fn: () => Promise<void>): void => {
+    vitestIt(name, async (ctx) => {
+      if (!ready) return ctx.skip();
+      await fn();
+    });
+  };
+
   beforeAll(async () => {
-    if (!(await databaseReady('sale_payments'))) throw new Error('sale_payments is missing: run the migrations');
+    ready = await requireDatabaseTables('sale_payments');
+    if (!ready) return;
     const [{ pool: p }, { signAccessToken }, { createApp }] = await Promise.all([
       import('../../db/pool.js'),
       import('../../auth/jwt.js'),

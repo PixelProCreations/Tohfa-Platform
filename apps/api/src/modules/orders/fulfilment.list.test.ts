@@ -3,10 +3,10 @@
  * CUSTOMER token and the warehouse roles.
  *
  * BR-101 = the admin order routes are confined by the RESOLVED scope, not by role names:
- *   - CUSTOMER holds `own` on `order.list.view_all` (that grant is its own-orders permission), so it
- *     passes requirePermission on the list. Its scope carries a customer id, and on these admin
- *     routes a customer-owned scope fails closed: an empty list, a 404 detail, never another
- *     customer's order. On the action routes it holds `none` and requirePermission answers 403.
+ *   - CUSTOMER holds `none` on `order.list.view_all` (customers read their own orders through
+ *     /orders, `order.view_own`), so requirePermission answers 403 on the list, the detail and the
+ *     action routes (BR-101a). A customer-owned scope still fails closed in the repo (an empty
+ *     list, a 404 detail), so a future grant cannot open another customer's order.
  *   - A Sub Warehouse Admin sees only its warehouse; a `warehouseId` filter naming another
  *     warehouse is an EMPTY list, never 403 (BR-30: a 403 confirms the other warehouse's data).
  *   - scope `all` (MAIN_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN) sees every warehouse; the filter narrows.
@@ -26,6 +26,8 @@ import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
 import type { FulfilmentRepo } from './fulfilment.repo.js';
+import { encodeAdminOrderCursor } from './fulfilment.cursor.js';
+import { adminOrdersQuerySchema } from './fulfilment.schema.js';
 import { createFulfilmentService } from './fulfilment.service.js';
 
 const PERMISSION = 'order.list.view_all';
@@ -83,13 +85,16 @@ describe('admin order list service (fake repo)', () => {
     const order = { id: newId(), status: 'CONFIRMED', fulfillmentType: 'PICKUP', warehouseId: WH_A };
     const repo = {
       findOrderForFulfilment: vi.fn(async () => order),
+      // assign-warehouse decides on the row locked inside its transaction (BR-85j).
+      lockOrderForUpdate: vi.fn(async () => ({ ...order, channel: 'ONLINE' })),
       getOrderDeliveryOtpHolder: vi.fn(async () => ({
         id: order.id, status: 'READY_FOR_PICKUP', fulfilmentType: 'PICKUP', deliveryOtpHash: 'x', otpAttempts: 0, customerId: newId(), warehouseId: WH_A,
       })),
       updateOrderStatus: vi.fn(),
       incrementOtpAttempts: vi.fn(),
     } as unknown as FulfilmentRepo;
-    const service = createFulfilmentService({ repo, db: {} as Executor });
+    const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
+    const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
     const actor = { userId: newId(), roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: newId() };
     const customer: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.CUSTOMER, customerId: actor.customerId });
     for (const call of [
@@ -102,6 +107,47 @@ describe('admin order list service (fake repo)', () => {
     }
     expect(vi.mocked(repo.updateOrderStatus)).not.toHaveBeenCalled();
     expect(vi.mocked(repo.incrementOtpAttempts)).not.toHaveBeenCalled();
+  });
+
+  it('BR-85i: a counter sale (DIRECT or MARKET) still PENDING_PAYMENT cannot be reassigned to another warehouse: 409 COUNTER_SALE_NOT_REASSIGNABLE, nothing written', async () => {
+    for (const channel of ['DIRECT', 'MARKET']) {
+      const order = { id: newId(), status: 'PENDING_PAYMENT', channel, fulfillmentType: 'PICKUP', warehouseId: WH_A };
+      const repo = {
+        findOrderForFulfilment: vi.fn(async () => order),
+        // assign-warehouse decides on the row locked inside its transaction (BR-85j).
+        lockOrderForUpdate: vi.fn(async () => order),
+        updateOrderStatus: vi.fn(),
+      } as unknown as FulfilmentRepo;
+      const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
+      const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
+      const actor = { userId: newId(), roles: [{ code: RoleCode.MAIN_WH_ADMIN }], farmerId: null, customerId: null };
+      const main: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.MAIN_WH_ADMIN, permission: 'order.warehouse.assign' });
+      await expect(service.assignWarehouse(actor, main, order.id, { warehouseId: WH_B })).rejects.toMatchObject({
+        code: 'COUNTER_SALE_NOT_REASSIGNABLE',
+        status: 409,
+      });
+      expect(vi.mocked(repo.updateOrderStatus), channel).not.toHaveBeenCalled();
+    }
+  });
+
+  it('BR-101: the admin order list accepts channel=DIRECT (openapi SalesChannel lists it), so the filter is not a 422', () => {
+    expect(adminOrdersQuerySchema.safeParse({ channel: 'DIRECT' }).success).toBe(true);
+    expect(adminOrdersQuerySchema.safeParse({ channel: 'direct' }).success).toBe(false);
+  });
+
+  it('BR-101: a cursor this endpoint did not produce (garbage, a bad uuid, an impossible timestamp) is a 422 at validation, never a 500', () => {
+    const good = encodeAdminOrderCursor({ ts: '2026-10-11T05:06:07.123456Z', id: newId() });
+    expect(adminOrdersQuerySchema.safeParse({ cursor: good }).success).toBe(true);
+    for (const cursor of [
+      'not-a-cursor',
+      Buffer.from('2026-10-11T05:06:07.123Z|abc').toString('base64'),
+      encodeAdminOrderCursor({ ts: '2026-99-99T00:00:00.000000Z', id: newId() }),
+      encodeAdminOrderCursor({ ts: '2026-02-30T00:00:00.000000Z', id: newId() }),
+      encodeAdminOrderCursor({ ts: '2026-10-11T25:00:00.000000Z', id: newId() }),
+      encodeAdminOrderCursor({ ts: '2026-10-11T05:06:07.123456Z', id: 'not-a-uuid' }),
+    ]) {
+      expect(adminOrdersQuerySchema.safeParse({ cursor }).success, cursor).toBe(false);
+    }
   });
 });
 
@@ -183,6 +229,9 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
     tokens['customer'] = signAccessToken({ sub: userId, roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: customer.rows[0]!.id });
     // A different customer: must never see the first customer's orders.
     tokens['otherCustomer'] = signAccessToken({ sub: seededUserId, roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: newId() });
+    // A self-registered customer: auth.repo createCustomerUser writes no customers row, so the token
+    // carries customerId = null. It must see nothing either (it used to see every order).
+    tokens['customerNoRecord'] = signAccessToken({ sub: seededUserId, roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: null });
   });
 
   afterAll(async () => {
@@ -210,23 +259,23 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
     request(server).get('/v1/admin/orders').query(query).set('Authorization', auth(who));
   const ids = (body: { items: Array<{ id: string }> }): string[] => body.items.map((item) => item.id);
 
-  it('BR-101a (HTTP): a CUSTOMER token lists NO orders on GET /admin/orders — not all orders, not even its own — with or without filters', async () => {
+  it('BR-101a (HTTP): a CUSTOMER token is 403 FORBIDDEN on GET /admin/orders (no grant in rbac.json) — with or without filters', async () => {
     if (!ready) return;
     for (const who of ['customer', 'otherCustomer']) {
       for (const query of [{}, { limit: '100' }, { deliveryDate }, { warehouseId: coonoor }, { warehouseId: gudalur, deliveryDate }]) {
         const res = await list(who, query);
-        expect(res.status, `${who} ${JSON.stringify(query)}`).toBe(200);
-        expect(res.body.items, `${who} ${JSON.stringify(query)}`).toEqual([]);
-        expect(res.body.page).toEqual({ nextCursor: null, hasMore: false });
+        expect(res.status, `${who} ${JSON.stringify(query)}`).toBe(403);
+        expect(res.body.code).toBe('FORBIDDEN');
       }
     }
   });
 
-  it('BR-101a (HTTP): a CUSTOMER token gets no order data from any admin order route: detail 404, every action 403 (no grant), and nothing changes', async () => {
+  it('BR-101a (HTTP): a CUSTOMER token gets 403 on admin order detail and actions (no grant), and nothing changes', async () => {
     if (!ready) return;
     const { pool } = await import('../../db/pool.js');
     const detail = await request(server).get(`/v1/admin/orders/${coonoorOrder}`).set('Authorization', auth('customer'));
-    expect(detail.status).toBe(404);
+    expect(detail.status).toBe(403);
+    expect(detail.body.code).toBe('FORBIDDEN');
     expect(detail.body.id).toBeUndefined();
 
     const actions: Array<[string, Record<string, unknown>]> = [
@@ -249,6 +298,21 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
       [coonoorOrder],
     );
     expect(row.rows[0]).toEqual({ status: 'CONFIRMED', warehouse_id: coonoor, otp_attempts: 0 });
+  });
+
+  it('BR-101a (HTTP): a CUSTOMER token with NO customer record (customerId null) gets 403 on list and detail', async () => {
+    if (!ready) return;
+    for (const query of [{}, { limit: '100' }, { deliveryDate }, { warehouseId: coonoor }]) {
+      const res = await list('customerNoRecord', query);
+      expect(res.status, JSON.stringify(query)).toBe(403);
+      expect(res.body.code).toBe('FORBIDDEN');
+    }
+    for (const orderId of [coonoorOrder, gudalurOrder]) {
+      const detail = await request(server).get(`/v1/admin/orders/${orderId}`).set('Authorization', auth('customerNoRecord'));
+      expect(detail.status).toBe(403);
+      expect(detail.body.code).toBe('FORBIDDEN');
+      expect(detail.body.id).toBeUndefined();
+    }
   });
 
   it('BR-101b (HTTP): 401 without a token; FARMER and FARMER_ADMIN get 403 on the list, as before', async () => {
@@ -289,6 +353,40 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
       const narrowed = await list(who, { deliveryDate, warehouseId: gudalur });
       expect(ids(narrowed.body), who).toEqual([gudalurOrder]);
     }
+  });
+
+  it('BR-101 (HTTP): keyset paging on (placed_at, id) skips and repeats nothing when orders share a millisecond; a malformed cursor is 422', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    // A delivery date no other test in this file uses (their years are 2090-2098).
+    const tieDate = `2099-${deliveryDate.slice(5)}`;
+    const customerId = created.customers[0]!;
+    const tied: string[] = [];
+    for (const micros of ['401', '402', '403']) {
+      const o = await pool.query<{ id: string }>(
+        `INSERT INTO orders (order_number, customer_id, warehouse_id, channel, subtotal, total_amount,
+                             payment_method, payment_status, status, delivery_date, placed_at)
+         VALUES ($1, $2, $3, 'ONLINE', 1.10, 1.10, 'WALLET', 'PAID', 'CONFIRMED', $4::date, $5::timestamptz) RETURNING id`,
+        [`OL-TIE-${newId().slice(0, 12)}`, customerId, gudalur, tieDate, `2026-10-11T05:06:07.123${micros}Z`],
+      );
+      tied.push(o.rows[0]!.id);
+      created.orders.push(o.rows[0]!.id);
+    }
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page += 1) {
+      const res = await list('super', { deliveryDate: tieDate, limit: '1', ...(cursor === undefined ? {} : { cursor }) });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      seen.push(...ids(res.body));
+      cursor = res.body.page.nextCursor ?? undefined;
+      if (cursor === undefined) break;
+    }
+    // Newest first: the .123403 row, then .123402, then .123401.
+    expect(seen).toEqual([...tied].reverse());
+
+    const bad = await list('super', { cursor: 'definitely-not-a-cursor' });
+    expect(bad.status).toBe(422);
+    expect(bad.body.code).toBe('VALIDATION_FAILED');
   });
 
   it('BR-101e (HTTP): a list item is the documented allow-list — no farm identity and no buyer PII at any depth', async () => {

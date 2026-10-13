@@ -18,6 +18,8 @@ export const UploadPurpose = {
   WORKER_ID_PROOF: 'WORKER_ID_PROOF',
   /** Optional report file attached to an audit (typically an external agency's own report). */
   AUDIT_REPORT: 'AUDIT_REPORT',
+  /** A warehouse compliance or property document (licence, FSSAI, lease ...) (BR-105). */
+  WAREHOUSE_DOCUMENT: 'WAREHOUSE_DOCUMENT',
 } as const;
 
 export type UploadPurpose = (typeof UploadPurpose)[keyof typeof UploadPurpose];
@@ -39,6 +41,7 @@ export const signUploadBody = z.object({
     UploadPurpose.WORKER_PHOTO,
     UploadPurpose.WORKER_ID_PROOF,
     UploadPurpose.AUDIT_REPORT,
+    UploadPurpose.WAREHOUSE_DOCUMENT,
   ]),
   contentType: z.enum(ALLOWED_MIME_TYPES, {
     errorMap: () => ({
