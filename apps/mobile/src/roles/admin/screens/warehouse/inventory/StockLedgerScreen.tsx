@@ -189,6 +189,7 @@ export function StockLedgerScreen({
     canViewAll ? undefined : scope.warehouseId,
   );
   const canAdjust = can('inventory.stock_adjustment.create');
+  const firstBatch = batches[0];
 
   return (
     <View style={styles.safeArea}>
@@ -299,7 +300,7 @@ export function StockLedgerScreen({
           {/* Card 1: RECEIPT */}
           <TouchableOpacity
             style={styles.ledgerCard}
-            onPress={() => onNavigate?.('ShipmentDetail', { shipmentId: 'SHP-000124' })}
+            onPress={() => onNavigate?.('M3S15')}
             activeOpacity={0.7}
           >
             <View style={styles.cardTopRow}>
@@ -418,6 +419,23 @@ export function StockLedgerScreen({
               ))}
             </>
           ) : null}
+
+          {canAdjust && firstBatch ? (
+            <TouchableOpacity
+              style={styles.adjustBtn}
+              activeOpacity={0.8}
+              onPress={() =>
+                onNavigate?.('M3S11', {
+                  produceName: firstBatch.name,
+                  batchId: firstBatch.batchId,
+                  zone: firstBatch.zone,
+                  systemCount: firstBatch.quantityKg,
+                })
+              }
+            >
+              <Text style={styles.adjustBtnText}>Verify / Adjust a Batch</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       </View>
     </View>
@@ -425,6 +443,18 @@ export function StockLedgerScreen({
 }
 
 const styles = StyleSheet.create({
+  adjustBtn: {
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    paddingVertical: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
+    alignItems: 'center',
+  },
+  adjustBtnText: { ...adminType.sectionHead, color: adminColors.ink },
   safeArea: {
     flex: 1,
     backgroundColor: '#F0562A',
