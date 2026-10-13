@@ -93,6 +93,21 @@ describe('roles/admin/api/reports.ts (HTTP contract, BR-64)', () => {
       expect(path).toContain(`warehouseId=${OWN_WAREHOUSE}`);
       expect(init?.method).toBe('GET');
     });
+
+    it('sends GET /admin/reports/inventory with from and to when provided (BR-64)', async () => {
+      await getInventoryReport({
+        from: '2026-10-01',
+        to: '2026-10-13',
+        warehouseId: OWN_WAREHOUSE,
+      });
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      const [path, init] = requestMock.mock.calls[0]!;
+      expect(path).toContain('/admin/reports/inventory');
+      expect(path).toContain('from=2026-10-01');
+      expect(path).toContain('to=2026-10-13');
+      expect(path).toContain(`warehouseId=${OWN_WAREHOUSE}`);
+      expect(init?.method).toBe('GET');
+    });
   });
 
   describe('GET /admin/reports/returns (BR-64)', () => {

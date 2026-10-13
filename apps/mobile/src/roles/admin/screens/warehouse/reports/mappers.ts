@@ -40,6 +40,33 @@ export function validateReportDateRange(from: string, to: string): boolean {
 }
 
 /**
+ * Calculates start and end YYYY-MM-DD dates in Asia/Kolkata day for report presets (BR-64).
+ */
+export function getReportPresetDates(
+  preset: 'Today' | 'Week' | 'Month',
+  now = new Date(),
+): { from: string; to: string } {
+  const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+  const istNow = new Date(now.getTime() + istOffsetMs);
+  const year = istNow.getUTCFullYear();
+  const month = String(istNow.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(istNow.getUTCDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  if (preset === 'Today') {
+    return { from: todayStr, to: todayStr };
+  }
+  if (preset === 'Week') {
+    const weekAgo = new Date(now.getTime() + istOffsetMs - 6 * 24 * 60 * 60 * 1000);
+    const wYear = weekAgo.getUTCFullYear();
+    const wMonth = String(weekAgo.getUTCMonth() + 1).padStart(2, '0');
+    const wDay = String(weekAgo.getUTCDate()).padStart(2, '0');
+    return { from: `${wYear}-${wMonth}-${wDay}`, to: todayStr };
+  }
+  return { from: `${year}-${month}-01`, to: todayStr };
+}
+
+/**
  * Enforces BR-30 / BR-64 warehouse scoping on report queries.
  * A Sub Warehouse Admin is pinned to its assigned warehouse ID.
  * A Main Warehouse Admin can select an individual warehouse or view across all.

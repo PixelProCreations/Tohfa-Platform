@@ -18,6 +18,7 @@ import type {
   SalesReportDto,
 } from '../api/reports';
 import {
+  getReportPresetDates,
   mapCashTopupsReport,
   mapCustomersReport,
   mapInventoryReport,
@@ -67,6 +68,29 @@ describe('roles/admin/screens/warehouse/reports/mappers.ts', () => {
       expect(mapped.byDay[0]?.totalFormatted).toBe('₹5,000');
       expect(mapped.byChannel[0]?.totalPaise).toBe(1000050);
       expect(mapped.byStatus[0]?.status).toBe('DELIVERED');
+    });
+
+    it('BR-64c: maps empty sales report with zero totals and empty arrays', () => {
+      const dto: SalesReportDto = {
+        from: '2026-10-01',
+        to: '2026-10-13',
+        warehouseId: OWN_WAREHOUSE,
+        count: 0,
+        total: '0.00',
+        averageOrderValue: '0.00',
+        byDay: [],
+        byChannel: [],
+        byStatus: [],
+      };
+      const mapped = mapSalesReport(dto);
+      expect(mapped.count).toBe(0);
+      expect(mapped.totalPaise).toBe(0);
+      expect(mapped.totalFormatted).toBe('₹0');
+      expect(mapped.averageOrderValuePaise).toBe(0);
+      expect(mapped.averageOrderValueFormatted).toBe('₹0');
+      expect(mapped.byDay).toEqual([]);
+      expect(mapped.byChannel).toEqual([]);
+      expect(mapped.byStatus).toEqual([]);
     });
   });
 
@@ -205,6 +229,25 @@ describe('roles/admin/screens/warehouse/reports/mappers.ts', () => {
       expect(validateReportDateRange('', '2026-10-13')).toBe(false);
       expect(validateReportDateRange('2026-10-01', '')).toBe(false);
       expect(validateReportDateRange('2026-10-15', '2026-10-13')).toBe(false);
+    });
+  });
+
+  describe('getReportPresetDates (BR-64 Asia/Kolkata day)', () => {
+    it('computes exact IST calendar ranges for Today, Week, and Month', () => {
+      // 2026-10-13T10:00:00Z -> IST is 2026-10-13 15:30:00
+      const now = new Date('2026-10-13T10:00:00Z');
+
+      const today = getReportPresetDates('Today', now);
+      expect(today).toEqual({ from: '2026-10-13', to: '2026-10-13' });
+      expect(validateReportDateRange(today.from, today.to)).toBe(true);
+
+      const week = getReportPresetDates('Week', now);
+      expect(week).toEqual({ from: '2026-10-07', to: '2026-10-13' });
+      expect(validateReportDateRange(week.from, week.to)).toBe(true);
+
+      const month = getReportPresetDates('Month', now);
+      expect(month).toEqual({ from: '2026-10-01', to: '2026-10-13' });
+      expect(validateReportDateRange(month.from, month.to)).toBe(true);
     });
   });
 });
