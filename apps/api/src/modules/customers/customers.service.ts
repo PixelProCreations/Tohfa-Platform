@@ -11,6 +11,9 @@
  *  - BR-97  support threads: for a masked actor, internal notes naming a farmer are dropped and
  *           farmer text elsewhere is redacted; a reply naming a farmer is refused 422 for every
  *           actor; the reply and its audit row share one transaction (BR-35).
+ *  - BR-92a / BR-97g  the same masked actor never sees the customer's own stored mobile (no run of
+ *           more than four of its digits) or e-mail in ticket text either: a customer types them
+ *           into tickets ("call me on ..."), and the ticket shapes are otherwise contact-free.
  *  - BR-98  the active window is read from system_config on every request.
  */
 import { parseMoney } from '@tohfa/shared-types';
@@ -22,6 +25,7 @@ import { logger } from '../../logger.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import {
   buildRedactor,
+  composeRedactors,
   customerAccess,
   decodeNameKey,
   decodeTimeKey,
@@ -199,13 +203,23 @@ function ticketStatus(dbStatus: string): AdminTicketStatus {
   return dbStatus === 'INVESTIGATING' ? 'IN_PROGRESS' : (dbStatus as AdminTicketStatus);
 }
 
+/**
+ * What a masked (`own`) actor's ticket text goes through. `farmer` alone decides whether an
+ * internal note is dropped (BR-97); `text` (farmer identity + the customer's own contact details,
+ * BR-92a) is what every shown string is redacted with. null = scope `all`, nothing is redacted.
+ */
+interface TicketRedaction {
+  farmer: Redactor;
+  text: Redactor;
+}
+
 /** No `closedAt`: support_tickets records no close time, so the shape has no such key. */
-function ticket(r: TicketRow, messageCount: number, redactor: Redactor | null): AdminCustomerSupportTicket {
+function ticket(r: TicketRow, messageCount: number, redaction: TicketRedaction | null): AdminCustomerSupportTicket {
   return {
     id: r.id,
     ticketNumber: r.ticketNumber,
     categoryCode: r.category as AdminCustomerSupportTicket['categoryCode'],
-    subject: redactor === null ? r.subject : redactor.redact(r.subject).text,
+    subject: redaction === null ? r.subject : redaction.text.redact(r.subject).text,
     status: ticketStatus(r.status),
     priority: r.priority as AdminCustomerSupportTicket['priority'],
     messageCount,
@@ -216,21 +230,24 @@ function ticket(r: TicketRow, messageCount: number, redactor: Redactor | null): 
 }
 
 /**
- * BR-97 for one message. `redactor === null` means scope `all`: the thread is returned as stored.
+ * BR-97 for one message. `redaction === null` means scope `all`: the thread is returned as stored.
  * For a masked actor an internal note that names a farmer is dropped entirely (null); any other
- * message has farmer text replaced and is flagged `redacted`.
+ * message has farmer text and the customer's own contact details replaced and is flagged
+ * `redacted` (BR-92a).
  */
-function message(m: MessageRow, redactor: Redactor | null): AdminCustomerSupportMessage | null {
+function message(m: MessageRow, redaction: TicketRedaction | null): AdminCustomerSupportMessage | null {
   let body = m.body;
   let attachment = m.attachmentKey;
   let redacted = false;
-  if (redactor !== null) {
-    const bodyOut = redactor.redact(m.body);
-    const attachmentNamesFarmer = attachment !== null && redactor.matches(attachment);
-    if (m.isInternal && (bodyOut.changed || attachmentNamesFarmer)) return null;
+  if (redaction !== null) {
+    const namesFarmer = redaction.farmer.matches(m.body);
+    const attachmentNamesFarmer = attachment !== null && redaction.farmer.matches(attachment);
+    if (m.isInternal && (namesFarmer || attachmentNamesFarmer)) return null;
+    const bodyOut = redaction.text.redact(m.body);
+    const attachmentRedacted = attachment !== null && redaction.text.matches(attachment);
     body = bodyOut.text;
-    if (attachmentNamesFarmer) attachment = null;
-    redacted = bodyOut.changed || attachmentNamesFarmer;
+    if (attachmentRedacted) attachment = null;
+    redacted = bodyOut.changed || attachmentRedacted;
   }
   return {
     id: m.id,
@@ -283,11 +300,22 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
     return access;
   }
 
-  /** null for an unmasked actor (no redaction); a redactor built from this customer's farmers otherwise. */
-  async function redactorFor(access: CustomerAccess, customerId: string, orderIds: string[]): Promise<Redactor | null> {
+  /** The redactor for this customer's farmers (BR-97), shared by the masked read and the reply check. */
+  async function farmerRedactor(executor: Executor, customerId: string, orderIds: string[]): Promise<Redactor> {
+    const identity = await repo.farmerIdentityTerms(executor, customerId, orderIds);
+    return buildRedactor(identity.terms, identity.personNames, { phones: identity.phones ?? [] });
+  }
+
+  /** null for an unmasked actor (no redaction); farmer identity + the customer's contact otherwise. */
+  async function redactionFor(access: CustomerAccess, customerId: string, orderIds: string[]): Promise<TicketRedaction | null> {
     if (!access.masked) return null;
-    const identity = await repo.farmerIdentityTerms(db, customerId, orderIds);
-    return buildRedactor(identity.terms, identity.personNames);
+    const farmer = await farmerRedactor(db, customerId, orderIds);
+    const contact = await repo.customerContact(db, customerId);
+    const contactRedactor = buildRedactor([], [], {
+      phones: contact === null ? [] : [contact.mobile],
+      emails: contact === null || contact.email === null ? [] : [contact.email],
+    });
+    return { farmer, text: composeRedactors(farmer, contactRedactor) };
   }
 
   return {
@@ -394,27 +422,27 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
       const rows = await repo.listTickets(db, customerId, afterTime(query.cursor), query.limit);
       const ticketIds = rows.rows.map((t) => t.id);
       const orderIds = rows.rows.flatMap((t) => (t.orderId === null ? [] : [t.orderId]));
-      const redactor = await redactorFor(access, customerId, orderIds);
+      const redaction = await redactionFor(access, customerId, orderIds);
       const messages = await repo.listMessages(db, ticketIds);
       const visibleCount = new Map<string, number>();
       for (const m of messages) {
-        if (message(m, redactor) !== null) visibleCount.set(m.ticketId, (visibleCount.get(m.ticketId) ?? 0) + 1);
+        if (message(m, redaction) !== null) visibleCount.set(m.ticketId, (visibleCount.get(m.ticketId) ?? 0) + 1);
       }
-      return page(rows, (t) => ticket(t, visibleCount.get(t.id) ?? 0, redactor), (t) => timeCursor(t, t.id));
+      return page(rows, (t) => ticket(t, visibleCount.get(t.id) ?? 0, redaction), (t) => timeCursor(t, t.id));
     },
 
     async getSupportTicket(scope, customerId, ticketId) {
       const access = await visibleAccess(db, scope, customerId);
       const row = await repo.findTicket(db, customerId, ticketId);
       if (row === null) throw ticketNotFound();
-      const redactor = await redactorFor(access, customerId, row.orderId === null ? [] : [row.orderId]);
+      const redaction = await redactionFor(access, customerId, row.orderId === null ? [] : [row.orderId]);
       const messages = (await repo.listMessages(db, [row.id]))
-        .map((m) => message(m, redactor))
+        .map((m) => message(m, redaction))
         .filter((m): m is AdminCustomerSupportMessage => m !== null);
       const description = row.description ?? '';
       return {
-        ...ticket(row, messages.length, redactor),
-        description: redactor === null ? description : redactor.redact(description).text,
+        ...ticket(row, messages.length, redaction),
+        description: redaction === null ? description : redaction.text.redact(description).text,
         messages,
       };
     },
@@ -431,8 +459,7 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
 
         // BR-97c / BR-16: a reply is customer-facing, so it may never carry a farmer identity,
         // whatever the actor's scope. Refused, not silently rewritten: the author must know.
-        const identity = await repo.farmerIdentityTerms(tx, customerId, row.orderId === null ? [] : [row.orderId]);
-        const redactor = buildRedactor(identity.terms, identity.personNames);
+        const redactor = await farmerRedactor(tx, customerId, row.orderId === null ? [] : [row.orderId]);
         const attachmentKey = body.attachmentUrl ?? null;
         if (redactor.matches(body.message) || (attachmentKey !== null && redactor.matches(attachmentKey))) {
           throw new AppError('VALIDATION_FAILED', {

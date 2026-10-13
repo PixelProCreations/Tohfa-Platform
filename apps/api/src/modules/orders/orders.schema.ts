@@ -47,7 +47,8 @@ export const paymentStatuses = [
 ] as const;
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
-export const salesChannels = ['ONLINE', 'MARKET', 'HORECA', 'B2B'] as const;
+/** docs/openapi.yaml SalesChannel. DIRECT is the at-counter sale (BR-85, migration 0059). */
+export const salesChannels = ['ONLINE', 'MARKET', 'HORECA', 'B2B', 'DIRECT'] as const;
 export type SalesChannel = (typeof salesChannels)[number];
 
 export const paymentMethods = [

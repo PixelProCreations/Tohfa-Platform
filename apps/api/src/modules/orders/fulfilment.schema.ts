@@ -9,9 +9,14 @@ import {
   type DeliverySlot,
   type ProduceGrade,
 } from './orders.schema.js';
+import { decodeAdminOrderCursor } from './fulfilment.cursor.js';
 
 export const adminOrdersQuerySchema = z.object({
-  cursor: z.string().optional(),
+  // Opaque keyset cursor (fulfilment.cursor.ts); anything this endpoint did not produce is 422.
+  cursor: z
+    .string()
+    .refine((raw) => decodeAdminOrderCursor(raw) !== null, { message: 'Invalid cursor.' })
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.enum(orderStatuses).optional(),
   warehouseId: z.string().uuid().optional(),

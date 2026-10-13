@@ -28,7 +28,7 @@ import {
   parseRateBasisPoints,
   splitLineAcrossDraws,
 } from './sales.math.js';
-import type { SaleRecord, SalesRepo } from './sales.repo.js';
+import type { SaleHeaderRow, SaleRecord, SalesRepo } from './sales.repo.js';
 import {
   customerLookupQuery,
   listSaleProductsQuery,
@@ -264,6 +264,11 @@ function harness(options: { gst?: unknown; available?: string; price?: Money | n
     saleItems: async () => [],
     completeOrder: record('completeOrder'),
     confirmPayment: record('confirmPayment'),
+    recordPendingUpiRef: record('recordPendingUpiRef'),
+    cancelSale: record('cancelSale'),
+    settlePayment: record('settlePayment'),
+    markRefunded: async () => true,
+    listExpiredPendingUpi: async () => [],
     loadSale: async (_db, id) => fakeRecord(id),
     insertAttempt: async (db, attempt) => {
       attempts.push({ reasonCode: attempt.reasonCode, payload: attempt.payload, viaTx: db === txDb });
@@ -526,5 +531,233 @@ describe('salesService (mocked repo)', () => {
     expect(saleProductResponse.safeParse(page.items[0]).success).toBe(true);
     expect(page.items[0]!.availableQtyKg).toBe('12.500');
     expect(JSON.stringify(page)).not.toContain('sourceFarmerId');
+  });
+
+  /** A pending UPI DIRECT sale header at Ooty, for the confirm path. */
+  function pendingUpiHeader(id: string): SaleHeaderRow {
+    return {
+      id,
+      warehouseId: OOTY,
+      channel: 'DIRECT',
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      customerId: null,
+      totalAmount: parseMoney('45.50'),
+      gstAmount: parseMoney('0.00'),
+      paymentId: newId(),
+      paymentMethod: 'UPI',
+      paymentStatusDetail: 'PENDING',
+      upiTxnRef: null,
+    };
+  }
+
+  function upiHarness(saleId: string): Harness {
+    const h = harness();
+    h.repo.findSaleHeader = async () => pendingUpiHeader(saleId);
+    h.repo.lockSale = async () => pendingUpiHeader(saleId);
+    h.repo.saleItems = async () => fakeRecord(saleId).items;
+    return h;
+  }
+
+  it('BR-94: a UPI reference that already confirmed another sale is refused 409 CONFLICT (UPI_TXN_REF_ALREADY_USED), never a 500', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    // What PostgreSQL raises on the partial unique index of migration 0067.
+    h.repo.confirmPayment = async () => {
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_upi_txn_ref"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_upi_txn_ref',
+      });
+    };
+    const error = await failure(createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-upi', { upiTxnRef: 'pay_dup_1' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ reason: 'UPI_TXN_REF_ALREADY_USED' });
+    expect(h.afterCommit).not.toHaveBeenCalled();
+    expect(h.attempts.map((a) => a.reasonCode)).toEqual(['CONFLICT']);
+    expect(JSON.stringify(h.attempts)).not.toContain('pay_dup_1');
+  });
+
+  it('BR-94e: a stock-ledger CHECK violation without the INSUFFICIENT_STOCK hint during the UPI confirm is 409 SALE_STOCK_CHANGED, not a 500', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    // trg_stock_ledger_balance raises 23514 with no hint when the order's warehouse no longer
+    // matches the batch's (for example after the order was moved to another warehouse).
+    h.repo.insertSaleLedger = async () => {
+      throw Object.assign(new Error('stock_ledger.warehouse_id does not match batch warehouse'), { code: '23514' });
+    };
+    const error = await failure(createSalesService(h.deps).confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-upi', { upiTxnRef: 'pay_ok_1' }));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+  });
+
+  it('BR-88h: a sale key replayed after the 24 h idempotency retention (its sale_payments row still exists) is 409 IDEMPOTENCY_KEY_REUSED, never a 500', async () => {
+    const h = harness();
+    h.repo.insertPayment = async () => {
+      throw Object.assign(new Error('duplicate key value violates unique constraint "uq_sale_payments_idempotency_key"'), {
+        code: '23505',
+        constraint: 'uq_sale_payments_idempotency_key',
+      });
+    };
+    const error = await failure(createSalesService(h.deps).create(subScope(), subScope(OOTY, 'payment.record'), 'k-old', validBody()));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(h.afterCommit).not.toHaveBeenCalled();
+  });
+
+  it('BR-94g: acting on an unconfirmed UPI sale throws 409 PAYMENT_PENDING', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    const service = createSalesService(h.deps);
+
+    const error = await failure(service.requirePaid(subScope(OOTY), saleId));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('PAYMENT_PENDING');
+  });
+
+  it('BR-94i: stock conflict during confirm cancels the sale, marks REFUND_DUE, and throws 409 SALE_STOCK_CHANGED with reason UPI_REFUND_DUE', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    let cancelCalled = false;
+    let paymentSettledStatus: string | null = null;
+
+    h.repo.insertSaleLedger = async () => {
+      throw Object.assign(new Error('insufficient available stock'), { code: '23514' });
+    };
+    h.repo.cancelSale = async (_db, id, args) => {
+      expect(id).toBe(saleId);
+      expect(args.paymentStatus).toBe('REFUND_DUE');
+      cancelCalled = true;
+    };
+    h.repo.settlePayment = async (_db, _id, status) => {
+      paymentSettledStatus = status;
+    };
+
+    const service = createSalesService(h.deps);
+    const error = await failure(service.confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-upi', { upiTxnRef: 'pay_stock_fail' }));
+
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUND_DUE' });
+    expect(cancelCalled).toBe(true);
+    expect(paymentSettledStatus).toBe('REFUND_DUE');
+  });
+
+  it('BR-94i: stock conflict during confirm with sales.upi_refund_mode auto triggers gateway refund and marks payment REFUNDED', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    let markedRefunded = false;
+    const mockRefund = vi.fn(async () => ({ refundId: 'rfnd_gw_123', status: 'processed' }));
+
+    h.repo.configValue = async (_db, key) => (key === 'sales.upi_refund_mode' ? 'auto' : undefined);
+    h.repo.insertSaleLedger = async () => {
+      throw Object.assign(new Error('insufficient stock'), { code: '23514' });
+    };
+    h.repo.markRefunded = async (_db, _id, refundRef) => {
+      expect(refundRef).toBe('rfnd_gw_123');
+      markedRefunded = true;
+      return true;
+    };
+
+    h.deps.gateway = {
+      provider: 'mock',
+      createOrder: vi.fn(),
+      verifyWebhookSignature: vi.fn(),
+      parseEvent: vi.fn(),
+      refundPayment: mockRefund,
+    };
+
+    const service = createSalesService(h.deps);
+    const error = await failure(service.confirmUpi(subScope(OOTY, 'payment.record'), saleId, 'k-upi', { upiTxnRef: 'pay_auto_refund' }));
+
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('SALE_STOCK_CHANGED');
+    expect(error.meta).toMatchObject({ reason: 'UPI_REFUND_DUE', refundStatus: 'REFUNDED' });
+    expect(mockRefund).toHaveBeenCalledWith(expect.objectContaining({ gatewayPaymentId: 'pay_auto_refund' }));
+    expect(markedRefunded).toBe(true);
+  });
+
+  it('BR-94i: cancelling an unpaid pending UPI sale marks CANCELLED and FAILED, and replay is idempotent', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    let cancelled = false;
+    let paymentStatus: string | null = null;
+
+    h.repo.cancelSale = async (_db, id, args) => {
+      expect(id).toBe(saleId);
+      expect(args.paymentStatus).toBe('FAILED');
+      cancelled = true;
+    };
+    h.repo.settlePayment = async (_db, _id, status) => {
+      paymentStatus = status;
+    };
+    h.repo.loadSale = async (_db, id) => {
+      const rec = fakeRecord(id);
+      rec.status = 'CANCELLED';
+      rec.paymentStatus = 'FAILED';
+      if (rec.payment) rec.payment.status = 'FAILED';
+      return rec;
+    };
+
+    const service = createSalesService(h.deps);
+    const result1 = await service.cancel(subScope(OOTY), saleId, 'k-cancel-1', { reason: 'Customer walked away' });
+    expect(result1.status).toBe('CANCELLED');
+    expect(result1.paymentStatus).toBe('FAILED');
+    expect(cancelled).toBe(true);
+    expect(paymentStatus).toBe('FAILED');
+
+    // Idempotent replay
+    const result2 = await service.cancel(subScope(OOTY), saleId, 'k-cancel-1', { reason: 'Customer walked away' });
+    expect(result2.status).toBe('CANCELLED');
+  });
+
+  it('BR-94i: cancelling a sale that is already picked up or paid throws 409 CONFLICT', async () => {
+    const saleId = newId();
+    const h = harness();
+    h.repo.findSaleHeader = async () => ({
+      ...pendingUpiHeader(saleId),
+      status: 'PICKED_UP',
+      paymentStatus: 'PAID',
+      paymentStatusDetail: 'CONFIRMED',
+    });
+
+    const service = createSalesService(h.deps);
+    const error = await failure(service.cancel(subScope(OOTY), saleId, 'k-cancel-2'));
+    expect(error.status).toBe(409);
+    expect(error.code).toBe('CONFLICT');
+  });
+
+  it('BR-94i: expirePendingUpi skips when config is null/disabled, and cancels expired sales when configured', async () => {
+    const saleId = newId();
+    const h = upiHarness(saleId);
+    let cancelCalled = false;
+
+    h.repo.cancelSale = async () => {
+      cancelCalled = true;
+    };
+
+    // When config is null (default)
+    h.repo.configValue = async () => null;
+    const service1 = createSalesService(h.deps);
+    const res1 = await service1.expirePendingUpi();
+    expect(res1.expiredCount).toBe(0);
+    expect(cancelCalled).toBe(false);
+
+    // When config is set to 15 minutes
+    h.repo.configValue = async () => 15;
+    h.repo.listExpiredPendingUpi = async () => [
+      {
+        saleId,
+        warehouseId: OOTY,
+        paymentId: 'pay_expired_1',
+        upiTxnRef: null,
+        totalAmount: parseMoney('45.50'),
+      },
+    ];
+
+    const service2 = createSalesService(h.deps);
+    const res2 = await service2.expirePendingUpi();
+    expect(res2.expiredCount).toBe(1);
+    expect(cancelCalled).toBe(true);
   });
 });

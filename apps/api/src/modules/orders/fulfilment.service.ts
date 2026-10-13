@@ -266,6 +266,18 @@ export function createFulfilmentService(opts: {
         });
       }
 
+      // BR-85f: a counter sale is made AT a warehouse, from that warehouse's batches. A pending UPI
+      // sale's items already name those batches (the hold, BR-94), so moving it would make the
+      // later confirm write SALE ledger rows for batches at another warehouse (refused by the
+      // ledger trigger) and let a second warehouse see the sale. Completed counter sales are
+      // PICKED_UP and already refused by the status check below; this names the pending case.
+      if (order.channel === 'DIRECT' || order.channel === 'MARKET') {
+        throw new AppError('COUNTER_SALE_NOT_REASSIGNABLE', {
+          detail: `Order ${orderId} is a ${order.channel} counter sale; it stays at the warehouse that made it.`,
+          meta: { channel: order.channel, status: order.status },
+        });
+      }
+
       if (order.status !== 'CONFIRMED' && order.status !== 'PENDING_PAYMENT') {
         throw new AppError('INVALID_STATE_TRANSITION', {
           status: 409,

@@ -152,6 +152,17 @@ export const saleUpiConfirmBody = z
   .strict();
 export type SaleUpiConfirmBody = z.infer<typeof saleUpiConfirmBody>;
 
+export const saleCancelBody = z
+  .object({
+    reason: z
+      .string()
+      .trim()
+      .max(300)
+      .optional(),
+  })
+  .strict();
+export type SaleCancelBody = z.infer<typeof saleCancelBody>;
+
 export const saleIdParams = z.object({ saleId: UUID }).strict();
 
 export const listSaleProductsQuery = z
@@ -239,7 +250,7 @@ export const saleBuyerResponse = z
 export const salePaymentResponse = z
   .object({
     method: salePaymentMethod,
-    status: z.enum(['PENDING', 'CONFIRMED', 'FAILED']),
+    status: z.enum(['PENDING', 'CONFIRMED', 'FAILED', 'REFUND_DUE', 'REFUNDED']),
     amount: moneyOut,
     amountReceived: moneyOut.nullable(),
     cardRef: z.string().nullable(),
@@ -254,7 +265,7 @@ export const saleResponse = z
     saleNumber: z.string(),
     channel: saleChannel,
     status: z.enum(['PENDING_PAYMENT', 'PICKED_UP', 'CANCELLED']),
-    paymentStatus: z.enum(['PENDING', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'FAILED']),
+    paymentStatus: z.enum(['PENDING', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'FAILED', 'REFUND_DUE']),
     warehouseId: UUID,
     buyer: saleBuyerResponse,
     items: z.array(saleLineResponse),

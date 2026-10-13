@@ -147,6 +147,7 @@ function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
     findTicket: vi.fn(async () => aTicketRow()),
     listMessages: vi.fn(async () => []),
     farmerIdentityTerms: vi.fn(async () => IDENTITY),
+    customerContact: vi.fn(async () => ({ mobile: MOBILE, email: 'lakshmi@example.com' })),
     insertMessage: vi.fn(async () => ({ id: newId(), createdAt: '2026-09-03T10:00:00.000Z' })),
     ...overrides,
   };
@@ -271,6 +272,33 @@ describe('customers policy', () => {
       expect(() => decodeNameKey(bad)).toThrowError(AppError);
     }
     expect(() => decodeTimeKey(encodeNameKey(name))).toThrowError(AppError);
+  });
+
+  it('BR-93: a time cursor carrying an impossible timestamp (month 99, 30 February, hour 24) is a 422 VALIDATION_FAILED, never a 500 from the cast', () => {
+    for (const ts of ['2026-99-99T00:00:00.000000Z', '2026-02-30T10:00:00.000000Z', '2026-09-01T24:00:00.000000Z', '2026-09-01T10:60:00.000000Z']) {
+      let caught: unknown;
+      try {
+        decodeTimeKey(encodeTimeKey({ ts, id: IDS.customer }));
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught, ts).toBeInstanceOf(AppError);
+      expect((caught as AppError).status, ts).toBe(422);
+    }
+    // A real leap day is fine.
+    expect(decodeTimeKey(encodeTimeKey({ ts: '2028-02-29T23:59:59.999999Z', id: IDS.customer })).ts).toBe('2028-02-29T23:59:59.999999Z');
+  });
+
+  it('BR-16: a farmer mobile given to the redactor as a phone is redacted however it is written (with or without +91, spaces or dashes)', () => {
+    const r = buildRedactor(IDENTITY.terms, IDENTITY.personNames, { phones: ['+919443322110'] });
+    for (const text of ['call 9443322110', 'call +91 94433 22110', 'call 94433-22110', 'call +919443322110']) {
+      const out = r.redact(text);
+      expect(out.changed, text).toBe(true);
+      expect(leaksMobile(out.text, '+919443322110'), text).toBe(false);
+      expect(r.matches(text), text).toBe(true);
+    }
+    // Four digits of it are not an identity (BR-92a allows at most four), and other numbers are left alone.
+    expect(r.redact('order total 2110 rupees, ticket 12345').changed).toBe(false);
   });
 });
 
@@ -474,6 +502,23 @@ describe('customers service: sub-resources (BR-91, BR-90, BR-93)', () => {
     expect(error.status).toBe(404);
   });
 
+  it("BR-93c: an out-of-scope customer's wallet, transactions and a transaction detail are 404 NOT_FOUND, never 403, and the wallet is never read", async () => {
+    const repo = stubRepo({ isVisible: vi.fn(async () => false) });
+    const svc = service(repo);
+    for (const call of [
+      () => svc.getWallet(subOoty('customer.wallet.view'), IDS.customer),
+      () => svc.listWalletTransactions(subOoty('customer.wallet.view'), IDS.customer, { limit: 20 }),
+      () => svc.getWalletTransaction(subOoty('customer.wallet.view'), IDS.customer, newId()),
+    ]) {
+      const error = await rejection(call());
+      expect(error.status).toBe(404);
+      expect(error.code).toBe('NOT_FOUND');
+    }
+    expect(repo.findWallet).not.toHaveBeenCalled();
+    expect(repo.listWalletTransactions).not.toHaveBeenCalled();
+    expect(repo.findWalletTransaction).not.toHaveBeenCalled();
+  });
+
   it('BR-93d: a transaction id that is not on this customer\'s wallet is 404', async () => {
     const repo = stubRepo({ findWalletTransaction: vi.fn(async () => null) });
     const error = await rejection(service(repo).getWalletTransaction(subOoty('customer.wallet.view'), IDS.customer, newId()));
@@ -516,6 +561,43 @@ describe('customers service: support tickets (BR-97)', () => {
     expect(res.messages).toHaveLength(3);
     expect(res.messages.every((m) => !m.redacted)).toBe(true);
     expect(res.messages[1]!.message).toContain('Ramesh Kumar');
+  });
+
+  // The customer's own contact details typed into a ticket: BR-92a allows an own actor at most four
+  // consecutive digits of the stored mobile and no e-mail, whatever field they sit in.
+  const piiTicket = () =>
+    stubRepo({
+      listTickets: vi.fn(async () => ({ rows: [aTicketRow({ subject: 'Call me on 9876543210' })], hasMore: false })),
+      findTicket: vi.fn(async () =>
+        aTicketRow({ subject: 'Call me on 9876543210', description: 'My number is +91 98765 43210, mail Lakshmi@Example.com' }),
+      ),
+      listMessages: vi.fn(async () => [
+        aMessage({ body: 'Reach me at 98765-43210 or lakshmi@example.com' }),
+        aMessage({ isInternal: true, senderRole: 'SUPER_ADMIN', body: 'Customer asked to be called on +919876543210.' }),
+      ]),
+    });
+
+  it('BR-92a: for an own actor no run of more than four consecutive digits of the stored mobile survives in a ticket subject, description or message', async () => {
+    const own = await service(piiTicket()).getSupportTicket(subOoty('customer.support_history.view'), IDS.customer, TICKET_ID);
+    expect(adminCustomerSupportTicketDetailSchema.parse(own)).toEqual(own);
+    expect(leaksMobile(own, MOBILE)).toBe(false);
+    // The internal note is redacted, not dropped: it names no farmer.
+    expect(own.messages).toHaveLength(2);
+    expect(own.messages.every((m) => m.redacted)).toBe(true);
+    const list = await service(piiTicket()).listSupportTickets(subOoty('customer.support_history.view'), IDS.customer, { limit: 20 });
+    expect(leaksMobile(list, MOBILE)).toBe(false);
+    expect(list.items[0]).toMatchObject({ messageCount: 2 });
+  });
+
+  it("BR-97g: the customer's stored mobile and e-mail typed into a support ticket are masked for own; scope all sees the stored text", async () => {
+    const own = await service(piiTicket()).getSupportTicket(subOoty('customer.support_history.view'), IDS.customer, TICKET_ID);
+    expect(JSON.stringify(own).toLowerCase()).not.toContain('lakshmi@example.com');
+    expect(leaksMobile(own, MOBILE)).toBe(false);
+    expect(own.description).toContain(REDACTED);
+    const all = await service(piiTicket()).getSupportTicket(superAll('customer.support_history.view'), IDS.customer, TICKET_ID);
+    expect(all.description).toBe('My number is +91 98765 43210, mail Lakshmi@Example.com');
+    expect(all.messages[0]!.message).toBe('Reach me at 98765-43210 or lakshmi@example.com');
+    expect(all.messages.every((m) => !m.redacted)).toBe(true);
   });
 
   it('BR-97: the DB ticket status INVESTIGATING is reported as IN_PROGRESS (the openapi enum)', async () => {

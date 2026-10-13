@@ -10,15 +10,15 @@
  *     and farmer created here (src/test/committedFixtureCleanup.ts). Before this, ACTIVE
  *     'Fixture Crop' batches stayed at WH-COON and broke reports.test.ts BR-64a in a full run.
  */
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it as vitestIt } from 'vitest';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import { RoleCode, ScopeLevel, parseMoney } from '@tohfa/shared-types';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import type { pool as poolInstance } from '../../db/pool.js';
-import { databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
-import { ensureStandardUsers, insertCrop, insertFarmerWithPlot, randomMobile } from '../../test/dbFixtures.js';
+import { describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { ensureStandardUsers, insertCrop, insertFarmerWithPlot, randomMobile, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { removeCommittedFixtures } from '../../test/committedFixtureCleanup.js';
 import { listSaleProductsResponse, saleQuoteResponse, saleResponse, customerLookupResponse } from './sales.schema.js';
 
@@ -52,8 +52,20 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
   const RUN_KEY_PREFIX = `ci-sale-${newId().slice(0, 8)}-`;
   const key = (label: string): string => `${RUN_KEY_PREFIX}${Date.now()}-${label}-${(seq += 1)}`;
 
+  // No database configured (pnpm test's defaulted DATABASE_URL, unreachable): every test SKIPS
+  // visibly instead of the beforeAll throwing. A database that WAS configured but is unreachable or
+  // unmigrated still fails loudly (requireDatabaseTables), like every other integration suite.
+  let ready = false;
+  const it = (name: string, fn: () => Promise<void>): void => {
+    vitestIt(name, async (ctx) => {
+      if (!ready) return ctx.skip();
+      await fn();
+    });
+  };
+
   beforeAll(async () => {
-    if (!(await databaseReady('sale_payments'))) throw new Error('sale_payments is missing: run the migrations (0059-0064)');
+    ready = await requireDatabaseTables('sale_payments');
+    if (!ready) return;
     const [{ pool: p }, { signAccessToken }, { salesRouter }, { errorHandler, notFoundHandler }] = await Promise.all([
       import('../../db/pool.js'),
       import('../../auth/jwt.js'),
@@ -108,6 +120,10 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
 
   afterAll(async () => {
     const [{ closePool, withTransaction }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    if (!ready) {
+      await Promise.allSettled([closePool(), closeRedis()]);
+      return;
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
     try {
       await removeCommittedFixtures(withTransaction, {
@@ -816,6 +832,61 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(JSON.stringify((await pool.query(`SELECT payload FROM sale_attempts ORDER BY created_at DESC LIMIT 1`)).rows[0])).not.toContain('pay_secret_ref_123');
   });
 
+  it('BR-94: one UPI payment confirms one sale: confirming sale B with the reference that already confirmed sale A is 409 and leaves B pending', async () => {
+    const crop = await newCrop({ ceiling: '20.00' });
+    const batch = await newBatch({ crop, qty: '5' });
+    const upiSale = async (): Promise<string> => {
+      const res = await sell('subOoty', { channel: 'DIRECT', walkIn: { name: 'UPI dup' }, items: [item(crop, '1')], expectedTotal: '20.00', payment: { method: 'UPI' } });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      return res.body.id as string;
+    };
+    const [saleA, saleB] = [await upiSale(), await upiSale()];
+    // Unique per run: the reference is now unique across sale_payments (migration 0067).
+    const ref = `pay_ci_dup_${newId().slice(0, 12)}`;
+    const confirm = (saleId: string, label: string) =>
+      request(server).post(`/v1/admin/sales/${saleId}/payments/upi/confirm`).set('Authorization', auth('subOoty')).set('Idempotency-Key', key(label)).send({ upiTxnRef: ref });
+
+    const a = await confirm(saleA, 'dup-a');
+    expect(a.status, JSON.stringify(a.body)).toBe(200);
+    const b = await confirm(saleB, 'dup-b');
+    expect(b.status, JSON.stringify(b.body)).toBe(409);
+    expect(b.headers['content-type']).toContain('application/problem+json');
+    expect(b.body).toMatchObject({ code: 'CONFLICT', meta: { reason: 'UPI_TXN_REF_ALREADY_USED' } });
+
+    expect(await one(`SELECT status::text FROM orders WHERE id = $1`, [saleB])).toBe('PENDING_PAYMENT');
+    expect(await one(`SELECT status FROM sale_payments WHERE order_id = $1`, [saleB])).toBe('PENDING');
+    expect(await one(`SELECT count(*)::text FROM invoices WHERE order_id = $1`, [saleB])).toBe('0');
+    expect(await one(`SELECT count(*)::text FROM stock_ledger WHERE ref_id = $1`, [saleB])).toBe('0');
+    expect(await one(`SELECT count(*)::text FROM sale_payments WHERE upi_txn_ref = $1`, [ref])).toBe('1');
+    // Only sale A's kilogram left the shelf; B's is still held, not sold.
+    expect(await qtyAvailable(batch.id)).toBe('4.000');
+  });
+
+  it('BR-94 (DB level): sale_payments refuses a second row carrying the same upi_txn_ref (partial unique index, migration 0067)', async () => {
+    const constraint = await one(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'sale_payments' AND indexname = 'uq_sale_payments_upi_txn_ref'`,
+    );
+    expect(constraint).toMatch(/UNIQUE INDEX/);
+    expect(constraint).toMatch(/WHERE \(upi_txn_ref IS NOT NULL\)/);
+  });
+
+  it('BR-88h: a sale Idempotency-Key replayed after the 24 h retention is a clean 409 IDEMPOTENCY_KEY_REUSED (never a 500) and moves nothing again', async () => {
+    const crop = await newCrop({ ceiling: '3.00' });
+    const batch = await newBatch({ crop, qty: '5' });
+    const k = key('expired');
+    const body = { channel: 'DIRECT', walkIn: { name: 'Late retry' }, items: [item(crop, '1')], expectedTotal: '3.00', payment: { method: 'CASH', amountReceived: '3.00' } };
+    const send = () => request(server).post('/v1/admin/sales').set('Authorization', auth('subOoty')).set('Idempotency-Key', k).send(body);
+    const first = await send();
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    // Age the claim past the retention window, as 25 hours of waiting would.
+    await pool.query(`UPDATE idempotency_keys SET created_at = now() - interval '25 hours' WHERE idempotency_key = $1`, [k]);
+    const late = await send();
+    expect(late.status, JSON.stringify(late.body)).toBe(409);
+    expect(late.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(await orderCountForCrop(crop)).toBe('1');
+    expect(await qtyAvailable(batch.id)).toBe('4.000');
+  });
+
   // -------------------------------------------------------------------------
   // customer lookup
   // -------------------------------------------------------------------------
@@ -863,4 +934,55 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
     expect(await orderCountForCrop(crop)).toBe('0');
     expect(await attemptCount()).toBe(before);
   });
+
+  it('BR-94i (HTTP): POST /sales/{id}/cancel cancels an unpaid pending UPI sale, releases its hold, and is idempotent', async () => {
+    const crop = await newCrop({ ceiling: '4.00' });
+    await newBatch({ crop, qty: '5' });
+
+    // Create a pending UPI sale holding 1 kg.
+    const created = await sell('subOoty', {
+      channel: 'DIRECT',
+      walkIn: { name: 'Canceller' },
+      items: [item(crop, '1')],
+      expectedTotal: '4.00',
+      payment: { method: 'UPI' },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.status).toBe('PENDING_PAYMENT');
+    const saleId = created.body.id;
+
+    // While pending, 1 kg is held: a quote for 4.5 kg is refused 409 with available 4.000 kg.
+    const q1 = await quote('subOoty', 'DIRECT', [item(crop, '4.5')]);
+    expect(q1.status).toBe(409);
+    expect(q1.body.meta.lines[0].availableQtyKg).toBe('4.000');
+
+    // Cancel the sale via POST /v1/admin/sales/{id}/cancel
+    const cancelKey = key('cancel-hold');
+    const res = await request(server)
+      .post(`/v1/admin/sales/${saleId}/cancel`)
+      .set('Authorization', auth('subOoty'))
+      .set('Idempotency-Key', cancelKey)
+      .send({ reason: 'Walk-in changed mind' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('CANCELLED');
+    expect(res.body.paymentStatus).toBe('FAILED');
+
+    // BR-94i: The hold is released! A quote for the full 5.000 kg now succeeds.
+    const q2 = await quote('subOoty', 'DIRECT', [item(crop, '5')]);
+    expect(q2.status).toBe(200);
+    expect(q2.body.lines[0].qtyKg).toBe('5.000');
+
+    // Idempotent replay
+    const replay = await request(server)
+      .post(`/v1/admin/sales/${saleId}/cancel`)
+      .set('Authorization', auth('subOoty'))
+      .set('Idempotency-Key', cancelKey)
+      .send({ reason: 'Walk-in changed mind' });
+
+    expect(replay.status).toBe(200);
+    expect(replay.body.status).toBe('CANCELLED');
+  });
 });
+
+
