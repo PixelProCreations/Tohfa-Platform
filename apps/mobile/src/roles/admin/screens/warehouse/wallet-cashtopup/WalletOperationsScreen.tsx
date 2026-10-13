@@ -589,40 +589,56 @@ export function WalletOperationsScreen({
           {/* 1. KPI Overview Grid (2x2) */}
           <View style={styles.kpiGrid}>
             {/* Today's Top-Ups */}
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              activeOpacity={0.8}
+              onPress={onNavigateToTopUpHistory}
+            >
               <View style={styles.kpiIconWrap}>
                 <CalendarIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
               <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Cash Collected */}
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              activeOpacity={0.8}
+              onPress={onNavigateToDailySummary}
+            >
               <View style={styles.kpiIconWrap}>
                 <CashIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
               <Text style={styles.kpiLabel}>Cash Collected</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Pending */}
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              activeOpacity={0.8}
+              onPress={() => onNavigateToAttention('pending')}
+            >
               <View style={styles.kpiIconWrap}>
                 <EllipsisPendingIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>2</Text>
               <Text style={styles.kpiLabel}>Pending</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Failed */}
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              activeOpacity={0.8}
+              onPress={() => onNavigateToAttention('failed')}
+            >
               <View style={styles.kpiIconWrap}>
                 <ExclamationFailedIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>1</Text>
               <Text style={styles.kpiLabel}>Failed</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* 2. Quick Actions Section */}
