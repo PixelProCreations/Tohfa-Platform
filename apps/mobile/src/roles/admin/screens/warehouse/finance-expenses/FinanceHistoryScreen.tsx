@@ -23,16 +23,8 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { SAMPLE_HISTORY } from './fixtures';
 import type { FinanceHistoryItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
-
-const SAMPLE_HISTORY: FinanceHistoryItem[] = [
-  { id: 'REV-000845', type: 'Revenue', title: 'Market Sale', amount: 3450, time: '11:20 AM' },
-  { id: 'EXP-001245', type: 'Expense', title: 'Transport', amount: 2400, time: '09:32 AM' },
-  { id: 'REV-000844', type: 'Revenue', title: 'B2B Sale · Taj Hotel', amount: 14500, time: '08:45 AM' },
-  { id: 'EXP-001244', type: 'Expense', title: 'Loading / Unloading', amount: 1800, time: '08:15 AM' },
-  { id: 'REV-000843', type: 'Revenue', title: 'Horeca Order · Café Customer', amount: 6900, time: '24 Sep · 06:10 PM' },
-  { id: 'EXP-001238', type: 'Expense', title: 'Generator Diesel & Power', amount: 620, time: '24 Sep · 02:30 PM' },
-];
 
 export interface FinanceHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectItem?: ((item: FinanceHistoryItem) => void) | undefined;
