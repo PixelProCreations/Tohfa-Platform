@@ -35,7 +35,7 @@ import { useWarehousePermissions } from '../../permissions/useWarehousePermissio
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
 import { InventoryFlow } from '../warehouse/inventory';
-import { ReturnsFlow } from '../warehouse/returns-rma';
+import { ReturnsFlow, type ReturnsRouteParams, type ReturnsStackEntry } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
@@ -749,6 +749,28 @@ const REPORT_OPERATIONAL_PARAMS: StorageRouteParams = { reportMode: 'operational
 /** StorageFlow entry params for the activity log presets (stable). */
 const ACTIVITY_TODAY_PARAMS: StorageRouteParams = { activityPreset: 'Today' };
 const ACTIVITY_ALL_PARAMS: StorageRouteParams = { activityPreset: 'All' };
+/** The return queue sits beneath a return opened from a customer issue. */
+const ISSUE_RETURN_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
+
+/**
+ * A customer issue's "View Return": a customer issue is a return request, so
+ * its id is the return uuid and the flow reads that live return (plan phase
+ * 10). The params are memoised because ReturnsFlow restarts its stack when
+ * they change.
+ */
+function IssueReturnFlow({ can, returnId, onBack }: { can: (code: string) => boolean; returnId: string | undefined; onBack: () => void }) {
+  const initialParams = useMemo<ReturnsRouteParams>(() => ({ returnId }), [returnId]);
+  return (
+    <ReturnsFlow
+      scope={MAIN_WAREHOUSE_SCOPE}
+      can={can}
+      initialScreen="RmaDetail"
+      initialParams={initialParams}
+      initialBackStack={ISSUE_RETURN_BACK_STACK}
+      onBack={onBack}
+    />
+  );
+}
 
 /**
  * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
@@ -2936,9 +2958,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     );
                   }
                   if (target === 'RmaDetail') {
-                    return (
-                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
-                    );
+                    return <IssueReturnFlow can={can} returnId={p.issue?.id} onBack={nav.back} />;
                   }
                   return null;
                 }}

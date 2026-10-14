@@ -470,7 +470,21 @@ export function CustomersFlow({
     case 'CustomerIssues':
       return <LiveIssuesRoute {...live} />;
     case 'CustomerIssueDetail':
-      return <CustomerIssueDetailScreen {...base} customer={customer} issue={params.issue} />;
+      return (
+        <CustomerIssueDetailScreen
+          {...base}
+          customer={customer}
+          issue={params.issue}
+          // An issue is a return request: the host opens the live return by the
+          // issue's id. Offered only with rma.request.process (the returns
+          // read code); the server re-checks and scopes it (BR-30).
+          onOpenReturn={
+            can('rma.request.process') && params.issue !== undefined
+              ? () => navigate('RmaDetail', { issue: params.issue })
+              : undefined
+          }
+        />
+      );
     case 'SupportHistory':
       return <LiveSupportRoute {...live} />;
     case 'SupportDetail':

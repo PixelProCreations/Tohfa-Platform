@@ -62,7 +62,6 @@ import {
   type ReturnsRoute,
   type ReturnsRouteParams,
   type ReturnsStackEntry,
-  type RmaRecord,
 } from '../../admin/screens/warehouse/returns-rma';
 // Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
 import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
@@ -450,11 +449,11 @@ function InventoryModule({
 const ISSUE_RMA_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
 
 /**
- * Opens the shared returns flow on the RMA of a customer issue. The issue is
- * mapped to an RmaRecord (mock mapping, as before the customers wave); the
- * params are memoised because ReturnsFlow restarts its stack when they change.
- * The live customer issue detail no longer offers this (it would show sample
- * fields beside a real issue); plan phase 10 opens the return by the issue id.
+ * Opens the shared returns flow on the return of a customer issue. A customer
+ * issue IS a return request, so its id is the return uuid: the flow reads the
+ * live return by it (plan phase 10; ReturnsFlow passes it through
+ * returnIdParam, so anything that is not a uuid shows "not found"). The params
+ * are memoised because ReturnsFlow restarts its stack when they change.
  */
 function CustomerIssueRmaFlow({
   scope,
@@ -469,36 +468,7 @@ function CustomerIssueRmaFlow({
   onBack: () => void;
   onTabChange: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
 }) {
-  const initialParams = useMemo(() => {
-    const issue = params.issue;
-    const c = params.customer;
-    const rmaId = issue?.reference ?? 'RMA-00231';
-    const rma: RmaRecord = {
-      id: issue?.id ?? rmaId.toLowerCase(),
-      rmaId,
-      orderId: issue?.orderNumber ?? 'ORD-00251',
-      customerName: c?.name ?? 'Rajesh Kumar',
-      customerId: c?.code ?? 'CUS-00291',
-      customerPhone: c?.mobileMasked ?? '+91 98765 43210',
-      orderDate: issue?.createdLabel ?? '24 Sep 2026',
-      salesChannel: 'Direct Sale',
-      paymentStatus: 'Paid',
-      productName: 'Tomato',
-      grade: 'Grade 1',
-      quantityPurchased: '2 KG',
-      unitPrice: '₹100 / KG',
-      lineTotal: '₹200',
-      issueCategory: 'Quality',
-      reportedDate: issue?.createdLabel ?? '24 Sep 2026',
-      timestampText: '24 Sep 2026 · 10:45 AM',
-      description: issue?.reason ?? 'Customer reported quality issue.',
-      ticketId: issue?.reference ?? 'ISSUE-00231',
-      requestedQuantity: '2 KG',
-      requestedResolution: 'Replacement / Refund',
-      status: 'Under Review',
-    };
-    return { rma };
-  }, [params]);
+  const initialParams = useMemo<ReturnsRouteParams>(() => ({ returnId: params.issue?.id }), [params]);
   return (
     <ReturnsFlow
       scope={scope}
