@@ -130,9 +130,12 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
+  itemName?: string;
+  category?: string;
+  currentPrice?: number;
 }
 
-export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
+export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }: PriceHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PriceHistoryRecord | null>(null);
