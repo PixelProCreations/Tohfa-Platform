@@ -160,12 +160,14 @@ describe('roles/admin/screens/warehouse/finance-expenses/mappers', () => {
       const dto: DailyCashSummaryDto = {
         date: '2026-10-13',
         warehouseId: 'wh-uuid-1',
-        openingCash: '10000.00',
-        openingFrom: '2026-10-12',
-        cashSales: '25000.50',
-        cashTopUps: '5000.00',
-        cashExpenses: '3200.50',
-        expectedClosing: '36800.00',
+        system: {
+          openingCash: '10000.00',
+          openingFrom: '2026-10-12',
+          cashSales: '25000.50',
+          cashTopUps: '5000.00',
+          cashExpenses: '3200.50',
+          expectedClosing: '36800.00',
+        },
         closed: null,
       };
 
