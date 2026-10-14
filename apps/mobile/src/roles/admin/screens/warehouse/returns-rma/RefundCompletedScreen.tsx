@@ -1,27 +1,32 @@
 /**
- * Refund Completed — result screen after the wallet refund was confirmed.
+ * Refund Completed — the result of the wallet refund (plan phase 10).
+ *
+ * Shows what the server confirmed: the amount (Money from the response, in
+ * integer paise, formatted by formatPaise) and the wallet transaction id, and
+ * the return's real status trail (GET /admin/returns/{id}/history). A deep
+ * link that carries no refund result shows the trail with no amount rather
+ * than an invented one.
  *
  * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
  *   - none for the result itself; the "View Return History" link is offered
- *     only with `rma.request.process` (FINAL_LIST row 95).
- *
- * Absorbs MainWarehouseRefundCompletedScreen (pair M10-S05C): its "View
- * Return History" footer button is ported behind the gate above; its
- * row-style timeline is covered by the Sub timeline.
+ *     only with `rma.request.process`.
  */
 // Design id: M10-S05C
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { REFUND_TIMELINE, SAMPLE_REFUND_TRANSACTION_ID } from './fixtures';
-import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
-import type { RmaScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { RETURN_CODES } from './mappers';
+import { InfoCard, ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
+import type { ReturnRefundParams, ReturnTimelineEntry, WarehouseScreenBaseProps } from './types';
 
-export interface RefundCompletedScreenProps extends RmaScreenBaseProps {
-  refundAmount: string;
-  transactionId?: string | undefined;
+export interface RefundCompletedScreenProps extends WarehouseScreenBaseProps {
+  reference?: string | undefined;
+  /** The refund the server confirmed; undefined on a deep link. */
+  refund?: ReturnRefundParams | undefined;
+  timeline: readonly ReturnTimelineEntry[];
   onViewReturnHistory?: (() => void) | undefined;
 }
 
@@ -40,45 +45,35 @@ function SuccessCheckmarkIcon() {
   );
 }
 
-export function RefundCompletedScreen({
-  can,
-  rma,
-  refundAmount,
-  transactionId = SAMPLE_REFUND_TRANSACTION_ID,
-  onBack,
-  onViewReturnHistory,
-}: RefundCompletedScreenProps) {
-  const showHistoryLink = can('rma.request.process') && onViewReturnHistory !== undefined;
-  const cleanAmount = refundAmount.replace('.00', '');
+export function RefundCompletedScreen({ can, reference, refund, timeline, onBack, onViewReturnHistory }: RefundCompletedScreenProps) {
+  const noValue = t('returns.noValue');
+  const showHistoryLink = can(RETURN_CODES.view) && onViewReturnHistory !== undefined;
 
   return (
     <ReturnsScreen
-      title="Refund Completed"
-      subtitle={rma.rmaId}
+      title={t('returns.refund.completedTitle')}
+      subtitle={reference}
       onBack={onBack}
       footer={
         showHistoryLink ? (
           <ReturnsFooter>
-            <ReturnsButton label="View Return History" onPress={() => onViewReturnHistory?.()} />
+            <ReturnsButton label={t('returns.refund.viewHistory')} onPress={() => onViewReturnHistory?.()} />
           </ReturnsFooter>
         ) : null
       }
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <ResultHero
-          tone="success"
-          icon={<SuccessCheckmarkIcon />}
-          title="Refund Completed"
-          subtitle={`${cleanAmount} credited to customer wallet`}
+        <ResultHero tone="success" icon={<SuccessCheckmarkIcon />} title={t('returns.refund.completedTitle')} subtitle={reference} />
+
+        <InfoCard
+          rows={[
+            [{ label: t('returns.refund.amount'), value: refund?.amountLabel ?? noValue }],
+            [{ label: t('returns.refund.transaction'), value: refund?.walletTransactionId ?? noValue }],
+          ]}
         />
 
-        <View style={styles.transactionCard}>
-          <Text style={styles.transactionLabel}>Transaction ID</Text>
-          <Text style={styles.transactionValue}>{transactionId}</Text>
-        </View>
-
-        <SectionTitle>Refund Timeline</SectionTitle>
-        <ReturnsTimeline items={REFUND_TIMELINE} />
+        <SectionTitle>{t('returns.detail.timeline')}</SectionTitle>
+        {timeline.length === 0 ? <Text style={styles.muted}>{t('returns.detail.timelineEmpty')}</Text> : <ReturnsTimeline items={timeline} />}
       </ScrollView>
     </ReturnsScreen>
   );
@@ -86,14 +81,5 @@ export function RefundCompletedScreen({
 
 const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingBottom: adminSpacing.xxl },
-  transactionCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    marginBottom: adminSpacing.md,
-  },
-  transactionLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  transactionValue: { ...adminType.kpiValue, color: adminColors.ink },
+  muted: { ...adminType.rowMeta, color: adminColors.muted },
 });

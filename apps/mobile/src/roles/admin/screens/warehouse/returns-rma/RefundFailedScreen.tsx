@@ -1,22 +1,32 @@
 /**
- * Refund Failed — the wallet refund could not be confirmed.
+ * Refund Not Confirmed — the wallet refund failed or its answer never came.
  *
- * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1), FINAL_LIST row 96:
- *   - No blind retry. The only way forward is "Check Refund Status", which
- *     returns to RefundStatusScreen (where the wallet-refund action is itself
- *     gated), and it is offered only with `rma.refund.wallet_process`.
+ * Shown in place by ReturnsFlow's LiveRefundRoute, never as a route of its
+ * own: Try Again calls the same useWalletRefund, so it resends the same
+ * Idempotency-Key and the wallet is credited at most once (root CLAUDE.md 2.4,
+ * BR-61d). The message comes from returnRefundErrorKey (an uncertain network
+ * failure, a zero amount, a return that moved on).
+ *
+ * Gates: Try Again only with rma.refund.wallet_process; the server re-checks.
  */
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminSpacing } from '../../../theme';
+import { RETURN_CODES, returnRefundErrorKey } from './mappers';
 import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen } from './ReturnsParts';
-import type { RmaRecord, RmaScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
 
-export interface RefundFailedScreenProps extends RmaScreenBaseProps {
-  /** Back to the refund status to check it before any retry. */
-  onCheckRefundStatus?: ((rma: RmaRecord) => void) | undefined;
+export interface RefundFailedScreenProps extends WarehouseScreenBaseProps {
+  reference?: string | undefined;
+  /** The failure of the last attempt. */
+  error: unknown;
+  /** A Try Again is in flight. */
+  isRetrying?: boolean | undefined;
+  /** Retry through the same hook and key. */
+  onRetry: () => void;
 }
 
 function ExclamationCircleIcon() {
@@ -28,18 +38,22 @@ function ExclamationCircleIcon() {
   );
 }
 
-export function RefundFailedScreen({ can, rma, onBack, onCheckRefundStatus }: RefundFailedScreenProps) {
-  const canRetry = can('rma.refund.wallet_process') && onCheckRefundStatus !== undefined;
+export function RefundFailedScreen({ can, reference, onBack, error, isRetrying = false, onRetry }: RefundFailedScreenProps) {
+  const canRetry = can(RETURN_CODES.refundWallet);
 
   return (
     <ReturnsScreen
-      title="Refund Failed"
-      subtitle={rma.rmaId}
+      title={t('returns.refund.failedTitle')}
+      subtitle={reference}
       onBack={onBack}
       footer={
         canRetry ? (
           <ReturnsFooter>
-            <ReturnsButton variant="neutralOutline" label="Check Refund Status" onPress={() => onCheckRefundStatus?.(rma)} />
+            <ReturnsButton
+              label={t(isRetrying ? 'returns.refund.pending' : 'returns.refund.retry')}
+              disabled={isRetrying}
+              onPress={onRetry}
+            />
           </ReturnsFooter>
         ) : null
       }
@@ -48,8 +62,8 @@ export function RefundFailedScreen({ can, rma, onBack, onCheckRefundStatus }: Re
         <ResultHero
           tone="danger"
           icon={<ExclamationCircleIcon />}
-          title="Refund Could Not Be Completed"
-          subtitle="The wallet has not been confirmed as credited. Check refund status before retrying — do not blindly retry."
+          title={t('returns.refund.failedTitle')}
+          subtitle={t(returnRefundErrorKey(error))}
         />
       </ScrollView>
     </ReturnsScreen>

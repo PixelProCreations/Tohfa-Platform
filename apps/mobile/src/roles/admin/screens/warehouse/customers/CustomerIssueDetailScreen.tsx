@@ -10,24 +10,29 @@
  * proof a refund was paid), and the created and resolved times.
  *
  * Hidden: the evidence placeholder and the sample progress timeline (the API
- * has neither), and "View Issue / RMA" (gated on rma.request.process), which
- * opened a sample RMA record; it comes back when the returns screens read the
- * return by this issue's id (plan phase 10).
+ * has neither).
+ *
+ * "View Return" opens the live return by this issue's id (an issue IS a
+ * return request, so its id is the return uuid; plan phase 10). The host
+ * passes onOpenReturn only when the caller holds rma.request.process, so the
+ * button is absent without it; the server re-checks (CLAUDE.md 2.1).
  */
 import React from 'react';
 import { Text, View } from 'react-native';
 
 import { t } from '../../../i18n';
 import { AdminEmptyState } from '../shared/AsyncStates';
-import { cardStyles, CustomersScreen, InfoGrid, SectionHeading, type InfoField } from './CustomersParts';
+import { cardStyles, CustomersScreen, InfoGrid, PrimaryButton, SectionHeading, type InfoField } from './CustomersParts';
 import type { CustomerIssueRow, CustomerRef, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerIssueDetailScreenProps extends WarehouseScreenBaseProps {
   customer?: CustomerRef | undefined;
   issue?: CustomerIssueRow | undefined;
+  /** Open the live return of this issue; undefined hides the button (no rma.request.process). */
+  onOpenReturn?: (() => void) | undefined;
 }
 
-export function CustomerIssueDetailScreen({ onBack, customer, issue }: CustomerIssueDetailScreenProps) {
+export function CustomerIssueDetailScreen({ onBack, customer, issue, onOpenReturn }: CustomerIssueDetailScreenProps) {
   const noValue = t('customers.noValue');
 
   if (issue === undefined) {
@@ -62,6 +67,8 @@ export function CustomerIssueDetailScreen({ onBack, customer, issue }: CustomerI
       <View style={cardStyles.card}>
         <Text style={cardStyles.body}>{issue.reason ?? noValue}</Text>
       </View>
+
+      {onOpenReturn ? <PrimaryButton label={t('customers.issues.openReturn')} onPress={onOpenReturn} /> : null}
     </CustomersScreen>
   );
 }

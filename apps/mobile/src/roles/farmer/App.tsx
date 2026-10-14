@@ -1618,7 +1618,8 @@ export default function App(): React.JSX.Element {
                   // The order detail looks the order up by its uuid.
                   navigate('SubWarehouseOrderDetail', { orderId: p.orderId, orderNo: p.orderNo, customerName });
                 } else if (target === 'RmaDetail') {
-                  navigate('SubWarehouseReturnsIssues');
+                  // A customer issue is a return request: open the live return by its uuid.
+                  navigate('SubWarehouseRmaDetail', { returnId: p.issue?.id });
                 }
               }}
               onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
