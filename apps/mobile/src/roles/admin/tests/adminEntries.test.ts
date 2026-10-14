@@ -34,4 +34,14 @@ describe('admin home entries', () => {
     expect(visible([])).not.toContain('profile');
     expect(visible([])).not.toContain('warehouseInfo');
   });
+
+  it('BR-61: show returns to an admin holding rma.request.process (the queue read code), and not without it', () => {
+    const visible = (perms: string[]) =>
+      ADMIN_ENTRIES.filter((e) => isWarehouseFeatureVisible(e.feature, createAdminCan(perms))).map(
+        (e) => e.id,
+      );
+    expect(visible(['rma.request.process'])).toContain('returns');
+    expect(visible(['rma.refund.approve', 'rma.refund.wallet_process'])).not.toContain('returns');
+    expect(ADMIN_ENTRIES.find((e) => e.id === 'returns')?.feature).toBe('returns');
+  });
 });

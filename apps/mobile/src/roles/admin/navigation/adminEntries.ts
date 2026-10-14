@@ -11,6 +11,7 @@ import type { TranslationKey } from '../i18n';
 import type { WarehouseFeatureId } from '../screens/warehouse/availability';
 import { BillingFlow } from '../screens/warehouse/billing-invoices/BillingFlow';
 import { ProfileFlow } from '../screens/warehouse/profile/ProfileFlow';
+import { ReturnsFlow } from '../screens/warehouse/returns/ReturnsFlow';
 import { WarehouseInfoFlow } from '../screens/warehouse/warehouse-info/WarehouseInfoFlow';
 import type { AdminSignOut } from '../session/signOut';
 
@@ -46,6 +47,14 @@ export const ADMIN_ENTRIES: readonly AdminEntry[] = [
     hintKey: 'admin.warehouseInfo.entryHint',
     icon: 'storefront',
     Flow: WarehouseInfoFlow,
+  },
+  {
+    id: 'returns',
+    feature: 'returns',
+    titleKey: 'admin.returns.entry',
+    hintKey: 'admin.returns.entryHint',
+    icon: 'assignment_return',
+    Flow: ReturnsFlow,
   },
   {
     id: 'profile',
