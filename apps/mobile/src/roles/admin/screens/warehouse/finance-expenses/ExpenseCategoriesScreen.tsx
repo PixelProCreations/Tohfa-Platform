@@ -30,6 +30,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { EXPENSE_CATEGORIES } from './fixtures';
 import type { ExpenseCategoryItem, WarehouseScreenBaseProps } from './types';
+import { useExpenseCategories } from './useFinanceData';
 
 const STATUS_FILTERS = ['All', 'Active', 'Inactive'] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -38,12 +39,14 @@ export interface ExpenseCategoriesScreenProps extends WarehouseScreenBaseProps {
   categories?: readonly ExpenseCategoryItem[] | undefined;
 }
 
-export function ExpenseCategoriesScreen({ scope, onBack, categories = EXPENSE_CATEGORIES }: ExpenseCategoriesScreenProps) {
+export function ExpenseCategoriesScreen({ scope, onBack, categories }: ExpenseCategoriesScreenProps) {
+  const live = useExpenseCategories();
   const [filter, setFilter] = useState<StatusFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const effectiveCategories = categories ?? (live.categories.length > 0 ? live.categories : EXPENSE_CATEGORIES);
   const query = searchQuery.trim().toLowerCase();
-  const visible = categories.filter(
+  const visible = effectiveCategories.filter(
     (cat) => (filter === 'All' || cat.status === filter) && (!query || cat.name.toLowerCase().includes(query)),
   );
 

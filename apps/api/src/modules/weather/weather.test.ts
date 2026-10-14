@@ -1,5 +1,5 @@
 /**
- * Generated from the _example reference module. See CLAUDE.md.
+ * Generated from the warehouses reference module. See CLAUDE.md.
  *
  * Two layers of test, always:
  *

@@ -17,13 +17,13 @@ import {
   loginWithOAuth,
   isOAuthNotLinked,
   requestOtp,
-  resolveRouteAfterAuth,
+  resolveRouteAfterLogin,
   fetchMe,
   isRoleSelectionRequired,
   type OAuthProviderCode,
-  type AdminRoleCode,
 } from '../../api/auth';
-import { ApiError } from '../../../../shell/api/client';
+import { preferredRoleForSelection } from '../../utils/adminShell';
+import { formatErrorMessage } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,
@@ -179,90 +179,46 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       }
 
       const me = await fetchMe();
-      const route = resolveRouteAfterAuth(me);
+      const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       if (err instanceof SocialSignInCancelledError) {
         // The farmer closed the native sheet — not an error worth surfacing.
         return;
       }
-      if (err instanceof ApiError) {
-        setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
     } finally {
       setSocialLoading(null);
     }
   }
 
   async function handlePasswordLogin() {
-    if (!mobile.trim() || !password.trim()) return;
+    const rawMobile = mobile.replace(/\s+/g, '').trim();
+    if (!rawMobile) {
+      setErrorMsg('Please enter your mobile number.');
+      return;
+    }
+    if (rawMobile.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
 
     const cMobile = cleanMobile();
 
-    // Direct role mappings for demo accounts
-    if (cMobile.endsWith('9800000001') || cMobile.endsWith('11223')) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'SUPER_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'SUPER_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000002') || cMobile.endsWith('22334')) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000003') || cMobile.endsWith('33445')) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'FARMER_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'FARMER_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000004') || cMobile.endsWith('44556')) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
-      return;
-    }
-    if (
-      cMobile.endsWith('9800000005') ||
-      cMobile.endsWith('55667') ||
-      cMobile.toLowerCase().includes('main') ||
-      cMobile.toLowerCase().includes('ooty') ||
-      cMobile.endsWith('0005')
-    ) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'MAIN_WH_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'MAIN_WH_ADMIN' });
-      return;
-    }
-    if (
-      cMobile.endsWith('9800000006') ||
-      cMobile.endsWith('66778') ||
-      cMobile.toLowerCase().includes('sub') ||
-      cMobile.toLowerCase().includes('coonoor') ||
-      cMobile.endsWith('0006')
-    ) {
-      await loginWithPassword({ mobile: cMobile, password, roleCode: 'SUB_WH_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'SUB_WH_ADMIN' });
-      return;
-    }
-
     try {
       let outcome = await loginWithPassword({ mobile: cMobile, password });
 
-      // An account with more than one role and no pinned roleCode:
-      // Prefer primary admin role if present, otherwise default to first available role.
+      // An account with more than one role and no pinned roleCode: complete the
+      // login with its admin role if it has one, otherwise its first role (no
+      // role picker exists; see preferredRoleForSelection).
       if (isRoleSelectionRequired(outcome)) {
-        const adminRole = outcome.availableRoles.find((r) =>
-          ['MAIN_WH_ADMIN', 'SUB_WH_ADMIN', 'SUPER_ADMIN', 'TOHFA_ADMIN', 'FARMER_ADMIN'].includes(r.code)
-        )?.code;
-        const chosenRole = adminRole || outcome.availableRoles[0]?.code;
+        const chosenRole = preferredRoleForSelection(outcome.availableRoles);
         if (!chosenRole) {
           setErrorMsg(t('error.generic'));
           return;
@@ -275,22 +231,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         return;
       }
 
+      // The shell comes from the role the server issued this session for. An
+      // unrecognised role opens no admin shell ('Unsupported').
       const me = await fetchMe();
-      const route = resolveRouteAfterAuth(me);
+      const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
-      console.warn('[LoginScreen] Login error:', err);
-      if (err instanceof ApiError) {
-        const key = `error.${err.problem.code}` as unknown as Parameters<typeof t>[0];
-        const translated = t(key);
-        const resolvedMsg =
-          translated && translated !== key
-            ? translated
-            : err.problem.detail || err.problem.title || t('error.generic');
-        setErrorMsg(resolvedMsg);
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      console.error('[LoginScreen] Catch block hit:', err);
+      setErrorMsg(formatErrorMessage(err, 'Invalid credentials. Please check your mobile number and password.'));
     } finally {
       setLoading(false);
     }
@@ -540,7 +488,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleGlyph: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.googleBlue,
   },
@@ -553,7 +501,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   facebookGlyph: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.white,
     marginTop: -1,
@@ -625,7 +573,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   passwordInputMasked: {
-    fontSize: 21,
+    fontSize: typography.title,
     letterSpacing: 3,
     fontWeight: '700',
   },

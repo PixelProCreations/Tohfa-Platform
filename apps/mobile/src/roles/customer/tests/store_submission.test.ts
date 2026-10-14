@@ -61,8 +61,19 @@ describe('User Story 52 (S-52): Customer Mobile Store Submission & Data Safety (
     expect(manifest).not.toContain('android.permission.CAMERA');
   });
 
+  // KNOWN FAILING, not weakened, not skipped (root CLAUDE.md §7) -- same story as the
+  // Android manifest test above, on the iOS side. `ios/TohfaCustomer/Info.plist` was a
+  // stale path (that directory doesn't exist post-merge; the earlier failure here was
+  // "file not found," not actually a permission check at all) -- fixed to the real,
+  // single iOS target this app now builds as: `ios/TohfaMobile/Info.plist`. Once pointed
+  // at the real file, the same permanent, single-app fact applies: this Info.plist DOES
+  // declare `NSLocationWhenInUseUsageDescription` and `NSCameraUsageDescription` (farm
+  // GPS boundary capture, crop/certification photo upload -- the same real cross-role
+  // union documented on AndroidManifest.xml's own permissions block), and its
+  // `CFBundleIdentifier` is `in.tohfa.mobile`, not `in.tohfa.customer` -- there is no more
+  // per-role bundle ID on iOS either, for the identical reason there is none on Android.
   it('verifies Info.plist exists and does not request farm/location permissions', () => {
-    const infoPlistPath = path.join(mobileRoot, 'ios/TohfaCustomer/Info.plist');
+    const infoPlistPath = path.join(mobileRoot, 'ios/TohfaMobile/Info.plist');
     expect(fs.existsSync(infoPlistPath)).toBe(true);
 
     const plist = fs.readFileSync(infoPlistPath, 'utf8');

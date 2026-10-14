@@ -2,12 +2,14 @@ import crypto from 'node:crypto';
 import { AppError } from '../../http/problem.js';
 import { pool, type Executor } from '../../db/pool.js';
 import { config } from '../../config.js';
-import type { Actor } from '../../auth/requireAuth.js';
-import { fromPaise, toPaise, allocate, type Money } from '@tohfa/shared-types';
+import { hasRole, type Actor } from '../../auth/requireAuth.js';
+import { resolveScope } from '../../rbac/requirePermission.js';
+import { fromPaise, toPaise, allocate, RoleCode, ScopeLevel, type Money } from '@tohfa/shared-types';
 import {
   invoicesRepo,
   type CreateInvoiceInput,
   type InvoicesRepo,
+  type InvoiceVisibility,
 } from './invoices.repo.js';
 import type {
   DownloadInvoiceQuery,
@@ -30,6 +32,13 @@ export interface IssueInvoiceInput {
   gstInclusive?: boolean;
   placeOfSupply?: string | null;
   issuedBy?: string | null;
+  /**
+   * GST computed ONCE for the whole invoice by the caller (BR-98: the Direct/Market sale rounds
+   * half up on the subtotal, not per line). When set, line totals are taken as taxable values with
+   * no per-line tax, this amount is split CGST/SGST (or IGST) and added on top, and the invoice is
+   * GST-exclusive. When omitted, the per-line computation below is used unchanged.
+   */
+  invoiceGst?: Money;
   lines: Array<{
     lineNo: number;
     description: string;
@@ -47,7 +56,12 @@ export interface InvoicesService {
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
   getInvoice(actor: Actor, id: string): Promise<InvoiceDetailResponse>;
-  getPdf(actor: Actor | undefined, id: string, query?: DownloadInvoiceQuery): Promise<Buffer>;
+  /** Bearer-token download: the same visibility as the list and the detail. */
+  getPdf(actor: Actor, id: string): Promise<Buffer>;
+  /** Signed-link download (no bearer token): the HMAC is the authorization. */
+  getSignedPdf(id: string, query: Pick<DownloadInvoiceQuery, 'token' | 'expires'>): Promise<Buffer>;
+  /** `redirect=true`: mints a signed link only for an invoice `actor` may see (404 otherwise). */
+  signedDownloadUrlFor(actor: Actor, id: string): Promise<{ url: string; expiresAt: number }>;
   generateSignedDownloadUrl(id: string): { url: string; expiresAt: number };
   verifyDownloadSignature(id: string, token: string, expires: number): boolean;
   issue(tx: Executor, input: IssueInvoiceInput): Promise<InvoiceDetailResponse>;
@@ -62,47 +76,54 @@ function calculateCurrentFiscalYear(): string {
   return `${startYear}-${endYear}`;
 }
 
+/**
+ * The invoices `actor` may read, from their `invoice.view_own` grant in docs/rbac.json:
+ *  - `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN): every invoice;
+ *  - `own`: the owner dimension docs/rbac.json `scopeFilters` gives the role: a farmer's
+ *    farmer_id, a customer's customer_id (BR-36), a Sub Warehouse Admin's assigned warehouse(s),
+ *    reached through the invoice's order (BR-30); an invoice without an order has no warehouse,
+ *    so no Sub admin sees it;
+ *  - anything else, or an `own` caller without its profile row / warehouse: nothing.
+ * Farmer is checked before customer because that is the order the list has always applied, so an
+ * actor holding both roles keeps the list they had. The list, the detail and the download all
+ * call this, which is what keeps them returning the same rows.
+ */
+export function invoiceVisibility(actor: Actor): InvoiceVisibility {
+  const scope = resolveScope(actor, 'invoice.view_own');
+  if (scope === null) return { kind: 'none' };
+  if (scope.level === ScopeLevel.ALL) return { kind: 'all' };
+  if (hasRole(actor, RoleCode.FARMER)) {
+    return actor.farmerId === null ? { kind: 'none' } : { kind: 'farmer', farmerId: actor.farmerId };
+  }
+  if (hasRole(actor, RoleCode.CUSTOMER)) {
+    return actor.customerId === null ? { kind: 'none' } : { kind: 'customer', customerId: actor.customerId };
+  }
+  if (hasRole(actor, RoleCode.SUB_WH_ADMIN) && scope.warehouseIds.length > 0) {
+    return { kind: 'warehouses', warehouseIds: scope.warehouseIds };
+  }
+  return { kind: 'none' };
+}
+
+function invoiceNotFound(): AppError {
+  // One error for "does not exist" and "not yours": a different answer would confirm the id.
+  return new AppError('NOT_FOUND', { detail: 'Invoice not found.' });
+}
+
 export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): InvoicesService {
   const service: InvoicesService = {
     async listInvoices(actor, query) {
-      const isSuperAdmin = actor.roles.some((r) => r.code === 'SUPER_ADMIN' || r.code === 'TOHFA_ADMIN' || r.code === 'MAIN_WH_ADMIN');
-      const isFarmer = actor.roles.some((r) => r.code === 'FARMER');
-      const isCustomer = actor.roles.some((r) => r.code === 'CUSTOMER');
-
-      let scope: { customerId?: string | null; farmerId?: string | null; all?: boolean } = {};
-      if (isSuperAdmin) {
-        scope = { all: true };
-      } else if (isFarmer) {
-        scope = { farmerId: actor.farmerId };
-      } else if (isCustomer) {
-        scope = { customerId: actor.customerId };
-      } else {
-        scope = { all: false };
-      }
-
-      return repo.listInvoices(pool, scope, query);
+      return repo.listInvoices(pool, invoiceVisibility(actor), query);
     },
 
     async getInvoice(actor, id) {
-      const invoice = await repo.findById(pool, id);
-      if (!invoice) {
-        throw new AppError('NOT_FOUND', { detail: 'Invoice not found.' });
-      }
-
-      const isSuperAdmin = actor.roles.some((r) => r.code === 'SUPER_ADMIN' || r.code === 'TOHFA_ADMIN' || r.code === 'MAIN_WH_ADMIN');
-      const isFarmer = actor.roles.some((r) => r.code === 'FARMER');
-      const isCustomer = actor.roles.some((r) => r.code === 'CUSTOMER');
-
-      // BR-36 own-data check
-      if (!isSuperAdmin) {
-        if (isFarmer && invoice.payoutId && !invoice.purchaseOrderId) {
-          // Farmers own payouts / purchase invoices
-        } else if (isCustomer && invoice.orderId) {
-          // Customers own retail invoices
-        }
-      }
-
+      const invoice = await repo.findById(pool, id, invoiceVisibility(actor));
+      if (!invoice) throw invoiceNotFound();
       return invoice;
+    },
+
+    async signedDownloadUrlFor(actor, id) {
+      await service.getInvoice(actor, id);
+      return service.generateSignedDownloadUrl(id);
     },
 
     generateSignedDownloadUrl(id: string) {
@@ -145,31 +166,29 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
       }
     },
 
-    async getPdf(actor, id, query) {
-      // 1. Verify access via signed token or bearer token
-      if (query?.token && query.expires) {
-        const valid = service.verifyDownloadSignature(id, query.token, query.expires);
-        if (!valid) {
-          throw new AppError('FORBIDDEN', { detail: 'Download signature is invalid or expired.' });
-        }
-      } else if (!actor) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'Authentication or valid signed download link required.' });
-      }
+    async getPdf(actor, id) {
+      return renderInvoicePdf({ invoice: await service.getInvoice(actor, id) });
+    },
 
-      const invoice = await repo.findById(pool, id);
-      if (!invoice) {
-        throw new AppError('NOT_FOUND', { detail: 'Invoice not found.' });
+    async getSignedPdf(id, query) {
+      if (
+        query.token === undefined ||
+        query.expires === undefined ||
+        !service.verifyDownloadSignature(id, query.token, query.expires)
+      ) {
+        throw new AppError('FORBIDDEN', { detail: 'Download signature is invalid or expired.' });
       }
-
-      // 2. Render PDF
-      return renderInvoicePdf({
-        invoice,
-      });
+      // Unscoped on purpose: the HMAC binds this id and is minted only by signedDownloadUrlFor,
+      // after the caller's own visibility check, and it expires in 5 minutes.
+      const invoice = await repo.findById(pool, id, { kind: 'all' });
+      if (!invoice) throw invoiceNotFound();
+      return renderInvoicePdf({ invoice });
     },
 
     async issue(tx, input) {
       const fiscalYear = input.fiscalYear ?? calculateCurrentFiscalYear();
-      const gstInclusive = input.gstInclusive ?? (input.invoiceType === 'SALE_RETAIL');
+      const invoiceGst = input.invoiceGst;
+      const gstInclusive = invoiceGst !== undefined ? false : (input.gstInclusive ?? (input.invoiceType === 'SALE_RETAIL'));
       const placeOfSupply = input.placeOfSupply ?? '33-Tamil Nadu';
       const isInterState = placeOfSupply !== '33-Tamil Nadu' && !placeOfSupply.startsWith('33');
 
@@ -187,7 +206,9 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
         let lineTaxablePaise = lineTotalPaise;
         let lineTaxPaise = 0;
 
-        if (line.gstRate > 0) {
+        if (invoiceGst !== undefined) {
+          // Per-invoice GST: the line is taxable value only; the tax is added once below.
+        } else if (line.gstRate > 0) {
           if (gstInclusive) {
             // Split line total into taxable base and tax proportion using allocate
             // base = total / (1 + rate/100)
@@ -216,6 +237,11 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
           tax: fromPaise(lineTaxPaise),
           total: line.total,
         });
+      }
+
+      if (invoiceGst !== undefined) {
+        totalTaxPaise = toPaise(invoiceGst);
+        totalPaisaSum += totalTaxPaise;
       }
 
       // Intra-state vs Inter-state GST splitting

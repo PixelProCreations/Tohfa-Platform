@@ -73,6 +73,10 @@ export interface NotificationsRepo {
     options: ListNotificationsOptions,
   ): Promise<{ items: NotificationRow[]; nextCursor: string | null; hasMore: boolean; unreadCount: number }>;
   markAsRead(db: Executor, id: string, userId: string): Promise<NotificationRow | null>;
+  /** The caller's own IN_APP notification, or null (also when it belongs to someone else). */
+  findOwnById(db: Executor, id: string, userId: string): Promise<NotificationRow | null>;
+  /** Marks every unread IN_APP notification of `userId` read; resolves to how many rows changed. */
+  markAllAsRead(db: Executor, userId: string): Promise<number>;
   createNotification(db: Executor, params: CreateNotificationParams): Promise<NotificationRow | null>;
   updateNotificationDelivery(
     db: Executor,
@@ -138,6 +142,30 @@ export const notificationsRepo: NotificationsRepo = {
       [id, userId],
     );
     return result.rows[0] ?? null;
+  },
+
+  async findOwnById(db, id, userId) {
+    const result = await db.query<NotificationRow>(
+      `SELECT id, user_id, template_id, channel, title, body, locale, data,
+              status, provider_message_id, sent_at, read_at, created_at, updated_at
+         FROM notifications
+        WHERE id = $1 AND user_id = $2 AND channel = 'IN_APP'`,
+      [id, userId],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async markAllAsRead(db, userId) {
+    // read_at IS NULL makes a replay a no-op (rowCount 0) and keeps the original read time.
+    const result = await db.query(
+      `UPDATE notifications
+          SET read_at = now(),
+              status = 'READ',
+              updated_at = now()
+        WHERE user_id = $1 AND channel = 'IN_APP' AND read_at IS NULL`,
+      [userId],
+    );
+    return result.rowCount ?? 0;
   },
 
   async createNotification(db, params) {

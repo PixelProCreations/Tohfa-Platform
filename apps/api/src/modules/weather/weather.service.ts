@@ -1,5 +1,5 @@
 /**
- * Generated from the _example reference module. See CLAUDE.md.
+ * Generated from the warehouses reference module. See CLAUDE.md.
  *
  * <name>.service.ts holds the business logic and is the ONLY layer that makes
  * authorization decisions beyond "does the actor hold this permission".

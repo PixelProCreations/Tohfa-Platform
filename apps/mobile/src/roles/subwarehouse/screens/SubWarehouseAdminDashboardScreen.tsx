@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   BackHandler,
   Pressable,
   SafeAreaView,
@@ -13,22 +14,14 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import {
-  ALERT_RECEIPT_ID,
-  GoodsReceivingWizardScreen,
   ReceivingFlow,
-  ReceivingHistoryDetailScreen,
-  findShipment,
-  shipmentsInScope,
   receivingRouteFor,
-  type IncomingShipment,
   type ReceivingRoute,
   type ReceivingRouteParams,
-  type ReceivingWizardStep,
 } from '../../admin/screens/warehouse/receiving-qc';
 import {
   NotificationsFlow,
-  SUB_NOTIFICATIONS,
-  type NotificationItem,
+  useUnreadNotificationCount,
   type NotificationsRoute,
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
@@ -69,8 +62,33 @@ import {
   type ReturnsRoute,
   type ReturnsRouteParams,
   type ReturnsStackEntry,
-  type RmaRecord,
 } from '../../admin/screens/warehouse/returns-rma';
+// Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
+import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
+import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../admin/api/hooks';
+import { adminKeys } from '../../admin/api/queryKeys';
+import {
+  getTaskSummary,
+  listTasks,
+  markTaskDone,
+  type TaskItemDto,
+  type TaskType,
+} from '../../admin/api/tasks';
+import {
+  formatTaskDetails,
+  formatTaskDue,
+  formatTaskTitle,
+  mapTaskBadgeLabel,
+  mapTaskDestination,
+  summarizeTaskCounts,
+  type SummarizedTaskCounts,
+} from '../../admin/screens/warehouse/dashboard-home-more/mappers_tasks';
+import { getSalesSummary } from '../../admin/api/sales';
+import { getDailyCashSummary } from '../../admin/api/finance';
+import { mapDailyCashSummary } from '../../admin/screens/warehouse/finance-expenses/mappers';
+import { formatPaise } from '../../admin/money/paise';
+import { parseMoney, toPaise } from '@tohfa/shared-types';
+import { AdminLoadingState } from '../../admin/screens/warehouse/shared/AsyncStates';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -455,9 +473,11 @@ function InventoryModule({
 const ISSUE_RMA_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
 
 /**
- * Opens the shared returns flow on the RMA of a customer issue. The issue is
- * mapped to an RmaRecord (mock mapping, as before the customers wave); the
- * params are memoised because ReturnsFlow restarts its stack when they change.
+ * Opens the shared returns flow on the return of a customer issue. A customer
+ * issue IS a return request, so its id is the return uuid: the flow reads the
+ * live return by it (plan phase 10; ReturnsFlow passes it through
+ * returnIdParam, so anything that is not a uuid shows "not found"). The params
+ * are memoised because ReturnsFlow restarts its stack when they change.
  */
 function CustomerIssueRmaFlow({
   scope,
@@ -472,36 +492,7 @@ function CustomerIssueRmaFlow({
   onBack: () => void;
   onTabChange: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
 }) {
-  const initialParams = useMemo(() => {
-    const issue = params.issue;
-    const c = params.customer;
-    const rmaId = (issue?.issueNo ?? 'ISSUE-00231').replace('ISSUE', 'RMA');
-    const rma: RmaRecord = {
-      id: rmaId.toLowerCase(),
-      rmaId,
-      orderId: issue?.orderNo ?? 'ORD-00251',
-      customerName: c?.name ?? 'Rajesh Kumar',
-      customerId: c?.code ?? c?.id ?? 'CUS-00291',
-      customerPhone: c?.phone ?? '+91 98765 43210',
-      orderDate: issue?.dateText ?? '24 Sep 2026',
-      salesChannel: 'Direct Sale',
-      paymentStatus: 'Paid',
-      productName: issue?.product ?? 'Tomato',
-      grade: 'Grade 1',
-      quantityPurchased: issue?.quantity ?? '2 KG',
-      unitPrice: '₹100 / KG',
-      lineTotal: '₹200',
-      issueCategory: (issue?.category as RmaRecord['issueCategory'] | undefined) ?? 'Quality',
-      reportedDate: issue?.dateText ?? '24 Sep 2026',
-      timestampText: '24 Sep 2026 · 10:45 AM',
-      description: issue?.description ?? 'Customer reported quality issue.',
-      ticketId: issue?.issueNo ?? 'ISSUE-00231',
-      requestedQuantity: issue?.quantity ?? '2 KG',
-      requestedResolution: 'Replacement / Refund',
-      status: 'Under Review',
-    };
-    return { rma };
-  }, [params]);
+  const initialParams = useMemo<ReturnsRouteParams>(() => ({ returnId: params.issue?.id }), [params]);
   return (
     <ReturnsFlow
       scope={scope}
@@ -534,7 +525,8 @@ export function OrdersModule({
   initialParams?: any;
   onBack: () => void;
   onTabChange?: (tab: SubWHTab) => void;
-  onNavigateToOperationalIssues?: () => void;
+  /** Omitted when the operational issues area is hidden (no API yet). */
+  onNavigateToOperationalIssues?: (() => void) | undefined;
 }) {
   return (
     <OrdersFlow
@@ -623,6 +615,11 @@ function SubWarehouseTodayOverviewView({
   onOpenInventory,
   onOpenSales,
   onOpenCash,
+  taskCounts,
+  salesRevenueText,
+  salesTxnCountText,
+  cashTopUpText,
+  warehouseLabel,
 }: {
   onBack: () => void;
   onOpenReceiving?: () => void;
@@ -630,6 +627,11 @@ function SubWarehouseTodayOverviewView({
   onOpenInventory?: () => void;
   onOpenSales?: () => void;
   onOpenCash?: () => void;
+  taskCounts?: SummarizedTaskCounts | undefined;
+  salesRevenueText?: string | undefined;
+  salesTxnCountText?: string | undefined;
+  cashTopUpText?: string | undefined;
+  warehouseLabel?: string | undefined;
 }) {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
@@ -653,7 +655,7 @@ function SubWarehouseTodayOverviewView({
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>Today's Overview</Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>{warehouseLabel ? `Assigned Warehouse · ${warehouseLabel}` : 'Warehouse Overview'}</Text>
           </View>
         </View>
       </View>
@@ -706,16 +708,8 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>03</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>total</Text>
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>01</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : '00'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -742,16 +736,12 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>actionable</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>08</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>27</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready pickup</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -778,12 +768,8 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>05</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>00</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
-                </View>
-                <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>verification pending</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -810,11 +796,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>42</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesTxnCountText ?? '0 transactions'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹24,850</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesRevenueText ?? '₹0'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -841,12 +827,8 @@ function SubWarehouseTodayOverviewView({
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Cash Top-Up</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
-                </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹18,500</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{cashTopUpText ?? '₹0'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -1163,6 +1145,37 @@ function SubWarehouseRecentActivityView({
   );
 }
 
+function getTaskIcon(type: TaskType) {
+  switch (type) {
+    case 'GOODS_RECEIPT_QC':
+      return <FlaskIcon />;
+    case 'ORDER_PACK':
+      return <PackageBagIcon />;
+    case 'ORDER_DISPATCH':
+      return <DeliveryTruckIcon />;
+    case 'ORDER_PICKUP_OTP':
+      return <PersonCheckIcon />;
+    case 'RETURN_INSPECTION':
+      return <BrokenCrateIcon />;
+    case 'RETURN_APPROVAL':
+      return <ExclamationCircleIcon />;
+  }
+}
+
+function getTaskIconBg(type: TaskType): string {
+  switch (type) {
+    case 'GOODS_RECEIPT_QC':
+    case 'ORDER_PACK':
+    case 'ORDER_PICKUP_OTP':
+      return PALETTE.amberIconBg;
+    case 'ORDER_DISPATCH':
+      return PALETTE.tealBadge;
+    case 'RETURN_INSPECTION':
+    case 'RETURN_APPROVAL':
+      return PALETTE.redIconBg;
+  }
+}
+
 export function SubWarehouseAdminDashboardScreen({
   scope,
   can,
@@ -1179,17 +1192,19 @@ export function SubWarehouseAdminDashboardScreen({
   initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [showTodayOverview, setShowTodayOverview] = useState(initialShowTodayOverview);
-  const [showRecentActivity, setShowRecentActivity] = useState(initialShowRecentActivity);
+  const [showRecentActivity, setShowRecentActivity] = useState(
+    initialShowRecentActivity && isAreaAvailable('warehouseActivity', can),
+  );
   useEffect(() => {
     if (initialShowTodayOverview) {
       setShowTodayOverview(true);
     }
   }, [initialShowTodayOverview]);
   useEffect(() => {
-    if (initialShowRecentActivity) {
+    if (initialShowRecentActivity && isAreaAvailable('warehouseActivity', can)) {
       setShowRecentActivity(true);
     }
-  }, [initialShowRecentActivity]);
+  }, [initialShowRecentActivity, can]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
@@ -1202,35 +1217,6 @@ export function SubWarehouseAdminDashboardScreen({
     setReceivingEntry({ screen, params });
     setActiveTab('Receiving');
   };
-  // Shipment the Home-tab receiving shortcuts open the wizard on.
-  const [selectedShipment] = useState<IncomingShipment | undefined>(() =>
-    findShipment(scope, 'GR-1024'),
-  );
-  const subShipments = useMemo(() => shipmentsInScope(scope), [scope]);
-  const isTodayShipment = (s: IncomingShipment) =>
-    (s.arrival?.includes('Today') ?? false) ||
-    (s.actualArrival?.includes('Today') ?? false) ||
-    s.dispatchStatus?.toLowerCase() === 'today' ||
-    (s.actualArrival?.includes('24 Sep') ?? false) ||
-    (s.dispatchDate?.includes('24 Sep 2026') ?? false) ||
-    (s.expectedArrival?.includes('24 Sep 2026') ?? false);
-  const todayShipments = useMemo(
-    () => subShipments.filter(isTodayShipment),
-    [subShipments],
-  );
-  const awaitingQcCount = useMemo(
-    () => todayShipments.filter((s) => s.status === 'Awaiting QC').length,
-    [todayShipments],
-  );
-  const completedShipmentsCount = useMemo(
-    () => todayShipments.filter((s) => s.status === 'Completed').length,
-    [todayShipments],
-  );
-  const receivingKpiCount = useMemo(
-    () => todayShipments.length,
-    [todayShipments],
-  );
-  const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   // The open notifications module: NotificationsFlow (list, detail, approval
   // alerts; system messages + message history are list filters) owns its stack
   // from here on (W4). `showNotifications` / `setShowNotifications` keep the
@@ -1257,7 +1243,6 @@ export function SubWarehouseAdminDashboardScreen({
     closeOnBack?: boolean | undefined;
   } | null>(null);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
-  const [showReviewReceiving, setShowReviewReceiving] = useState(false);
   // The open customer module: CustomersFlow (list, search, details, orders,
   // purchases, issues, support, filters) owns its stack from here on (W4).
   const [customersEntry, setCustomersEntry] = useState<{
@@ -1273,7 +1258,6 @@ export function SubWarehouseAdminDashboardScreen({
   // Order a HomeFlow task opened (Task / Action Center order tasks); null = closed.
   const [taskOrderNo, setTaskOrderNo] = useState<string | null>(null);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
-  const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
 
   const [showWalletOperations, setShowWalletOperations] = useState(false);
   // The open returns (RMA) module: ReturnsFlow owns the stack from here on.
@@ -1307,23 +1291,9 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialTab, initialReceivingSubView, initialInventoryScreen]);
   const [user, setUser] = useState<UserMe | null>(null);
-  const [notifications, setNotifications] = useState<readonly NotificationItem[]>(SUB_NOTIFICATIONS);
-
-  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(item => (item.id === id ? { ...item, isRead: true } : item))
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(item => ({ ...item, isRead: true })));
-  };
-
-  const handleClearAll = () => {
-    setNotifications([]);
-  };
+  // The bell badge: the server's unread total (GET /notifications). The
+  // NotificationsFlow owns the list and the read writes, which refetch this.
+  const unreadNotifCount = useUnreadNotificationCount();
 
   /** Switch tab; the Receiving tab opens on its dashboard. */
   const navigateTo = (tab: SubWHTab) => {
@@ -1363,10 +1333,6 @@ export function SubWarehouseAdminDashboardScreen({
         setShowNotifications(true);
         return true;
       }
-      if (receivingWizardStep !== null) {
-        setReceivingWizardStep(null);
-        return true;
-      }
       // ReceivingFlow walks its own stack (its listener handles the press).
       if (activeTab === 'Receiving') return false;
       if (activeTab !== 'Home') {
@@ -1378,7 +1344,7 @@ export function SubWarehouseAdminDashboardScreen({
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [receivingWizardStep, activeTab, showNotifications, showOrdersModule]);
+  }, [activeTab, showNotifications, showOrdersModule]);
 
   useEffect(() => {
     fetchMe()
@@ -1396,6 +1362,102 @@ export function SubWarehouseAdminDashboardScreen({
   const canStock = can(HOME_CODES.batchView);
   const canSales = can(HOME_CODES.salesIncome);
 
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  // Live task summary query (BR-77)
+  const taskSummaryQuery = useAdminQuery(
+    adminKeys.scoped('tasks', scope.warehouseId, { resource: 'summary' }),
+    (signal) => getTaskSummary({ warehouseId: scope.warehouseId }, signal),
+  );
+  const taskSummary = taskSummaryQuery.data;
+  const taskCounts = useMemo(() => summarizeTaskCounts(taskSummary), [taskSummary]);
+
+  // Live open tasks query (BR-77)
+  const openTasksQuery = useAdminQuery(
+    adminKeys.scoped('tasks', scope.warehouseId, { resource: 'open-tasks' }),
+    (signal) => listTasks({ state: 'open', warehouseId: scope.warehouseId }, signal),
+  );
+  const openTasks = useMemo(() => openTasksQuery.data?.items ?? [], [openTasksQuery.data]);
+
+  // Live sales summary query (BR-96)
+  const salesSummaryQuery = useAdminQuery(
+    adminKeys.scoped('sales', scope.warehouseId, { resource: 'summary', from: todayIso, to: todayIso }),
+    (signal) => getSalesSummary({ warehouseId: scope.warehouseId, from: todayIso, to: todayIso }, signal),
+    { enabled: canSales },
+  );
+  const salesSummary = salesSummaryQuery.data;
+
+  // Live daily cash summary query (BR-74)
+  const dailyCashQuery = useAdminQuery(
+    adminKeys.scoped('finance', scope.warehouseId, { resource: 'daily-summary', date: todayIso }),
+    (signal) => getDailyCashSummary({ warehouseId: scope.warehouseId, date: todayIso }, signal),
+  );
+  const dailyCashSummary = useMemo(
+    () => (dailyCashQuery.data ? mapDailyCashSummary(dailyCashQuery.data) : undefined),
+    [dailyCashQuery.data],
+  );
+
+  // markTaskDone mutation with Idempotency-Key (BR-78)
+  const idempotency = useIdempotencyKey();
+  const markDoneMutation = useAdminMutation({
+    mutationFn: ({ itemKey, idempotencyKey }: { itemKey: string; idempotencyKey: string }) =>
+      markTaskDone(itemKey, idempotencyKey),
+    invalidates: [adminKeys.scoped('tasks', scope.warehouseId)],
+  });
+
+  const handleMarkDone = (task: TaskItemDto) => {
+    const key = idempotency.keyFor(task.itemKey);
+    markDoneMutation.mutate({ itemKey: task.itemKey, idempotencyKey: key });
+  };
+
+  const handleOpenTask = (task: TaskItemDto) => {
+    const dest = mapTaskDestination(task);
+    if (dest.module === 'receiving') {
+      openReceiving('Shipments', { shipmentId: dest.refId });
+    } else if (dest.module === 'orders') {
+      setOrdersInitialScreen('M5S04');
+      setOrdersInitialParams({ orderId: dest.refId });
+      setShowOrdersModule(true);
+    } else if (dest.module === 'returns') {
+      openReturns('ReturnsIssues');
+    }
+  };
+
+  const salesRevenueText = useMemo(() => {
+    if (!salesSummary) return '₹0';
+    try {
+      const paise = toPaise(parseMoney(String(salesSummary.revenue || '0')));
+      return formatPaise(paise);
+    } catch {
+      return `₹${salesSummary.revenue}`;
+    }
+  }, [salesSummary]);
+
+  const salesTxnCountText = useMemo(() => {
+    if (!salesSummary) return '0 transactions';
+    return `${salesSummary.count} transaction${salesSummary.count === 1 ? '' : 's'}`;
+  }, [salesSummary]);
+
+  const cashTopUpText = useMemo(() => {
+    if (!dailyCashSummary) return '₹0';
+    return formatPaise(dailyCashSummary.cashTopUpsPaise);
+  }, [dailyCashSummary]);
+
+  const formatChannelRevenue = (...channels: string[]) => {
+    if (!salesSummary) return '₹0';
+    const totalPaise = salesSummary.byChannel
+      .filter((c) => channels.includes(c.channel))
+      .reduce((sum, c) => {
+        try {
+          return sum + toPaise(parseMoney(String(c.revenue || '0')));
+        } catch {
+          return sum;
+        }
+      }, 0);
+    return formatPaise(totalPaise);
+  };
+
+
   if (taskOrderNo !== null) {
     // Order detail of a HomeFlow order task; back returns to the task list.
     return (
@@ -1410,11 +1472,11 @@ export function SubWarehouseAdminDashboardScreen({
           setHomeEntry(null);
           setActiveTab(tab);
         }}
-        onNavigateToOperationalIssues={() => {
+        onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
           setTaskOrderNo(null);
           setHomeEntry(null);
           setStorageEntry({ screen: 'OperationalIssues' });
-        }}
+        } : undefined}
       />
     );
   }
@@ -1428,54 +1490,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showGoodsReceiptDetail) {
-    return (
-      // Was SubWarehouseGoodsReceiptDetailScreen, absorbed by the shared receipt detail (W4).
-      // "Take Action" reconciles the variance in the wizard's Damage / Mismatch step.
-      <ReceivingHistoryDetailScreen
-        scope={scope}
-        can={can}
-        receiptId={ALERT_RECEIPT_ID}
-        onBack={() => setShowGoodsReceiptDetail(false)}
-        onTakeAction={() => {
-          setShowGoodsReceiptDetail(false);
-          setReceivingWizardStep('damage_mismatch');
-        }}
-      />
-    );
-  }
-
-  if (receivingWizardStep !== null) {
-    return (
-      <GoodsReceivingWizardScreen
-        scope={scope}
-        can={can}
-        initialStep={receivingWizardStep}
-        shipment={selectedShipment}
-        receiverName={userName}
-        onBack={() => setReceivingWizardStep(null)}
-        onFinish={() => {
-          setReceivingWizardStep(null);
-          openReceiving();
-        }}
-        onBackToShipments={() => {
-          setReceivingWizardStep(null);
-          openReceiving('Shipments');
-        }}
-        onViewHistory={() => {
-          setReceivingWizardStep(null);
-          openReceiving('History');
-        }}
-        onViewBatch={(batchId) => {
-          setReceivingWizardStep(null);
-          setInventoryInitialScreen('M3S05');
-          setInventoryInitialParams({ batchId }); // pass parameter if M3S05 uses it
-          setActiveTab('Inventory');
-        }}
-      />
-    );
-  }
-
   if (notificationsEntry !== null) {
     return (
       <NotificationsFlow
@@ -1483,10 +1497,6 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         initialScreen={notificationsEntry.screen}
         initialParams={notificationsEntry.params}
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        onClearAll={handleClearAll}
         onBack={() => setNotificationsEntry(null)}
         onTabChange={(tab) => {
           setNotificationsEntry(null);
@@ -1505,7 +1515,9 @@ export function SubWarehouseAdminDashboardScreen({
           setNotificationsEntry(null);
           setReturnToNotificationsOnBack(true);
           if (target === 'ReviewReceiving') {
-            setShowReviewReceiving(true);
+            // The one-page review had no API: pick the order to receive instead.
+            setReturnToNotificationsOnBack(false);
+            openReceiving('Shipments');
           } else if (target === 'Receiving') {
             openReceiving();
           } else if (target === 'Stock') {
@@ -1527,13 +1539,15 @@ export function SubWarehouseAdminDashboardScreen({
           if (alert.record === 'ExpenseRecord') {
             setShowExpenseRecord(true);
           } else if (alert.record === 'GoodsReceipt') {
-            setShowGoodsReceiptDetail(true);
+            // The alert carries no receipt id: open the live Receiving History.
+            setNotificationsEntry(null);
+            openReceiving('History');
           } else if (alert.record === 'LowStock') {
             setNotificationsEntry(null);
             setInventoryInitialScreen('M3S09');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (alert.record === 'Transfer') {
+          } else if (alert.record === 'Transfer' && isAreaAvailable('interWarehouseTransfers', can)) {
             // App.tsx opens the shared TransfersFlow on the Sub scope (incoming only).
             onNavigate?.('InterWarehouseTransfer', { transferScope: 'sub' });
           }
@@ -1643,6 +1657,8 @@ export function SubWarehouseAdminDashboardScreen({
         openReceiving('Shipments');
         break;
       case 'verification':
+        // Stock verification has no server API (availability.ts).
+        if (!isAreaAvailable('stockCounts', can)) break;
         setInventoryInitialScreen('M3S10');
         setActiveTab('Inventory');
         break;
@@ -1659,7 +1675,7 @@ export function SubWarehouseAdminDashboardScreen({
         setShowCashTopUp(true);
         break;
       case 'staff':
-        setStaffEntry({ screen: 'Attendance', filter: 'All' });
+        if (isAreaAvailable('staff', can)) setStaffEntry({ screen: 'Attendance', filter: 'All' });
         break;
       case 'qc':
         setNotificationsEntry({
@@ -1735,30 +1751,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showReviewReceiving) {
-    return (
-      // Was SubWarehouseReviewReceivingScreen: now the wizard's one-page Review step (W4).
-      <GoodsReceivingWizardScreen
-        scope={scope}
-        can={can}
-        initialStep="review_receiving"
-        shipment={findShipment(scope, 'GR-1024')}
-        receiverName={userName}
-        onBack={() => {
-          setShowReviewReceiving(false);
-          if (returnToNotificationsOnBack) {
-            setReturnToNotificationsOnBack(false);
-            setShowNotifications(true);
-          }
-        }}
-        onFinish={() => {
-          setShowReviewReceiving(false);
-          openReceiving();
-        }}
-      />
-    );
-  }
-
   if (showTodayOverview) {
     return (
       <SubWarehouseTodayOverviewView
@@ -1769,8 +1761,6 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onOpenOrders={() => {
           setShowTodayOverview(false);
-          setOrdersInitialScreen('M5S02');
-          setOrdersInitialParams(null);
           setShowOrdersModule(true);
         }}
         onOpenInventory={() => {
@@ -1786,6 +1776,11 @@ export function SubWarehouseAdminDashboardScreen({
           setShowTodayOverview(false);
           setShowCashTopUp(true);
         }}
+        taskCounts={taskCounts}
+        salesRevenueText={salesRevenueText}
+        salesTxnCountText={salesTxnCountText}
+        cashTopUpText={cashTopUpText}
+        warehouseLabel={warehouseLabel}
       />
     );
   }
@@ -1961,16 +1956,16 @@ export function SubWarehouseAdminDashboardScreen({
                 scope={scope}
                 can={can}
                 initialScreen="M5S04"
-                initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: c?.name }}
+                initialParams={{ orderId: p.orderId, customerName: c?.name }}
                 onBack={nav.back}
                 onTabChange={(tab) => {
                   setCustomersEntry(null);
                   setActiveTab(tab);
                 }}
-                onNavigateToOperationalIssues={() => {
+                onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
                   setCustomersEntry(null);
                   setStorageEntry({ screen: 'OperationalIssues' });
-                }}
+                } : undefined}
               />
             );
           }
@@ -2271,123 +2266,72 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <>
                 {/* 1. Pending Orders */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S02');
-                        setOrdersInitialParams(null);
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>12</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.ordersActionable).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>8 need action</Text>
-                    </TouchableOpacity>
+                  <Text style={styles.overviewSub}>{taskCounts.ordersActionable} need action</Text>
+                </View>
 
                 {/* 2. Ready for Pickup */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S09');
-                        setOrdersInitialParams(null);
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>08</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.readyForPickup).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>3 customers expected</Text>
-                    </TouchableOpacity>
+                  <Text style={styles.overviewSub}>{taskCounts.readyForPickup} customers expected</Text>
+                </View>
                 </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
-                  onPress={() => openReceiving('Dashboard')}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>{String(receivingKpiCount).padStart(2, '0')}</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.qcPending).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{awaitingQcCount} awaiting QC · {completedShipmentsCount} completed</Text>
-                </TouchableOpacity>
+                  <Text style={styles.overviewSub}>{taskCounts.qcPending} awaiting QC</Text>
+                </View>
 
                 {/* 4. Low Stock Items */}
                 {canStock ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
-                    onPress={() => {
-                      setInventoryInitialScreen('M3S09');
-                      setActiveTab('Inventory');
-                    }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
                   </View>
-                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
+                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>
+                    {taskSummary?.byType['LOW_STOCK'] !== undefined ? String(taskSummary.byType['LOW_STOCK']).padStart(2, '0') : '00'}
+                  </Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                  </TouchableOpacity>
+                </View>
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
-                    onPress={() => {
-                      if (onNavigate) {
-                        onNavigate('SubWarehouseSales');
-                      } else {
-                        setShowSalesScreen(true);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <BanknotesIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>₹24,850</Text>
+                  <Text style={styles.overviewNumber}>{salesRevenueText}</Text>
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>42 transactions</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.overviewSub}>{salesTxnCountText}</Text>
+                </View>
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseDailyCash');
-                    } else {
-                      setStorageEntry({ screen: 'Operations' });
-                    }
-                  }}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
+                <View style={styles.overviewCard}>
                   <View style={styles.overviewIconWrap}>
                     <WalletIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>₹18,500</Text>
+                  <Text style={styles.overviewNumber}>{cashTopUpText}</Text>
                   <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>12 transactions</Text>
-                </TouchableOpacity>
+                  <Text style={styles.overviewSub}>Daily total</Text>
+                </View>
               </View>
 
               {/* 3. Quick Actions */}
@@ -2395,7 +2339,7 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.quickActionsGrid}>
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => setReceivingWizardStep('start_receiving')}
+                  onPress={() => openReceiving('Shipments')}
                 >
                   <ReceiveGoodsActionIcon />
                   <Text style={styles.quickActionLabel}>Receive Goods</Text>
@@ -2429,7 +2373,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
-                      onNavigate('WarehouseWalletOperations');
+                      onNavigate('SubWarehouseCashTopUp');
                     } else {
                       setActiveTab('More');
                     }
@@ -2449,6 +2393,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
                 ) : null}
 
+                {isAreaAvailable('warehouseActivity', can) ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setShowRecentActivity(true)}
@@ -2456,114 +2401,116 @@ export function SubWarehouseAdminDashboardScreen({
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
                 </Pressable>
+                ) : null}
               </View>
 
               {/* 4. Needs Attention */}
               <View style={styles.sectionHeaderRow}>
                 <WarningTriangleIcon color="#D97706" size={17} />
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Needs Attention</Text>
+                {openTasks.length > 0 ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{openTasks.length}</Text>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.alertList}>
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  // The shipment this alert names (GR-1024, resolved in this warehouse's scope), not a fixed id.
-                  onPress={() =>
-                    selectedShipment
-                      ? openReceiving('ShipmentDetail', { shipmentId: selectedShipment.code })
-                      : openReceiving('Shipments')
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <FlaskIcon />
+                {openTasksQuery.isPending ? (
+                  <AdminLoadingState label="Loading tasks..." />
+                ) : openTasks.length === 0 ? (
+                  <View style={styles.emptyTasksCard}>
+                    <Text style={styles.emptyTasksTitle}>All caught up!</Text>
+                    <Text style={styles.emptyTasksSub}>No pending tasks needing attention right now.</Text>
                   </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>QC Pending</Text>
-                    <Text style={styles.alertCardSub}>
-                      Tomato — Batch GR-1024 · Received 95 KG, awaiting quality check
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                ) : (
+                  openTasks.map((task) => {
+                    const title = formatTaskTitle(task);
+                    const details = formatTaskDetails(task);
+                    const due = formatTaskDue(task.dueOn);
+                    const isPendingDone = markDoneMutation.isPending && markDoneMutation.variables?.itemKey === task.itemKey;
 
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <ExclamationCircleIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Quantity Mismatch</Text>
-                    <Text style={styles.alertCardSub}>Expected 100 KG, received 95 KG</Text>
-                  </View>
-                </View>
-
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <BrokenCrateIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Damage Report</Text>
-                    <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
-                  </View>
-                </View>
-
-                {canOrders ? (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <ClockIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Pickup Pending</Text>
-                    <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
-                  </View>
-                </View>
-                ) : null}
-
-                {canStock ? (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <BoxIcon color="#D97706" />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Low Stock</Text>
-                    <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
-                  </View>
-                </View>
-                ) : null}
+                    return (
+                      <TouchableOpacity
+                        key={task.itemKey}
+                        style={styles.alertCard}
+                        onPress={() => handleOpenTask(task)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.alertIconCircle, { backgroundColor: getTaskIconBg(task.type) }]}>
+                          {getTaskIcon(task.type)}
+                        </View>
+                        <View style={styles.alertCardTextWrap}>
+                          <View style={styles.taskCardHeaderRow}>
+                            <Text style={styles.alertCardTitle}>{title}</Text>
+                            <View style={styles.taskTypeBadge}>
+                              <Text style={styles.taskTypeBadgeText}>{mapTaskBadgeLabel(task.type)}</Text>
+                            </View>
+                          </View>
+                          {details ? (
+                            <Text style={styles.alertCardSub} numberOfLines={2}>
+                              {details}
+                            </Text>
+                          ) : null}
+                          <View style={styles.taskFooterRow}>
+                            {due ? <Text style={styles.taskDueText}>{due}</Text> : <View />}
+                            <TouchableOpacity
+                              style={[styles.taskDoneBtn, isPendingDone && styles.taskDoneBtnDisabled]}
+                              disabled={markDoneMutation.isPending}
+                              onPress={(e) => {
+                                e.stopPropagation?.();
+                                handleMarkDone(task);
+                              }}
+                              activeOpacity={0.8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Mark ${title} as done`}
+                            >
+                              <Text style={styles.taskDoneBtnText}>{isPendingDone ? 'Saving...' : 'Done'}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
               </View>
 
               {/* 5. Today's Receiving */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Today's Receiving</Text>
-                <Text style={styles.sectionHeaderSub}>3 Shipments</Text>
+                <Text style={styles.sectionHeaderSub}>
+                  {taskCounts.qcPending > 0 ? `${taskCounts.qcPending} Pending QC` : 'All QC Done'}
+                </Text>
               </View>
 
               <View style={styles.cardStack}>
-                <View style={styles.orderReceivingCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-00124</Text>
-                    <View style={styles.awaitingQcBadge}>
-                      <Text style={styles.awaitingQcText}>Awaiting QC</Text>
+                {openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').slice(0, 3).map((task) => (
+                  <TouchableOpacity
+                    key={task.itemKey}
+                    style={styles.orderReceivingCard}
+                    onPress={() => handleOpenTask(task)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.itemCodeBold}>
+                        {String(task.params['grnNumber'] ?? task.refId.slice(0, 8))}
+                      </Text>
+                      <View style={styles.awaitingQcBadge}>
+                        <Text style={styles.awaitingQcText}>Awaiting QC</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
-                  <Text style={styles.produceTitle}>Tomato · Grade 1</Text>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.detailText}>Expected: 150 KG</Text>
-                    <Text style={styles.timeText}>09:40 AM</Text>
-                  </View>
-                </View>
-
-                <View style={styles.orderReceivingCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-00123</Text>
-                    <View style={styles.qcCompletedBadge}>
-                      <Text style={styles.qcCompletedText}>✓ QC Completed</Text>
+                    <Text style={styles.routeText}>Warehouse → {warehouseShort}</Text>
+                    <Text style={styles.produceTitle}>
+                      {String(task.params['produce'] ?? task.params['cropName'] ?? task.params['productName'] ?? 'Goods Receipt')}
+                    </Text>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.detailText}>
+                        {task.params['grossQtyKg'] ? `Received: ${task.params['grossQtyKg']} KG` : ''}
+                      </Text>
+                      <Text style={styles.timeText}>{formatTaskDue(task.dueOn) ?? ''}</Text>
                     </View>
-                  </View>
-                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
-                  <Text style={styles.produceTitle}>Carrot · Grade 1</Text>
-                  <Text style={styles.detailText}>Received: 80 KG</Text>
-                </View>
+                  </TouchableOpacity>
+                ))}
 
                 <TouchableOpacity
                   style={styles.linkButton}
@@ -2581,37 +2528,42 @@ export function SubWarehouseAdminDashboardScreen({
               <>
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Today's Orders</Text>
-                <Text style={styles.sectionHeaderSub}>12 Orders</Text>
+                <Text style={styles.sectionHeaderSub}>
+                  {taskCounts.ordersActionable > 0 ? `${taskCounts.ordersActionable} Orders Need Action` : 'All Actioned'}
+                </Text>
               </View>
 
               <View style={styles.cardStack}>
-                    <TouchableOpacity
-                      style={styles.orderReceivingCard}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S09');
-                        setOrdersInitialParams(null);
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                    >
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>#ORD-10245</Text>
-                    <View style={styles.readyPickupBadge}>
-                      <Text style={styles.readyPickupText}>Ready for Pickup</Text>
+                {openTasks.filter((t) => t.type.startsWith('ORDER_')).slice(0, 3).map((task) => (
+                  <TouchableOpacity
+                    key={task.itemKey}
+                    style={styles.orderReceivingCard}
+                    onPress={() => handleOpenTask(task)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.itemCodeBold}>
+                        {String(task.params['orderNumber'] ?? task.refId.slice(0, 8))}
+                      </Text>
+                      <View style={styles.readyPickupBadge}>
+                        <Text style={styles.readyPickupText}>{mapTaskBadgeLabel(task.type)}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
-                  <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.produceTitle}>
+                      {String(task.params['customerName'] ?? task.params['customer'] ?? 'Customer Order')}
+                    </Text>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.detailText}>
+                        {task.params['produce'] ? String(task.params['produce']) : ''}
+                      </Text>
+                      <Text style={styles.timeText}>{formatTaskDue(task.dueOn) ?? ''}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
 
                 <TouchableOpacity
                   style={styles.linkButton}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S02');
-                        setOrdersInitialParams(null);
-                        setShowOrdersModule(true);
-                      }}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View All Orders →</Text>
@@ -2621,54 +2573,30 @@ export function SubWarehouseAdminDashboardScreen({
               {/* 7. Order Status Summary */}
               <Text style={styles.sectionHeading}>Order Status Summary</Text>
               <View style={styles.statusSummaryGrid}>
-                    <TouchableOpacity
-                      style={styles.statusSummaryTile}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S02');
-                        setOrdersInitialParams({ defaultFilter: 'Confirmed' });
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.75}
-                    >
-                  <Text style={styles.statusSummaryNum}>04</Text>
-                  <Text style={styles.statusSummaryLabel}>NEW</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.statusSummaryTile}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S02');
-                        setOrdersInitialParams({ defaultFilter: 'Packing' });
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.75}
-                    >
-                  <Text style={styles.statusSummaryNum}>03</Text>
+                <View style={styles.statusSummaryTile}>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_PACK'] ?? 0).padStart(2, '0')}
+                  </Text>
                   <Text style={styles.statusSummaryLabel}>PACKING</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.statusSummaryTile}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S09');
-                        setOrdersInitialParams(null);
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.75}
-                    >
-                  <Text style={styles.statusSummaryNum}>08</Text>
-                  <Text style={styles.statusSummaryLabel}>READY</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.statusSummaryTile}
-                      onPress={() => {
-                        setOrdersInitialScreen('M5S02');
-                        setOrdersInitialParams({ defaultFilter: 'Completed' });
-                        setShowOrdersModule(true);
-                      }}
-                      activeOpacity={0.75}
-                    >
-                  <Text style={styles.statusSummaryNum}>27</Text>
-                  <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
-                    </TouchableOpacity>
+                </View>
+                <View style={styles.statusSummaryTile}>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_DISPATCH'] ?? 0).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>DISPATCH</Text>
+                </View>
+                <View style={styles.statusSummaryTile}>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_PICKUP_OTP'] ?? 0).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>PICKUP OTP</Text>
+                </View>
+                <View style={styles.statusSummaryTile}>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskCounts.ordersActionable).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>ACTIONABLE</Text>
+                </View>
               </View>
               </>
               ) : null}
@@ -2748,24 +2676,24 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
-                  <Text style={styles.salesTotalAmount}>₹24,850</Text>
-                  <Text style={styles.salesTxnCount}>42 transactions</Text>
+                  <Text style={styles.salesTotalAmount}>{salesRevenueText}</Text>
+                  <Text style={styles.salesTxnCount}>{salesTxnCountText}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Online</Text>
-                  <Text style={styles.infoTableValue}>₹12,400</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('ONLINE')}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Market</Text>
-                  <Text style={styles.infoTableValue}>₹7,250</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('MARKET', 'DIRECT')}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>HORECA</Text>
-                  <Text style={styles.infoTableValue}>₹3,200</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('HORECA')}</Text>
                 </View>
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.infoTableLabel}>B2B</Text>
-                  <Text style={styles.infoTableValue}>₹2,000</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('B2B')}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -2788,12 +2716,22 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Cash Operations</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
-                  <Text style={styles.salesTotalAmount}>₹18,500</Text>
-                  <Text style={styles.salesTxnCount}>12 transactions</Text>
+                  <Text style={styles.salesTotalAmount}>
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.expectedClosingPaise) : '₹0'}
+                  </Text>
+                  <Text style={styles.salesTxnCount}>
+                    {dailyCashSummary?.closed ? 'Closed' : 'Active today'}
+                  </Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Cash Top-Ups</Text>
+                  <Text style={styles.infoTableValue}>{cashTopUpText}</Text>
                 </View>
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>Last transaction</Text>
-                  <Text style={styles.infoTableValue}>₹1,500 · 11:42 AM</Text>
+                  <Text style={styles.infoTableLabel}>Cash Sales</Text>
+                  <Text style={styles.infoTableValue}>
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.cashSalesPaise) : '₹0'}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -2804,81 +2742,93 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* 12. Recent Activity */}
-              <View style={styles.sectionHeaderBetween}>
-                <Text style={styles.sectionHeading}>Recent Activity</Text>
-                <TouchableOpacity
-                  onPress={() => setShowRecentActivity(true)}
-                  activeOpacity={0.75}
-                  style={{ paddingVertical: 4 }}
-                >
-                  <Text style={styles.viewAllText}>View all</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.activityCardContainer}>
-                {/* Activity 1 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <ReceiveGoodsActionIcon />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Goods Received</Text>
-                    <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
-                    <Text style={styles.activityTimeText}>10:42 AM</Text>
-                  </View>
-                </View>
-
-                {canOrders ? (
+              {/* 12. Recent Activity: gated by warehouseActivity */}
+              {isAreaAvailable('warehouseActivity', can) ? (
                 <>
-                <View style={styles.cardDivider} />
+                  <View style={styles.sectionHeaderBetween}>
+                    <Text style={styles.sectionHeading}>Recent Activity</Text>
+                    {isAreaAvailable('warehouseActivity', can) ? (
+                      <TouchableOpacity
+                        onPress={() => setShowRecentActivity(true)}
+                        activeOpacity={0.75}
+                        style={{ paddingVertical: 4 }}
+                      >
+                        <Text style={styles.viewAllText}>View all</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
 
-                {/* Activity 2 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <PackageBagIcon />
+                  <View style={styles.activityCardContainer}>
+                    {/* Activity 1 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <ReceiveGoodsActionIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Goods Received</Text>
+                        <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
+                        <Text style={styles.activityTimeText}>10:42 AM</Text>
+                      </View>
+                    </View>
+
+                    {canOrders ? (
+                    <>
+                    <View style={styles.cardDivider} />
+
+                    {/* Activity 2 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <PackageBagIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Order Packed</Text>
+                        <Text style={styles.activityItemSub}>ORD-10242</Text>
+                        <Text style={styles.activityTimeText}>10:20 AM</Text>
+                      </View>
+                    </View>
+                    </>
+                    ) : null}
+
+                    <View style={styles.cardDivider} />
+
+                    {/* Activity 3 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <CashTopUpActionIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
+                        <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
+                        <Text style={styles.activityTimeText}>09:55 AM</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Order Packed</Text>
-                    <Text style={styles.activityItemSub}>ORD-10242</Text>
-                    <Text style={styles.activityTimeText}>10:20 AM</Text>
-                  </View>
-                </View>
                 </>
-                ) : null}
-
-                <View style={styles.cardDivider} />
-
-                {/* Activity 3 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <CashTopUpActionIcon />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
-                    <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
-                    <Text style={styles.activityTimeText}>09:55 AM</Text>
-                  </View>
-                </View>
-              </View>
+              ) : null}
 
               {/* 13. Warehouse Alerts */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
               <View style={styles.alertsContainerCard}>
                 <View style={styles.alertBulletRow}>
                   <WarningTriangleIcon color="#D97706" size={16} />
-                  <Text style={styles.alertBulletText}>2 QC checks pending</Text>
+                  <Text style={styles.alertBulletText}>
+                    {taskCounts.qcPending} QC check{taskCounts.qcPending === 1 ? '' : 's'} pending
+                  </Text>
                 </View>
                 {canStock ? (
                   <View style={styles.alertBulletRow}>
                     <WarningTriangleIcon color="#D97706" size={16} />
-                    <Text style={styles.alertBulletText}>5 low-stock products</Text>
+                    <Text style={styles.alertBulletText}>
+                      {taskSummary?.byType['LOW_STOCK'] ?? 0} low-stock products
+                    </Text>
                   </View>
                 ) : null}
                 {canOrders ? (
                   <View style={styles.alertBulletRow}>
                     <InfoCircleIcon color="#2563EB" size={16} />
-                    <Text style={styles.alertBulletText}>3 pickups scheduled today</Text>
+                    <Text style={styles.alertBulletText}>
+                      {taskCounts.readyForPickup} pickup{taskCounts.readyForPickup === 1 ? '' : 's'} scheduled today
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -2906,7 +2856,14 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             unreadNotifications={unreadNotifCount}
             onOpenNotifications={() => setShowNotifications(true)}
-            onOpenOperationalIssues={() => setStorageEntry({ screen: 'OperationalIssues' })}
+            onOpenOperationalIssues={
+              isAreaAvailable('operationalIssues', can) ? () => setStorageEntry({ screen: 'OperationalIssues' }) : undefined
+            }
+            onViewBatch={(batchId) => {
+              setInventoryInitialScreen('M3S05');
+              setInventoryInitialParams({ batchId });
+              setActiveTab('Inventory');
+            }}
           />
         )}
 
@@ -2951,7 +2908,7 @@ export function SubWarehouseAdminDashboardScreen({
               if (returnToNotificationsOnBack) {
                 setReturnToNotificationsOnBack(false);
                 setShowNotifications(true);
-              } else if (initialShowOrders && onBack) {
+              } else if (onBack) {
                 onBack();
               }
             }}
@@ -2962,10 +2919,10 @@ export function SubWarehouseAdminDashboardScreen({
               setReturnToNotificationsOnBack(false);
               setActiveTab(tab);
             }}
-            onNavigateToOperationalIssues={() => {
+            onNavigateToOperationalIssues={isAreaAvailable('operationalIssues', can) ? () => {
               setShowOrdersModule(false);
               setStorageEntry({ screen: 'OperationalIssues' });
-            }}
+            } : undefined}
           />
         )}
 
@@ -3022,14 +2979,14 @@ export function SubWarehouseAdminDashboardScreen({
               if (onNavigate) onNavigate('SubWarehouseBillingHub');
               else setShowBilling(true);
             }}
-            onNavigateToStaff={() => {
+            onNavigateToStaff={isAreaAvailable('staff', can) ? () => {
               if (onNavigate) onNavigate('SubWarehouseStaff');
               else setStaffEntry({ screen: 'Staff' });
-            }}
-            onNavigateToAttendance={() => {
+            } : undefined}
+            onNavigateToAttendance={isAreaAvailable('staff', can) ? () => {
               if (onNavigate) onNavigate('SubWarehouseTodayAttendance');
               else setStaffEntry({ screen: 'Attendance', filter: 'All' });
-            }}
+            } : undefined}
             onNavigateToFinance={() => {
               if (onNavigate) onNavigate('SubWarehouseFinance');
               else setShowFinanceScreen(true);
@@ -3043,10 +3000,10 @@ export function SubWarehouseAdminDashboardScreen({
             onNavigateToReceiveGoods={() => {
               openReceiving('Shipments');
             }}
-            onNavigateToStockVerification={() => {
+            onNavigateToStockVerification={isAreaAvailable('stockCounts', can) ? () => {
               setInventoryInitialScreen('M3S10');
               setActiveTab('Inventory');
-            }}
+            } : undefined}
             onNavigateToSettings={() => {
               if (onNavigate) onNavigate('SubWarehouseSettings');
               else setShowSettingsScreen(true);
@@ -3664,11 +3621,81 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: PALETTE.textInk,
   },
-
-
-
-
-
+  countBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  taskCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  taskTypeBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  taskTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  taskFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  taskDueText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  taskDoneBtn: {
+    backgroundColor: PALETTE.primary,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  taskDoneBtnDisabled: {
+    opacity: 0.6,
+  },
+  taskDoneBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyTasksCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 8,
+  },
+  emptyTasksTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+  },
+  emptyTasksSub: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginTop: 4,
+  },
 
   // ─── Bottom Tab Bar ────────────────────────────────────────────────────────
   bottomTabBar: {

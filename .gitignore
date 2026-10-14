@@ -27,6 +27,7 @@ apps/*/android/.gradle/
 apps/*/android/build/
 apps/*/android/app/build/
 apps/*/android/local.properties
+apps/*/android/app/src/main/res/values/strings.xml
 apps/*/ios/build/
 apps/*/ios/Pods/
 *.keystore
@@ -54,3 +55,6 @@ AI_BUILD_MANUAL.md
 Farmer app branding guidelines/
 requirement-doc/
 
+# Local dev blob storage fallback (LocalDiskBlobStorage, used when
+# AZURE_STORAGE_CONNECTION_STRING is unset -- see apps/api/src/storage/blobStorage.ts)
+apps/api/.local-uploads/

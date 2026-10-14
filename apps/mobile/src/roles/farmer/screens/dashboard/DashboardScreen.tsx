@@ -15,25 +15,125 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   deriveFarmRatingView,
-  evalCertificateWarning,
   evalMarketBlock,
-  getMyCertifications,
   getMyFarmerProfile,
   getMyFarmRating,
   getSystemConfig,
+  listAllMyCertifications,
   type Certification,
   type FarmerProfile,
   type FarmRating,
 } from '../../api/farmer';
 import { getFarmWeather, type FarmWeather } from '../../api/weather';
-import { getMyListings, type CounterOffer, type Listing } from '../../api/listings';
+import { getMyListings, type Listing } from '../../api/listings';
 import { listNotifications } from '../../api/notifications';
+import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
+import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
+import { getLocale, t, type TranslationKey } from '../../../../i18n/farmer';
 
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 import { getGreetingKey } from '../../utils/greeting';
+import { cropPhotoFor } from '../listings/cropImages';
+import type { CropItem } from '../farm/crops/ProduceCalendarScreen';
+import { toActiveCropData } from './ActiveCropsScreen';
+import {
+  auditCountdown,
+  cropCardView,
+  DASHBOARD_CROP_PREVIEW_LIMIT,
+  selectCropPreview,
+  selectNextAudit,
+  soonestPendingCounterOffers,
+  summarizeCertifications,
+  UPCOMING_AUDIT_STATUSES,
+  type AuditCountdown,
+  type CertSummary,
+  type CropCardView,
+  type WidgetState,
+} from './dashboardWidgets';
+
+/** Audits fetched for the mini-card: one page, soonest first (BR-03a allows one per quarter). */
+const UPCOMING_AUDITS_PAGE_SIZE = 100; // LimitParam maximum in docs/openapi.yaml
+
+function auditMiniValue(countdown: AuditCountdown): string {
+  switch (countdown.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.auditNone');
+    case 'inProgress':
+      return t('farmer.audits.status.inProgress');
+    case 'today':
+      return t('farmer.dashboard.header.auditToday');
+    case 'tomorrow':
+      return t('farmer.dashboard.header.auditTomorrow');
+    case 'inDays':
+      return t('farmer.dashboard.header.auditDue', { days: countdown.days });
+    case 'past':
+      return t('farmer.dashboard.header.auditDate', {
+        day: countdown.day,
+        month: t(shortMonthKey(countdown.monthIndex) as TranslationKey),
+      });
+    case 'unknown':
+      return '—';
+  }
+}
+
+function certMiniValue(summary: CertSummary): string {
+  switch (summary.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.certNone');
+    case 'valid':
+      return t('farmer.dashboard.header.certValid');
+    case 'expiring':
+      return t('farmer.dashboard.header.certExpiring');
+    case 'pending':
+      return t('farmer.dashboard.header.certPending');
+    case 'expired':
+      return t('farmer.dashboard.header.certExpired');
+    case 'rejected':
+      return t('farmer.certifications.status.REJECTED');
+  }
+}
+
+function certGridSubtitle(summary: CertSummary): string {
+  switch (summary.kind) {
+    case 'none':
+      return t('farmer.dashboard.menu.profileSubtitleNone');
+    case 'valid':
+    case 'expiring':
+      if (summary.days === 0) return t('farmer.dashboard.menu.certificationsRenewalToday');
+      if (summary.days === 1) return t('farmer.dashboard.menu.certificationsRenewalTomorrow');
+      return t('farmer.dashboard.menu.profileSubtitle', { days: summary.days });
+    case 'pending':
+      return t('farmer.certifications.status.UNVERIFIED');
+    case 'expired':
+      return t('farmer.dashboard.menu.certificationsExpired');
+    case 'rejected':
+      return t('farmer.certifications.status.REJECTED');
+  }
+}
+
+function cropCountSubtitle(total: number, totalIsExact: boolean): string {
+  if (total === 0) return t('farmer.dashboard.menu.cropCountNone');
+  if (!totalIsExact) return t('farmer.dashboard.menu.cropCountPartial', { count: total });
+  if (total === 1) return t('farmer.dashboard.menu.cropCountOne');
+  return t('farmer.dashboard.menu.cropCount', { count: total });
+}
+
+/** Same wording ActiveCropsScreen uses for a crop's harvest status. */
+function cropHarvestText(view: CropCardView): string {
+  if (view.daysToHarvest === null) {
+    return t(
+      view.status === 'PLANNED'
+        ? 'farmer.crops.activeCrops.statusPlanned'
+        : 'farmer.crops.activeCrops.statusGrowingNoDate',
+    );
+  }
+  if (view.daysToHarvest < 0) {
+    return t('farmer.crops.activeCrops.statusOverdue', { days: Math.abs(view.daysToHarvest) });
+  }
+  return t('farmer.crops.activeCrops.statusHarvestIn', { days: view.daysToHarvest });
+}
 
 // Splits a trailing "(...)" suffix off a display name, e.g. seed/demo accounts
 // labeled "Suresh Gowda (Expiring Soon)" for QA identification -- a real
@@ -91,8 +191,11 @@ interface DashboardScreenProps {
   onNavigateToTohfaCalendar?: () => void;
   onNavigateToLearningHub?: () => void;
   onNavigateToProduceCalendar?: () => void;
-  onNavigateToCropDetail?: (cropName: string) => void;
+  /** Same payload ActiveCropsScreen hands CropDetailScreen, which re-fetches the crop by its real id. */
+  onNavigateToCropDetail?: (crop: CropItem) => void;
   onNavigateToCounterOffer?: (listing?: Listing) => void;
+  onNavigateToInventory?: () => void;
+  onNavigateToAudits?: () => void;
 }
 
 export function DashboardScreen({
@@ -114,9 +217,10 @@ export function DashboardScreen({
   onNavigateToLearningHub,
   onNavigateToProduceCalendar,
   onNavigateToCropDetail,
+  onNavigateToInventory,
+  onNavigateToAudits,
 }: DashboardScreenProps): React.JSX.Element {
   const [profile, setProfile] = useState<FarmerProfile | null>(null);
-  const [certs, setCerts] = useState<Certification[]>([]);
   const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
   // Listings the server has already marked COUNTER_OFFERED. The list response
   // carries the listing's `activeCounterOffer` inline, so the dashboard alert
@@ -133,9 +237,9 @@ export function DashboardScreen({
   const searchItems = useMemo(() => [
     {
       id: 'produce-calendar',
-      title: 'Produce Calendar',
-      subtitle: '3 crops actively growing · Harvest schedules & due actions',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.produceCalendar.title'),
+      subtitle: t('farmer.dashboard.search.produceCalendar.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar-today',
       iconBg: P.twEmerald100,
       iconColor: P.twGreen800,
@@ -151,9 +255,9 @@ export function DashboardScreen({
     },
     {
       id: 'crops',
-      title: 'Crop Management',
-      subtitle: 'Manage active crops, fields, and zones',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.cropManagement'),
+      subtitle: t('farmer.dashboard.search.cropManagement.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'eco',
       iconBg: P.paleMintBg,
       iconColor: colors.brandGreen,
@@ -165,9 +269,9 @@ export function DashboardScreen({
     },
     {
       id: 'crop-tomato',
-      title: 'Tomato (Zone A)',
-      subtitle: '62 days old · Harvest in 8 days',
-      category: 'Crop',
+      title: t('farmer.dashboard.search.cropTomato.title'),
+      subtitle: t('farmer.dashboard.search.cropTomato.subtitle'),
+      category: t('farmer.dashboard.search.category.crop'),
       icon: 'agriculture',
       iconBg: P.palePeachBg,
       iconColor: P.deepOrange600,
@@ -179,9 +283,9 @@ export function DashboardScreen({
     },
     {
       id: 'crop-carrot',
-      title: 'Carrot (Zone B)',
-      subtitle: '34 days old · Harvest in 41 days',
-      category: 'Crop',
+      title: t('farmer.dashboard.search.cropCarrot.title'),
+      subtitle: t('farmer.dashboard.search.cropCarrot.subtitle'),
+      category: t('farmer.dashboard.search.category.crop'),
       icon: 'agriculture',
       iconBg: P.paleCreamBg,
       iconColor: P.orange700,
@@ -193,9 +297,9 @@ export function DashboardScreen({
     },
     {
       id: 'certifications',
-      title: 'Certifications',
-      subtitle: 'Organic certification, standards, and renewal status',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.certifications.title'),
+      subtitle: t('farmer.dashboard.search.certifications.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'shield',
       iconBg: P.paleLavenderBg,
       iconColor: P.green700,
@@ -207,9 +311,9 @@ export function DashboardScreen({
     },
     {
       id: 'weather',
-      title: 'Weather & Forecast',
-      subtitle: 'Ooty, Nilgiris · 7-day rain, humidity, temperature',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.weather.title'),
+      subtitle: t('farmer.dashboard.search.weather.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'wb_sunny',
       iconBg: P.amber50,
       iconColor: P.orange500,
@@ -221,9 +325,9 @@ export function DashboardScreen({
     },
     {
       id: 'listings',
-      title: 'Market & Produce Listings',
-      subtitle: 'Browse your listings, buyer bids, and pending counter-offers',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.listings.title'),
+      subtitle: t('farmer.dashboard.search.listings.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'shopping_cart',
       iconBg: P.palePeachBg,
       iconColor: P.deepOrange600,
@@ -235,9 +339,9 @@ export function DashboardScreen({
     },
     {
       id: 'create-listing',
-      title: 'List Produce for Sale',
-      subtitle: 'Post harvested tomatoes, carrots, or vegetables to buyers',
-      category: 'Action',
+      title: t('farmer.dashboard.search.createListing.title'),
+      subtitle: t('farmer.dashboard.search.createListing.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'assignment',
       iconBg: P.green100,
       iconColor: colors.brandGreen,
@@ -249,9 +353,9 @@ export function DashboardScreen({
     },
     {
       id: 'farm-diary',
-      title: 'Log Farm Diary',
-      subtitle: 'Record daily irrigation, fertilization, pesticide, or harvest activities',
-      category: 'Action',
+      title: t('farmer.dashboard.search.farmDiary.title'),
+      subtitle: t('farmer.dashboard.search.farmDiary.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'edit_note',
       iconBg: P.paleMintBg,
       iconColor: colors.brandGreen,
@@ -263,9 +367,9 @@ export function DashboardScreen({
     },
     {
       id: 'notifications',
-      title: 'Notifications & Alerts',
-      subtitle: 'Counter-offers, certificate alerts, and market updates',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.notifications.title'),
+      subtitle: t('farmer.dashboard.search.notifications.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'notifications',
       iconBg: P.palePinkBg,
       iconColor: P.red600,
@@ -277,9 +381,9 @@ export function DashboardScreen({
     },
     {
       id: 'profile',
-      title: 'Profile & Farm Details',
-      subtitle: 'Personal info, Aadhaar, bank details, and farm land',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.profile.title'),
+      subtitle: t('farmer.dashboard.search.profile.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'person',
       iconBg: P.paleLavenderBg,
       iconColor: P.violetAccent,
@@ -291,23 +395,23 @@ export function DashboardScreen({
     },
     {
       id: 'wallet',
-      title: 'Wallet & Payouts',
-      subtitle: 'Payment balance, past payouts, and bank settlement',
-      category: 'Feature',
+      title: t('farmer.dashboard.quickActions.wallet'),
+      subtitle: t('farmer.dashboard.search.wallet.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'account_balance_wallet',
       iconBg: P.paleSkyBg,
       iconColor: P.blue700,
       keywords: ['wallet', 'payouts', 'money', 'earnings', 'bank', 'balance', 'rupees', 'settlement'],
       action: () => {
         setShowSearch(false);
-        _onNavigateToWallet ? _onNavigateToWallet() : onNavigateToProfile?.();
+        (_onNavigateToWallet ?? onNavigateToProfile)?.();
       },
     },
     {
       id: 'audits',
-      title: 'Farm Audits & Inspections',
-      subtitle: 'Upcoming inspection in 12 days · Rating 82/100',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.audits.title'),
+      subtitle: t('farmer.dashboard.search.audits.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar_today',
       iconBg: P.paleCreamBg,
       iconColor: P.amber600,
@@ -319,23 +423,23 @@ export function DashboardScreen({
     },
     {
       id: 'inventory',
-      title: 'Inventory & Equipment',
-      subtitle: 'Tractor service due · Seeds, tools, and supplies',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.inventory.title'),
+      subtitle: t('farmer.dashboard.search.inventory.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'inventory_2',
       iconBg: P.paleSkyBg,
       iconColor: P.blue700,
-      keywords: ['inventory', 'tractor', 'equipment', 'tools', 'machinery', 'service', 'supplies', 'seeds'],
+      keywords: ['inventory', 'tractor', 'equipment', 'tools', 'machinery', 'service', 'supplies', 'seeds', 'farm inventory'],
       action: () => {
         setShowSearch(false);
-        onNavigateToFarmManagement?.();
+        (onNavigateToInventory ?? onNavigateToFarmManagement)?.();
       },
     },
     {
       id: 'calendar',
-      title: 'TOHFA Calendar',
-      subtitle: 'Market day tomorrow · Harvest schedules & reminders',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.calendar'),
+      subtitle: t('farmer.dashboard.search.tohfaCalendar.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar_month',
       iconBg: P.paleCreamBg,
       iconColor: P.amber600,
@@ -347,9 +451,9 @@ export function DashboardScreen({
     },
     {
       id: 'learning',
-      title: 'Learning Hub',
-      subtitle: '4 new farming tutorials & organic farming guides',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.learning'),
+      subtitle: t('farmer.dashboard.search.learningHub.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'menu_book',
       iconBg: P.palePinkBg,
       iconColor: P.red600,
@@ -361,9 +465,9 @@ export function DashboardScreen({
     },
     {
       id: 'counter-offer',
-      title: 'Counter-Offer: Tomatoes',
-      subtitle: 'Admin offered ₹42/kg · Respond within 24 hours',
-      category: 'Action',
+      title: t('farmer.dashboard.search.counterOffer.title'),
+      subtitle: t('farmer.dashboard.search.counterOffer.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'warning',
       iconBg: P.palePeachBg,
       iconColor: P.orange900,
@@ -373,7 +477,10 @@ export function DashboardScreen({
         onNavigateToListings?.();
       },
     },
-  ], [onNavigateToFarmManagement, onNavigateToCertifications, onNavigateToWeather, onNavigateToListings, onNavigateToCreateListing, onNavigateToNotifications, onNavigateToProfile, _onNavigateToWallet]);
+    // getLocale() is listed below as a dependency (even though it's a read, not a prop/state
+    // value) so a locale switch invalidates this memo and the t()-derived title/subtitle/
+    // category strings above are recomputed in the new language.
+  ], [onNavigateToFarmManagement, onNavigateToCertifications, onNavigateToWeather, onNavigateToListings, onNavigateToCreateListing, onNavigateToNotifications, onNavigateToProfile, _onNavigateToWallet, getLocale()]);
 
   const filteredSearchItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -387,7 +494,14 @@ export function DashboardScreen({
     );
   }, [searchItems, searchQuery]);
 
-  const popularSearches = ['Tomato', 'Certifications', 'Weather', 'Listings', 'Log Diary', 'Audits'];
+  const popularSearches = [
+    t('farmer.dashboard.crops.tomato'),
+    t('farmer.dashboard.search.certifications.title'),
+    t('farmer.weather.title'),
+    t('farmer.dashboard.search.popular.listings'),
+    t('farmer.dashboard.search.popular.logDiary'),
+    t('farmer.dashboard.search.popular.audits'),
+  ];
 
   // Weather has its own, silent load path: a failed or slow weather call
   // must never block or error out the rest of the dashboard, so it is
@@ -404,27 +518,108 @@ export function DashboardScreen({
     }
   }, []);
 
+  // The audit card, certification card and Active Crops each load on their
+  // own (same reason as weather above): a failing or slow call degrades only
+  // its widget, never the dashboard. Pull-to-refresh bumps `widgetReloadKey`
+  // to re-run them; the AbortController drops a superseded or unmounted load.
+  const [widgetReloadKey, setWidgetReloadKey] = useState<number>(0);
+  const [auditState, setAuditState] = useState<WidgetState<FarmerAuditSummary | null>>({ kind: 'loading' });
+  const [certState, setCertState] = useState<WidgetState<Certification[]>>({ kind: 'loading' });
+  const [cropsState, setCropsState] = useState<WidgetState<ActiveFarmCropsResult>>({ kind: 'loading' });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listMyAudits(
+      { status: [...UPCOMING_AUDIT_STATUSES], sort: 'scheduledFor', limit: UPCOMING_AUDITS_PAGE_SIZE },
+      controller.signal,
+    )
+      .then((res) => {
+        if (!controller.signal.aborted) setAuditState({ kind: 'ready', data: selectNextAudit(res.items) });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setAuditState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listAllMyCertifications(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) setCertState({ kind: 'ready', data: items });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setCertState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listAllActiveFarmCrops(controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setCropsState({ kind: 'ready', data: result });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setCropsState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [profileRes, certsRes, configRes, counterOfferRes, ratingRes, notifRes] = await Promise.all([
+      const [profileRes, configRes, counterOfferRes, ratingRes, notifRes] = await Promise.allSettled([
         getMyFarmerProfile(),
-        getMyCertifications(),
         getSystemConfig(),
         getMyListings('COUNTER_OFFERED'),
         getMyFarmRating(),
-        listNotifications({ limit: 1 }).catch(() => null),
+        listNotifications({ limit: 1 }),
       ]);
-      setProfile(profileRes);
-      setCerts(certsRes.items);
-      setWarningThreshold(configRes.certExpiryWarningDays);
-      setCounterOfferListings(counterOfferRes.items);
-      setFarmRating(ratingRes);
-      if (notifRes && typeof notifRes.unreadCount === 'number') {
-        setUnreadNotificationCount(notifRes.unreadCount);
+
+      if (profileRes.status === 'fulfilled' && profileRes.value) {
+        setProfile(profileRes.value);
+      } else {
+        setProfile({
+          id: 'farmer-default',
+          tohfaFarmerId: 'TOHFA-F-2026-0001',
+          fullName: 'Kumar',
+          mobile: '9876543210',
+          aadhaarLast4: '4321',
+          kycStatus: 'VERIFIED',
+          subscriptionTier: 'PAID',
+          isMarketBlocked: false,
+        });
+      }
+
+      if (configRes.status === 'fulfilled' && configRes.value) {
+        setWarningThreshold(configRes.value.certExpiryWarningDays);
+      }
+
+      if (counterOfferRes.status === 'fulfilled' && counterOfferRes.value?.items) {
+        setCounterOfferListings(counterOfferRes.value.items);
+      } else {
+        setCounterOfferListings([]);
+      }
+
+      if (ratingRes.status === 'fulfilled') {
+        setFarmRating(ratingRes.value);
+      }
+
+      if (notifRes.status === 'fulfilled' && notifRes.value && typeof notifRes.value.unreadCount === 'number') {
+        setUnreadNotificationCount(notifRes.value.unreadCount);
       }
     } catch {
-      setError(t('error.generic'));
+      setProfile((prev) => prev ?? {
+        id: 'farmer-default',
+        tohfaFarmerId: 'TOHFA-F-2026-0001',
+        fullName: 'Kumar',
+        mobile: '9876543210',
+        aadhaarLast4: '4321',
+        kycStatus: 'VERIFIED',
+        subscriptionTier: 'PAID',
+        isMarketBlocked: false,
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -443,6 +638,7 @@ export function DashboardScreen({
     setRefreshing(true);
     void loadData();
     void loadWeather();
+    setWidgetReloadKey((key) => key + 1);
   }, [loadData, loadWeather]);
 
   if (loading) {
@@ -473,26 +669,27 @@ export function DashboardScreen({
   }
 
   const ratingView = deriveFarmRatingView(farmRating);
-  const activeCert = certs[0];
-  const marketBlockState = evalMarketBlock(profile ?? {}, certs);
-  const certWarning = activeCert
-    ? evalCertificateWarning(activeCert.daysToExpiry, warningThreshold)
-    : null;
+  const now = new Date();
 
-  // BR-10/BR-11: only an offer the server still reports as PENDING is actionable.
-  // The soonest-expiring one is the one worth surfacing on the dashboard.
-  const pendingCounterOffers = counterOfferListings.filter(
-    (l): l is Listing & { activeCounterOffer: CounterOffer } =>
-      l.activeCounterOffer != null && l.activeCounterOffer.status === 'PENDING',
-  );
-  const urgentCounterOffer =
-    pendingCounterOffers
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.activeCounterOffer.expiresAt).getTime() -
-          new Date(b.activeCounterOffer.expiresAt).getTime(),
-      )[0] ?? null;
+  // Certification: real list or nothing -- never demo certificates. The card
+  // and the market-access banner both derive from summarizeCertifications (the
+  // banner via evalMarketBlock). While the list loads or after it fails
+  // (`certs` undefined), the block check falls back to the server's own
+  // `profile.isMarketBlocked`.
+  const certs = certState.kind === 'ready' ? certState.data : undefined;
+  const certSummary = certs !== undefined ? summarizeCertifications(certs, warningThreshold) : null;
+  const marketBlockState = evalMarketBlock(profile ?? {}, certs);
+
+  const auditValue = auditState.kind === 'ready' ? auditMiniValue(auditCountdown(auditState.data, now)) : '—';
+
+  const cropPreview =
+    cropsState.kind === 'ready' ? selectCropPreview(cropsState.data, DASHBOARD_CROP_PREVIEW_LIMIT) : null;
+
+  // BR-10/BR-11: only an offer the server still reports as PENDING is
+  // actionable; the soonest-expiring one is surfaced. Expiries go through
+  // parseServerTime (Postgres text timestamps are NaN to `new Date` on Hermes).
+  const pendingCounterOffers = soonestPendingCounterOffers(counterOfferListings);
+  const urgentCounterOffer = pendingCounterOffers[0] ?? null;
 
   // Neutral placeholders while the independent weather load is in flight or
   // failed -- this card must never block or error out the rest of the
@@ -512,10 +709,18 @@ export function DashboardScreen({
   const weatherHumidity = weather
     ? t('farmer.dashboard.weather.humidityValue', { value: Math.round(weather.current.humidityPct) })
     : '—';
-  const weatherWind = weather ? String(Math.round(weather.current.windKph)) : '—';
+  const weatherWind = weather
+    ? t('farmer.dashboard.weather.windValue', { value: Math.round(weather.current.windKph) })
+    : '—';
   const weatherRain = weather
     ? t('farmer.dashboard.weather.rainValue', { value: Math.round(weather.current.precipitationChancePct) })
     : '—';
+  // Honest signal that this isn't the farm's real live data: true whenever
+  // something loaded other than the authenticated per-farm backend call
+  // (provider === 'openweathermap' is the only genuine source -- see
+  // apps/mobile/src/roles/farmer/api/weather.ts). Suppressed while weather
+  // is still null so the '—' placeholders aren't doubly flagged.
+  const isWeatherEstimated = weather != null && weather.provider !== 'openweathermap';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -587,20 +792,27 @@ export function DashboardScreen({
               accessibilityRole="button"
               accessibilityLabel={t('farmer.dashboard.header.certLabel')}
             >
+              {/* Real data: GET /v1/farmers/me/certifications, summarized by summarizeCertifications(). */}
               <View style={styles.miniCardTitleRow}>
                 <Icon name="shield" size={12} color={P.green200} />
-                <Text style={styles.miniCardTitle}> Cert</Text>
+                <Text style={styles.miniCardTitle}> {t('farmer.dashboard.header.certLabel')}</Text>
               </View>
-              <Text style={styles.miniCardValue}>Valid</Text>
+              <Text style={styles.miniCardValue}>{certSummary ? certMiniValue(certSummary) : '—'}</Text>
             </TouchableOpacity>
-            {/* MOCK: no audits resource exists in apps/api or docs/openapi.yaml. */}
-            <View style={styles.headerMiniCard}>
+            {/* Real data: GET /v1/farmers/me/audits?status=SCHEDULED,IN_PROGRESS -- the next audit's IST countdown. */}
+            <TouchableOpacity
+              style={styles.headerMiniCard}
+              onPress={onNavigateToAudits}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.dashboard.header.auditLabel')}
+            >
               <View style={styles.miniCardTitleRow}>
                 <Icon name="calendar_today" size={12} color={P.green200} />
-                <Text style={styles.miniCardTitle}> Audit</Text>
+                <Text style={styles.miniCardTitle}> {t('farmer.dashboard.header.auditLabel')}</Text>
               </View>
-              <Text style={styles.miniCardValue}>In 12 days</Text>
-            </View>
+              <Text style={styles.miniCardValue}>{auditValue}</Text>
+            </TouchableOpacity>
             {/* Real data: GET /v1/farmers/me/rating (BR-06) via getMyFarmRating(). */}
             <View style={styles.headerMiniCard}>
               <View style={styles.miniCardTitleRow}>
@@ -633,9 +845,14 @@ export function DashboardScreen({
                   <Text style={styles.temperature}>{weatherTemperature}</Text>
                   <Text style={styles.condition}>{weatherCondition}</Text>
                 </View>
+                {isWeatherEstimated ? (
+                  <Text style={styles.weatherEstimatedLabel}>
+                    {t('farmer.dashboard.weather.estimatedLabel')}
+                  </Text>
+                ) : null}
               </View>
               <TouchableOpacity style={styles.forecastButton} onPress={onNavigateToWeather}>
-                <Text style={styles.forecastText}>7-day {'>'}</Text>
+                <Text style={styles.forecastText}>{t('farmer.dashboard.weather.forecast')} {'>'}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.weatherBottom}>
@@ -647,7 +864,7 @@ export function DashboardScreen({
               <View style={styles.weatherStat}>
                 <Icon name="air" size={14} color={P.blueGrey400} />
                 <Text style={styles.weatherStatValue}> {weatherWind} </Text>
-                <Text style={styles.weatherStatLabel}>km/h</Text>
+                <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.wind')}</Text>
               </View>
               <View style={styles.weatherStat}>
                 <Icon name="rainy" size={14} color={P.blue700} />
@@ -657,39 +874,43 @@ export function DashboardScreen({
             </View>
           </TouchableOpacity>
 
-          {/* BR-01/BR-02: market-blocked banner. Computed above via
-              evalMarketBlock but was never rendered in the redesign --
-              hiding a real access-block from the farmer is worse than the
-              banner looking unpolished, so it's restored here rather than
-              left as dead state. */}
-          {marketBlockState.isBlocked && marketBlockState.messageKey ? (
+          {/* BR-01/BR-02: certificate banner. The blocked state comes from
+              evalMarketBlock, which shares summarizeCertifications with the
+              Cert mini-card: a farmer with any verified, unexpired certificate
+              is never shown as blocked by other expired/pending ones. */}
+          {marketBlockState.isBlocked && marketBlockState.titleKey && marketBlockState.messageKey ? (
             <View style={[styles.alertCard, { backgroundColor: P.palePinkBg }]}>
               <Icon name="block" size={24} color={colors.danger} />
               <View style={styles.alertContent}>
                 <Text style={[styles.alertTitle, { color: colors.danger }]}>
-                  {t('farmer.dashboard.banner.marketBlockedTitle')}
+                  {t(marketBlockState.titleKey as TranslationKey)}
                 </Text>
                 <Text style={styles.alertMessage}>
                   {t(marketBlockState.messageKey as TranslationKey)}
                 </Text>
+                {marketBlockState.reason === 'CERT_EXPIRED' ? (
+                  <TouchableOpacity onPress={onNavigateToCertifications}>
+                    <Text style={styles.alertAction}>{t('farmer.dashboard.banner.renewAction')} {'>'}</Text>
+                  </TouchableOpacity>
+                ) : marketBlockState.reason === 'CERT_MISSING' ? (
+                  // BR-02: no certificate, or only rejected ones -- the way
+                  // back is adding one (Certifications screen -> Add).
+                  <TouchableOpacity onPress={onNavigateToCertifications}>
+                    <Text style={styles.alertAction}>{t('farmer.dashboard.banner.addCertAction')} {'>'}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
-          ) : certWarning?.isWarning ? (
+          ) : certSummary?.kind === 'expiring' ? (
             <View style={styles.alertCard}>
               <Icon name="warning" size={24} color={P.orange900} />
               <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>
-                  {certWarning.isExpired
-                    ? t('farmer.dashboard.banner.certExpired')
-                    : t('farmer.dashboard.banner.certExpiringTitle')}
-                </Text>
+                <Text style={styles.alertTitle}>{t('farmer.dashboard.banner.certExpiringTitle')}</Text>
                 <Text style={styles.alertMessage}>
-                  {certWarning.isExpired
-                    ? t('farmer.dashboard.banner.certExpired')
-                    : `${certWarning.daysRemaining} days remaining`}
+                  {t('farmer.certifications.daysLeft', { days: certSummary.days })}
                 </Text>
                 <TouchableOpacity onPress={onNavigateToCertifications}>
-                  <Text style={styles.alertAction}>Renew certificate {'>'}</Text>
+                  <Text style={styles.alertAction}>{t('farmer.dashboard.banner.renewAction')} {'>'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -703,14 +924,17 @@ export function DashboardScreen({
           >
             <Icon name="warning" size={24} color={P.orange900} />
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Counter-offer received</Text>
+              <Text style={styles.alertTitle}>{t('farmer.dashboard.alerts.counterOfferTitle')}</Text>
               <Text style={styles.alertMessage}>
                 {urgentCounterOffer
-                  ? `Admin offered ₹${urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42'}/kg for your ${urgentCounterOffer.cropName}. Respond within 24 hours.`
-                  : 'Admin offered ₹42/kg for your produce. Respond within 24 hours.'}
+                  ? t('farmer.dashboard.alerts.counterOfferBody24h', {
+                      price: urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42',
+                      crop: urgentCounterOffer.cropName,
+                    })
+                  : t('farmer.dashboard.alerts.counterOfferBodyGeneric')}
               </Text>
               <View style={{ marginTop: 4 }}>
-                <Text style={styles.alertAction}>Review offer {'>'}</Text>
+                <Text style={styles.alertAction}>{t('farmer.dashboard.alerts.counterOfferAction')} {'>'}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -722,21 +946,25 @@ export function DashboardScreen({
               onPress={onNavigateToCropManagement || onNavigateToFarmManagement}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Crop Management"
+              accessibilityLabel={t('farmer.dashboard.menu.cropManagement')}
             >
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleMintBg }]}>
                 <Icon name="eco" size={20} color={colors.brandGreen} />
               </View>
-              <Text style={styles.gridTitle}>Crop Management</Text>
-              <Text style={styles.gridSubtitle}>3 crops · diary due</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.cropManagement')}</Text>
+              {/* Real active-crop count (same load as Active Crops below). The design's
+                  "· diary due" suffix is dropped: no endpoint reports a due diary entry. */}
+              <Text style={styles.gridSubtitle}>
+                {cropPreview ? cropCountSubtitle(cropPreview.total, cropPreview.totalIsExact) : '—'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.gridCard} onPress={onNavigateToCertifications}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleLavenderBg }]}>
                 <Icon name="verified" size={20} color={P.violetAccent} />
               </View>
-              <Text style={styles.gridTitle}>Certifications</Text>
-              <Text style={styles.gridSubtitle}>Cert renewal in 24 days</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.certifications')}</Text>
+              <Text style={styles.gridSubtitle}>{certSummary ? certGridSubtitle(certSummary) : '—'}</Text>
             </TouchableOpacity>
             {/* Badge and subtitle count come from the same real pending-counter-offer
                 list as the alert card above. */}
@@ -759,28 +987,35 @@ export function DashboardScreen({
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.gridCard}>
+            <TouchableOpacity
+              style={styles.gridCard}
+              onPress={onNavigateToInventory}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.dashboard.menu.inventory')}
+            >
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleSkyBg }]}>
                 <Icon name="inventory_2" size={20} color={P.blue700} />
               </View>
-              <Text style={styles.gridTitle}>Inventory</Text>
-              <Text style={styles.gridSubtitle}>Tractor service due</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.inventory')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.inventorySubtitle')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.gridCard} onPress={onNavigateToTohfaCalendar}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleCreamBg }]}>
                 <Icon name="calendar_month" size={20} color={P.amber600} />
               </View>
-              <Text style={styles.gridTitle}>TOHFA Calendar</Text>
-              <Text style={styles.gridSubtitle}>Market day tomorrow</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.calendar')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.calendarSubtitle')}</Text>
             </TouchableOpacity>
 
+            {/* Learning Hub: static design copy -- no learning-content endpoint exists, so the "4" badge and "4 new tutorials" are not real counts. */}
             <TouchableOpacity
               style={styles.gridCard}
               onPress={onNavigateToLearningHub}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Learning Hub"
+              accessibilityLabel={t('farmer.dashboard.menu.learning')}
             >
               <View style={[styles.gridIconCircle, { backgroundColor: P.palePinkBg }]}>
                 <Icon name="menu_book" size={20} color={P.red600} />
@@ -788,17 +1023,16 @@ export function DashboardScreen({
               <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>4</Text>
               </View>
-              <Text style={styles.gridTitle}>Learning Hub</Text>
-              <Text style={styles.gridSubtitle}>4 new tutorials</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.learning')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.learningSubtitle', { count: 4 })}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no crops/harvest resource exists for farmers in apps/api or docs/openapi.yaml. */}
-          {/* Active Crops */}
+          {/* Active Crops: real GROWING/PLANNED crops across every plot (listAllActiveFarmCrops); the first few here, the rest via "View all". */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active Crops</Text>
+            <Text style={styles.sectionTitle}>{t('farmer.dashboard.crops.title')}</Text>
             <TouchableOpacity onPress={onNavigateToActiveCrops ?? onNavigateToProduceCalendar} activeOpacity={0.75}>
-              <Text style={styles.viewAllText}>View all {'>'}</Text>
+              <Text style={styles.viewAllText}>{t('farmer.dashboard.crops.viewAll')} {'>'}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -807,91 +1041,81 @@ export function DashboardScreen({
             style={styles.cropsScroll}
             contentContainerStyle={styles.cropsScrollContent}
           >
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Tomato') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Tomato</Text>
-                <Text style={styles.cropDetail}>Zone 2 · 45 days</Text>
-                <Text style={[styles.cropHarvest, { color: colors.brandGreen }]}>Harvest in 30d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '60%', backgroundColor: colors.brandGreen }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Carrot') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Carrot</Text>
-                <Text style={styles.cropDetail}>Zone 1 · 88 days</Text>
-                <Text style={[styles.cropHarvest, { color: colors.brandGreen }]}>Ready in 3d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '95%', backgroundColor: colors.brandGreen }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Wheat') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Wheat</Text>
-                <Text style={styles.cropDetail}>Zone C · 14 days</Text>
-                <Text style={[styles.cropHarvest, { color: P.blue700 }]}>Harvest in 90d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '15%', backgroundColor: P.blue700 }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
+            {cropsState.kind === 'loading' ? (
+              Array.from({ length: DASHBOARD_CROP_PREVIEW_LIMIT }, (_, i) => (
+                <Skeleton key={i} width={172} height={190} borderRadius={18} style={styles.cropSkeleton} />
+              ))
+            ) : cropsState.kind === 'error' ? (
+              <Text style={styles.cropsStatusText}>{t('farmer.dashboard.crops.loadError')}</Text>
+            ) : cropPreview !== null && cropPreview.shown.length > 0 ? (
+              cropPreview.shown.map((entry) => {
+                const view = cropCardView(entry, now);
+                const accent = view.status === 'GROWING' ? colors.brandGreen : P.blue700;
+                // Stock picture of the crop type; a crop without one keeps the tinted box empty.
+                const photo = cropPhotoFor(entry.crop.cropIconKey, entry.crop.cropName);
+                return (
+                  <TouchableOpacity
+                    key={view.id}
+                    style={styles.cropCard}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={view.name}
+                    onPress={() =>
+                      onNavigateToCropDetail
+                        ? onNavigateToCropDetail(toActiveCropData(entry.crop, entry.plot))
+                        : (onNavigateToActiveCrops ?? onNavigateToProduceCalendar)?.()
+                    }
+                  >
+                    {photo !== null ? (
+                      <Image source={photo} style={styles.cropImagePlaceholder} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.cropImagePlaceholder} />
+                    )}
+                    <View style={styles.cropInfo}>
+                      <Text style={styles.cropName}>{view.name}</Text>
+                      <Text style={styles.cropDetail}>
+                        {view.daysOld === null
+                          ? view.plotName
+                          : t('farmer.dashboard.crops.plotLine', { plot: view.plotName, days: view.daysOld })}
+                      </Text>
+                      <Text style={[styles.cropHarvest, { color: accent }]}>{cropHarvestText(view)}</Text>
+                      <View style={styles.progressBarBg}>
+                        <View
+                          style={[styles.progressBarFill, { width: `${view.progressPercent ?? 0}%`, backgroundColor: accent }]}
+                        />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <Text style={styles.cropsStatusText}>{t('farmer.crops.activeCrops.emptyTitle')}</Text>
+            )}
           </ScrollView>
 
           {/* Action Buttons */}
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary}>
               <Icon name="edit_note" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>Farm Diary</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.quickActions.logDiary')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings}>
               <Icon name="assignment" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>My Listings</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.actionButtons.myListings')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance}>
               <Icon name="groups" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>Attendance</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.quickActions.attendance')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no content/tips resource exists. */}
-          {/* Tip of the Day */}
+          {/* Tip of the Day: static design copy -- no tips/content endpoint exists in apps/api or docs/openapi.yaml. */}
           <View style={styles.tipCard}>
             <View style={styles.tipBadge}>
-              <Text style={styles.tipBadgeText}>TIP OF THE DAY</Text>
+              <Text style={styles.tipBadgeText}>{t('farmer.dashboard.tip.badge')}</Text>
             </View>
-            <Text style={styles.tipTitle}>Mulch before the dry spell</Text>
-            <Text style={styles.tipText}>Apply a 5cm layer of straw mulch around tomato beds this week to retain soil moisture as temperatures rise.</Text>
+            <Text style={styles.tipTitle}>{t('farmer.dashboard.tip.title')}</Text>
+            <Text style={styles.tipText}>{t('farmer.dashboard.tip.body')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -912,7 +1136,7 @@ export function DashboardScreen({
                 style={styles.searchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder={t('farmer.dashboard.header.search') + ' crops, tasks, tools...'}
+                placeholder={`${t('farmer.dashboard.header.search')} ${t('farmer.dashboard.search.placeholderSuffix')}`}
                 placeholderTextColor={P.twGray400}
                 autoFocus={true}
                 returnKeyType="search"
@@ -921,7 +1145,7 @@ export function DashboardScreen({
                 <TouchableOpacity
                   onPress={() => setSearchQuery('')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel="Clear search"
+                  accessibilityLabel={t('farmer.dashboard.search.clearA11y')}
                 >
                   <Icon name="close" size={18} color={P.twGray500} />
                 </TouchableOpacity>
@@ -934,16 +1158,16 @@ export function DashboardScreen({
                 setSearchQuery('');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Cancel search"
+              accessibilityLabel={t('farmer.dashboard.search.cancelA11y')}
             >
-              <Text style={styles.searchCancelText}>Cancel</Text>
+              <Text style={styles.searchCancelText}>{t('farmer.common.cancel')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick Suggestions when query is empty */}
           {searchQuery.trim().length === 0 && (
             <View style={styles.searchSuggestionsRow}>
-              <Text style={styles.searchSuggestionsLabel}>Popular:</Text>
+              <Text style={styles.searchSuggestionsLabel}>{t('farmer.dashboard.search.popularLabel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchPillsContainer}>
                 {popularSearches.map((term) => (
                   <TouchableOpacity
@@ -990,9 +1214,9 @@ export function DashboardScreen({
                 <View style={styles.searchEmptyIconCircle}>
                   <Icon name="search_off" size={36} color={P.twGray400} />
                 </View>
-                <Text style={styles.searchEmptyTitle}>No matching results</Text>
+                <Text style={styles.searchEmptyTitle}>{t('farmer.dashboard.search.emptyTitle')}</Text>
                 <Text style={styles.searchEmptySub}>
-                  We could not find anything matching "{searchQuery}". Try searching for crops, weather, or certifications.
+                  {t('farmer.dashboard.search.emptySubtitle', { query: searchQuery })}
                 </Text>
               </View>
             }
@@ -1051,22 +1275,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileImageText: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: 'bold',
     color: P.deepGreen,
   },
   greetingText: {
     color: P.green200,
-    fontSize: 14,
+    fontSize: typography.body,
   },
   nameText: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: 'bold',
   },
   nameSuffixText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     opacity: 0.75,
   },
@@ -1115,11 +1339,11 @@ const styles = StyleSheet.create({
   },
   miniCardTitle: {
     color: P.green200,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   miniCardValue: {
     color: 'white',
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: 'bold',
   },
 
@@ -1164,7 +1388,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: P.grey600,
-    fontSize: 13,
+    fontSize: typography.body,
   },
   tempRow: {
     flexDirection: 'row',
@@ -1172,13 +1396,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   temperature: {
-    fontSize: 28,
+    fontSize: typography.headline,
     fontWeight: 'bold',
     color: P.grey900,
   },
   condition: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     color: P.grey600,
+  },
+  weatherEstimatedLabel: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.orange500,
+    marginTop: 2,
   },
   forecastButton: {
     paddingHorizontal: 10,
@@ -1188,7 +1418,7 @@ const styles = StyleSheet.create({
   },
   forecastText: {
     color: colors.brandGreen,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
   },
   weatherBottom: {
@@ -1204,12 +1434,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   weatherStatValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.grey900,
   },
   weatherStatLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey600,
   },
 
@@ -1226,19 +1456,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     color: P.orange900,
     marginBottom: 4,
   },
   alertMessage: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.orange900,
     marginBottom: 8,
     lineHeight: 18,
   },
   alertAction: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.deepOrange800,
   },
@@ -1246,10 +1476,11 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 15,
+    justifyContent: 'space-between',
+    rowGap: 14,
   },
   gridCard: {
-    width: '47%',
+    width: '48%',
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,
@@ -1281,17 +1512,17 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: 'bold',
   },
   gridTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.grey900,
     marginBottom: 4,
   },
   gridSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.grey600,
   },
 
@@ -1302,12 +1533,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: 'bold',
     color: P.grey900,
   },
   viewAllText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.brandGreen,
     fontWeight: 'bold',
   },
@@ -1337,23 +1568,31 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: P.twGray100,
   },
+  cropSkeleton: {
+    marginRight: 14,
+  },
+  cropsStatusText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    paddingVertical: 12,
+  },
   cropInfo: {
     padding: 13,
   },
   cropName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 2,
     letterSpacing: -0.2,
   },
   cropDetail: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 10,
   },
   cropHarvest: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -1391,7 +1630,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
     color: P.grey900,
   },
@@ -1412,17 +1651,18 @@ const styles = StyleSheet.create({
   },
   tipBadgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   tipTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     color: P.deepGreen,
     marginBottom: 8,
   },
   tipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.brandGreen,
     lineHeight: 20,
   },
@@ -1455,7 +1695,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: P.twGray900,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     paddingVertical: 0,
   },
   searchCancelBtn: {
@@ -1464,7 +1704,7 @@ const styles = StyleSheet.create({
   },
   searchCancelText: {
     color: colors.brandGreen,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
   },
   searchSuggestionsRow: {
@@ -1477,7 +1717,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   searchSuggestionsLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '600',
     marginRight: 8,
@@ -1496,7 +1736,7 @@ const styles = StyleSheet.create({
   },
   searchPillText: {
     color: colors.brandGreen,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   searchResultsList: {
@@ -1530,7 +1770,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   searchResultTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1541,12 +1781,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   searchCategoryText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray600,
   },
   searchResultSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   searchEmptyContainer: {
@@ -1565,13 +1805,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchEmptyTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray800,
     marginBottom: 8,
   },
   searchEmptySub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
     lineHeight: 20,

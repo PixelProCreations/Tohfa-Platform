@@ -86,7 +86,7 @@ export function DailyCashSummaryScreen({
       title="Daily Cash Summary"
       onBack={onBack}
       headerExtra={<ScopeHeader scope={scope} />}
-      footer={scope.warehouseId !== undefined && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
+      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <TouchableOpacity

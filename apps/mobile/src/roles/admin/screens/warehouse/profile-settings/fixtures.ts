@@ -1,20 +1,15 @@
 /**
- * Mock data for the warehouse account screens until they call the API
- * (GET /auth/me for the profile; no session-list, preference or support-ticket
- * endpoint exists yet: SPEC_GAPS W4l-3/-5).
+ * What is left of the warehouse account screens' design samples. The account,
+ * sessions, notification preferences, help articles and contact card are live
+ * since plan phase 8 (./useProfileData.ts); their samples are gone.
  *
- * Nothing here names a warehouse: the Sub profile takes its warehouse from the
- * scope, and Main is "All Warehouses" (the owner's decision: Main `own` = all
- * four warehouses).
+ * Kept: the About screen's app facts (static app information, not server
+ * data), and FAQ_ITEMS, which only the storage-ops ReportIssueScreen still
+ * reads for its "related questions" (support mode; the report path is hidden
+ * for warehouse admins, support.ticket.create_own is `none`). The scope label
+ * helpers serve the About screen.
  */
-import type {
-  AdminAccountProfile,
-  CurrentSessionInfo,
-  FaqItem,
-  LoginHistoryItem,
-  SupportTicketItem,
-  WarehouseScope,
-} from './types';
+import type { FaqItem, WarehouseScope } from './types';
 
 /** Main Warehouse view: no warehouseId means every warehouse. */
 export function isMainScope(scope: WarehouseScope): boolean {
@@ -31,70 +26,6 @@ export function scopeLabelOf(scope: WarehouseScope): string {
   if (isMainScope(scope)) return 'All Warehouses';
   return scope.warehouseName ?? scope.warehouseId ?? '';
 }
-
-/**
- * The signed-in admin's profile for a scope. Main is the absorbed
- * MainWarehouseProfileScreen's account (Rajesh Kumar, ADM-MWA-0007); Sub is the
- * Sub profile's account, with its admin id and warehouse derived from the scope
- * instead of a hard-coded warehouse.
- */
-export function defaultProfile(scope: WarehouseScope): AdminAccountProfile {
-  if (isMainScope(scope)) {
-    return {
-      fullName: 'Rajesh Kumar',
-      roleLabel: roleLabelOf(scope),
-      adminId: 'ADM-MWA-0007',
-      mobileNumber: '+91 98765 43211',
-      email: 'rajesh.kumar@tohfa.org',
-      warehouseLabel: scopeLabelOf(scope),
-      accessLevel: 'Warehouse Management',
-      createdDate: '02 Jan 2026',
-      lastLogin: 'Today, 8:52 AM',
-      passwordChanged: '14 Aug 2026',
-      status: 'Active',
-    };
-  }
-  return {
-    fullName: 'Suresh',
-    roleLabel: roleLabelOf(scope),
-    adminId: `SWA-${scope.warehouseId ?? ''}-001`,
-    mobileNumber: '+91 98765 43210',
-    email: 'suresh@tohfa.ag',
-    warehouseLabel: scopeLabelOf(scope),
-    accessLevel: 'Warehouse Operations',
-    createdDate: '10 Feb 2026',
-    lastLogin: 'Today, 8:42 AM',
-    passwordChanged: '12 Aug 2026',
-    status: 'Active',
-  };
-}
-
-export const CURRENT_SESSION: CurrentSessionInfo = {
-  device: 'Windows Desktop',
-  browser: 'Chrome',
-  location: 'Nilgiris, TN',
-  started: '08:42 AM',
-  lastActive: '09:42 AM',
-  sessionId: 'SESSION-••••',
-};
-
-export const LOGIN_HISTORY: readonly LoginHistoryItem[] = [
-  { id: 'LH-1', device: 'Chrome · Windows', time: 'Today · 08:42 AM', result: 'Successful' },
-  { id: 'LH-2', device: 'Android App', time: 'Yesterday · 04:15 PM', result: 'Successful' },
-  { id: 'LH-3', device: 'Chrome · Windows', time: '06 Oct · 09:30 AM', result: 'Successful' },
-];
-
-export const SUPPORT_TICKETS: readonly SupportTicketItem[] = [
-  { id: 'SUP-00245', subject: 'Unable to generate invoice', category: 'Billing', openedOn: '25 Sep 2026', status: 'Under Review' },
-];
-
-/** Help-centre contact details (the Sub design's helpline and mailbox). */
-export const SUPPORT_CONTACT = {
-  phone: '+91 1800-845-6677',
-  phoneHours: 'Toll Free · 8 AM - 8 PM',
-  email: 'support@tohfa.in',
-  emailHours: '24/7 Response',
-} as const;
 
 /** About screen facts. */
 export const APP_INFO = {

@@ -14,27 +14,8 @@ import {
   View,
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  orangeLight: '#FFF3EF',
-  yellowBg: '#FFF9E6',
-  yellowText: '#9A6B00',
-  green: '#2E7D32',
-  greenBg: '#E8F5E9',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  ceilingGray: '#9A8F88',
-  border: '#EDE9E4',
-  warningBg: '#FFF3E0',
-  warningText: '#E08000',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 type Grade = 'All' | 'Grade 1' | 'Grade 2' | 'Grade 3';
 
@@ -117,7 +98,7 @@ export function ListingApprovalQueueScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -126,19 +107,19 @@ export function ListingApprovalQueueScreen({
           style={styles.backBtn}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('listingApprovalQueue.backLabel')}
         >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
+          <Icon name="chevron_right" size={20} color={adminColors.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Title */}
-        <Text style={styles.title}>Listing Approval Queue</Text>
+        <Text style={styles.title}>{t('listingApprovalQueue.title')}</Text>
         <Text style={styles.subtitle}>
           {filteredListings.length === 1 
-            ? '1 listing awaiting review' 
-            : `${filteredListings.length} listings awaiting review`}
+            ? t('listingApprovalQueue.subtitleSingular') 
+            : `${filteredListings.length} ${t('listingApprovalQueue.subtitlePlural')}`}
         </Text>
 
         {/* Grade Tabs */}
@@ -168,8 +149,8 @@ export function ListingApprovalQueueScreen({
           {filteredListings.map((listing) => (
             <View key={listing.id} style={styles.listingCard}>
               {/* Icon */}
-              <View style={[styles.iconBox, { backgroundColor: P.orangeBg }]}>
-                <Icon name="eco" size={20} color={P.orange} />
+              <View style={styles.iconBox}>
+                <Icon name="eco" size={20} color={adminColors.brand} />
               </View>
 
               {/* Content */}
@@ -180,7 +161,9 @@ export function ListingApprovalQueueScreen({
                   </Text>
                   <View style={styles.priceColumn}>
                     <Text style={styles.priceAmount}>₹{listing.pricePerKg}/kg</Text>
-                    <Text style={styles.ceilingText}>Ceiling ₹{listing.ceilingPrice}</Text>
+                    <Text style={styles.ceilingText}>
+                      {t('listingApprovalQueue.label.ceiling')} ₹{listing.ceilingPrice}
+                    </Text>
                   </View>
                 </View>
 
@@ -192,8 +175,8 @@ export function ListingApprovalQueueScreen({
                   <View
                     style={[
                       styles.gradeBadge,
-                      listing.grade === 'Grade 1' && { backgroundColor: '#FFF3E0' },
-                      listing.grade === 'Grade 2' && { backgroundColor: '#FFF9E6' },
+                      listing.grade === 'Grade 1' && styles.gradeBadge1,
+                      listing.grade === 'Grade 2' && styles.gradeBadge2,
                     ]}
                   >
                     <Text style={styles.gradeBadgeText}>{listing.grade}</Text>
@@ -208,8 +191,8 @@ export function ListingApprovalQueueScreen({
                       onPress={() => onApprove(listing.id)}
                       activeOpacity={0.7}
                     >
-                      <Icon name="check" size={16} color={P.green} />
-                      <Text style={styles.approveBtnText}>Approve</Text>
+                      <Icon name="check" size={16} color={adminColors.success.text} />
+                      <Text style={styles.approveBtnText}>{t('listingApprovalQueue.action.approve')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -217,8 +200,8 @@ export function ListingApprovalQueueScreen({
                       onPress={() => onCounter(listing.id)}
                       activeOpacity={0.7}
                     >
-                      <Icon name="swap_horiz" size={16} color="#1a1a1a" />
-                      <Text style={styles.counterBtnText}>Counter</Text>
+                      <Icon name="swap_horiz" size={16} color={adminColors.ink} />
+                      <Text style={styles.counterBtnText}>{t('listingApprovalQueue.action.counter')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -226,24 +209,16 @@ export function ListingApprovalQueueScreen({
                       onPress={() => onReject(listing.id)}
                       activeOpacity={0.7}
                     >
-                      <Icon name="close" size={18} color="#E53935" />
+                      <Icon name="close" size={18} color={adminColors.danger.text} />
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
             </View>
           ))}
-
-          {/* Conflict of Interest Warning */}
-          <View style={styles.warningCard}>
-            <Icon name="warning" size={16} color={P.warningText} style={{ marginRight: 8 }} />
-            <Text style={styles.warningText}>
-              Farmer Admin's own listings are auto-routed here for SA/TA review — conflict-of-interest rule.
-            </Text>
-          </View>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -252,96 +227,88 @@ export function ListingApprovalQueueScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.xl,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.xl,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: P.darkBrown,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     marginBottom: 6,
-    letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
-    fontSize: 13.5,
-    color: '#1A1A1A',
-    marginBottom: 20,
-    lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xl,
   },
   tabsScroll: {
-    marginBottom: 20,
-    marginHorizontal: -20,
+    marginBottom: adminSpacing.xl,
+    marginHorizontal: -adminSpacing.xl,
   },
   tabsContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.xl,
     gap: 6,
   },
   tab: {
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 22,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
   },
   tabActive: {
-    backgroundColor: P.orange,
-    borderColor: P.orange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '600',
-    color: P.body,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.muted,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
   listingList: {
     gap: 10,
   },
   listingCard: {
     flexDirection: 'row',
-    backgroundColor: P.cardBg,
-    borderRadius: 14,
-    padding: 12,
-    paddingHorizontal: 12,
-    marginTop: 0,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: P.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   iconBox: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    backgroundColor: adminColors.brandTint,
   },
   listingContent: {
     flex: 1,
@@ -350,30 +317,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 0,
   },
   cropName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     flex: 1,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   priceColumn: {
     alignItems: 'flex-end',
   },
   priceAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   farmerInfo: {
-    fontSize: 13,
-    color: P.lightGray,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: -4,
     marginBottom: 6,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   gradeBadgeRow: {
     flexDirection: 'row',
@@ -385,18 +346,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: P.yellowBg,
+    backgroundColor: adminColors.warning.bg,
+  },
+  gradeBadge1: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  gradeBadge2: {
+    backgroundColor: adminColors.brandTint,
   },
   gradeBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: P.yellowText,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.warning.text,
   },
   ceilingText: {
-    fontSize: 11,
-    color: P.ceilingGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   actionRow: {
@@ -408,53 +373,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.greenBg,
-    borderRadius: 8,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.xs,
     paddingVertical: 10,
     gap: 4,
   },
   approveBtnText: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '700',
-    color: P.green,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.success.text,
   },
   counterBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orangeLight,
-    borderRadius: 8,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.xs,
     paddingVertical: 10,
     gap: 4,
   },
   counterBtnText: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#1A1A1A',
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.ink,
   },
   rejectBtn: {
     width: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.xs,
   },
-  warningCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: P.warningBg,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 2,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 10.5,
-    color: P.warningText,
-    lineHeight: 15,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+  bottomSpacer: {
+    height: 40,
   },
 });

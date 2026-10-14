@@ -9,6 +9,20 @@ import type {
   PurchaseOrderResponse,
 } from './purchase-orders.schema.js';
 
+/**
+ * timestamptz -> ISO-8601 UTC ("2026-10-05T07:42:36.490Z"), the `format: date-time`
+ * docs/openapi.yaml promises. node-postgres parses timestamptz into a Date, so the
+ * columns are selected raw and serialized here (as listings.repo.ts does). Never
+ * `::text` a timestamptz for the wire: Postgres's own form
+ * ("2026-10-05 07:42:36.490266+00") is not RFC 3339 and Hermes parses it as NaN.
+ * Calendar `date` columns (expectedDeliveryDate) stay `::text`.
+ *
+ * A JS Date stops at milliseconds, so list cursors are built in SQL (`cursorIssuedAt`
+ * column, to_char ... US) to keep microseconds: a truncated cursor would skip rows
+ * created within the same millisecond as the last row of a page.
+ */
+const CURSOR_TS = `'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`;
+
 export interface PurchaseOrderRow {
   id: string;
   po_number: string;
@@ -189,7 +203,7 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         po.total_amount::text AS "totalAmount",
         po.status,
         po.expected_delivery_date::text AS "expectedDeliveryDate",
-        po.issued_at::text AS "issuedAt",
+        po.issued_at AS "issuedAt",
         u.full_name AS "farmerName",
         f.tohfa_farmer_id AS "tohfaFarmerId"
       FROM purchase_orders po
@@ -198,13 +212,16 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
       WHERE po.id = $1 AND ${scopeFilter.sql}
     `;
 
-    const result = await tx.query<PurchaseOrderDetailResponse>(sql, [id, ...scopeFilter.params]);
+    const result = await tx.query<
+      Omit<PurchaseOrderDetailResponse, 'issuedAt' | 'goodsReceipts'> & { issuedAt: Date }
+    >(sql, [id, ...scopeFilter.params]);
     const row = result.rows[0];
     if (!row) return null;
 
     const receipts = await this.findGoodsReceiptsByPoId(tx, id);
     return {
       ...row,
+      issuedAt: row.issuedAt.toISOString(),
       goodsReceipts: receipts,
     };
   },
@@ -264,17 +281,25 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         po.total_amount::text AS "totalAmount",
         po.status,
         po.expected_delivery_date::text AS "expectedDeliveryDate",
-        po.issued_at::text AS "issuedAt"
+        po.issued_at AS "issuedAt",
+        to_char(po.issued_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorIssuedAt"
       FROM purchase_orders po
       ${whereClause}
       ORDER BY po.issued_at DESC
       ${limitClause}
     `;
 
-    const result = await tx.query<PurchaseOrderResponse>(sql, params);
+    const result = await tx.query<
+      Omit<PurchaseOrderResponse, 'issuedAt'> & { issuedAt: Date; cursorIssuedAt: string }
+    >(sql, params);
     const hasMore = result.rows.length > limit;
-    const items = hasMore ? result.rows.slice(0, limit) : result.rows;
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.issuedAt : null;
+    const rawItems = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const nextCursor =
+      hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursorIssuedAt : null;
+    const items: PurchaseOrderResponse[] = rawItems.map(({ cursorIssuedAt: _cursor, ...row }) => ({
+      ...row,
+      issuedAt: row.issuedAt.toISOString(),
+    }));
 
     return { items, nextCursor, hasMore };
   },
@@ -290,12 +315,15 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         accepted_qty_kg::text AS "acceptedQtyKg",
         rejected_qty_kg::text AS "rejectedQtyKg",
         status,
-        created_at::text AS "receivedAt"
+        created_at AS "receivedAt"
       FROM goods_receipts
       WHERE purchase_order_id = $1
       ORDER BY created_at ASC
     `;
-    const result = await tx.query<GoodsReceiptSummary>(sql, [poId]);
-    return result.rows;
+    const result = await tx.query<Omit<GoodsReceiptSummary, 'receivedAt'> & { receivedAt: Date }>(
+      sql,
+      [poId],
+    );
+    return result.rows.map((row) => ({ ...row, receivedAt: row.receivedAt.toISOString() }));
   },
 };

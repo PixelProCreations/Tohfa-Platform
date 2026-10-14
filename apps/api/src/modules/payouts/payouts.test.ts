@@ -1,8 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { pool } from '../../db/pool.js';
+import { pool, type Executor } from '../../db/pool.js';
+import { eventBus } from '../../events/bus.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import {
   aScope,
   databaseReady,
@@ -28,6 +30,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         listPayoutDues: async () => ({ items: [], totals: { totalDue: '0.00', farmerCount: 0 }, nextCursor: null }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -39,7 +44,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
 
     // Service doesn't check role here (that's requirePermission middleware), but amount 0 fails
     await expect(
-      svc.createPayout(actor, aScope({}), { farmerId: newId(), amount: '0.00', mode: 'IMPS' }),
+      svc.createPayout(actor, aScope({}), { farmerId: newId(), amount: '0.00', mode: 'IMPS' }, newId()),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 422 });
   });
 
@@ -79,6 +84,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         createPayout: async () => ({ payout: {} as PayoutRow, approvals: [] }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -89,7 +97,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'SAME_ACTOR_APPROVAL', status: 403 });
   });
 
@@ -129,6 +137,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         createPayout: async () => ({ payout: {} as PayoutRow, approvals: [] }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -139,7 +150,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
   });
 
@@ -177,6 +188,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         updatePayoutStatus: async () => {},
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -187,7 +201,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION', status: 409 });
   });
 });
@@ -409,6 +423,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const selfApproveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${superAdminToken}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Self-approve attempt' });
 
     expect(selfApproveRes.status).toBe(403);
@@ -418,6 +433,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const tohfaApproveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${tohfaAdminToken}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Tohfa Admin attempt' });
 
     expect(tohfaApproveRes.status).toBe(403);
@@ -427,6 +443,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const approveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${superAdmin2Token}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Approved by Super Admin 2' });
 
     expect(approveRes.status).toBe(200);
@@ -489,6 +506,86 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     // All returned items must be in D0_7 bucket
     for (const item of res.body.items) {
       expect(item.ageBucket).toBe('D0_7');
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // BR-52 (PAYROLL): payout.released is published exactly when a payout is
+  // actually released, not merely requested. Before this change nothing in
+  // the codebase ever called `eventBus.publish('payout.released', ...)`, so
+  // the PAYROLL notification-preference toggle (BR-52b/c in
+  // notifications.test.ts) gated an event that could never fire. These tests
+  // exercise the real HTTP path (real DB, real transaction + audit log) and
+  // spy on the process-wide eventBus singleton the same way the rest of this
+  // codebase publishes domain events (apps/api/src/events/bus.ts).
+  // -------------------------------------------------------------------------
+
+  it('BR-52: an auto-approved (<=10,000) payout publishes payout.released to the farmer once released', async () => {
+    if (!ready) return;
+
+    const publishSpy = vi.spyOn(eventBus, 'publish');
+    try {
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br52-small-${Date.now()}`)
+        .send({ farmerId, amount: '4000.00', mode: 'IMPS', remarks: 'BR-52 small payout' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('APPROVED');
+
+      const releasedCalls = publishSpy.mock.calls.filter(([name]) => name === 'payout.released');
+      expect(releasedCalls).toHaveLength(1);
+      expect(releasedCalls[0]![1]).toMatchObject({
+        userId: farmerUserId,
+        payoutId: res.body.id,
+        amount: '4000.00',
+        reference: res.body.payoutNumber,
+      });
+    } finally {
+      publishSpy.mockRestore();
+    }
+  });
+
+  it('BR-52: a dual-approval (>10,000) payout publishes payout.released only once the second Super Admin approves it, not on creation', async () => {
+    if (!ready) return;
+
+    const publishSpy = vi.spyOn(eventBus, 'publish');
+    try {
+      const createRes = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br52-large-${Date.now()}`)
+        .send({ farmerId, amount: '19000.00', mode: 'NEFT', remarks: 'BR-52 dual-approval payout' });
+
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.status).toBe('PENDING_APPROVAL');
+
+      // Not released yet — merely requesting/pending approval must not notify.
+      expect(
+        publishSpy.mock.calls.some(([name]) => name === 'payout.released'),
+      ).toBe(false);
+
+      const payoutId = createRes.body.id;
+      const approveRes = await request(app)
+        .post(`/v1/admin/payouts/${payoutId}/approve`)
+        .set('Authorization', `Bearer ${superAdmin2Token}`)
+        .set('Idempotency-Key', newId())
+        .send({ note: 'BR-52 second approval' });
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.status).toBe('APPROVED');
+
+      const releasedCalls = publishSpy.mock.calls.filter(([name]) => name === 'payout.released');
+      expect(releasedCalls).toHaveLength(1);
+      expect(releasedCalls[0]![1]).toMatchObject({
+        userId: farmerUserId,
+        payoutId,
+        amount: '19000.00',
+        reference: approveRes.body.payoutNumber,
+      });
+    } finally {
+      publishSpy.mockRestore();
     }
   });
 });

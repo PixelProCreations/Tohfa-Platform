@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -12,40 +13,26 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { adminErrorKey } from '../../../api/errors';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { t } from '../../../i18n';
+import { parseRupeesToPaise } from '../../../money/paise';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { ExpenseDraft, ExpenseRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import type { ExpenseDraft, WarehouseScreenBaseProps } from './types';
+import { useCreateExpenseMutation, useExpenseCategories } from './useFinanceData';
 
 /**
  * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
  * - Save Expense is enabled only when can('finance.expense.log'); otherwise it is
  *   rendered disabled and the handler no-ops.
  * - There is no approve control: rbac.json has no approve code for expenses.
- * - Main Warehouse admins can select the destination warehouse from a dropdown list.
+ * - The form has no warehouse selector; the expense is logged against the viewer's scope.
  * The server re-checks every permission (CLAUDE.md 2.1); `can` only decides what to render.
  */
 
-const DEFAULT_WAREHOUSES: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
-
-const EXPENSE_CATEGORIES = [
-  'Transport',
-  'Loading',
-  'Unloading',
-  'Maintenance',
-  'Utilities',
-  'Warehouse Operations',
-  'Other',
-];
-
 export interface WarehouseAddExpenseScreenProps extends WarehouseScreenBaseProps {
-  onSaveSuccess?: ((savedRecord?: ExpenseRecord) => void) | undefined;
+  onSaveSuccess?: (() => void) | undefined;
   initialExpense?: ExpenseDraft | undefined;
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  initialWarehouseId?: string | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -248,41 +235,20 @@ export function WarehouseAddExpenseScreen({
   onBack,
   onSaveSuccess,
   initialExpense,
-  warehouseOptions = DEFAULT_WAREHOUSES,
-  initialWarehouseId,
 }: WarehouseAddExpenseScreenProps) {
   const canLog = can('finance.expense.log');
-  const isMain = scope.warehouseId === undefined;
-  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string }>(() => {
-    if (initialExpense?.warehouseId && initialExpense?.warehouseName) {
-      return { id: initialExpense.warehouseId, name: initialExpense.warehouseName };
-    }
-    if (initialWarehouseId) {
-      const match = warehouseOptions.find((w) => w.warehouseId === initialWarehouseId || w.warehouseName === initialWarehouseId);
-      if (match) {
-        return { id: match.warehouseId ?? initialWarehouseId, name: match.warehouseName ?? initialWarehouseId };
-      }
-    }
-    if (scope.warehouseId && scope.warehouseName) {
-      return { id: scope.warehouseId, name: scope.warehouseName };
-    }
-    return { id: 'WH-COON', name: 'Coonoor Warehouse' };
-  });
-  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
-  const [amount, setAmount] = useState(initialExpense?.amount ? String(initialExpense.amount) : '');
+  const [amount, setAmount] = useState(initialExpense?.amount || '2400');
   const [description, setDescription] = useState(initialExpense?.description || 'Transport · Collection point → Warehouse');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
   const [, setAttachedDoc] = useState<string | null>(null);
 
-  // Add Category State
-  const [showAddCategoryScreen, setShowAddCategoryScreen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryStatus, setNewCategoryStatus] = useState('Active');
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const { categories } = useExpenseCategories();
+  const createMutation = useCreateExpenseMutation();
+  const idempotencyKey = useIdempotencyKey();
 
   // Confirmation state
   const [isConfirming, setIsConfirming] = useState(false);
@@ -342,128 +308,56 @@ export function WarehouseAddExpenseScreen({
 
   const handleSaveExpense = () => {
     if (!canLog) return;
-    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
-    const parsed = Number(cleanAmount);
-    if (!cleanAmount || isNaN(parsed) || parsed <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount.');
+    const paise = parseRupeesToPaise(amount);
+    if (!paise || paise <= 0) {
+      Alert.alert(t('async.error.title'), 'Please enter a valid expense amount.');
       return;
     }
     setIsConfirming(true);
   };
 
   const handleConfirmSave = () => {
-    if (!canLog) return;
-    setIsConfirming(false);
-    setIsSuccess(true);
-  };
-
-  const handleSaveCategory = () => {
-    if (!newCategoryName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a category name.');
+    if (!canLog || createMutation.isPending) return;
+    const paise = parseRupeesToPaise(amount);
+    if (!paise || paise <= 0) {
+      Alert.alert(t('async.error.title'), 'Please enter a valid expense amount.');
       return;
     }
-    Alert.alert('Category Added', `Category "${newCategoryName}" has been successfully added.`);
-    setShowAddCategoryScreen(false);
-    setNewCategoryName('');
-  };
+    const cat = categories.find((c) => c.name === selectedCategory) ?? categories[0];
+    if (!cat) {
+      Alert.alert(t('async.error.title'), 'Please select a valid expense category.');
+      return;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${calYear}-${pad(calMonth + 1)}-${pad(tempSelectedDay)}`;
+    const body = {
+      warehouseId: scope.warehouseId,
+      categoryId: cat.id,
+      amount: (paise / 100).toFixed(2),
+      expenseDate: isoDate,
+      paymentMethod: paymentMethod.toUpperCase() as 'CASH' | 'UPI' | 'BANK',
+      description: description.trim() || undefined,
+      referenceNumber: vendorPayee.trim() || undefined,
+    };
 
-  if (showAddCategoryScreen) {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* ─── Top Brand Header Banner ─── */}
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.75}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Category</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.confirmCard, { borderColor: adminColors.brand, paddingBottom: adminSpacing.input }]}>
-            <View style={[styles.confirmHeaderRow, { marginBottom: adminSpacing.lg }]}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brandDeep }}>⊕ Add Category</Text>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Category Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="e.g. Packaging"
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <TouchableOpacity
-                style={styles.dropdownBtn}
-                onPress={() => setShowStatusPicker(!showStatusPicker)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownValueText}>{newCategoryStatus}</Text>
-                <ChevronDownIcon size={16} color={adminColors.ink} />
-              </TouchableOpacity>
-
-              {showStatusPicker && (
-                <View style={styles.pickerDropdown}>
-                  {['Active', 'Inactive'].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.pickerOption,
-                        newCategoryStatus === status && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => {
-                        setNewCategoryStatus(status);
-                        setShowStatusPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          newCategoryStatus === status && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {status}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.confirmGreenBtn, { marginTop: adminSpacing.sm }]}
-              onPress={handleSaveCategory}
-              activeOpacity={0.8}
-            >
-              <CheckIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.confirmGreenBtnText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.confirmCancelBtn, { marginTop: adminSpacing.md }]}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+    createMutation.mutate(
+      {
+        body,
+        idempotencyKey: idempotencyKey.keyFor(body),
+      },
+      {
+        onSuccess: () => {
+          idempotencyKey.reset();
+          setIsConfirming(false);
+          setIsSuccess(true);
+        },
+        onError: (err) => {
+          setIsConfirming(false);
+          Alert.alert(t('async.error.title'), t(adminErrorKey(err)));
+        },
+      },
     );
-  }
+  };
 
   // If in Confirmation step, render confirmation view
   if (isConfirming) {
@@ -514,24 +408,24 @@ export function WarehouseAddExpenseScreen({
                   <Text style={styles.confirmDetailLabel}>Date</Text>
                   <Text style={styles.confirmDetailValue}>{expenseDate}</Text>
                 </View>
-                {isMain ? (
-                  <View style={styles.confirmDetailCol}>
-                    <Text style={styles.confirmDetailLabel}>Warehouse</Text>
-                    <Text style={styles.confirmDetailValue}>{selectedWarehouse.name}</Text>
-                  </View>
-                ) : null}
               </View>
             </View>
 
             {/* Confirm Outline Button (Green) */}
             <TouchableOpacity
-              style={[styles.confirmGreenBtn, !canLog && styles.confirmBtnDisabled]}
+              style={[styles.confirmGreenBtn, (!canLog || createMutation.isPending) && styles.confirmBtnDisabled]}
               onPress={handleConfirmSave}
-              disabled={!canLog}
+              disabled={!canLog || createMutation.isPending}
               activeOpacity={0.8}
             >
-              <CheckIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.confirmGreenBtnText}>Confirm</Text>
+              {createMutation.isPending ? (
+                <ActivityIndicator size="small" color={adminColors.success.text} />
+              ) : (
+                <>
+                  <CheckIcon size={18} color={adminColors.success.text} />
+                  <Text style={styles.confirmGreenBtnText}>Confirm</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Cancel Outline Button (Warm Brown) */}
@@ -560,18 +454,7 @@ export function WarehouseAddExpenseScreen({
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
-                const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
-                const newRecord: ExpenseRecord = {
-                  id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
-                  categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                  amount: parsedAmt,
-                  timestamp: `${expenseDate} - 10:00 AM`,
-                  status: 'Recorded',
-                  warehouseId: selectedWarehouse.id,
-                  warehouseName: selectedWarehouse.name,
-                };
-                if (onSaveSuccess) onSaveSuccess(newRecord);
-                else if (onBack) onBack();
+                if (onBack) onBack();
                 else setIsSuccess(false);
               }}
               activeOpacity={0.75}
@@ -602,17 +485,7 @@ export function WarehouseAddExpenseScreen({
           <TouchableOpacity
             style={styles.viewExpenseBtn}
             onPress={() => {
-              const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100) / 100;
-              const newRecord: ExpenseRecord = {
-                id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
-                categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                amount: parsedAmt,
-                timestamp: `${expenseDate} - 10:00 AM`,
-                status: 'Recorded',
-                warehouseId: selectedWarehouse.id,
-                warehouseName: selectedWarehouse.name,
-              };
-              if (onSaveSuccess) onSaveSuccess(newRecord);
+              if (onSaveSuccess) onSaveSuccess();
               else if (onBack) onBack();
             }}
             activeOpacity={0.8}
@@ -654,71 +527,12 @@ export function WarehouseAddExpenseScreen({
         {/* Section Heading: Expense Information */}
         <Text style={styles.sectionHeading}>Expense Information</Text>
 
-        {/* Field: Select Warehouse (Main Warehouse only) */}
-        {isMain && (
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Select Warehouse</Text>
-            <TouchableOpacity
-              style={styles.dropdownBtn}
-              onPress={() => {
-                setShowWarehousePicker(!showWarehousePicker);
-                setShowCategoryPicker(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dropdownValueText}>{selectedWarehouse.name || 'Select Warehouse'}</Text>
-              <ChevronDownIcon size={16} color={adminColors.ink} />
-            </TouchableOpacity>
-
-            {/* Warehouse Dropdown List */}
-            {showWarehousePicker && (
-              <View style={styles.pickerDropdown}>
-                {warehouseOptions.map((wh) => {
-                  const whId = wh.warehouseId ?? '';
-                  const whName = wh.warehouseName ?? whId;
-                  const isSelected = selectedWarehouse.id === whId || selectedWarehouse.name === whName;
-                  return (
-                    <TouchableOpacity
-                      key={whId || whName}
-                      style={[
-                        styles.pickerOption,
-                        isSelected && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedWarehouse({ id: whId, name: whName });
-                        setShowWarehousePicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          isSelected && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {whName}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Field 1: Expense Category */}
         <View style={styles.fieldGroup}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm }}>
-            <Text style={[styles.fieldLabel, { marginBottom: 0 }]}>Expense Category</Text>
-            <TouchableOpacity onPress={() => setShowAddCategoryScreen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brand }}>+ Add</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.fieldLabel}>Expense Category</Text>
           <TouchableOpacity
             style={styles.dropdownBtn}
-            onPress={() => {
-              setShowCategoryPicker(!showCategoryPicker);
-              setShowWarehousePicker(false);
-            }}
+            onPress={() => setShowCategoryPicker(!showCategoryPicker)}
             activeOpacity={0.8}
           >
             <Text style={styles.dropdownValueText}>{selectedCategory || 'Select Category'}</Text>
@@ -728,40 +542,38 @@ export function WarehouseAddExpenseScreen({
           {/* Category Dropdown List */}
           {showCategoryPicker && (
             <View style={styles.pickerDropdown}>
-              {EXPENSE_CATEGORIES.map((cat) => (
+              {(categories.length > 0 ? categories : [{ id: 'default', name: 'Transport', status: 'Active', usedCount: 0 }]).map((cat) => (
                 <TouchableOpacity
-                  key={cat}
+                  key={cat.id}
                   style={[
                     styles.pickerOption,
-                    selectedCategory === cat && styles.pickerOptionActive,
+                    selectedCategory === cat.name && styles.pickerOptionActive,
                   ]}
                   onPress={() => {
-                    setSelectedCategory(cat);
+                    setSelectedCategory(cat.name);
                     setShowCategoryPicker(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.pickerOptionText,
-                      selectedCategory === cat && styles.pickerOptionTextActive,
+                      selectedCategory === cat.name && styles.pickerOptionTextActive,
                     ]}
                   >
-                    {cat}
+                    {cat.name}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
-
-          {/* Ported from the Main copy: the list is configuration, not a local list. Hidden for Main Warehouse */}
-          {!isMain && (
-            <View style={styles.blueCallout}>
-              <Text style={styles.blueCalloutText}>
-                This list reflects Expense Categories (S06) configuration — never a separately maintained list.
-              </Text>
-            </View>
-          )}
         </View>
+
+          {/* Ported from the Main copy: the list is configuration, not a local list. */}
+          <View style={styles.blueCallout}>
+            <Text style={styles.blueCalloutText}>
+              This list reflects Expense Categories (S06) configuration — never a separately maintained list.
+            </Text>
+          </View>
 
         {/* Field 2: Expense Date */}
         <View style={styles.fieldGroup}>
@@ -879,16 +691,14 @@ export function WarehouseAddExpenseScreen({
           </View>
         </View>
 
-        {/* Callout 3: SWA Permissions Notice (Hidden for Main Warehouse) */}
-        {!isMain && (
-          <View style={styles.amberCallout}>
-            <Text style={styles.amberCalloutText}>
-              {canLog
-                ? 'Log Operational Expenses is granted — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.'
-                : 'Log Operational Expenses is not granted for your role, so Save Expense is disabled.'}
-            </Text>
-          </View>
-        )}
+        {/* Callout 3: SWA Permissions Notice */}
+        <View style={styles.amberCallout}>
+          <Text style={styles.amberCalloutText}>
+            {canLog
+              ? 'Log Operational Expenses is granted — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.'
+              : 'Log Operational Expenses is not granted for your role, so Save Expense is disabled.'}
+          </Text>
+        </View>
 
         {/* ─── Bottom Actions ─── */}
         <TouchableOpacity

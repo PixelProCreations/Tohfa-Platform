@@ -1,6 +1,9 @@
 import { ErrorCode } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
+import { effectiveAvailableSql } from '../../db/shelfAvailability.js';
 import { AppError } from '../../http/problem.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { scopedWhere, type ResolvedScope, type ScopedWhere } from '../../rbac/requirePermission.js';
 import type {
   AllocationChannel,
@@ -29,6 +32,14 @@ export interface InsertAllocationItem {
   allocatedQtyKg: string;
   computedBy?: 'AUTO' | 'MANUAL';
 }
+
+/**
+ * BR-100: the dashboard's available figure is the row's stored available_qty capped by the batch's
+ * unclaimed shelf. A DIRECT counter sale draws the batch without decrementing any allocation
+ * (BR-95), so the stored figure alone would tell staff there is stock that is not on the shelf.
+ * allocated / consumed / reserved are returned as stored.
+ */
+const EFFECTIVE_AVAILABLE = effectiveAvailableSql('a', 'b');
 
 function toAllocationView(row: ChannelAllocationRow): AllocationView {
   const formatDate = (val: Date | string): string => {
@@ -291,8 +302,10 @@ export const allocationsRepo: AllocationsRepo = {
       conditions.push(`b.received_on = $${params.length}::date`);
     }
     if (filters.cursor !== undefined && filters.cursor.length > 0) {
-      params.push(filters.cursor);
-      conditions.push(`a.id < $${params.length}`);
+      // Keyset on (created_at, id), matching the ORDER BY (the old `a.id < cursor` skipped rows).
+      const after = requireKeysetCursor(CURSOR_TAGS.allocations, filters.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(a.created_at, a.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
     }
 
     const where = conditions.length === 0 ? 'TRUE' : conditions.join(' AND ');
@@ -300,7 +313,10 @@ export const allocationsRepo: AllocationsRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT a.*, b.crop_id, cm.name AS crop_name, b.grade
+      SELECT a.id, a.batch_id, a.warehouse_id, a.channel, a.allocated_qty, a.consumed_qty,
+             a.reserved_qty, ${EFFECTIVE_AVAILABLE}::text AS available_qty, a.computed_by,
+             a.overridden_by, a.created_at, ${MICRO_TS_SQL('a.created_at')} AS cursor_ts,
+             b.crop_id, cm.name AS crop_name, b.grade
         FROM allocations a
         JOIN inventory_batches b ON b.id = a.batch_id
         LEFT JOIN crop_master cm ON cm.id = b.crop_id
@@ -309,12 +325,15 @@ export const allocationsRepo: AllocationsRepo = {
        LIMIT $${params.length}
     `;
 
-    const res = await db.query<ChannelAllocationRow>(querySql, params);
+    const res = await db.query<ChannelAllocationRow & { cursor_ts: string }>(querySql, params);
     const rows = res.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
+    const last = itemsToReturn[itemsToReturn.length - 1];
     const nextCursor =
-      hasMore && itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1]!.id : null;
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.allocations, { ts: last.cursor_ts, id: last.id })
+        : null;
 
     return {
       items: itemsToReturn.map(toAllocationView),
@@ -332,7 +351,7 @@ export const allocationsRepo: AllocationsRepo = {
     channel: AllocationChannel,
   ): Promise<string> {
     const res = await db.query<{ available_qty: string }>(
-      `SELECT COALESCE(SUM(a.available_qty), 0)::text AS available_qty
+      `SELECT COALESCE(SUM(${EFFECTIVE_AVAILABLE}), 0)::numeric(14,3)::text AS available_qty
          FROM allocations a
          JOIN inventory_batches b ON b.id = a.batch_id
         WHERE a.warehouse_id = $1

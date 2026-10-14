@@ -1,22 +1,20 @@
 // Design id: M3S09
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, LowStockRow } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-/** One low-stock row. `warehouseName` is shown in the Main (all-warehouses) view. */
-export interface LowStockItem {
-  name: string;
-  available: string;
-  threshold: string;
-  warehouseName?: string | undefined;
-}
-
-export interface LowStockScreenProps extends InventoryScreenBaseProps {
-  /** Rows to show; defaults to the design sample. Thresholds come from system_config, never from this app. */
-  items?: readonly LowStockItem[] | undefined;
+export interface LowStockScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /**
+   * The server's LOW_STOCK alerts for the warehouse (GET /admin/alerts?type=LOW_STOCK).
+   * The threshold is system_config.low_stock_threshold_kg on the server, never a number in this app.
+   */
+  items?: readonly LowStockRow[] | undefined;
   /** 'Initiate Transfer' (absorbed from the Main LowStockAlertsScreen). Rendered only with transfer.inter_warehouse.initiate. */
   onInitiateTransfer?: (() => void) | undefined;
 }
@@ -48,41 +46,27 @@ function InfoCircleIcon() {
   );
 }
 
-export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitiateTransfer }: LowStockScreenProps) {
+export function LowStockScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  items = [],
+  onInitiateTransfer,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: LowStockScreenProps) {
   // Main (no warehouseId) sees platform-wide rows; Sub sees its own warehouse only.
   const allWarehouses = scope.warehouseId === undefined;
   // rbac: transfer.inter_warehouse.initiate MAIN=all, SUB=none. The Main screen's
   // 'Adjust Thresholds' is NOT carried over: alert.threshold.configure is none
   // for both warehouse roles.
   const canInitiateTransfer = can('transfer.inter_warehouse.initiate');
-  const sampleItems: LowStockItem[] = [
-    {
-      name: 'Carrot — Grade 1',
-      available: '12 KG',
-      threshold: '20 KG',
-    },
-    {
-      name: 'Beans — Grade 1',
-      available: '8 KG',
-      threshold: '15 KG',
-    },
-    {
-      name: 'Spinach — Grade 2',
-      available: '0 KG',
-      threshold: '10 KG',
-    },
-    {
-      name: 'Beetroot — Grade 1',
-      available: '6 KG',
-      threshold: '12 KG',
-    },
-    {
-      name: 'Cow Milk',
-      available: '4 L',
-      threshold: '10 L',
-    },
-  ];
-  const lowStockItems = items ?? sampleItems;
+  const lowStockItems = items;
+  const view = queryViewState({ isLoading, error, itemCount: items.length });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -99,6 +83,16 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
         >
           {/* Info Banner */}
           <View style={styles.infoBanner}>
@@ -110,12 +104,16 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
             </Text>
           </View>
 
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.empty.lowStock')} /> : null}
+
           {/* Low Stock Items matching Image 4 Left */}
-          {lowStockItems.map((item, index) => (
+          {lowStockItems.map((item) => (
             <TouchableOpacity
-              key={index}
+              key={item.id}
               style={styles.itemCard}
-              onPress={() => onNavigate?.('M3S03')}
+              onPress={() => onNavigate?.('M3S03', { cropId: item.cropId, grade: item.grade })}
               activeOpacity={0.7}
             >
               <View style={styles.itemRow}>
@@ -124,9 +122,6 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
                 </View>
                 <View style={styles.itemContent}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  {allWarehouses && item.warehouseName ? (
-                    <Text style={styles.itemDetails}>{item.warehouseName}</Text>
-                  ) : null}
                   <Text style={styles.itemDetails}>
                     Available {item.available} · Configured Threshold {item.threshold}
                   </Text>

@@ -9,7 +9,7 @@
  * not from literals in each screen.
  */
 import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
-import type { ExpenseCategoryItem, RevenueRecord, VoucherRecord, WarehouseScope } from './types';
+import type { ExpenseCategoryItem, ExpenseRecord, FinanceHistoryItem, RevenueRecord, VoucherRecord, WarehouseScope } from './types';
 
 /** Warehouses for the Main all-warehouses selectors. */
 export const FINANCE_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
@@ -68,26 +68,6 @@ export const SAMPLE_REVENUE_RECORDS: readonly RevenueRecord[] = [
     timestamp: '24 Sep 2026 · 2:00 PM',
     status: 'Completed',
     ...warehouse('WH-KOTA'),
-  },
-  {
-    id: 'REV-000824',
-    orderRef: 'Market Sale · Gudalur Mandi Counter',
-    category: 'Direct Sales',
-    amount: 3200,
-    paymentMethod: 'Cash',
-    timestamp: '24 Sep 2026 · 11:45 AM',
-    status: 'Completed',
-    ...warehouse('WH-GUDA'),
-  },
-  {
-    id: 'REV-000819',
-    orderRef: 'Customer Order · ORD-10260',
-    category: 'Orders',
-    amount: 6600,
-    paymentMethod: 'UPI',
-    timestamp: '23 Sep 2026 · 3:20 PM',
-    status: 'Completed',
-    ...warehouse('WH-OOTY'),
   },
 ];
 
@@ -158,6 +138,53 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategoryItem[] = [
   { id: 'cat-5', name: 'Utilities', status: 'Active', usedCount: 6 },
   { id: 'cat-6', name: 'Warehouse Operations', status: 'Active', usedCount: 4 },
   { id: 'cat-7', name: 'Other', status: 'Inactive', usedCount: 2 },
+];
+
+export const SAMPLE_EXPENSE_RECORDS: readonly ExpenseRecord[] = [
+  {
+    id: 'EXP-001245',
+    categoryRef: 'Transport · Collection point → Warehouse',
+    amount: 2400,
+    timestamp: '25 Sep - 09:30 AM',
+    status: 'Recorded',
+  },
+  {
+    id: 'EXP-001244',
+    categoryRef: 'Loading / Unloading · Morning unloading',
+    amount: 1800,
+    timestamp: '25 Sep - 08:15 AM',
+    status: 'Recorded',
+  },
+  {
+    id: 'EXP-001241',
+    categoryRef: 'Warehouse Operations · Storage Crates & Pallets',
+    amount: 1200,
+    timestamp: '24 Sep - 05:45 PM',
+    status: 'Approved',
+  },
+  {
+    id: 'EXP-001238',
+    categoryRef: 'Utilities · Generator Diesel & Power',
+    amount: 620,
+    timestamp: '24 Sep - 02:30 PM',
+    status: 'Recorded',
+  },
+  {
+    id: 'EXP-001235',
+    categoryRef: 'Maintenance · Digital Weigh Scale Calibration',
+    amount: 400,
+    timestamp: '24 Sep - 11:00 AM',
+    status: 'Recorded',
+  },
+];
+
+export const SAMPLE_HISTORY: readonly FinanceHistoryItem[] = [
+  { id: 'REV-000845', type: 'Revenue', title: 'Market Sale', amount: 3450, time: '11:20 AM' },
+  { id: 'EXP-001245', type: 'Expense', title: 'Transport', amount: 2400, time: '09:32 AM' },
+  { id: 'REV-000844', type: 'Revenue', title: 'B2B Sale · Taj Hotel', amount: 14500, time: '08:45 AM' },
+  { id: 'EXP-001244', type: 'Expense', title: 'Loading / Unloading', amount: 1800, time: '08:15 AM' },
+  { id: 'REV-000843', type: 'Revenue', title: 'Horeca Order · Café Customer', amount: 6900, time: '24 Sep · 06:10 PM' },
+  { id: 'EXP-001238', type: 'Expense', title: 'Generator Diesel & Power', amount: 620, time: '24 Sep · 02:30 PM' },
 ];
 
 /** Default revenue detail (the old SubWarehouseRevenueDetailScreen defaults, minus the hard-wired warehouse). */

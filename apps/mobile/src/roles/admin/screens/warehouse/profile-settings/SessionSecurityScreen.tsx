@@ -4,35 +4,53 @@
  * Was SubWarehouseSessionSecurityScreen. Gate: none beyond login
  * (auth.session.revoke_own and auth.principal.view_own are `all` for both
  * roles). Only the CURRENT session can be logged out here: ending other
- * sessions is auth.session.terminate_other, SUPER_ADMIN only, so no
- * "log out other devices" control is offered.
+ * sessions is auth.session.terminate_other, `none` for both warehouse roles,
+ * so no "log out other devices" control is offered.
  *
- * The session facts are mock (no session-list endpoint for the signed-in
- * user: SPEC_GAPS W4l-3); the location no longer names a warehouse.
+ * Live (plan phase 8, BR-67): the list is GET /auth/me/sessions, the
+ * account's own LIVE sessions (neither revoked nor expired), newest first:
+ * device platform, user agent, when it started, when it was last seen, the
+ * last-seen IP and when it expires. Exactly those fields.
+ *
+ * Hidden, because the API cannot provide them: the "Current Session" card
+ * (the access token carries no session id, so the server cannot say which row
+ * is this device, and the app does not guess), the session id, the location,
+ * the "trusted device" switch and the login history (only live sessions are
+ * returned; there are no failed or past logins).
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { Card, InfoCard, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { CURRENT_SESSION, LOGIN_HISTORY } from './fixtures';
-import { ConfirmDialog, DangerOutlineButton, LogoutIcon, MenuCard, profileLayout, StatusDot, StatusRow } from './ProfileParts';
-import type { CurrentSessionInfo, LoginHistoryItem, WarehouseScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { adminSpacing } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { InfoCard, InfoNote, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { ConfirmDialog, DangerOutlineButton, LogoutIcon, profileLayout } from './ProfileParts';
+import type { SessionRowView, WarehouseScreenBaseProps } from './types';
 
 export interface SessionSecurityScreenProps extends WarehouseScreenBaseProps {
-  session?: CurrentSessionInfo | undefined;
-  loginHistory?: readonly LoginHistoryItem[] | undefined;
+  /** The live sessions (GET /auth/me/sessions). */
+  sessions?: readonly SessionRowView[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
   /** Log out this session (host navigates to login). Without it the screen just goes back. */
   onLogout?: (() => void) | undefined;
 }
 
 export function SessionSecurityScreen({
   onBack,
-  session = CURRENT_SESSION,
-  loginHistory = LOGIN_HISTORY,
+  sessions = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
   onLogout,
 }: SessionSecurityScreenProps) {
-  const [remembered, setRemembered] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const logout = () => {
@@ -41,70 +59,48 @@ export function SessionSecurityScreen({
     else onBack();
   };
 
+  const state = queryViewState({ isLoading, error, itemCount: sessions.length });
+  const noValue = t('profile.noValue');
+
   return (
     <WalletScreen title="Session & Security" onBack={onBack}>
-      <ScrollView contentContainerStyle={profileLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>CURRENT SESSION</SectionTitle>
-        <View style={styles.currentSession}>
-          <View style={styles.activeRow}>
-            <StatusDot color={adminColors.success.text} />
-            <Text style={styles.activeText}>Active</Text>
-          </View>
-          <InfoCard
-            rows={[
-              [
-                { label: 'Device', value: session.device },
-                { label: 'Browser', value: session.browser },
-              ],
-              [
-                { label: 'Location', value: session.location },
-                { label: 'Last Active', value: session.lastActive },
-              ],
-            ]}
-          />
-        </View>
-
-        <SectionTitle>SESSION INFORMATION</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Session ID', value: session.sessionId },
-              { label: 'Status', value: 'Active' },
-            ],
-            [
-              { label: 'Started', value: session.started },
-              { label: 'Last Active', value: session.lastActive },
-            ],
-          ]}
-        />
-
-        <SectionTitle>TRUSTED DEVICE</SectionTitle>
-        <MenuCard>
-          <StatusRow
-            label="This device is remembered"
-            right={
-              <Switch
-                value={remembered}
-                onValueChange={setRemembered}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
-              />
-            }
-          />
-        </MenuCard>
-
-        <SectionTitle>LOGIN HISTORY</SectionTitle>
-        <Card>
-          {loginHistory.map((item, index) => (
-            <View key={item.id} style={[styles.historyRow, index > 0 && styles.historyRowDivided]}>
-              <View style={styles.historyText}>
-                <Text style={styles.historyDevice}>{item.device}</Text>
-                <Text style={styles.historyTime}>{item.time}</Text>
+      <ScrollView
+        contentContainerStyle={profileLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
+      >
+        <SectionTitle>{t('profile.sessions.title')}</SectionTitle>
+        {state === 'loading' ? (
+          <AdminLoadingState />
+        ) : state === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : state === 'empty' ? (
+          <AdminEmptyState title={t('profile.sessions.empty')} />
+        ) : (
+          <>
+            <InfoNote>{t('profile.sessions.note')}</InfoNote>
+            {sessions.map((session) => (
+              <View key={session.id} style={styles.session}>
+                <InfoCard
+                  rows={[
+                    [
+                      { label: t('profile.sessions.device'), value: session.device },
+                      { label: t('profile.sessions.lastActive'), value: session.lastActive ?? noValue },
+                    ],
+                    [
+                      { label: t('profile.sessions.started'), value: session.started },
+                      { label: t('profile.sessions.expires'), value: session.expires },
+                    ],
+                    [
+                      { label: t('profile.sessions.ip'), value: session.ip ?? noValue },
+                      { label: t('profile.sessions.userAgent'), value: session.userAgent ?? noValue },
+                    ],
+                  ]}
+                />
               </View>
-              <Text style={[styles.historyResult, item.result === 'Failed' && styles.historyResultFailed]}>{item.result}</Text>
-            </View>
-          ))}
-        </Card>
+            ))}
+          </>
+        )}
 
         <View style={styles.logoutButton}>
           <DangerOutlineButton label="Logout Current Session" onPress={() => setConfirmLogout(true)} />
@@ -126,30 +122,6 @@ export function SessionSecurityScreen({
 }
 
 const styles = StyleSheet.create({
-  // The design outlines the current session in green; success.border is the theme's green stroke.
-  currentSession: {
-    borderWidth: 1.5,
-    borderColor: adminColors.success.border,
-    borderRadius: adminRadius.xl,
-    padding: adminSpacing.xs,
-    backgroundColor: adminColors.success.bg,
-  },
-  activeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
-  },
-  activeText: { ...adminType.rowTitle, color: adminColors.success.text },
-
-  historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: adminSpacing.sm },
-  historyRowDivided: { borderTopWidth: 1, borderTopColor: adminColors.border },
-  historyText: { flex: 1 },
-  historyDevice: { ...adminType.rowTitle, color: adminColors.ink },
-  historyTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  historyResult: { ...adminType.caption, color: adminColors.success.text },
-  historyResultFailed: { color: adminColors.danger.text },
-
+  session: { marginTop: adminSpacing.md },
   logoutButton: { marginTop: adminSpacing.xl },
 });

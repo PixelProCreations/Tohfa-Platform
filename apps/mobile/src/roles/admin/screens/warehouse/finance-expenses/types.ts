@@ -18,6 +18,13 @@
 export interface WarehouseScope {
   warehouseId?: string | undefined;
   warehouseName?: string | undefined;
+  /**
+   * Human warehouse code (`Warehouse.code`, e.g. WH-COON) from GET
+   * /warehouses/{id}. `warehouseId` is the server uuid; screens still running
+   * on fixtures key their rows by this code, so their "in scope" checks
+   * compare `warehouseCode ?? warehouseId`.
+   */
+  warehouseCode?: string | undefined;
 }
 
 /** True when the signed-in admin holds the docs/rbac.json permission `code`. */
@@ -45,8 +52,6 @@ export interface FinanceHistoryItem {
   title: string;
   amount: number;
   time: string;
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
 }
 
 /** One report card on the finance reports screen. */
@@ -63,9 +68,7 @@ export interface ExpenseRecord {
   categoryRef: string;
   amount: number;
   timestamp: string;
-  status: 'Recorded' | 'Pending' | 'Approved' | 'Rejected';
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
+  status: 'Recorded' | 'Approved' | 'Rejected';
 }
 
 /**
@@ -184,6 +187,4 @@ export interface ExpenseDraft {
   description: string;
   paymentMethod: 'Cash' | 'UPI' | 'Bank';
   vendorPayee: string;
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
 }

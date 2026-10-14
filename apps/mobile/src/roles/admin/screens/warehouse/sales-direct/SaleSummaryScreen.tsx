@@ -11,6 +11,8 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import type { SaleProduct, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType } from '../../../theme';
+import { formatPaise } from '../../../money/paise';
+import { cartTotalPaise, lineTotalPaise } from './salesMath';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -127,15 +129,30 @@ export function SaleSummaryScreen({
   onBack,
   onContinueToCustomer,
 }: SaleSummaryScreenProps) {
-  const [cartItems] = useState<CartItem[]>(() => cartFromProducts(items));
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => cartFromProducts(items));
 
-  const subtotal = cartItems.reduce(
-    (acc, item) => acc + item.quantityKg * item.pricePerKg,
-    0
-  );
+  const updateQuantity = (id: string, delta: number) => {
+    setCartItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const newQty = Math.max(1, item.quantityKg + delta);
+          return { ...item, quantityKg: newQty };
+        }
+        return item;
+      })
+    );
+  };
+
+  const removeItem = (id: string) => {
+    setCartItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  // Integer paise (CLAUDE.md 2.2); the rupee number handed to onContinueToCustomer
+  // is paise / 100, which PaymentScreen converts back through the same helpers.
+  const subtotalPaise = cartTotalPaise(cartItems);
   const discount = 0;
   const gst = 0;
-  const total = subtotal - discount + gst;
+  const totalPaise = subtotalPaise - discount + gst;
 
   // Warehouse name resolution
   const warehouseDisplayName =
@@ -143,7 +160,7 @@ export function SaleSummaryScreen({
     scope.warehouseName?.replace(/ Warehouse$/, '') ??
     'Coonoor';
 
-  const handleContinue = () => onContinueToCustomer(total, cartItems.length);
+  const handleContinue = () => onContinueToCustomer(totalPaise / 100, cartItems.length);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -174,15 +191,50 @@ export function SaleSummaryScreen({
         <Text style={styles.sectionHeading}>Sale Items</Text>
         <View style={styles.card}>
           {cartItems.map((item, idx) => {
-            const itemTotal = item.quantityKg * item.pricePerKg;
+            const itemTotal = formatPaise(lineTotalPaise(item.pricePerKg, item.quantityKg));
+            const isTomato = idx === 0;
+
             return (
               <View key={item.id}>
                 {idx > 0 && <View style={styles.divider} />}
                 <View style={styles.itemRow}>
-                  <Text style={styles.itemName}>
-                    {item.name} - {item.quantityKg} KG
-                  </Text>
-                  <Text style={styles.itemPrice}>₹{itemTotal}</Text>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemSubtitle}>
+                      {item.grade} · {item.quantityKg} KG × ₹{item.pricePerKg}
+                    </Text>
+                  </View>
+
+                  <View style={styles.itemRightCol}>
+                    <Text style={styles.itemPrice}>{itemTotal}</Text>
+                    {isTomato ? (
+                      <View style={styles.stepperWrap}>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => updateQuantity(item.id, -1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.stepperValue}>{item.quantityKg}</Text>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => updateQuantity(item.id, 1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => removeItem(item.id)}
+                        activeOpacity={0.7}
+                        style={{ marginTop: 4 }}
+                      >
+                        <Text style={styles.removeText}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -202,7 +254,7 @@ export function SaleSummaryScreen({
         <View style={styles.card}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Subtotal</Text>
-            <Text style={styles.breakdownValue}>₹{subtotal}</Text>
+            <Text style={styles.breakdownValue}>{formatPaise(subtotalPaise)}</Text>
           </View>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Discount</Text>
@@ -217,7 +269,7 @@ export function SaleSummaryScreen({
 
           <View style={[styles.breakdownRow, { paddingTop: 6, paddingBottom: 2 }]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹{total}</Text>
+            <Text style={styles.totalValue}>{formatPaise(totalPaise)}</Text>
           </View>
         </View>
 
@@ -269,6 +321,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerRow: {
     flexDirection: 'row',

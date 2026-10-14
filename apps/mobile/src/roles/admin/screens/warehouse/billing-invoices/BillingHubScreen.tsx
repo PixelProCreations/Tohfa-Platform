@@ -1,55 +1,70 @@
 /**
- * Billing & Invoices hub: KPI tiles, quick actions, the "Invoice Required"
- * attention card and the most recent invoice.
+ * Billing & Invoices hub: quick actions and the most recent invoice, on
+ * GET /invoices (plan phase 7).
  *
- * Scope (FINAL_LIST row 1): KPIs and the recent invoice are computed from the
- * rows visible in `scope` (Sub: own warehouse; Main: all, or the warehouse
- * picked in the all-warehouses selector, shown only when scope.warehouseId is
- * undefined).
+ * Scope is the server's (BR-36, BR-30): a Sub admin sees the invoices of
+ * orders placed at its own warehouse, the Main admin every invoice. The most
+ * recent invoice is the first row of the live list (newest first); View opens
+ * the detail and Download the signed PDF link. Gates: View / Download need
+ * invoice.view_own.
  *
- * Gates:
- *   - Generate Invoice quick action and the Invoice Required card: invoice.generate.
- *   - Recent invoice View / Download: invoice.view_own.
+ * Hidden, because the server has no API for them:
+ *   - Generate Invoice (quick action and the Main tile) and the "Invoice
+ *     Required" card: there is no create-invoice route; the sale or the order
+ *     that needs an invoice issues it (availability.ts 'invoiceGeneration').
+ *   - The KPI tiles (Sub: today's invoices, invoice value, pending, cancelled;
+ *     Main: today's, generated, pending, failed): there is no invoice summary
+ *     endpoint, and counting the loaded pages would show partial figures.
+ *   - The customer name and order number on the recent card (the invoice row
+ *     carries neither).
+ *   - The Main all-warehouses selector: the invoice API cannot filter by
+ *     warehouse.
  *
- * Absorbs the Main BillingInvoicesHubScreen (pair M9-S01). Its GST Invoice tile
- * is dropped with the GST restricted-notice screen (invoice.gst.generate is
- * none/none for both warehouse roles, SPEC_GAPS W4g); its View Invoices and
- * Invoice History tiles are the Invoice List and Invoice History actions here;
- * its Home | More bottom bar is the shared SWABottomNav. Its KPI set
- * (Today / Generated / Pending / Failed) is covered by the Sub tiles.
+ * Absorbs the Main BillingInvoicesHubScreen (pair M9-S01): its View Invoices,
+ * Invoice History and GST Invoice tiles open the list and the history here
+ * (the GST tile opens the list: invoice.gst.generate is none/none for both
+ * warehouse roles, SPEC_GAPS W4g).
  */
 // Design id: M9-S01
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { SWABottomNav } from '../../swa/components';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
+  ActionError,
   BillingButton,
   BillingScreen,
   HeaderIconButton,
-  inScope,
   isAllWarehouses,
   ScopeHeader,
   SectionTitle,
-  StatusBadge,
-  rupeesOf,
+  ToneBadge,
 } from './BillingParts';
-import { INITIAL_INVOICES, INVOICE_REQUIRED_TRANSACTION } from './fixtures';
-import type { InvoiceRecord, WarehouseScope, WarehouseScreenBaseProps, WizardTransactionRecord } from './types';
+import type { InvoiceRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 export interface BillingHubScreenProps extends WarehouseScreenBaseProps {
   onNavigateToInvoiceList: () => void;
   onNavigateToInvoiceHistory: () => void;
   onNavigateToInvoiceDetail: (invoiceId: string) => void;
-  /** Open the transaction picker, or the wizard directly for a known sale. */
-  onGenerateInvoice: (transaction?: WizardTransactionRecord) => void;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
+  /** Kept for hosts that still pass it; the live hub draws no warehouse selector. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Invoice rows; defaults to the mock set until the invoice API is wired. */
-  invoices?: readonly InvoiceRecord[] | undefined;
+  /** The newest invoice (first row of GET /invoices); undefined while loading or when there is none. */
+  recent?: InvoiceRow | undefined;
+  recentLoading?: boolean | undefined;
+  recentError?: unknown;
+  onRetryRecent?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+  /** Opens the invoice PDF (signed link). */
+  onDownload?: ((invoiceId: string) => void) | undefined;
+  isDownloading?: boolean | undefined;
+  downloadError?: unknown;
 }
 
 function BellIcon() {
@@ -70,15 +85,6 @@ function TileIcon({ d, color = adminColors.brand }: { d: string; color?: string 
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d={d} stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function GenerateInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M12 18v-6M9 15h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -111,19 +117,9 @@ function GstInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color
 }
 
 const ICON = {
-  calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z',
-  cash: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
-  pending: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM8 12h.01M12 12h.01M16 12h.01',
-  cancelled: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM15 9l-6 6M9 9l6 6',
-  plus: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 8v8M8 12h8',
   list: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h6m-6 4h6m-8-4h.01m-.01 4h.01',
   history: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
 } as const;
-
-/** Display rupees with Indian grouping (mock KPI only; money is never computed on the client). */
-function formatRupees(value: number): string {
-  return `₹${value.toLocaleString('en-IN')}`;
-}
 
 export function BillingHubScreen({
   scope,
@@ -133,144 +129,68 @@ export function BillingHubScreen({
   onNavigateToInvoiceList,
   onNavigateToInvoiceHistory,
   onNavigateToInvoiceDetail,
-  onGenerateInvoice,
   onNavigateToNotifications,
-  warehouseOptions,
-  invoices = INITIAL_INVOICES,
+  recent,
+  recentLoading = false,
+  recentError,
+  onRetryRecent,
+  onRefresh,
+  isRefreshing = false,
+  onDownload,
+  isDownloading = false,
+  downloadError,
 }: BillingHubScreenProps) {
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const canGenerate = can('invoice.generate');
   const canView = can('invoice.view_own');
+  const allWarehouses = isAllWarehouses(scope);
+  const recentView = queryViewState({ isLoading: recentLoading, error: recentError, itemCount: recent === undefined ? 0 : 1 });
 
-  const visible = useMemo(
-    () => invoices.filter((inv) => inScope(scope, inv.warehouseId, selectedWarehouseId)),
-    [invoices, scope, selectedWarehouseId],
-  );
-  const latestDate = visible[0]?.date;
-  const kpis = [
-    { key: 'today', label: "Today's Invoices", value: String(visible.filter((i) => i.date === latestDate).length), icon: ICON.calendar },
-    {
-      key: 'value',
-      label: 'Invoice Value',
-      value: formatRupees(visible.filter((i) => i.status === 'Generated').reduce((sum, i) => sum + rupeesOf(i.amount), 0)),
-      icon: ICON.cash,
-    },
-    { key: 'pending', label: 'Pending', value: String(visible.filter((i) => i.status === 'Pending').length), icon: ICON.pending },
-    {
-      key: 'cancelled',
-      label: 'Cancelled',
-      value: String(visible.filter((i) => i.status === 'Cancelled').length),
-      icon: ICON.cancelled,
-      alert: true,
-    },
-  ];
-  const recent = visible[0];
-  const required = INVOICE_REQUIRED_TRANSACTION;
-  const showRequired = canGenerate && inScope(scope, required.warehouseId, selectedWarehouseId);
 
-  if (isAllWarehouses(scope)) {
-    return (
-      <BillingScreen
-        title="Billing & Invoices"
-        onBack={onBack}
-        headerRight={
-          onNavigateToNotifications ? (
-            <HeaderIconButton onPress={onNavigateToNotifications} accessibilityLabel="Notifications">
-              <BellIcon />
-            </HeaderIconButton>
-          ) : null
-        }
-        headerExtra={
-          <ScopeHeader
-            scope={scope}
-            warehouseOptions={warehouseOptions}
-            selectedWarehouseId={selectedWarehouseId}
-            onSelectWarehouse={setSelectedWarehouseId}
-          />
-        }
-        footer={null}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
-          <View style={styles.mainKpiGrid}>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>TODAY'S INVOICES</Text>
-              <Text style={styles.mainKpiValue}>42</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>GENERATED</Text>
-              <Text style={styles.mainKpiValue}>38</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>PENDING</Text>
-              <Text style={styles.mainKpiValue}>3</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>FAILED</Text>
-              <Text style={styles.mainKpiValue}>1</Text>
-            </View>
+  const recentCard =
+    recentView === 'loading' ? (
+      <AdminLoadingState />
+    ) : recentView === 'error' ? (
+      <AdminErrorState error={recentError} onRetry={onRetryRecent} />
+    ) : recent === undefined ? (
+      <AdminEmptyState title={t('billing.empty.invoices')} />
+    ) : (
+      <View style={styles.recentCard}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.invoiceNumber}>{recent.invoiceNumber}</Text>
+          <ToneBadge label={recent.statusLabel} tone={recent.tone} />
+        </View>
+        <Text style={styles.invoiceSub}>{recent.typeLabel}</Text>
+        <View style={[styles.rowBetween, styles.recentBottom]}>
+          <Text style={styles.invoiceDate}>{recent.issueDateLabel}</Text>
+          <Text style={styles.invoiceAmount}>{recent.amountLabel}</Text>
+        </View>
+        {canView ? (
+          <View style={styles.recentActions}>
+            <BillingButton
+              label={t('billing.action.view')}
+              variant="tint"
+              compact
+              flex
+              onPress={() => onNavigateToInvoiceDetail(recent.id)}
+            />
+            {onDownload ? (
+              <BillingButton
+                label={t(isDownloading ? 'billing.action.downloading' : 'billing.action.download')}
+                variant="tint"
+                compact
+                flex
+                disabled={isDownloading}
+                onPress={() => onDownload(recent.id)}
+              />
+            ) : null}
           </View>
-
-          {/* Quick Actions */}
-          <Text style={styles.mainSectionTitle}>Quick Actions</Text>
-          <View style={styles.mainActionGrid}>
-            <TouchableOpacity style={styles.mainActionCard} onPress={() => onGenerateInvoice()} activeOpacity={0.7}>
-              <View style={styles.mainActionIconWrap}>
-                <GenerateInvoiceIcon size={26} />
-              </View>
-              <Text style={styles.mainActionLabel}>Generate Invoice</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
-              <View style={styles.mainActionIconWrap}>
-                <ViewInvoicesIcon size={26} />
-              </View>
-              <Text style={styles.mainActionLabel}>View Invoices</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
-              <View style={styles.mainActionIconWrap}>
-                <InvoiceHistoryIcon size={26} />
-              </View>
-              <Text style={styles.mainActionLabel}>Invoice History</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
-              <View style={styles.mainActionIconWrap}>
-                <GstInvoiceIcon size={26} />
-              </View>
-              <Text style={styles.mainActionLabel}>GST Invoice</Text>
-            </TouchableOpacity>
+        ) : null}
+        {downloadError !== undefined && downloadError !== null ? (
+          <View style={styles.errorWrap}>
+            <ActionError error={downloadError} />
           </View>
-
-          {/* Recent Invoices */}
-          <Text style={styles.mainSectionTitle}>Recent Invoices</Text>
-          <TouchableOpacity
-            style={styles.mainInvoiceCard}
-            onPress={() => onNavigateToInvoiceDetail('INV-2026-001245')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.mainInvoiceTop}>
-              <Text style={styles.mainInvoiceNumber}>INV-2026-001245</Text>
-              <View style={styles.mainBadgeGenerated}>
-                <Text style={styles.mainBadgeText}>Generated</Text>
-              </View>
-            </View>
-
-            <Text style={styles.mainCustomerName}>Arun Kumar</Text>
-
-            <View style={styles.mainCardDivider} />
-
-            <View style={styles.mainInvoiceBottom}>
-              <Text style={styles.mainOrderId}>ORD-2026-00982</Text>
-              <Text style={styles.mainAmount}>₹2,100</Text>
-            </View>
-          </TouchableOpacity>
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </BillingScreen>
+        ) : null}
+      </View>
     );
-  }
 
   return (
     <BillingScreen
@@ -283,57 +203,58 @@ export function BillingHubScreen({
           </HeaderIconButton>
         ) : null
       }
-      headerExtra={
-        <ScopeHeader
-          scope={scope}
-          warehouseOptions={warehouseOptions}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
-      }
-      footer={!isAllWarehouses(scope) && onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
+      headerExtra={allWarehouses ? null : <ScopeHeader scope={scope} />}
+      footer={!allWarehouses && onTabChange ? <SWABottomNav activeTab="More" onTabChange={onTabChange} /> : null}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => (
-            <View key={kpi.key} style={styles.kpiCard}>
-              <TileIcon d={kpi.icon} color={kpi.alert ? adminColors.danger.text : adminColors.brand} />
-              <Text style={[styles.kpiValue, kpi.alert && styles.kpiValueAlert]}>{kpi.value}</Text>
-              <Text style={styles.kpiLabel}>{kpi.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <SectionTitle>Quick Actions</SectionTitle>
-        <View style={styles.actionsRow}>
-          {canGenerate ? (
-            <TouchableOpacity style={styles.actionCard} onPress={() => onGenerateInvoice()} activeOpacity={0.7}>
-              <TileIcon d={ICON.plus} />
-              <Text style={styles.actionLabel}>Generate Invoice</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
-            <TileIcon d={ICON.list} />
-            <Text style={styles.actionLabel}>Invoice List</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
-            <TileIcon d={ICON.history} />
-            <Text style={styles.actionLabel}>Invoice History</Text>
-          </TouchableOpacity>
-        </View>
-
-        {showRequired ? (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={adminColors.brand} colors={[adminColors.brand]} />
+          ) : undefined
+        }
+      >
+        {allWarehouses ? (
           <>
-            <SectionTitle>Invoice Required</SectionTitle>
-            <View style={styles.requiredCard}>
-              <Text style={styles.requiredTag}>INVOICE REQUIRED</Text>
-              <Text style={styles.requiredOrderId}>{required.orderNumber}</Text>
-              <Text style={styles.requiredCustomer}>{required.customerName}</Text>
-              <Text style={styles.requiredAmount}>{required.amount}</Text>
-              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice(required)} />
+            {/* Main: its own tile grid (Generate Invoice removed: no create-invoice route). */}
+            <Text style={styles.mainSectionTitle}>Quick Actions</Text>
+            <View style={styles.mainActionGrid}>
+              <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+                <View style={styles.mainActionIconWrap}>
+                  <ViewInvoicesIcon size={26} />
+                </View>
+                <Text style={styles.mainActionLabel}>View Invoices</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
+                <View style={styles.mainActionIconWrap}>
+                  <InvoiceHistoryIcon size={26} />
+                </View>
+                <Text style={styles.mainActionLabel}>Invoice History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+                <View style={styles.mainActionIconWrap}>
+                  <GstInvoiceIcon size={26} />
+                </View>
+                <Text style={styles.mainActionLabel}>GST Invoice</Text>
+              </TouchableOpacity>
             </View>
           </>
-        ) : null}
+        ) : (
+          <>
+            <SectionTitle>Quick Actions</SectionTitle>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+                <TileIcon d={ICON.list} />
+                <Text style={styles.actionLabel}>Invoice List</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
+                <TileIcon d={ICON.history} />
+                <Text style={styles.actionLabel}>Invoice History</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         <View style={styles.recentHeaderRow}>
           <SectionTitle>Recent Invoices</SectionTitle>
@@ -342,43 +263,7 @@ export function BillingHubScreen({
           </TouchableOpacity>
         </View>
 
-        {recent ? (
-          <View style={styles.recentCard}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.invoiceNumber}>{recent.id}</Text>
-              <StatusBadge status={recent.status} />
-            </View>
-            <Text style={styles.invoiceSub}>
-              {recent.customerName} · {recent.orderNumber}
-            </Text>
-            <View style={[styles.rowBetween, styles.recentBottom]}>
-              <Text style={styles.invoiceDate}>
-                {recent.date}, {recent.time}
-              </Text>
-              <Text style={styles.invoiceAmount}>{recent.amount}</Text>
-            </View>
-            {canView ? (
-              <View style={styles.recentActions}>
-                <BillingButton
-                  label="View"
-                  variant="tint"
-                  compact
-                  flex
-                  onPress={() => onNavigateToInvoiceDetail(recent.id)}
-                />
-                <BillingButton
-                  label="Download"
-                  variant="tint"
-                  compact
-                  flex
-                  onPress={() => onNavigateToInvoiceDetail(recent.id)}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <Text style={styles.emptyText}>No invoices yet.</Text>
-        )}
+        {recentCard}
       </ScrollView>
     </BillingScreen>
   );
@@ -386,19 +271,6 @@ export function BillingHubScreen({
 
 const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.md, paddingBottom: adminSpacing.xl },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
-  kpiCard: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    gap: adminSpacing.xs,
-  },
-  kpiValue: { ...adminType.kpiValue, color: adminColors.ink },
-  kpiValueAlert: { color: adminColors.danger.text },
-  kpiLabel: { ...adminType.caption, color: adminColors.muted },
 
   actionsRow: { flexDirection: 'row', gap: adminSpacing.sm },
   actionCard: {
@@ -413,18 +285,6 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   actionLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
-
-  requiredCard: {
-    backgroundColor: adminColors.brandSoft.bg,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.brandSoft.border,
-    padding: adminSpacing.lg,
-  },
-  requiredTag: { ...adminType.caption, color: adminColors.brand, marginBottom: adminSpacing.xs },
-  requiredOrderId: { ...adminType.sectionHead, color: adminColors.ink },
-  requiredCustomer: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  requiredAmount: { ...adminType.kpiValue, color: adminColors.ink, marginTop: adminSpacing.sm, marginBottom: adminSpacing.md },
 
   recentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   viewAllText: { ...adminType.rowTitle, color: adminColors.brand },
@@ -442,39 +302,9 @@ const styles = StyleSheet.create({
   invoiceDate: { ...adminType.rowMeta, color: adminColors.muted },
   invoiceAmount: { ...adminType.sectionHead, color: adminColors.ink },
   recentActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
-  emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.lg },
+  errorWrap: { marginTop: adminSpacing.sm },
 
-  // Main Warehouse Dashboard Styles
-  mainKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  mainKpiCard: {
-    width: '48.4%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8DED5',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'flex-start',
-  },
-  mainKpiLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#6B6560',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E1612',
-    lineHeight: 28,
-  },
+  // Main Warehouse hub tiles (kept from the Main design)
   mainSectionTitle: {
     fontSize: 14,
     fontWeight: '800',
@@ -509,59 +339,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1E1612',
     textAlign: 'center',
-  },
-  mainInvoiceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8DED5',
-    padding: 16,
-    marginBottom: 16,
-  },
-  mainInvoiceTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  mainInvoiceNumber: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
-  mainBadgeGenerated: {
-    backgroundColor: '#E6F4EA',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  mainBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#137333',
-  },
-  mainCustomerName: {
-    fontSize: 12,
-    color: '#6B6560',
-    marginBottom: 10,
-  },
-  mainCardDivider: {
-    height: 1,
-    backgroundColor: '#F0E7DD',
-    marginBottom: 10,
-  },
-  mainInvoiceBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mainOrderId: {
-    fontSize: 12,
-    color: '#6B6560',
-  },
-  mainAmount: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1612',
   },
 });

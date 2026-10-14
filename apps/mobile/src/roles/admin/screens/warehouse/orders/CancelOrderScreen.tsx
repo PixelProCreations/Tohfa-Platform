@@ -19,6 +19,7 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
+import { SAMPLE_CANCELLATION } from './fixtures';
 import type { OrderScreenBaseProps } from './types';
 
 /** CancelOrderScreen steps: reason form, confirmation, cancelled result. */
@@ -39,10 +40,6 @@ const REASONS = [
   'Customer Unreachable',
   'Other Operational Reason',
 ];
-
-// Mock data until the order API is wired.
-const MOCK_CUSTOMER = 'Arun Kumar';
-const MOCK_TOTAL = '₹850';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -267,11 +264,11 @@ export function CancelOrderScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Customer</Text>
-                <Text style={styles.fieldValue}>{MOCK_CUSTOMER}</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_CANCELLATION.customer}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Total</Text>
-                <Text style={styles.fieldValue}>{MOCK_TOTAL}</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_CANCELLATION.total}</Text>
               </View>
             </View>
           </View>

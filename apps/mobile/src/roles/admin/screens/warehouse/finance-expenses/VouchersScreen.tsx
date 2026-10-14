@@ -49,92 +49,34 @@ export interface VouchersScreenProps extends WarehouseScreenBaseProps {
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Open a voucher. Without it the voucher opens inside this screen. */
   onSelectVoucher?: ((voucher: VoucherRecord) => void) | undefined;
-  initialWarehouseId?: string | undefined;
-  hideWarehouseFilter?: boolean | undefined;
 }
 
-/** Voucher Type & Warehouse chooser (was MainWarehouseVouchersFilterScreen). */
-interface VoucherFilterViewProps {
-  options: readonly TypeFilter[];
-  selected: TypeFilter;
-  selectedWarehouseId?: string | undefined;
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  isMain: boolean;
-  hideWarehouseFilter?: boolean | undefined;
-  onBack: () => void;
-  onApply: (type: TypeFilter, warehouseId?: string | undefined) => void;
-}
-
-function VoucherFilterView({
+/** Voucher Type chooser (was MainWarehouseVouchersFilterScreen). */
+function VoucherTypeFilterView({
   options,
   selected,
-  selectedWarehouseId,
-  warehouseOptions = FINANCE_WAREHOUSES,
-  isMain,
-  hideWarehouseFilter = false,
   onBack,
   onApply,
-}: VoucherFilterViewProps) {
-  const [draftType, setDraftType] = useState<TypeFilter>(selected);
-  const [draftWarehouse, setDraftWarehouse] = useState<string | undefined>(selectedWarehouseId);
-
+}: {
+  options: readonly TypeFilter[];
+  selected: TypeFilter;
+  onBack: () => void;
+  onApply: (type: TypeFilter) => void;
+}) {
+  const [draft, setDraft] = useState<TypeFilter>(selected);
   return (
     <WalletScreen
-      title="Filter Vouchers"
+      title="Vouchers"
       onBack={onBack}
       footer={
         <WalletFooter>
-          <WalletButton label="Apply Filters" onPress={() => onApply(draftType, draftWarehouse)} />
+          <WalletButton label="Apply" onPress={() => onApply(draft)} />
         </WalletFooter>
       }
     >
       <View style={walletLayout.scrollContent}>
-        {isMain && !hideWarehouseFilter ? (
-          <View style={{ marginBottom: adminSpacing.lg }}>
-            <SectionTitle>Warehouses</SectionTitle>
-            <View style={styles.chipGrid}>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  (!draftWarehouse || draftWarehouse === 'All') && styles.filterChipActive,
-                ]}
-                onPress={() => setDraftWarehouse(undefined)}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    (!draftWarehouse || draftWarehouse === 'All') && styles.filterChipTextActive,
-                  ]}
-                >
-                  All Warehouses
-                </Text>
-              </TouchableOpacity>
-              {warehouseOptions.map((w) => {
-                const id = w.warehouseId ?? '';
-                const name = (w.warehouseName ?? id).replace(/ Warehouse$/, '');
-                const isSelected = draftWarehouse === id || draftWarehouse === w.warehouseName;
-                return (
-                  <TouchableOpacity
-                    key={id || name}
-                    style={[styles.filterChip, isSelected && styles.filterChipActive]}
-                    onPress={() => setDraftWarehouse(id || name)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
-                      {name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        <View>
-          <SectionTitle>Voucher Type</SectionTitle>
-          <ChipGroup options={options} value={draftType} onChange={setDraftType} />
-        </View>
+        <SectionTitle>Voucher Type</SectionTitle>
+        <ChipGroup options={options} value={draft} onChange={setDraft} />
       </View>
     </WalletScreen>
   );
@@ -148,13 +90,10 @@ export function VouchersScreen({
   vouchers = SAMPLE_VOUCHERS,
   warehouseOptions = FINANCE_WAREHOUSES,
   onSelectVoucher,
-  initialWarehouseId,
-  hideWarehouseFilter = false,
 }: VouchersScreenProps) {
-  const isMain = isAllWarehouses(scope);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [showFilter, setShowFilter] = useState(false);
   const [openVoucher, setOpenVoucher] = useState<VoucherRecord | null>(null);
 
@@ -179,17 +118,12 @@ export function VouchersScreen({
 
   if (showFilter) {
     return (
-      <VoucherFilterView
+      <VoucherTypeFilterView
         options={typeOptions}
         selected={activeType}
-        selectedWarehouseId={selectedWarehouseId}
-        warehouseOptions={warehouseOptions}
-        isMain={isMain}
-        hideWarehouseFilter={hideWarehouseFilter}
         onBack={() => setShowFilter(false)}
-        onApply={(type, whId) => {
+        onApply={(type) => {
           setTypeFilter(type);
-          setSelectedWarehouseId(whId);
           setShowFilter(false);
         }}
       />
@@ -199,15 +133,7 @@ export function VouchersScreen({
   const query = searchQuery.trim().toLowerCase();
   const visible = vouchers.filter((vch) => {
     if (!canSeeVoucherType(can, vch.type)) return false;
-    if (isMain) {
-      if (selectedWarehouseId && selectedWarehouseId !== 'All') {
-        if (vch.warehouseId !== selectedWarehouseId && vch.warehouseName !== selectedWarehouseId) {
-          return false;
-        }
-      }
-    } else {
-      if (!inScope(scope, vch.warehouseId, selectedWarehouseId)) return false;
-    }
+    if (!inScope(scope, vch.warehouseId, selectedWarehouseId)) return false;
     if (activeType !== 'All' && vch.type !== activeType) return false;
     return (
       !query ||
@@ -218,16 +144,7 @@ export function VouchersScreen({
     );
   });
 
-  const scoped = vouchers.filter((v) => {
-    if (!canSeeVoucherType(can, v.type)) return false;
-    if (isMain) {
-      if (selectedWarehouseId && selectedWarehouseId !== 'All') {
-        return v.warehouseId === selectedWarehouseId || v.warehouseName === selectedWarehouseId;
-      }
-      return true;
-    }
-    return inScope(scope, v.warehouseId, selectedWarehouseId);
-  });
+  const scoped = vouchers.filter((v) => canSeeVoucherType(can, v.type) && inScope(scope, v.warehouseId, selectedWarehouseId));
   const pending = scoped.filter((v) => v.status === 'Pending').length;
   const completed = scoped.filter((v) => v.status === 'Completed').length;
 
@@ -241,15 +158,13 @@ export function VouchersScreen({
       title="Vouchers"
       onBack={onBack}
       headerExtra={
-        !isMain ? (
-          <ScopeHeader
-            scope={scope}
-            label={scopeLabel(scope)}
-            warehouseOptions={warehouseOptions}
-            selectedWarehouseId={selectedWarehouseId}
-            onSelectWarehouse={setSelectedWarehouseId}
-          />
-        ) : undefined
+        <ScopeHeader
+          scope={scope}
+          label={isAllWarehouses(scope) ? undefined : scopeLabel(scope)}
+          warehouseOptions={warehouseOptions}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelectWarehouse={setSelectedWarehouseId}
+        />
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
@@ -261,12 +176,9 @@ export function VouchersScreen({
           ]}
         />
 
-        {/* Removed above search bar for Main Warehouse; kept only for Sub Warehouse */}
-        {!isMain && (
-          <View style={styles.filters}>
-            <ChipGroup options={typeOptions} value={activeType} onChange={setTypeFilter} />
-          </View>
-        )}
+        <View style={styles.filters}>
+          <ChipGroup options={typeOptions} value={activeType} onChange={setTypeFilter} />
+        </View>
 
         <View style={styles.searchRow}>
           <View style={styles.searchFlex}>
@@ -286,21 +198,6 @@ export function VouchersScreen({
             <FilterIcon />
           </TouchableOpacity>
         </View>
-
-        {isMain && (activeType !== 'All' || (selectedWarehouseId !== undefined && selectedWarehouseId !== 'All')) && (
-          <View style={styles.activeFilterRow}>
-            <Text style={styles.activeFilterText}>
-              Filter:{' '}
-              {selectedWarehouseId && selectedWarehouseId !== 'All'
-                ? warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId || w.warehouseName === selectedWarehouseId)?.warehouseName ?? selectedWarehouseId
-                : 'All Warehouses'}
-              {activeType !== 'All' ? ` · ${activeType}` : ''}
-            </Text>
-            <TouchableOpacity onPress={() => { setTypeFilter('All'); if (!hideWarehouseFilter) setSelectedWarehouseId(undefined); }}>
-              <Text style={styles.clearFilterText}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {visible.length === 0 ? (
           <EmptyState title="No vouchers found" subtitle="Try a different search or voucher type." />
@@ -355,48 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginTop: adminSpacing.xs },
-  filterChip: {
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
-  },
-  filterChipActive: {
-    borderColor: adminColors.brand,
-    backgroundColor: adminColors.brandTint,
-  },
-  filterChipText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  filterChipTextActive: {
-    color: adminColors.brandDeep,
-    fontWeight: '600',
-  },
-  activeFilterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.sm,
-    marginTop: adminSpacing.sm,
-    marginBottom: adminSpacing.xs,
-  },
-  activeFilterText: {
-    ...adminType.caption,
-    color: adminColors.brandDeep,
-  },
-  clearFilterText: {
-    ...adminType.caption,
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  list: { gap: adminSpacing.md, marginTop: adminSpacing.sm },
+  list: { gap: adminSpacing.md },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

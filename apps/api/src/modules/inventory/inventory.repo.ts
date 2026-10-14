@@ -1,6 +1,8 @@
 import { ErrorCode } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { scopedWhere, type ResolvedScope, type ScopedWhere } from '../../rbac/requirePermission.js';
 import type {
   BatchView,
@@ -270,8 +272,11 @@ export const inventoryRepo: InventoryRepo = {
       conditions.push(`b.status = $${params.length}`);
     }
     if (filters.cursor !== undefined && filters.cursor.length > 0) {
-      params.push(filters.cursor);
-      conditions.push(`b.id > $${params.length}`);
+      // Keyset on (created_at, id): the row-value comparison matches the ORDER BY exactly, so no
+      // row is skipped or repeated when created_at ties (the old `b.id > cursor` did both).
+      const after = requireKeysetCursor(CURSOR_TAGS.inventoryBatches, filters.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(b.created_at, b.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
     }
 
     const where = conditions.length === 0 ? 'TRUE' : conditions.join(' AND ');
@@ -279,19 +284,23 @@ export const inventoryRepo: InventoryRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT b.*, cm.name AS crop_name
+      SELECT b.*, cm.name AS crop_name, ${MICRO_TS_SQL('b.created_at')} AS cursor_ts
         FROM inventory_batches b
         LEFT JOIN crop_master cm ON cm.id = b.crop_id
        WHERE ${where}
-       ORDER BY b.created_at DESC, b.id ASC
+       ORDER BY b.created_at DESC, b.id DESC
        LIMIT $${params.length}
     `;
 
-    const result = await db.query<BatchRow>(querySql, params);
+    const result = await db.query<BatchRow & { cursor_ts: string }>(querySql, params);
     const rows = result.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore && itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1]!.id : null;
+    const last = itemsToReturn[itemsToReturn.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.inventoryBatches, { ts: last.cursor_ts, id: last.id })
+        : null;
 
     return {
       items: itemsToReturn.map(toBatchView),
@@ -361,8 +370,10 @@ export const inventoryRepo: InventoryRepo = {
       conditions.push(`l.created_at <= $${params.length}::timestamptz`);
     }
     if (filters.cursor !== undefined && filters.cursor.length > 0) {
-      params.push(filters.cursor);
-      conditions.push(`l.id < $${params.length}`);
+      // Keyset on (created_at, id), matching the ORDER BY (the old `l.id < cursor` skipped rows).
+      const after = requireKeysetCursor(CURSOR_TAGS.stockLedger, filters.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(l.created_at, l.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
     }
 
     const where = conditions.length === 0 ? 'TRUE' : conditions.join(' AND ');
@@ -370,18 +381,22 @@ export const inventoryRepo: InventoryRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT l.*
+      SELECT l.*, ${MICRO_TS_SQL('l.created_at')} AS cursor_ts
         FROM stock_ledger l
        WHERE ${where}
        ORDER BY l.created_at DESC, l.id DESC
        LIMIT $${params.length}
     `;
 
-    const result = await db.query<StockLedgerRow>(querySql, params);
+    const result = await db.query<StockLedgerRow & { cursor_ts: string }>(querySql, params);
     const rows = result.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore && itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1]!.id : null;
+    const last = itemsToReturn[itemsToReturn.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.stockLedger, { ts: last.cursor_ts, id: last.id })
+        : null;
 
     return {
       items: itemsToReturn.map(toStockLedgerEntryView),

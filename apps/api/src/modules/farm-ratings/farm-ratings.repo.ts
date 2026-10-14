@@ -21,24 +21,27 @@ export interface LatestRatingRow {
   totalScore: number | null;
   tierCode: string | null;
   ratedAt: Date | null;
+  /** NULL = legacy manual rating (removed PUT); set = derived from that audit. */
+  sourceAuditId: string | null;
 }
 
 export interface RatingScoreInput {
   categoryId: string;
   score: number;
   scoredBy: string;
+  remarks: string | null;
 }
 
-export interface CreateDraftRatingData {
+/** A finished, audit-derived rating cycle (product decision 2026-10-01). */
+export interface CreateAuditRatingData {
   farmerId: string;
+  farmId: string | null;
   zoneId: string | null;
   periodLabel: string;
-}
-
-export interface CompleteRatingData {
   totalScore: number;
   tierCode: string | null;
   ratedBy: string;
+  sourceAuditId: string;
 }
 
 export interface FarmRatingsRepo {
@@ -55,40 +58,27 @@ export interface FarmRatingsRepo {
    *  the count, so a submission is validated against real config. */
   findActiveCategories(tx: Executor): Promise<ActiveCategoryRow[]>;
 
-  /** Most recent rating cycle for a farmer (DRAFT or COMPLETE), or null if the
-   *  farmer has never been rated. Cycles are ordered by created_at, not
-   *  rated_at, so an in-progress DRAFT (rated_at IS NULL) is still found. */
+  /** The current rating: the most recently CREATED cycle for a farmer, or
+   *  null if the farmer has never been rated. Older rows are history. Ordered
+   *  by created_at (not rated_at) so a legacy DRAFT (rated_at IS NULL) is
+   *  still found; insertAuditRating stamps created_at with clock_timestamp()
+   *  so a newly created audit-derived row always sorts after every earlier
+   *  row, even one written earlier in the same transaction. */
   findLatestRating(tx: Executor, farmerId: string): Promise<LatestRatingRow | null>;
 
-  /** categoryId -> score for every category scored so far in this cycle. */
+  /** categoryId -> score for every category scored in this cycle. */
   findScoresForRating(tx: Executor, ratingId: string): Promise<Map<string, number>>;
 
-  /** How many rating cycles (DRAFT or COMPLETE) this farmer has ever had —
-   *  used to number the next cycle's period_label. */
-  countRatingCycles(tx: Executor, farmerId: string): Promise<number>;
+  /** Inserts a new COMPLETE cycle linked to its source audit. Never updates an
+   *  existing row: each audit-derived rating is a new history row. A second
+   *  rating for the same audit fails on uq_farm_ratings_source_audit (0028). */
+  insertAuditRating(tx: Executor, data: CreateAuditRatingData): Promise<string>;
 
-  /** Starts a new, empty DRAFT cycle. Never called while a DRAFT cycle for
-   *  this farmer is still open — the service reuses that one instead. */
-  createDraftRating(tx: Executor, data: CreateDraftRatingData): Promise<string>;
-
-  /** Upserts one score per category — INSERT on first submission for that
-   *  category in this cycle, UPDATE on a later resubmission (the PUT is
-   *  explicitly incremental/idempotent-per-category, not append-only; the
-   *  ledger discipline of root CLAUDE.md §2.3 applies to farm_ratings' cycle
-   *  HISTORY — a new row per cycle — not to a single in-progress cycle's
-   *  editable draft scores). */
-  upsertScores(tx: Executor, ratingId: string, scores: RatingScoreInput[]): Promise<void>;
-
-  /** Persists notes for the current cycle. Called whenever the caller supplies
-   *  `notes`, whether or not the cycle is complete after this write. */
-  updateNotes(tx: Executor, ratingId: string, notes: string): Promise<void>;
-
-  /** Flips a cycle to COMPLETE once all 10 categories have a score: sets
-   *  total_score, tier_code, rated_by and rated_at together. */
-  completeRating(tx: Executor, ratingId: string, data: CompleteRatingData): Promise<void>;
+  /** Plain INSERT of the cycle's category scores (one row per category). */
+  insertScores(tx: Executor, ratingId: string, scores: RatingScoreInput[]): Promise<void>;
 
   /** Farmer-facing read cache (farmers.overall_rating / rating_tier_code),
-   *  updated in the same transaction as completeRating — a plain UPDATE, not
+   *  updated in the same transaction as insertAuditRating — a plain UPDATE, not
    *  a ledger: root CLAUDE.md §2.3's trigger-maintained-cache rule is scoped
    *  to wallets.balance / inventory_batches.qty_available. */
   updateFarmerRatingCache(
@@ -169,11 +159,12 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       total_score: string | null;
       tier_code: string | null;
       rated_at: Date | null;
+      source_audit_id: string | null;
     }>(
-      `SELECT id, period_label, status, total_score::text AS total_score, tier_code, rated_at
+      `SELECT id, period_label, status, total_score::text AS total_score, tier_code, rated_at, source_audit_id
          FROM farm_ratings
         WHERE farmer_id = $1
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id DESC
         LIMIT 1`,
       [farmerId],
     );
@@ -186,6 +177,7 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       totalScore: row.total_score === null ? null : Number(row.total_score),
       tierCode: row.tier_code,
       ratedAt: row.rated_at,
+      sourceAuditId: row.source_audit_id,
     };
   },
 
@@ -201,52 +193,39 @@ export const farmRatingsRepo: FarmRatingsRepo = {
     return map;
   },
 
-  async countRatingCycles(tx, farmerId) {
-    const result = await tx.query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM farm_ratings WHERE farmer_id = $1`,
-      [farmerId],
-    );
-    return Number(result.rows[0]?.count ?? '0');
-  },
-
-  async createDraftRating(tx, data) {
+  async insertAuditRating(tx, data) {
+    // created_at = clock_timestamp(), not the default now(): now() is the
+    // transaction start, so two rows created in one transaction would tie and
+    // findLatestRating could pick the older one. rated_at stays now(), the same
+    // instant the audit's completed_at is stamped with.
     const result = await tx.query<{ id: string }>(
-      `INSERT INTO farm_ratings (farmer_id, zone_id, period_label, status)
-       VALUES ($1, $2, $3, 'DRAFT')
+      `INSERT INTO farm_ratings
+         (farmer_id, farm_id, zone_id, period_label, status, total_score, tier_code,
+          rated_by, rated_at, source_audit_id, created_at)
+       VALUES ($1, $2, $3, $4, 'COMPLETE', $5, $6, $7, now(), $8, clock_timestamp())
        RETURNING id`,
-      [data.farmerId, data.zoneId, data.periodLabel],
+      [
+        data.farmerId,
+        data.farmId,
+        data.zoneId,
+        data.periodLabel,
+        data.totalScore,
+        data.tierCode,
+        data.ratedBy,
+        data.sourceAuditId,
+      ],
     );
     return result.rows[0]!.id;
   },
 
-  async upsertScores(tx, ratingId, scores) {
+  async insertScores(tx, ratingId, scores) {
     for (const score of scores) {
       await tx.query(
-        `INSERT INTO farm_rating_scores (rating_id, category_id, score, scored_by)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (rating_id, category_id) DO UPDATE SET
-           score      = EXCLUDED.score,
-           scored_by  = EXCLUDED.scored_by,
-           updated_at = now()`,
-        [ratingId, score.categoryId, score.score, score.scoredBy],
+        `INSERT INTO farm_rating_scores (rating_id, category_id, score, remarks, scored_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [ratingId, score.categoryId, score.score, score.remarks, score.scoredBy],
       );
     }
-  },
-
-  async updateNotes(tx, ratingId, notes) {
-    await tx.query(`UPDATE farm_ratings SET notes = $2, updated_at = now() WHERE id = $1`, [
-      ratingId,
-      notes,
-    ]);
-  },
-
-  async completeRating(tx, ratingId, data) {
-    await tx.query(
-      `UPDATE farm_ratings
-          SET status = 'COMPLETE', total_score = $2, tier_code = $3, rated_by = $4, rated_at = now(), updated_at = now()
-        WHERE id = $1`,
-      [ratingId, data.totalScore, data.tierCode, data.ratedBy],
-    );
   },
 
   async updateFarmerRatingCache(tx, farmerId, overallRating, tierCode) {

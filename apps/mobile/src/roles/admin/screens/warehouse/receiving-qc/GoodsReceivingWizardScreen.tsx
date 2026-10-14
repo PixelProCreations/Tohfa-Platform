@@ -2,36 +2,44 @@
  * Goods Receiving wizard (FINAL_LIST #90, design module M2), shared by the Main
  * and Sub warehouse admins.
  *
- * One wizard is the whole receiving flow. It absorbed the Main shell's chain of
- * standalone screens and the Sub one-page review; each became a step or was
- * ported into the step that already covered it:
- *   StartReceiving          -> start_receiving (shipment confirmation, receiver, arrival check)
- *   QuantityVerification    -> quantity_verification (per-product table, Received - Expected rule)
- *   QualityCheck            -> quality_check (issue badge, configured-scale notice)
- *   GradeProductVerification-> grade_verification (new step: actual product / grade, derived match)
- *   DamageMismatchReport    -> damage_mismatch (combined discrepancies list)
- *   AcceptanceDecision      -> receiving_decision (three-outcomes notice)
- *   PartialAcceptance       -> partial_acceptance (accepted input, rejected calculated)
- *   GoodsReceiptSummary     -> receipt_summary (shipment id, date, decision, receipt reference, next steps)
- *   BatchAssignment         -> batch_assignment (new step: batch information + storage bay)
- *   SubWarehouseReviewReceiving -> review_receiving (new step: weight & tally, checklist, putaway)
- * plus counter_offer, a new step for inventory.quality.counter_offer, which had
- * no surface. The receipt_detail step renders the shared ReceivingHistoryDetailScreen.
+ * One wizard records one delivery against one purchase order, on the real API
+ * (integration plan phase 4):
+ *   start_receiving        the order, the receiver, the vehicle number
+ *   quantity_verification  the received (gross) weight, against the ordered quantity
+ *   quality_check          the five checklist rows, moisture, visual score, defect notes
+ *   grade_verification     the assigned grade (may differ from the listed one)
+ *   receiving_decision     Accept / Partial Accept / Reject
+ *   partial_acceptance     the accepted weight; rejected = received - accepted
+ *   receipt_summary        everything above, then submit
+ *   batch_assignment       the storage location (from GET /warehouses/{id}/storage-locations)
+ *   receipt_confirmation   the real grnNumber, and the batch when the API returns one
+ *   submission_error       the real error, with a retry that cannot record twice
+ *   counter_offer          a revised price for the delivered lot, after the receipt exists
+ *
+ * Submitting is POST /admin/goods-receipts, then POST .../quality-check
+ * (./submission.ts). The server ignores the Idempotency-Key on both (server
+ * gap), so the created receipt is kept and a failed quality check retries only
+ * the quality check; after a timeout the next attempt re-reads the order and
+ * resumes a receipt that now exists. An order that already has a receipt
+ * awaiting QC opens on that receipt and never creates another.
+ *
+ * Steps with no API are not offered (their step keys fall back to the start):
+ * the damage / mismatch report, rejected goods and their handling (disposal),
+ * the in-progress checklist, the one-page review, and the embedded history and
+ * receipt detail (the host's Receiving History serves those). Photos are not
+ * offered: the uploader is farmer-only. Rejection reasons are reference data
+ * the API does not serve, so a rejection is explained in the defect notes.
  *
  * Gates (docs/rbac.json; `can` only decides what to render, the server checks
  * again, CLAUDE.md 2.1). A gated step is skipped, never shown disabled:
  *   inventory.goods_receipt.record   the wizard itself (else a permission note)
- *   inventory.quality_check.perform  Quality / Continue Receiving steps, QC summaries
- *   inventory.produce.reject_incoming Reject + Partial Accept outcomes, Rejected Goods, Record Handling
- *   inventory.batch.assign           Batch & Storage step, review putaway bay
+ *   inventory.quality_check.perform  Quality, Grade, Decision; without it only the receipt is recorded
+ *   inventory.produce.reject_incoming Reject + Partial Accept outcomes
+ *   inventory.batch.assign           Batch & Storage step
  *   inventory.quality.counter_offer  Counter-Offer step and its entry card
- *   inventory.batch.view             View Batch, the embedded history / receipt detail
- *
- * `scope` is the viewer's warehouse (Sub: locked to its own; Main: undefined =
- * all four). The destination shown is the scope's warehouse, or the shipment's
- * own `to` for Main; nothing names a warehouse in this file.
+ *   inventory.batch.view             View Batch
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -40,124 +48,154 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  Modal,
-  Platform,
-  ToastAndroid,
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
 
+import { adminErrorKey } from '../../../api/errors';
+import type { Grade } from '../../../api/inventory';
+import type { CounterOfferCreate, CounterOfferDto, GoodsReceiptCreate, GoodsReceiptDto, QualityCheckCreate, QualityCheckResultDto } from '../../../api/receiving';
+import { t } from '../../../i18n';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { formatAdminDate, formatAdminDay } from '../../../utils/datetime';
+import { gradeLabel } from '../inventory/mappers';
+import {
+  QC_DRAFT_PROBLEM_MESSAGE,
+  buildCounterOfferBody,
+  buildGoodsReceiptBody,
+  buildQualityCheckBody,
+  createReceivingKeyRing,
+  qcDraftProblem,
+  receiptResultLabel,
+  receiptResultOf,
+  receivingWarehouseFilter,
+  type QcDraft,
+} from './mappers';
 import {
   AlertCircleOutlineIcon,
   BackArrowIcon,
-  CameraPlusIcon,
   CheckboxSquareIcon,
   CheckmarkCircleOutlineIcon,
   CheckmarkIcon,
   ChevronDownIcon,
   ChevronRightSmall,
-  ClipboardChecklistIcon,
-  ClockSmallIcon,
   CrateInventoryIcon,
   CrossCircleIcon,
   ErrorExclamationCircleIcon,
   NotEqualIcon,
   NoticeBox,
-  PencilDraftIcon,
   PermissionNote,
-  PictureIcon,
+  QC_CRITERIA,
   QcCriterionIcon,
   QrCodeIcon,
   RECEIVING_CODES,
   ReceiptPaperIcon,
   RefreshRetryIcon,
   RightArrowIcon,
-  SearchIcon,
   SendPaperAirplaneIcon,
   StepperHeader,
-  TrashOutlineRedIcon,
   TruckDeliveryIcon,
   WarningTriangleIcon,
 } from './ReceivingParts';
-import {
-  DEMO_BATCH_IDS,
-  DEMO_GRN,
-  DEMO_PARTIAL_REJECT_KG,
-  DEMO_QC_PROGRESS,
-  DEMO_QC_RESULTS,
-  DEMO_SHIPMENT,
-  GRADE_OPTIONS,
-  HANDLING_METHODS,
-  INSPECTION_PARAMETERS,
-  ISSUE_TYPES,
-  PARTIAL_REJECTION_REASONS,
-  PRODUCT_OPTIONS,
-  QC_CRITERIA,
-  REJECTED_GOODS_REASONS,
-  STORAGE_BAYS,
-  WIZARD_HISTORY_IDS,
-  findReceivingRecord,
-  recordsInScope,
-} from './fixtures';
-import { ReceivingHistoryDetailScreen } from './ReceivingHistoryDetailScreen';
+import { initialSubmissionState, submitReceiving, type SubmissionStage, type SubmissionState } from './submission';
 import type {
+  QcCriterionId,
   QcResult,
-  ReceiptResult,
-  ReceivingOutcome,
-  ReceivingRecord,
   ReceivingWizardStep,
   ShipmentLineItem,
+  StorageBayOption,
   WarehouseScreenBaseProps,
   WizardShipmentData,
 } from './types';
 
+/** The API calls the wizard makes; the host binds them (ReceivingFlow). Each write takes its Idempotency-Key. */
+export interface ReceivingWrites {
+  createReceipt: (body: GoodsReceiptCreate, idempotencyKey: string) => Promise<GoodsReceiptDto>;
+  receiptsOfPurchaseOrder: (purchaseOrderId: string) => Promise<readonly GoodsReceiptDto[]>;
+  getReceipt: (id: string) => Promise<GoodsReceiptDto>;
+  recordQualityCheck: (id: string, body: QualityCheckCreate, idempotencyKey: string) => Promise<QualityCheckResultDto>;
+  createCounterOffer: (id: string, body: CounterOfferCreate, idempotencyKey: string) => Promise<CounterOfferDto>;
+}
+
 export interface GoodsReceivingWizardScreenProps extends WarehouseScreenBaseProps {
   /** Step to open on. A step the admin may not perform falls through to the next allowed one. */
   initialStep: ReceivingWizardStep;
-  shipment?: WizardShipmentData | undefined;
+  /** The purchase order being received (GET /admin/purchase-orders/{id}). */
+  shipment: WizardShipmentData;
+  /** A receipt of this order still awaiting QC: the wizard completes it instead of creating another. */
+  pendingReceipt?: GoodsReceiptDto | undefined;
+  /** The receiving warehouse's storage locations. */
+  storageLocations?: readonly StorageBayOption[] | undefined;
+  storageLocationsLoading?: boolean | undefined;
+  writes: ReceivingWrites;
   /** Name of the admin doing the receiving (Start Receiving "Receiver"). */
   receiverName?: string | undefined;
   onFinish?: (() => void) | undefined;
   onBackToShipments?: (() => void) | undefined;
+  /** Inventory Batch Detail for the batch the quality check created (inventory.batch.view). */
   onViewBatch?: ((batchId: string) => void) | undefined;
-  /** Host's storage location assignment screen (Main shell), offered on the Batch & Storage step. */
-  onOpenStorageLocations?: (() => void) | undefined;
-  /**
-   * The host's Receiving History list (ReceivingFlow). When given, "View
-   * receiving history" opens it instead of the embedded receiving_history step.
-   */
+  /** The host's receipt detail for the recorded receipt. */
+  onViewReceipt?: ((receiptId: string) => void) | undefined;
+  /** The host's Receiving History list. */
   onViewHistory?: (() => void) | undefined;
 }
 
 /** Stepper stages, in order. Quality and Batch drop out when their gate fails. */
 type StepperStage = 'Shipment' | 'Quantity' | 'Quality' | 'Grade' | 'Decision' | 'Summary' | 'Batch';
 
+/** Steps with no API behind them: never shown, whatever a host or deep link asks for. */
+const STEPS_WITHOUT_API: ReadonlySet<ReceivingWizardStep> = new Set<ReceivingWizardStep>([
+  'damage_mismatch',
+  'rejected_goods',
+  'record_handling',
+  'receiving_in_progress',
+  'continue_receiving',
+  'review_receiving',
+  'receiving_history',
+  'receipt_detail',
+]);
+
 /** Where a step the admin may not perform falls through to. */
 const STEP_FALLBACK: Partial<Record<ReceivingWizardStep, ReceivingWizardStep>> = {
-  quality_check: 'grade_verification',
-  continue_receiving: 'grade_verification',
+  quality_check: 'receipt_summary',
+  grade_verification: 'receipt_summary',
+  receiving_decision: 'receipt_summary',
   partial_acceptance: 'receiving_decision',
-  counter_offer: 'receiving_decision',
-  rejected_goods: 'receipt_confirmation',
-  record_handling: 'receipt_confirmation',
+  batch_assignment: 'receipt_summary',
+};
+
+/** The grades a quality check may assign (docs/openapi.yaml Grade). */
+const GRADES: readonly Grade[] = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'];
+
+const ALL_PASS: Record<QcCriterionId, QcResult> = {
+  appearance: 'pass',
+  size: 'pass',
+  moisture: 'pass',
+  damage: 'pass',
+  freshness: 'pass',
 };
 
 /** Received - Expected, as the absorbed Quantity Verification rule states (never typed by the user). */
 function lineStatus(line: ShipmentLineItem): 'Shortage' | 'Excess' | 'Match' {
-  const diff = line.receivedKg - line.expectedKg;
+  if (line.expectedGrams === null || line.receivedGrams === null) return 'Match';
+  const diff = line.receivedGrams - line.expectedGrams;
   return diff < 0 ? 'Shortage' : diff > 0 ? 'Excess' : 'Match';
 }
 
-function signedKg(n: number): string {
-  return `${n > 0 ? '+' : ''}${n} KG`;
+function kg(value: number | null): string {
+  return value === null ? t('inventory.noValue') : formatKg(value);
 }
 
-/** Pill tone of a receipt result. */
-function resultTone(result: ReceiptResult) {
-  if (result === 'Accepted') return adminColors.success;
-  if (result === 'Rejected') return adminColors.danger;
-  return adminColors.warning;
+function signedKg(value: number | null): string {
+  if (value === null) return t('inventory.noValue');
+  return `${value > 0 ? '+' : ''}${formatKg(value)}`;
+}
+
+/** Grams from typed kg, or null when nothing valid (or nothing above zero) was typed. */
+function positiveGrams(input: string): number | null {
+  const value = parseKgToGrams(input);
+  return value !== null && value > 0 ? value : null;
 }
 
 /* ─── Main Wizard Component ─── */
@@ -166,12 +204,16 @@ export function GoodsReceivingWizardScreen({
   can,
   onBack,
   initialStep,
-  shipment,
+  shipment: ship,
+  pendingReceipt,
+  storageLocations = [],
+  storageLocationsLoading = false,
+  writes,
   receiverName,
   onFinish,
   onBackToShipments,
   onViewBatch,
-  onOpenStorageLocations,
+  onViewReceipt,
   onViewHistory,
 }: GoodsReceivingWizardScreenProps) {
   const canRecord = can(RECEIVING_CODES.receiptRecord);
@@ -182,29 +224,26 @@ export function GoodsReceivingWizardScreen({
   const canViewBatch = can(RECEIVING_CODES.batchView);
 
   const isAllowed = (step: ReceivingWizardStep): boolean => {
+    if (STEPS_WITHOUT_API.has(step)) return false;
     switch (step) {
       case 'quality_check':
-      case 'continue_receiving':
+      case 'grade_verification':
+      case 'receiving_decision':
         return canRecord && canQc;
       case 'partial_acceptance':
-      case 'rejected_goods':
-      case 'record_handling':
-        return canRecord && canReject;
+        return canRecord && canQc && canReject;
       case 'batch_assignment':
-        return canRecord && canBatch;
+        return canRecord && canQc && canBatch;
       case 'counter_offer':
         return canRecord && canCounter;
-      case 'receiving_history':
-      case 'receipt_detail':
-        return canViewBatch || canRecord;
       default:
         return canRecord;
     }
   };
 
-  /** Follow the fallback chain past steps the admin may not perform. */
+  /** Follow the fallback chain past steps the admin may not perform; a step with no API restarts. */
   const resolveStep = (step: ReceivingWizardStep): ReceivingWizardStep => {
-    let s = step;
+    let s: ReceivingWizardStep = STEPS_WITHOUT_API.has(step) ? 'start_receiving' : step;
     for (let i = 0; i < 4 && !isAllowed(s); i += 1) {
       const next = STEP_FALLBACK[s];
       if (!next) break;
@@ -216,19 +255,23 @@ export function GoodsReceivingWizardScreen({
   const stages: StepperStage[] = [
     'Shipment',
     'Quantity',
-    ...(canQc ? (['Quality'] as const) : []),
-    'Grade',
-    'Decision',
+    ...(canQc ? (['Quality', 'Grade', 'Decision'] as const) : []),
     'Summary',
-    ...(canBatch ? (['Batch'] as const) : []),
+    ...(canQc && canBatch ? (['Batch'] as const) : []),
   ];
   const stepper = (stage: StepperStage) => <StepperHeader labels={stages} current={stages.indexOf(stage)} />;
 
-  const [currentStep, setCurrentStep] = useState<ReceivingWizardStep>(() => resolveStep(initialStep));
-  const [history, setHistory] = useState<ReceivingWizardStep[]>(() => [resolveStep(initialStep)]);
+  /** The step to open on. The result, error and counter-offer steps need a submit first, so a host cannot open them. */
+  const resolveInitial = (step: ReceivingWizardStep): ReceivingWizardStep =>
+    step === 'receipt_confirmation' || step === 'submission_error' || step === 'counter_offer'
+      ? resolveStep('start_receiving')
+      : resolveStep(step);
+
+  const [currentStep, setCurrentStep] = useState<ReceivingWizardStep>(() => resolveInitial(initialStep));
+  const [history, setHistory] = useState<ReceivingWizardStep[]>(() => [resolveInitial(initialStep)]);
 
   useEffect(() => {
-    const first = resolveStep(initialStep);
+    const first = resolveInitial(initialStep);
     setCurrentStep(first);
     setHistory([first]);
     // Reset only when the host opens a different step (as before); `can` is stable per session.
@@ -240,176 +283,196 @@ export function GoodsReceivingWizardScreen({
     setCurrentStep(step);
   };
 
+  /** Replace the whole history: after a submit there is no going back into the form. */
+  const resetToStep = (step: ReceivingWizardStep) => {
+    setHistory([step]);
+    setCurrentStep(step);
+  };
+
+  // Order facts (the purchase order; no warehouse is named in this file)
+  const receiptCode = ship.code;
+  const expectedProduct = ship.produce;
+  const expectedGrade = ship.grade;
+  const sourceName = ship.from;
+  /** Destination: the Sub scope's own warehouse, or the order's for Main (all warehouses). */
+  const destinationName = scope.warehouseName ?? ship.to;
+  /** BR-30: a Sub scope always records into its own warehouse uuid. */
+  const warehouseId = receivingWarehouseFilter(scope, ship.warehouseId) ?? ship.warehouseId;
+  const expectedGrams = ship.expectedGrams;
+
+  // Start Receiving
+  const [arrivalConfirmed, setArrivalConfirmed] = useState(false);
+  const [vehicleNumber, setVehicleNumber] = useState(pendingReceipt?.vehicleNumber ?? '');
+
+  // Quantity: the gross weight is typed once; a resumed receipt keeps its recorded gross.
+  const resumedGross = pendingReceipt === undefined ? null : parseKgToGrams(pendingReceipt.grossQtyKg);
+  const [grossInput, setGrossInput] = useState('');
+  const grossGrams = pendingReceipt === undefined ? positiveGrams(grossInput) : resumedGross;
+
+  // Quality check
+  const [qcStatusMap, setQcStatusMap] = useState<Record<QcCriterionId, QcResult>>(ALL_PASS);
+  const qcIssueCount = QC_CRITERIA.filter(c => qcStatusMap[c.id] !== 'pass').length;
+  const [moisturePct, setMoisturePct] = useState('');
+  const [visualScore, setVisualScore] = useState('');
+  const [defectNotes, setDefectNotes] = useState('');
+
+  // Grade
+  const [assignedGrade, setAssignedGrade] = useState<Grade>(ship.apiGrade ?? 'GRADE_1');
+  const actualGrade = gradeLabel(assignedGrade);
+  const gradeMatches = ship.apiGrade === undefined || assignedGrade === ship.apiGrade;
+
+  // Decision: accepted is chosen; rejected is always received - accepted.
+  const [acceptedGrams, setAcceptedGrams] = useState<number | null>(null);
+  const [acceptedInput, setAcceptedInput] = useState('');
+  const rejectedGrams = grossGrams !== null && acceptedGrams !== null ? grossGrams - acceptedGrams : null;
+  const partialValid =
+    grossGrams !== null && acceptedGrams !== null && acceptedGrams > 0 && acceptedGrams < grossGrams;
+  const outcomeLabel =
+    acceptedGrams === null || rejectedGrams === null
+      ? t('inventory.noValue')
+      : acceptedGrams === 0
+        ? 'Reject'
+        : rejectedGrams === 0
+          ? 'Accept'
+          : 'Partial Accept';
+
+  const setAcceptedFromInput = (text: string) => {
+    setAcceptedInput(text);
+    setAcceptedGrams(parseKgToGrams(text));
+  };
+
+  const shipmentLines: ShipmentLineItem[] = [{ product: expectedProduct, expectedGrams, receivedGrams: grossGrams }];
+
+  // Storage location (free text on the batch; the quality check sends its code)
+  const [selectedLocationCode, setSelectedLocationCode] = useState<string | undefined>(undefined);
+
+  // Submission: one key ring and one resumable state for the life of the wizard.
+  const keyRing = useRef(createReceivingKeyRing()).current;
+  const [submission, setSubmission] = useState<SubmissionState>(() =>
+    initialSubmissionState(ship.receiptIds, pendingReceipt),
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<{ error: unknown; stage: SubmissionStage } | null>(null);
+  const [result, setResult] = useState<{ receipt: GoodsReceiptDto; qc: QualityCheckResultDto | null } | null>(null);
+
+  const qcDraft: QcDraft = {
+    assignedGrade,
+    grossGrams,
+    acceptedGrams,
+    checklist: qcStatusMap,
+    moisturePct,
+    visualScore,
+    defectNotes,
+    storageLocation: selectedLocationCode,
+  };
+  const draftProblem = canQc ? qcDraftProblem(qcDraft) : grossGrams === null ? 'quantities' : null;
+
+  // A ref, not only state: a second tap in the same frame must not start a second submit.
+  const submittingRef = useRef(false);
+  /**
+   * Once a create was sent (or may have landed), the gross is fixed: a retry
+   * must send the same body so the re-read can recognise the receipt it made.
+   */
+  const grossLocked = pendingReceipt !== undefined || submission.receipt !== null || submission.createUnknown;
+
+  const handleConfirmGoodsReceipt = async () => {
+    if (submittingRef.current || draftProblem !== null || grossGrams === null) return;
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    const createBody = buildGoodsReceiptBody({ purchaseOrderId: ship.purchaseOrderId, warehouseId, grossGrams, vehicleNumber });
+    const qcBody = canQc ? buildQualityCheckBody(qcDraft) : null;
+    const outcome = await submitReceiving(
+      submission,
+      { purchaseOrderId: ship.purchaseOrderId, createBody, qcBody },
+      {
+        createReceipt: body => writes.createReceipt(body, keyRing.createKey(body)),
+        receiptsOfPurchaseOrder: writes.receiptsOfPurchaseOrder,
+        getReceipt: writes.getReceipt,
+        recordQualityCheck: (id, body) => writes.recordQualityCheck(id, body, keyRing.qcKey(id, body)),
+      },
+    );
+    setSubmission(outcome.state);
+    submittingRef.current = false;
+    setIsSubmitting(false);
+    if (outcome.kind === 'done') {
+      setSubmitError(null);
+      setResult({ receipt: outcome.receipt, qc: outcome.qc });
+      resetToStep('receipt_confirmation');
+    } else {
+      setSubmitError({ error: outcome.error, stage: outcome.stage });
+      goToStep('submission_error');
+    }
+  };
+
   /* Navigation handler based on back button: pops exactly ONE screen */
   const handleBack = () => {
-    if (history.length > 1) {
+    if (currentStep === 'receipt_confirmation' && result !== null) {
+      (onFinish ?? onBack)();
+    } else if (history.length > 1) {
       const nextHistory = history.slice(0, -1);
       const prevStep = nextHistory[nextHistory.length - 1];
       setHistory(nextHistory);
       if (prevStep) {
         setCurrentStep(prevStep);
       }
-    } else if (currentStep === 'receipt_confirmation') {
-      goToStep('receiving_decision');
-    } else if (currentStep === 'submission_error') {
-      goToStep('receipt_summary');
     } else {
       onBack();
     }
   };
 
-  const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
-
-  const handleConfirmGoodsReceipt = () => {
-    setIsSubmittingReceipt(true);
-    setTimeout(() => {
-      setIsSubmittingReceipt(false);
-      goToStep('receipt_confirmation');
-    }, 600);
-  };
-
-  const handleRetrySubmission = () => {
-    setIsSubmittingReceipt(true);
-    setTimeout(() => {
-      setIsSubmittingReceipt(false);
-      goToStep('receipt_confirmation');
-    }, 600);
-  };
-
-  // Shipment facts (props first, demo shipment otherwise; no warehouse is named here)
-  const ship = shipment ?? DEMO_SHIPMENT;
-  const receiptCode = ship.code;
-  const expectedProduct = ship.produce;
-  const expectedGrade = ship.grade ?? DEMO_SHIPMENT.grade ?? '';
-  const sourceName = ship.from ?? DEMO_SHIPMENT.from ?? '';
-  /** Destination: the Sub scope's own warehouse, or the shipment's for Main (all warehouses). */
-  const destinationName = scope.warehouseName ?? ship.to ?? '';
-
-  // Screen 1: Start Receiving States
-  const [receivedDate, setReceivedDate] = useState(ship.receivedDate ?? DEMO_SHIPMENT.receivedDate ?? '');
-  const [receivedTime, setReceivedTime] = useState(ship.receivedTime ?? DEMO_SHIPMENT.receivedTime ?? '');
-  const [, setStartReceivingPhotos] = useState<string[]>([]);
-  const [arrivalConfirmed, setArrivalConfirmed] = useState(false);
-
-  // Screen 3: Quality Check States
-  const [qcStatusMap, setQcStatusMap] = useState<Record<string, QcResult>>(DEMO_QC_RESULTS);
-  const qcIssueCount = QC_CRITERIA.filter(c => (qcStatusMap[c.id] ?? 'pass') !== 'pass').length;
-
-  // Grade & Product verification (absorbed GradeProductVerificationScreen)
-  const [actualProduct, setActualProduct] = useState(expectedProduct);
-  const [actualGrade, setActualGrade] = useState(expectedGrade);
-  const productMatches = actualProduct === expectedProduct;
-  const gradeMatches = actualGrade === expectedGrade;
-
-  // Screen 4 & 5: Quantities & Decisions
-  const initExpected = ship.expectedQty;
-  const initReceived = ship.receivedQty ?? initExpected;
-  const initRejected = ship.rejectedQty ?? 0;
-  const initAccepted = ship.acceptedQty ?? Math.max(0, initReceived - initRejected);
-
-  const [expectedQty] = useState(initExpected);
-  const [receivedQty] = useState(initReceived);
-  const [rejectedQty, setRejectedQty] = useState(initRejected);
-  const [acceptedQty, setAcceptedQty] = useState(initAccepted);
-  const [acceptedInput, setAcceptedInput] = useState(String(initAccepted));
-  const [rejectionReason, setRejectionReason] = useState('Quality Below Grade');
-  const [partialNotes, setPartialNotes] = useState('');
-  const outcome: ReceivingOutcome = acceptedQty === 0 ? 'Reject' : rejectedQty === 0 ? 'Accept' : 'Partial Accept';
-
-  /** Partial Acceptance: Accepted + Rejected = Received, and neither may exceed Received. */
-  const setAcceptedFromInput = (text: string) => {
-    const digits = text.replace(/[^0-9]/g, '');
-    const value = Math.min(receivedQty, Math.max(0, parseInt(digits, 10) || 0));
-    setAcceptedInput(digits === '' ? '' : String(value));
-    setAcceptedQty(value);
-    setRejectedQty(receivedQty - value);
-  };
-
-  const shipmentLines: ShipmentLineItem[] = [
-    { product: expectedProduct, expectedKg: expectedQty, receivedKg: receivedQty },
-    ...(ship.lines ?? []),
-  ];
-
-  // Screen 5: Damage / Mismatch States
-  const [selectedIssueType, setSelectedIssueType] = useState(ISSUE_TYPES[0] ?? '');
-  const [issueDescription, setIssueDescription] = useState('');
-
-  /** Combined discrepancies (absorbed Damage / Mismatch Report), derived from what was recorded. */
-  const discrepancies = [
-    ...(receivedQty !== expectedQty
-      ? [{ id: 'qty', kind: 'Quantity', detail: `Expected ${expectedQty} KG · Actual ${receivedQty} KG` }]
-      : []),
-    ...(!productMatches
-      ? [{ id: 'product', kind: 'Product', detail: `Expected ${expectedProduct} · Actual ${actualProduct}` }]
-      : []),
-    ...(!gradeMatches ? [{ id: 'grade', kind: 'Grade', detail: `Expected ${expectedGrade} · Actual ${actualGrade}` }] : []),
-    ...(canQc && qcIssueCount > 0
-      ? [{ id: 'quality', kind: 'Quality', detail: `${qcIssueCount} of ${QC_CRITERIA.length} checks need attention or failed` }]
-      : []),
-  ];
-
-  // History Tab Filter
-  const [historyFilter, setHistoryFilter] = useState<'All' | 'Accepted' | 'Partial' | 'Rejected'>('All');
-  const [historySearch, setHistorySearch] = useState('');
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>(undefined);
-
-  // Rejected Goods & Record Handling States
-  const [selectedRejectedReason, setSelectedRejectedReason] = useState(REJECTED_GOODS_REASONS[0] ?? '');
-  const [handlingStatus, setHandlingStatus] = useState<'Pending' | 'Recorded'>('Pending');
-  const [handlingMethod, setHandlingMethod] = useState('Select method');
-  const [handlingDate, setHandlingDate] = useState(ship.receivedDate ?? DEMO_SHIPMENT.receivedDate ?? '');
-  const [handlingTime, setHandlingTime] = useState(ship.receivedTime ?? DEMO_SHIPMENT.receivedTime ?? '');
-  const [handlingRemarks, setHandlingRemarks] = useState('');
-
-  // Batch & storage (absorbed BatchAssignment + the Review Receiving putaway bay)
-  const [selectedBayId, setSelectedBayId] = useState(STORAGE_BAYS[0]?.id ?? '');
-  const selectedBay = STORAGE_BAYS.find(b => b.id === selectedBayId);
-  const batchId = outcome === 'Accept' ? DEMO_BATCH_IDS.full : DEMO_BATCH_IDS.partial;
-
-  // Counter-offer (inventory.quality.counter_offer)
-  const [counterPrice, setCounterPrice] = useState('');
-  const [counterReason, setCounterReason] = useState('');
-  /** Rupees with at most two decimals, kept as a string (CLAUDE.md 2.2: money is never a float). */
-  const counterPriceValid = /^\d{1,6}(\.\d{1,2})?$/.test(counterPrice) && !/^0+(\.0+)?$/.test(counterPrice);
-
-  // Review Receiving (absorbed SubWarehouseReviewReceivingScreen)
-  const [grossWeight, setGrossWeight] = useState(String(receivedQty));
-  const [crateCount, setCrateCount] = useState('0');
-  const [inspection, setInspection] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(INSPECTION_PARAMETERS.map(p => [p.id, true])),
-  );
-  const [isReviewSuccessVisible, setIsReviewSuccessVisible] = useState(false);
-  const parsedGross = parseFloat(grossWeight) || 0;
-  const parsedCrates = parseInt(crateCount, 10) || 0;
-  const tareWeight = parsedCrates * (ship.crateTareKg ?? 0);
-  const netWeight = Math.max(0, parsedGross - tareWeight);
-
-  /** Damage / Mismatch continues to the step after the one that opened it (Quality is skipped without its gate). */
-  const mismatchFrom = history[history.length - 2];
-  const afterMismatchStep: ReceivingWizardStep =
-    mismatchFrom === 'grade_verification'
-      ? 'receiving_decision'
-      : mismatchFrom === 'quality_check'
-        ? 'grade_verification'
-        : 'quality_check';
-
   /** Summary -> Batch & Storage when allowed and something was accepted, else submit straight away. */
   const handleSummaryConfirm = () => {
-    if (canBatch && acceptedQty > 0) goToStep('batch_assignment');
-    else handleConfirmGoodsReceipt();
+    if (isAllowed('batch_assignment') && (acceptedGrams ?? 0) > 0) goToStep('batch_assignment');
+    else void handleConfirmGoodsReceipt();
   };
 
-  const pickFrom = (title: string, options: string[], onPick: (v: string) => void) => {
+  const pickFrom = (title: string, options: readonly { label: string; onPick: () => void }[]) => {
     Alert.alert(title, undefined, [
-      ...options.map(o => ({ text: o, onPress: () => onPick(o) })),
+      ...options.map(o => ({ text: o.label, onPress: o.onPick })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   };
 
-  /** QC summary rows from the recorded results (was a hard-coded icon list). */
-  const qcSummaryRows = (results: Partial<Record<string, QcResult>>) =>
+  // Counter-offer (after the receipt exists; inventory.quality.counter_offer)
+  const [counterPrice, setCounterPrice] = useState('');
+  const [counterReason, setCounterReason] = useState('');
+  const [counterSending, setCounterSending] = useState(false);
+  const [counterError, setCounterError] = useState<unknown>(null);
+  const [counterSent, setCounterSent] = useState<CounterOfferDto | null>(null);
+  const recordedReceipt = result?.receipt ?? null;
+  /** The lot the offer is about: the accepted weight, or the recorded one before a quality check. */
+  const counterQuantityGrams =
+    result?.qc?.qualityCheck.acceptedQtyKg !== undefined
+      ? parseKgToGrams(result.qc.qualityCheck.acceptedQtyKg)
+      : acceptedGrams ?? grossGrams;
+  const counterBody =
+    counterQuantityGrams === null
+      ? null
+      : buildCounterOfferBody({ priceInput: counterPrice, quantityGrams: counterQuantityGrams, message: counterReason });
+  const canOfferCounter = canCounter && recordedReceipt !== null && (counterQuantityGrams ?? 0) > 0;
+
+  const sendCounterOffer = async () => {
+    if (recordedReceipt === null || counterBody === null || counterSending) return;
+    setCounterSending(true);
+    setCounterError(null);
+    try {
+      const offer = await writes.createCounterOffer(
+        recordedReceipt.id,
+        counterBody,
+        keyRing.counterKey(recordedReceipt.id, counterBody),
+      );
+      setCounterSent(offer);
+    } catch (error) {
+      setCounterError(error);
+    } finally {
+      setCounterSending(false);
+    }
+  };
+
+  /** QC summary rows from the recorded results. */
+  const qcSummaryRows = (results: Record<QcCriterionId, QcResult>) =>
     QC_CRITERIA.map((crit, idx) => {
-      const r = results[crit.id] ?? 'pass';
+      const r = results[crit.id];
       return (
         <View
           key={crit.id}
@@ -427,19 +490,53 @@ export function GoodsReceivingWizardScreen({
       );
     });
 
+  const header = (title: string, sub?: string) => (
+    <>
+      <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
+          <BackArrowIcon />
+        </TouchableOpacity>
+        {sub === undefined ? (
+          <Text style={styles.headerTitle}>{title}</Text>
+        ) : (
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <Text style={styles.headerSub}>{sub}</Text>
+          </View>
+        )}
+      </View>
+    </>
+  );
+
+  const decisionTable = (accepted: number | null, rejected: number | null) => (
+    <View style={styles.decisionTableCard}>
+      <View style={styles.decisionTableRow}>
+        <Text style={styles.decisionTableLabel}>Expected</Text>
+        <Text style={styles.decisionTableValue}>{kg(expectedGrams)}</Text>
+      </View>
+      <View style={styles.decisionTableRow}>
+        <Text style={styles.decisionTableLabel}>Received</Text>
+        <Text style={styles.decisionTableValue}>{kg(grossGrams)}</Text>
+      </View>
+      <View style={styles.decisionTableRow}>
+        <Text style={styles.decisionTableLabel}>Accepted</Text>
+        <Text style={[styles.decisionTableValue, styles.valueSuccess]}>{kg(accepted)}</Text>
+      </View>
+      <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
+        <Text style={styles.decisionTableLabel}>Rejected</Text>
+        <Text style={[styles.decisionTableValue, styles.valueDanger]}>{kg(rejected)}</Text>
+      </View>
+    </View>
+  );
+
   /* ──────────────────────────────────────────────────────────
      No permission for this step (every gate failed its fallback)
      ────────────────────────────────────────────────────────── */
-  if (!isAllowed(currentStep)) {
+  if (!isAllowed(currentStep) && currentStep !== 'receipt_confirmation' && currentStep !== 'submission_error') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Goods Receiving</Text>
-        </View>
+        {header('Goods Receiving')}
         <View style={styles.scrollContent}>
           <PermissionNote message="You do not have permission to record goods receipts." />
         </View>
@@ -453,13 +550,7 @@ export function GoodsReceivingWizardScreen({
   if (currentStep === 'start_receiving') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Start Receiving</Text>
-        </View>
+        {header('Start Receiving')}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Shipment')}
@@ -473,9 +564,13 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.produceTitle}>{expectedProduct}</Text>
                 <Text style={styles.produceSub}>{expectedGrade}</Text>
               </View>
-              <Text style={styles.produceExpQty}>Exp. {expectedQty} KG</Text>
+              <Text style={styles.produceExpQty}>{t('receiving.wizard.expectedQty', { qty: kg(expectedGrams) })}</Text>
             </View>
           </View>
+
+          {pendingReceipt !== undefined ? (
+            <NoticeBox text={t('receiving.wizard.resumeNotice', { grn: pendingReceipt.grnNumber })} />
+          ) : null}
 
           {/* Absorbed StartReceivingScreen: shipment confirmation + receiver information */}
           <Text style={styles.sectionHeader}>Shipment Confirmation</Text>
@@ -483,7 +578,7 @@ export function GoodsReceivingWizardScreen({
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Source</Text>
-                <Text style={styles.summaryMetaVal}>{sourceName}</Text>
+                <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Destination</Text>
@@ -497,7 +592,7 @@ export function GoodsReceivingWizardScreen({
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Expected Qty</Text>
-                <Text style={styles.summaryMetaVal}>{expectedQty} KG</Text>
+                <Text style={styles.summaryMetaVal}>{kg(expectedGrams)}</Text>
               </View>
             </View>
           </View>
@@ -528,33 +623,16 @@ export function GoodsReceivingWizardScreen({
           </TouchableOpacity>
 
           <Text style={styles.sectionHeader}>Physical Information</Text>
-          <View style={styles.rowTwoCols}>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Received Date</Text>
-              <TextInput style={styles.textInput} value={receivedDate} onChangeText={setReceivedDate} />
-            </View>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Received Time</Text>
-              <TextInput style={styles.textInput} value={receivedTime} onChangeText={setReceivedTime} />
-            </View>
-          </View>
-
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>Receiving Photos</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.dashedAddBox}
-            activeOpacity={0.7}
-            onPress={() => {
-              Alert.alert('Camera', 'Photo captured.');
-              setStartReceivingPhotos(prev => [...prev, 'photo']);
-            }}
-          >
-            <CameraPlusIcon />
-            <Text style={styles.dashedAddBoxText}>Add Photo</Text>
-          </TouchableOpacity>
+          <Text style={styles.inputLabel}>{t('receiving.wizard.vehicleLabel')}</Text>
+          <TextInput
+            style={styles.textInput}
+            value={vehicleNumber}
+            onChangeText={text => setVehicleNumber(text.toUpperCase())}
+            editable={!grossLocked}
+            autoCapitalize="characters"
+            maxLength={20}
+            placeholderTextColor={adminColors.placeholder}
+          />
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -576,64 +654,74 @@ export function GoodsReceivingWizardScreen({
      SCREEN 2: Quantity Verification
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'quantity_verification') {
+    const difference = grossGrams !== null && expectedGrams !== null ? grossGrams - expectedGrams : null;
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Quantity Verification</Text>
-        </View>
+        {header('Quantity Verification')}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Quantity')}
 
+          <Text style={styles.inputLabel}>{t('receiving.wizard.grossLabel')}</Text>
+          {pendingReceipt === undefined ? (
+            <TextInput
+              style={[styles.textInput, grossLocked && styles.readOnlyInput]}
+              editable={!grossLocked}
+              value={grossInput}
+              onChangeText={setGrossInput}
+              keyboardType="decimal-pad"
+              placeholder="0.000"
+              placeholderTextColor={adminColors.placeholder}
+            />
+          ) : (
+            <View style={[styles.textInput, styles.readOnlyInput]}>
+              <Text style={styles.readOnlyValue}>
+                {t('receiving.wizard.grossLocked', { qty: kg(grossGrams), grn: pendingReceipt.grnNumber })}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
+              <Text style={styles.statTileNumber}>{kg(expectedGrams)}</Text>
               <Text style={styles.statTileLabel}>EXPECTED</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
+              <Text style={styles.statTileNumber}>{kg(grossGrams)}</Text>
               <Text style={styles.statTileLabel}>RECEIVED</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text
-                style={[
-                  styles.statTileNumber,
-                  receivedQty !== expectedQty && { color: adminColors.danger.text },
-                ]}
-              >
-                {signedKg(receivedQty - expectedQty)}
+              <Text style={[styles.statTileNumber, difference !== null && difference !== 0 && styles.valueDanger]}>
+                {signedKg(difference)}
               </Text>
               <Text style={styles.statTileLabel}>DIFFERENCE</Text>
             </View>
           </View>
 
           {/* Absorbed QuantityVerificationScreen: one row per product line with its status */}
-          <Text style={styles.sectionHeader}>
-            {shipmentLines.length > 1 ? 'Multiple Items on this Shipment' : 'Items on this Shipment'}
-          </Text>
+          <Text style={styles.sectionHeader}>Items on this Shipment</Text>
           {shipmentLines.map(line => {
             const status = lineStatus(line);
             const tone =
               status === 'Shortage' ? adminColors.warning : status === 'Excess' ? adminColors.info : adminColors.success;
+            const diff =
+              line.receivedGrams !== null && line.expectedGrams !== null ? line.receivedGrams - line.expectedGrams : null;
             return (
               <View key={line.product} style={styles.shipmentItemCard}>
                 <View style={styles.shipmentItemTopRow}>
                   <Text style={styles.shipmentItemTitle}>{line.product}</Text>
-                  <View style={[styles.redBadgePill, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.redBadgeText, { color: tone.text }]}>
-                      {status === 'Match' ? status : `${status} ${signedKg(line.receivedKg - line.expectedKg)}`}
-                    </Text>
-                  </View>
+                  {line.receivedGrams !== null ? (
+                    <View style={[styles.redBadgePill, { backgroundColor: tone.bg }]}>
+                      <Text style={[styles.redBadgeText, { color: tone.text }]}>
+                        {status === 'Match' ? status : `${status} ${signedKg(diff)}`}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.shipmentItemDesc}>
-                  Expected <Text style={{ fontWeight: '700', color: adminColors.ink }}>{line.expectedKg} KG</Text> · Received <Text style={{ fontWeight: '700', color: adminColors.ink }}>{line.receivedKg} KG</Text>
+                  Expected <Text style={styles.inlineStrong}>{kg(line.expectedGrams)}</Text> · Received <Text style={styles.inlineStrong}>{kg(line.receivedGrams)}</Text>
                 </Text>
               </View>
             );
@@ -641,27 +729,18 @@ export function GoodsReceivingWizardScreen({
 
           <NoticeBox text="Difference is always calculated as Received - Expected — the user never types the difference directly." />
 
-          <Text style={styles.sectionHeader}>Report an Issue</Text>
-          <TouchableOpacity
-            style={styles.reportIssueBtn}
-            activeOpacity={0.8}
-            onPress={() => goToStep('damage_mismatch')}
-          >
-            <AlertCircleOutlineIcon color={adminColors.brand} size={18} />
-            <Text style={styles.reportIssueBtnText}>Record Damage / Mismatch</Text>
-          </TouchableOpacity>
-
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, grossGrams === null && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            onPress={() => goToStep('quality_check')}
+            disabled={grossGrams === null}
+            onPress={() => goToStep(canQc ? 'quality_check' : 'receipt_summary')}
           >
             <Text style={styles.primaryCtaText}>
-              {canQc ? 'Continue to Quality Check  →' : 'Continue to Grade & Product Check  →'}
+              {canQc ? 'Continue to Quality Check  →' : t('receiving.wizard.continueToSummary')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -670,21 +749,13 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 3: Quality Check
+     SCREEN 3: Quality Check (the five rows the server records, plus moisture,
+     visual score and defect notes)
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'quality_check') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Quality Check</Text>
-            <Text style={styles.headerSub}>{expectedProduct} · {expectedGrade} · Received {receivedQty} KG</Text>
-          </View>
-        </View>
+        {header('Quality Check', `${expectedProduct} · ${expectedGrade} · ${t('receiving.wizard.receivedQty', { qty: kg(grossGrams) })}`)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Quality')}
@@ -693,7 +764,7 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.qcProductCard}>
             <View style={styles.qcProductText}>
               <Text style={styles.shipmentItemTitle}>{expectedProduct}</Text>
-              <Text style={styles.shipmentItemDesc}>{receivedQty} KG received</Text>
+              <Text style={styles.shipmentItemDesc}>{t('receiving.wizard.receivedQty', { qty: kg(grossGrams) })}</Text>
             </View>
             <View
               style={[
@@ -714,7 +785,7 @@ export function GoodsReceivingWizardScreen({
           <NoticeBox text="Freshness and condition scales use configured backend values only — no invented numerical scoring system." />
 
           {QC_CRITERIA.map(crit => {
-            const currentVal = qcStatusMap[crit.id] || 'pass';
+            const currentVal = qcStatusMap[crit.id];
 
             return (
               <View key={crit.id} style={styles.criteriaCard}>
@@ -757,6 +828,41 @@ export function GoodsReceivingWizardScreen({
             );
           })}
 
+          <View style={styles.rowTwoCols}>
+            <View style={styles.colHalf}>
+              <Text style={styles.inputLabel}>{t('receiving.wizard.moistureLabel')}</Text>
+              <TextInput
+                style={styles.textInput}
+                value={moisturePct}
+                onChangeText={setMoisturePct}
+                keyboardType="decimal-pad"
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+            <View style={styles.colHalf}>
+              <Text style={styles.inputLabel}>{t('receiving.wizard.visualScoreLabel')}</Text>
+              <TextInput
+                style={styles.textInput}
+                value={visualScore}
+                onChangeText={setVisualScore}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.inputLabel}>{t('receiving.wizard.defectNotesLabel')}</Text>
+          <TextInput
+            style={styles.describeIssueInput}
+            multiline
+            numberOfLines={3}
+            maxLength={500}
+            value={defectNotes}
+            onChangeText={setDefectNotes}
+            placeholderTextColor={adminColors.placeholder}
+          />
+
           <View style={{ height: 100 }} />
         </ScrollView>
 
@@ -766,17 +872,10 @@ export function GoodsReceivingWizardScreen({
             activeOpacity={0.85}
             onPress={() => goToStep('grade_verification')}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Text style={styles.primaryCtaText}>Continue to Grade & Product Verification</Text>
+            <View style={styles.ctaRow}>
+              <Text style={styles.primaryCtaText}>{t('receiving.wizard.continueToGrade')}</Text>
               <RightArrowIcon color={adminColors.onBrand} size={18} />
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryCtaBtn}
-            activeOpacity={0.8}
-            onPress={() => goToStep('damage_mismatch')}
-          >
-            <Text style={styles.secondaryCtaText}>Quality Summary</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -784,34 +883,13 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 3B: Grade & Product Verification (absorbed GradeProductVerificationScreen)
-     Product / grade match is DERIVED from the expected and actual fields, never typed.
+     SCREEN 3B: Grade Verification. The product cannot change on a receipt;
+     the assigned grade may differ from the listed one. Match is DERIVED.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'grade_verification') {
-    const hasMismatch = !productMatches || !gradeMatches;
-    const openMismatch = (issue: string) => {
-      setSelectedIssueType(issue);
-      goToStep('damage_mismatch');
-    };
-    const matchChip = (ok: boolean, label: string) => (
-      <View style={[styles.matchChip, { backgroundColor: ok ? adminColors.success.bg : adminColors.danger.bg }]}>
-        <Text style={[styles.matchChipText, { color: ok ? adminColors.success.text : adminColors.danger.text }]}>
-          {label} {ok ? 'Match' : 'Mismatch'}
-        </Text>
-      </View>
-    );
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Grade & Product Verification</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
+        {header('Grade & Product Verification', receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Grade')}
@@ -824,60 +902,35 @@ export function GoodsReceivingWizardScreen({
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Expected Grade</Text>
-                <Text style={styles.summaryMetaVal}>{expectedGrade}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedGrade === '' ? t('inventory.noValue') : expectedGrade}</Text>
               </View>
             </View>
           </View>
-
-          <Text style={styles.inputLabel}>Actual Product</Text>
-          <TouchableOpacity
-            style={styles.dropdownSelectBox}
-            activeOpacity={0.7}
-            onPress={() => pickFrom('Actual Product', PRODUCT_OPTIONS, setActualProduct)}
-          >
-            <Text style={styles.dropdownValue}>{actualProduct}</Text>
-            <ChevronDownIcon />
-          </TouchableOpacity>
 
           <Text style={styles.inputLabel}>Actual Grade</Text>
           <TouchableOpacity
             style={styles.dropdownSelectBox}
             activeOpacity={0.7}
-            onPress={() => pickFrom('Actual Grade', GRADE_OPTIONS, setActualGrade)}
+            onPress={() =>
+              pickFrom(
+                'Actual Grade',
+                GRADES.map(grade => ({ label: gradeLabel(grade), onPick: () => setAssignedGrade(grade) })),
+              )
+            }
           >
             <Text style={styles.dropdownValue}>{actualGrade}</Text>
             <ChevronDownIcon />
           </TouchableOpacity>
 
           <View style={styles.matchChipRow}>
-            {matchChip(productMatches, 'Product')}
-            {matchChip(gradeMatches, 'Grade')}
-          </View>
-
-          <NoticeBox text="Product Match/Mismatch and Grade Match/Mismatch are derived automatically from these two fields." />
-
-          <View style={styles.actionGrid}>
-            <View style={styles.actionGridRow}>
-              <TouchableOpacity style={styles.actionCard} onPress={() => openMismatch('Product Mismatch')} activeOpacity={0.8}>
-                <ClipboardChecklistIcon color={adminColors.brand} size={18} />
-                <Text style={styles.actionCardText}>Product Mismatch</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionCard} onPress={() => openMismatch('Grade Mismatch')} activeOpacity={0.8}>
-                <WarningTriangleIcon color={adminColors.brand} size={18} />
-                <Text style={styles.actionCardText}>Grade Mismatch</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.actionGridRow}>
-              <TouchableOpacity style={styles.actionCard} onPress={() => goToStep('damage_mismatch')} activeOpacity={0.8}>
-                <ReceiptPaperIcon color={adminColors.brand} size={18} />
-                <Text style={styles.actionCardText}>Product Summary</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionCard} onPress={() => goToStep('damage_mismatch')} activeOpacity={0.8}>
-                <ReceiptPaperIcon color={adminColors.brand} size={18} />
-                <Text style={styles.actionCardText}>Grade Summary</Text>
-              </TouchableOpacity>
+            <View style={[styles.matchChip, { backgroundColor: gradeMatches ? adminColors.success.bg : adminColors.danger.bg }]}>
+              <Text style={[styles.matchChipText, { color: gradeMatches ? adminColors.success.text : adminColors.danger.text }]}>
+                Grade {gradeMatches ? 'Match' : 'Mismatch'}
+              </Text>
             </View>
           </View>
+
+          <NoticeBox text={t('receiving.wizard.gradeNotice')} />
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -886,17 +939,11 @@ export function GoodsReceivingWizardScreen({
           <TouchableOpacity
             style={styles.primaryCtaBtn}
             activeOpacity={0.85}
-            onPress={() =>
-              hasMismatch
-                ? openMismatch(!productMatches ? 'Product Mismatch' : 'Grade Mismatch')
-                : goToStep('receiving_decision')
-            }
+            onPress={() => goToStep('receiving_decision')}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <View style={styles.ctaRow}>
               <RightArrowIcon color={adminColors.onBrand} size={18} />
-              <Text style={styles.primaryCtaText}>
-                {hasMismatch ? 'Continue to Damage / Mismatch Report' : 'Continue to Decision'}
-              </Text>
+              <Text style={styles.primaryCtaText}>Continue to Decision</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -905,46 +952,21 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 4: Receiving Decision (Step 4 of 5)
+     SCREEN 4: Receiving Decision
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receiving_decision') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Receiving Decision</Text>
-        </View>
+        {header('Receiving Decision')}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Decision')}
 
-          {/* Metric Summary Table */}
-          <View style={styles.decisionTableCard}>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Expected</Text>
-              <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
-            </View>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Received</Text>
-              <Text style={styles.decisionTableValue}>{receivedQty} KG</Text>
-            </View>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Accepted</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{acceptedQty} KG</Text>
-            </View>
-            <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.decisionTableLabel}>Rejected</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{rejectedQty} KG</Text>
-            </View>
-          </View>
+          {decisionTable(acceptedGrams, rejectedGrams)}
 
           {/* Absorbed AcceptanceDecisionScreen notice */}
           <NoticeBox text="Only three documented outcomes exist: Accept, Partial Accept, Reject — no additional business outcome is invented." />
 
-          {/* Choose an Outcome */}
           <Text style={styles.sectionHeader}>Choose an Outcome</Text>
 
           {/* Outcome 1: Accept */}
@@ -952,8 +974,7 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomeAcceptCard}
             activeOpacity={0.8}
             onPress={() => {
-              setAcceptedQty(receivedQty);
-              setRejectedQty(0);
+              setAcceptedGrams(grossGrams);
               goToStep('receipt_summary');
             }}
           >
@@ -962,7 +983,7 @@ export function GoodsReceivingWizardScreen({
             </View>
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomeAcceptTitle}>Accept</Text>
-              <Text style={styles.outcomeAcceptSub}>Full {receivedQty} KG accepted, no rejection</Text>
+              <Text style={styles.outcomeAcceptSub}>{t('receiving.wizard.acceptAll', { qty: kg(grossGrams) })}</Text>
             </View>
           </TouchableOpacity>
 
@@ -972,11 +993,8 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomePartialCard}
             activeOpacity={0.8}
             onPress={() => {
-              const defaultRej = rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG;
-              const calcAccepted = Math.max(0, receivedQty - defaultRej);
-              setAcceptedQty(calcAccepted);
-              setAcceptedInput(String(calcAccepted));
-              setRejectedQty(receivedQty - calcAccepted);
+              setAcceptedInput('');
+              setAcceptedGrams(null);
               goToStep('partial_acceptance');
             }}
           >
@@ -985,9 +1003,7 @@ export function GoodsReceivingWizardScreen({
             </View>
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomePartialTitle}>Partial Accept</Text>
-              <Text style={styles.outcomePartialSub}>
-                {Math.max(0, receivedQty - (rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG))} KG accepted, {rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG} KG rejected
-              </Text>
+              <Text style={styles.outcomePartialSub}>{t('receiving.wizard.partialHint')}</Text>
             </View>
           </TouchableOpacity>
           )}
@@ -998,8 +1014,7 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomeRejectCard}
             activeOpacity={0.8}
             onPress={() => {
-              setAcceptedQty(0);
-              setRejectedQty(receivedQty);
+              setAcceptedGrams(0);
               goToStep('receipt_summary');
             }}
           >
@@ -1008,30 +1023,9 @@ export function GoodsReceivingWizardScreen({
             </View>
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomeRejectTitle}>Reject</Text>
-              <Text style={styles.outcomeRejectSub}>Reject the full received quantity ({receivedQty} KG)</Text>
+              <Text style={styles.outcomeRejectSub}>{t('receiving.wizard.rejectAll', { qty: kg(grossGrams) })}</Text>
             </View>
           </TouchableOpacity>
-          )}
-
-          {/* Quality counter-offer: an action, not a fourth outcome (inventory.quality.counter_offer) */}
-          {canCounter && (
-            <>
-              <Text style={styles.sectionHeader}>Quality Counter-Offer</Text>
-              <TouchableOpacity
-                style={styles.outcomeCounterCard}
-                activeOpacity={0.8}
-                onPress={() => goToStep('counter_offer')}
-              >
-                <View style={styles.outcomeIconBoxAmber}>
-                  <ReceiptPaperIcon color={adminColors.brand} size={22} />
-                </View>
-                <View style={styles.outcomeTextBox}>
-                  <Text style={styles.outcomeCounterTitle}>Propose Counter-Offer</Text>
-                  <Text style={styles.outcomeCounterSub}>Offer a revised price for the quality found at receipt</Text>
-                </View>
-                <ChevronRightSmall />
-              </TouchableOpacity>
-            </>
           )}
 
           <View style={{ height: 40 }} />
@@ -1042,28 +1036,19 @@ export function GoodsReceivingWizardScreen({
 
   /* ──────────────────────────────────────────────────────────
      SCREEN 4C: Quality Counter-Offer (inventory.quality.counter_offer)
-     No endpoint exists yet (SPEC_GAPS W4n-2): the offer is recorded locally.
+     POST /admin/goods-receipts/{id}/counter-offer, once the receipt exists.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'counter_offer') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Quality Counter-Offer</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
+        {header('Quality Counter-Offer', recordedReceipt?.grnNumber ?? receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Grade (actual)</Text>
@@ -1073,7 +1058,7 @@ export function GoodsReceivingWizardScreen({
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Accepted Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{acceptedQty} KG</Text>
+                <Text style={styles.summaryMetaVal}>{kg(counterQuantityGrams)}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>QC Issues</Text>
@@ -1084,45 +1069,69 @@ export function GoodsReceivingWizardScreen({
 
           <NoticeBox text="A counter-offer proposes a revised price for the quality found at receipt. The farmer's response window comes from system configuration and is enforced by the server." />
 
-          <Text style={styles.inputLabel}>Revised Price per KG (₹)</Text>
-          <TextInput
-            style={[styles.textInput, { marginBottom: adminSpacing.lg }]}
-            value={counterPrice}
-            onChangeText={text => setCounterPrice(text.replace(/[^0-9.]/g, ''))}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-            placeholderTextColor={adminColors.placeholder}
-          />
+          {counterSent !== null ? (
+            <NoticeBox
+              text={t('receiving.wizard.counterSent', {
+                round: String(counterSent.round),
+                expires: formatAdminDate(counterSent.expiresAt, new Date()),
+              })}
+            />
+          ) : (
+            <>
+              <Text style={styles.inputLabel}>Revised Price per KG (₹)</Text>
+              <TextInput
+                style={[styles.textInput, { marginBottom: adminSpacing.lg }]}
+                value={counterPrice}
+                onChangeText={text => setCounterPrice(text.replace(/[^0-9.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={adminColors.placeholder}
+                editable={!counterSending}
+              />
 
-          <Text style={styles.inputLabel}>Reason</Text>
-          <TextInput
-            style={styles.describeIssueInput}
-            placeholder="Quality found at receipt..."
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={3}
-            value={counterReason}
-            onChangeText={setCounterReason}
-          />
+              <Text style={styles.inputLabel}>Reason</Text>
+              <TextInput
+                style={styles.describeIssueInput}
+                placeholder="Quality found at receipt..."
+                placeholderTextColor={adminColors.placeholder}
+                multiline
+                numberOfLines={3}
+                maxLength={500}
+                value={counterReason}
+                onChangeText={setCounterReason}
+                editable={!counterSending}
+              />
+              {counterError !== null ? <Text style={styles.problemText}>{t(adminErrorKey(counterError))}</Text> : null}
+            </>
+          )}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={[styles.primaryCtaBtn, !counterPriceValid && styles.primaryCtaBtnDisabled]}
-            activeOpacity={0.85}
-            disabled={!counterPriceValid}
-            onPress={() => {
-              Alert.alert('Counter-Offer Recorded', `₹${counterPrice} per KG proposed for ${receiptCode}.`);
-              handleBack();
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <SendPaperAirplaneIcon />
-              <Text style={styles.primaryCtaText}>Send Counter-Offer</Text>
-            </View>
-          </TouchableOpacity>
+          {counterSent !== null ? (
+            <TouchableOpacity style={styles.primaryCtaBtn} activeOpacity={0.85} onPress={handleBack}>
+              <Text style={styles.primaryCtaText}>{t('receiving.wizard.done')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.primaryCtaBtn, (counterBody === null || counterSending) && styles.primaryCtaBtnDisabled]}
+              activeOpacity={0.85}
+              disabled={counterBody === null || counterSending}
+              onPress={() => void sendCounterOffer()}
+            >
+              <View style={styles.ctaRow}>
+                {counterSending ? (
+                  <ActivityIndicator color={adminColors.onBrand} size="small" />
+                ) : (
+                  <>
+                    <SendPaperAirplaneIcon />
+                    <Text style={styles.primaryCtaText}>Send Counter-Offer</Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -1132,43 +1141,32 @@ export function GoodsReceivingWizardScreen({
      SCREEN 4B: Partial Acceptance (Sub-screen of Decision)
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'partial_acceptance') {
-    const rejectionReasons = PARTIAL_REJECTION_REASONS;
-
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Partial Acceptance / Rejection</Text>
-            <Text style={styles.headerSub}>{receiptCode} · Product-level decision</Text>
-          </View>
-        </View>
+        {header('Partial Acceptance / Rejection', `${receiptCode} · Product-level decision`)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* 3 Metric Stat Tiles */}
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
+              <Text style={styles.statTileNumber}>{kg(grossGrams)}</Text>
               <Text style={styles.statTileLabel}>RECEIVED</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{acceptedQty} KG</Text>
+              <Text style={styles.statTileNumber}>{kg(acceptedGrams)}</Text>
               <Text style={styles.statTileLabel}>ACCEPTED</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={[styles.statTileNumber, { color: adminColors.danger.text }]}>{rejectedQty} KG</Text>
+              <Text style={[styles.statTileNumber, styles.valueDanger]}>{kg(rejectedGrams)}</Text>
               <Text style={styles.statTileLabel}>REJECTED</Text>
             </View>
           </View>
 
           {/* Absorbed PartialAcceptanceScreen: accepted is entered, rejected is calculated */}
           <NoticeBox text="Validated automatically: Accepted + Rejected = Received for every product — the form never allows Accepted or Rejected to exceed Received." />
-          <Text style={styles.sectionHeader}>Partial Acceptance Detail — {actualProduct}</Text>
+          <Text style={styles.sectionHeader}>Partial Acceptance Detail — {expectedProduct}</Text>
           <View style={styles.rowTwoCols}>
             <View style={styles.colHalf}>
               <Text style={styles.inputLabel}>Accepted Quantity (KG)</Text>
@@ -1176,85 +1174,44 @@ export function GoodsReceivingWizardScreen({
                 style={styles.textInput}
                 value={acceptedInput}
                 onChangeText={setAcceptedFromInput}
-                keyboardType="number-pad"
+                keyboardType="decimal-pad"
               />
             </View>
             <View style={styles.colHalf}>
               <Text style={styles.inputLabel}>Rejected (calculated)</Text>
               <View style={[styles.textInput, styles.readOnlyInput]}>
-                <Text style={styles.readOnlyValue}>{rejectedQty} KG</Text>
+                <Text style={styles.readOnlyValue}>{kg(rejectedGrams)}</Text>
               </View>
             </View>
           </View>
+          {acceptedInput !== '' && !partialValid ? (
+            <Text style={styles.problemText}>{t('receiving.wizard.partialInvalid')}</Text>
+          ) : null}
 
-          {/* Rejection Reason */}
+          {/* The rejection is explained in the defect notes (the server needs a reason for any rejected weight). */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>Rejection Reason</Text>
+            <Text style={styles.sectionHeader}>{t('receiving.wizard.defectNotesLabel')}</Text>
             <Text style={styles.requiredTag}>Required</Text>
           </View>
-
-          <View style={styles.issueTypeListCard}>
-            {rejectionReasons.map((reason, idx) => {
-              const isSelected = rejectionReason === reason;
-              const isLast = idx === rejectionReasons.length - 1;
-
-              return (
-                <TouchableOpacity
-                  key={reason}
-                  style={[styles.issueTypeRow, isLast && { borderBottomWidth: 0 }]}
-                  onPress={() => setRejectionReason(reason)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                    {isSelected && <View style={styles.radioInnerCircle} />}
-                  </View>
-                  <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                    {reason}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Additional Notes */}
-          <Text style={styles.sectionHeader}>Additional Notes</Text>
           <TextInput
             style={styles.describeIssueInput}
             placeholder="Notes..."
             placeholderTextColor={adminColors.placeholder}
             multiline
             numberOfLines={3}
-            value={partialNotes}
-            onChangeText={setPartialNotes}
+            maxLength={500}
+            value={defectNotes}
+            onChangeText={setDefectNotes}
           />
-
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-              <TouchableOpacity style={styles.qcPhotoDeleteBadge} activeOpacity={0.7}>
-                <Text style={styles.qcPhotoDeleteX}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.qcPhotoAddBox}
-              onPress={() => Alert.alert('Camera', 'Evidence photo added.')}
-              activeOpacity={0.7}
-            >
-              <CameraPlusIcon size={24} />
-              <Text style={styles.qcPhotoAddText}>Add Photo</Text>
-            </TouchableOpacity>
-          </View>
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, !partialValid && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
+            disabled={!partialValid}
             onPress={() => goToStep('receipt_summary')}
           >
             <Text style={styles.primaryCtaText}>Continue to Summary  →</Text>
@@ -1265,39 +1222,35 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 5: Receipt Summary (Step 5 of 5)
+     SCREEN 5: Receipt Summary
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receipt_summary') {
+    const goesToBatch = isAllowed('batch_assignment') && (acceptedGrams ?? 0) > 0;
+    const blocked = isSubmitting || draftProblem !== null;
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Receipt Summary</Text>
-        </View>
+        {header('Receipt Summary')}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Summary')}
 
           {/* Receipt Metadata Card (+ absorbed GoodsReceiptSummaryScreen shipment id / date) */}
           <View style={styles.whiteCard}>
-            <Text style={styles.summaryCardReceiptCode}>{receiptCode}</Text>
+            <Text style={styles.summaryCardReceiptCode}>{pendingReceipt?.grnNumber ?? receiptCode}</Text>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Shipment ID</Text>
-                <Text style={styles.summaryMetaVal}>{ship.reference ?? receiptCode}</Text>
+                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Date</Text>
-                <Text style={styles.summaryMetaVal}>{receivedDate}</Text>
+                <Text style={styles.summaryMetaVal}>{formatAdminDay(pendingReceipt?.receivedAt ?? new Date())}</Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Source</Text>
-                <Text style={styles.summaryMetaVal}>{sourceName}</Text>
+                <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Destination</Text>
@@ -1307,112 +1260,95 @@ export function GoodsReceivingWizardScreen({
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Grade</Text>
-                <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
+                <Text style={styles.summaryMetaVal}>{canQc ? actualGrade : expectedGrade}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.sectionHeader}>Decision</Text>
-          <View style={styles.decisionOutcomeCard}>
-            <Text style={styles.decisionOutcomeText}>{outcome.toUpperCase()}</Text>
-          </View>
+          {canQc && (
+            <>
+              <Text style={styles.sectionHeader}>Decision</Text>
+              <View style={styles.decisionOutcomeCard}>
+                <Text style={styles.decisionOutcomeText}>{outcomeLabel.toUpperCase()}</Text>
+              </View>
+            </>
+          )}
 
-          {/* Metric Table Card */}
-          <View style={styles.decisionTableCard}>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Expected</Text>
-              <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
-            </View>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Received</Text>
-              <Text style={styles.decisionTableValue}>{receivedQty} KG</Text>
-            </View>
-            <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Accepted</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{acceptedQty} KG</Text>
-            </View>
-            <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.decisionTableLabel}>Rejected</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{rejectedQty} KG</Text>
-            </View>
-          </View>
+          {decisionTable(canQc ? acceptedGrams : null, canQc ? rejectedGrams : null)}
 
           {/* QC Summary Checklist (from the recorded results; inventory.quality_check.perform) */}
           {canQc && (
             <>
               <Text style={styles.sectionHeader}>QC Summary</Text>
               <View style={styles.qcSummaryCard}>{qcSummaryRows(qcStatusMap)}</View>
+
+              <Text style={styles.sectionHeader}>Issues</Text>
+              <View style={styles.issuesCard}>
+                <View style={styles.issuesIconCircle}>
+                  <AlertCircleOutlineIcon color={adminColors.danger.text} size={18} />
+                </View>
+                <View style={styles.issuesTextBox}>
+                  <Text style={styles.issuesTitle}>
+                    {(rejectedGrams ?? 0) > 0 ? t('receiving.wizard.rejectedQty', { qty: kg(rejectedGrams) }) : 'No items rejected'}
+                  </Text>
+                  {(rejectedGrams ?? 0) === 0 && defectNotes.trim() !== '' ? (
+                    <Text style={styles.issuesSub}>{defectNotes.trim()}</Text>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* A rejection needs a reason (the server refuses one without), so it can be given or edited here. */}
+              {(rejectedGrams ?? 0) > 0 ? (
+                <>
+                  <Text style={styles.inputLabel}>{t('receiving.wizard.defectNotesLabel')}</Text>
+                  <TextInput
+                    style={styles.describeIssueInput}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                    value={defectNotes}
+                    onChangeText={setDefectNotes}
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+                </>
+              ) : null}
             </>
           )}
 
-          {/* Issues Box */}
-          <Text style={styles.sectionHeader}>Issues</Text>
-          <View style={styles.issuesCard}>
-            <View style={styles.issuesIconCircle}>
-              <AlertCircleOutlineIcon color={adminColors.danger.text} size={18} />
-            </View>
-            <View style={styles.issuesTextBox}>
-              <Text style={styles.issuesTitle}>{rejectedQty > 0 ? `${rejectedQty} KG rejected` : 'No items rejected'}</Text>
-              <Text style={styles.issuesSub}>Reason: {rejectionReason || 'Quality Below Grade'}</Text>
-            </View>
-          </View>
+          {!canQc ? <NoticeBox text={t('receiving.wizard.noQcPermission')} /> : null}
 
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-          </View>
+          {onViewHistory ? (
+            <>
+              <Text style={styles.sectionHeader}>Next Steps</Text>
+              <View style={styles.actionGridRow}>
+                <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={onViewHistory}>
+                  <ReceiptPaperIcon color={adminColors.brand} size={18} />
+                  <Text style={styles.actionCardText}>Activity</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : null}
 
-          {/* Absorbed GoodsReceiptSummaryScreen: next steps + receipt reference */}
-          <Text style={styles.sectionHeader}>Next Steps</Text>
-          <View style={styles.actionGridRow}>
-            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => goToStep('receipt_detail')}>
-              <ReceiptPaperIcon color={adminColors.brand} size={18} />
-              <Text style={styles.actionCardText}>Full Detail</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => (onViewHistory ? onViewHistory() : goToStep('receiving_history'))}>
-              <ClockSmallIcon color={adminColors.brand} size={18} />
-              <Text style={styles.actionCardText}>Activity</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.sectionHeader}>Receipt Reference</Text>
-          <TouchableOpacity
-            style={styles.referenceCard}
-            activeOpacity={0.8}
-            onPress={() =>
-              Alert.alert(
-                'Receipt Reference',
-                `${receiptCode} for Shipment ${ship.reference ?? receiptCode} is recorded in the warehouse ledger.`,
-              )
-            }
-          >
-            <Text style={styles.referenceText}>{receiptCode}</Text>
-          </TouchableOpacity>
+          {draftProblem !== null ? <Text style={styles.problemText}>{t(QC_DRAFT_PROBLEM_MESSAGE[draftProblem])}</Text> : null}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, blocked && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
+            disabled={blocked}
             onPress={handleSummaryConfirm}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
+            <View style={styles.ctaRow}>
+              {isSubmitting ? (
                 <ActivityIndicator color={adminColors.onBrand} size="small" />
-              ) : canBatch && acceptedQty > 0 ? (
+              ) : goesToBatch ? (
                 <>
                   <QrCodeIcon color={adminColors.onBrand} size={20} />
                   <Text style={styles.primaryCtaText}>Assign Batch & Storage</Text>
@@ -1431,22 +1367,13 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 5B: Batch & Storage (absorbed BatchAssignmentScreen + Review Receiving putaway)
+     SCREEN 5B: Batch & Storage: the storage location the accepted lot goes to.
      Gate: inventory.batch.assign. Without it the summary submits directly.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'batch_assignment') {
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Batch Assignment</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
+        {header('Batch Assignment', receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Batch')}
@@ -1458,7 +1385,7 @@ export function GoodsReceivingWizardScreen({
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Goods Receipt</Text>
-                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
+                <Text style={styles.summaryMetaVal}>{pendingReceipt?.grnNumber ?? t('inventory.noValue')}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Warehouse</Text>
@@ -1468,7 +1395,7 @@ export function GoodsReceivingWizardScreen({
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Grade</Text>
@@ -1478,7 +1405,7 @@ export function GoodsReceivingWizardScreen({
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Accepted Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{acceptedQty} KG</Text>
+                <Text style={styles.summaryMetaVal}>{kg(acceptedGrams)}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Unit</Text>
@@ -1488,50 +1415,54 @@ export function GoodsReceivingWizardScreen({
           </View>
 
           <Text style={styles.sectionHeader}>Storage Bay</Text>
-          <View style={styles.issueTypeListCard}>
-            {STORAGE_BAYS.map((bay, idx) => {
-              const isSelected = bay.id === selectedBayId;
-              return (
-                <TouchableOpacity
-                  key={bay.id}
-                  style={[styles.issueTypeRow, idx === STORAGE_BAYS.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => setSelectedBayId(bay.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                    {isSelected && <View style={styles.radioInnerCircle} />}
-                  </View>
-                  <View style={styles.bayTextBox}>
-                    <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                      {bay.label} · {bay.zone}
-                    </Text>
-                    <Text style={styles.baySub}>Available Capacity: {bay.availableKg} KG</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {storageLocationsLoading ? (
+            <ActivityIndicator color={adminColors.brand} />
+          ) : storageLocations.length === 0 ? (
+            <NoticeBox text={t('receiving.wizard.storageEmpty')} />
+          ) : (
+            <View style={styles.issueTypeListCard}>
+              {storageLocations.map((bay, idx) => {
+                const isSelected = bay.code === selectedLocationCode;
+                return (
+                  <TouchableOpacity
+                    key={bay.id}
+                    style={[styles.issueTypeRow, idx === storageLocations.length - 1 && { borderBottomWidth: 0 }]}
+                    onPress={() => setSelectedLocationCode(isSelected ? undefined : bay.code)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
+                      {isSelected && <View style={styles.radioInnerCircle} />}
+                    </View>
+                    <View style={styles.bayTextBox}>
+                      <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
+                        {bay.zone === '' ? `${bay.label} · ${bay.code}` : `${bay.label} · ${bay.zone}`}
+                      </Text>
+                      {bay.capacityGrams !== null ? (
+                        <Text style={styles.baySub}>{t('receiving.wizard.capacity', { qty: kg(bay.capacityGrams) })}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           <NoticeBox text="Source farmer information is for internal traceability only and is never exposed in customer-facing product UI." />
 
-          {onOpenStorageLocations && (
-            <TouchableOpacity style={styles.secondaryCtaBtn} activeOpacity={0.8} onPress={onOpenStorageLocations}>
-              <Text style={styles.secondaryCtaText}>Review Before Creating Batch</Text>
-            </TouchableOpacity>
-          )}
+          {draftProblem !== null ? <Text style={styles.problemText}>{t(QC_DRAFT_PROBLEM_MESSAGE[draftProblem])}</Text> : null}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, (isSubmitting || draftProblem !== null) && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
-            onPress={handleConfirmGoodsReceipt}
+            disabled={isSubmitting || draftProblem !== null}
+            onPress={() => void handleConfirmGoodsReceipt()}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
+            <View style={styles.ctaRow}>
+              {isSubmitting ? (
                 <ActivityIndicator color={adminColors.onBrand} size="small" />
               ) : (
                 <>
@@ -1547,858 +1478,130 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 6: Receiving History
+     SCREEN 12: Receipt Confirmation: what the server recorded.
      ────────────────────────────────────────────────────────── */
-  if (currentStep === 'receiving_history') {
-    // Rows come from the shared receiving records, limited to what the scope may see
-    // (Sub: own warehouse; Main: all). The shell's Receiving History is the full list.
-    const historyList = recordsInScope(scope).filter(r => WIZARD_HISTORY_IDS.includes(r.receiptId));
-
-    const filtered = historyList.filter(item => {
-      if (historyFilter === 'Accepted' && item.result !== 'Accepted') return false;
-      if (historyFilter === 'Partial' && item.result !== 'Partially Accepted') return false;
-      if (historyFilter === 'Rejected' && item.result !== 'Rejected') return false;
-      const q = historySearch.toLowerCase();
-      if (q && !item.receiptId.toLowerCase().includes(q) && !item.product.toLowerCase().includes(q)) {
-        return false;
-      }
-      return true;
-    });
+  if (currentStep === 'receipt_confirmation' && result !== null) {
+    const qc = result.qc?.qualityCheck;
+    const outcome = qc?.outcome ?? result.receipt.status;
+    // The check's own figures; when the check landed but its answer was lost, the re-read receipt's.
+    const checked = result.receipt.status !== 'AWAITING_QC';
+    const acceptedKg = qc?.acceptedQtyKg ?? (checked ? result.receipt.acceptedQtyKg : undefined);
+    const rejectedKg = qc?.rejectedQtyKg ?? (checked ? result.receipt.rejectedQtyKg : undefined);
+    const accepted = acceptedKg === undefined ? null : parseKgToGrams(acceptedKg);
+    const rejected = rejectedKg === undefined ? null : parseKgToGrams(rejectedKg);
+    const batch = result.qc?.batch ?? null;
+    const isFullReject = outcome === 'REJECTED';
+    const isFullAccept = outcome === 'ACCEPTED';
+    const isPartialAccept = outcome === 'PARTIALLY_ACCEPTED';
+    const isRecordedOnly = !isFullReject && !isFullAccept && !isPartialAccept;
+    const title = isFullReject
+      ? 'Goods Receipt Completed'
+      : isFullAccept
+        ? 'Goods Received'
+        : isPartialAccept
+          ? 'Partially Accepted'
+          : receiptResultLabel(receiptResultOf(result.receipt.status));
 
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Receiving History</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Search Bar */}
-          <View style={styles.searchBarWrap}>
-            <SearchIcon />
-            <TextInput
-              style={styles.searchBarInput}
-              placeholder="Search GR number / product"
-              placeholderTextColor={adminColors.placeholder}
-              value={historySearch}
-              onChangeText={setHistorySearch}
-            />
-          </View>
-
-          {/* Filter Pills */}
-          <View style={styles.filterPillsRow}>
-            {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.filterPill, historyFilter === tab && styles.filterPillActive]}
-                onPress={() => setHistoryFilter(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterPillText, historyFilter === tab && styles.filterPillTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* List Cards */}
-          {filtered.map(item => {
-            const tone = resultTone(item.result);
-            return (
-              <TouchableOpacity
-                key={item.receiptId}
-                style={styles.historyCard}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setSelectedHistoryId(item.receiptId);
-                  goToStep('receipt_detail');
-                }}
-              >
-                <View style={styles.historyCardTopRow}>
-                  <Text style={styles.historyCardCode}>{item.receiptId}</Text>
-                  <View style={[styles.historyStatusPill, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.historyStatusText, { color: tone.text }]}>{item.result}</Text>
-                  </View>
-                </View>
-                <Text style={styles.historyCardProduce}>
-                  {item.product} · {item.grade}
-                </Text>
-                <View style={styles.historyCardStatsRow}>
-                  <Text style={styles.historyStatLabel}>Received <Text style={styles.historyStatVal}>{item.receivedKg} KG</Text></Text>
-                  {item.acceptedKg > 0 && <Text style={styles.historyStatLabel}>Accepted <Text style={styles.historyStatVal}>{item.acceptedKg} KG</Text></Text>}
-                  {item.rejectedKg > 0 && <Text style={styles.historyStatLabel}>Rejected <Text style={[styles.historyStatVal, { color: adminColors.danger.text }]}>{item.rejectedKg} KG</Text></Text>}
-                </View>
-                <Text style={styles.historyCardDate}>{item.date}</Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 7: Receipt Detail — the shared ReceivingHistoryDetailScreen
-     (was a third inline copy of the receipt-detail design). A history row shows
-     its record; otherwise the receipt being recorded is shown from wizard state.
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'receipt_detail') {
-    const selected = selectedHistoryId !== undefined ? findReceivingRecord(selectedHistoryId) : undefined;
-    const current: ReceivingRecord = selected ?? {
-      receiptId: receiptCode,
-      shipmentId: ship.reference ?? receiptCode,
-      warehouseId: scope.warehouseId ?? '',
-      warehouseName: destinationName,
-      result: outcome === 'Accept' ? 'Accepted' : outcome === 'Reject' ? 'Rejected' : 'Partially Accepted',
-      receivedBy: receiverName ?? '—',
-      date: receivedDate,
-      product: actualProduct,
-      grade: actualGrade,
-      expectedKg: expectedQty,
-      receivedKg: receivedQty,
-      acceptedKg: acceptedQty,
-      rejectedKg: rejectedQty,
-      rejectionReason: rejectedQty > 0 ? rejectionReason : undefined,
-      batchId: acceptedQty > 0 ? batchId : undefined,
-      qcResults: canQc ? qcStatusMap : undefined,
-    };
-    return (
-      <ReceivingHistoryDetailScreen
-        scope={scope}
-        can={can}
-        onBack={handleBack}
-        record={current}
-        backLabel={selected !== undefined ? undefined : '← Back'}
-        onNavigateDiscrepancy={canRecord ? () => goToStep('damage_mismatch') : undefined}
-        onNavigateBatch={
-          onViewBatch && current.batchId !== undefined ? () => onViewBatch(current.batchId ?? '') : undefined
-        }
-      />
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 8: Rejected Goods
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'rejected_goods') {
-    const reasons = REJECTED_GOODS_REASONS;
-
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Rejected Goods</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Rejected Product */}
-          <Text style={styles.sectionHeader}>Rejected Product</Text>
-          <View style={styles.whiteCard}>
-            <View style={styles.summaryMetaGrid}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade</Text>
-                <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Batch / Receipt</Text>
-                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Quantity */}
-          <Text style={styles.sectionHeader}>Quantity</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{acceptedQty} KG</Text>
-              <Text style={styles.statTileLabel}>ACCEPTED</Text>
-            </View>
-          </View>
-
-          {/* Rejected Quantity Banner */}
-          <View style={styles.rejectedQtyBanner}>
-            <Text style={styles.rejectedQtyNum}>{rejectedQty} KG</Text>
-            <Text style={styles.rejectedQtyLabel}>REJECTED QUANTITY</Text>
-          </View>
-
-          {/* Rejection Reason */}
-          <Text style={styles.sectionHeader}>Rejection Reason</Text>
-          <View style={styles.issueTypeListCard}>
-            {reasons.map((reason, idx) => {
-              const isSelected = selectedRejectedReason === reason;
-              const isLast = idx === reasons.length - 1;
-              return (
-                <TouchableOpacity
-                  key={reason}
-                  style={[styles.issueTypeRow, isLast && { borderBottomWidth: 0 }]}
-                  onPress={() => setSelectedRejectedReason(reason)}
-                  activeOpacity={0.75}
-                >
-                  <CheckboxSquareIcon checked={isSelected} />
-                  <Text style={[styles.issueTypeText, isSelected && { fontWeight: '700', color: adminColors.ink }]}>
-                    {reason}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <TouchableOpacity
-              style={styles.qcPhotoAddBox}
-              onPress={() => Alert.alert('Camera', 'Photo added.')}
-              activeOpacity={0.7}
-            >
-              <CameraPlusIcon size={24} />
-              <Text style={styles.qcPhotoAddText}>Add Photo</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Notes */}
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <View style={styles.whiteCard}>
-            <Text style={styles.rejectedNotesText}>
-              {rejectedQty} KG rejected on inspection ({rejectionReason}) — isolated and rejected.
-              {partialNotes ? ` ${partialNotes}` : ''}
-            </Text>
-          </View>
-
-          {/* Disposal / Handling Record */}
-          <Text style={styles.sectionHeader}>Disposal / Handling Record</Text>
-          <View style={styles.handlingStatusPill}>
-            <ClockSmallIcon color={adminColors.warning.text} size={16} />
-            <Text style={styles.handlingStatusText}>
-              Handling Status: {handlingStatus}
-            </Text>
-          </View>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => goToStep('record_handling')}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ClipboardChecklistIcon />
-              <Text style={styles.primaryCtaText}>Record Handling</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 9: Record Handling
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'record_handling') {
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Record Handling</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Rejected Quantity Banner */}
-          <View style={styles.rejectedQtyBanner}>
-            <Text style={styles.rejectedQtyNum}>{rejectedQty} KG</Text>
-            <Text style={styles.rejectedQtyLabel}>REJECTED QUANTITY</Text>
-          </View>
-
-          {/* Handling Information */}
-          <Text style={styles.sectionHeader}>Handling Information</Text>
-          <TouchableOpacity
-            style={styles.dropdownSelectBox}
-            activeOpacity={0.8}
-            onPress={() => {
-              Alert.alert(
-                'Select Method',
-                'Choose handling method',
-                HANDLING_METHODS.map(m => ({ text: m, onPress: () => setHandlingMethod(m) })),
-              );
-            }}
-          >
-            <View>
-              <Text style={styles.dropdownLabel}>HANDLING / DISPOSAL METHOD</Text>
-              <Text style={[styles.dropdownValue, handlingMethod === 'Select method' && { color: adminColors.muted }]}>
-                {handlingMethod}
-              </Text>
-            </View>
-            <ChevronDownIcon />
-          </TouchableOpacity>
-
-          {/* Date & Time */}
-          <Text style={styles.sectionHeader}>Date & Time</Text>
-          <View style={styles.rowTwoCols}>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Date</Text>
-              <TextInput style={styles.textInput} value={handlingDate} onChangeText={setHandlingDate} />
-            </View>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Time</Text>
-              <TextInput style={styles.textInput} value={handlingTime} onChangeText={setHandlingTime} />
-            </View>
-          </View>
-
-          {/* Notes */}
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <TextInput
-            style={styles.describeIssueInput}
-            placeholder="Add remarks"
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={3}
-            value={handlingRemarks}
-            onChangeText={setHandlingRemarks}
-          />
-
-          {/* Photo */}
-          <Text style={styles.sectionHeader}>Photo</Text>
-          <TouchableOpacity
-            style={styles.dashedAddBoxSmall}
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('Camera', 'Handling evidence photo captured.')}
-          >
-            <CameraPlusIcon size={24} />
-            <Text style={styles.dashedAddBoxText}>Add Evidence</Text>
-          </TouchableOpacity>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => {
-              setHandlingStatus('Recorded');
-              if (Platform.OS === 'android') {
-                ToastAndroid.show('Record submitted', ToastAndroid.SHORT);
-              }
-              handleBack();
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <SendPaperAirplaneIcon />
-              <Text style={styles.primaryCtaText}>Submit Record</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 10: Receiving in Progress
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'receiving_in_progress') {
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Receiving in Progress</Text>
-            <Text style={styles.headerSub}>{receiptCode} · {expectedProduct}</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Draft Banner */}
-          <View style={styles.draftStatusBanner}>
-            <PencilDraftIcon color={adminColors.warning.text} size={16} />
-            <Text style={styles.draftStatusBannerText}>Draft — Not Submitted</Text>
-          </View>
-
-          {/* Receiving Progress */}
-          <Text style={styles.sectionHeader}>Receiving Progress</Text>
-          <View style={styles.whiteCard}>
-            <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('start_receiving')} activeOpacity={0.7}>
-              <View style={styles.checkCircleDone}>
-                <CheckmarkIcon size={10} />
-              </View>
-              <Text style={styles.checklistRowText}>Shipment Details</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('quantity_verification')} activeOpacity={0.7}>
-              <View style={styles.checkCircleDone}>
-                <CheckmarkIcon size={10} />
-              </View>
-              <Text style={styles.checklistRowText}>Quantity Verification</Text>
-            </TouchableOpacity>
-            {canQc && (
-              <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('continue_receiving')} activeOpacity={0.7}>
-                <View style={styles.checkCircleActive} />
-                <Text style={[styles.checklistRowText, { fontWeight: '700', color: adminColors.ink }]}>Quality Check</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('grade_verification')} activeOpacity={0.7}>
-              <View style={canQc ? styles.checkCirclePending : styles.checkCircleActive} />
-              <Text style={[styles.checklistRowText, canQc ? { color: adminColors.muted } : { fontWeight: '700', color: adminColors.ink }]}>
-                Grade & Product Verification
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.checklistRow, { borderBottomWidth: 0 }]} onPress={() => goToStep('receiving_decision')} activeOpacity={0.7}>
-              <View style={styles.checkCirclePending} />
-              <Text style={[styles.checklistRowText, { color: adminColors.muted }]}>Final Decision</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Quantity */}
-          <Text style={styles.sectionHeader}>Quantity</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
-            </View>
-          </View>
-
-          {/* QC Progress (inventory.quality_check.perform) */}
-          {canQc && (
-            <>
-              <Text style={styles.sectionHeader}>QC Progress</Text>
-              <TouchableOpacity style={styles.whiteCard} onPress={() => goToStep('continue_receiving')} activeOpacity={0.8}>
-                <Text style={styles.qcProgressNumbers}>
-                  {DEMO_QC_PROGRESS.done} / {DEMO_QC_PROGRESS.total} Completed
-                </Text>
-                <Text style={styles.qcProgressSub}>QUALITY CHECKS</Text>
-                <View style={styles.progressBarTrack}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${Math.round((DEMO_QC_PROGRESS.done / DEMO_QC_PROGRESS.total) * 100)}%` },
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* Sections */}
-          <Text style={styles.sectionHeader}>Sections</Text>
-          <View style={styles.whiteCard}>
-            <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('quantity_verification')} activeOpacity={0.7}>
-              <View style={styles.checkCircleDone}>
-                <CheckmarkIcon size={10} />
-              </View>
-              <Text style={styles.checklistRowText}>Quantity Verification</Text>
-            </TouchableOpacity>
-            {canQc && (
-              <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('continue_receiving')} activeOpacity={0.7}>
-                <View style={styles.checkCircleActive} />
-                <Text style={[styles.checklistRowText, { fontWeight: '700', color: adminColors.ink }]}>Quality Check</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('damage_mismatch')} activeOpacity={0.7}>
-              <View style={styles.checkCircleDone}>
-                <CheckmarkIcon size={10} />
-              </View>
-              <Text style={styles.checklistRowText}>Damage Check</Text>
-            </TouchableOpacity>
-            {canQc && (
-              <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('quality_check')} activeOpacity={0.7}>
-                <View style={styles.checkCircleDone}>
-                  <CheckmarkIcon size={10} />
-                </View>
-                <Text style={styles.checklistRowText}>Photos</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={[styles.checklistRow, { borderBottomWidth: 0 }]} onPress={() => goToStep('receiving_decision')} activeOpacity={0.7}>
-              <View style={styles.checkCirclePending} />
-              <Text style={[styles.checklistRowText, { color: adminColors.muted }]}>Final Decision</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => goToStep('continue_receiving')}
-          >
-            {/* Without the QC gate continue_receiving falls through to Grade & Product */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <RightArrowIcon />
-              <Text style={styles.primaryCtaText}>Continue Receiving</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 11: Continue Receiving
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'continue_receiving') {
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Continue Receiving</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionHeader}>
-            Quality Check
-          </Text>
-
-          <View style={[styles.whiteCard, { paddingVertical: 20, paddingHorizontal: 16 }]}>
-            <Text style={{ ...adminType.title, fontWeight: '800', color: adminColors.ink, textAlign: 'left', marginBottom: 20 }}>
-              {expectedProduct} — {expectedGrade}
-            </Text>
-            <View style={{ alignItems: 'center', paddingBottom: 6 }}>
-              <Text style={{ ...adminType.title, fontWeight: '800', color: adminColors.ink, textAlign: 'center' }}>
-                Check {QC_CRITERIA.length} of {QC_CRITERIA.length}
-              </Text>
-              <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.muted, letterSpacing: 0.8, marginTop: 4, textAlign: 'center', textTransform: 'uppercase' }}>
-                {QC_CRITERIA[QC_CRITERIA.length - 1]?.title ?? ''}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => goToStep('grade_verification')}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <RightArrowIcon />
-              <Text style={styles.primaryCtaText}>Continue</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 12: Receipt Confirmation (Dynamic for Full Accept, Partial, and Full Reject)
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'receipt_confirmation') {
-    const isFullReject = acceptedQty === 0;
-    const isFullAccept = rejectedQty === 0;
-    const isPartialAccept = acceptedQty > 0 && rejectedQty > 0;
-
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={handleBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Receipt Confirmation</Text>
-        </View>
+        {header('Receipt Confirmation')}
 
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 14, paddingBottom: 40 }]}
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, styles.confirmationContent]}
           showsVerticalScrollIndicator={false}
         >
+          <View
+            style={[
+              styles.confirmationCheckCircle,
+              styles.confirmationBadge,
+              { backgroundColor: isFullReject ? adminColors.danger.bg : adminColors.success.bg },
+            ]}
+          >
+            {isFullReject ? (
+              <CrossCircleIcon color={adminColors.danger.text} size={28} />
+            ) : (
+              <CheckmarkIcon color={adminColors.success.text} size={26} />
+            )}
+          </View>
+          <Text style={styles.confirmationMainTitle}>{title}</Text>
+          <Text style={styles.confirmationGrn}>{t('receiving.wizard.grn', { grn: result.receipt.grnNumber })}</Text>
+          {isFullReject ? <Text style={styles.confirmationSub}>Full quantity rejected</Text> : null}
+          {isRecordedOnly ? <Text style={styles.confirmationSub}>{t('receiving.wizard.recordedAwaitingQc')}</Text> : null}
 
-          {/* ─────────────── VARIANT 1: FULL REJECTION (Image 1) ─────────────── */}
-          {isFullReject && (
-            <>
-              <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.danger.bg, width: 56, height: 56, borderRadius: 28, marginTop: 10, marginBottom: 12 }]}>
-                <CrossCircleIcon color={adminColors.danger.text} size={28} />
+          {decisionTable(accepted, rejected)}
+
+          {isPartialAccept && qc?.defectNotes ? (
+            <View style={styles.whiteCard}>
+              <Text style={styles.confirmationCardLabel}>Reason</Text>
+              <Text style={styles.confirmationCardValue}>{qc.defectNotes}</Text>
+            </View>
+          ) : null}
+
+          {/* The batch, only when the API returns one (it returns none today). */}
+          {batch !== null ? (
+            <View style={[styles.whiteCard, styles.confirmationRow]}>
+              <CrateInventoryIcon color={adminColors.warning.text} size={24} />
+              <View style={styles.flex}>
+                <Text style={styles.confirmationCardLabel}>{kg(accepted)}</Text>
+                <Text style={styles.confirmationCardValue}>Batch Created · {batch.batchCode}</Text>
               </View>
-              <Text style={[styles.confirmationMainTitle, { marginBottom: 4 }]}>Goods Receipt Completed</Text>
-              <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginBottom: 20 }}>
-                Full quantity rejected
-              </Text>
+            </View>
+          ) : null}
 
-              {/* Table */}
-              <View style={styles.decisionTableCard}>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
-                </View>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
-                  <Text style={styles.decisionTableValue}>0 KG</Text>
-                </View>
-                <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
-                  <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>
-                    {rejectedQty || expectedQty} KG
-                  </Text>
-                </View>
-              </View>
-
-              {/* QC Result Card */}
-              <View style={styles.whiteCard}>
-                <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: 4, fontWeight: '500' }}>QC Result</Text>
-                <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink }}>Rejected</Text>
-              </View>
-
-              {/* Rejected Goods Card (inventory.produce.reject_incoming) */}
-              {canReject && (
+          <View style={styles.confirmationActions}>
+            {batch !== null && canViewBatch && onViewBatch ? (
               <TouchableOpacity
-                style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}
-                onPress={() => goToStep('rejected_goods')}
-                activeOpacity={0.75}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TrashOutlineRedIcon color={adminColors.danger.text} size={22} />
-                  <View>
-                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Rejected Goods</Text>
-                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>Created</Text>
-                  </View>
-                </View>
-                <ChevronRightSmall />
-              </TouchableOpacity>
-              )}
-
-              {/* Single Action: View Receipt */}
-              <TouchableOpacity
-                style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginTop: 8 }]}
+                style={[styles.actionPrimaryBtn, styles.confirmationActionBtn]}
                 activeOpacity={0.85}
-                onPress={() => goToStep('receipt_detail')}
+                onPress={() => onViewBatch(batch.id)}
+              >
+                <QrCodeIcon color={adminColors.onBrand} size={20} />
+                <Text style={styles.actionPrimaryBtnText}>View Batch</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {onViewReceipt ? (
+              <TouchableOpacity
+                style={[styles.actionPrimaryBtn, styles.confirmationActionBtn]}
+                activeOpacity={0.85}
+                onPress={() => onViewReceipt(result.receipt.id)}
               >
                 <ReceiptPaperIcon color={adminColors.onBrand} size={20} />
                 <Text style={styles.actionPrimaryBtnText}>View Receipt</Text>
               </TouchableOpacity>
-            </>
-          )}
+            ) : null}
 
-          {/* ─────────────── VARIANT 2: FULL ACCEPTANCE (Image 3) ─────────────── */}
-          {isFullAccept && (
-            <>
-              <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.success.bg, width: 56, height: 56, borderRadius: 28, marginTop: 10, marginBottom: 12 }]}>
-                <CheckmarkIcon color={adminColors.success.text} size={26} />
-              </View>
-              <Text style={[styles.confirmationMainTitle, { marginBottom: 20 }]}>Goods Received</Text>
-
-              {/* Table */}
-              <View style={styles.decisionTableCard}>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
-                </View>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
-                  <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>
-                    {acceptedQty || expectedQty} KG
-                  </Text>
-                </View>
-                <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
-                  <Text style={styles.decisionTableValue}>0 KG</Text>
-                </View>
-              </View>
-
-              {/* QC / Batch Card */}
-              <View style={styles.whiteCard}>
-                <View style={styles.summaryMetaGrid}>
-                  {/* QC result from the recorded checks (was always "Passed"); QC gate only */}
-                  {canQc && (
-                    <View style={styles.summaryMetaCol}>
-                      <Text style={styles.summaryMetaLabel}>QC</Text>
-                      <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>
-                        {qcIssueCount > 0 ? `Passed · ${qcIssueCount} flagged` : 'Passed'}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.summaryMetaCol}>
-                    <Text style={styles.summaryMetaLabel}>Batch</Text>
-                    <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>{batchId}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Inventory Result Card */}
-              <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-                <CrateInventoryIcon color={adminColors.warning.text} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Full quantity accepted</Text>
-                  <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
-                    Batch Created · {batchId}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Actions */}
-              <View style={{ gap: 12, marginTop: 8 }}>
-                {/* View Batch (inventory.batch.view) */}
-                {canViewBatch && (
-                <TouchableOpacity
-                  style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (onViewBatch) {
-                      onViewBatch(batchId);
-                    } else {
-                      const bayLine = canBatch && selectedBay ? ` allocated to ${selectedBay.label}` : '';
-                      Alert.alert('View Batch', `${batchId}\nFull ${acceptedQty || expectedQty} KG ${actualProduct}${bayLine}.`);
-                    }
-                  }}
-                >
-                  <QrCodeIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.actionPrimaryBtnText}>View Batch</Text>
-                </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.actionSecondaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    if (onBackToShipments) onBackToShipments();
-                    else onBack();
-                  }}
-                >
-                  <TruckDeliveryIcon color={adminColors.warning.text} size={20} />
-                  <Text style={[styles.actionSecondaryBtnText, { color: adminColors.warning.text }]}>Back to Incoming Shipments</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {/* ─────────────── VARIANT 3: PARTIALLY ACCEPTED (Image 4) ─────────────── */}
-          {isPartialAccept && (
-            <>
-              <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.success.bg, width: 56, height: 56, borderRadius: 28, marginTop: 10, marginBottom: 12 }]}>
-                <CheckmarkIcon color={adminColors.success.text} size={26} />
-              </View>
-              <Text style={[styles.confirmationMainTitle, { marginBottom: 20 }]}>Partially Accepted</Text>
-
-              {/* Table */}
-              <View style={styles.decisionTableCard}>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
-                </View>
-                <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
-                  <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>
-                    {acceptedQty} KG
-                  </Text>
-                </View>
-                <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
-                  <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>
-                    {rejectedQty} KG
-                  </Text>
-                </View>
-              </View>
-
-              {/* Reason Card */}
-              <View style={styles.whiteCard}>
-                <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: 4, fontWeight: '500' }}>Reason</Text>
-                <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink }}>
-                  {rejectionReason || 'Damage / Pest (recorded QC reason)'}
-                </Text>
-              </View>
-
-              {/* Inventory Result Card */}
-              <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-                <CrateInventoryIcon color={adminColors.warning.text} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{acceptedQty} KG accepted</Text>
-                  <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
-                    Batch Created · {batchId}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Rejected Goods Card (inventory.produce.reject_incoming) */}
-              {canReject && (
+            {/* Quality counter-offer: an action on the recorded lot, not a fourth outcome */}
+            {canOfferCounter && counterSent === null ? (
               <TouchableOpacity
-                style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}
-                onPress={() => goToStep('rejected_goods')}
-                activeOpacity={0.75}
+                style={styles.outcomeCounterCard}
+                activeOpacity={0.8}
+                onPress={() => goToStep('counter_offer')}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TrashOutlineRedIcon color={adminColors.danger.text} size={22} />
-                  <View>
-                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Rejected Goods</Text>
-                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>Pending Handling</Text>
-                  </View>
+                <View style={styles.outcomeIconBoxAmber}>
+                  <ReceiptPaperIcon color={adminColors.brand} size={22} />
+                </View>
+                <View style={styles.outcomeTextBox}>
+                  <Text style={styles.outcomeCounterTitle}>Propose Counter-Offer</Text>
+                  <Text style={styles.outcomeCounterSub}>Offer a revised price for the quality found at receipt</Text>
                 </View>
                 <ChevronRightSmall />
               </TouchableOpacity>
-              )}
+            ) : null}
 
-              {/* Actions */}
-              <View style={{ gap: 12, marginTop: 8 }}>
-                <TouchableOpacity
-                  style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
-                  activeOpacity={0.85}
-                  onPress={() => goToStep('receipt_detail')}
-                >
-                  <ReceiptPaperIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.actionPrimaryBtnText}>View Receipt</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionSecondaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    // Future inventory navigation
-                  }}
-                >
-                  <CrateInventoryIcon color={adminColors.warning.text} size={20} />
-                  <Text style={[styles.actionSecondaryBtnText, { color: adminColors.warning.text }]}>Go to Inventory</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+            <TouchableOpacity
+              style={[styles.actionSecondaryBtn, styles.confirmationActionBtn]}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (onBackToShipments) onBackToShipments();
+                else (onFinish ?? onBack)();
+              }}
+            >
+              <TruckDeliveryIcon color={adminColors.warning.text} size={20} />
+              <Text style={[styles.actionSecondaryBtnText, styles.warningText]}>Back to Incoming Shipments</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -2407,38 +1610,37 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 13: Submission Error (M2-S16D)
+     SCREEN 13: Submission Error: the server's reason, and a safe retry.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'submission_error') {
+    const unknown = submission.createUnknown || submission.qcUnknown;
     return (
       <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Submission Error</Text>
-        </View>
+        {header('Submission Error')}
 
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, marginTop: -40 }}>
-          <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.danger.bg, width: 68, height: 68, borderRadius: 34, marginBottom: 20 }]}>
+        <View style={styles.errorBody}>
+          <View style={[styles.confirmationCheckCircle, styles.errorBadge]}>
             <ErrorExclamationCircleIcon size={34} />
           </View>
           <Text style={styles.allChecksCompletedTitle}>Unable to Complete Receiving</Text>
-          <Text style={styles.allChecksCompletedSub}>
-            Your receiving record was not successfully submitted. Please try again.
-          </Text>
+          <Text style={styles.allChecksCompletedSub}>{t(adminErrorKey(submitError?.error))}</Text>
+          {submission.receipt !== null ? (
+            <Text style={styles.allChecksCompletedSub}>
+              {t('receiving.wizard.receiptKept', { grn: submission.receipt.grnNumber })}
+            </Text>
+          ) : null}
+          {unknown ? <Text style={styles.allChecksCompletedSub}>{t('receiving.wizard.unknownOutcome')}</Text> : null}
         </View>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, isSubmitting && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
-            onPress={handleRetrySubmission}
+            disabled={isSubmitting}
+            onPress={() => void handleConfirmGoodsReceipt()}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
+            <View style={styles.ctaRow}>
+              {isSubmitting ? (
                 <ActivityIndicator color={adminColors.onBrand} size="small" />
               ) : (
                 <>
@@ -2453,380 +1655,9 @@ export function GoodsReceivingWizardScreen({
     );
   }
 
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 13: Damage / Mismatch
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'damage_mismatch') {
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Damage / Mismatch</Text>
-            <Text style={styles.headerSub}>{receiptCode} · Combined discrepancies</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Absorbed DamageMismatchReportScreen: every discrepancy found so far, derived from the steps */}
-          {discrepancies.length > 0 && (
-            <>
-              <Text style={styles.sectionHeader}>Discrepancies</Text>
-              <View style={styles.issueTypeListCard}>
-                {discrepancies.map((d, idx) => (
-                  <View
-                    key={d.id}
-                    style={[styles.issueTypeRow, idx === discrepancies.length - 1 && { borderBottomWidth: 0 }]}
-                  >
-                    <View style={styles.discrepancyIconCircle}>
-                      <AlertCircleOutlineIcon color={adminColors.brand} size={18} />
-                    </View>
-                    <View style={styles.bayTextBox}>
-                      <Text style={styles.issueTypeTextSelected}>
-                        {d.kind} — {actualProduct}
-                      </Text>
-                      <Text style={styles.baySub}>{d.detail}</Text>
-                    </View>
-                    <View style={[styles.historyStatusPill, { backgroundColor: adminColors.brandTint }]}>
-                      <Text style={[styles.historyStatusText, { color: adminColors.brandDeep }]}>Open</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
-          <Text style={styles.sectionHeader}>Issue Type</Text>
-          <View style={styles.issueTypeListCard}>
-            {ISSUE_TYPES.map((type, idx) => {
-              const isSelected = selectedIssueType === type;
-              const isLast = idx === ISSUE_TYPES.length - 1;
-
-              return (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.issueTypeRow, isLast && { borderBottomWidth: 0 }]}
-                  onPress={() => setSelectedIssueType(type)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                    {isSelected && <View style={styles.radioInnerCircle} />}
-                  </View>
-                  <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.sectionHeader}>Quantity</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
-            </View>
-
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
-            </View>
-
-            <View style={styles.statTile}>
-              <Text
-                style={[
-                  styles.statTileNumber,
-                  receivedQty !== expectedQty && { color: adminColors.danger.text },
-                ]}
-              >
-                {signedKg(receivedQty - expectedQty)}
-              </Text>
-              <Text style={styles.statTileLabel}>{receivedQty > expectedQty ? 'EXCESS' : 'SHORTAGE'}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionHeader}>Describe the Issue</Text>
-          <TextInput
-            style={styles.describeIssueInput}
-            placeholder="Describe what happened..."
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={3}
-            value={issueDescription}
-            onChangeText={setIssueDescription}
-          />
-
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <TouchableOpacity
-            style={styles.dashedAddBox}
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('Evidence', 'Evidence photo attached.')}
-          >
-            <CameraPlusIcon />
-            <Text style={styles.dashedAddBoxText}>Add Evidence</Text>
-          </TouchableOpacity>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => goToStep(afterMismatchStep)}
-          >
-            <Text style={styles.primaryCtaText}>
-              {afterMismatchStep === 'receiving_decision' ? 'Continue to Acceptance Decision  →' : 'Continue  →'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 14: Review Receiving (absorbed SubWarehouseReviewReceivingScreen)
-     One-page review: shipment, weight & tally, inspection checklist (QC gate),
-     putaway bay (batch gate), accept (record gate) / report variance (reject gate).
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'review_receiving') {
-    const completeReview = () => {
-      setIsReviewSuccessVisible(false);
-      if (onFinish) onFinish();
-      else onBack();
-    };
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Review Receiving</Text>
-            <Text style={styles.headerSub}>
-              Shipment {receiptCode}
-              {destinationName ? ` · ${destinationName}` : ''}
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* 1. Inward shipment overview */}
-          <View style={styles.whiteCard}>
-            <View style={styles.reviewCardHeaderRow}>
-              <View style={styles.reviewSourceRow}>
-                <TruckDeliveryIcon color={adminColors.brand} size={18} />
-                <Text style={styles.reviewSourceText}>{sourceName}</Text>
-              </View>
-              <View style={[styles.historyStatusPill, { backgroundColor: adminColors.warning.bg }]}>
-                <Text style={[styles.historyStatusText, { color: adminColors.warning.text }]}>QC Pending</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Reference</Text>
-                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{expectedQty} KG</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Vehicle & Driver</Text>
-                <Text style={styles.summaryMetaVal}>{ship.vehicle ?? '—'}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Arrival Time</Text>
-                <Text style={styles.summaryMetaVal}>{ship.arrival ?? receivedTime}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 2. Weight & tally verification */}
-          <Text style={styles.sectionHeader}>Weight & Tally Verification</Text>
-          <View style={styles.whiteCard}>
-            <View style={styles.produceInnerCard}>
-              <Text style={styles.produceTitle}>
-                {expectedProduct} ({expectedGrade})
-              </Text>
-            </View>
-            <View style={[styles.rowTwoCols, { marginTop: adminSpacing.md }]}>
-              <View style={styles.colHalf}>
-                <Text style={styles.inputLabel}>Gross Scale Weight (KG)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={grossWeight}
-                  onChangeText={setGrossWeight}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={styles.colHalf}>
-                <Text style={styles.inputLabel}>No. of Crates</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={crateCount}
-                  onChangeText={setCrateCount}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-            <View style={styles.weightSummaryBox}>
-              <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Gross</Text>
-                <Text style={styles.summaryMetaVal}>{parsedGross.toFixed(1)} KG</Text>
-              </View>
-              <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Tare ({parsedCrates} crates)</Text>
-                <Text style={styles.summaryMetaVal}>-{tareWeight.toFixed(1)} KG</Text>
-              </View>
-              <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Net Verified</Text>
-                <Text style={[styles.summaryMetaVal, { color: adminColors.brand }]}>{netWeight.toFixed(1)} KG</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 3. Quality inspection parameters (inventory.quality_check.perform) */}
-          {canQc && (
-            <>
-              <Text style={styles.sectionHeader}>Quality Inspection Parameters</Text>
-              <View style={styles.issueTypeListCard}>
-                {INSPECTION_PARAMETERS.map((p, idx) => {
-                  const checked = inspection[p.id] ?? false;
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[styles.issueTypeRow, idx === INSPECTION_PARAMETERS.length - 1 && { borderBottomWidth: 0 }]}
-                      onPress={() => setInspection(prev => ({ ...prev, [p.id]: !checked }))}
-                      activeOpacity={0.8}
-                    >
-                      <CheckboxSquareIcon checked={checked} />
-                      <View style={styles.bayTextBox}>
-                        <Text style={styles.issueTypeTextSelected}>{p.title}</Text>
-                        <Text style={styles.baySub}>{p.description}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* 4. Putaway storage destination (inventory.batch.assign) */}
-          {canBatch && (
-            <>
-              <Text style={styles.sectionHeader}>Putaway Storage Destination</Text>
-              <View style={styles.issueTypeListCard}>
-                {STORAGE_BAYS.map((bay, idx) => {
-                  const isSelected = bay.id === selectedBayId;
-                  return (
-                    <TouchableOpacity
-                      key={bay.id}
-                      style={[styles.issueTypeRow, idx === STORAGE_BAYS.length - 1 && { borderBottomWidth: 0 }]}
-                      onPress={() => setSelectedBayId(bay.id)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                        {isSelected && <View style={styles.radioInnerCircle} />}
-                      </View>
-                      <View style={styles.bayTextBox}>
-                        <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                          {bay.label} · {bay.zone}
-                        </Text>
-                        <Text style={styles.baySub}>Available Capacity: {bay.availableKg} KG · Temperature Monitored</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* Actions */}
-          <View style={styles.reviewActions}>
-            <TouchableOpacity
-              style={styles.actionPrimaryBtn}
-              onPress={() => setIsReviewSuccessVisible(true)}
-              activeOpacity={0.85}
-            >
-              <CheckmarkIcon color={adminColors.onBrand} size={18} />
-              <Text style={styles.actionPrimaryBtnText}>Accept & Add to Inventory ({netWeight.toFixed(1)} KG)</Text>
-            </TouchableOpacity>
-
-            {canReject && (
-              <TouchableOpacity
-                style={styles.actionSecondaryBtn}
-                onPress={() =>
-                  Alert.alert('Report Variance', 'Flag shipment for supervisor review and log partial rejection notice.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm Flag', onPress: handleBack, style: 'destructive' },
-                  ])
-                }
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.actionSecondaryBtnText, { color: adminColors.muted }]}>
-                  Report Variance / Partial Discrepancy
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-
-        {/* Acceptance success. The scrim was 50% translucent black: no translucent token
-            exists, so the backdrop is the solid canvas and the card is raised (adminShadow.lg). */}
-        <Modal visible={isReviewSuccessVisible} transparent animationType="fade" onRequestClose={completeReview}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.success.bg }]}>
-                <CheckmarkIcon color={adminColors.success.text} size={26} />
-              </View>
-              <Text style={styles.confirmationMainTitle}>Receiving Confirmed!</Text>
-              <Text style={styles.modalDesc}>
-                Shipment <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiptCode}</Text> has been verified and{' '}
-                <Text style={{ fontWeight: '700', color: adminColors.brand }}>
-                  {netWeight.toFixed(1)} KG of {expectedProduct}
-                </Text>{' '}
-                has been added to {destinationName || 'warehouse'} inventory.
-              </Text>
-              <View style={styles.modalReceiptCard}>
-                <Text style={styles.modalReceiptRow}>
-                  <Text style={{ color: adminColors.muted }}>GRN Number: </Text>
-                  <Text style={{ fontWeight: '700', color: adminColors.ink }}>{DEMO_GRN}</Text>
-                </Text>
-                {canBatch && selectedBay && (
-                  <Text style={styles.modalReceiptRow}>
-                    <Text style={{ color: adminColors.muted }}>Storage Bay: </Text>
-                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>
-                      {selectedBay.label} ({selectedBay.zone})
-                    </Text>
-                  </Text>
-                )}
-                <Text style={styles.modalReceiptRow}>
-                  <Text style={{ color: adminColors.muted }}>Verified By: </Text>
-                  <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiverName ?? '—'}</Text>
-                </Text>
-              </View>
-              <TouchableOpacity style={[styles.actionPrimaryBtn, styles.modalDoneBtn]} onPress={completeReview} activeOpacity={0.85}>
-                <Text style={styles.actionPrimaryBtnText}>Done & Return to Dashboard</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </View>
-    );
-  }
-
-  // Fallback return if step is not matched
   return null;
 }
+
 
 /* ─── Stylesheet matching uploaded mockups ─── */
 const styles = StyleSheet.create({
@@ -4230,4 +3061,23 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 0,
   },
+  // Live-wizard additions (phase 4): theme tokens only.
+  flex: { flex: 1 },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: adminSpacing.sm },
+  valueSuccess: { color: adminColors.success.text, fontWeight: '800' },
+  valueDanger: { color: adminColors.danger.text, fontWeight: '800' },
+  warningText: { color: adminColors.warning.text },
+  inlineStrong: { fontWeight: '700', color: adminColors.ink },
+  problemText: { ...adminType.body, color: adminColors.danger.text, marginTop: adminSpacing.sm },
+  confirmationContent: { paddingTop: adminSpacing.md, paddingBottom: adminSpacing.xl },
+  confirmationBadge: { width: 56, height: 56, borderRadius: 28 },
+  confirmationGrn: { ...adminType.sectionHead, color: adminColors.brand, textAlign: 'center', marginBottom: adminSpacing.sm },
+  confirmationSub: { ...adminType.body, color: adminColors.muted, textAlign: 'center', marginBottom: adminSpacing.lg },
+  confirmationCardLabel: { ...adminType.body, color: adminColors.muted, fontWeight: '500', marginBottom: adminSpacing.xs },
+  confirmationCardValue: { ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink },
+  confirmationRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
+  confirmationActions: { gap: adminSpacing.md, marginTop: adminSpacing.sm },
+  confirmationActionBtn: { justifyContent: 'flex-start', paddingHorizontal: adminSpacing.lg, gap: adminSpacing.md, marginBottom: 0 },
+  errorBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: adminSpacing.xl },
+  errorBadge: { backgroundColor: adminColors.danger.bg, width: 68, height: 68, borderRadius: 34, marginBottom: adminSpacing.lg },
 });

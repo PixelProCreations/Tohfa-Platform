@@ -6,11 +6,7 @@
  * ../tests/navigation_session.test.ts.
  */
 
-/**
- * Admin dashboards that already stayed put on an auth failure. The demo admin
- * sign-in (LoginScreen) opens the dashboard without waiting for a token, so
- * their API calls can 401 while the admin is using them.
- */
+/** The admin dashboards a signed-in admin lands on. */
 const ADMIN_DASHBOARDS: readonly string[] = [
   'AdminMain',
   'SuperAdminDashboard',
@@ -56,19 +52,19 @@ export function shouldLoadWarehousePermissions(
 }
 
 /**
- * True when a failed token refresh must NOT bounce the user to 'Welcome'.
+ * Where App.tsx sends the user when the shared client's token refresh fails
+ * (the session is dead: the client has already cleared the tokens).
  *
- * Why the warehouse routes are here: every Sub warehouse More row that leaves
- * the shell opens one of them, and the first one fires GET /auth/me for the
- * warehouse permissions. A 401 there used to send the admin to the
- * Login / Create account page in the middle of the session. The tokens are
- * still cleared by the client and the server still refuses every call, so
- * staying on the screen grants nothing; a failed permission fetch leaves
- * `can` denying everything and is retried with a backoff while the warehouse
- * surface stays mounted.
+ * Admin dashboards and warehouse routes go to 'Login'; everything else goes to
+ * 'Welcome', as it always did. These routes used to stay on screen instead
+ * (commit 01a3de5), because the demo admin sign-in opened them before any
+ * token existed and their first GET /auth/me 401'd mid-session. That sign-in
+ * is gone: every admin login is awaited, so a failed refresh here is a real
+ * expiry, and leaving the admin on a screen whose every call is refused only
+ * hides it.
  */
-export function keepsScreenOnAuthFailure(screen: string): boolean {
-  return ADMIN_DASHBOARDS.includes(screen) || isWarehouseAdminScreen(screen);
+export function authFailureTarget(screen: string): 'Login' | 'Welcome' {
+  return ADMIN_DASHBOARDS.includes(screen) || isWarehouseAdminScreen(screen) ? 'Login' : 'Welcome';
 }
 
 /**

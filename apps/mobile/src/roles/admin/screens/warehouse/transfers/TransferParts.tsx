@@ -28,7 +28,7 @@ export const TRANSFER_CODES = {
  * transfer, Sub only those arriving at its own warehouse.
  */
 export function transferInScope(scope: WarehouseScope, transfer: TransferItem): boolean {
-  return scope.warehouseId === undefined || transfer.destinationWarehouseId === scope.warehouseId;
+  return scope.warehouseId === undefined || transfer.destinationWarehouseId === (scope.warehouseCode ?? scope.warehouseId);
 }
 
 export const TRANSFER_STATUS_TONE: Record<TransferStatus, AdminTone> = {

@@ -108,7 +108,7 @@ export function SaleDetailScreen({
   // warehouse renders as not found (empty), never as a 403 that would confirm
   // the sale exists (root CLAUDE.md 2.1).
   const outOfScope =
-    scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== scope.warehouseId;
+    scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== (scope.warehouseCode ?? scope.warehouseId);
   if (outOfScope) {
     return (
       <SafeAreaView style={styles.root}>
@@ -405,6 +405,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   headerTopRow: {
     flexDirection: 'row',

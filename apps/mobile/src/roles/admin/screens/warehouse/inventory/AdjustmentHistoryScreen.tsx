@@ -10,7 +10,8 @@ import {
   Platform,
 } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { AdjustmentHistoryItem, InventoryScreenBaseProps } from './types';
+import { SAMPLE_ADJUSTMENTS } from './fixtures';
 import Svg, { Path } from 'react-native-svg';
 
 export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {
@@ -37,42 +38,14 @@ function LockSmallWhiteIcon() {
   );
 }
 
-/** One adjustment row. `warehouseId` is the warehouse the adjustment was created in. */
-export interface AdjustmentHistoryItem {
-  id: string;
-  status: string;
-  statusKey: 'Pending' | 'Approved' | 'Rejected';
-  product: string;
-  warehouseId?: string | undefined;
-}
+export type { AdjustmentHistoryItem } from './types';
 
-const ADJUSTMENTS: AdjustmentHistoryItem[] = [
-  {
-    id: 'ADJ-000128',
-    status: 'Pending Approval',
-    statusKey: 'Pending',
-    product: 'Tomato · Grade 1 · -5 KG · 16 Sep 2026, 2:30 PM',
-  },
-  {
-    id: 'ADJ-000119',
-    status: 'Approved',
-    statusKey: 'Approved',
-    product: 'Beans · Grade 1 · -2 KG · 15 Sep 2026, 4:10 PM',
-  },
-  {
-    id: 'ADJ-000103',
-    status: 'Rejected',
-    statusKey: 'Rejected',
-    product: 'Beetroot · Grade 1 · -8 KG · 10 Sep 2026, 11:05 AM',
-  },
-];
-
-export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments = ADJUSTMENTS }: AdjustmentHistoryScreenProps) {
+export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments = SAMPLE_ADJUSTMENTS }: AdjustmentHistoryScreenProps) {
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
   const filteredAdjustments = adjustments.filter((item) => {
     // Sub: only adjustments created in its own warehouse. Main sees all.
-    if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== scope.warehouseId) {
+    if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== (scope.warehouseCode ?? scope.warehouseId)) {
       return false;
     }
     if (activeTab === 'All') return true;

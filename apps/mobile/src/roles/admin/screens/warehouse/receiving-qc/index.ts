@@ -15,17 +15,7 @@ export { ReceivingHistoryScreen, type ReceivingHistoryScreenProps } from './Rece
 export { ReceivingSearchFiltersScreen, type ReceivingSearchFiltersScreenProps } from './ReceivingSearchFiltersScreen';
 export { ShipmentDetailScreen, type ShipmentDetailScreenProps } from './ShipmentDetailScreen';
 export { RECEIVING_CODES } from './ReceivingParts';
-export {
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
-  INCOMING_SHIPMENTS,
-  QUALITY_ISSUES,
-  RECEIVING_RECORDS,
-  findReceivingRecord,
-  findShipment,
-  recordsInScope,
-  shipmentsInScope,
-} from './fixtures';
+export { type ReceivingWrites } from './GoodsReceivingWizardScreen';
 export type {
   HistoryFilter,
   IncomingShipment,
@@ -42,7 +32,6 @@ export type {
   ShipmentFilterTab,
   ShipmentLineItem,
   ShipmentStatus,
-  ShipmentType,
   StorageBayOption,
   WizardShipmentData,
 } from './types';

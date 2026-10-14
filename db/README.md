@@ -1,12 +1,17 @@
 # TOHFA database
 
-PostgreSQL 16. Extensions: `pgcrypto` (UUIDs) and `postgis` (FMB farm
-boundaries, warehouse and address points).
+PostgreSQL 16. Extensions: `pgcrypto` (UUIDs), `postgis` (FMB farm
+boundaries, warehouse and address points) and `btree_gist`.
 
 ```
 db/
-  migrations/   0001..0008, plain SQL, applied in filename order
-  seed/         001_reference.sql, 002_permissions.js
+  migrations/   0001..0041 (46 migrations: 0021..0025 each exist twice, parallel work),
+                plain SQL, applied in filename order. 0038 uses a `.down.sql` sibling.
+  seed/         001_reference.sql        roles, warehouses, categories, config (always)
+                002_permissions.js       rbac.json -> permissions            (always)
+                003..006                 RETIRED (owner decision: no proper data; a fresh
+                                         seed will be written). Run only with SEED_DEV_USERS=true
+                                         until the files are deleted from the tree.
 ```
 
 ## Running migrations
@@ -27,17 +32,22 @@ both halves and leave you with an empty database** — always go through the
 runner, or strip the down section first.
 
 ```bash
-# up
-npm run migrate:up            # applies pending migrations in order
-
-# down, one step
-npm run migrate:down
+pnpm db:migrate               # apply pending migrations, in filename order
+pnpm db:rollback              # roll back the newest one
+pnpm db:rollback --all        # roll back everything (db:reset does this first)
 ```
+
+`schema_migrations.version` is the **full file name** (`0021_soil_management`),
+because the numeric prefix is not unique. A database migrated by the old runner
+(rows keyed `0021`) is upgraded in place on the next run; details in the header
+of `apps/api/src/db/migrate.ts`. The runner needs only `DATABASE_URL`
+(and `DATABASE_SSL` for TLS). Rollback stops with an error at a migration that
+has no Down section instead of skipping it.
 
 Applying them by hand, in order, without the runner:
 
 ```bash
-for f in db/migrations/*.sql; do
+for f in $(ls db/migrations/*.sql | grep -v '\.down\.sql$'); do
   awk '/^-- \+migrate Down/{exit} {print}' "$f" |
     psql -v ON_ERROR_STOP=1 -d "$DATABASE_URL"
 done
@@ -46,16 +56,22 @@ done
 The up sections run top to bottom on an empty database with no errors, and the
 down sections run in reverse to leave the schema empty again (bar PostGIS's
 `spatial_ref_sys`). Both directions are part of the contract; if you add a
-migration, add its rollback.
+migration, add its rollback. Never edit a migration that has been applied
+anywhere (the runner refuses on a checksum mismatch): add a new one.
 
 ## Running seeds
 
-Order matters — `002` needs the roles that `001` creates.
-
 ```bash
-psql -v ON_ERROR_STOP=1 -d "$DATABASE_URL" -f db/seed/001_reference.sql
-node db/seed/002_permissions.js
+pnpm db:seed          # 001 + 002 only: reference data and permissions
 ```
+
+The runner executes the files in filename order (`002` needs the roles `001`
+creates). Which seeds run by default is declared in `SEED_KINDS` in
+`apps/api/src/db/runner.ts`; an unclassified seed file makes `db:seed` fail, so
+a new seed forces that decision. The retired `003`-`006` are skipped unless
+`SEED_DEV_USERS=true` (refused when `NODE_ENV=production`); there is no
+replacement dev-user seed yet. Both active seeds are idempotent: running
+`db:seed` twice leaves identical row counts.
 
 **`001_reference.sql`** — roles, the four warehouses (BR-23), categories,
 grades, the 10 rating categories (BR-06), rating tier thresholds (BR-04),

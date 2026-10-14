@@ -57,7 +57,7 @@ export function StorageLocationAssignmentScreen({
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const effectiveWarehouseId = scope.warehouseCode ?? scope.warehouseId ?? selectedWarehouseId;
   const locations = useMemo(
     () =>
       effectiveWarehouseId === undefined

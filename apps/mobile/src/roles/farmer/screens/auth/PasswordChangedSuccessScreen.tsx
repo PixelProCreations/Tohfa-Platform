@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 interface PasswordChangedSuccessScreenProps {
   onNavigate: (screen: 'Login') => void;
@@ -59,14 +59,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 23,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.muted,
     textAlign: 'center',
     lineHeight: 20,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   ctaText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

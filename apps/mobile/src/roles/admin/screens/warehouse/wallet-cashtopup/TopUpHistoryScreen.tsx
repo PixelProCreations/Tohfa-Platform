@@ -116,7 +116,7 @@ export function TopUpHistoryScreen({
           }}
         />
       }
-      footer={!allWarehouses && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
+      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {allWarehouses ? (

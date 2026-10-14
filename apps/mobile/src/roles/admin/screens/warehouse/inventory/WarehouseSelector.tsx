@@ -1,24 +1,17 @@
 /**
  * All-warehouses dropdown selector for the Main Warehouse view.
  *
- * Rendered when `scope.warehouseId` is undefined (Main Warehouse role).
- * Shows a white pill button with orange building icon, dark warehouse title,
- * and rotating chevron arrow. Tapping opens an anchored dropdown list
- * in the same screen without opening a popup new screen.
+ * Rendered only when `scope.warehouseId` is undefined (Main, rbac grant `all`).
+ * Renders a clean dropdown button that opens a warehouse selection modal,
+ * consistent across the warehouse app.
  */
-import React, { useRef, useState } from 'react';
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useState } from 'react';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { WarehouseScope } from './types';
 
-function BuildingWarehouseIcon({ color = '#FFFFFF' }: { color?: string | undefined }) {
+function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
       <Path
@@ -32,30 +25,21 @@ function BuildingWarehouseIcon({ color = '#FFFFFF' }: { color?: string | undefin
   );
 }
 
-function ChevronDownSmallIcon({ color = '#FFFFFF', rotated = false }: { color?: string | undefined; rotated?: boolean | undefined }) {
+function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
-    <View style={rotated ? { transform: [{ rotate: '180deg' }] } : undefined}>
-      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-        <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </View>
-  );
-}
-
-function CheckSmallIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={adminColors.brand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-const DEFAULT_WAREHOUSES: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty' },
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market' },
-];
+function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 export interface WarehouseSelectorProps {
   scope: WarehouseScope;
@@ -63,125 +47,79 @@ export interface WarehouseSelectorProps {
   /** Selected warehouseId; undefined = all warehouses. */
   selectedId: string | undefined;
   onSelect: (warehouseId: string | undefined) => void;
-  allowAll?: boolean | undefined;
 }
 
-export function WarehouseSelector({ scope, options = [], selectedId, onSelect, allowAll = true }: WarehouseSelectorProps) {
+export function WarehouseSelector({ scope, options = [], selectedId, onSelect }: WarehouseSelectorProps) {
   if (scope.warehouseId !== undefined) return null;
-
   const [showModal, setShowModal] = useState(false);
-  const dropdownBtnRef = useRef<TouchableOpacity>(null);
-  const [dropdownLayout, setDropdownLayout] = useState<{ top: number; left: number; width: number } | null>(null);
-
-  const warehouseList =
-    options.length > 0 && options.some((o) => o.warehouseId !== undefined)
-      ? options.filter((o) => o.warehouseId !== undefined)
-      : DEFAULT_WAREHOUSES;
 
   const selectedName =
-    selectedId === undefined
-      ? (allowAll ? 'All Warehouses' : (warehouseList[0]?.warehouseName ?? 'Select Warehouse'))
-      : (warehouseList.find((w) => w.warehouseId === selectedId)?.warehouseName ?? selectedId);
+    options.find((o) => o.warehouseId === selectedId)?.warehouseName ?? 'All Warehouses';
 
-  const handleToggle = () => {
-    if (showModal) {
-      setShowModal(false);
-      return;
-    }
-    if (dropdownBtnRef.current) {
-      dropdownBtnRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-        if (x !== undefined && y !== undefined && height !== undefined) {
-          setDropdownLayout({ top: y + height + 6, left: x, width: Math.max(width, 210) });
-        }
-        setShowModal(true);
-      });
-    } else {
-      setShowModal(true);
-    }
-  };
+  const validOptions = options.filter((o) => o.warehouseId !== undefined);
 
   return (
     <>
       <TouchableOpacity
-        ref={dropdownBtnRef}
         style={styles.dropdownBtn}
-        activeOpacity={0.85}
-        onPress={handleToggle}
-        accessibilityRole="button"
-        accessibilityLabel={`Selected warehouse: ${selectedName}. Tap to change.`}
+        activeOpacity={0.8}
+        onPress={() => setShowModal(true)}
       >
-        <BuildingWarehouseIcon color="#FFFFFF" />
-        <Text style={styles.dropdownBtnText}>{selectedName}</Text>
-        <ChevronDownSmallIcon color="#FFFFFF" rotated={showModal} />
+        <BuildingWarehouseIcon color={adminColors.onBrand} />
+        <Text style={styles.dropdownBtnText}>
+          {selectedId ? selectedName : 'All Warehouses'}
+        </Text>
+        <ChevronDownSmallIcon />
       </TouchableOpacity>
 
       <Modal
         visible={showModal}
         transparent
-        animationType="none"
+        animationType="fade"
         onRequestClose={() => setShowModal(false)}
       >
         <TouchableOpacity
-          style={styles.dropdownBackdrop}
+          style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowModal(false)}
         >
-          <View
-            style={[
-              styles.dropdownMenu,
-              dropdownLayout ? { top: dropdownLayout.top, left: dropdownLayout.left, minWidth: dropdownLayout.width } : null,
-            ]}
-          >
-            {allowAll ? (
-              <>
+          <View style={styles.dropdownModalCard}>
+            <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
+
+            <TouchableOpacity
+              style={[styles.dropdownModalItem, selectedId === undefined && styles.dropdownModalItemActive]}
+              onPress={() => {
+                onSelect(undefined);
+                setShowModal(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.dropdownModalItemText,
+                  selectedId === undefined && styles.dropdownModalItemTextActive,
+                ]}
+              >
+                All Warehouses
+              </Text>
+              {selectedId === undefined ? <CheckSmallIcon /> : null}
+            </TouchableOpacity>
+
+            {validOptions.map((item) => {
+              const active = item.warehouseId === selectedId;
+              return (
                 <TouchableOpacity
-                  style={[styles.dropdownItem, selectedId === undefined && styles.dropdownItemActive]}
+                  key={item.warehouseId}
+                  style={[styles.dropdownModalItem, active && styles.dropdownModalItemActive]}
                   onPress={() => {
-                    onSelect(undefined);
+                    onSelect(item.warehouseId);
                     setShowModal(false);
                   }}
-                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      selectedId === undefined && styles.dropdownItemTextActive,
-                    ]}
-                  >
-                    All Warehouses
+                  <Text style={[styles.dropdownModalItemText, active && styles.dropdownModalItemTextActive]}>
+                    {item.warehouseName ?? item.warehouseId}
                   </Text>
-                  {selectedId === undefined ? <CheckSmallIcon /> : null}
+                  {active ? <CheckSmallIcon /> : null}
                 </TouchableOpacity>
-
-                <View style={styles.dropdownDivider} />
-              </>
-            ) : null}
-
-            {warehouseList.map((w, index) => {
-              const isSelected = selectedId === w.warehouseId;
-              const isLast = index === warehouseList.length - 1;
-              return (
-                <React.Fragment key={w.warehouseId ?? index}>
-                  <TouchableOpacity
-                    style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
-                    onPress={() => {
-                      onSelect(w.warehouseId);
-                      setShowModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        isSelected && styles.dropdownItemTextActive,
-                      ]}
-                    >
-                      {w.warehouseName ?? w.warehouseId}
-                    </Text>
-                    {isSelected ? <CheckSmallIcon /> : null}
-                  </TouchableOpacity>
-                  {!isLast && <View style={styles.dropdownDivider} />}
-                </React.Fragment>
               );
             })}
           </View>
@@ -194,63 +132,54 @@ export function WarehouseSelector({ scope, options = [], selectedId, onSelect, a
 const styles = StyleSheet.create({
   dropdownBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 5.5,
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 7,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    gap: 8,
+    marginTop: 8,
   },
   dropdownBtnText: {
     ...adminType.rowTitle,
     color: adminColors.onBrand,
     fontWeight: '700',
   },
-  dropdownBackdrop: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: adminSpacing.xl,
   },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 96,
-    left: adminSpacing.lg,
-    minWidth: 210,
+  dropdownModalCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    padding: adminSpacing.lg,
     ...adminShadow.md,
   },
-  dropdownItem: {
+  dropdownModalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+  },
+  dropdownModalItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
   },
-  dropdownItemActive: {
+  dropdownModalItemActive: {
     backgroundColor: adminColors.brandTint,
   },
-  dropdownItemText: {
+  dropdownModalItemText: {
     ...adminType.body,
     color: adminColors.ink,
-    fontWeight: '500',
   },
-  dropdownItemTextActive: {
+  dropdownModalItemTextActive: {
     color: adminColors.brand,
     fontWeight: '700',
-  },
-  dropdownDivider: {
-    height: 1,
-    backgroundColor: adminColors.border,
-    marginHorizontal: 8,
-    marginVertical: 2,
   },
 });

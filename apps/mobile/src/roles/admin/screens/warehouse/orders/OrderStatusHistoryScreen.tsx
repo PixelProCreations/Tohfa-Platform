@@ -6,41 +6,27 @@
  * Detail); folding it in removes a navigation hop for four fields.
  *
  * Gates: none. Read-only; the server scopes which orders the viewer can see.
+ *
+ * Live data (API integration plan, phase 5): the timeline is the order
+ * detail's `timeline` (GET /admin/orders/{orderId}), oldest first, status
+ * changes only. The API sends no actor and no note (free text can name a
+ * farmer, BR-99), so "Performed By" is not shown.
  */
 // Design id: M5S15 (M5S15_OrderStatusHistory), absorbs M5S15B (M5S15B_EventDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, RefreshControl } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps, OrderTimelineEntry } from './types';
 
-export type OrderStatusHistoryScreenProps = OrderScreenBaseProps;
-
-interface StatusEvent {
-  id: string;
-  title: string;
-  time: string;
-  date: string;
-  performedBy: string;
+export interface OrderStatusHistoryScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
 }
-
-// Mock timeline, as hard-coded by the old M5S15 screen. The old M5S15B received
-// date and performer as fixed values for every event; they are kept per event here.
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_EVENT_DATE = '24 Sep 2026';
-const SAMPLE_PERFORMER = 'Warehouse Admin';
-
-const STATUS_EVENTS: StatusEvent[] = [
-  { id: '1', title: 'Order Placed', time: '24 Sep · 10:32 AM' },
-  { id: '2', title: 'Order Confirmed', time: '10:34 AM' },
-  { id: '3', title: 'Stock Checked', time: '10:40 AM' },
-  { id: '4', title: 'Packed', time: '11:15 AM' },
-  { id: '5', title: 'Ready for Pickup', time: '11:20 AM' },
-  { id: '6', title: 'Customer Arrived', time: '12:18 PM' },
-  { id: '7', title: 'OTP Verified', time: '12:19 PM' },
-  { id: '8', title: 'Picked Up', time: '12:20 PM' },
-].map((e) => ({ ...e, date: SAMPLE_EVENT_DATE, performedBy: SAMPLE_PERFORMER }));
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -85,34 +71,30 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 // ─── Event detail (folded M5S15B) ────────────────────────────────────────────
 
-function EventDetailCard({ event, orderId }: { event: StatusEvent; orderId: string }) {
+function EventDetailCard({ event, orderNumber }: { event: OrderTimelineEntry; orderNumber: string }) {
   return (
     <View style={styles.detailCard}>
       <View style={styles.twoColRow}>
         <View style={styles.col}>
           <Text style={styles.fieldLabel}>Event</Text>
-          <Text style={styles.fieldValue}>{event.title}</Text>
+          <Text style={styles.fieldValue}>{event.label}</Text>
         </View>
         <View style={styles.col}>
           <Text style={styles.fieldLabel}>Date</Text>
-          <Text style={styles.fieldValue}>{event.date}</Text>
+          <Text style={styles.fieldValue}>{event.dayLabel}</Text>
         </View>
       </View>
 
       <View style={[styles.twoColRow, styles.detailRowGap]}>
         <View style={styles.col}>
           <Text style={styles.fieldLabel}>Time</Text>
-          <Text style={styles.fieldValue}>{event.time}</Text>
-        </View>
-        <View style={styles.col}>
-          <Text style={styles.fieldLabel}>Performed By</Text>
-          <Text style={styles.fieldValue}>{event.performedBy}</Text>
+          <Text style={styles.fieldValue}>{event.atLabel}</Text>
         </View>
       </View>
 
       <View style={styles.detailRowGap}>
         <Text style={styles.fieldLabel}>Reference</Text>
-        <Text style={styles.fieldValue}>{orderId}</Text>
+        <Text style={styles.fieldValue}>{orderNumber}</Text>
       </View>
     </View>
   );
@@ -120,9 +102,19 @@ function EventDetailCard({ event, orderId }: { event: StatusEvent; orderId: stri
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: OrderStatusHistoryScreenProps) {
+export function OrderStatusHistoryScreen({
+  order,
+  onBack,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: OrderStatusHistoryScreenProps) {
   // One event open at a time keeps the timeline scannable.
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
+  const events = order?.timeline ?? [];
 
   return (
     <View style={styles.root}>
@@ -136,39 +128,57 @@ export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: 
           <Text style={styles.headerTitle}>Order Status History</Text>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.orderRefLabel}>{orderId}</Text>
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : order === undefined ? (
+          <AdminEmptyState title={t('orders.empty.notFound')} />
+        ) : (
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+              ) : undefined
+            }
+          >
+            <Text style={styles.orderRefLabel}>{order.orderNumber}</Text>
 
-          <View style={styles.timelineContainer}>
-            {STATUS_EVENTS.map((event, index) => {
-              const isLast = index === STATUS_EVENTS.length - 1;
-              const isOpen = expandedId === event.id;
-              return (
-                <View key={event.id} style={styles.stepRow}>
-                  <View style={styles.indicatorCol}>
-                    <TimelineNode />
-                    {!isLast && <View style={styles.verticalLine} />}
-                  </View>
+            {events.length === 0 ? <AdminEmptyState title={t('orders.empty.timeline')} /> : null}
+            <View style={styles.timelineContainer}>
+              {events.map((event, index) => {
+                const isLast = index === events.length - 1;
+                const isOpen = expandedId === event.key;
+                return (
+                  <View key={event.key} style={styles.stepRow}>
+                    <View style={styles.indicatorCol}>
+                      <TimelineNode />
+                      {!isLast && <View style={styles.verticalLine} />}
+                    </View>
 
-                  <View style={styles.textCol}>
-                    <TouchableOpacity
-                      style={styles.stepHeader}
-                      activeOpacity={0.7}
-                      onPress={() => setExpandedId(isOpen ? null : event.id)}
-                    >
-                      <View style={styles.stepTextWrap}>
-                        <Text style={styles.stepTitle}>{event.title} ✓</Text>
-                        <Text style={styles.stepTime}>{event.time}</Text>
-                      </View>
-                      <ChevronIcon open={isOpen} />
-                    </TouchableOpacity>
-                    {isOpen ? <EventDetailCard event={event} orderId={orderId} /> : null}
+                    <View style={styles.textCol}>
+                      <TouchableOpacity
+                        style={styles.stepHeader}
+                        activeOpacity={0.7}
+                        onPress={() => setExpandedId(isOpen ? null : event.key)}
+                      >
+                        <View style={styles.stepTextWrap}>
+                          <Text style={styles.stepTitle}>{event.label} ✓</Text>
+                          <Text style={styles.stepTime}>{event.atLabel}</Text>
+                        </View>
+                        <ChevronIcon open={isOpen} />
+                      </TouchableOpacity>
+                      {isOpen ? <EventDetailCard event={event} orderNumber={order.orderNumber} /> : null}
+                    </View>
                   </View>
-                </View>
-              );
-            })}
-          </View>
-        </ScrollView>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
       </SafeAreaView>
     </View>
   );

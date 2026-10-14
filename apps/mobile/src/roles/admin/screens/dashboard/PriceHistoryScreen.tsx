@@ -1,229 +1,663 @@
-/**
- * Screen 42 — Price History
- * Shows historical price changes with a bar chart and detailed list
- * for a specific produce item over the last 6 updates.
- */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeLight: '#FFCCBB',
-  orangeLighter: '#FFE5DC',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-interface PriceHistoryItem {
-  month: string;
-  year: number;
-  price: number;
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
-const HISTORY: PriceHistoryItem[] = [
-  { month: 'Apr', year: 2026, price: 33 },
-  { month: 'May', year: 2026, price: 35 },
-  { month: 'Jun', year: 2026, price: 34 },
-  { month: 'Jul', year: 2026, price: 38 },
-  { month: 'Aug', year: 2026, price: 40 },
-  { month: 'Sep', year: 2026, price: 42 },
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CircleInfoIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 8h.01M11 12h2v4h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Data Types ──────────────────────────────────────────────────────────────
+
+export interface PriceHistoryRecord {
+  id: string;
+  crop: string;
+  grade: string;
+  cropGrade: string;
+  datePill: string;
+  previousPrice: string;
+  newPrice: string;
+  frequency: string;
+  effectiveDate: string;
+  created: string;
+  actor: string;
+}
+
+export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
+  {
+    id: 'ph-1',
+    crop: 'Carrot',
+    grade: 'Grade 1',
+    cropGrade: 'Carrot · G1',
+    datePill: '30 Sep',
+    previousPrice: '₹95.00/kg',
+    newPrice: '₹100.00/kg',
+    frequency: 'Weekly',
+    effectiveDate: '30 Sep 2026',
+    created: '30 Sep 2026, 6:00 AM',
+    actor: 'System (SA-configured)',
+  },
+  {
+    id: 'ph-2',
+    crop: 'Carrot',
+    grade: 'Grade 1',
+    cropGrade: 'Carrot · G1',
+    datePill: '23 Sep',
+    previousPrice: '₹90.00/kg',
+    newPrice: '₹95.00/kg',
+    frequency: 'Weekly',
+    effectiveDate: '29 Sep 2026',
+    created: '23 Sep 2026, 6:00 AM',
+    actor: 'System (SA-configured)',
+  },
 ];
 
-interface PriceHistoryScreenProps {
+// ─── Component Props ──────────────────────────────────────────────────────────
+
+export interface PriceHistoryScreenProps {
   onBack: () => void;
-  itemName?: string;
-  category?: string;
-  currentPrice?: number;
+  itemName?: string | undefined;
+  category?: string | undefined;
+  currentPrice?: number | undefined;
 }
 
-export function PriceHistoryScreen({
-  onBack,
-  itemName = 'Carrots',
-  category = 'Vegetables',
-  currentPrice = 42,
-}: PriceHistoryScreenProps) {
-  const maxPrice = Math.max(...HISTORY.map((h) => h.price));
+export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }: PriceHistoryScreenProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<PriceHistoryRecord | null>(null);
+
+  const [selectedCrop, setSelectedCrop] = useState<'All' | 'Carrot' | 'Cabbage'>('All');
+  const [selectedDateRange, setSelectedDateRange] = useState<'Today' | 'Last 7 Days' | 'Custom'>('Today');
+
+  const filteredHistory = SAMPLE_PRICE_HISTORY.filter((item) => {
+    if (selectedCrop !== 'All' && !item.cropGrade.toLowerCase().includes(selectedCrop.toLowerCase())) {
+      return false;
+    }
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase();
+      return item.cropGrade.toLowerCase().includes(q) || item.crop.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const handleHeaderBack = () => {
+    if (showFilters) {
+      setShowFilters(false);
+    } else if (selectedRecord) {
+      setSelectedRecord(null);
+    } else {
+      onBack();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
-        </TouchableOpacity>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleWrap}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={handleHeaderBack}
+              activeOpacity={0.7}
+              accessibilityLabel={t('priceHistory.backLabel')}
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{t('priceHistory.title')}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.filterIconCircle, showFilters && styles.filterIconCircleActive]}
+            onPress={() => {
+              if (!showFilters && selectedRecord) {
+                setSelectedRecord(null);
+              }
+              setShowFilters(!showFilters);
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel={t('priceHistory.filters.title')}
+          >
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
+          </TouchableOpacity>
+        </View>
+
+        {!selectedRecord && !showFilters && (
+          <View style={styles.searchBarWrap}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('priceHistory.searchPlaceholder')}
+              placeholderTextColor={adminColors.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        )}
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Title */}
-        <Text style={styles.title}>Price History</Text>
-        <Text style={styles.subtitle}>
-          {itemName} · {category} · Last {HISTORY.length} updates
-        </Text>
+      {/* ─── Main Content ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollPad}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* VIEW 1: Filter Panel */}
+        {showFilters && (
+          <View style={styles.filtersContainer}>
+            <Text style={styles.filtersHeading}>{t('priceHistory.filters.title')}</Text>
 
-        {/* Bar Chart */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartGrid}>
-            {HISTORY.map((item, idx) => {
-              const heightPercent = (item.price / maxPrice) * 100;
-              const isRecent = idx >= HISTORY.length - 2;
-              return (
-                <View key={idx} style={styles.barColumn}>
-                  <View style={styles.barContainer}>
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: `${heightPercent}%`,
-                          backgroundColor: isRecent ? P.orange : P.orangeLighter,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.barLabel}>{item.month}</Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Detailed List */}
-        <View style={styles.detailList}>
-          {[...HISTORY].reverse().map((item, idx) => (
-            <View key={idx} style={styles.detailRow}>
-              <Text style={styles.detailMonth}>
-                {item.month} {item.year}
-              </Text>
-              <Text style={styles.detailPrice}>₹{item.price}/kg</Text>
+            <Text style={styles.filterGroupLabel}>{t('priceHistory.filters.crop')}</Text>
+            <View style={styles.chipsRow}>
+              {(['All', 'Carrot', 'Cabbage'] as const).map((crop) => {
+                const isActive = selectedCrop === crop;
+                return (
+                  <TouchableOpacity
+                    key={crop}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                    onPress={() => setSelectedCrop(crop)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {crop}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ))}
-        </View>
 
-        <View style={{ height: 40 }} />
+            <Text style={[styles.filterGroupLabel, styles.filterGroupSpacing]}>
+              {t('priceHistory.filters.dateRange')}
+            </Text>
+            <View style={styles.chipsRow}>
+              {(['Today', 'Last 7 Days', 'Custom'] as const).map((dr) => {
+                const isActive = selectedDateRange === dr;
+                return (
+                  <TouchableOpacity
+                    key={dr}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                    onPress={() => setSelectedDateRange(dr)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {dr}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.filterButtonsRow}>
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => setShowFilters(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.applyBtnText}>{t('priceHistory.filters.apply')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.clearBtn}
+                onPress={() => {
+                  setSelectedCrop('All');
+                  setSelectedDateRange('Today');
+                  setSearchQuery('');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearBtnText}>{t('priceHistory.filters.clearAll')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* VIEW 2: Detail View */}
+        {!showFilters && selectedRecord && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('priceHistory.section.detail')}</Text>
+
+            <View style={styles.detailCard}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cropTitleText}>{selectedRecord.cropGrade}</Text>
+                <View style={styles.datePill}>
+                  <Text style={styles.datePillText}>{selectedRecord.datePill}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.previousPrice')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.previousPrice}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.newPrice')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.newPrice}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.frequency')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.frequency}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.effectiveDate')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.effectiveDate}</Text>
+                </View>
+              </View>
+
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>{t('priceHistory.label.created')}</Text>
+                <Text style={styles.detailValue}>{selectedRecord.created}</Text>
+              </View>
+
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>{t('priceHistory.label.actor')}</Text>
+                <Text style={styles.detailValue}>{selectedRecord.actor}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.backToHistoryBtn}
+              onPress={() => setSelectedRecord(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.backToHistoryBtnText}>{t('priceHistory.action.backToHistory')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* VIEW 3: List View */}
+        {!showFilters && !selectedRecord && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('priceHistory.section.history')}</Text>
+
+            {filteredHistory.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>{t('priceHistory.empty')}</Text>
+              </View>
+            ) : (
+              filteredHistory.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.historyCard}
+                  onPress={() => setSelectedRecord(item)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cropTitleText}>{item.cropGrade}</Text>
+                    <View style={styles.datePill}>
+                      <Text style={styles.datePillText}>{item.datePill}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.historyColsRow}>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.previousPrice')}</Text>
+                      <Text style={styles.colValue}>{item.previousPrice}</Text>
+                    </View>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.newPrice')}</Text>
+                      <Text style={styles.colValue}>{item.newPrice}</Text>
+                    </View>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.frequency')}</Text>
+                      <Text style={styles.colValue}>{item.frequency}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.effectiveRow}>
+                    <Text style={styles.effectiveLabel}>{t('priceHistory.label.effectiveDate')}</Text>
+                    <Text style={styles.effectiveValue}>{item.effectiveDate}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {/* Info Notice Banner */}
+            <View style={styles.infoBanner}>
+              <CircleInfoIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.infoBannerText}>
+                {t('priceHistory.infoBanner')}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
+  },
+  filterIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterIconCircleActive: {
+    backgroundColor: adminColors.brandDeep,
+  },
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...adminType.body,
+    color: adminColors.ink,
+    padding: 0,
   },
   scroll: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
+  scrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: P.darkBrown,
-    marginBottom: 6,
-    letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+  sectionHeading: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
-  subtitle: {
-    fontSize: 13,
-    color: P.lightGray,
-    marginBottom: 20,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  chartCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  chartGrid: {
-    flexDirection: 'row',
-    height: 160,
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  barColumn: {
-    flex: 1,
+  emptyContainer: {
+    paddingVertical: 50,
     alignItems: 'center',
   },
-  barContainer: {
-    width: '100%',
-    height: 140,
-    justifyContent: 'flex-end',
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
   },
-  bar: {
-    width: '100%',
-    borderRadius: 6,
-  },
-  barLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: P.body,
-    marginTop: 8,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  detailList: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
-    padding: 4,
+  historyCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
-  detailRow: {
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+  },
+  cropTitleText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  datePill: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  datePillText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  historyColsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: P.border,
   },
-  detailMonth: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.body,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+  historyCol: {
+    flex: 1,
   },
-  detailPrice: {
-    fontSize: 14,
+  colLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  colValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
+  },
+  effectiveRow: {
+    marginTop: adminSpacing.md,
+  },
+  effectiveLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  effectiveValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: adminColors.brandTint,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.xs,
+    gap: adminSpacing.sm,
+  },
+  infoBannerText: {
+    flex: 1,
+    ...adminType.caption,
+    color: adminColors.brandDeep,
+    lineHeight: 18,
+  },
+  filtersContainer: {
+    paddingTop: adminSpacing.xs,
+  },
+  filtersHeading: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  filterGroupLabel: {
+    ...adminType.caption,
     fontWeight: '700',
-    color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+  },
+  filterGroupSpacing: {
+    marginTop: adminSpacing.md,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
+  },
+  chip: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+  },
+  chipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  chipText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  chipTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  filterButtonsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xl,
+  },
+  applyBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  clearBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearBtnText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  detailCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  detailGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  gridRowSpacing: {
+    marginTop: adminSpacing.md,
+  },
+  detailCol: {
+    flex: 1,
+  },
+  detailLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  detailValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
+  },
+  backToHistoryBtn: {
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backToHistoryBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

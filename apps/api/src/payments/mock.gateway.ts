@@ -4,6 +4,8 @@ import type {
   GatewayOrderResult,
   PaymentCapturedPayload,
   PaymentGateway,
+  RefundPaymentParams,
+  RefundResult,
   WebhookEvent,
 } from './gateway.js';
 
@@ -85,6 +87,10 @@ export class MockPaymentGateway implements PaymentGateway {
       currency: 'INR',
       status: 'captured',
     };
+  }
+
+  async refundPayment(params: RefundPaymentParams): Promise<RefundResult> {
+    return { refundId: `rfnd_mock_${params.gatewayPaymentId}`.slice(0, 120), status: 'processed' };
   }
 }
 

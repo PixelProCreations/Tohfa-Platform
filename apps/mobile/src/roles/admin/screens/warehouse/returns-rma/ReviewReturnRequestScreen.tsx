@@ -1,149 +1,74 @@
 /**
- * Review Return Request — the inspection outcome and evidence, then the
- * Approve / Reject decision.
+ * Review Return — the inspection result and the decision (plan phase 10).
  *
- * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
- *   - Approve and Reject only with `rma.request.process` (FINAL_LIST row 104).
- *     Approving additionally needs `rma.refund.approve`, which the confirm step
- *     (ApproveReturnScreen) checks.
+ * Shows what the inspection recorded per item, then Approve and Reject.
+ * BR-61: Approve exists only for an INSPECTED return with rma.refund.approve
+ * (approveGate), and is drawn disabled, with the reason, when nothing was
+ * accepted on any line: a Rs 0 approval would leave the return stuck in
+ * APPROVED (wallet.move refuses a zero credit, and an APPROVED return cannot
+ * be rejected). Reject stays offered (PENDING or INSPECTED, same code).
  *
- * Absorbs MainWarehouseReviewReturnRequestScreen (pair M10-S04). The Main twin
- * bundled confirm + reject + refund in one file; those are the separate
- * ApproveReturn / RejectReturnRequest / RefundStatus routes of ReturnsFlow. Its
- * "Refund Summary" card (amount + method) is rendered for the Main view.
+ * Hidden, because the return carries no such field: the refund amount before
+ * the refund (the server works it out from the order price), the inspection
+ * notes and photos.
  */
 // Design id: M10-S04
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { ScrollView, StyleSheet } from 'react-native';
 
-import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { REVIEW_TIMELINE, SAMPLE_INSPECTED_QTY, SAMPLE_INSPECTION_NOTES } from './fixtures';
-import {
-  InfoCard,
-  isAllWarehouses,
-  PermissionNote,
-  ReturnsButton,
-  ReturnsScreen,
-  ReturnsTimeline,
-  SectionTitle,
-} from './ReturnsParts';
-import type { RmaRecord, RmaScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { adminSpacing } from '../../../theme';
+import { approveGate, returnActions } from './mappers';
+import { PermissionNote, ReturnDetailGate, ReturnItemsList, ReturnsButton, ReturnsFooter, ReturnsScreen, SectionTitle } from './ReturnsParts';
+import type { ReturnDetailView, ReturnsLiveStateProps, WarehouseScreenBaseProps } from './types';
 
-export interface ReviewReturnRequestScreenProps extends RmaScreenBaseProps {
-  inspectedQty?: string | undefined;
-  inspectionNotes?: string | undefined;
-  onApprove: (rma: RmaRecord) => void;
-  onReject: (rma: RmaRecord) => void;
-}
-
-// Mock evidence counts and refund method until RMAs are wired.
-const CUSTOMER_EVIDENCE = '2 Photos';
-const INSPECTION_EVIDENCE = '3 Photos';
-const REFUND_METHOD = 'TOHFA Wallet';
-
-function CheckmarkIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={adminColors.success.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CloseCrossIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 6L6 18M6 6l12 12" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
+export interface ReviewReturnRequestScreenProps extends WarehouseScreenBaseProps, ReturnsLiveStateProps {
+  detail: ReturnDetailView | undefined;
+  notFound?: boolean | undefined;
+  onApprove: () => void;
+  onReject: () => void;
 }
 
 export function ReviewReturnRequestScreen({
-  scope,
   can,
-  rma,
-  inspectedQty = SAMPLE_INSPECTED_QTY,
-  inspectionNotes = SAMPLE_INSPECTION_NOTES,
   onBack,
+  detail,
+  notFound,
   onApprove,
   onReject,
+  isLoading,
+  error,
+  onRetry,
 }: ReviewReturnRequestScreenProps) {
-  const canProcess = can('rma.request.process');
+  const gate = detail === undefined ? null : approveGate(detail.status, detail.items, can);
+  const actions = detail === undefined ? null : returnActions(detail.status, can);
+
+  const footer =
+    gate === null || actions === null ? null : (
+      <ReturnsFooter>
+        {gate.visible ? (
+          <ReturnsButton label={t('returns.action.approve')} variant="successOutline" disabled={!gate.enabled} onPress={onApprove} />
+        ) : null}
+        {gate.noteKey ? <PermissionNote>{t(gate.noteKey)}</PermissionNote> : null}
+        {actions.reject ? <ReturnsButton label={t('returns.action.reject')} variant="dangerOutline" onPress={onReject} /> : null}
+        {!gate.visible && !actions.reject ? <PermissionNote>{t('returns.detail.noAction')}</PermissionNote> : null}
+      </ReturnsFooter>
+    );
 
   return (
-    <ReturnsScreen title="Review Return Request" subtitle={rma.rmaId} onBack={onBack}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>RMA Summary</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Customer', value: rma.customerName },
-              { label: 'Order', value: rma.orderId },
-            ],
-            [
-              { label: 'Issue', value: rma.issueCategory },
-              { label: 'Requested Quantity', value: rma.requestedQuantity },
-            ],
-            [{ label: 'Inspected Quantity', value: inspectedQty }],
-          ]}
-        />
-
-        <SectionTitle>Evidence Summary</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Customer Evidence', value: CUSTOMER_EVIDENCE },
-              { label: 'Inspection Evidence', value: INSPECTION_EVIDENCE },
-            ],
-            [{ label: 'Inspection Notes', value: <Text style={styles.notesText}>{inspectionNotes}</Text> }],
-          ]}
-        />
-
-        {isAllWarehouses(scope) ? (
-          <>
-            <SectionTitle>Refund Summary</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Refund Amount', value: rma.lineTotal },
-                  { label: 'Refund Method', value: REFUND_METHOD },
-                ],
-              ]}
-            />
-          </>
-        ) : null}
-
-        <SectionTitle>Review Timeline</SectionTitle>
-        <ReturnsTimeline items={REVIEW_TIMELINE} />
-
-        <SectionTitle>Decision</SectionTitle>
-        {canProcess ? (
-          <View style={styles.decisionRow}>
-            <ReturnsButton
-              flex
-              variant="dangerOutline"
-              label="Reject"
-              icon={<CloseCrossIcon />}
-              onPress={() => onReject(rma)}
-            />
-            <ReturnsButton
-              flex
-              variant="successOutline"
-              label="Approve"
-              icon={<CheckmarkIcon />}
-              onPress={() => onApprove(rma)}
-            />
-          </View>
-        ) : (
-          <PermissionNote>Deciding on a return needs the RMA processing permission.</PermissionNote>
+    <ReturnsScreen title={t('returns.review.title')} subtitle={detail?.reference} onBack={onBack} footer={footer}>
+      <ReturnDetailGate detail={detail} notFound={notFound} isLoading={isLoading} error={error} onRetry={onRetry}>
+        {(d) => (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <SectionTitle>{t('returns.detail.items')}</SectionTitle>
+            <ReturnItemsList items={d.items} />
+          </ScrollView>
         )}
-      </ScrollView>
+      </ReturnDetailGate>
     </ReturnsScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xxl },
-  notesText: { ...adminType.body, color: adminColors.ink },
-  decisionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.xs },
+  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
 });

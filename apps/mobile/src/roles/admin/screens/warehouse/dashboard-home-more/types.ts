@@ -20,7 +20,6 @@ export interface MoreOptionItem {
     | 'profile'
     | 'settings'
     | 'warehouse_operations'
-    | 'warehouse_management'
     | 'help';
 }
 

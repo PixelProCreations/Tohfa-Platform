@@ -27,7 +27,7 @@ export function inWarehouse(
   picked: string | undefined,
   warehouseId: string | undefined,
 ): boolean {
-  const filter = scope.warehouseId ?? picked;
+  const filter = scope.warehouseCode ?? scope.warehouseId ?? picked;
   return filter === undefined || warehouseId === undefined || warehouseId === filter;
 }
 
@@ -54,12 +54,7 @@ export function WarehouseChips({
     ...options.map((w) => ({ id: w.warehouseId, label: w.warehouseName ?? w.warehouseId ?? '' })),
   ];
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.scroll}
-      contentContainerStyle={styles.row}
-    >
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {chips.map((c) => {
         const active = c.id === selected;
         return (
@@ -78,37 +73,28 @@ export function WarehouseChips({
 }
 
 const styles = StyleSheet.create({
-  scroll: {
-    flexGrow: 0,
-    marginBottom: adminSpacing.md,
-  },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: adminSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: adminSpacing.sm,
   },
   chip: {
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs + 2,
     borderRadius: adminRadius.full,
     borderWidth: 1,
     borderColor: adminColors.border,
     backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   chipActive: {
     backgroundColor: adminColors.brandSoft.bg,
     borderColor: adminColors.brandSoft.border,
   },
   chipText: {
-    ...adminType.caption,
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   chipTextActive: {
     ...adminType.caption,
     color: adminColors.brandSoft.text,
-    fontWeight: '700',
   },
 });

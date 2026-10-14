@@ -1,139 +1,121 @@
 /**
- * Reject Return Request — a mandatory rejection reason, then reject.
+ * Reject Return — a reason, then POST /admin/returns/{id}/reject (plan
+ * phase 10).
  *
- * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
- *   - "Reject Request" only with `rma.request.process` (FINAL_LIST row 98).
+ * BR-61: PENDING or INSPECTED -> REJECTED, with rma.refund.approve
+ * (returnActions). The reason is 1..300 characters after trimming
+ * (docs/openapi.yaml ReturnRejectCreate), checked by validateRejectReason
+ * before anything is sent.
  *
- * Absorbs MainWarehouseRejectReturnRequestScreen (pair M10-S04R): its red
- * error outline on an empty reason is ported; the rest matched.
+ * Hidden, because the reject body has only `reason`: the rejection category
+ * dropdown and the "notify customer" toggle.
  */
-// Design id: M10-S04R
+// Design id: M10-S07
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 
+import { REJECT_REASON_MAX_LENGTH } from '../../../api/returns';
+import { t, type TranslationKey } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { PermissionNote, ReturnsButton, ReturnsFooter, ReturnsScreen } from './ReturnsParts';
-import type { RmaRecord, RmaScreenBaseProps } from './types';
+import { returnActions, returnWriteErrorKey, validateRejectReason } from './mappers';
+import { ActionError, PermissionNote, ReturnDetailGate, ReturnsButton, ReturnsFooter, ReturnsScreen, SectionTitle } from './ReturnsParts';
+import type { ReturnDetailView, ReturnsLiveStateProps, ReturnsWriteStateProps, WarehouseScreenBaseProps } from './types';
 
-export interface RejectReturnRequestScreenProps extends RmaScreenBaseProps {
-  onRejectSuccess: (data: { rma: RmaRecord; reason: string }) => void;
+export interface RejectReturnRequestScreenProps extends WarehouseScreenBaseProps, ReturnsLiveStateProps, ReturnsWriteStateProps {
+  detail: ReturnDetailView | undefined;
+  notFound?: boolean | undefined;
+  onConfirmReject: (reason: string) => void;
 }
 
-function WarningTriangleIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
-        stroke={adminColors.warning.text}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+// Fixed height of the multi-line reason box: a layout size, not spacing.
+const REASON_MIN_HEIGHT = 96;
 
-function CloseCrossIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 6L6 18M6 6l12 12" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+export function RejectReturnRequestScreen({
+  can,
+  onBack,
+  detail,
+  notFound,
+  onConfirmReject,
+  isSubmitting = false,
+  submitError,
+  isLoading,
+  error,
+  onRetry,
+}: RejectReturnRequestScreenProps) {
+  const [text, setText] = useState('');
+  const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
+  const canReject = detail !== undefined && returnActions(detail.status, can).reject;
 
-export function RejectReturnRequestScreen({ can, rma, onBack, onRejectSuccess }: RejectReturnRequestScreenProps) {
-  const canProcess = can('rma.request.process');
-  const [reason, setReason] = useState('');
-  const [showError, setShowError] = useState(false);
-
-  const handleReject = () => {
-    if (!reason.trim()) {
-      setShowError(true);
+  const confirm = () => {
+    const result = validateRejectReason(text);
+    if (!result.ok) {
+      setErrorKey(result.errorKey);
       return;
     }
-    setShowError(false);
-    onRejectSuccess({ rma, reason: reason.trim() });
+    setErrorKey(null);
+    onConfirmReject(result.reason);
   };
 
   return (
     <ReturnsScreen
-      title="Reject Return Request"
-      subtitle={rma.rmaId}
+      title={t('returns.reject.title')}
+      subtitle={detail?.reference}
       onBack={onBack}
       footer={
-        <ReturnsFooter>
-          {canProcess ? (
-            <ReturnsButton variant="danger" label="Reject Request" icon={<CloseCrossIcon />} onPress={handleReject} />
-          ) : (
-            <PermissionNote>Rejecting a return needs the RMA processing permission.</PermissionNote>
-          )}
-          <ReturnsButton variant="neutralOutline" label="Cancel" onPress={onBack} />
-        </ReturnsFooter>
+        detail === undefined ? null : (
+          <ReturnsFooter>
+            <ReturnsButton
+              label={t(isSubmitting ? 'returns.reject.pending' : 'returns.reject.confirm')}
+              variant="danger"
+              disabled={!canReject || isSubmitting}
+              onPress={confirm}
+            />
+            {canReject ? null : <PermissionNote>{t('returns.detail.noAction')}</PermissionNote>}
+          </ReturnsFooter>
+        )
       }
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.screenHeading}>Reject Return Request</Text>
-        <Text style={styles.label}>
-          Rejection Reason <Text style={styles.asterisk}>*</Text>
-        </Text>
-        <View style={[styles.textareaContainer, showError && styles.textareaError]}>
-          <TextInput
-            style={styles.textarea}
-            value={reason}
-            onChangeText={(text) => {
-              setReason(text);
-              if (showError && text.trim()) setShowError(false);
-            }}
-            placeholder="Enter the reason for rejecting this return request..."
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            editable={canProcess}
-          />
-        </View>
-        {showError ? (
-          <View style={styles.warningBanner}>
-            <WarningTriangleIcon />
-            <Text style={styles.warningText}>Rejection reason is required.</Text>
-          </View>
-        ) : null}
-      </ScrollView>
+      <ReturnDetailGate detail={detail} notFound={notFound} isLoading={isLoading} error={error} onRetry={onRetry}>
+        {(d) => (
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            {submitError !== null && submitError !== undefined ? <ActionError messageKey={returnWriteErrorKey(submitError)} /> : null}
+            <SectionTitle>{t('returns.detail.reason')}</SectionTitle>
+            <Text style={styles.body}>{d.reason}</Text>
+            <SectionTitle>{t('returns.reject.reasonLabel')}</SectionTitle>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={REJECT_REASON_MAX_LENGTH}
+              placeholder={t('returns.reject.placeholder')}
+              placeholderTextColor={adminColors.placeholder}
+              editable={canReject && !isSubmitting}
+              accessibilityLabel={t('returns.reject.reasonLabel')}
+            />
+            <Text style={styles.counter}>{t('returns.reject.counter', { count: text.trim().length, max: REJECT_REASON_MAX_LENGTH })}</Text>
+            {errorKey ? <Text style={styles.fieldError}>{t(errorKey, { max: REJECT_REASON_MAX_LENGTH })}</Text> : null}
+          </ScrollView>
+        )}
+      </ReturnDetailGate>
     </ReturnsScreen>
   );
 }
 
-// Text area heights: fixed sizes, not spacing.
-const TEXTAREA_MIN_HEIGHT = 120;
-const TEXTAREA_INPUT_MIN_HEIGHT = 100;
-
 const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg },
-  screenHeading: { ...adminType.title, color: adminColors.ink, marginBottom: adminSpacing.lg },
-  label: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.sm },
-  asterisk: { color: adminColors.danger.text },
-  textareaContainer: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
+  body: { ...adminType.body, color: adminColors.ink },
+  input: {
+    ...adminType.body,
+    color: adminColors.ink,
+    minHeight: REASON_MIN_HEIGHT,
+    textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    minHeight: TEXTAREA_MIN_HEIGHT,
-  },
-  textareaError: { borderColor: adminColors.danger.border },
-  textarea: { ...adminType.body, color: adminColors.ink, minHeight: TEXTAREA_INPUT_MIN_HEIGHT, padding: 0 },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.warning.bg,
-    borderWidth: 1,
-    borderColor: adminColors.warning.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    marginTop: adminSpacing.md,
-    gap: adminSpacing.sm,
+    backgroundColor: adminColors.card,
+    padding: adminSpacing.md,
   },
-  warningText: { ...adminType.sectionHead, color: adminColors.warning.text },
+  counter: { ...adminType.rowMeta, color: adminColors.muted, textAlign: 'right', marginTop: adminSpacing.xs },
+  fieldError: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

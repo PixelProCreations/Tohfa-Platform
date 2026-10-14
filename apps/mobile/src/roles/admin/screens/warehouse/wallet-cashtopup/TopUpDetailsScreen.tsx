@@ -15,6 +15,7 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
+import { t } from '../../../i18n';
 import {
   SAMPLE_DATE,
   SAMPLE_FISCAL_TAG,
@@ -25,17 +26,55 @@ import {
   warehouseNameOf,
 } from './fixtures';
 import type { WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
-import { EmptyState, InfoCard, SectionTitle, WalletScreen, inScope, walletLayout } from './WalletParts';
+import { EmptyState, InfoCard, SectionTitle, WalletScreen, inScope, walletLayout, type InfoField } from './WalletParts';
 
 export type TopUpDetailsVariant = 'topUp' | 'transaction';
 
 export interface TopUpDetailsScreenProps extends WarehouseScreenBaseProps {
   transaction?: WalletTransactionRecord | undefined;
   variant?: TopUpDetailsVariant | undefined;
+  /**
+   * A live ledger row (GET /admin/customers/{id}/wallet/transactions, plan
+   * phase 6): only the fields the server sent are shown, never a sample, and
+   * no warehouse filter applies (the server already scoped the customer).
+   */
+  live?: boolean | undefined;
 }
 
-export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 'topUp' }: TopUpDetailsScreenProps) {
+/** The 'transaction' rows of a live ledger row: present fields only, two per row. */
+function liveTransactionRows(transaction: WalletTransactionRecord, warehouseName: string | undefined): InfoField[][] {
+  const fields: InfoField[] = [];
+  const add = (label: string, value: string | undefined) => {
+    if (value !== undefined && value !== '') fields.push({ label, value });
+  };
+  add(t('customers.wallet.detail.id'), transaction.transactionId);
+  add(t('customers.wallet.detail.type'), transaction.type);
+  add(t('customers.wallet.detail.amount'), transaction.amount);
+  add(t('customers.wallet.detail.previousBalance'), transaction.previousBalance);
+  add(t('customers.wallet.detail.newBalance'), transaction.newBalance);
+  add(t('customers.wallet.detail.dateTime'), transaction.dateTime);
+  add(t('customers.wallet.detail.warehouse'), warehouseName);
+  add(t('customers.wallet.detail.reference'), transaction.referenceId);
+  const rows: InfoField[][] = [];
+  for (let i = 0; i < fields.length; i += 2) rows.push(fields.slice(i, i + 2));
+  return rows;
+}
+
+export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 'topUp', live = false }: TopUpDetailsScreenProps) {
   const title = variant === 'topUp' ? 'Top-Up Details' : 'Transaction Detail';
+
+  if (live) {
+    // Only this warehouse's name is known here; another warehouse's row shows no name, not a code.
+    const warehouseName =
+      transaction.warehouseId !== undefined && transaction.warehouseId === scope.warehouseId ? scope.warehouseName : undefined;
+    return (
+      <WalletScreen title={t('customers.wallet.detail.title')} onBack={onBack}>
+        <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+          <InfoCard rows={liveTransactionRows(transaction, warehouseName)} />
+        </ScrollView>
+      </WalletScreen>
+    );
+  }
 
   if (!inScope(scope, transaction.warehouseId)) {
     return (

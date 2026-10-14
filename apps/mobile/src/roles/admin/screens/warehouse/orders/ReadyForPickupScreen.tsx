@@ -9,15 +9,40 @@
  *     plain, non-pressable rows and the bottom action is not rendered.
  * Both now open the pickup wizard (route 'M5S11') on its 'verify' step; the
  * old M5S10 route was folded into it.
+ *
+ * Live data (API integration plan, phase 5): the rows are GET /admin/orders
+ * with status READY_FOR_PICKUP, page by page. The list carries no customer
+ * name (BR-101), so a card shows the order number, items, total and when it
+ * was placed; the name is on the verify step, from the detail. The bottom
+ * action opened verification with no order, so it is gone: every pickup starts
+ * from its order's card.
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { OrderListRow, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
 
-export type ReadyForPickupScreenProps = OrderScreenBaseProps;
+export interface ReadyForPickupScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** Orders READY_FOR_PICKUP, page by page. */
+  orders?: readonly OrderListRow[] | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
+}
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -51,68 +76,23 @@ function SearchIcon() {
   );
 }
 
-function PackageIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={styles.buttonIcon}>
-      <Path
-        d="M21 8H3V4h18v4zM21 8v12H3V8"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M10 12h4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-interface ReadyOrder {
-  id: string;
-  customer: string;
-  items: string;
-  amount: string;
-  time: string;
-  packed: string;
-}
-
-const READY_ORDERS: ReadyOrder[] = [
-  {
-    id: 'ORD-1024',
-    customer: 'Arun Kumar',
-    items: '4 Items',
-    amount: '₹850',
-    time: 'Ready for 2h 15m',
-    packed: 'Packed 11:15 AM',
-  },
-  {
-    id: 'ORD-1023',
-    customer: 'Priya',
-    items: '5 Items',
-    amount: '₹1,240',
-    time: 'Ready for 3h 40m',
-    packed: 'Packed 09:45 AM',
-  },
-];
-
-function OrderCardBody({ order }: { order: ReadyOrder }) {
+function OrderCardBody({ order }: { order: OrderListRow }) {
   return (
     <>
       <View style={styles.cardTopRow}>
-        <Text style={styles.orderIdText}>{order.id}</Text>
+        <Text style={styles.orderIdText}>{order.orderNumber}</Text>
         <View style={styles.timeBadge}>
-          <Text style={styles.timeBadgeText}>{order.time}</Text>
+          <Text style={styles.timeBadgeText}>{order.placedAgo}</Text>
         </View>
       </View>
 
-      <Text style={styles.customerName}>{order.customer}</Text>
-
       <View style={styles.itemsPriceRow}>
-        <Text style={styles.itemsText}>{order.items}</Text>
-        <Text style={styles.amountText}>{order.amount}</Text>
+        <Text style={styles.itemsText}>{order.itemsLabel}</Text>
+        <Text style={styles.amountText}>{order.amountLabel}</Text>
       </View>
 
       <View style={styles.packedReadyRow}>
-        <Text style={styles.packedTimeText}>{order.packed}</Text>
+        <Text style={styles.packedTimeText}>{t('orders.ready.placedAt', { at: order.placedLabel })}</Text>
         <View style={styles.readyBadge}>
           <Text style={styles.readyBadgeText}>Ready</Text>
         </View>
@@ -121,15 +101,39 @@ function OrderCardBody({ order }: { order: ReadyOrder }) {
   );
 }
 
-export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickupScreenProps) {
+export function ReadyForPickupScreen({
+  can,
+  onBack,
+  onNavigate,
+  orders = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+}: ReadyForPickupScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const canVerify = can('order.pickup_otp.verify');
+  const query = searchQuery.trim().toLowerCase();
+  const filteredOrders = query === '' ? orders : orders.filter((order) => order.orderNumber.toLowerCase().includes(query));
+  const view = queryViewState({ isLoading, error, itemCount: orders.length });
 
-  const filteredOrders = READY_ORDERS.filter(
-    (order) =>
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const renderOrder = ({ item: order }: { item: OrderListRow }) =>
+    canVerify ? (
+      <TouchableOpacity
+        style={styles.orderCard}
+        activeOpacity={0.75}
+        onPress={() => onNavigate?.('M5S11', { orderId: order.id, step: 'verify' })}
+      >
+        <OrderCardBody order={order} />
+      </TouchableOpacity>
+    ) : (
+      <View style={styles.orderCard}>
+        <OrderCardBody order={order} />
+      </View>
+    );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -142,54 +146,48 @@ export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickup
         </View>
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>7 Orders</Text>
+          <Text style={styles.subtitleText}>
+            {view === 'ready' || view === 'empty'
+              ? t(hasMore ? 'orders.list.countMore' : 'orders.list.count', { count: orders.length })
+              : t('orders.noValue')}
+          </Text>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.searchBox}>
-            <SearchIcon />
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search order / customer"
-              placeholderTextColor={adminColors.placeholder}
-            />
-          </View>
-
-          {filteredOrders.map((order) =>
-            canVerify ? (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S11', { orderId: order.id, step: 'verify' })}
-              >
-                <OrderCardBody order={order} />
-              </TouchableOpacity>
-            ) : (
-              <View key={order.id} style={styles.orderCard}>
-                <OrderCardBody order={order} />
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : (
+          <FlatList
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            data={filteredOrders}
+            keyExtractor={(order) => order.id}
+            renderItem={renderOrder}
+            ListHeaderComponent={
+              <View style={styles.searchBox}>
+                <SearchIcon />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t('orders.list.searchPlaceholder')}
+                  placeholderTextColor={adminColors.placeholder}
+                />
               </View>
-            )
-          )}
-
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-
-        {/* Label kept from the design; it opened pickup verification (old M5S10) with no order. */}
-        {canVerify ? (
-          <View style={styles.fixedBottomContainer}>
-            <TouchableOpacity
-              style={styles.primaryActionButton}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S11', { step: 'verify' })}
-            >
-              <PackageIcon />
-              <Text style={styles.primaryActionText}>New Packing</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+            }
+            showsVerticalScrollIndicator={false}
+            onEndReached={hasMore ? onLoadMore : undefined}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+              ) : undefined
+            }
+            ListEmptyComponent={<AdminEmptyState title={t(query === '' ? 'orders.empty.ready' : 'orders.empty.search')} />}
+            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : <View style={styles.bottomSpacer} />}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -292,12 +290,6 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.warning.text,
   },
-  customerName: {
-    ...adminType.body,
-    fontWeight: '500',
-    color: adminColors.muted,
-    marginBottom: 10,
-  },
   itemsPriceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -334,28 +326,5 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
-  },
-  fixedBottomContainer: {
-    backgroundColor: adminColors.canvas,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-  },
-  primaryActionButton: {
-    backgroundColor: adminColors.brand,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: ADMIN_BUTTON_HEIGHT,
-    borderRadius: adminRadius.lg,
-    ...adminShadow.sm,
-  },
-  buttonIcon: {
-    marginRight: adminSpacing.sm,
-  },
-  primaryActionText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
   },
 });

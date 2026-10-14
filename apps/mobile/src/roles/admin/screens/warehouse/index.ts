@@ -6,6 +6,21 @@ export {
   type WarehouseAdminRouteParams,
 } from './warehouse-admin';
 
+// Which areas are offered at all: five have no API, Staff needs admin.staff.list_view (owner decision 2);
+// stock adjustments and stock counts have no API either (phase 3).
+export {
+  AREAS_WITHOUT_API,
+  billingRouteArea,
+  inventoryRouteArea,
+  isAreaAvailable,
+  storageRouteArea,
+  STAFF_AREA_CODE,
+  type WarehouseArea,
+} from './availability';
+
+// Holds the Sub warehouse screens until the admin's own warehouse (GET /auth/me, BR-30) is known.
+export { WarehouseScopeGate, type WarehouseScopeGateProps } from './WarehouseScopeGate';
+
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
 export {
   ExpenseCategoriesScreen,
@@ -130,8 +145,6 @@ export {
 // Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps and
 // ReceivingFlow the receiving list screens (dashboard, shipments, filters, history, quality issues).
 export {
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
   GoodsReceivingWizardScreen,
   ReceivingFlow,
   ReceivingHistoryDetailScreen,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 import { BackButtonIcon } from '../../assets/icons/AssetIcons';
-import { useTheme } from '../../theme';
+import { useTheme, authPalette, typography } from '../../theme';
 import { Step1Personal } from './Step1Personal';
 import { Step2FarmDetails } from './Step2FarmDetails';
 import { Step3Location } from './Step3Location';
@@ -11,8 +11,10 @@ import { Step5Review } from './Step5Review';
 import { useRegistrationDraftStore, type Step1PersonalData } from '../../storage/registrationDraft';
 import {
   createFarmerApplication,
+  getFarmerApplicationDraft,
   saveFarmerApplicationStep,
 } from '../../api/registration';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
 interface RegistrationFlowProps {
   onNavigate: (screen: 'ApplicationStatus' | 'Welcome', params?: Record<string, string | number | undefined>) => void;
@@ -42,6 +44,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
   const updateStepAndAdvanceInStore = useRegistrationDraftStore((s) => s.updateStepAndAdvance);
   const goToStep = useRegistrationDraftStore((s) => s.goToStep);
   const goBackInStore = useRegistrationDraftStore((s) => s.goBack);
+  const restoreFullDraft = useRegistrationDraftStore((s) => s.restoreFullDraft);
 
   async function updateStepAndAdvance(step: number, payload: unknown) {
     let currentAppId = draft.applicationId;
@@ -58,12 +61,62 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
         });
         if (appRes?.id) {
           currentAppId = appRes.id;
+          setApplicationId(currentAppId);
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to create application. Please check your connection and try again.';
+        // A live (non-terminal) application already exists for this mobile number -- the
+        // farmer lost their local draft (reinstall, cleared storage, new device) and is
+        // re-registering. The server's 409 carries the existing application's id in
+        // `problem.meta` specifically so this path can recover it instead of dead-ending
+        // (see `getFarmerApplicationDraft`'s docblock in `api/registration.ts`).
+        const recoverableId =
+          err instanceof ApiError && err.is('CONFLICT') && typeof err.problem.meta?.['applicationId'] === 'string'
+            ? (err.problem.meta['applicationId'] as string)
+            : null;
+
+        if (recoverableId !== null) {
+          try {
+            const existingDraft = await getFarmerApplicationDraft(recoverableId);
+            restoreFullDraft({
+              applicationId: existingDraft.id,
+              currentStep: existingDraft.currentStep,
+              step1Personal: existingDraft.step1Personal,
+              step2FarmDetails: existingDraft.step2FarmDetails,
+              step3Location: existingDraft.step3Location,
+              step4Documents: existingDraft.step4Documents,
+            });
+
+            if (!existingDraft.isDraft) {
+              // `isDraft` false means the farmer already finished the 5-step form and called
+              // submit -- `status` has moved into the review pipeline (DOCS_REVIEW,
+              // FARM_VERIFICATION, ...) and there are no more steps to fill in. This mirrors
+              // exactly what Step5Review's own `onSubmitSuccess` does right after a real
+              // submit succeeds, just re-triggered from the recovered id instead of a fresh
+              // one. `status` itself is not the right signal here -- see
+              // `FullDraftResponse.isDraft`'s docblock for why.
+              onNavigate('ApplicationStatus', { applicationId: existingDraft.id });
+            }
+            // Still drafting: `restoreFullDraft` already set `draft.currentStep` to wherever
+            // the server left off, so this screen's own step-rendering below resumes there
+            // exactly as it would for a normal in-progress draft.
+            return;
+          } catch (recoverErr) {
+            console.warn('getFarmerApplicationDraft failed while recovering from CONFLICT:', recoverErr);
+            const msg = formatErrorMessage(
+              recoverErr,
+              'Failed to create application. Please check your connection and try again.',
+            );
+            setApiError(msg);
+            // Do not advance to Step 2 -- recovery failed and there is no usable application id.
+            return;
+          }
+        }
+
+        const msg = formatErrorMessage(err, 'Failed to create application. Please check your connection and try again.');
         setApiError(msg);
-        // Still advance locally so user doesn't lose their data — server sync will retry on next step
         console.warn('createFarmerApplication failed:', err);
+        // Do not advance to Step 2 if server draft creation fails!
+        return;
       }
     }
 
@@ -77,7 +130,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
       try {
         await saveFarmerApplicationStep(currentAppId, step, payload);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : `Failed to save Step ${step}. Your data is kept locally.`;
+        const msg = formatErrorMessage(err, `Failed to save Step ${step}. Your data is kept locally.`);
         setApiError(msg);
         console.warn(`saveFarmerApplicationStep ${step} failed:`, err);
       }
@@ -106,11 +159,11 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
     <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
       {/* API error banner — dismissible, shown above the step header */}
       {apiError ? (
-        <View style={[styles.apiBanner, { backgroundColor: '#FFF3CD', borderColor: '#FFCA2C' }]}>
-          <Icon name="warning" size={16} color="#856404" />
-          <Text style={styles.apiBannerText}>{apiError}</Text>
+        <View style={[styles.apiBanner, { backgroundColor: authPalette.amber50, borderColor: authPalette.amber200 }]}>
+          <Icon name="warning" size={16} color={authPalette.twAmber900} />
+          <Text style={[styles.apiBannerText, { color: authPalette.twAmber900 }]}>{apiError}</Text>
           <TouchableOpacity onPress={() => setApiError(null)}>
-            <Icon name="close" size={16} color="#856404" />
+            <Icon name="close" size={16} color={authPalette.twAmber900} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -187,6 +240,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
           />
         ) : draft.currentStep === 4 ? (
           <Step4Documents
+            applicationId={draft.applicationId}
             initialData={draft.step4}
             onSave={(data) => updateStepAndAdvance(4, data)}
             onBack={handleBack}
@@ -235,16 +289,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonArrow: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     marginTop: -2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   progressRow: {
     flexDirection: 'row',
@@ -269,8 +323,7 @@ const styles = StyleSheet.create({
   },
   apiBannerText: {
     flex: 1,
-    fontSize: 13,
-    color: '#856404',
+    fontSize: typography.body,
     lineHeight: 18,
   },
 });

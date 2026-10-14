@@ -1,12 +1,35 @@
 // Design id: M3S03
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type {
+  AllocationChannelKey,
+  AllocationDashboard,
+  InventoryLiveStateProps,
+  InventoryScreenBaseProps,
+  ProductStock,
+  StockLevel,
+} from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
+export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The product named by the route's cropId + grade; undefined when the warehouse has none of it. */
+  product?: ProductStock | undefined;
+  /** This product's channel allocations. */
+  allocation?: AllocationDashboard | undefined;
+}
+
+const LEVEL_LABEL = {
+  inStock: 'inventory.level.inStock',
+  low: 'inventory.level.low',
+  out: 'inventory.level.out',
+} as const satisfies Record<StockLevel, string>;
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
@@ -48,102 +71,78 @@ function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
   );
 }
 
-interface ProductStockFixture {
-  title: string;
-  subtitle: string;
-  available: string;
-  reserved: string;
-  allocated: string;
-  online: string;
-  liveMarket: string;
-  reserve: string;
-  buffer: string;
-}
-
-/**
- * Per-product fixtures, keyed by the lower-case crop name. Only the products
- * StockListScreen lets you open (Tomato, Carrot) have a row; its other rows
- * are not tappable.
- */
-const PRODUCT_STOCK: Record<string, ProductStockFixture> = {
-  tomato: {
-    title: 'Tomato',
-    subtitle: 'Grade 1',
-    available: '245 KG',
-    reserved: '50 KG',
-    allocated: '120 KG',
-    online: '120 KG',
-    liveMarket: '40 KG',
-    reserve: '50 KG',
-    buffer: '30 KG',
-  },
-  carrot: {
-    title: 'Carrot',
-    subtitle: 'Grade 1',
-    available: '12 KG',
-    reserved: '0 KG',
-    allocated: '0 KG',
-    online: '0 KG',
-    liveMarket: '12 KG',
-    reserve: '0 KG',
-    buffer: '0 KG',
-  },
-};
-
-/** Callers that open M3S03 without a product (dashboard, low stock) keep the Tomato view they always had. */
-const DEFAULT_PRODUCT_KEY = 'tomato';
-
-export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParams }: ProductStockDetailScreenProps) {
-  const rawProduct = typeof routeParams?.['product'] === 'string' ? routeParams['product'] : undefined;
-  const productKey = rawProduct === undefined
-    ? DEFAULT_PRODUCT_KEY
-    : Object.keys(PRODUCT_STOCK).find((key) => rawProduct.toLowerCase().includes(key));
-  const product = productKey !== undefined ? PRODUCT_STOCK[productKey] : undefined;
-  // An unknown product shows its own name with empty figures, never another crop's numbers.
-  const empty = '0 KG';
-  const view = {
-    title: product?.title ?? rawProduct ?? '',
-    subtitle: product?.subtitle ?? '',
-    available: product?.available ?? empty,
-    reserved: product?.reserved ?? empty,
-    allocated: product?.allocated ?? empty,
-    online: product?.online ?? empty,
-    liveMarket: product?.liveMarket ?? empty,
-    reserve: product?.reserve ?? empty,
-    buffer: product?.buffer ?? empty,
+export function ProductStockDetailScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  product,
+  allocation,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: ProductStockDetailScreenProps) {
+  // Stock verification has no server API (availability.ts), so its action is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const view = queryViewState({ isLoading, error, itemCount: product === undefined ? 0 : 1 });
+  const channel = (key: AllocationChannelKey) => {
+    const grams = allocation?.channels.find((c) => c.channel === key)?.allocatedGrams;
+    return grams === undefined ? t('inventory.noValue') : formatKg(grams);
   };
-
+  const productRef = product === undefined ? undefined : { cropId: product.cropId, grade: product.grade };
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title={view.title}
-          subtitle={view.subtitle}
+          title={product?.productName ?? ''}
+          subtitle={product?.gradeLabel}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
           badge={
-            <View style={styles.availableBadge}>
-              <Text style={styles.availableBadgeText}>Available</Text>
-            </View>
+            product === undefined ? undefined : (
+              <View style={styles.availableBadge}>
+                <Text style={styles.availableBadgeText}>{t(LEVEL_LABEL[product.level])}</Text>
+              </View>
+            )
           }
         />
         
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.product.notFound')} /> : null}
+          {product === undefined ? null : (
+          <>
           {/* Stock Summary - 3 Separate White Cards */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stock Summary</Text>
             <View style={styles.summaryCards}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.available}</Text>
+                <Text style={styles.summaryValue}>{formatKg(product.availableGrams)}</Text>
                 <Text style={styles.summaryLabel}>AVAILABLE</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.reserved}</Text>
+                <Text style={styles.summaryValue}>{formatKg(product.reservedGrams)}</Text>
                 <Text style={styles.summaryLabel}>RESERVED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.allocated}</Text>
+                <Text style={styles.summaryValue}>{product.allocatedGrams === null ? t('inventory.noValue') : formatKg(product.allocatedGrams)}</Text>
                 <Text style={styles.summaryLabel}>ALLOCATED</Text>
               </View>
             </View>
@@ -156,21 +155,21 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>ONLINE</Text>
-                  <Text style={styles.allocationValue}>{view.online}</Text>
+                  <Text style={styles.allocationValue}>{channel('online')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>LIVE MARKET</Text>
-                  <Text style={styles.allocationValue}>{view.liveMarket}</Text>
+                  <Text style={styles.allocationValue}>{channel('liveMarket')}</Text>
                 </View>
               </View>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>RESERVE</Text>
-                  <Text style={styles.allocationValue}>{view.reserve}</Text>
+                  <Text style={styles.allocationValue}>{channel('reserve')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>BUFFER</Text>
-                  <Text style={styles.allocationValue}>{view.buffer}</Text>
+                  <Text style={styles.allocationValue}>{channel('buffer')}</Text>
                 </View>
               </View>
             </View>
@@ -183,16 +182,16 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Active Batches</Text>
-                  <Text style={styles.infoValue}>5</Text>
+                  <Text style={styles.infoValue}>{product.activeBatchCount}</Text>
                 </View>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Storage Locations</Text>
-                  <Text style={styles.infoValue}>3</Text>
+                  <Text style={styles.infoValue}>{product.storageLocations.length}</Text>
                 </View>
               </View>
               <View style={styles.primaryStorageRow}>
                 <Text style={styles.infoLabel}>Primary Storage</Text>
-                <Text style={styles.primaryStorageValue}>Cold Storage · Section A · Rack 03</Text>
+                <Text style={styles.primaryStorageValue}>{product.primaryStorage ?? t('inventory.noValue')}</Text>
               </View>
             </View>
           </View>
@@ -203,7 +202,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
             
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate?.('M3S04')}
+              onPress={() => onNavigate?.('M3S04', productRef)}
               activeOpacity={0.7}
             >
               <ActionBatchesIcon color={adminColors.brandDeep} />
@@ -228,6 +227,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
               <Text style={styles.actionButtonText}>View Storage Locations</Text>
             </TouchableOpacity>
 
+            {canVerify ? (
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => onNavigate?.('M3S10')}
@@ -236,7 +236,10 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
               <ActionVerifyIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>Verify Stock</Text>
             </TouchableOpacity>
+            ) : null}
           </View>
+          </>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>

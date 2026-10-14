@@ -117,7 +117,7 @@ export function locationsInScope(
   selectedWarehouseId?: string | undefined,
   locations: readonly StorageLocationItem[] = STORAGE_LOCATIONS,
 ): StorageLocationItem[] {
-  const warehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const warehouseId = scope.warehouseCode ?? scope.warehouseId ?? selectedWarehouseId;
   return locations.filter((l) => warehouseId === undefined || l.warehouseId === warehouseId);
 }
 

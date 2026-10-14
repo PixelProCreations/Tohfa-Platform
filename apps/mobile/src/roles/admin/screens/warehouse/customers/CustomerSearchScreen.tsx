@@ -5,6 +5,13 @@
  * warehouses) and Sub Warehouse admins (one warehouse). The whole screen is
  * gated by 'customer.list.view'. This is presentation only; the server
  * re-checks the code and the warehouse scope on every request (CLAUDE.md 2.1).
+ *
+ * Live mode (plan phase 9, `live`): the wallet flow passes the counter lookup
+ * (GET /admin/sales/customers/lookup, sales.sale.create) and this screen only
+ * draws it: the search box, the server's matches (masked mobile as sent,
+ * BR-92g) and the loading / error / no-match states. No sample rows, recent
+ * searches or scanner stub are shown then. Without `live` the old sample
+ * search remains for hosts not yet moved to the wallet flow.
  */
 import React, { useState } from 'react';
 import {
@@ -21,7 +28,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
+import { CUSTOMER_WALLET_TRANSACTIONS } from '../wallet-cashtopup/fixtures';
+import { LOOKUP_NO_MATCH_KEY, type LookupView, type TopUpCustomer } from '../wallet-cashtopup/mappers';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import type { CustomerSearchItem } from './types';
 
@@ -85,10 +97,87 @@ function InfoNoticeIcon({ size = 18, color = adminColors.brandDeep }: { size?: n
   );
 }
 
+/** The live counter lookup, owned by the wallet flow (plan phase 9). */
+export interface CustomerLookupLiveProps {
+  query: string;
+  onQueryChange: (text: string) => void;
+  customers: readonly TopUpCustomer[];
+  view: LookupView;
+  error: unknown;
+  onRetry: () => void;
+  onSelect: (customer: TopUpCustomer) => void;
+}
+
 export interface CustomerSearchScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
   onNavigateToWallet?: (customer: CustomerSearchItem) => void;
   onNavigateToCashTopUp?: ((customer?: CustomerSearchItem) => void) | undefined;
+  /** Live mode: the server lookup instead of the sample search. */
+  live?: CustomerLookupLiveProps | undefined;
+}
+
+/** The live lookup's body (search box, matches, states). */
+function LiveLookupBody({ can, live }: { can: WarehouseScreenBaseProps['can']; live: CustomerLookupLiveProps }) {
+  // The lookup's own code; hiding is presentation only, the server re-checks it.
+  if (!can('sales.sale.create')) {
+    return (
+      <View style={styles.scrollContent}>
+        <View style={styles.deniedCard}>
+          <Text style={styles.deniedText}>{t('wallet.lookup.notAvailable')}</Text>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View style={styles.searchBarContainer}>
+        <SearchIcon size={18} color={adminColors.muted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t('wallet.lookup.placeholder')}
+          placeholderTextColor={adminColors.placeholder}
+          value={live.query}
+          onChangeText={live.onQueryChange}
+          autoFocus={true}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      <View style={styles.sectionWrap}>
+        {live.view === 'idle' ? <Text style={styles.emptyText}>{t('wallet.lookup.prompt')}</Text> : null}
+        {live.view === 'loading' ? <AdminLoadingState /> : null}
+        {live.view === 'error' ? <AdminErrorState error={live.error} onRetry={live.onRetry} /> : null}
+        {live.view === 'noMatch' ? <AdminEmptyState title={t(LOOKUP_NO_MATCH_KEY)} /> : null}
+        {live.view === 'ready' ? (
+          <>
+            <Text style={styles.resultsHeader}>{t('wallet.lookup.results')}</Text>
+            {live.customers.map((c) => (
+              <TouchableOpacity
+                key={c.customerUuid}
+                style={styles.customerResultCard}
+                onPress={() => live.onSelect(c)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+              >
+                <View style={styles.flex}>
+                  <Text style={styles.custResultName}>{c.name}</Text>
+                  <Text style={styles.custResultSub}>
+                    {c.code} · {c.mobileMasked}
+                  </Text>
+                </View>
+                {c.balancePaise === null ? null : (
+                  <View style={styles.custBalancePill}>
+                    <Text style={styles.custBalanceText}>{formatPaise(c.balancePaise)}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </>
+        ) : null}
+      </View>
+    </ScrollView>
+  );
 }
 
 const RECENT_SEARCHES = ['Rajesh Kumar', 'CUS-00192', 'XXXXX12345'];
@@ -108,10 +197,32 @@ export function CustomerSearchScreen({
   onSelectCustomer,
   onNavigateToWallet,
   onNavigateToCashTopUp,
+  live,
 }: CustomerSearchScreenProps) {
   // Hooks stay unconditional and before every early return.
   const [query, setQuery] = useState('');
   const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<CustomerSearchItem | null>(null);
+
+  if (live !== undefined) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+          >
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('wallet.lookup.title')}</Text>
+        </View>
+        <LiveLookupBody can={can} live={live} />
+      </SafeAreaView>
+    );
+  }
 
   // Declared before the internal-wallet branch below, which calls it.
   const handleCustomerPress = (c: CustomerSearchItem) => {
@@ -144,6 +255,7 @@ export function CustomerSearchScreen({
           totalCredited: '₹25,000',
           totalUsed: '₹20,500',
         }}
+        transactions={CUSTOMER_WALLET_TRANSACTIONS}
         onBack={() => setSelectedCustomerForWallet(null)}
         onCashTopUp={() => {
           if (onNavigateToCashTopUp) {
@@ -305,6 +417,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
+  flex: { flex: 1 },
   header: {
     backgroundColor: adminColors.brand,
     flexDirection: 'row',

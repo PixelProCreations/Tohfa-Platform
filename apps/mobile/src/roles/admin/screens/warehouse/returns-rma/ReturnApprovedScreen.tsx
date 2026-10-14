@@ -1,74 +1,48 @@
 /**
- * Return Approved — result screen after an RMA was approved.
- *
- * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
- *   - "Refund Status" only with `rma.refund.approve` (FINAL_LIST row 100).
- *     Without it the header back arrow is the way out.
- *
- * Absorbs MainWarehouseReturnApprovedScreen (pair M10-S04A), which W3b had
- * merged into ReturnResultScreen variant 'RETURN_APPROVED'; the Main review
- * flow now reaches this screen through ReturnsFlow and the variant is gone.
+ * Return Approved — the result of POST /admin/returns/{id}/approve (plan
+ * phase 10). The return is APPROVED; its next step is the wallet refund, which
+ * is offered only with rma.refund.wallet_process (the refund route re-reads
+ * the return and re-checks, BR-61).
  */
-// Design id: M10-S04A
+// Design id: M10-S06
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminSpacing } from '../../../theme';
+import { t } from '../../../i18n';
+import { adminColors } from '../../../theme';
+import { RETURN_CODES } from './mappers';
 import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen } from './ReturnsParts';
-import type { RmaRecord, RmaScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
 
-export interface ReturnApprovedScreenProps extends RmaScreenBaseProps {
-  onGoToRefundStatus: (rma: RmaRecord) => void;
+export interface ReturnApprovedScreenProps extends WarehouseScreenBaseProps {
+  reference: string;
+  onGoToRefundStatus: () => void;
+  onDone: () => void;
 }
 
-function CheckmarkCircleIcon() {
+export function SuccessCheckIcon() {
   return (
-    <Svg width={44} height={44} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2.2" />
-      <Path
-        d="M8 12l2.5 2.5 5.5-5.5"
-        stroke={adminColors.success.text}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2" />
+      <Path d="M7.5 12.5l3 3 6-6.5" stroke={adminColors.success.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function CashIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={adminColors.onBrand} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="3" stroke={adminColors.onBrand} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-export function ReturnApprovedScreen({ can, rma, onBack, onGoToRefundStatus }: ReturnApprovedScreenProps) {
-  const canSeeRefund = can('rma.refund.approve');
-
+export function ReturnApprovedScreen({ can, onBack, reference, onGoToRefundStatus, onDone }: ReturnApprovedScreenProps) {
   return (
     <ReturnsScreen
-      title="Return Approved"
-      subtitle={rma.rmaId}
+      title={t('returns.approved.title')}
+      subtitle={reference}
       onBack={onBack}
       footer={
-        canSeeRefund ? (
-          <ReturnsFooter>
-            <ReturnsButton label="Refund Status" icon={<CashIcon />} onPress={() => onGoToRefundStatus(rma)} />
-          </ReturnsFooter>
-        ) : null
+        <ReturnsFooter>
+          {can(RETURN_CODES.refundWallet) ? <ReturnsButton label={t('returns.approved.toRefund')} onPress={onGoToRefundStatus} /> : null}
+          <ReturnsButton label={t('returns.backToList')} variant="neutralOutline" onPress={onDone} />
+        </ReturnsFooter>
       }
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <ResultHero tone="success" icon={<CheckmarkCircleIcon />} title="Return Approved" subtitle={rma.rmaId} />
-      </ScrollView>
+      <ResultHero tone="success" icon={<SuccessCheckIcon />} title={t('returns.approved.title')} subtitle={t('returns.approved.subtitle', { ref: reference })} />
     </ReturnsScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingBottom: adminSpacing.xl },
-});

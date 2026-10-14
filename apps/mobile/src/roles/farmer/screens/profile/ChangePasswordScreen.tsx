@@ -13,7 +13,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
+import { changePassword } from '../../api/auth';
+import { formatErrorMessage } from '../../../../shell/api/client';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -92,15 +94,18 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const isAtLeast8 = newPassword.length >= 8;
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSaveChanges = () => {
+  const isAtLeast10 = newPassword.length >= 10;
+
+  const handleSaveChanges = async () => {
     if (!currentPassword) {
       Alert.alert('Required', 'Please enter your current password.');
       return;
     }
-    if (newPassword.length < 8) {
-      Alert.alert('Password too short', 'New password must be at least 8 characters long.');
+    if (newPassword.length < 10) {
+      Alert.alert('Password too short', 'New password must be at least 10 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -108,18 +113,24 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
       return;
     }
 
-    Alert.alert('Success', 'Your password has been changed successfully.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            onBack();
-          }
-        },
-      },
-    ]);
+    setErrorMsg(null);
+    setSubmitting(true);
+    try {
+      // changePassword() clears this device's tokens itself once the server confirms the
+      // change -- the server revokes every session for this user, including this very
+      // request's, so there is nothing left here to be logged in with. See its docblock.
+      await changePassword({ currentPassword, newPassword });
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        onBack();
+      }
+    } catch (err) {
+      // A failed change-password call must surface to the farmer, never navigate away as if
+      // it had succeeded -- the old password is still the active one in this case.
+      setErrorMsg(formatErrorMessage(err, 'Failed to change password. Please try again.'));
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -184,7 +195,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               style={styles.textInput}
               value={newPassword}
               onChangeText={setNewPassword}
-              placeholder="Enter at least 8 characters"
+              placeholder="Enter at least 10 characters"
               placeholderTextColor={P.twGray400}
               secureTextEntry={!showNew}
               autoCapitalize="none"
@@ -202,14 +213,14 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
           {/* Requirement indicator */}
           <View style={styles.requirementRow}>
-            <CheckCircleIcon size={16} color={isAtLeast8 ? colors.brandGreen : P.twGray400} />
+            <CheckCircleIcon size={16} color={isAtLeast10 ? colors.brandGreen : P.twGray400} />
             <Text
               style={[
                 styles.requirementText,
-                isAtLeast8 ? styles.requirementTextActive : styles.requirementTextInactive,
+                isAtLeast10 ? styles.requirementTextActive : styles.requirementTextInactive,
               ]}
             >
-              At least 8 characters
+              At least 10 characters
             </Text>
           </View>
 
@@ -239,14 +250,16 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
         {/* ── Bottom Save Button ── */}
         <View style={styles.bottomBar}>
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
           <TouchableOpacity
-            style={styles.saveBtn}
+            style={[styles.saveBtn, submitting ? styles.saveBtnDisabled : null]}
             onPress={handleSaveChanges}
             activeOpacity={0.85}
+            disabled={submitting}
             accessibilityRole="button"
             accessibilityLabel="Save changes"
           >
-            <Text style={styles.saveBtnText}>Save changes</Text>
+            <Text style={styles.saveBtnText}>{submitting ? 'Saving...' : 'Save changes'}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -286,7 +299,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
@@ -299,13 +312,13 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   subText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18.5,
     color: P.greyMid1,
     marginBottom: 24,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 8,
@@ -323,7 +336,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: colors.textDark,
     paddingVertical: 0,
   },
@@ -339,7 +352,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   requirementText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
   },
   requirementTextActive: {
@@ -356,6 +369,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: P.tanTint1,
   },
+  errorText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    color: colors.danger,
+    marginBottom: 10,
+  },
   saveBtn: {
     backgroundColor: P.greenDeep2,
     borderRadius: 14,
@@ -363,8 +382,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  saveBtnDisabled: {
+    opacity: 0.7,
+  },
   saveBtnText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.weatherCloudWhite,
   },

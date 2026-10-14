@@ -12,112 +12,49 @@
  * Gates: none of the tiles on this screen assigns an order to a warehouse, so
  * `order.warehouse.assign` currently has nothing to hide. Every other tile is
  * navigation and stays ungated, as it was in the design.
+ *
+ * Live data (API integration plan, phase 5): the counts are the open order
+ * tasks from GET /admin/tasks/summary (ORDER_PACK = orders confirmed and not
+ * packed, ORDER_DISPATCH = packed and not yet ready, ORDER_PICKUP_OTP = ready
+ * and waiting for the customer); a count that has not loaded shows as no
+ * value, never 0. Figures with no API are hidden: new orders as a separate
+ * state, delivery, order issues, today's summary, the Main total / issues KPIs
+ * and the per-warehouse breakdown. Main's recent orders are the newest rows of
+ * GET /admin/orders.
  */
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, RefreshControl } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
-import type { OrderScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { orderToneColors } from './statusTone';
+import type {
+  OrderListRow,
+  OrderScreenBaseProps,
+  OrdersLiveStateProps,
+  OrdersWarehouseSelector,
+  OrderTaskCounts,
+} from './types';
 
-interface WarehouseOption {
-  id: string;
-  name: string;
+export interface OrdersDashboardScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps, OrdersWarehouseSelector {
+  /** The open order task counts; null until they load. */
+  counts?: OrderTaskCounts | null | undefined;
+  /** Main only: the newest orders of the selected warehouse(s). */
+  recentOrders?: readonly OrderListRow[] | undefined;
 }
 
-export interface OrdersDashboardScreenProps extends OrderScreenBaseProps {
-  /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
-  warehouses?: WarehouseOption[] | undefined;
-  routeParams?: Record<string, unknown> | undefined;
+/** How many recent orders the Main dashboard shows (a layout choice, not a business rule). */
+const RECENT_ORDER_ROWS = 3;
+
+/** A count, or the no-value mark while it has not loaded. */
+function countText(value: number | undefined): string {
+  return value === undefined ? t('orders.noValue') : String(value);
 }
 
-/**
- * Neutral placeholder until the host passes the real warehouse list.
- */
-const DEFAULT_WAREHOUSES: WarehouseOption[] = [
-  { id: 'WH-COON', name: 'Coonoor' },
-  { id: 'WH-OOTY', name: 'Ooty' },
-  { id: 'WH-KOTA', name: 'Kotagiri' },
-  { id: 'WH-GUDA', name: 'Gudalur' },
-];
-
-/** Mock per-warehouse order summary */
-const WAREHOUSE_SUMMARY = [
-  { id: 'WH-COON', name: 'Coonoor', orders: 16 },
-  { id: 'WH-OOTY', name: 'Ooty', orders: 12 },
-];
-
-interface RecentOrderItem {
-  id: string;
-  warehouseId: string;
-  warehouseName: string;
-  customer: string;
-  status: string;
-  items: string;
-  amount: string;
-}
-
-const RECENT_ORDERS_BY_WH: RecentOrderItem[] = [
-  {
-    id: 'ORD-1024',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Arun Kumar',
-    status: 'Confirmed',
-    items: '4 items',
-    amount: '₹850',
-  },
-  {
-    id: 'ORD-1021',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Divya R.',
-    status: 'Confirmed',
-    items: '4 items',
-    amount: '₹960',
-  },
-  {
-    id: 'ORD-1019',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Kavitha M.',
-    status: 'Packing',
-    items: '3 items',
-    amount: '₹720',
-  },
-  {
-    id: 'ORD-1022',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty',
-    customer: 'Ganesh K.',
-    status: 'Packing',
-    items: '2 items',
-    amount: '₹420',
-  },
-  {
-    id: 'ORD-1018',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri',
-    customer: 'Meena S.',
-    status: 'Quantity Issue',
-    items: '2 items',
-    amount: '₹310',
-  },
-  {
-    id: 'ORD-1016',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur',
-    customer: 'Ravi P.',
-    status: 'Confirmed',
-    items: '3 items',
-    amount: '₹640',
-  },
-];
-
-
-
-const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed', 'Issues'];
+// "Issues" is gone with the order-issues area (no API).
+const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed'];
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -142,18 +79,18 @@ function GridMenuIcon() {
   );
 }
 
-
-function WarningTriangleAccentIcon() {
+function ChevronDownSmallIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke={adminColors.brand}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M12 9v4M12 17h.01" stroke={adminColors.brand} strokeWidth="2" strokeLinecap="round" />
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckSmallIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={adminColors.brand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -217,12 +154,17 @@ function LockSmallIcon() {
   );
 }
 
-
-function NewBadgeIcon() {
+function BuildingWarehouseIcon({ color }: { color: string }) {
   return (
-    <View style={styles.newBadgeChip}>
-      <Text style={styles.newBadgeText}>NEW</Text>
-    </View>
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 
@@ -250,25 +192,6 @@ function ReadyPickupIcon() {
       <Circle cx="9" cy="7" r="3" stroke={adminColors.ink} strokeWidth="1.8" />
       <Path d="M3 19v-1.5a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4V19" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" />
       <Path d="M15 11.5l2 2 4.5-4.5" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function DeliveryTruckIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M2 4h12v11H2zM14 8.5h4.5l2.5 3.5v3h-7V8.5z" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="6" cy="18" r="2.2" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Circle cx="17" cy="18" r="2.2" stroke={adminColors.ink} strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function ErrorExclamationIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.danger.text} strokeWidth="1.8" />
-      <Path d="M12 7v5.5M12 15.5h.01" stroke={adminColors.danger.text} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -332,37 +255,34 @@ export function OrdersDashboardScreen({
   scope,
   onBack,
   onNavigate,
-  onTabChange: _onTabChange,
-  routeParams,
-  warehouses = DEFAULT_WAREHOUSES,
+  warehouseOptions = [],
+  selectedWarehouseId,
+  onSelectWarehouse,
+  counts = null,
+  recentOrders = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
 }: OrdersDashboardScreenProps) {
   const [activeFilterPill, setActiveFilterPill] = useState('All');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
-    typeof routeParams?.warehouseId === 'string' ? routeParams.warehouseId : undefined,
+  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  const setSelectedWarehouseId = (id: string | undefined) => onSelectWarehouse?.(id);
+  const warehouses = warehouseOptions.flatMap((w) =>
+    w.warehouseId === undefined ? [] : [{ id: w.warehouseId, name: w.warehouseName ?? w.warehouseCode ?? w.warehouseId }],
   );
-  const warehouseOptions = React.useMemo(
-    () => warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
-    [warehouses]
-  );
-
-  useEffect(() => {
-    if (typeof routeParams?.warehouseId === 'string') {
-      setSelectedWarehouseId(routeParams.warehouseId);
-    }
-  }, [routeParams?.warehouseId]);
 
   const isAllWarehouses = scope.warehouseId === undefined;
 
-  const listParams = (extra?: Record<string, unknown>): Record<string, unknown> =>
-    isAllWarehouses && selectedWarehouseId !== undefined ? { ...extra, warehouseId: selectedWarehouseId } : { ...extra };
+  // The flow holds the Main warehouse selection, so the list it opens is already narrowed.
+  const listParams = (extra?: Record<string, unknown>): Record<string, unknown> => ({ ...extra });
 
-  const visibleWarehouseSummary = selectedWarehouseId
-    ? WAREHOUSE_SUMMARY.filter((w) => w.id === selectedWarehouseId)
-    : WAREHOUSE_SUMMARY;
-
-  const visibleRecentOrders = selectedWarehouseId
-    ? RECENT_ORDERS_BY_WH.filter((o) => o.warehouseId === selectedWarehouseId)
-    : RECENT_ORDERS_BY_WH;
+  const refreshControl = onRefresh ? (
+    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+  ) : undefined;
+  // The counts are the only data here; with none and a failure, the attention area says so.
+  const countsState = counts !== null ? 'ready' : isLoading ? 'loading' : error !== null && error !== undefined ? 'error' : 'ready';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -385,12 +305,76 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            <WarehouseSelector
-              scope={scope}
-              options={warehouseOptions}
-              selectedId={selectedWarehouseId}
-              onSelect={setSelectedWarehouseId}
-            />
+            <TouchableOpacity
+              style={styles.dropdownBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowWarehouseModal(true)}
+            >
+              <BuildingWarehouseIcon color={adminColors.onBrand} />
+              <Text style={styles.dropdownBtnText}>
+                {selectedWarehouseId
+                  ? (warehouses.find((w) => w.id === selectedWarehouseId)?.name ?? selectedWarehouseId)
+                  : 'All Warehouses'}
+              </Text>
+              <ChevronDownSmallIcon />
+            </TouchableOpacity>
+
+            <Modal
+              visible={showWarehouseModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowWarehouseModal(false)}
+            >
+              <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowWarehouseModal(false)}
+              >
+                <View style={styles.dropdownModalMenu}>
+                  <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
+                  <TouchableOpacity
+                    style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
+                    onPress={() => {
+                      setSelectedWarehouseId(undefined);
+                      setShowWarehouseModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownModalItemText,
+                        selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
+                      ]}
+                    >
+                      All Warehouses
+                    </Text>
+                    {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
+                  </TouchableOpacity>
+                  {warehouses.map((w) => {
+                    const isSelected = selectedWarehouseId === w.id;
+                    return (
+                      <TouchableOpacity
+                        key={w.id}
+                        style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
+                        onPress={() => {
+                          setSelectedWarehouseId(w.id);
+                          setShowWarehouseModal(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownModalItemText,
+                            isSelected && styles.dropdownModalItemTextActive,
+                          ]}
+                        >
+                          {w.name}
+                        </Text>
+                        {isSelected ? <CheckSmallIcon /> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </TouchableOpacity>
+            </Modal>
           </View>
         ) : (
           // Sub Warehouse Header (unchanged)
@@ -417,77 +401,20 @@ export function OrdersDashboardScreen({
 
         {isAllWarehouses ? (
           // Main Warehouse Content (Matches M5-01 Customer Orders design)
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* 4 KPI Cards (2x2 Grid) - Static */}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+            {/* KPI cards: open order tasks. Total orders and issues have no API. */}
             <View style={styles.mainKpiGrid}>
               <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TOTAL ORDERS</Text>
-                <Text style={styles.mainKpiValue}>48</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>NEW ORDERS</Text>
-                <Text style={styles.mainKpiValue}>8</Text>
+                <Text style={styles.mainKpiValue}>{countText(counts?.toPack)}</Text>
               </View>
 
               <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>READY PICKUP</Text>
-                <Text style={styles.mainKpiValue}>9</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>ISSUES</Text>
-                <Text style={styles.mainKpiValue}>2</Text>
+                <Text style={styles.mainKpiValue}>{countText(counts?.awaitingPickup)}</Text>
               </View>
             </View>
-
-            {/* Warehouse Order Summary */}
-            <View style={styles.mainSectionHeaderRow}>
-              <Text style={styles.mainSectionTitle}>Warehouse Order Summary</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S02', listParams())}>
-                <Text style={styles.mainViewLinkText}>View →</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.whSummaryList}>
-              {visibleWarehouseSummary.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.whSummaryCard}
-                  activeOpacity={0.75}
-                  onPress={() => onNavigate?.('M5S02', { warehouseId: item.id })}
-                >
-                  <Text style={styles.whSummaryName}>{item.name}</Text>
-                  <View style={styles.orderCountBadge}>
-                    <Text style={styles.orderCountBadgeText}>{item.orders} Orders</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Needs Attention */}
-            <View style={styles.mainSectionHeaderRow}>
-              <Text style={styles.mainSectionTitle}>Needs Attention</Text>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => onNavigate?.('M5S05', { orderId: 'ORD-1024', step: 'shortage' })}
-              >
-                <Text style={styles.mainViewLinkText}>View →</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.needsAttentionCard}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S05', { orderId: 'ORD-1024', step: 'shortage' })}
-            >
-              <View style={styles.needsAttentionAccent} />
-              <View style={styles.needsAttentionInner}>
-                <WarningTriangleAccentIcon />
-                <View style={styles.needsAttentionTextWrap}>
-                  <Text style={styles.needsAttentionTitle}>Stock Shortage — 1 order</Text>
-                  <Text style={styles.needsAttentionSubtitle}>Requires review before packing</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            {countsState === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
 
             {/* Quick Actions */}
             <Text style={styles.mainSectionTitleStandalone}>Quick Actions</Text>
@@ -517,33 +444,36 @@ export function OrdersDashboardScreen({
 
             {/* Recent Orders */}
             <Text style={styles.mainSectionTitleStandalone}>Recent Orders</Text>
-            {visibleRecentOrders.map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.recentOrderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S04', { orderId: order.id, customerName: order.customer })}
-              >
-                <View style={styles.recentOrderTopRow}>
-                  <Text style={styles.recentOrderId}>{order.id}</Text>
-                  <View style={styles.confirmedBadge}>
-                    <Text style={styles.confirmedBadgeText}>{order.status}</Text>
+            {recentOrders.slice(0, RECENT_ORDER_ROWS).map((order) => {
+              const tone = orderToneColors(order.tone);
+              return (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.recentOrderCard}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigate?.('M5S04', { orderId: order.id })}
+                >
+                  <View style={styles.recentOrderTopRow}>
+                    <Text style={styles.recentOrderId}>{order.orderNumber}</Text>
+                    <View style={[styles.confirmedBadge, { backgroundColor: tone.bg }]}>
+                      <Text style={[styles.confirmedBadgeText, { color: tone.text }]}>{order.statusLabel}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.recentOrderCustomer}>{order.customer}</Text>
-                <View style={styles.recentOrderDivider} />
-                <View style={styles.recentOrderBottomRow}>
-                  <Text style={styles.recentOrderMeta}>{order.warehouseName} · {order.items}</Text>
-                  <Text style={styles.recentOrderAmount}>{order.amount}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <Text style={styles.recentOrderCustomer}>{order.placedLabel}</Text>
+                  <View style={styles.recentOrderDivider} />
+                  <View style={styles.recentOrderBottomRow}>
+                    <Text style={styles.recentOrderMeta}>{order.itemsLabel}</Text>
+                    <Text style={styles.recentOrderAmount}>{order.amountLabel}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
         ) : (
           // Sub Warehouse Content (existing, untouched)
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeaderInline}>Order Status</Text>
               <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S02', listParams())}>
@@ -551,73 +481,38 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
+            {/* Open order tasks. New orders (no separate state), delivery and issues have no API. */}
             <View style={styles.statusGrid}>
               <TouchableOpacity
                 style={styles.statusCard}
                 activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ status: 'New' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <NewBadgeIcon />
-                </View>
-                <Text style={styles.statusNumber}>12</Text>
-                <Text style={styles.statusLabel}>New Orders</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ status: 'Confirmed' }))}
+                onPress={() => onNavigate?.('M5S02', listParams({ status: 'CONFIRMED' }))}
               >
                 <View style={styles.statusCardTop}>
                   <CheckCircleTickIcon />
                 </View>
-                <Text style={styles.statusNumber}>8</Text>
+                <Text style={styles.statusNumber}>{countText(counts?.toPack)}</Text>
                 <Text style={styles.statusLabel}>Confirmed</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.statusCard}
                 activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S07', { orderId: 'ORD-1022' })}
+                onPress={() => onNavigate?.('M5S02', listParams({ status: 'PACKED' }))}
               >
                 <View style={styles.statusCardTop}>
                   <PackageBoxIcon />
                 </View>
-                <Text style={styles.statusNumber}>5</Text>
-                <Text style={styles.statusLabel}>Packing</Text>
+                <Text style={styles.statusNumber}>{countText(counts?.toMarkReady)}</Text>
+                <Text style={styles.statusLabel}>{t('orders.status.packed')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.statusCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S09')}>
                 <View style={styles.statusCardTop}>
                   <ReadyPickupIcon />
                 </View>
-                <Text style={styles.statusNumber}>7</Text>
+                <Text style={styles.statusNumber}>{countText(counts?.awaitingPickup)}</Text>
                 <Text style={styles.statusLabel}>Ready for Pickup</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
-              >
-                <View style={styles.statusCardTop}>
-                  <DeliveryTruckIcon />
-                </View>
-                <Text style={styles.statusNumber}>3</Text>
-                <Text style={styles.statusLabel}>Delivery</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S16', { orderId: 'ORD-1018' })}
-              >
-                <View style={styles.statusCardTop}>
-                  <ErrorExclamationIcon />
-                </View>
-                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
-                <Text style={styles.statusLabel}>Order Issues</Text>
               </TouchableOpacity>
             </View>
 
@@ -647,73 +542,65 @@ export function OrdersDashboardScreen({
               <Text style={styles.attentionSectionTitle}>Needs Attention</Text>
             </View>
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S05')}
-            >
-              <AttentionChecklistIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1024</Text>
-                <Text style={styles.attentionDesc}>Stock verification required</Text>
+            {countsState === 'loading' ? (
+              <AdminLoadingState />
+            ) : countsState === 'error' ? (
+              <AdminErrorState error={error} onRetry={onRetry} />
+            ) : counts !== null && counts.toPack + counts.toMarkReady + counts.awaitingPickup === 0 ? (
+              <View style={[styles.attentionCard, styles.brandLeftBorder]}>
+                <View style={styles.attentionContent}>
+                  <Text style={styles.attentionTitle}>{t('orders.attention.noneTitle')}</Text>
+                  <Text style={styles.attentionDesc}>{t('orders.attention.noneHint')}</Text>
+                </View>
               </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+            ) : (
+              <>
+                {counts !== null && counts.toPack > 0 ? (
+                  <TouchableOpacity
+                    style={[styles.attentionCard, styles.brandLeftBorder]}
+                    activeOpacity={0.75}
+                    onPress={() => onNavigate?.('M5S02', listParams({ status: 'CONFIRMED' }))}
+                  >
+                    <AttentionChecklistIcon />
+                    <View style={styles.attentionContent}>
+                      <Text style={styles.attentionTitle}>{t('orders.attention.toPack', { count: counts.toPack })}</Text>
+                      <Text style={styles.attentionDesc}>{t('orders.attention.toPackHint')}</Text>
+                    </View>
+                    <ChevronRightIcon />
+                  </TouchableOpacity>
+                ) : null}
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S09')}
-            >
-              <AttentionPersonIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1020</Text>
-                <Text style={styles.attentionDesc}>Ready for pickup</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+                {counts !== null && counts.toMarkReady > 0 ? (
+                  <TouchableOpacity
+                    style={[styles.attentionCard, styles.brandLeftBorder]}
+                    activeOpacity={0.75}
+                    onPress={() => onNavigate?.('M5S02', listParams({ status: 'PACKED' }))}
+                  >
+                    <AttentionChecklistIcon />
+                    <View style={styles.attentionContent}>
+                      <Text style={styles.attentionTitle}>{t('orders.attention.toMarkReady', { count: counts.toMarkReady })}</Text>
+                      <Text style={styles.attentionDesc}>{t('orders.attention.toMarkReadyHint')}</Text>
+                    </View>
+                    <ChevronRightIcon />
+                  </TouchableOpacity>
+                ) : null}
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
-            >
-              <DeliveryTruckIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1021</Text>
-                <Text style={styles.attentionDesc}>Prepare for delivery</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.dangerLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S16')}
-            >
-              <ErrorExclamationIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1018</Text>
-                <Text style={styles.attentionDesc}>Quantity issue</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-
-            <Text style={styles.sectionHeader}>Today's Summary</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>24</Text>
-                <Text style={styles.summaryLabel}>TODAY'S ORDERS</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>16</Text>
-                <Text style={styles.summaryLabel}>COMPLETED</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>8</Text>
-                <Text style={styles.summaryLabel}>PENDING</Text>
-              </View>
-            </View>
+                {counts !== null && counts.awaitingPickup > 0 ? (
+                  <TouchableOpacity
+                    style={[styles.attentionCard, styles.brandLeftBorder]}
+                    activeOpacity={0.75}
+                    onPress={() => onNavigate?.('M5S09')}
+                  >
+                    <AttentionPersonIcon />
+                    <View style={styles.attentionContent}>
+                      <Text style={styles.attentionTitle}>{t('orders.attention.awaitingPickup', { count: counts.awaitingPickup })}</Text>
+                      <Text style={styles.attentionDesc}>{t('orders.attention.awaitingPickupHint')}</Text>
+                    </View>
+                    <ChevronRightIcon />
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            )}
 
             <Text style={styles.sectionHeader}>Quick Actions</Text>
             <View style={styles.quickActionsRow}>
@@ -729,13 +616,6 @@ export function OrdersDashboardScreen({
                   <AttentionPersonIcon />
                 </View>
                 <Text style={styles.quickActionText}>Ready for Pickup</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S16')}>
-                <View style={styles.quickActionIconWrap}>
-                  <ErrorExclamationIcon />
-                </View>
-                <Text style={styles.quickActionText}>Order Issues</Text>
               </TouchableOpacity>
             </View>
 
@@ -792,7 +672,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 6,
+    gap: 6,
+    marginTop: 4,
+  },
+  dropdownBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminColors.toast.bg,
+    opacity: 0.96,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  dropdownModalMenu: {
+    width: '85%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    ...adminShadow.md,
+  },
+  dropdownModalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+    paddingBottom: adminSpacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+  },
+  dropdownModalItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownModalItemText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdownModalItemTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
   warehousePill: {
     alignSelf: 'flex-start',
     backgroundColor: adminColors.brandDeep,
@@ -841,94 +779,11 @@ const styles = StyleSheet.create({
     ...adminType.kpiValue,
     color: adminColors.ink,
   },
-  mainSectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 10,
-  },
-  mainSectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-  },
   mainSectionTitleStandalone: {
     ...adminType.sectionHead,
     color: adminColors.ink,
     marginTop: 6,
     marginBottom: 10,
-  },
-  mainViewLinkText: {
-    ...adminType.rowTitle,
-    color: adminColors.brand,
-    fontWeight: '600',
-  },
-  whSummaryList: {
-    gap: 10,
-    marginBottom: 16,
-  },
-  whSummaryCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...adminShadow.sm,
-  },
-  whSummaryName: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    fontWeight: '600',
-  },
-  orderCountBadge: {
-    backgroundColor: adminColors.success.bg,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  orderCountBadgeText: {
-    ...adminType.caption,
-    color: adminColors.success.text,
-    fontWeight: '600',
-  },
-  needsAttentionCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 16,
-    ...adminShadow.sm,
-  },
-  needsAttentionAccent: {
-    width: 4.5,
-    backgroundColor: adminColors.brand,
-  },
-  needsAttentionInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  needsAttentionTextWrap: {
-    flex: 1,
-  },
-  needsAttentionTitle: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    fontWeight: '700',
-  },
-  needsAttentionSubtitle: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: 2,
   },
   mainQuickActionsRow: {
     flexDirection: 'row',
@@ -1052,30 +907,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 6,
   },
-  newBadgeChip: {
-    borderWidth: 1.3,
-    borderColor: adminColors.brandDeep,
-    borderRadius: 3.5,
-    paddingHorizontal: adminSpacing.xs,
-    paddingVertical: 1,
-    height: 15,
-    alignSelf: 'flex-start',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  newBadgeText: {
-    ...adminType.caption,
-    color: adminColors.brandDeep,
-    letterSpacing: 0.6,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
   statusNumber: {
     ...adminType.kpiValue,
     color: adminColors.ink,
-  },
-  statusNumberDanger: {
-    color: adminColors.danger.text,
   },
   statusLabel: {
     ...adminType.body,
@@ -1138,10 +972,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4.5,
     borderLeftColor: adminColors.brand,
   },
-  dangerLeftBorder: {
-    borderLeftWidth: 4.5,
-    borderLeftColor: adminColors.danger.text,
-  },
   attentionContent: {
     flex: 1,
   },
@@ -1152,31 +982,6 @@ const styles = StyleSheet.create({
   attentionDesc: {
     ...adminType.rowMeta,
     color: adminColors.muted,
-    marginTop: 2,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 18,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-  },
-  summaryLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 0.5,
     marginTop: 2,
   },
   quickActionsRow: {

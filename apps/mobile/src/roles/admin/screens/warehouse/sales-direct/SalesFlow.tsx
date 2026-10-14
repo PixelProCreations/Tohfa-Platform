@@ -18,6 +18,11 @@
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
+import { adminErrorKey } from '../../../api/errors';
+import { useIdempotencyKey } from '../../../api/hooks';
+import type { Grade, SaleCreateDto, SaleDto, SalePaymentMethod as ApiPaymentMethod } from '../../../api/sales';
+import { t } from '../../../i18n';
 import { useFlowBack } from '../useFlowBack';
 
 import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
@@ -43,6 +48,7 @@ import type {
   WarehouseScope,
   WarehouseTab,
 } from './types';
+import { useConfirmSaleUpiPaymentMutation, useCreateSaleMutation } from './useSalesData';
 
 interface SalesStackEntry {
   screen: SalesRoute;
@@ -82,13 +88,19 @@ export function SalesFlow({
   // The sale being built. A Main admin picks the warehouse on New Sale; a Sub
   // admin's sale is always its own warehouse.
   const [saleWarehouseId, setSaleWarehouseId] = useState<string | undefined>(
-    scope.warehouseId ?? SALE_WAREHOUSES[0]?.warehouseId,
+    scope.warehouseCode ?? scope.warehouseId ?? SALE_WAREHOUSES[0]?.warehouseId,
   );
   const [cart, setCart] = useState<SaleProduct[]>([]);
   const [customer, setCustomer] = useState<SaleCustomer | null>(null);
-  const [total, setTotal] = useState(320);
+  const [total, setTotal] = useState(0);
   const [itemsCount, setItemsCount] = useState(2);
   const [method, setMethod] = useState<SalePaymentMethod>('Cash');
+  const [createdSale, setCreatedSale] = useState<SaleDto | null>(null);
+
+  const createSaleMutation = useCreateSaleMutation();
+  const upiConfirmMutation = useConfirmSaleUpiPaymentMutation();
+  const saleIdempotency = useIdempotencyKey();
+  const upiIdempotency = useIdempotencyKey();
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
@@ -127,6 +139,9 @@ export function SalesFlow({
   const startNewSale = () => {
     setCart([]);
     setCustomer(null);
+    setCreatedSale(null);
+    saleIdempotency.reset();
+    upiIdempotency.reset();
     // Back from a fresh sale returns to the hub (or the host), not to the finished one.
     setStack((prev) => [...prev.filter((e) => e.screen === 'Sales').slice(0, 1), { screen: 'NewSale' }]);
   };
@@ -170,8 +185,8 @@ export function SalesFlow({
           saleWarehouseId={saleWarehouse.warehouseId}
           onContinue={(items) => {
             setCart(items);
-            const sum = items.reduce((acc, it) => acc + (it.pricePerKg * (it.selectedQty ?? 1)), 0);
-            setTotal(sum || 320);
+            // Sale Summary computes the total from the cart (and lets the cashier edit
+            // quantities) and hands it on; Payment is reached from there.
             navigate('SaleSummary');
           }}
         />
@@ -209,8 +224,63 @@ export function SalesFlow({
           amountDue={total}
           walletBalance={customer?.walletBalance}
           onPaymentConfirmed={(paid) => {
-            setMethod(paid);
-            navigate('SaleConfirmation');
+            const salePayload: SaleCreateDto = {
+              channel: 'DIRECT',
+              warehouseId: saleWarehouse.warehouseId,
+              customer: customer?.id && customer.id !== 'walk-in' ? { customerId: customer.id } : undefined,
+              walkIn: !customer?.id || customer.id === 'walk-in' ? { name: customer?.name || 'Walk-in Customer' } : undefined,
+              items: cart.length > 0
+                ? cart.map((p) => ({
+                    productId: p.id,
+                    grade: (p.grade as Grade) || 'Grade 1',
+                    qtyKg: (p.selectedQty ?? 1).toFixed(3),
+                  }))
+                : [{ productId: 'prod-1', grade: 'Grade 1', qtyKg: '1.000' }],
+              expectedTotal: total.toFixed(2),
+              payment: {
+                method: paid.toUpperCase() as ApiPaymentMethod,
+                amountReceived: paid === 'Cash' ? total.toFixed(2) : undefined,
+              },
+            };
+
+            createSaleMutation.mutate(
+              {
+                body: salePayload,
+                idempotencyKey: saleIdempotency.keyFor(salePayload),
+              },
+              {
+                onSuccess: (res) => {
+                  saleIdempotency.reset();
+                  setCreatedSale(res);
+                  setMethod(paid);
+                  if (paid === 'UPI' && res.status === 'PENDING_PAYMENT') {
+                    const upiBody = { upiTxnRef: `UPI-${Date.now()}` };
+                    upiConfirmMutation.mutate(
+                      {
+                        saleId: res.id,
+                        body: upiBody,
+                        idempotencyKey: upiIdempotency.keyFor(upiBody),
+                      },
+                      {
+                        onSuccess: (confirmed) => {
+                          upiIdempotency.reset();
+                          setCreatedSale(confirmed);
+                          navigate('SaleConfirmation');
+                        },
+                        onError: () => {
+                          navigate('SaleConfirmation');
+                        },
+                      },
+                    );
+                  } else {
+                    navigate('SaleConfirmation');
+                  }
+                },
+                onError: (err) => {
+                  Alert.alert(t('async.error.title'), t(adminErrorKey(err)));
+                },
+              },
+            );
           }}
         />
       );
@@ -218,8 +288,9 @@ export function SalesFlow({
       return (
         <SaleConfirmationScreen
           {...common}
-          customerName={customer?.name ?? presetCustomer ?? 'Walk-in Customer'}
-          customerCode={customer?.code ?? initialParams?.customerCode ?? 'CUS-WALKIN'}
+          saleId={createdSale?.saleNumber ?? createdSale?.id ?? 'SALE-00251'}
+          customerName={createdSale?.buyer.name ?? customer?.name ?? presetCustomer ?? 'Walk-in Customer'}
+          customerCode={createdSale?.buyer.customerCode ?? customer?.code ?? initialParams?.customerCode ?? 'CUS-WALKIN'}
           paymentMethod={method}
           totalAmount={total}
           itemsCount={itemsCount}
@@ -227,13 +298,12 @@ export function SalesFlow({
           onViewInvoice={() =>
             push({
               screen: 'Invoice',
-              // Post-sale entry: the invoice wizard opens on its Review step (W4).
               invoice: {
                 mode: 'wizard',
                 params: {
                   review: {
                     invoiceType: 'Direct Sale',
-                    customerName: customer?.name ?? presetCustomer ?? 'Walk-in Customer',
+                    customerName: createdSale?.buyer.name ?? customer?.name ?? presetCustomer ?? 'Walk-in Customer',
                     itemsCount,
                     subtotal: `₹${total}`,
                     gst: '₹0',

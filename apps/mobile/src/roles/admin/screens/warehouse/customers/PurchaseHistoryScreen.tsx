@@ -1,173 +1,117 @@
 /**
- * Purchase History: one customer's invoiced purchases with search, filters
- * and sort.
+ * Purchase History: one customer's purchased lines
+ * (GET /admin/customers/{id}/purchases, newest first).
  *
- * Gates (FINAL_LIST row 18): read-only; nothing beyond customer.list.view.
- * Tapping a purchase opens its order (the host's order detail), as before.
+ * Gates (FINAL_LIST row 18): read-only (customer.purchase_history.view). For
+ * an `own` actor the server returns only lines of orders at its warehouse
+ * (BR-91g). Tapping a line opens its order (the host's order detail) by the
+ * order uuid.
  *
- * Absorbs Main PurchaseHistoryScreen (pair M7-S04: "SW 644 w/ filters, MWA
- * 279"): the Main card's sales channel ("Direct Sale") is shown on every row
- * that carries one. The Main twin's designer note ("tapping a purchase
- * deep-links to Module 6 / Module 9") was an annotation, not UI, and is not ported.
+ * The API is line level, and so is this list: one card per purchased line
+ * (product and grade, quantity × unit price, line total, order number,
+ * channel). No invoice-level row is built from the lines. The search box
+ * narrows the lines already loaded by product or order number. "Load more"
+ * pages on.
+ *
+ * Hidden, because the API cannot do them: the filter screen (status, grade,
+ * crop, date range, sort), the KPI tiles (the API has no purchase summary; a
+ * sum of the loaded pages would be partial) and the paid / pending badge (a
+ * line carries no payment status).
  */
 // Design id: M7-S04
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminSpacing } from '../../../theme';
-import {
-  cardStyles,
-  CustomersScreen,
-  EmptyState,
-  FilterIcon,
-  HeaderIconButton,
-  isAllWarehouses,
-  SearchField,
-  StatTiles,
-  StatusBadge,
-} from './CustomersParts';
-import { DEFAULT_CUSTOMER, INITIAL_PURCHASES, PURCHASE_KPIS } from './fixtures';
-import type { CustomerRef, PurchaseFilterState, PurchaseRecord, WarehouseScreenBaseProps } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { cardStyles, CustomersScreen, LinkButton, SearchField } from './CustomersParts';
+import type { CustomerRef, CustomersLiveStateProps, PurchaseLineRow, WarehouseScreenBaseProps } from './types';
 
-export interface PurchaseHistoryScreenProps extends WarehouseScreenBaseProps {
+export interface PurchaseHistoryScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
   customer?: CustomerRef | undefined;
-  appliedFilters?: PurchaseFilterState | undefined;
-  onOpenFilters?: (() => void) | undefined;
-  onSelectPurchase?: ((purchase: PurchaseRecord) => void) | undefined;
-  purchases?: readonly PurchaseRecord[] | undefined;
-}
-
-function amountOf(p: PurchaseRecord): number {
-  return parseInt(p.amount.replace(/[^0-9]/g, ''), 10) || 0;
-}
-
-function hasActiveFilters(f: PurchaseFilterState | undefined): boolean {
-  if (!f) return false;
-  return (
-    f.purchaseStatus !== 'All' ||
-    f.grade !== 'All' ||
-    f.datePreset !== 'All Time' ||
-    f.sortBy !== 'Newest First' ||
-    f.productCrop !== '' ||
-    f.searchQuery !== ''
-  );
+  onSelectPurchase?: ((purchase: PurchaseLineRow) => void) | undefined;
+  /** The loaded lines, page by page. */
+  purchases?: readonly PurchaseLineRow[] | undefined;
+  /** The route carried no customer uuid: nothing can be looked up. */
+  notFound?: boolean | undefined;
 }
 
 export function PurchaseHistoryScreen({
-  scope,
   onBack,
   customer,
-  appliedFilters,
-  onOpenFilters,
   onSelectPurchase,
-  purchases = INITIAL_PURCHASES,
+  purchases = [],
+  notFound = false,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
 }: PurchaseHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const allWarehouses = scope ? isAllWarehouses(scope) : false;
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
-
-  const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
-  const crop = appliedFilters?.productCrop.trim().toLowerCase() ?? '';
-  const sortBy = appliedFilters?.sortBy ?? 'Newest First';
-
-  const rows = purchases
-    .filter((p) => {
-      if (appliedFilters && appliedFilters.purchaseStatus !== 'All' && p.status !== appliedFilters.purchaseStatus) return false;
-      if (appliedFilters && appliedFilters.grade !== 'All' && !p.itemsSummary.toLowerCase().includes(appliedFilters.grade.toLowerCase())) {
-        return false;
-      }
-      if (crop && !p.itemsSummary.toLowerCase().includes(crop)) return false;
-      if (!query) return true;
-      return (
-        p.invoiceNo.toLowerCase().includes(query) ||
-        p.itemsSummary.toLowerCase().includes(query) ||
-        p.dateText.toLowerCase().includes(query) ||
-        (p.orderNo ?? '').toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => {
-      if (sortBy === 'Oldest First') return b.id.localeCompare(a.id);
-      if (sortBy === 'Highest Amount') return amountOf(b) - amountOf(a);
-      if (sortBy === 'Lowest Amount') return amountOf(a) - amountOf(b);
-      return a.id.localeCompare(b.id);
-    });
+  const view = notFound ? 'notFound' : queryViewState({ isLoading, error, itemCount: purchases.length });
+  const query = searchQuery.trim().toLowerCase();
+  const rows =
+    query === ''
+      ? purchases
+      : purchases.filter((p) => p.productName.toLowerCase().includes(query) || p.orderNumber.toLowerCase().includes(query));
 
   return (
-    <CustomersScreen
-      title="Purchase History"
-      subtitle={customerName}
-      onBack={onBack}
-      headerRight={
-        <HeaderIconButton label="Filter purchases" onPress={onOpenFilters} showDot={hasActiveFilters(appliedFilters)}>
-          <FilterIcon />
-        </HeaderIconButton>
-      }
-    >
-      <StatTiles items={PURCHASE_KPIS} />
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search product, order ID or invoice" />
+    <CustomersScreen title="Purchase History" subtitle={customer?.name} onBack={onBack} onRefresh={notFound ? undefined : onRefresh} isRefreshing={isRefreshing}>
+      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder={t('customers.purchases.searchPlaceholder')} />
 
-      {rows.length === 0 ? (
-        <EmptyState title="No purchases found" subtitle="Try adjusting your search query or filters." />
+      {view === 'loading' ? (
+        <AdminLoadingState />
+      ) : view === 'error' ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : view === 'notFound' ? (
+        <AdminEmptyState title={t('customers.empty.notFound')} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState title={t(purchases.length === 0 ? 'customers.empty.purchases' : 'customers.empty.filtered')} />
       ) : (
-        rows.map((purchase) => (
+        rows.map((purchase, index) => (
           <TouchableOpacity
-            key={purchase.id}
+            key={`${index}:${purchase.key}`}
             style={cardStyles.card}
             activeOpacity={0.8}
             onPress={() => onSelectPurchase?.(purchase)}
+            disabled={onSelectPurchase === undefined}
             accessibilityRole="button"
           >
             <View style={cardStyles.rowBetween}>
-              <Text style={cardStyles.code}>{purchase.invoiceNo}</Text>
-              <StatusBadge label={purchase.status} tone={purchase.status === 'Paid' ? 'success' : 'warning'} />
+              <Text style={cardStyles.code}>{purchase.orderNumber}</Text>
+              <Text style={cardStyles.meta}>{purchase.channelLabel}</Text>
             </View>
-            <Text style={cardStyles.meta}>{purchase.dateText}</Text>
-            {allWarehouses ? (
-              <>
-                {purchase.items && purchase.items.length > 0 ? (
-                  <View style={styles.items}>
-                    {purchase.items.map((item, idx) => (
-                      <View key={item}>
-                        <Text style={cardStyles.body}>{item}</Text>
-                        {idx < (purchase.items?.length ?? 0) - 1 ? <View style={cardStyles.divider} /> : null}
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={[cardStyles.body, styles.items]} numberOfLines={2}>
-                    {purchase.itemsSummary}
-                  </Text>
-                )}
-                <View style={cardStyles.divider} />
-                <View style={cardStyles.rowBetween}>
-                  <Text style={cardStyles.meta}>{purchase.channel ?? ''}</Text>
-                  <Text style={cardStyles.amount}>{purchase.amount}</Text>
-                </View>
-              </>
-            ) : (
-              <View style={styles.subWhBottomRow}>
-                <Text style={[cardStyles.body, styles.subWhItemsSummary]} numberOfLines={2}>
-                  {purchase.itemsSummary}
+            <Text style={cardStyles.meta}>{purchase.purchasedLabel}</Text>
+            <View style={styles.bottomRow}>
+              <View style={styles.lineText}>
+                <Text style={cardStyles.body} numberOfLines={2}>
+                  {purchase.lineLabel}
                 </Text>
-                <Text style={cardStyles.amount}>{purchase.amount}</Text>
+                <Text style={cardStyles.meta}>{purchase.qtyDetail}</Text>
               </View>
-            )}
+              <Text style={cardStyles.amount}>{purchase.amountLabel}</Text>
+            </View>
           </TouchableOpacity>
         ))
       )}
+      {view === 'ready' && hasMore && onLoadMore ? <LinkButton label={t('customers.loadMore')} onPress={onLoadMore} /> : null}
     </CustomersScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  items: { marginTop: adminSpacing.sm },
-  subWhBottomRow: {
+  bottomRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     marginTop: adminSpacing.sm,
   },
-  subWhItemsSummary: {
+  lineText: {
     flex: 1,
     paddingRight: adminSpacing.md,
   },

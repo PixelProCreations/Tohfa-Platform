@@ -66,3 +66,27 @@ export type CashTopupCreateInput = {
   fiscalCashTag: string;
   remarks?: string | undefined;
 };
+
+/**
+ * GET /admin/wallets/cash-topup/customers/lookup (BR-91i). Exact `mobile` OR exact `code`, never
+ * both and never a name/partial search: this lookup ignores the BR-91 warehouse-history gate, so
+ * it must only answer "is this the person standing at the counter", not let anyone browse.
+ * The `mobile` pattern is the sales counter lookup's (docs/openapi.yaml lookupAdminSaleCustomer).
+ */
+export const cashTopupCustomerLookupQuery = z
+  .object({
+    mobile: z.string().regex(/^\+?[0-9]{10,15}$/).optional(),
+    code: z.string().min(1).max(40).optional(),
+  })
+  .strict()
+  .superRefine((query, ctx) => {
+    const given = [query.mobile, query.code].filter((v) => v !== undefined).length;
+    if (given !== 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['mobile'], message: 'Exactly one of mobile or code is required.' });
+    }
+  });
+export type CashTopupCustomerLookupQuery = z.infer<typeof cashTopupCustomerLookupQuery>;
+
+/** The match shape is the sales counter's SaleCustomerMatch (same allow-list, masked mobile). */
+export { customerLookupResponse as cashTopupCustomerLookupResponse } from '../sales/sales.schema.js';
+export type { CustomerLookupResponse as CashTopupCustomerLookupResponse } from '../sales/sales.schema.js';

@@ -10,23 +10,19 @@ import React from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import type { ReturnTimelineItem, WarehouseScope } from './types';
+import { adminErrorKey } from '../../../api/errors';
+import { t, type TranslationKey } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
+import { formatKg } from '../../../money/quantity';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { conditionLabel, returnWriteErrorKey } from './mappers';
+import type { ReturnDetailView, ReturnItemView, ReturnsLiveStateProps, ReturnTimelineEntry, WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 
 /** Main Warehouse view: no warehouseId means every warehouse (rbac grant `all`). */
 export function isAllWarehouses(scope: WarehouseScope): boolean {
   return scope.warehouseId === undefined;
-}
-
-/**
- * True when a row owned by `warehouseId` is visible in `scope`: Main sees every
- * row, Sub only its own. Mock rows carry no warehouse yet and stay visible; the
- * server applies the real own-warehouse filter (rma.* SUB grant `own`).
- */
-export function inScope(scope: WarehouseScope, warehouseId: string | undefined): boolean {
-  return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === scope.warehouseId;
 }
 
 function BackArrowIcon() {
@@ -69,7 +65,7 @@ export function ReturnsScreen({ title, subtitle, onBack, headerRight, headerExtr
             activeOpacity={0.8}
             hitSlop={HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('returns.back')}
           >
             <BackArrowIcon />
           </TouchableOpacity>
@@ -131,7 +127,7 @@ export function IssueTag({ label }: { label: string }) {
 }
 
 /** Vertical timeline of completed steps (green ring + connector). */
-export function ReturnsTimeline({ items }: { items: readonly ReturnTimelineItem[] }) {
+export function ReturnsTimeline({ items }: { items: readonly ReturnTimelineEntry[] }) {
   return (
     <View style={styles.timeline}>
       {items.map((item, index) => {
@@ -147,6 +143,7 @@ export function ReturnsTimeline({ items }: { items: readonly ReturnTimelineItem[
             <View style={styles.timelineTextCol}>
               <Text style={styles.timelineTitle}>{item.title}</Text>
               {item.time ? <Text style={styles.timelineTime}>{item.time}</Text> : null}
+              {item.note ? <Text style={styles.timelineTime}>{item.note}</Text> : null}
             </View>
           </View>
         );
@@ -209,6 +206,136 @@ export function ResultHero({ tone, icon, title, subtitle }: ResultHeroProps) {
 /** Muted note under a hidden or disabled action, saying why it is not offered. */
 export function PermissionNote({ children }: { children: React.ReactNode }) {
   return <Text style={styles.permissionNote}>{children}</Text>;
+}
+
+/** A status pill in its tone (the server status, mapped by returnStatusView). */
+export function StatusBadge({ label, tone }: { label: string; tone: AdminTone }) {
+  return (
+    <View style={[styles.badge, { backgroundColor: adminColors[tone].bg }]}>
+      <Text style={[styles.badgeText, { color: adminColors[tone].text }]}>{label}</Text>
+    </View>
+  );
+}
+
+export interface FilterChip<V> {
+  key: string;
+  label: string;
+  value: V;
+}
+
+/** A row of single-select chips (the server's status filter). */
+export function FilterChips<V>({ chips, value, onChange }: { chips: readonly FilterChip<V>[]; value: V; onChange: (value: V) => void }) {
+  return (
+    <View style={styles.chipRow}>
+      {chips.map((chip) => {
+        const active = chip.value === value;
+        return (
+          <TouchableOpacity
+            key={chip.key}
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={() => onChange(chip.value)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+/** The Sub admin's own warehouse, under the title (the server scopes the rows, BR-30). */
+export function ScopePill({ scope }: { scope: WarehouseScope }) {
+  const name = scope.warehouseName ?? scope.warehouseCode;
+  if (isAllWarehouses(scope) || name === undefined) return null;
+  return (
+    <View style={styles.scopePill}>
+      <Text style={styles.scopePillText}>{name}</Text>
+    </View>
+  );
+}
+
+/** "Load more" under a paged list. */
+export function LoadMoreButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.loadMore} onPress={onPress} activeOpacity={0.8} accessibilityRole="button">
+      <Text style={styles.loadMoreText}>{t('returns.loadMore')}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * A failed write's message (danger tint). Pass `messageKey` when the screen
+ * picked a returns-specific key; otherwise the generic admin message is used.
+ */
+export function ActionError({ error, messageKey }: { error?: unknown; messageKey?: TranslationKey | undefined }) {
+  return (
+    <View style={styles.actionError} accessibilityLiveRegion="polite">
+      <Text style={styles.actionErrorText}>{t(messageKey ?? adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
+/**
+ * The returned items: requested quantity, and once inspected the accepted and
+ * damaged quantity and condition. The API names an item by its order line id
+ * only (no product), so items are numbered in the server's order.
+ */
+export function ReturnItemsList({ items }: { items: readonly ReturnItemView[] }) {
+  const noValue = t('returns.noValue');
+  return (
+    <>
+      {items.map((item, index) => {
+        const inspected = item.acceptedGrams !== null;
+        const rows: InfoField[][] = [
+          [
+            { label: t('returns.item.requested'), value: formatKg(item.requestedGrams) },
+            { label: t('returns.item.condition'), value: item.condition === null ? noValue : conditionLabel(item.condition) },
+          ],
+        ];
+        if (inspected) {
+          rows.push([
+            { label: t('returns.item.accepted'), value: formatKg(item.acceptedGrams ?? 0) },
+            { label: t('returns.item.damaged'), value: item.damagedGrams === null ? noValue : formatKg(item.damagedGrams) },
+          ]);
+        }
+        return (
+          <View key={item.orderItemId} style={styles.itemBlock}>
+            <Text style={styles.itemTitle}>{t('returns.item.title', { n: index + 1 })}</Text>
+            <InfoCard rows={rows} />
+            {inspected ? null : <Text style={styles.itemHint}>{t('returns.item.notInspected')}</Text>}
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+export interface ReturnDetailGateProps extends ReturnsLiveStateProps {
+  detail: ReturnDetailView | undefined;
+  /** No usable return id (a sample number, or none): "not found" without a request. */
+  notFound?: boolean | undefined;
+  children: (detail: ReturnDetailView) => React.ReactNode;
+}
+
+/**
+ * Loading / error / not-found for a screen that works on one return; the
+ * children render once the return is here. A loaded return wins over a failed
+ * refresh, so a dropped refetch never blanks what the admin is reading.
+ */
+export function ReturnDetailGate({ detail, notFound = false, isLoading = false, error, onRetry, children }: ReturnDetailGateProps) {
+  if (notFound) return <AdminEmptyState title={t('returns.detail.notFound')} />;
+  if (detail !== undefined) return <>{children(detail)}</>;
+  if (isLoading) return <AdminLoadingState />;
+  if (error !== null && error !== undefined) return <AdminErrorState error={error} message={t(returnWriteErrorKey(error))} onRetry={onRetry} />;
+  return <AdminEmptyState title={t('returns.detail.notFound')} />;
+}
+
+/** A plain white card around custom content. */
+export function ReturnsCard({ children }: { children: React.ReactNode }) {
+  return <View style={styles.card}>{children}</View>;
 }
 
 // Timeline geometry: fixed icon sizes, not spacing (no size token exists for them).
@@ -318,6 +445,44 @@ const styles = StyleSheet.create({
   },
   heroTitle: { ...adminType.title, color: adminColors.ink, textAlign: 'center', marginBottom: adminSpacing.xs },
   heroSubtitle: { ...adminType.body, color: adminColors.muted, textAlign: 'center' },
+
+  badge: { alignSelf: 'flex-start', paddingHorizontal: adminSpacing.sm, paddingVertical: 2, borderRadius: adminRadius.full },
+  badgeText: { ...adminType.caption },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
+  chip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  chipActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
+  chipText: { ...adminType.caption, color: adminColors.ink },
+  chipTextActive: { color: adminColors.onBrand },
+  scopePill: {
+    alignSelf: 'flex-start',
+    marginTop: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
+  },
+  scopePillText: { ...adminType.caption, color: adminColors.onBrand },
+  loadMore: { alignItems: 'center', paddingVertical: adminSpacing.md },
+  loadMoreText: { ...adminType.sectionHead, color: adminColors.brand },
+  actionError: {
+    backgroundColor: adminColors.danger.bg,
+    borderColor: adminColors.danger.border,
+    borderWidth: 1,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  actionErrorText: { ...adminType.body, color: adminColors.danger.text },
+  itemBlock: { marginBottom: adminSpacing.md },
+  itemTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  itemHint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
 });
 
 const BUTTON_STYLE = StyleSheet.create({

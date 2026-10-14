@@ -477,7 +477,18 @@ export function FinanceReportsScreen({
         </View>
 
         {/* ─── Scope Restriction Notice Card ─── */}
-
+        {/* Only the single-warehouse view carries the restriction; the all-warehouses
+            (Main) view is not described by this limit. */}
+        {scope.warehouseId !== undefined && (
+          <View style={styles.restrictionCard}>
+            <View style={styles.restrictionIconBox}>
+              <ProhibitedIcon size={16} color={adminColors.muted} />
+            </View>
+            <Text style={styles.restrictionText}>
+              No Tally/Zoho export, GST filing report, or company-wide P&L appears here — those capabilities are not granted to sub warehouse admins.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

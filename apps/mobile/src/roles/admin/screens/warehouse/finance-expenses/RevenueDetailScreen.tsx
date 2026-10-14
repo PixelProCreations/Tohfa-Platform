@@ -18,11 +18,11 @@
  * There is no revenue edit code, so nothing here edits revenue.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { InfoNote, isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { InfoCard, InfoNote, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { SAMPLE_REVENUE_DETAIL } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, PadlockIcon, scopeLabel } from './FinanceParts';
 import type { RevenueDetail, WarehouseScreenBaseProps } from './types';
@@ -130,15 +130,9 @@ export function RevenueDetailScreen({
         ],
       ];
 
-  const isMain = isAllWarehouses(scope);
-
-  const handleViewOrder = () => {
-    onViewOrder?.();
-  };
-
   const actions: { key: string; label: string; icon: React.ReactNode; onPress: () => void }[] = [];
-  if (can(FINANCE_CODES.orderList)) {
-    actions.push({ key: 'order', label: 'View Order', icon: <BagIcon />, onPress: handleViewOrder });
+  if (onViewOrder && can(FINANCE_CODES.orderList)) {
+    actions.push({ key: 'order', label: 'View Order', icon: <BagIcon />, onPress: onViewOrder });
   }
   if (onViewInvoice && can(FINANCE_CODES.invoiceView)) {
     actions.push({ key: 'invoice', label: 'View Invoice', icon: <InvoiceIcon />, onPress: onViewInvoice });
@@ -151,35 +145,22 @@ export function RevenueDetailScreen({
     <WalletScreen
       title="Revenue Detail"
       onBack={onBack}
-      headerExtra={isMain ? undefined : <ScopeHeader scope={scope} label={`${warehouse} · Today`} />}
+      headerExtra={<ScopeHeader scope={scope} label={`${warehouse} · Today`} />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Revenue Detail</SectionTitle>
-        <View style={styles.detailCard}>
-          {rows.map((row, rowIndex) => (
-            <View key={rowIndex} style={[styles.detailRow, rowIndex > 0 && styles.detailRowSpaced]}>
-              {row.map((field) => (
-                <View key={field.label} style={styles.detailCol}>
-                  <Text style={styles.detailFieldLabel}>{field.label}</Text>
-                  <Text style={styles.detailFieldValue}>{field.value}</Text>
-                </View>
-              ))}
-            </View>
-          ))}
-        </View>
+        <InfoCard rows={rows} />
 
         {isShortVersion ? null : (
           <>
-            {!isMain && (
-              <View style={styles.lockBanner}>
-                <View style={styles.lockIconWrap}>
-                  <PadlockIcon />
-                </View>
-                <Text style={styles.lockBannerText}>
-                  No manual revenue editing here: no permission code grants it.
-                </Text>
+            <View style={styles.lockBanner}>
+              <View style={styles.lockIconWrap}>
+                <PadlockIcon />
               </View>
-            )}
+              <Text style={styles.lockBannerText}>
+                No manual revenue editing here: no permission code grants it.
+              </Text>
+            </View>
 
             <SectionTitle>Related Actions</SectionTitle>
             <View style={styles.actionsGrid}>
@@ -197,11 +178,9 @@ export function RevenueDetailScreen({
               ))}
             </View>
 
-            {!isMain && (
-              <InfoNote tone="warning">
-                Only links that correspond to existing screens and data are shown; nothing is fabricated.
-              </InfoNote>
-            )}
+            <InfoNote tone="warning">
+              Only links that correspond to existing screens and data are shown; nothing is fabricated.
+            </InfoNote>
           </>
         )}
       </ScrollView>
@@ -210,35 +189,6 @@ export function RevenueDetailScreen({
 }
 
 const styles = StyleSheet.create({
-  detailCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 20,
-    marginVertical: 4,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  detailRowSpaced: {
-    marginTop: 18,
-  },
-  detailCol: {
-    flex: 1,
-  },
-  detailFieldLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  detailFieldValue: {
-    ...adminType.body,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
   lockBanner: {
     flexDirection: 'row',
     alignItems: 'center',

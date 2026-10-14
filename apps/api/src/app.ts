@@ -6,9 +6,10 @@
  *   2. correlationId   so every later log line and problem carries a traceId
  *   3. cors            preflight must be answered before body parsing
  *   4. json/urlencoded bounded body size
- *   5. routes
- *   6. notFoundHandler turns an unmatched path into a NOT_FOUND AppError
- *   7. errorHandler    the single place that writes problem+json
+ *   5. rejectNulBytes  U+0000 in body/query/path is a 422 before any router sees it
+ *   6. routes
+ *   7. notFoundHandler turns an unmatched path into a NOT_FOUND AppError
+ *   8. errorHandler    the single place that writes problem+json
  *
  * `createApp()` returns the app WITHOUT listening, so tests can drive it with
  * supertest and `server.ts` owns the socket.
@@ -18,15 +19,24 @@ import express, { type Express, type RequestHandler, type Router } from 'express
 import helmet from 'helmet';
 import { config } from './config.js';
 import { errorHandler, notFoundHandler } from './http/errorHandler.js';
+import { rejectNulBytes } from './http/rejectNulBytes.js';
 import { logger, newTraceId, runWithContext } from './logger.js';
 import { healthRouter } from './modules/health/health.routes.js';
-import { warehousesRouter } from './modules/_example/warehouses.routes.js';
+import { warehousesRouter } from './modules/warehouses/warehouses.routes.js';
+import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/routes.js';
+import { warehouseTransfersRouter } from './modules/warehouse-transfers/warehouse-transfers.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
 import { adminFarmerApplicationsRouter, farmerApplicationsRouter } from './modules/farmer-applications/farmer-applications.routes.js';
-import { certificationsAdminRouter, certificationsFarmerRouter } from './modules/certifications/certifications.routes.js';
+import {
+  certificationsAdminRouter,
+  certificationsFarmerRouter,
+  configFarmerRouter,
+} from './modules/certifications/certifications.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
+import { notificationPreferencesRouter } from './modules/notification-preferences/notification-preferences.routes.js';
+import { systemMessagesRouter } from './modules/system-messages/system-messages.routes.js';
 import { fairPricesRouter, retailPricesRouter } from './modules/pricing/pricing.routes.js';
 import {
   adminListingsRouter,
@@ -61,7 +71,62 @@ import {
 } from './modules/payouts/payouts.routes.js';
 import { invoicesRouter } from './modules/invoices/invoices.routes.js';
 import { adminFarmRatingsRouter, farmRatingsFarmerRouter } from './modules/farm-ratings/farm-ratings.routes.js';
+import { adminAuditsRouter, farmerAuditsRouter } from './modules/audits/audits.routes.js';
 import { weatherFarmerRouter } from './modules/weather/weather.routes.js';
+import { farmDiaryRouter } from './modules/farm-diary/farm-diary.routes.js';
+import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.routes.js';
+import { farmsRouter } from './modules/farms/farms.routes.js';
+import { cropsRouter } from './modules/crops/crops.routes.js';
+import { adminCropMasterRouter } from './modules/crops/crops.admin.routes.js';
+import { livestockRouter } from './modules/livestock/livestock.routes.js';
+import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
+import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
+import { adminFarmAssetsRouter } from './modules/farm-assets/farm-assets.admin.routes.js';
+import { farmerDocumentsRouter } from './modules/farmer-documents/farmer-documents.routes.js';
+import { soilRouter } from './modules/soil/soil.routes.js';
+import { pestLibraryRouter, pestRouter, weatherRiskNotesRouter } from './modules/pest/pest.routes.js';
+import { workforceRouter } from './modules/workforce/workforce.routes.js';
+import {
+  farmerBankAccountsRouter,
+  farmerUpiRouter,
+} from './modules/farmer-bank-accounts/farmer-bank-accounts.routes.js';
+import { treePlantingsRouter } from './modules/tree-plantings/tree-plantings.routes.js';
+import { cropInputsRouter } from './modules/crop-inputs/crop-inputs.routes.js';
+import { cropMilestonesRouter } from './modules/crop-milestones/crop-milestones.routes.js';
+import {
+  adminPlatformEventsRouter,
+  farmerCalendarRouter,
+} from './modules/calendar/calendar.routes.js';
+import {
+  adminLearningRouter,
+  farmerLearningRouter,
+} from './modules/learning-hub/learning-hub.routes.js';
+import {
+  adminSupportTicketsRouter,
+  farmerSupportTicketsRouter,
+} from './modules/support-tickets/support-tickets.routes.js';
+import { cropPlanningInsightRouter } from './modules/crop-planning-insight/crop-planning-insight.routes.js';
+import {
+  adminExpenseCategoriesRouter,
+  adminExpensesRouter,
+  adminFinanceRouter,
+} from './modules/finance/finance.routes.js';
+
+import {
+  adminReturnsRouter,
+  returnRequestsRouter,
+} from './modules/returnRequests/returnRequests.routes.js';
+import { reportsRouter } from './modules/reports/reports.routes.js';
+import { customersRouter } from './modules/customers/customers.routes.js';
+import { salesRouter } from './modules/sales/sales.routes.js';
+import { salesReadRouter } from './modules/sales-read/sales-read.routes.js';
+import {
+  adminStaffAttendanceRouter,
+  adminWarehouseStaffRouter,
+} from './modules/warehouse-staff/warehouse-staff.routes.js';
+import { tasksAlertsRouter } from './modules/tasks-alerts/tasks-alerts.routes.js';
+import { adminHelpRouter } from './modules/help-support/help-support.routes.js';
+import { reportExportsRouter } from './modules/report-exports/report-exports.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -77,13 +142,21 @@ export const API_MOUNTS: ReadonlyArray<{
   router: Router;
 }> = [
   { prefix: '/v1/warehouses', router: warehousesRouter },
+  { prefix: '/v1/warehouses', router: warehouseOpsRouter },
+  { prefix: '/v1/admin/sub-warehouse-admins', router: subAdminsRouter },
+  { prefix: '/v1/warehouse-transfers', router: warehouseTransfersRouter },
   { prefix: '/v1/auth', router: authRouter },
   { prefix: '/v1/uploads', router: uploadsRouter },
   { prefix: '/v1/farmers', router: farmerApplicationsRouter },
   { prefix: '/v1/farmers/me/certifications', router: certificationsFarmerRouter },
+  { prefix: '/v1/farmers/me/bank-accounts', router: farmerBankAccountsRouter },
+  { prefix: '/v1/farmers/me/upi', router: farmerUpiRouter },
+  { prefix: '/v1/config', router: configFarmerRouter },
   { prefix: '/v1/admin/farmer-applications', router: adminFarmerApplicationsRouter },
   { prefix: '/v1/admin/certifications', router: certificationsAdminRouter },
   { prefix: '/v1/notifications', router: notificationsRouter },
+  { prefix: '/v1/notification-preferences', router: notificationPreferencesRouter },
+  { prefix: '/v1/system-messages', router: systemMessagesRouter },
   { prefix: '/v1/fair-prices', router: fairPricesRouter },
   { prefix: '/v1/retail-prices', router: retailPricesRouter },
   { prefix: '/v1/listings', router: listingsRouter },
@@ -97,6 +170,9 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
   { prefix: '/v1/admin/orders', router: adminFulfilmentRouter },
+  { prefix: '/v1/admin/customers', router: customersRouter },
+  { prefix: '/v1/admin/sales', router: salesRouter },
+  { prefix: '/v1/admin/sales', router: salesReadRouter },
   { prefix: '/v1/catalog', router: catalogRouter },
   { prefix: '/v1/wallets', router: walletsRouter },
   { prefix: '/v1/wallets', router: topupRouter },
@@ -104,12 +180,50 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/cart', router: cartRouter },
   { prefix: '/v1/orders', router: ordersRouter },
   { prefix: '/v1/orders', router: orderTrackingRouter },
+  { prefix: '/v1/orders', router: returnRequestsRouter },
+  { prefix: '/v1/admin/returns', router: adminReturnsRouter },
+  { prefix: '/v1/admin/reports', router: reportsRouter },
+  { prefix: '/v1/admin', router: tasksAlertsRouter },
+  { prefix: '/v1/admin/help', router: adminHelpRouter },
+  { prefix: '/v1/admin/exports', router: reportExportsRouter },
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },
+  { prefix: '/v1/farmers/me/documents', router: farmerDocumentsRouter },
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
+  { prefix: '/v1/admin/audits', router: adminAuditsRouter },
+  { prefix: '/v1/farmers/me/audits', router: farmerAuditsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },
+  { prefix: '/v1/farmers/me/diary', router: farmDiaryRouter },
+  { prefix: '/v1/admin/diary', router: adminDiaryTaxonomyRouter },
+  { prefix: '/v1/farms', router: farmsRouter },
+  { prefix: '/v1/farmers/me', router: cropsRouter },
+  { prefix: '/v1/admin/crop-master', router: adminCropMasterRouter },
+  { prefix: '/v1/farmers/me', router: farmAssetsRouter },
+  { prefix: '/v1/admin/farmers', router: adminFarmAssetsRouter },
+  { prefix: '/v1/farmers/me/livestock', router: livestockRouter },
+  { prefix: '/v1/admin/farmers', router: livestockAdminRouter },
+  { prefix: '/v1/farms', router: soilRouter },
+  { prefix: '/v1/farms', router: pestRouter },
+  { prefix: '/v1/farms', router: workforceRouter },
+  { prefix: '/v1/pest-library', router: pestLibraryRouter },
+  { prefix: '/v1/weather-risk-notes', router: weatherRiskNotesRouter },
+  { prefix: '/v1/farmers/me', router: treePlantingsRouter },
+  { prefix: '/v1/farmers/me', router: cropInputsRouter },
+  { prefix: '/v1/farmers/me', router: cropMilestonesRouter },
+  { prefix: '/v1/farmers/me', router: farmerCalendarRouter },
+  { prefix: '/v1/admin', router: adminPlatformEventsRouter },
+  { prefix: '/v1/farmers/me', router: farmerLearningRouter },
+  { prefix: '/v1/admin', router: adminLearningRouter },
+  { prefix: '/v1/farmers/me', router: farmerSupportTicketsRouter },
+  { prefix: '/v1/admin', router: adminSupportTicketsRouter },
+  { prefix: '/v1/farmers/me', router: cropPlanningInsightRouter },
+  { prefix: '/v1/admin/expenses', router: adminExpensesRouter },
+  { prefix: '/v1/admin/expense-categories', router: adminExpenseCategoriesRouter },
+  { prefix: '/v1/admin/finance', router: adminFinanceRouter },
+  { prefix: '/v1/admin/warehouse-staff', router: adminWarehouseStaffRouter },
+  { prefix: '/v1/admin/staff-attendance', router: adminStaffAttendanceRouter },
 ];
 
 /**
@@ -168,6 +282,8 @@ export function createApp(): Express {
   app.use('/v1/webhooks/razorpay', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+  // U+0000 anywhere in a body, query or path is a 422 here, not a Postgres 500 later.
+  app.use(rejectNulBytes);
 
   // Probes are unversioned: orchestrators should not care about the API version.
   app.use(healthRouter);

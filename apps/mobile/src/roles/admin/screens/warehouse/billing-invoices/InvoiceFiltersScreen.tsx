@@ -10,14 +10,36 @@
  * into the one list): its Sort By section is here, its status/type options are
  * covered by this screen's, and its InvoiceHistoryFilterState is
  * InvoiceFilterState.
+ *
+ * Not opened from the live list (plan phase 7): GET /invoices filters by type
+ * and issue date only, so status, customer, order, amount and sort have
+ * nothing to send. The list's type chips cover the type. The route still
+ * renders for an old deep link; applying only returns.
  */
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { BillingButton, BillingFooter, BillingScreen, ChipGroup, isAllWarehouses, SearchBar } from './BillingParts';
-import { BILLING_WAREHOUSES, DEFAULT_INVOICE_FILTERS } from './fixtures';
 import type { InvoiceFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
+
+/** The cleared filter state (a default, not sample data). */
+export const DEFAULT_INVOICE_FILTERS: InvoiceFilterState = {
+  searchQuery: '',
+  status: 'All',
+  invoiceType: 'All',
+  datePreset: 'All Time',
+  startDate: '',
+  endDate: '',
+  customer: '',
+  orderId: '',
+  minAmount: '',
+  maxAmount: '',
+  sortBy: 'Newest First',
+  warehouseId: undefined,
+};
+
+const NO_WAREHOUSES: readonly WarehouseScope[] = [];
 
 export interface InvoiceFiltersScreenProps extends WarehouseScreenBaseProps {
   initialFilters?: InvoiceFilterState | undefined;
@@ -85,7 +107,7 @@ export function InvoiceFiltersScreen({
   onBack,
   initialFilters = DEFAULT_INVOICE_FILTERS,
   onApplyFilters,
-  warehouseOptions = BILLING_WAREHOUSES,
+  warehouseOptions = NO_WAREHOUSES,
 }: InvoiceFiltersScreenProps) {
   const [filters, setFilters] = useState<InvoiceFilterState>({ ...initialFilters });
   const allWarehouses = isAllWarehouses(scope);

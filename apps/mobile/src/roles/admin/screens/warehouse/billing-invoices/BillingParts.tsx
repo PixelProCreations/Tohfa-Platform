@@ -11,9 +11,8 @@
  * locked warehouse pill. The server applies the real filter (cross-scope reads
  * return an empty set, CLAUDE.md 2.1); this only decides what to render.
  */
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
-  Animated,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -26,7 +25,9 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import { WarehouseSelector } from '../inventory';
 import type { InvoiceStatus, WarehouseScope } from './types';
 
@@ -44,7 +45,7 @@ export function isAllWarehouses(scope: WarehouseScope): boolean {
  */
 export function inScope(scope: WarehouseScope, warehouseId: string | undefined, selectedId?: string | undefined): boolean {
   if (warehouseId === undefined) return true;
-  if (scope.warehouseId !== undefined) return warehouseId === scope.warehouseId;
+  if (scope.warehouseId !== undefined) return warehouseId === (scope.warehouseCode ?? scope.warehouseId);
   return selectedId === undefined || warehouseId === selectedId;
 }
 
@@ -141,13 +142,11 @@ export interface BillingScreenProps {
   headerExtra?: React.ReactNode;
   /** Sticky bar under the content (actions, bottom tabs). */
   footer?: React.ReactNode;
-  /** Floating confirmation overlay (toast). */
-  toast?: React.ReactNode | undefined;
   children: React.ReactNode;
 }
 
 /** Orange header + canvas body + optional sticky footer: the frame of every billing screen. */
-export function BillingScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, toast, children }: BillingScreenProps) {
+export function BillingScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, children }: BillingScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -173,7 +172,6 @@ export function BillingScreen({ title, subtitle, onBack, headerRight, headerExtr
       </View>
       <View style={styles.body}>{children}</View>
       {footer}
-      {toast}
     </SafeAreaView>
   );
 }
@@ -277,15 +275,14 @@ export function InfoCard({ rows }: { rows: InfoField[][] }) {
   );
 }
 
-/** Blue info note (backend rules, privacy notes). Suppressed to remove unnecessary message boxes. */
-export function InfoNote({
-  children: _children,
-  icon: _icon,
-}: {
-  children?: React.ReactNode;
-  icon?: React.ReactNode;
-}) {
-  return null;
+/** Blue info note (backend rules, privacy notes). */
+export function InfoNote({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+  return (
+    <View style={styles.infoNote}>
+      {icon ?? <InfoIcon />}
+      <Text style={styles.infoNoteText}>{children}</Text>
+    </View>
+  );
 }
 
 const STATUS_TONE: Record<InvoiceStatus | 'Completed' | 'Invoice Exists', 'success' | 'warning' | 'danger'> = {
@@ -302,6 +299,35 @@ export function StatusBadge({ status }: { status: InvoiceStatus | 'Completed' | 
     <View style={[styles.badge, { backgroundColor: tone.bg }]}>
       <Text style={[styles.badgeText, { color: tone.text }]}>{status}</Text>
     </View>
+  );
+}
+
+/** A live status badge: the label and tone come from the mappers (./mappers.ts). */
+export function ToneBadge({ label, tone }: { label: string; tone: AdminTone }) {
+  const colors = adminColors[tone];
+  return (
+    <View style={[styles.badge, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.badgeText, { color: colors.text }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** A failed action (e.g. the invoice download), worded for warehouse staff (adminErrorKey), never the server's detail. */
+export function ActionError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.actionError}>
+      <Text style={styles.actionErrorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
+/** "Load more" under a paged list. */
+export function LoadMoreButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.loadMore} onPress={onPress} activeOpacity={0.75} accessibilityRole="button">
+      <Text style={styles.loadMoreText}>{t('billing.loadMore')}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -412,114 +438,12 @@ export function PermissionNote({ children }: { children: React.ReactNode }) {
   return <Text style={styles.permissionNote}>{children}</Text>;
 }
 
-export interface BillingToastProps {
-  message?: string | undefined;
-  visible?: boolean | undefined;
-  onDismiss?: (() => void) | undefined;
-  duration?: number | undefined;
-}
-
-/** The PDF's dark confirmation toast: white text on Ink, success icon in mint. */
-export function BillingToast({
-  message = 'Invoice downloaded',
-  visible = true,
-  onDismiss,
-  duration = 2800,
-}: BillingToastProps) {
-  const translateY = useRef(new Animated.Value(14)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.92)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      translateY.setValue(14);
-      opacity.setValue(0);
-      scale.setValue(0.92);
-
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          friction: 8,
-          tension: 70,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          friction: 8,
-          tension: 70,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      if (onDismiss) {
-        timerRef.current = setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(opacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: -8,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            onDismiss();
-          });
-        }, duration);
-      }
-    } else {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    }
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [visible, duration, onDismiss, opacity, scale, translateY]);
-
-  if (!visible) return null;
-
+/** The PDF's dark confirmation toast. */
+export function BillingToast({ message }: { message: string }) {
   return (
-    <Animated.View
-      style={[
-        styles.toastOverlay,
-        {
-          opacity,
-          transform: [{ translateY }, { scale }],
-        },
-      ]}
-      pointerEvents="box-none"
-    >
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={onDismiss}
-        style={styles.toast}
-        accessibilityRole="alert"
-        accessibilityLabel={message}
-      >
-        <View style={styles.toastIconBadge}>
-          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M20 6L9 17L4 12"
-              stroke={adminColors.toast.bg}
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-        <Text style={styles.toastText}>{message}</Text>
-      </TouchableOpacity>
-    </Animated.View>
+    <View style={styles.toast}>
+      <Text style={styles.toastText}>{message}</Text>
+    </View>
   );
 }
 
@@ -613,6 +537,16 @@ const styles = StyleSheet.create({
   },
   badgeText: { ...adminType.caption },
 
+  actionError: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+  },
+  actionErrorText: { ...adminType.rowMeta, color: adminColors.danger.text },
+  loadMore: { alignItems: 'center', paddingVertical: adminSpacing.md },
+  loadMoreText: { ...adminType.rowTitle, color: adminColors.brand },
+
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,46 +598,15 @@ const styles = StyleSheet.create({
   buttonTextCompact: { ...adminType.rowTitle },
   permissionNote: { ...adminType.rowMeta, color: adminColors.muted, textAlign: 'center' },
 
-  toastOverlay: {
-    position: 'absolute',
-    bottom: 152,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 9999,
-  },
   toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: adminColors.toast.bg,
-    borderRadius: adminRadius.full,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    gap: 10,
-    ...adminShadow.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  toastIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: adminColors.toast.icon,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    ...adminShadow.md,
   },
-  toastText: {
-    ...adminType.rowTitle,
-    color: adminColors.toast.text,
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
+  toastText: { ...adminType.rowTitle, color: adminColors.toast.text },
 });
 
 const BUTTON_STYLE = StyleSheet.create({

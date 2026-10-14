@@ -16,7 +16,6 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
-import { WarehouseSelector } from '../inventory';
 import type { WarehouseScope } from './types';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 
@@ -37,7 +36,7 @@ export function singleWarehouseId(
   selectedWarehouseId: string | undefined,
   options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
 ): string | undefined {
-  if (!isAllWarehouses(scope)) return scope.warehouseId;
+  if (!isAllWarehouses(scope)) return scope.warehouseCode ?? scope.warehouseId;
   return selectedWarehouseId ?? options[0]?.warehouseId;
 }
 
@@ -52,7 +51,7 @@ export function warehouseNameOf(
   warehouseId: string | undefined,
   options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
 ): string {
-  if (warehouseId !== undefined && warehouseId === scope.warehouseId && scope.warehouseName) return scope.warehouseName;
+  if (warehouseId !== undefined && warehouseId === (scope.warehouseCode ?? scope.warehouseId) && scope.warehouseName) return scope.warehouseName;
   const option = options.find((o) => o.warehouseId === warehouseId);
   return option?.warehouseName ?? warehouseId ?? '';
 }
@@ -89,13 +88,23 @@ export function SingleWarehouseHeader({
     );
   }
   return (
-    <WarehouseSelector
-      scope={scope}
-      options={options}
-      selectedId={warehouseId}
-      onSelect={(id) => onSelect(id ?? options[0]?.warehouseId)}
-      allowAll={false}
-    />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      {options.map((option) => {
+        const active = option.warehouseId === warehouseId;
+        return (
+          <TouchableOpacity
+            key={option.warehouseId ?? 'none'}
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={() => onSelect(option.warehouseId)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.warehouseName ?? option.warehouseId}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 }
 

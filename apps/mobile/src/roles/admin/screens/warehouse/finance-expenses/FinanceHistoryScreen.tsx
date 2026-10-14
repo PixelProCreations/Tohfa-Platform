@@ -11,7 +11,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -24,22 +23,11 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import { SAMPLE_HISTORY } from './fixtures';
 import type { FinanceHistoryItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
-
-const SAMPLE_HISTORY: FinanceHistoryItem[] = [
-  { id: 'REV-000845', type: 'Revenue', title: 'Market Sale', amount: 3450, time: '11:20 AM', warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { id: 'EXP-001245', type: 'Expense', title: 'Transport', amount: 2400, time: '09:32 AM', warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { id: 'REV-000844', type: 'Revenue', title: 'B2B Sale · Taj Hotel', amount: 14500, time: '08:45 AM', warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { id: 'EXP-001244', type: 'Expense', title: 'Loading / Unloading', amount: 1800, time: '08:15 AM', warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { id: 'REV-000843', type: 'Revenue', title: 'Horeca Order · Café Customer', amount: 6900, time: '24 Sep · 06:10 PM', warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { id: 'EXP-001238', type: 'Expense', title: 'Generator Diesel & Power', amount: 620, time: '24 Sep · 02:30 PM', warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
 
 export interface FinanceHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectItem?: ((item: FinanceHistoryItem) => void) | undefined;
-  initialWarehouseId?: string | undefined;
-  hideWarehouseFilter?: boolean | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -174,24 +162,9 @@ export function FinanceHistoryScreen({
   onBack,
   onTabChange,
   onSelectItem,
-  initialWarehouseId,
-  hideWarehouseFilter = false,
 }: FinanceHistoryScreenProps) {
-  const isMain = scope.warehouseId === undefined;
-
   const [filterTab, setFilterTab] = useState<'All' | 'Revenue' | 'Expenses'>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
-  const [selectedType, setSelectedType] = useState<'All' | 'Revenue' | 'Expenses'>('All');
-  const [appliedStatus, setAppliedStatus] = useState<string>('All');
-  const [appliedPaymentMethod, setAppliedPaymentMethod] = useState<string>('All');
-
-  // Filter Modal State
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  const [tempWarehouseId, setTempWarehouseId] = useState<string | undefined>(undefined);
-  const [tempType, setTempType] = useState<'All' | 'Revenue' | 'Expenses'>('All');
-  const [tempStatus, setTempStatus] = useState<string>('All');
-  const [tempPaymentMethod, setTempPaymentMethod] = useState<string>('All');
 
   const canSeeRevenue = can('finance.sales_income.view');
   const canSeeExpense = can('finance.expense.log');
@@ -215,17 +188,14 @@ export function FinanceHistoryScreen({
   const filteredHistory = SAMPLE_HISTORY.filter((item) => {
     if (item.type === 'Revenue' && !canSeeRevenue) return false;
     if (item.type === 'Expense' && !canSeeExpense) return false;
-    const filterToUse = isMain ? selectedType : effectiveFilter;
-    if (filterToUse === 'Revenue' && item.type !== 'Revenue') return false;
-    if (filterToUse === 'Expenses' && item.type !== 'Expense') return false;
-    if (isMain && selectedWarehouseId !== undefined && item.warehouseId !== selectedWarehouseId) return false;
+    if (effectiveFilter === 'Revenue' && item.type !== 'Revenue') return false;
+    if (effectiveFilter === 'Expenses' && item.type !== 'Expense') return false;
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
     return (
       item.id.toLowerCase().includes(query) ||
       item.title.toLowerCase().includes(query) ||
-      item.type.toLowerCase().includes(query) ||
-      (item.warehouseName && item.warehouseName.toLowerCase().includes(query))
+      item.type.toLowerCase().includes(query)
     );
   });
 
@@ -246,7 +216,7 @@ export function FinanceHistoryScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Finance History</Text>
-            {!isMain && <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>}
+            <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>
           </View>
         </View>
       </View>
@@ -295,8 +265,8 @@ export function FinanceHistoryScreen({
               )}
             </View>
 
-            {/* ─── Filter Pills (Subwarehouse only - Main uses Filter modal) ─── */}
-            {canSeeBoth && !isMain && (
+            {/* ─── Filter Pills ─── */}
+            {canSeeBoth && (
               <View style={styles.filterPillsRow}>
                 {(['All', 'Revenue', 'Expenses'] as const).map((tab) => {
                   const isActive = filterTab === tab;
@@ -328,24 +298,10 @@ export function FinanceHistoryScreen({
                 clearButtonMode="while-editing"
               />
               <TouchableOpacity
-                onPress={() => {
-                  setTempWarehouseId(selectedWarehouseId);
-                  setTempType(selectedType);
-                  setTempStatus(appliedStatus);
-                  setTempPaymentMethod(appliedPaymentMethod);
-                  setShowFilterModal(true);
-                }}
+                onPress={() => Alert.alert('Filters', 'Advanced filter options')}
                 activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <FilterSlidersIcon
-                  size={18}
-                  color={
-                    selectedWarehouseId !== undefined || selectedType !== 'All'
-                      ? adminColors.brand
-                      : adminColors.muted
-                  }
-                />
+                <FilterSlidersIcon size={18} color={adminColors.muted} />
               </TouchableOpacity>
             </View>
 
@@ -404,10 +360,7 @@ export function FinanceHistoryScreen({
                       >
                         {item.type === 'Revenue' ? `+₹${item.amount.toLocaleString()}` : `-₹${item.amount.toLocaleString()}`}
                       </Text>
-                      <Text style={styles.txTime}>
-                        {item.time}
-                        {isMain && item.warehouseName ? ` · ${item.warehouseName}` : ''}
-                      </Text>
+                      <Text style={styles.txTime}>{item.time}</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -416,207 +369,40 @@ export function FinanceHistoryScreen({
               ))}
             </View>
 
-            {/* ─── Pagination Info Callout (Subwarehouse only) ─── */}
-            {!isMain && (
-              <View style={styles.infoCallout}>
-                <Text style={styles.infoCalloutText}>
-                  Large histories are paginated server-side rather than loaded all at once.
-                </Text>
-              </View>
-            )}
+            {/* ─── Pagination Info Callout ─── */}
+            <View style={styles.infoCallout}>
+              <Text style={styles.infoCalloutText}>
+                Large histories are paginated server-side rather than loaded all at once.
+              </Text>
+            </View>
           </>
         )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar (Subwarehouse only - Main Warehouse shell already has its own tab bar) ─── */}
-      {!isMain && (
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Home')} activeOpacity={0.7}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
+      {/* ─── Bottom Navigation Bar ─── */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Home')} activeOpacity={0.7}>
+          <HomeTabIcon active={false} />
+          <Text style={styles.navLabel}>Home</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Receiving')} activeOpacity={0.7}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Receiving')} activeOpacity={0.7}>
+          <ReceivingTabIcon active={false} />
+          <Text style={styles.navLabel}>Receiving</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Inventory')} activeOpacity={0.7}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Inventory')} activeOpacity={0.7}>
+          <InventoryTabIcon active={false} />
+          <Text style={styles.navLabel}>Inventory</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('More')} activeOpacity={0.7}>
-            <MoreTabIcon active />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ─── Filter Full Screen Modal ─── */}
-      <Modal
-        visible={showFilterModal}
-        animationType="slide"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <SafeAreaView style={styles.fullScreenFilterModal}>
-          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-          {/* Top Orange Header */}
-          <View style={styles.filterModalHeader}>
-            <TouchableOpacity
-              onPress={() => setShowFilterModal(false)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.filterModalTitle}>Filter History</Text>
-            <TouchableOpacity
-              onPress={() => setShowFilterModal(false)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text style={styles.filterCloseText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.filterModalScroll}
-            contentContainerStyle={styles.filterModalScrollContent}
-          >
-            {/* Section 1: Warehouse (only for Main Warehouse when not fixed from hub) */}
-            {isMain && !hideWarehouseFilter ? (
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Warehouse</Text>
-                <View style={styles.chipWrap}>
-                  <TouchableOpacity
-                    style={[styles.filterChip, tempWarehouseId === undefined && styles.filterChipActive]}
-                    onPress={() => setTempWarehouseId(undefined)}
-                  >
-                    <Text style={[styles.filterChipText, tempWarehouseId === undefined && styles.filterChipTextActive]}>
-                      All Warehouses
-                    </Text>
-                  </TouchableOpacity>
-                  {WALLET_WAREHOUSES.map((wh) => {
-                    const active = tempWarehouseId === wh.warehouseId;
-                    return (
-                      <TouchableOpacity
-                        key={wh.warehouseId}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                        onPress={() => setTempWarehouseId(wh.warehouseId)}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                          {wh.warehouseName ?? wh.warehouseId}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ) : null}
-
-            {/* Section 2: Type (All, Revenue, Expenses) */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Transaction Type</Text>
-              <View style={styles.chipWrap}>
-                {(['All', 'Revenue', 'Expenses'] as const).map((t) => {
-                  const active = tempType === t;
-                  return (
-                    <TouchableOpacity
-                      key={t}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                      onPress={() => setTempType(t)}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{t}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Section 3: Status */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Status</Text>
-              <View style={styles.chipWrap}>
-                {['All', 'Completed', 'Pending'].map((st) => {
-                  const active = tempStatus === st;
-                  return (
-                    <TouchableOpacity
-                      key={st}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                      onPress={() => setTempStatus(st)}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{st}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Section 4: Payment Method */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Payment Method</Text>
-              <View style={styles.chipWrap}>
-                {['All', 'Wallet', 'UPI', 'Cash', 'Bank Transfer'].map((pm) => {
-                  const active = tempPaymentMethod === pm;
-                  return (
-                    <TouchableOpacity
-                      key={pm}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                      onPress={() => setTempPaymentMethod(pm)}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{pm}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </ScrollView>
-
-          {/* Modal Footer Buttons */}
-          <View style={styles.filterFooter}>
-            <TouchableOpacity
-              style={styles.modalApplyBtn}
-              onPress={() => {
-                setSelectedWarehouseId(tempWarehouseId);
-                setSelectedType(tempType);
-                setAppliedStatus(tempStatus);
-                setAppliedPaymentMethod(tempPaymentMethod);
-                setShowFilterModal(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalApplyBtnText}>Apply</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalResetBtn}
-              onPress={() => {
-                setTempWarehouseId(undefined);
-                setTempType('All');
-                setTempStatus('All');
-                setTempPaymentMethod('All');
-                setSelectedWarehouseId(undefined);
-                setSelectedType('All');
-                setAppliedStatus('All');
-                setAppliedPaymentMethod('All');
-                setShowFilterModal(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalResetBtnText}>Reset</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('More')} activeOpacity={0.7}>
+          <MoreTabIcon active />
+          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -859,104 +645,5 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: adminColors.brand,
     fontWeight: '700',
-  },
-
-  // Filter Full Screen Modal Styles
-  fullScreenFilterModal: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
-  },
-  filterModalHeader: {
-    backgroundColor: adminColors.brand,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 14,
-  },
-  filterModalTitle: {
-    ...adminType.title,
-    color: adminColors.onBrand,
-  },
-  filterCloseText: {
-    ...adminType.title,
-    color: adminColors.onBrand,
-  },
-  filterModalScroll: {
-    flex: 1,
-  },
-  filterModalScrollContent: {
-    padding: adminSpacing.lg,
-    paddingBottom: adminSpacing.xl,
-  },
-  filterSection: {
-    marginBottom: adminSpacing.lg,
-  },
-  filterSectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.sm,
-    textTransform: 'uppercase',
-  },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: adminSpacing.sm,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  filterChipActive: {
-    backgroundColor: adminColors.brandTint,
-    borderColor: adminColors.brand,
-  },
-  filterChipText: {
-    ...adminType.body,
-    color: adminColors.ink,
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  filterFooter: {
-    flexDirection: 'row',
-    gap: adminSpacing.md,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
-    backgroundColor: adminColors.card,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-  },
-  modalApplyBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: adminRadius.lg,
-    backgroundColor: adminColors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalApplyBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
-  },
-  modalResetBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: adminRadius.lg,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalResetBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.muted,
   },
 });

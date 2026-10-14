@@ -14,28 +14,42 @@
  * layout 'history'), InvoiceHistoryFilters (-> InvoiceFilters),
  * InvoiceHistoryDetail and InvoicePreview (-> InvoiceDetail), ReviewInvoice
  * (-> InvoiceWizard with `review`), and the dropped GSTInvoice.
+ *
+ * Data is live and owned here (API integration plan, phase 7): each route's
+ * container fetches through ./useBillingData.ts and passes the result to the
+ * screen. No invoice route takes a warehouse; the server scopes the caller
+ * (BR-36, BR-30), and the scope's warehouse only keys the cache. The detail
+ * needs the invoice uuid (invoiceIdParam); a host still passing a sample
+ * invoice number gets "not found", not a request.
+ *
+ * Invoice generation has no API (there is no create-invoice route; sales and
+ * orders issue invoices): GenerateInvoice, InvoiceWizard and InvoiceGenerated
+ * are refused (availability.ts billingRouteArea, 'invoiceGeneration'), and a
+ * host that opens one lands on the hub. The screens stay in the code.
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
+import { isAreaAvailable, billingRouteArea } from '../availability';
 
 import { BillingHubScreen } from './BillingHubScreen';
-import { BILLING_WAREHOUSES, SAMPLE_GENERATED_INVOICE_ID, SAMPLE_WIZARD_TRANSACTION } from './fixtures';
 import { GenerateInvoiceScreen } from './GenerateInvoiceScreen';
 import { InvoiceDetailScreen } from './InvoiceDetailScreen';
 import { InvoiceFiltersScreen } from './InvoiceFiltersScreen';
 import { InvoiceGeneratedScreen } from './InvoiceGeneratedScreen';
 import { InvoiceListScreen } from './InvoiceListScreen';
 import { InvoiceWizardScreen } from './InvoiceWizardScreen';
+import { historyTypeFilter, invoiceIdParam } from './mappers';
 import type {
   BillingRoute,
   BillingRouteParams,
-  InvoiceFilterState,
+  InvoiceHistoryChip,
   InvoiceListLayout,
   PermissionCheck,
   WarehouseScope,
+  WarehouseScreenBaseProps,
   WarehouseTab,
-  WizardTransactionRecord,
 } from './types';
+import { useInvoice, useInvoiceDownload, useInvoiceList } from './useBillingData';
 
 /** One entry of the flow's back stack. */
 export interface BillingStackEntry {
@@ -52,9 +66,113 @@ export interface BillingFlowProps {
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
+  /** Kept for hosts that still pass it; the invoice API cannot filter by warehouse. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
+
+/** Where a refused route (invoice generation) lands. */
+const HOME_SCREEN: BillingRoute = 'BillingHub';
+
+// ─── Live routes ─────────────────────────────────────────────────────────────
+
+interface LiveHubRouteProps {
+  base: WarehouseScreenBaseProps;
+  onOpenList: (layout: InvoiceListLayout) => void;
+  onOpenDetail: (invoiceId: string) => void;
+  onNavigateToNotifications?: (() => void) | undefined;
+}
+
+function LiveHubRoute({ base, onOpenList, onOpenDetail, onNavigateToNotifications }: LiveHubRouteProps) {
+  const list = useInvoiceList(base.scope.warehouseId, undefined);
+  const download = useInvoiceDownload();
+  return (
+    <BillingHubScreen
+      {...base}
+      onNavigateToInvoiceList={() => onOpenList('list')}
+      onNavigateToInvoiceHistory={() => onOpenList('history')}
+      onNavigateToInvoiceDetail={onOpenDetail}
+      onNavigateToNotifications={onNavigateToNotifications}
+      recent={list.items[0]}
+      recentLoading={list.isLoading}
+      recentError={list.error}
+      onRetryRecent={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onDownload={download.run}
+      isDownloading={download.isPending}
+      downloadError={download.error}
+    />
+  );
+}
+
+interface LiveListRouteProps {
+  base: WarehouseScreenBaseProps;
+  warehouseId: string | undefined;
+  layout: InvoiceListLayout;
+  onOpenDetail: (invoiceId: string) => void;
+}
+
+function LiveListRoute({ base, warehouseId, layout, onOpenDetail }: LiveListRouteProps) {
+  const [chip, setChip] = useState<InvoiceHistoryChip>('All');
+  // The history chips are the server's type filter; the list layout draws no chips, so it stays 'All'.
+  const list = useInvoiceList(warehouseId, historyTypeFilter(chip));
+  const download = useInvoiceDownload();
+  return (
+    <InvoiceListScreen
+      {...base}
+      initialLayout={layout}
+      invoices={list.items}
+      historyChip={chip}
+      onHistoryChipChange={setChip}
+      onNavigateToInvoiceDetail={onOpenDetail}
+      onDownload={download.run}
+      isDownloading={download.isPending}
+      downloadError={download.error}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+export interface LiveInvoiceDetailProps extends WarehouseScreenBaseProps {
+  /** An invoice uuid; anything else (a sample invoice number) shows "not found" without a request. */
+  invoiceId: string | undefined;
+}
+
+/**
+ * The live invoice detail, for any host that has an invoice uuid (the flow's
+ * InvoiceDetail route; a sale or order screen can render it directly).
+ */
+export function LiveInvoiceDetail({ invoiceId: requested, ...base }: LiveInvoiceDetailProps) {
+  const invoiceId = invoiceIdParam(requested);
+  const live = useInvoice(base.scope.warehouseId, invoiceId);
+  const download = useInvoiceDownload();
+  return (
+    <InvoiceDetailScreen
+      {...base}
+      invoiceId={requested ?? ''}
+      invoice={live.invoice}
+      notFound={invoiceId === undefined}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+      onDownload={download.run}
+      isDownloading={download.isPending}
+      downloadError={download.error}
+    />
+  );
+}
+
+// ─── Flow ────────────────────────────────────────────────────────────────────
+
+const NO_WAREHOUSES: readonly WarehouseScope[] = [];
 
 export function BillingFlow({
   scope,
@@ -64,12 +182,9 @@ export function BillingFlow({
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  warehouseOptions = BILLING_WAREHOUSES,
+  warehouseOptions = NO_WAREHOUSES,
 }: BillingFlowProps) {
   const [stack, setStack] = useState<BillingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  // List filters and layout survive the trip to the filters screen and back.
-  const [filters, setFilters] = useState<InvoiceFilterState | undefined>(undefined);
-  const [listLayout, setListLayout] = useState<InvoiceListLayout | undefined>(undefined);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Hosts keep these props referentially stable.
@@ -77,14 +192,23 @@ export function BillingFlow({
     setStack([{ screen: initialScreen, params: initialParams }]);
   }, [initialScreen, initialParams]);
 
+  /** False for a route of an area with no API (invoice generation). */
+  const isRouteAvailable = (screen: BillingRoute): boolean => {
+    const area = billingRouteArea(screen);
+    return area === undefined || isAreaAvailable(area, can);
+  };
+
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
+  const screen = isRouteAvailable(current.screen) ? current.screen : HOME_SCREEN;
   const params: BillingRouteParams = current.params ?? {};
 
   const navigate = (screen: BillingRoute, nextParams?: BillingRouteParams) => {
+    if (!isRouteAvailable(screen)) return;
     setStack((prev) => [...prev, { screen, params: nextParams }]);
   };
   /** Replace the top entry (wizard -> generated: back from success must not re-open the wizard). */
   const replace = (screen: BillingRoute, nextParams?: BillingRouteParams) => {
+    if (!isRouteAvailable(screen)) return;
     setStack((prev) => [...prev.slice(0, -1), { screen, params: nextParams }]);
   };
   const back = () => {
@@ -99,88 +223,50 @@ export function BillingFlow({
     return true;
   });
 
-  const openList = (layout: InvoiceListLayout) => {
-    setListLayout(layout);
-    navigate('InvoiceList', { layout });
-  };
+  const openList = (layout: InvoiceListLayout) => navigate('InvoiceList', { layout });
   const openDetail = (invoiceId: string) => navigate('InvoiceDetail', { invoiceId });
-  const openWizard = (transaction: WizardTransactionRecord) => navigate('InvoiceWizard', { transaction });
 
   const common = { scope, can, onBack: back, onTabChange };
 
-  switch (current.screen) {
+  switch (screen) {
     case 'BillingHub':
       return (
-        <BillingHubScreen
-          {...common}
-          warehouseOptions={warehouseOptions}
-          onNavigateToInvoiceList={() => openList('list')}
-          onNavigateToInvoiceHistory={() => openList('history')}
-          onNavigateToInvoiceDetail={openDetail}
-          onGenerateInvoice={() => navigate('GenerateInvoice')}
+        <LiveHubRoute
+          base={common}
+          onOpenList={openList}
+          onOpenDetail={openDetail}
           onNavigateToNotifications={onNavigateToNotifications}
         />
       );
     case 'InvoiceList':
       return (
-        <InvoiceListScreen
-          {...common}
-          initialLayout={params.layout ?? listLayout ?? 'list'}
-          onLayoutChange={setListLayout}
-          warehouseOptions={warehouseOptions}
-          appliedFilters={filters}
-          onOpenFilters={() => navigate('InvoiceFilters')}
-          onNavigateToInvoiceDetail={openDetail}
+        <LiveListRoute
+          base={common}
+          warehouseId={scope.warehouseId}
+          layout={params.layout ?? 'list'}
+          onOpenDetail={openDetail}
         />
       );
     case 'InvoiceFilters':
-      return (
-        <InvoiceFiltersScreen
-          {...common}
-          warehouseOptions={warehouseOptions}
-          initialFilters={filters}
-          onApplyFilters={(next) => {
-            setFilters(next);
-            back();
-          }}
-        />
-      );
+      // Deep-link only: nothing on the live list opens it (see InvoiceFiltersScreen).
+      return <InvoiceFiltersScreen {...common} warehouseOptions={warehouseOptions} onApplyFilters={() => back()} />;
     case 'InvoiceDetail':
-      return <InvoiceDetailScreen {...common} invoiceId={params.invoiceId ?? SAMPLE_GENERATED_INVOICE_ID} />;
+      return <LiveInvoiceDetail {...common} invoiceId={params.invoiceId} />;
+    // The three generation routes are refused above (isRouteAvailable); these
+    // branches only keep the hidden screens compiled for when an API exists.
     case 'GenerateInvoice':
-      return (
-        <GenerateInvoiceScreen
-          {...common}
-          onSelectTransaction={(tx) =>
-            openWizard({
-              id: tx.id,
-              orderNumber: tx.id,
-              customerName: tx.customerName,
-              amount: tx.amount,
-              saleType: tx.saleType,
-              status: tx.status,
-              date: SAMPLE_WIZARD_TRANSACTION.date,
-            })
-          }
-        />
-      );
+      return <GenerateInvoiceScreen {...common} onSelectTransaction={() => undefined} />;
     case 'InvoiceWizard':
-      return (
+      return params.transaction ? (
         <InvoiceWizardScreen
           {...common}
-          transaction={params.transaction ?? SAMPLE_WIZARD_TRANSACTION}
+          transaction={params.transaction}
           review={params.review}
           onSuccess={(invoiceId) => replace('InvoiceGenerated', { invoiceId })}
         />
-      );
+      ) : null;
     case 'InvoiceGenerated':
-      return (
-        <InvoiceGeneratedScreen
-          {...common}
-          invoiceId={params.invoiceId ?? SAMPLE_GENERATED_INVOICE_ID}
-          onViewInvoice={openDetail}
-        />
-      );
+      return <InvoiceGeneratedScreen {...common} invoiceId={params.invoiceId ?? ''} onViewInvoice={openDetail} />;
     default:
       return null;
   }

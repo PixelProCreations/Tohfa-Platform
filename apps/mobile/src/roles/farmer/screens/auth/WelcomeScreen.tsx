@@ -3,7 +3,7 @@ import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react
 import { Button, Icon } from '@tohfa/mobile-ui';
 import { getLocale, setLocale, t } from '../../../../i18n/farmer';
 import { GradientOverlay } from './GradientOverlay';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import tohfaLogo from '../../assets/tohfa-logo.png';
 import welcomeFarmerVeggies from '../../assets/welcome-bg.jpg';
 
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   wordmark: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     letterSpacing: 1,
     color: P.white,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   langPillText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.white,
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     borderTopColor: P.borderLight,
   },
   langOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.deepGreen,
   },
@@ -216,14 +216,14 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   title: {
-    fontSize: 34,
+    fontSize: typography.display,
     fontWeight: '800',
     letterSpacing: -0.5,
     color: P.white,
     marginBottom: 10,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     lineHeight: 21,
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 28,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: P.deepGreen,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   createButton: {
@@ -249,11 +249,11 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     color: P.white,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   legal: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 15,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',

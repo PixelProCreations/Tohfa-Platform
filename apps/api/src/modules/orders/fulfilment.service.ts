@@ -6,10 +6,13 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
+import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import {
   fulfilmentRepo,
+  type AdminOrderDetailRecord,
   type FulfilmentRepo,
 } from './fulfilment.repo.js';
+import { adminOrderDetailResponse, type AdminOrderDetailResponse } from './fulfilment.schema.js';
 import type {
   AdminOrdersQuery,
   AdminOrderSummary,
@@ -41,8 +44,11 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export interface FulfilmentService {
+  /**
+   * BR-101: GET /admin/orders. Confined by the resolved scope in SQL (the repo); takes no Actor so
+   * that role names cannot creep back in. Out-of-scope filters and customer-owned scopes are empty.
+   */
   listAdminOrders(
-    actor: Actor,
     scope: ResolvedScope,
     query: AdminOrdersQuery,
   ): Promise<{ items: AdminOrderSummary[]; page: { nextCursor: string | null; hasMore: boolean } }>;
@@ -87,6 +93,13 @@ export interface FulfilmentService {
     orderId: string,
   ): Promise<OrderTracking>;
 
+  /**
+   * BR-99: GET /admin/orders/{orderId}. Any channel; confined to the scope in SQL; allow-list
+   * serialized. Read-only, so no audit row (BR-35 covers mutations). Takes only the scope (no
+   * Actor): authority comes from `order.list.view_all` as resolved by requirePermission.
+   */
+  getAdminOrderDetail(scope: ResolvedScope, orderId: string): Promise<AdminOrderDetailResponse>;
+
   streamOrderEvents(
     actor: Actor,
     scope: ResolvedScope,
@@ -96,14 +109,113 @@ export interface FulfilmentService {
   ): Promise<void>;
 }
 
+/**
+ * BR-92: `*` for every character but the last four, e.g. `+919876543210` -> `*********3210`; four
+ * characters or fewer are masked fully. Same output as the sales read (`MaskedMobile`). Applied for
+ * every scope on the admin order detail: like `Sale`, the response never carries a full mobile.
+ */
+export function maskMobile(mobile: string | null): string | null {
+  if (mobile === null) return null;
+  if (mobile.length <= 4) return '*'.repeat(Math.max(mobile.length, 1));
+  return `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
+}
+
+/**
+ * BR-99 allow-list serializer: every documented key is named here and nothing else, so a field
+ * added to the record (or a farm / batch / OTP column joined in later) cannot reach the response.
+ * The strict schema parse is the second fence.
+ */
+export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDetailResponse {
+  const buyer =
+    record.customerId !== null
+      ? {
+          kind: 'CUSTOMER' as const,
+          customerId: record.customerId,
+          customerCode: record.customerCode,
+          name: record.customerName ?? '',
+          mobileMasked: maskMobile(record.customerMobile),
+        }
+      : {
+          kind: 'WALK_IN' as const,
+          customerId: null,
+          customerCode: null,
+          name: record.walkInName ?? '',
+          mobileMasked: maskMobile(record.walkInMobile),
+        };
+  return adminOrderDetailResponse.parse({
+    id: record.id,
+    orderNumber: record.orderNumber,
+    channel: record.channel,
+    status: record.status,
+    fulfilmentType: record.fulfilmentType,
+    paymentMethod: record.paymentMethod,
+    paymentStatus: record.paymentStatus,
+    warehouse: { id: record.warehouseId, name: record.warehouseName },
+    buyer,
+    items: record.items.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      grade: item.grade,
+      qtyKg: item.qtyKg,
+      unitPrice: item.unitPrice,
+      gstRate: item.gstRate,
+      gstAmount: item.gstAmount,
+      lineTotal: item.lineTotal,
+    })),
+    totals: {
+      subtotal: record.subtotal,
+      deliveryFee: record.deliveryFee,
+      discount: record.discount,
+      gst: record.gstAmount,
+      total: record.totalAmount,
+    },
+    invoice:
+      record.invoice === null
+        ? null
+        : { id: record.invoice.id, invoiceNumber: record.invoice.invoiceNumber, status: record.invoice.status },
+    fulfilment: {
+      deliveryDate: record.deliveryDate,
+      deliverySlot: record.deliverySlot,
+      otpRequired: record.otpRequired,
+      otpVerifiedAt: record.otpVerifiedAt,
+    },
+    timeline: record.timeline.map((event) => ({
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      at: event.at,
+    })),
+    placedAt: record.placedAt,
+    packedAt: record.packedAt,
+    completedAt: record.completedAt,
+    cancelledAt: record.cancelledAt,
+  });
+}
+
+export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
+
 export function createFulfilmentService(opts: {
   repo?: FulfilmentRepo;
   db?: Executor;
   emitter?: EventEmitter;
+  runTx?: TransactionRunner;
 } = {}): FulfilmentService {
   const repo = opts.repo ?? fulfilmentRepo;
   const db = opts.db ?? pool;
+  const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
   const emitter = opts.emitter ?? orderEventsEmitter;
+
+  /**
+   * BR-85j: `updateOrderStatus` is conditional on the from-status and reports how many rows it
+   * changed. 0 means another writer moved the order first; throwing inside the transaction rolls
+   * back the audit row, so neither ledger claims a change that did not happen.
+   */
+  function assertOrderUpdated(orderId: string, updated: number): void {
+    if (updated === 0) {
+      throw new AppError('CONFLICT', {
+        detail: `Order ${orderId} changed while this action was in progress; reload it and try again.`,
+      });
+    }
+  }
 
   function validateTransition(from: OrderStatus, to: OrderStatus): void {
     const allowed = ALLOWED_TRANSITIONS[from] || [];
@@ -115,6 +227,10 @@ export function createFulfilmentService(opts: {
     }
   }
 
+  // Legacy role-name confinement, still used by the action routes. Those routes ALSO apply
+  // `warehouseVisible(scope, ...)` (BR-101), which only ever narrows: a scope carrying a customer or
+  // farmer id fails closed to the same 404 as an unknown id, whatever this function returns.
+  // It stays because verify-otp grants SUB_WH_ADMIN `all` in rbac.json yet is confined here.
   function getWarehouseScope(actor: Actor): string | null {
     // If actor has a SUB_WH_ADMIN role or specific assigned warehouse in claims/actor
     const hasOnlySubWh =
@@ -130,20 +246,10 @@ export function createFulfilmentService(opts: {
   }
 
   return {
-    async listAdminOrders(actor, scope, query) {
-      const warehouseScope = getWarehouseScope(actor);
-      if (warehouseScope && query.warehouseId && query.warehouseId !== warehouseScope) {
-        throw new AppError('WAREHOUSE_SCOPE_VIOLATION', {
-          status: 403,
-          detail: 'You may not query orders outside your assigned warehouse.',
-        });
-      }
-
-      const { items, nextCursor, hasMore } = await repo.listAdminOrders(
-        db,
-        warehouseScope,
-        query,
-      );
+    async listAdminOrders(scope, query) {
+      // No 403 for a cross-warehouse `warehouseId`: the repo ANDs it onto the scope predicate and
+      // the page is simply empty (BR-30). A 403 would confirm the other warehouse's orders exist.
+      const { items, nextCursor, hasMore } = await repo.listAdminOrders(db, scope, query);
 
       return { items, page: { nextCursor, hasMore } };
     },
@@ -151,7 +257,7 @@ export function createFulfilmentService(opts: {
     async getAdminOrder(actor, scope, orderId) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -169,30 +275,47 @@ export function createFulfilmentService(opts: {
         });
       }
 
-      const order = await repo.findOrderForFulfilment(db, orderId);
-      if (!order) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
-        });
-      }
+      // BR-85j: every check below runs on the row locked inside the transaction. Deciding on an
+      // unlocked read let a pack/cancel commit in between: the conditional UPDATE then matched no
+      // row, yet the history and audit rows were still written and the caller got 200.
+      await runTx(async (tx) => {
+        const order = await repo.lockOrderForUpdate(tx, orderId);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
 
-      if (order.status !== 'CONFIRMED' && order.status !== 'PENDING_PAYMENT') {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          status: 409,
-          detail: `Cannot reassign warehouse for order in status ${order.status}.`,
-        });
-      }
+        // BR-85i: a counter sale is made AT a warehouse, from that warehouse's batches. A pending UPI
+        // sale's items already name those batches (the hold, BR-94), so moving it would make the
+        // later confirm write SALE ledger rows for batches at another warehouse (refused by the
+        // ledger trigger) and let a second warehouse see the sale. Completed counter sales are
+        // PICKED_UP and already refused by the status check below; this names the pending case.
+        if (order.channel === 'DIRECT' || order.channel === 'MARKET') {
+          throw new AppError('COUNTER_SALE_NOT_REASSIGNABLE', {
+            detail: `Order ${orderId} is a ${order.channel} counter sale; it stays at the warehouse that made it.`,
+            meta: { channel: order.channel, status: order.status },
+          });
+        }
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+        if (order.status !== 'CONFIRMED' && order.status !== 'PENDING_PAYMENT') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Cannot reassign warehouse for order in status ${order.status}.`,
+          });
+        }
+
+        // With the row locked this cannot match 0 rows; the check stays so that dropping the lock
+        // later fails loudly (and rolls back the audit row) instead of reporting a phantom reassign.
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: order.status,
           actorUserId: actor.userId,
           warehouseId: input.warehouseId,
           note: `Reassigned to warehouse: ${input.warehouseId}${input.reason ? ` - ${input.reason}` : ''}`,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -210,7 +333,7 @@ export function createFulfilmentService(opts: {
     async packOrder(actor, scope, orderId, _input) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -219,15 +342,15 @@ export function createFulfilmentService(opts: {
 
       validateTransition(order.status, 'PACKED');
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: 'PACKED',
           actorUserId: actor.userId,
           packedAt: new Date(),
           note: `Packed at warehouse ${order.warehouseId}`,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -252,7 +375,7 @@ export function createFulfilmentService(opts: {
     async dispatchOrder(actor, scope, orderId, input) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -270,14 +393,14 @@ export function createFulfilmentService(opts: {
           ? 'Ready for customer pickup'
           : 'Dispatched for delivery';
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: targetStatus,
           actorUserId: actor.userId,
           note,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -306,7 +429,7 @@ export function createFulfilmentService(opts: {
 
     async verifyOtp(actor, scope, orderId, input) {
       const otpHolder = await repo.getOrderDeliveryOtpHolder(db, orderId);
-      if (!otpHolder) {
+      if (!otpHolder || !warehouseVisible(scope, otpHolder.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -357,8 +480,8 @@ export function createFulfilmentService(opts: {
 
       validateTransition(otpHolder.status, targetStatus);
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: otpHolder.status,
           toStatus: targetStatus,
@@ -367,7 +490,7 @@ export function createFulfilmentService(opts: {
           otpVerifiedAt: new Date(),
           otpVerifiedBy: actor.userId,
           note: 'Handover verified via OTP',
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -390,6 +513,16 @@ export function createFulfilmentService(opts: {
 
       const updated = await repo.findOrderForFulfilment(db, orderId);
       return updated!;
+    },
+
+    async getAdminOrderDetail(scope, orderId) {
+      const record = await repo.findAdminOrderDetail(db, scope, orderId);
+      if (record === null) {
+        // Same code and detail for "unknown" and "outside your warehouse" (BR-30): a different
+        // answer would confirm that the order exists.
+        throw new AppError('NOT_FOUND', { detail: `Order "${orderId}" not found.` });
+      }
+      return toAdminOrderDetail(record);
     },
 
     async getOrderTracking(actor, scope, orderId) {

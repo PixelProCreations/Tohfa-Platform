@@ -84,3 +84,33 @@ export const terminateSessionParams = z.object({
   id: z.string().uuid(),
 });
 export type TerminateSessionParams = z.infer<typeof terminateSessionParams>;
+
+export const changePasswordBody = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(10).max(128),
+});
+export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
+
+/**
+ * BR-82: the admin's own-profile edit. `mobile` and `email` are accepted by the
+ * SHAPE only so the service can refuse them with 403 FIELD_LOCKED (BR-33)
+ * instead of the schema masking the lock as a 422; any other key is a 422.
+ * `.refine` keeps `{}` from being an accepted no-op request.
+ */
+export const updateMeBody = z
+  .object({
+    fullName: z.string().trim().min(2).max(120).optional(),
+    preferredLocale: z.enum(['en', 'ta']).optional(),
+    mobile: z.unknown().optional(),
+    email: z.unknown().optional(),
+  })
+  .strict()
+  .refine(
+    (body) =>
+      body.fullName !== undefined ||
+      body.preferredLocale !== undefined ||
+      'mobile' in body ||
+      'email' in body,
+    { message: 'Send at least one of fullName, preferredLocale.' },
+  );
+export type UpdateMeBody = z.infer<typeof updateMeBody>;

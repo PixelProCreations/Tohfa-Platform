@@ -16,15 +16,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Sta
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { SAMPLE_ORDER_ID } from './fixtures';
 import type { OrderScreenBaseProps, StockCheckStep, WarehouseNavigate } from './types';
 
 export interface StockCheckScreenProps extends OrderScreenBaseProps {
   /** Which step to open on; the host passes `params.step` (old M5S06 links use 'shortage'). */
   initialStep?: StockCheckStep | undefined;
 }
-
-/** Mock order id used until orders are wired to the API. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 

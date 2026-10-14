@@ -362,44 +362,26 @@ export function ExpenseDetailScreen({
                 </View>
 
                 {/* Explanatory only: no approve code exists in rbac.json, so there is no control. */}
-                {!isMain && (
-                  <View style={styles.lockNoticeCard}>
-                    <View style={styles.lockIconBox}>
-                      <LockIcon size={14} color={adminColors.muted} />
-                    </View>
-                    <Text style={styles.lockNoticeText}>
-                      Approve/Reject is not available on this screen — the role matrix marks "Approve expense claims" as not granted.
-                    </Text>
+                <View style={styles.lockNoticeCard}>
+                  <View style={styles.lockIconBox}>
+                    <LockIcon size={14} color={adminColors.muted} />
                   </View>
-                )}
+                  <Text style={styles.lockNoticeText}>
+                    Approve/Reject is not available on this screen — the role matrix marks "Approve expense claims" as not granted.
+                  </Text>
+                </View>
               </View>
             </View>
 
             {/* ─── Section 5: Actions ─── */}
+            {/*
+              BR-62 / Owner decision 2026-10-11: Expenses are only recorded with status RECORDED.
+              There is no edit, cancel, delete, approve or reject endpoint in openapi.yaml.
+              Edit and Cancel actions are hidden.
+            */}
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeading}>Actions</Text>
               <View style={styles.actionsRow}>
-                {canLog && (
-                  <TouchableOpacity
-                    style={styles.actionBtnCard}
-                    onPress={handleEditExpense}
-                    activeOpacity={0.75}
-                  >
-                    <PencilIcon size={18} color={adminColors.brandDeep} />
-                    <Text style={styles.actionBtnLabel}>Edit</Text>
-                  </TouchableOpacity>
-                )}
-
-                {canLog && (
-                  <TouchableOpacity
-                    style={styles.actionBtnCard}
-                    onPress={handleCancelExpense}
-                    activeOpacity={0.75}
-                  >
-                    <CancelCircleIcon size={18} color={adminColors.brandDeep} />
-                    <Text style={styles.actionBtnLabel}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
 
                 <TouchableOpacity
                   style={styles.actionBtnCard}

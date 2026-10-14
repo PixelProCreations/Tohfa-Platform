@@ -1146,21 +1146,10 @@ export function ChannelSalesScreen({
           }
         />
 
-        {/* Bottom Button for Main Warehouse */}
-        {isMain ? (
-          <TouchableOpacity
-            style={styles.createOrderBottomBtn}
-            onPress={() => {
-              setCreatingOrder(true);
-              setCreateStep(1);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.createOrderBottomBtnText}>
-              {channel === 'HORECA' ? '+ Create HORECA Order' : '+ Create B2B Order'}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
+        {/*
+          BR-13 / Spec gap: Creating a HORECA / B2B order has no backend permission
+          or endpoint (BR-13: 501). Read-only list per plan Phase 12.
+        */}
       </View>
     </SafeAreaView>
   );

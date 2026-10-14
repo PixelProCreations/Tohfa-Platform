@@ -15,7 +15,6 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
 import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
-import { WarehouseSelector } from '../inventory';
 import type { SalesChannel, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 
@@ -327,6 +326,7 @@ export interface SalesScreenProps extends WarehouseScreenBaseProps {
 
 export function SalesScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -350,7 +350,11 @@ export function SalesScreen({
     SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse)?.warehouseName ??
     'All warehouses';
 
-  const handleOpenNewSale = () => onNavigateToNewSale();
+  const canCreateSale = can ? can('sales.sale.create') : false;
+  const handleOpenNewSale = () => {
+    if (canCreateSale) onNavigateToNewSale();
+    else Alert.alert('New Sale', 'Creating new sales is not permitted for your role.');
+  };
   const handleOpenSalesHistory = () => onNavigateToSalesHistory();
   const handleOpenMarketDaySales = () => onNavigateToMarketDaySales();
   const handleOpenHorecaSales = () => onNavigateToChannelSales('HORECA');
@@ -430,20 +434,11 @@ export function SalesScreen({
           </View>
         ) : (
           <View style={styles.warehouseBadgeRow}>
-            {scope.warehouseId === undefined ? (
-            <WarehouseSelector
-              scope={scope}
-              options={SALE_WAREHOUSES}
-              selectedId={pickedWarehouse}
-              onSelect={setPickedWarehouse}
-            />
-          ) : (
             <View style={styles.warehouseBadge}>
-                <LockBadgeIcon />
-                <Text style={styles.warehouseBadgeText}>{headerWarehouse}</Text>
-              </View>
-            )}
-        </View>
+              <LockBadgeIcon />
+              <Text style={styles.warehouseBadgeText}>{headerWarehouse}</Text>
+            </View>
+          </View>
         )}
       </View>
 
