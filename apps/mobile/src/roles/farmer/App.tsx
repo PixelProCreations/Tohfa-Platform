@@ -1611,7 +1611,13 @@ export default function App(): React.JSX.Element {
                     mobile: p.customer?.mobileMasked,
                   });
                 } else if (target === 'CashTopUp') {
-                  navigate('SubWarehouseCashTopUp', { customerName, customerCode });
+                  // Real uuid + masked mobile only: the wizard looks the wallet up by uuid.
+                  navigate('SubWarehouseCashTopUp', {
+                    customerName,
+                    customerCode,
+                    customerUuid: p.customer?.id,
+                    mobile: p.customer?.mobileMasked,
+                  });
                 } else if (target === 'NewSale') {
                   navigate('SubWarehouseNewSale', { customerName });
                 } else if (target === 'OrderDetail') {

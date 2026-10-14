@@ -2255,7 +2255,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
-                      onNavigate('WarehouseWalletOperations');
+                      onNavigate('SubWarehouseCashTopUp');
                     } else {
                       setActiveTab('More');
                     }
