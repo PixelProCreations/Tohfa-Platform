@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -8,48 +7,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink for titles
-  muted: adminColors.muted, // Secondary gray
-  labelDark: '#374151',
-
-  // Actions & Highlights
-  orangeBtn: adminColors.brand,
-  orangeTint: adminColors.brandTint,
-  orangeText: adminColors.brandDeep,
-
-  // Status Badges
-  completedBg: '#DCFCE7',
-  completedText: '#15803D',
-  inTransitBg: '#E0F2FE',
-  inTransitText: '#0369A1',
-  pendingBg: '#FEF3C7',
-  pendingText: '#B45309',
-};
-
-// ─── SVG Icons Matching Exact Design Mockup ──────────────────────────────────
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,7 +31,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.placeholder }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -72,27 +40,21 @@ function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: s
   );
 }
 
-/**
- * Filter Dual Sliders Icon matching screenshot:
- * 2 horizontal slider tracks with vertical knobs
- */
-function FilterSlidersIcon({ size = 18, color = '#7A2E14' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top track: knob on left */}
       <Line x1="4" y1="8" x2="8" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="12" y1="8" x2="20" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="10" cy="8" r="2.5" stroke={color} strokeWidth="2" fill={THEME.white} />
+      <Circle cx="10" cy="8" r="2.5" stroke={color} strokeWidth="2" fill={adminColors.card} />
 
-      {/* Bottom track: knob on right */}
       <Line x1="4" y1="16" x2="14" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="18" y1="16" x2="20" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="16" cy="16" r="2.5" stroke={color} strokeWidth="2" fill={THEME.white} />
+      <Circle cx="16" cy="16" r="2.5" stroke={color} strokeWidth="2" fill={adminColors.card} />
     </Svg>
   );
 }
 
-function CloseIcon({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
+function CloseIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -273,23 +235,23 @@ export function HandoverHistoryScreen({
   if (isFilterPageOpen) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* ─── Terracotta Header ─── */}
+        {/* ─── Header ─── */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               style={styles.backBtn}
               onPress={() => setIsFilterPageOpen(false)}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('handoverHistory.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Filter Records</Text>
+            <Text style={styles.headerTitle}>{t('handoverHistory.filterPage.title')}</Text>
           </View>
           <Text style={styles.headerSubtitle}>
-            Refine by batch, record type, status, or destination
+            {t('handoverHistory.filterPage.subtitle')}
           </Text>
         </View>
 
@@ -300,7 +262,9 @@ export function HandoverHistoryScreen({
         >
           <View style={styles.filterPageCard}>
             {/* Filter Section: Handover Batch */}
-            <Text style={[styles.modalSectionLabel, { marginTop: 0 }]}>HANDOVER BATCH</Text>
+            <Text style={[styles.modalSectionLabel, { marginTop: 0 }]}>
+              {t('handoverHistory.filterPage.handoverBatch')}
+            </Text>
             <View style={styles.filterChipGroup}>
               {['HO-2026-0002', 'HO-2026-0001'].map((hId) => {
                 const isSelected = modalHandoverId === hId;
@@ -328,7 +292,7 @@ export function HandoverHistoryScreen({
             </View>
 
             {/* Filter Section: Record Type */}
-            <Text style={styles.modalSectionLabel}>RECORD TYPE</Text>
+            <Text style={styles.modalSectionLabel}>{t('handoverHistory.filterPage.recordType')}</Text>
             <View style={styles.filterChipGroup}>
               {(['All', 'Handover', 'Collection'] as const).map((type) => {
                 const isSelected = modalTypeFilter === type;
@@ -356,7 +320,7 @@ export function HandoverHistoryScreen({
             </View>
 
             {/* Filter Section: Status */}
-            <Text style={styles.modalSectionLabel}>STATUS</Text>
+            <Text style={styles.modalSectionLabel}>{t('handoverHistory.filterPage.status')}</Text>
             <View style={styles.filterChipGroup}>
               {(['All', 'Completed', 'In Transit', 'Pending'] as const).map((st) => {
                 const isSelected = modalStatusFilter === st;
@@ -384,7 +348,7 @@ export function HandoverHistoryScreen({
             </View>
 
             {/* Filter Section: Destination */}
-            <Text style={styles.modalSectionLabel}>DESTINATION</Text>
+            <Text style={styles.modalSectionLabel}>{t('handoverHistory.filterPage.destination')}</Text>
             <View style={styles.filterChipGroup}>
               {(['All', 'Main Warehouse', 'Sub-Warehouse'] as const).map((dest) => {
                 const isSelected = modalDestinationFilter === dest;
@@ -419,7 +383,7 @@ export function HandoverHistoryScreen({
               onPress={resetModalFilters}
               activeOpacity={0.8}
             >
-              <Text style={styles.filterPageResetText}>Reset</Text>
+              <Text style={styles.filterPageResetText}>{t('handoverHistory.filterPage.reset')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -427,11 +391,11 @@ export function HandoverHistoryScreen({
               onPress={applyModalFilters}
               activeOpacity={0.85}
             >
-              <Text style={styles.filterPageApplyText}>Apply Filters</Text>
+              <Text style={styles.filterPageApplyText}>{t('handoverHistory.filterPage.apply')}</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: adminSpacing.xl }} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -469,23 +433,23 @@ export function HandoverHistoryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('handoverHistory.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Handover History</Text>
+          <Text style={styles.headerTitle}>{t('handoverHistory.title')}</Text>
         </View>
         <Text style={styles.headerSubtitle}>
-          Review completed and previous actives.
+          {t('handoverHistory.subtitle')}
         </Text>
       </View>
 
@@ -497,11 +461,11 @@ export function HandoverHistoryScreen({
       >
         {/* Search Input Box */}
         <View style={styles.searchBox}>
-          <SearchIcon size={19} color="#6B7280" />
+          <SearchIcon size={19} color={adminColors.placeholder} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search collection, handover, purchase, farmer ID"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('handoverHistory.searchPlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -521,8 +485,8 @@ export function HandoverHistoryScreen({
           }}
           activeOpacity={0.8}
         >
-          <FilterSlidersIcon size={18} color="#7A2E14" />
-          <Text style={styles.filtersBtnText}>Filters</Text>
+          <FilterSlidersIcon size={18} color={adminColors.brandDeep} />
+          <Text style={styles.filtersBtnText}>{t('handoverHistory.filters')}</Text>
         </TouchableOpacity>
 
         {/* Active Filter Chips Row */}
@@ -539,9 +503,9 @@ export function HandoverHistoryScreen({
                     setModalHandoverId(null);
                   }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: adminSpacing.xs }}
                 >
-                  <CloseIcon size={14} color="#7A2E14" />
+                  <CloseIcon size={14} color={adminColors.brandDeep} />
                 </TouchableOpacity>
               </View>
             )}
@@ -554,9 +518,9 @@ export function HandoverHistoryScreen({
                 <TouchableOpacity
                   onPress={() => setAppliedTypeFilter('All')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: adminSpacing.xs }}
                 >
-                  <CloseIcon size={14} color="#7A2E14" />
+                  <CloseIcon size={14} color={adminColors.brandDeep} />
                 </TouchableOpacity>
               </View>
             )}
@@ -569,9 +533,9 @@ export function HandoverHistoryScreen({
                 <TouchableOpacity
                   onPress={() => setAppliedStatusFilter('All')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: adminSpacing.xs }}
                 >
-                  <CloseIcon size={14} color="#7A2E14" />
+                  <CloseIcon size={14} color={adminColors.brandDeep} />
                 </TouchableOpacity>
               </View>
             )}
@@ -581,14 +545,16 @@ export function HandoverHistoryScreen({
               onPress={clearAllFilters}
               activeOpacity={0.7}
             >
-              <Text style={styles.clearAllChipText}>Clear all</Text>
+              <Text style={styles.clearAllChipText}>{t('handoverHistory.clearAll')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Record Count */}
         <Text style={styles.recordsCount}>
-          {filteredRecords.length} {filteredRecords.length === 1 ? 'record' : 'records'}
+          {filteredRecords.length === 1
+            ? t('handoverHistory.recordsCountSingle', { count: filteredRecords.length })
+            : t('handoverHistory.recordsCount', { count: filteredRecords.length })}
         </Text>
 
         {/* ─── Record Cards ─── */}
@@ -630,22 +596,22 @@ export function HandoverHistoryScreen({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetailsText}>View Details</Text>
+              <Text style={styles.viewDetailsText}>{t('handoverHistory.viewDetails')}</Text>
             </TouchableOpacity>
           </View>
         ))}
 
         {filteredRecords.length === 0 && (
           <View style={styles.emptyStateBox}>
-            <Text style={styles.emptyStateTitle}>No matching records found</Text>
+            <Text style={styles.emptyStateTitle}>{t('handoverHistory.emptyTitle')}</Text>
             <Text style={styles.emptyStateSub}>
-              Try clearing filters or adjusting your search term.
+              {t('handoverHistory.emptySub')}
             </Text>
             <TouchableOpacity
               style={styles.emptyClearBtn}
               onPress={clearAllFilters}
             >
-              <Text style={styles.emptyClearBtnText}>Reset Filters</Text>
+              <Text style={styles.emptyClearBtnText}>{t('handoverHistory.resetFilters')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -655,23 +621,21 @@ export function HandoverHistoryScreen({
   );
 }
 
-// ─── Stylesheet Matching Exact UI Mockup ──────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -680,43 +644,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // Search input
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
 
@@ -725,18 +688,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 12,
-    marginTop: 12,
-    gap: 8,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    marginTop: adminSpacing.md,
+    gap: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   filtersBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
 
   // Active filter chips
@@ -744,86 +707,85 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 8,
+    marginTop: adminSpacing.md,
+    gap: adminSpacing.sm,
   },
   filterChipActive: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE8DC',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.full,
+    paddingVertical: adminSpacing.xs,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#F6C7B2',
+    borderColor: adminColors.brand,
   },
   filterChipActiveText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
   clearAllChip: {
-    backgroundColor: '#F3ECE4',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
+    paddingVertical: adminSpacing.xs,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#E5D8CC',
+    borderColor: adminColors.border,
   },
   clearAllChipText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.muted,
   },
 
   // Count text
   recordsCount: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#4B5563',
-    marginTop: 12,
-    marginBottom: 8,
+    color: adminColors.muted,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
 
   // Record Card
   recordCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   recordTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 6,
   },
   recordMeta: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   statusBadgeCompleted: {
     alignSelf: 'flex-start',
-    backgroundColor: THEME.completedBg,
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
     marginTop: 6,
     marginBottom: 4,
   },
   statusBadgeCompletedText: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.completedText,
+    color: adminColors.success.text,
   },
   subReferenceText: {
-    fontSize: 12.5,
+    ...adminType.rowMeta,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
     marginTop: 4,
     marginBottom: 4,
   },
@@ -831,100 +793,95 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   viewDetailsText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
 
   // Empty state
   emptyStateBox: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 24,
+    borderColor: adminColors.border,
+    padding: adminSpacing.xl,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   emptyStateTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   emptyStateSub: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 4,
     textAlign: 'center',
   },
   emptyClearBtn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#FEE8DC',
+    marginTop: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.brandTint,
   },
   emptyClearBtnText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
 
   // ─── Filter Page Styles ───
   filterPagePad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   filterPageCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: 20,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    marginBottom: adminSpacing.lg,
   },
   filterPageActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   modalSectionLabel: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.5,
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   filterChipGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   modalChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F4EF',
-    borderRadius: 22,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.full,
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#E8DFD5',
+    borderColor: adminColors.border,
     gap: 6,
   },
   modalChipSelected: {
-    backgroundColor: '#FEE8DC',
+    backgroundColor: adminColors.brandTint,
     borderColor: adminColors.brand,
   },
   modalChipText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
-    color: '#374151',
+    color: adminColors.ink,
   },
   modalChipTextSelected: {
     color: adminColors.brandDeep,
@@ -933,27 +890,25 @@ const styles = StyleSheet.create({
   filterPageResetBtn: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: THEME.border,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
   },
   filterPageResetText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.muted,
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   filterPageApplyBtn: {
     flex: 1,
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
   },
   filterPageApplyText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

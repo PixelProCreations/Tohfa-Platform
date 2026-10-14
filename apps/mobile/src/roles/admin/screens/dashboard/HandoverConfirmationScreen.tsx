@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,37 +9,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-
-  // Notice box
-  noticeBg: '#F9F6F0',
-  noticeBorder: adminColors.border,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -54,7 +30,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function CircleSlashIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CircleSlashIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -64,16 +40,16 @@ function CircleSlashIcon({ size = 18, color = '#6B7280' }: { size?: number; colo
 }
 
 export interface HandoverConfirmationScreenProps {
-  handoverId?: string;
-  status?: string;
+  handoverId?: string | undefined;
+  status?: string | undefined;
   onBack: () => void;
   onViewHistory?: () => void;
   onViewHandoverDetails?: () => void;
 }
 
 export function HandoverConfirmationScreen({
-  handoverId = 'HO-2026-0002',
-  status = 'Completed',
+  handoverId,
+  status,
   onBack,
   onViewHistory,
   onViewHandoverDetails,
@@ -102,7 +78,7 @@ export function HandoverConfirmationScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -111,11 +87,11 @@ export function HandoverConfirmationScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('handoverConfirmation.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Handover Confirmation</Text>
+          <Text style={styles.headerTitle}>{t('handoverConfirmation.title')}</Text>
         </View>
         <Text style={styles.headerSubtitle}>
           {handoverId} · {status}
@@ -128,38 +104,38 @@ export function HandoverConfirmationScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Handover Details Card (Screenshot 3) */}
+        {/* Top Handover Details Card */}
         <View style={styles.card}>
           <View style={styles.rowTwoCol}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Handover ID</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.handoverId')}</Text>
               <Text style={styles.valBold}>{handoverId}</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Destination</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.destination')}</Text>
               <Text style={styles.valBold}>Main Warehouse</Text>
             </View>
           </View>
 
-          <View style={[styles.rowTwoCol, { marginTop: 14 }]}>
+          <View style={[styles.rowTwoCol, { marginTop: adminSpacing.md }]}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Dispatch quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.dispatchQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Dispatch date</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.dispatchDate')}</Text>
               <Text style={styles.valBold}>6 Oct 2026</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.labelMuted}>Acknowledgement status</Text>
-            <Text style={styles.valBold}>Acknowledged by the Main Warehouse</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.labelMuted}>{t('handoverConfirmation.acknowledgementStatus')}</Text>
+            <Text style={styles.valBold}>{t('handoverConfirmation.acknowledgedByWarehouse')}</Text>
           </View>
         </View>
 
         {/* Product-wise manifest */}
-        <Text style={styles.sectionTitle}>Product-wise manifest</Text>
+        <Text style={styles.sectionTitle}>{t('handoverConfirmation.section.manifest')}</Text>
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <Text style={styles.manifestText}>Carrot · Grade 1</Text>
@@ -168,47 +144,47 @@ export function HandoverConfirmationScreen({
         </View>
 
         {/* Warehouse acknowledgement */}
-        <Text style={styles.sectionTitle}>Warehouse acknowledgement</Text>
+        <Text style={styles.sectionTitle}>{t('handoverConfirmation.section.acknowledgement')}</Text>
         <View style={styles.card}>
           <View style={styles.rowTwoCol}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Receiving reference</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.receivingReference')}</Text>
               <Text style={styles.valBold}>MWA-RCV-0010</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Received date</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.receivedDate')}</Text>
               <Text style={styles.valBold}>10 Oct 2026</Text>
             </View>
           </View>
 
-          <View style={[styles.rowTwoCol, { marginTop: 14 }]}>
+          <View style={[styles.rowTwoCol, { marginTop: adminSpacing.md }]}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Received quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.receivedQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Accepted quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverConfirmation.acceptedQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.labelMuted}>Outcome</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.labelMuted}>{t('handoverConfirmation.outcome')}</Text>
             <Text style={styles.valBold}>Accepted</Text>
           </View>
         </View>
         <Text style={styles.captionUnder}>
-          Recorded by the Main Warehouse receiving workflow.
+          {t('handoverConfirmation.caption.recorded')}
         </Text>
 
         {/* Final status */}
-        <Text style={styles.sectionTitle}>Final status</Text>
+        <Text style={styles.sectionTitle}>{t('handoverConfirmation.section.finalStatus')}</Text>
         <View style={styles.card}>
-          <Text style={styles.labelMuted}>Handover status</Text>
+          <Text style={styles.labelMuted}>{t('handoverConfirmation.handoverStatus')}</Text>
           <Text style={styles.valBold}>{status}</Text>
         </View>
         <Text style={styles.captionUnder}>
-          Completed under the proposed rule: received in full with no discrepancy.
+          {t('handoverConfirmation.caption.completed')}
         </Text>
 
         {/* Action Buttons Row: View Handover Details & View History */}
@@ -221,7 +197,7 @@ export function HandoverConfirmationScreen({
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.outlineBtnText}>View Handover Details</Text>
+            <Text style={styles.outlineBtnText}>{t('handoverConfirmation.action.details')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -232,11 +208,11 @@ export function HandoverConfirmationScreen({
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.outlineBtnText}>View History</Text>
+            <Text style={styles.outlineBtnText}>{t('handoverConfirmation.action.history')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -245,18 +221,18 @@ export function HandoverConfirmationScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -265,39 +241,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 18,
-    marginBottom: 8,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   rowTwoCol: {
     flexDirection: 'row',
@@ -307,14 +282,13 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   labelMuted: {
-    fontSize: 11.5,
-    color: THEME.muted,
-    marginBottom: 3,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   valBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -322,57 +296,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   manifestText: {
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '600',
   },
   manifestQty: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   captionUnder: {
-    fontSize: 11.5,
-    color: THEME.muted,
-    marginTop: 6,
-    lineHeight: 16,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   noticeBox: {
-    backgroundColor: THEME.noticeBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.brandTintWarm,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.noticeBorder,
-    padding: 14,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 18,
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.lg,
   },
   noticeText: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 11.5,
-    color: '#4B5563',
-    lineHeight: 16,
+    color: adminColors.ink,
     fontWeight: '600',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 22,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
   },
   outlineBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
 });

@@ -9,42 +9,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  headerGradientEnd: adminColors.brandDeep,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#6B7280',
-
-  // Buttons & Highlights
-  orangeBtn: adminColors.brand,
-  orangeBorder: '#E27D60',
-  orangeText: adminColors.brandDeep,
-  orangeLink: adminColors.brand,
-
-  // Disclaimer
-  noticeBg: '#FAF7F2',
-  noticeBorder: adminColors.border,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,7 +31,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 }
 
 // 1. Handover prepared (Clipboard with lines/check)
-function ClipboardStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?: string }) {
+function ClipboardStepIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -75,7 +47,7 @@ function ClipboardStepIcon({ size = 22, color = '#E27D60' }: { size?: number; co
 }
 
 // 2. Marked ready for handover (Square checkbox with checkmark)
-function SquareCheckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?: string }) {
+function SquareCheckStepIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="3.5" stroke={color} strokeWidth="2" />
@@ -85,7 +57,7 @@ function SquareCheckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; 
 }
 
 // 3. Dispatch recorded (Delivery truck)
-function TruckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?: string }) {
+function TruckStepIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -102,7 +74,7 @@ function TruckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?
 }
 
 // 4. Main Warehouse acknowledgement recorded (Open storage crate / box)
-function OpenBoxStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?: string }) {
+function OpenBoxStepIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -117,7 +89,7 @@ function OpenBoxStepIcon({ size = 22, color = '#E27D60' }: { size?: number; colo
 }
 
 // 5. Handover completed (Circle with checkmark)
-function CircleCheckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; color?: string }) {
+function CircleCheckStepIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -127,7 +99,7 @@ function CircleCheckStepIcon({ size = 22, color = '#E27D60' }: { size?: number; 
 }
 
 // Prohibited Circle Slash Icon
-function ProhibitedSlashIcon({ size = 20, color = '#78716C' }: { size?: number; color?: string }) {
+function ProhibitedSlashIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -137,16 +109,16 @@ function ProhibitedSlashIcon({ size = 20, color = '#78716C' }: { size?: number; 
 }
 
 export interface HandoverDetailsScreenProps {
-  handoverId?: string;
-  status?: string;
+  handoverId?: string | undefined;
+  status?: string | undefined;
   onBack: () => void;
   onViewReceivingResult?: () => void;
   onViewHistory?: () => void;
 }
 
 export function HandoverDetailsScreen({
-  handoverId = 'HO-2026-0002',
-  status = 'Completed',
+  handoverId,
+  status,
   onBack,
   onViewReceivingResult,
   onViewHistory,
@@ -176,22 +148,22 @@ export function HandoverDetailsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Exact Match to Screenshot 1 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('handoverDetails.backLabel')}
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{handoverId}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>Completed - Main warehouse</Text>
+        <Text style={styles.headerSubtitle}>{t('handoverDetails.subtitle')}</Text>
       </View>
 
       {/* ─── Scroll Content ─── */}
@@ -200,74 +172,74 @@ export function HandoverDetailsScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Details Card (Exact UI Screenshot 1) */}
+        {/* Top Details Card */}
         <View style={styles.card}>
           <View style={styles.rowTwoCol}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Handover ID</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.handoverId')}</Text>
               <Text style={styles.valTitleBold}>{handoverId}</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Status</Text>
-              <Text style={styles.valTitleBold}>Completed</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.status')}</Text>
+              <Text style={styles.valTitleBold}>{status}</Text>
             </View>
           </View>
 
-          <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+          <View style={[styles.rowTwoCol, { marginTop: adminSpacing.md }]}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Handover date</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.handoverDate')}</Text>
               <Text style={styles.valBold}>6 Oct 2026</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Destination</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.destination')}</Text>
               <Text style={styles.valBold}>Main Warehouse</Text>
             </View>
           </View>
 
-          <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+          <View style={[styles.rowTwoCol, { marginTop: adminSpacing.md }]}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Total quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.totalQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Source collections</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.sourceCollections')}</Text>
               <Text style={styles.valBold}>1</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.labelMuted}>Last updated</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.labelMuted}>{t('handoverDetails.lastUpdated')}</Text>
             <Text style={styles.valBold}>10 Oct 2026, 10:00</Text>
           </View>
         </View>
 
         {/* Handover Manifest Section */}
-        <Text style={styles.sectionTitle}>Handover manifest</Text>
+        <Text style={styles.sectionTitle}>{t('handoverDetails.section.manifest')}</Text>
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <Text style={styles.valManifestName}>Carrot · Grade 1</Text>
             <Text style={styles.valBold}>30 KG</Text>
           </View>
 
-          <View style={[styles.rowBetween, { marginTop: 10 }]}>
-            <Text style={styles.labelMuted}>Source collections</Text>
+          <View style={[styles.rowBetween, { marginTop: adminSpacing.sm }]}>
+            <Text style={styles.labelMuted}>{t('handoverDetails.sourceCollections')}</Text>
             <TouchableOpacity activeOpacity={0.7}>
               <Text style={styles.sourceCollectionLink}>COL-0006</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Timeline Section with Exact 5 Steps */}
-        <Text style={styles.sectionTitle}>Timeline</Text>
+        {/* Timeline Section */}
+        <Text style={styles.sectionTitle}>{t('handoverDetails.section.timeline')}</Text>
         <View style={styles.timelineContainer}>
           {/* Step 1: Handover prepared */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconCol}>
-              <ClipboardStepIcon size={22} color="#E27D60" />
+              <ClipboardStepIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Handover prepared</Text>
-              <Text style={styles.timelineDesc}>Prepared from 1 collection.</Text>
+              <Text style={styles.timelineTitle}>{t('handoverDetails.step.prepared.title')}</Text>
+              <Text style={styles.timelineDesc}>{t('handoverDetails.step.prepared.desc')}</Text>
               <Text style={styles.timelineMeta}>Suresh Kumar · 6 Oct 2026, 09:00</Text>
             </View>
           </View>
@@ -275,11 +247,11 @@ export function HandoverDetailsScreen({
           {/* Step 2: Marked ready for handover */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconCol}>
-              <SquareCheckStepIcon size={22} color="#E27D60" />
+              <SquareCheckStepIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Marked ready for handover</Text>
-              <Text style={styles.timelineDesc}>The manifest is ready.</Text>
+              <Text style={styles.timelineTitle}>{t('handoverDetails.step.ready.title')}</Text>
+              <Text style={styles.timelineDesc}>{t('handoverDetails.step.ready.desc')}</Text>
               <Text style={styles.timelineMeta}>Suresh Kumar · 6 Oct 2026, 09:20</Text>
             </View>
           </View>
@@ -287,11 +259,11 @@ export function HandoverDetailsScreen({
           {/* Step 3: Dispatch recorded */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconCol}>
-              <TruckStepIcon size={22} color="#E27D60" />
+              <TruckStepIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Dispatch recorded</Text>
-              <Text style={styles.timelineDesc}>Handed over for the Main Warehouse.</Text>
+              <Text style={styles.timelineTitle}>{t('handoverDetails.step.dispatch.title')}</Text>
+              <Text style={styles.timelineDesc}>{t('handoverDetails.step.dispatch.desc')}</Text>
               <Text style={styles.timelineMeta}>Suresh Kumar · 6 Oct 2026, 15:00</Text>
             </View>
           </View>
@@ -299,11 +271,11 @@ export function HandoverDetailsScreen({
           {/* Step 4: Main Warehouse acknowledgement recorded */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconCol}>
-              <OpenBoxStepIcon size={22} color="#E27D60" />
+              <OpenBoxStepIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Main Warehouse acknowledgement recorded</Text>
-              <Text style={styles.timelineDesc}>Received 30 KG.</Text>
+              <Text style={styles.timelineTitle}>{t('handoverDetails.step.acknowledgement.title')}</Text>
+              <Text style={styles.timelineDesc}>{t('handoverDetails.step.acknowledgement.desc')}</Text>
               <Text style={styles.timelineMeta}>Main Warehouse · 10 Oct 2026, 10:00</Text>
             </View>
           </View>
@@ -311,53 +283,53 @@ export function HandoverDetailsScreen({
           {/* Step 5: Handover completed */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconCol}>
-              <CircleCheckStepIcon size={22} color="#E27D60" />
+              <CircleCheckStepIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Handover completed</Text>
-              <Text style={styles.timelineDesc}>Received in full.</Text>
+              <Text style={styles.timelineTitle}>{t('handoverDetails.step.completed.title')}</Text>
+              <Text style={styles.timelineDesc}>{t('handoverDetails.step.completed.desc')}</Text>
               <Text style={styles.timelineMeta}>System · 10 Oct 2026, 10:00</Text>
             </View>
           </View>
         </View>
 
         {/* Main Warehouse Acknowledgement Section */}
-        <Text style={styles.sectionTitle}>Main Warehouse acknowledgement</Text>
+        <Text style={styles.sectionTitle}>{t('handoverDetails.section.acknowledgement')}</Text>
         <View style={styles.card}>
           <View style={styles.rowTwoCol}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Receiving reference</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.receivingReference')}</Text>
               <Text style={styles.valBold}>MWA-RCV-0010</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Received date</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.receivedDate')}</Text>
               <Text style={styles.valBold}>10 Oct 2026</Text>
             </View>
           </View>
 
-          <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+          <View style={[styles.rowTwoCol, { marginTop: adminSpacing.md }]}>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Received quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.receivedQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
             <View style={styles.colHalf}>
-              <Text style={styles.labelMuted}>Accepted quantity</Text>
+              <Text style={styles.labelMuted}>{t('handoverDetails.acceptedQuantity')}</Text>
               <Text style={styles.valBold}>30 KG</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.labelMuted}>Outcome</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.labelMuted}>{t('handoverDetails.outcome')}</Text>
             <Text style={styles.valBold}>Accepted</Text>
           </View>
         </View>
 
         <Text style={styles.subCardNote}>
-          Recorded by the Main Warehouse receiving workflow.
+          {t('handoverDetails.subCardNote')}
         </Text>
 
-        {/* Actions Section — ONLY View Receiving Result and View History (View Manifest & View Source Collections removed) */}
-        <Text style={styles.sectionTitle}>Actions</Text>
+        {/* Actions Section */}
+        <Text style={styles.sectionTitle}>{t('handoverDetails.section.actions')}</Text>
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionBtnOutline}
@@ -369,9 +341,9 @@ export function HandoverDetailsScreen({
               }
             }}
             activeOpacity={0.8}
-            accessibilityLabel="View Receiving Result"
+            accessibilityLabel={t('handoverDetails.action.viewReceivingResult')}
           >
-            <Text style={styles.actionBtnText}>View Receiving Result</Text>
+            <Text style={styles.actionBtnText}>{t('handoverDetails.action.viewReceivingResult')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -384,35 +356,33 @@ export function HandoverDetailsScreen({
               }
             }}
             activeOpacity={0.8}
-            accessibilityLabel="View History"
+            accessibilityLabel={t('handoverDetails.action.viewHistory')}
           >
-            <Text style={styles.actionBtnText}>View History</Text>
+            <Text style={styles.actionBtnText}>{t('handoverDetails.action.viewHistory')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 48 }} />
+        <View style={{ height: adminSpacing.xxl ?? 48 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 1 & 2 Exactly ────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -421,40 +391,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.92)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 44,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 22,
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   rowTwoCol: {
     flexDirection: 'row',
@@ -469,41 +438,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   labelMuted: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   valTitleBold: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.title,
+    color: adminColors.ink,
   },
   valBold: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   valManifestName: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   sourceCollectionLink: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.orangeLink,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
     textDecorationLine: 'underline',
   },
 
   // Timeline
   timelineContainer: {
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xs,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   timelineIconCol: {
     width: 32,
@@ -512,56 +478,52 @@ const styles = StyleSheet.create({
   },
   timelineContent: {
     flex: 1,
-    paddingLeft: 4,
+    paddingLeft: adminSpacing.xs,
   },
   timelineTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
-    lineHeight: 18,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   timelineDesc: {
-    fontSize: 12.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     marginTop: 2,
-    lineHeight: 17,
   },
   timelineMeta: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
   // Sub card note
   subCardNote: {
-    fontSize: 12,
-    color: THEME.muted,
-    marginTop: 8,
-    marginBottom: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.xs,
   },
 
   // Actions
   actionsGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 14,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.md,
   },
   actionBtnOutline: {
     flex: 1,
     height: 48,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBorder,
-    borderRadius: 14,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: adminSpacing.xs,
   },
   actionBtnText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.orangeText,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
     textAlign: 'center',
   },
 
@@ -569,18 +531,17 @@ const styles = StyleSheet.create({
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: THEME.noticeBg,
-    borderRadius: 14,
+    backgroundColor: adminColors.brandTintWarm,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.noticeBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     marginTop: 2,
   },
   noticeText: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 12.5,
-    color: '#6B7280',
-    lineHeight: 18,
+    color: adminColors.muted,
   },
 });

@@ -10,32 +10,13 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Accent & Action
-  orangeIcon: adminColors.brand,
-  amberMetric: adminColors.warning.text,
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Exact Google Material Symbols ───────────────────────────────────────────
 
 // 1. Eco Leaf Icon (Header Left) — Exact Material Symbols eco
-function LeafIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function LeafIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -47,7 +28,7 @@ function LeafIcon({ size = 22, color = THEME.white }: { size?: number; color?: s
 }
 
 // 2. Bell Notification Icon (Header Right)
-function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
+function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -62,7 +43,7 @@ function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: s
 }
 
 // 3. Back Arrow Icon
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -77,7 +58,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 }
 
 // 4. Box / Package Icon (Approved Inputs) — Exact Material Symbols inventory_2
-function PackageBoxIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function PackageBoxIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -89,7 +70,7 @@ function PackageBoxIcon({ size = 24, color = THEME.orangeIcon }: { size?: number
 }
 
 // 5. Bug / Beetle Icon (Pest Library & Recent Activity) — Exact Material Symbols pest_control
-function BugIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function BugIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -101,7 +82,7 @@ function BugIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color
 }
 
 // 6. Open Book Icon (Application Guides) — Exact Material Symbols menu_book
-function BookIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function BookIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -113,7 +94,7 @@ function BookIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; colo
 }
 
 // 7. Warning Triangle Icon (Pest Incidents) — Exact Material Symbols warning
-function WarningTriangleIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -123,8 +104,6 @@ function WarningTriangleIcon({ size = 24, color = THEME.orangeIcon }: { size?: n
     </Svg>
   );
 }
-
-// ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface InputsPestHomeScreenProps {
   onBack: () => void;
@@ -147,9 +126,9 @@ export function InputsPestHomeScreen({
 }: InputsPestHomeScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 1 Exactly ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -157,26 +136,28 @@ export function InputsPestHomeScreen({
               style={styles.backBtn}
               onPress={onBack}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('inputsPestHome.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
-            <LeafIcon size={22} color={THEME.white} />
-            <Text style={styles.headerTitle}>Inputs & Pest</Text>
+            <LeafIcon size={22} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('inputsPestHome.title')}</Text>
           </View>
 
           <TouchableOpacity
             style={styles.notificationBtn}
             onPress={onOpenNotifications}
             activeOpacity={0.8}
-            accessibilityLabel="Notifications"
+            accessibilityLabel={t('inputsPestHome.notificationsLabel')}
           >
-            <BellIcon size={19} color={THEME.white} />
+            <BellIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.headerSubtitle, { paddingLeft: 34 }]}>Inputs & Pest Management</Text>
+        <Text style={[styles.headerSubtitle, { paddingLeft: 34 }]}>
+          {t('inputsPestHome.subtitle')}
+        </Text>
       </View>
 
       {/* ─── Scroll Body ─── */}
@@ -190,12 +171,12 @@ export function InputsPestHomeScreen({
           {/* Row 1 */}
           <View style={styles.kpiRow}>
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>APPROVED INPUTS</Text>
+              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.approvedInputs')}</Text>
               <Text style={styles.kpiValueDark}>48</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>INPUT CATEGORIES</Text>
+              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.inputCategories')}</Text>
               <Text style={styles.kpiValueDark}>8</Text>
             </View>
           </View>
@@ -203,19 +184,19 @@ export function InputsPestHomeScreen({
           {/* Row 2 */}
           <View style={styles.kpiRow}>
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PEST LIBRARY</Text>
+              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestLibrary')}</Text>
               <Text style={styles.kpiValueDark}>32</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>FARMER PEST INCIDENTS</Text>
-              <Text style={[styles.kpiValueDark, { color: THEME.amberMetric }]}>12</Text>
+              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestIncidents')}</Text>
+              <Text style={[styles.kpiValueDark, { color: adminColors.warning.text }]}>12</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── Section: Quick Actions (Screenshot 1) ─── */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        {/* ─── Section: Quick Actions ─── */}
+        <Text style={styles.sectionHeading}>{t('inputsPestHome.section.quickActions')}</Text>
 
         <View style={styles.quickGrid}>
           {/* Row 1 */}
@@ -225,8 +206,8 @@ export function InputsPestHomeScreen({
               onPress={onNavigateApprovedInputs}
               activeOpacity={0.8}
             >
-              <PackageBoxIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Approved Inputs</Text>
+              <PackageBoxIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.approvedInputs')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -234,8 +215,8 @@ export function InputsPestHomeScreen({
               onPress={onNavigatePestLibrary}
               activeOpacity={0.8}
             >
-              <BugIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Pest Library</Text>
+              <BugIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.pestLibrary')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -246,8 +227,8 @@ export function InputsPestHomeScreen({
               onPress={onNavigateApplicationGuides ?? onNavigateApprovedInputs}
               activeOpacity={0.8}
             >
-              <BookIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Application Guides</Text>
+              <BookIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.applicationGuides')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -255,14 +236,14 @@ export function InputsPestHomeScreen({
               onPress={onNavigatePestIncidents ?? onNavigatePestLibrary}
               activeOpacity={0.8}
             >
-              <WarningTriangleIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Pest Incidents</Text>
+              <WarningTriangleIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.pestIncidents')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ─── Section: Recent Farmer Pest Activity (Screenshot 1) ─── */}
-        <Text style={styles.sectionHeading}>Recent Farmer Pest Activity</Text>
+        {/* ─── Section: Recent Farmer Pest Activity ─── */}
+        <Text style={styles.sectionHeading}>{t('inputsPestHome.section.recentActivity')}</Text>
 
         <TouchableOpacity
           style={styles.recentIncidentCard}
@@ -274,7 +255,7 @@ export function InputsPestHomeScreen({
 
           <View style={styles.recentContent}>
             <View style={styles.recentTitleRow}>
-              <BugIcon size={20} color={THEME.orangeIcon} />
+              <BugIcon size={20} color={adminColors.brand} />
               <Text style={styles.recentOrderTitle}>Pest Incident #PEST-00421</Text>
             </View>
 
@@ -284,23 +265,21 @@ export function InputsPestHomeScreen({
           </View>
         </TouchableOpacity>
 
-        <View style={{ height: 28 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -316,21 +295,19 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    paddingRight: 4,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     ...adminType.title,
-    fontSize: 24,
-    color: THEME.white,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
     ...adminType.rowMeta,
-    fontSize: 13,
-    color: THEME.white,
+    color: adminColors.onBrand,
     opacity: 0.9,
     marginTop: 6,
     fontWeight: '500',
@@ -338,8 +315,8 @@ const styles = StyleSheet.create({
   notificationBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -365,36 +342,33 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: 14,
+    paddingVertical: adminSpacing.md,
     justifyContent: 'center',
     ...adminShadow.sm,
   },
   kpiLabel: {
     ...adminType.caption,
-    fontSize: 11,
-    color: THEME.muted,
+    color: adminColors.muted,
     letterSpacing: 0.2,
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   kpiValueDark: {
     ...adminType.kpiValue,
-    fontSize: 24,
-    color: THEME.ink,
+    color: adminColors.ink,
     letterSpacing: -0.5,
   },
 
   // Section Heading
   sectionHeading: {
     ...adminType.sectionHead,
-    fontSize: 15,
-    color: THEME.titleRustDark,
+    color: adminColors.rustDeep,
     marginBottom: adminSpacing.md,
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
   },
 
   // Quick Actions 2x2 Grid
@@ -408,30 +382,29 @@ const styles = StyleSheet.create({
   },
   quickCard: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 20,
     paddingHorizontal: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: adminSpacing.xs,
     ...adminShadow.sm,
   },
   quickCardLabel: {
     ...adminType.rowTitle,
-    fontSize: 13,
-    color: THEME.ink,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
   // Recent Farmer Pest Activity Card
   recentIncidentCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     overflow: 'hidden',
     flexDirection: 'row',
     marginBottom: adminSpacing.sm,
@@ -439,7 +412,7 @@ const styles = StyleSheet.create({
   },
   recentAccentBar: {
     width: 4,
-    backgroundColor: THEME.orangeIcon,
+    backgroundColor: adminColors.brand,
   },
   recentContent: {
     flex: 1,
@@ -448,19 +421,16 @@ const styles = StyleSheet.create({
   recentTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.xs,
     marginBottom: 6,
   },
   recentOrderTitle: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   recentSubline: {
     ...adminType.rowMeta,
-    fontSize: 12,
-    color: THEME.muted,
+    color: adminColors.muted,
     lineHeight: 17,
   },
 });
-
