@@ -12,30 +12,11 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Actions
-  orangeBtn: adminColors.brand,
-};
+import { t } from '../../i18n';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,21 +30,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Sliders / Tune Filter Icon (Exact Material Symbols tune)
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#78716C' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -72,7 +52,7 @@ function SearchIcon({ size = 18, color = '#78716C' }: { size?: number; color?: s
   );
 }
 
-function CircleInfoIcon({ size = 18, color = '#9C4A1A' }: { size?: number; color?: string }) {
+function CircleInfoIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -130,9 +110,9 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
-  itemName?: string;
-  category?: string;
-  currentPrice?: number;
+  itemName?: string | undefined;
+  category?: string | undefined;
+  currentPrice?: number | undefined;
 }
 
 export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }: PriceHistoryScreenProps) {
@@ -140,7 +120,6 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PriceHistoryRecord | null>(null);
 
-  // Filter States (Screenshot 3 Left)
   const [selectedCrop, setSelectedCrop] = useState<'All' | 'Carrot' | 'Cabbage'>('All');
   const [selectedDateRange, setSelectedDateRange] = useState<'Today' | 'Last 7 Days' | 'Custom'>('Today');
 
@@ -167,9 +146,9 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 2, 3 Left & Image 1 Detail ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -177,14 +156,13 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
               style={styles.backBtn}
               onPress={handleHeaderBack}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('priceHistory.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Price History</Text>
+            <Text style={styles.headerTitle}>{t('priceHistory.title')}</Text>
           </View>
 
-          {/* Top Right Circular Filter Button */}
           <TouchableOpacity
             style={[styles.filterIconCircle, showFilters && styles.filterIconCircleActive]}
             onPress={() => {
@@ -194,40 +172,49 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
               setShowFilters(!showFilters);
             }}
             activeOpacity={0.8}
-            accessibilityLabel="Toggle filters"
+            accessibilityLabel={t('priceHistory.filters.title')}
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
+
+        {!selectedRecord && !showFilters && (
+          <View style={styles.searchBarWrap}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('priceHistory.searchPlaceholder')}
+              placeholderTextColor={adminColors.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        )}
       </View>
 
       {/* ─── Main Content ─── */}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {showFilters ? (
-          /* ─── Filter Panel (Screenshot 3 Left) ─── */
+        {/* VIEW 1: Filter Panel */}
+        {showFilters && (
           <View style={styles.filtersContainer}>
-            <View style={styles.filtersHeaderRow}>
-              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
-              <Text style={styles.filtersHeading}>Filters</Text>
-            </View>
+            <Text style={styles.filtersHeading}>{t('priceHistory.filters.title')}</Text>
 
-            {/* Sub-section: Crop */}
-            <Text style={styles.filterGroupLabel}>Crop</Text>
+            <Text style={styles.filterGroupLabel}>{t('priceHistory.filters.crop')}</Text>
             <View style={styles.chipsRow}>
               {(['All', 'Carrot', 'Cabbage'] as const).map((crop) => {
-                const isSelected = selectedCrop === crop;
+                const isActive = selectedCrop === crop;
                 return (
                   <TouchableOpacity
                     key={crop}
-                    style={[styles.chip, isSelected && styles.chipActive]}
+                    style={[styles.chip, isActive && styles.chipActive]}
                     onPress={() => setSelectedCrop(crop)}
-                    activeOpacity={0.8}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
                       {crop}
                     </Text>
                   </TouchableOpacity>
@@ -235,176 +222,164 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
               })}
             </View>
 
-            {/* Sub-section: Date Range */}
-            <Text style={[styles.filterGroupLabel, { marginTop: adminSpacing.md }]}>
-              Date Range
+            <Text style={[styles.filterGroupLabel, styles.filterGroupSpacing]}>
+              {t('priceHistory.filters.dateRange')}
             </Text>
             <View style={styles.chipsRow}>
-              {(['Today', 'Last 7 Days', 'Custom'] as const).map((range) => {
-                const isSelected = selectedDateRange === range;
+              {(['Today', 'Last 7 Days', 'Custom'] as const).map((dr) => {
+                const isActive = selectedDateRange === dr;
                 return (
                   <TouchableOpacity
-                    key={range}
-                    style={[styles.chip, isSelected && styles.chipActive]}
-                    onPress={() => setSelectedDateRange(range)}
-                    activeOpacity={0.8}
+                    key={dr}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                    onPress={() => setSelectedDateRange(dr)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                      {range}
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {dr}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Buttons: Apply & Clear */}
             <View style={styles.filterButtonsRow}>
               <TouchableOpacity
                 style={styles.applyBtn}
-                onPress={() => {
-                  setSelectedRecord(null);
-                  setShowFilters(false);
-                }}
+                onPress={() => setShowFilters(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.applyBtnText}>Apply</Text>
+                <Text style={styles.applyBtnText}>{t('priceHistory.filters.apply')}</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.clearBtn}
                 onPress={() => {
                   setSelectedCrop('All');
                   setSelectedDateRange('Today');
-                  setSelectedRecord(null);
-                  setShowFilters(false);
+                  setSearchQuery('');
                 }}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.clearBtnText}>{t('priceHistory.filters.clearAll')}</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : selectedRecord ? (
-          /* ─── Price History Detail View (Image 1 Request) ─── */
-          <>
+        )}
+
+        {/* VIEW 2: Detail View */}
+        {!showFilters && selectedRecord && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('priceHistory.section.detail')}</Text>
+
             <View style={styles.detailCard}>
-              {/* Row 1: Crop & Grade */}
-              <View style={styles.detailGridRow}>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Crop</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.crop}</Text>
-                </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Grade</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.grade}</Text>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cropTitleText}>{selectedRecord.cropGrade}</Text>
+                <View style={styles.datePill}>
+                  <Text style={styles.datePillText}>{selectedRecord.datePill}</Text>
                 </View>
               </View>
 
-              {/* Row 2: Previous Price & New Price */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={styles.detailGridRow}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Previous Price</Text>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.previousPrice')}</Text>
                   <Text style={styles.detailValue}>{selectedRecord.previousPrice}</Text>
                 </View>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>New Price</Text>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.newPrice')}</Text>
                   <Text style={styles.detailValue}>{selectedRecord.newPrice}</Text>
                 </View>
               </View>
 
-              {/* Row 3: Frequency & Effective Date */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Frequency</Text>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.frequency')}</Text>
                   <Text style={styles.detailValue}>{selectedRecord.frequency}</Text>
                 </View>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Effective Date</Text>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.effectiveDate')}</Text>
                   <Text style={styles.detailValue}>{selectedRecord.effectiveDate}</Text>
                 </View>
               </View>
 
-              {/* Row 4: Created & Actor */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Created</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.created}</Text>
-                </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Actor</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.actor}</Text>
-                </View>
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>{t('priceHistory.label.created')}</Text>
+                <Text style={styles.detailValue}>{selectedRecord.created}</Text>
+              </View>
+
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>{t('priceHistory.label.actor')}</Text>
+                <Text style={styles.detailValue}>{selectedRecord.actor}</Text>
               </View>
             </View>
 
-            {/* Button: Back to History */}
             <TouchableOpacity
               style={styles.backToHistoryBtn}
               onPress={() => setSelectedRecord(null)}
               activeOpacity={0.8}
             >
-              <Text style={styles.backToHistoryBtnText}>Back to History</Text>
+              <Text style={styles.backToHistoryBtnText}>{t('priceHistory.action.backToHistory')}</Text>
             </TouchableOpacity>
-          </>
-        ) : (
-          /* ─── Normal View with Search & Price History Cards (Screenshot 2) ─── */
-          <>
-            {/* Search Bar */}
-            <View style={styles.searchBar}>
-              <SearchIcon size={18} color={THEME.labelMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Crop, product, category"
-                placeholderTextColor={THEME.labelMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-
-            {/* Price History Cards (Clicking opens Detail View Image 1) */}
-            {filteredHistory.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.priceCard}
-                onPress={() => setSelectedRecord(item)}
-                activeOpacity={0.85}
-              >
-                {/* Header Row */}
-                <View style={styles.priceCardHeader}>
-                  <Text style={styles.priceCropTitle}>{item.cropGrade}</Text>
-                  <View style={styles.datePill}>
-                    <Text style={styles.datePillText}>{item.datePill}</Text>
-                  </View>
-                </View>
-
-                {/* 3 Columns Row */}
-                <View style={styles.priceColsRow}>
-                  <View style={styles.priceCol}>
-                    <Text style={styles.colLabel}>Previous</Text>
-                    <Text style={styles.colValue}>{item.previousPrice.replace('/kg', '')}</Text>
-                  </View>
-                  <View style={styles.priceCol}>
-                    <Text style={styles.colLabel}>New</Text>
-                    <Text style={styles.colValue}>{item.newPrice.replace('/kg', '')}</Text>
-                  </View>
-                  <View style={styles.priceCol}>
-                    <Text style={styles.colLabel}>Frequency</Text>
-                    <Text style={styles.colValue}>{item.frequency}</Text>
-                  </View>
-                </View>
-
-                {/* Subline Row */}
-                <View style={styles.effectiveRow}>
-                  <Text style={styles.effectiveLabel}>Effective</Text>
-                  <Text style={styles.effectiveValue}>{item.datePill}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-          </>
+          </View>
         )}
 
-        <View style={{ height: 40 }} />
+        {/* VIEW 3: List View */}
+        {!showFilters && !selectedRecord && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('priceHistory.section.history')}</Text>
+
+            {filteredHistory.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>{t('priceHistory.empty')}</Text>
+              </View>
+            ) : (
+              filteredHistory.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.historyCard}
+                  onPress={() => setSelectedRecord(item)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cropTitleText}>{item.cropGrade}</Text>
+                    <View style={styles.datePill}>
+                      <Text style={styles.datePillText}>{item.datePill}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.historyColsRow}>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.previousPrice')}</Text>
+                      <Text style={styles.colValue}>{item.previousPrice}</Text>
+                    </View>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.newPrice')}</Text>
+                      <Text style={styles.colValue}>{item.newPrice}</Text>
+                    </View>
+                    <View style={styles.historyCol}>
+                      <Text style={styles.colLabel}>{t('priceHistory.label.frequency')}</Text>
+                      <Text style={styles.colValue}>{item.frequency}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.effectiveRow}>
+                    <Text style={styles.effectiveLabel}>{t('priceHistory.label.effectiveDate')}</Text>
+                    <Text style={styles.effectiveValue}>{item.effectiveDate}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {/* Info Notice Banner */}
+            <View style={styles.infoBanner}>
+              <CircleInfoIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.infoBannerText}>
+                {t('priceHistory.infoBanner')}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -415,15 +390,13 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Header
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -433,175 +406,156 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
+    gap: adminSpacing.xs,
   },
   backBtn: {
-    paddingVertical: 4,
-    paddingRight: 4,
-    justifyContent: 'center',
+    width: 36,
+    height: 36,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: THEME.white,
-    letterSpacing: -0.3,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   filterIconCircle: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterIconCircleActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.38)',
+    backgroundColor: adminColors.brandDeep,
   },
-
-  // Scroll Body
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.lg,
-    paddingBottom: adminSpacing.xl,
-  },
-
-  // Search Bar (Screenshot 2)
-  searchBar: {
+  searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     paddingHorizontal: adminSpacing.md,
-    height: 48,
-    marginBottom: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
     gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
-    paddingVertical: 0,
+    ...adminType.body,
+    color: adminColors.ink,
+    padding: 0,
   },
-
-  // Price History Card (Screenshot 2)
-  priceCard: {
-    backgroundColor: THEME.card,
+  scroll: {
+    flex: 1,
+  },
+  scrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
+  },
+  sectionHeading: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  emptyContainer: {
+    paddingVertical: 50,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  historyCard: {
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: adminSpacing.md,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     marginBottom: adminSpacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
-  priceCardHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
   },
-  priceCropTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: THEME.ink,
+  cropTitleText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   datePill: {
-    backgroundColor: '#F3ECE4',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
   datePillText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.labelMuted,
+    color: adminColors.brandDeep,
   },
-
-  // 3 Columns Row
-  priceColsRow: {
+  historyColsRow: {
     flexDirection: 'row',
-    marginTop: adminSpacing.md,
-    gap: adminSpacing.md,
+    justifyContent: 'space-between',
   },
-  priceCol: {
+  historyCol: {
     flex: 1,
   },
   colLabel: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   colValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: THEME.ink,
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // Effective Row
   effectiveRow: {
     marginTop: adminSpacing.md,
   },
   effectiveLabel: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   effectiveValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.ink,
-    marginTop: 2,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // Info Notice Card (Screenshot 2 Bottom)
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
     gap: adminSpacing.sm,
   },
   infoBannerText: {
     flex: 1,
-    ...adminType.rowMeta,
-    fontSize: 12,
-    color: THEME.titleRustDark,
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
-
-  // Filters Panel (Screenshot 3 Left)
   filtersContainer: {
     paddingTop: adminSpacing.xs,
   },
-  filtersHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    marginBottom: adminSpacing.md,
-  },
   filtersHeading: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   filterGroupLabel: {
     ...adminType.caption,
-    fontSize: 13,
-    color: THEME.ink,
+    fontWeight: '700',
+    color: adminColors.ink,
     marginBottom: adminSpacing.xs,
+  },
+  filterGroupSpacing: {
+    marginTop: adminSpacing.md,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -609,29 +563,25 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   chip: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     borderRadius: adminRadius.sm,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   chipActive: {
-    backgroundColor: THEME.headerBg,
-    borderColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chipText: {
     ...adminType.body,
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
-
-  // Apply & Clear Buttons
   filterButtonsRow: {
     flexDirection: 'row',
     gap: adminSpacing.md,
@@ -640,7 +590,7 @@ const styles = StyleSheet.create({
   applyBtn: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
@@ -649,14 +599,13 @@ const styles = StyleSheet.create({
   },
   applyBtnText: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.canvas,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     height: 44,
     alignItems: 'center',
@@ -664,16 +613,14 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     ...adminType.caption,
-    fontSize: 14,
-    color: THEME.labelMuted,
+    fontWeight: '700',
+    color: adminColors.muted,
   },
-
-  // Price History Detail Screen (Image 1 Request)
   detailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
@@ -682,32 +629,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  gridRowSpacing: {
+    marginTop: adminSpacing.md,
+  },
   detailCol: {
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   detailValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: THEME.ink,
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
   backToHistoryBtn: {
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    backgroundColor: '#FFF8F5',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   backToHistoryBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

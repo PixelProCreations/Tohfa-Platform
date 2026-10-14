@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
+import { t } from '../../i18n';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
 import { FarmerProduceTabScreen } from './FarmerProduceTabScreen';
@@ -52,54 +53,11 @@ import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 
 // ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
-// References:
-// - apps/mobile/src/roles/admin/theme/index.ts
-// - packages/design-tokens/src/tokens.json (admin palette)
-const THEME = {
-  // Brand & Header
-  brand: adminColors.brand, // #F0562A — Theme Primary Brand Orange
-  brandHeader: adminColors.brand, // Matches Purchases screen & theme primary
-  brandDeep: adminColors.brandDeep, // #7A2E14 — Headings & section titles
-  brandTint: adminColors.brandTint, // #FDF3F0 — Soft peach accent
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  white: '#FFFFFF',
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Crisp card background
-  border: adminColors.border, // #EEDCD3 — Card & input borders
-  borderLight: '#F3ECE4',
-
-  // Neutrals (Typography)
-  ink: adminColors.ink, // #1A1A1A / #1F2937 — Primary text
-  muted: adminColors.muted, // #5F5E5A / #6B7280 — Secondary text & subtitles
-  labelMuted: '#78716C', // Caption & timestamp gray
-
-  // Active Role Card
-  roleCardBg: '#FFF6F1',
-  roleCardBorder: '#F9DCD1',
-  roleBtnBorder: adminColors.brand,
-
-  // Semantic Status Tokens
-  amberText: '#B45309', // Warning text
-  amberIcon: '#D97706', // Warning icon
-  redText: '#DC2626', // Danger text
-  redIcon: '#E11D48', // Dispute red
-  blueText: '#2563EB', // Info / link blue
-  greenText: '#15803D', // Success green
-  greenBg: '#EAF7EE', // Success badge background
-
-  // Tab Bar
-  tabInactive: adminColors.muted, // #5F5E5A
-  tabActive: adminColors.brand, // Active brand primary orange (#F0562A)
-  tabBorder: adminColors.border, // #EEDCD3
-};
-
 export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
 
 // ─── SVG Icons Matching Exact Design Mockup ──────────────────────────────────
 
-function ShieldHeaderIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function ShieldHeaderIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -113,7 +71,7 @@ function ShieldHeaderIcon({ size = 20, color = THEME.white }: { size?: number; c
   );
 }
 
-function ShieldBoxIcon({ size = 18, color = THEME.white }: { size?: number; color?: string }) {
+function ShieldBoxIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -124,7 +82,7 @@ function ShieldBoxIcon({ size = 18, color = THEME.white }: { size?: number; colo
   );
 }
 
-function BellHeaderIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
+function BellHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -138,7 +96,7 @@ function BellHeaderIcon({ size = 19, color = THEME.white }: { size?: number; col
   );
 }
 
-function ProfileHeaderIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function ProfileHeaderIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -153,7 +111,7 @@ function ProfileHeaderIcon({ size = 20, color = THEME.white }: { size?: number; 
   );
 }
 
-function SwitchArrowsIcon({ size = 14, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function SwitchArrowsIcon({ size = 14, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Top arrow points RIGHT */}
@@ -178,15 +136,15 @@ function SwitchArrowsIcon({ size = 14, color = THEME.brandHeader }: { size?: num
 
 function TomatoProduceIcon({
   size = 22,
-  color = THEME.brandHeader,
+  color = adminColors.brand,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase() || color?.toLowerCase() === 'white';
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -208,7 +166,7 @@ function TomatoProduceIcon({
   );
 }
 
-function OpposingArrowsIcon({ size = 18, color = THEME.blueText }: { size?: number; color?: string }) {
+function OpposingArrowsIcon({ size = 18, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Top arrow points RIGHT */}
@@ -232,7 +190,7 @@ function OpposingArrowsIcon({ size = 18, color = THEME.blueText }: { size?: numb
 }
 
 // Calendar Icon with 2x3 Grid of Date Dots (Image 1 Left Exact)
-function CalendarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: number; color?: string }) {
+function CalendarOutlineIcon({ size = 22, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
@@ -251,7 +209,7 @@ function CalendarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: nu
 }
 
 // Legal Balance Scale (Image 1 Left Exact)
-function ExactScalesIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function ExactScalesIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Center column & base */}
@@ -266,7 +224,7 @@ function ExactScalesIcon({ size = 24, color = THEME.brandHeader }: { size?: numb
   );
 }
 
-function CheckmarkCircleIcon({ size = 22, color = THEME.greenText }: { size?: number; color?: string }) {
+function CheckmarkCircleIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
@@ -275,7 +233,7 @@ function CheckmarkCircleIcon({ size = 22, color = THEME.greenText }: { size?: nu
   );
 }
 
-function ChevronDown({ size = 18, color = THEME.labelMuted }: { size?: number; color?: string }) {
+function ChevronDown({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -283,7 +241,7 @@ function ChevronDown({ size = 18, color = THEME.labelMuted }: { size?: number; c
   );
 }
 
-function ChevronUp({ size = 18, color = THEME.labelMuted }: { size?: number; color?: string }) {
+function ChevronUp({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -293,7 +251,7 @@ function ChevronUp({ size = 18, color = THEME.labelMuted }: { size?: number; col
 
 // ─── Quick Actions SVG Icons (Image 1 Left Exact) ─────────────────────────────
 
-function ClipboardChecklistIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function ClipboardChecklistIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Board with rounded corners */}
@@ -313,7 +271,7 @@ function ClipboardChecklistIcon({ size = 24, color = THEME.brandHeader }: { size
   );
 }
 
-function PeopleGroupIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function PeopleGroupIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Center Person: Head & Shoulders (Image 1 Left) */}
@@ -344,7 +302,7 @@ function PeopleGroupIcon({ size = 24, color = THEME.brandHeader }: { size?: numb
   );
 }
 
-function SpeechBubbleIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function SpeechBubbleIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Front speech bubble */}
@@ -367,7 +325,7 @@ function SpeechBubbleIcon({ size = 24, color = THEME.brandHeader }: { size?: num
   );
 }
 
-function StarRatingsIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+function StarRatingsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Polygon
@@ -384,7 +342,7 @@ function StarRatingsIcon({ size = 24, color = THEME.brandHeader }: { size?: numb
 // ─── Bottom Tab Icons ────────────────────────────────────────────────────────
 
 function TabHomeIcon({ active }: { active: boolean }) {
-  const color = active ? THEME.tabActive : THEME.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
       <Path
@@ -399,23 +357,23 @@ function TabHomeIcon({ active }: { active: boolean }) {
 }
 
 function TabFarmersIcon({ active }: { active: boolean }) {
-  const color = active ? THEME.tabActive : THEME.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return <PeopleGroupIcon size={21} color={color} />;
 }
 
 function TabProduceIcon({ active }: { active: boolean }) {
-  const color = active ? THEME.tabActive : '#E0623B';
-  const leafColor = active ? '#5C6B63' : '#6B7972';
+  const color = active ? adminColors.brand : adminColors.muted;
+  const leafColor = active ? adminColors.brandDeep : adminColors.muted;
   return <TomatoProduceIcon size={21} color={color} leafColor={leafColor} />;
 }
 
 function TabAuditsIcon({ active }: { active: boolean }) {
-  const color = active ? THEME.tabActive : THEME.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return <CalendarOutlineIcon size={21} color={color} />;
 }
 
 function TabMoreIcon({ active }: { active: boolean }) {
-  const color = active ? THEME.tabActive : THEME.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
       {/* Exact 3x3 Grid of 9 Dots (Image 1 Left) */}
@@ -1050,15 +1008,15 @@ export function FarmerAdminDashboardScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.brandHeader} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, Produce, & Audits pages) ─── */}
       {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Produce' && activeTab !== 'Audits' && (
         <View style={styles.header}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleWrap}>
-              <ShieldHeaderIcon size={22} color={THEME.white} />
-              <Text style={styles.headerTitle}>Farmer Admin</Text>
+              <ShieldHeaderIcon size={22} color={adminColors.onBrand} />
+              <Text style={styles.headerTitle}>{t('farmerAdminDashboard.header.title')}</Text>
             </View>
 
             <View style={styles.headerActions}>
@@ -1068,7 +1026,7 @@ export function FarmerAdminDashboardScreen({
                 activeOpacity={0.8}
                 accessibilityLabel="Notifications"
               >
-                <BellHeaderIcon size={19} color={THEME.white} />
+                <BellHeaderIcon size={19} color={adminColors.onBrand} />
                 <View style={styles.headerNotificationDot} />
               </TouchableOpacity>
 
@@ -1078,12 +1036,12 @@ export function FarmerAdminDashboardScreen({
                 activeOpacity={0.8}
                 accessibilityLabel="Admin Profile"
               >
-                <ProfileHeaderIcon size={20} color={THEME.white} />
+                <ProfileHeaderIcon size={20} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
           </View>
 
-          <Text style={styles.headerSubtitle}>Farmer Community</Text>
+          <Text style={styles.headerSubtitle}>{t('farmerAdminDashboard.header.subtitle')}</Text>
         </View>
       )}
 
@@ -1105,11 +1063,11 @@ export function FarmerAdminDashboardScreen({
             <View style={styles.roleCard}>
               <View style={styles.roleLeftCol}>
                 <View style={styles.roleIconBadge}>
-                  <ShieldHeaderIcon size={20} color={THEME.white} />
+                  <ShieldHeaderIcon size={20} color={adminColors.onBrand} />
                 </View>
                 <View>
-                  <Text style={styles.roleLabel}>ACTIVE ROLE</Text>
-                  <Text style={styles.roleName}>Farmer Admin</Text>
+                  <Text style={styles.roleLabel}>{t('farmerAdminDashboard.role.active')}</Text>
+                  <Text style={styles.roleName}>{t('farmerAdminDashboard.role.name')}</Text>
                 </View>
               </View>
 
@@ -1123,8 +1081,8 @@ export function FarmerAdminDashboardScreen({
                 }
                 activeOpacity={0.8}
               >
-                <SwitchArrowsIcon size={14} color={THEME.brandHeader} />
-                <Text style={styles.switchRoleText}>Switch Role</Text>
+                <SwitchArrowsIcon size={14} color={adminColors.brand} />
+                <Text style={styles.switchRoleText}>{t('farmerAdminDashboard.role.switch')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1134,7 +1092,7 @@ export function FarmerAdminDashboardScreen({
               <View style={styles.kpiCard}>
                 <Text style={styles.kpiLabel}>PENDING LISTINGS</Text>
                 <Text style={styles.kpiValue}>24</Text>
-                <Text style={[styles.kpiSub, { color: THEME.amberText, fontWeight: '600' }]}>
+                <Text style={[styles.kpiSub, { color: adminColors.warning.text, fontWeight: '600' }]}>
                   12 require review
                 </Text>
               </View>
@@ -1156,8 +1114,8 @@ export function FarmerAdminDashboardScreen({
               {/* Tile 4: Open Disputes */}
               <View style={styles.kpiCard}>
                 <Text style={styles.kpiLabel}>OPEN DISPUTES</Text>
-                <Text style={[styles.kpiValue, { color: THEME.redText }]}>4</Text>
-                <Text style={[styles.kpiSub, { color: THEME.redText, fontWeight: '700' }]}>
+                <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>4</Text>
+                <Text style={[styles.kpiSub, { color: adminColors.danger.text, fontWeight: '700' }]}>
                   2 need attention
                 </Text>
               </View>
@@ -1223,7 +1181,7 @@ export function FarmerAdminDashboardScreen({
               <View style={styles.accentStripe} />
               <View style={styles.attentionHeaderRow}>
                 <View style={styles.attentionIconCircle}>
-                  <TomatoProduceIcon size={20} color={THEME.brandHeader} />
+                  <TomatoProduceIcon size={20} color={adminColors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Tomato — Grade 1</Text>
@@ -1243,7 +1201,7 @@ export function FarmerAdminDashboardScreen({
               <View style={styles.accentStripe} />
               <View style={styles.attentionHeaderRow}>
                 <View style={styles.attentionIconCircle}>
-                  <OpposingArrowsIcon size={18} color={THEME.blueText} />
+                  <OpposingArrowsIcon size={18} color={adminColors.info.text} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Counter Offer Response</Text>
@@ -1263,7 +1221,7 @@ export function FarmerAdminDashboardScreen({
               <View style={styles.accentStripe} />
               <View style={styles.attentionHeaderRow}>
                 <View style={styles.attentionIconCircle}>
-                  <CalendarOutlineIcon size={20} color={THEME.amberIcon} />
+                  <CalendarOutlineIcon size={20} color={adminColors.warning.text} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Upcoming Farm Audit</Text>
@@ -1283,7 +1241,7 @@ export function FarmerAdminDashboardScreen({
               <View style={styles.accentStripe} />
               <View style={styles.attentionHeaderRow}>
                 <View style={styles.attentionIconCircle}>
-                  <ExactScalesIcon size={20} color={THEME.redIcon} />
+                  <ExactScalesIcon size={20} color={adminColors.danger.text} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Farmer Dispute — DSP-00128</Text>
@@ -1415,7 +1373,7 @@ export function FarmerAdminDashboardScreen({
               onPress={() => setSubView('product_listings')}
               activeOpacity={0.8}
             >
-              <CheckmarkCircleIcon size={22} color={THEME.greenText} />
+              <CheckmarkCircleIcon size={22} color={adminColors.success.text} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.activityTitle}>Listing approved</Text>
                 <Text style={styles.activityMeta}>Tomato — Grade 1 · 10 min ago</Text>
@@ -1442,7 +1400,7 @@ export function FarmerAdminDashboardScreen({
                 onPress={() => setSubView('product_listings')}
                 activeOpacity={0.75}
               >
-                <ClipboardChecklistIcon size={24} color={THEME.brandHeader} />
+                <ClipboardChecklistIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Review Listings</Text>
               </TouchableOpacity>
 
@@ -1452,7 +1410,7 @@ export function FarmerAdminDashboardScreen({
                 onPress={() => setActiveTab('Farmers')}
                 activeOpacity={0.75}
               >
-                <PeopleGroupIcon size={24} color={THEME.brandHeader} />
+                <PeopleGroupIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>View Farmers</Text>
               </TouchableOpacity>
 
@@ -1466,7 +1424,7 @@ export function FarmerAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <CalendarOutlineIcon size={24} color={THEME.brandHeader} />
+                <CalendarOutlineIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Audit Calendar</Text>
               </TouchableOpacity>
 
@@ -1481,7 +1439,7 @@ export function FarmerAdminDashboardScreen({
                 }
                 activeOpacity={0.75}
               >
-                <ExactScalesIcon size={24} color={THEME.brandHeader} />
+                <ExactScalesIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Review Disputes</Text>
               </TouchableOpacity>
 
@@ -1496,7 +1454,7 @@ export function FarmerAdminDashboardScreen({
                 }
                 activeOpacity={0.75}
               >
-                <SpeechBubbleIcon size={24} color={THEME.brandHeader} />
+                <SpeechBubbleIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Community</Text>
               </TouchableOpacity>
 
@@ -1506,7 +1464,7 @@ export function FarmerAdminDashboardScreen({
                 onPress={() => setSubView('farmer_ratings')}
                 activeOpacity={0.85}
               >
-                <StarRatingsIcon size={24} color={THEME.brandHeader} />
+                <StarRatingsIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Ratings</Text>
               </TouchableOpacity>
             </View>
@@ -1696,12 +1654,12 @@ export function FarmerAdminDashboardScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.brandHeader,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 16,
@@ -1717,15 +1675,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: adminColors.onBrand,
     marginTop: 4,
   },
   headerActions: {
@@ -1737,7 +1694,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: THEME.headerPillBg,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1749,7 +1706,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#EF4444',
+    backgroundColor: adminColors.danger.text,
   },
 
   // ─── Body Scroll ───
@@ -1767,24 +1724,23 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   greetTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.brandDeep,
+    ...adminType.title,
+    color: adminColors.brandDeep,
     letterSpacing: -0.3,
   },
   greetSub: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 2,
     fontWeight: '400',
   },
 
   // ─── 2. Active Role Card ───
   roleCard: {
-    backgroundColor: THEME.roleCardBg,
+    backgroundColor: adminColors.brandTint,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.roleCardBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -1801,20 +1757,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: THEME.brandHeader,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   roleLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#8C5A47',
+    ...adminType.caption,
+    color: adminColors.rustDeep,
     letterSpacing: 0.5,
   },
   roleName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
     marginTop: 1,
   },
@@ -1822,17 +1776,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.onBrand,
     borderWidth: 1,
-    borderColor: THEME.roleBtnBorder,
+    borderColor: adminColors.brand,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   switchRoleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.brandHeader,
+    ...adminType.rowMeta,
+    color: adminColors.brand,
   },
 
   // ─── 3. 2x2 Static KPI Grid (No navigation redirects) ───
@@ -1845,30 +1798,28 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     width: '48.5%',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   kpiLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
   },
   kpiValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.5,
     marginTop: 4,
     marginBottom: 2,
   },
   kpiSub: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
 
@@ -1881,53 +1832,49 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.brandDeep,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
     letterSpacing: -0.2,
   },
   sectionSubMuted: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
     marginBottom: 10,
   },
   viewLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.brandHeader,
+    ...adminType.body,
+    color: adminColors.brand,
   },
 
   // ─── Handover History Cards ───
   historyCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 10,
   },
   historyCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   historyMeta: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
     lineHeight: 16,
   },
   historySubBold: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     marginTop: 4,
   },
   statusPillCompleted: {
     alignSelf: 'flex-start',
-    backgroundColor: THEME.greenBg,
+    backgroundColor: adminColors.success.bg,
     borderRadius: 10,
     paddingHorizontal: 9,
     paddingVertical: 3,
@@ -1935,23 +1882,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statusPillCompletedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.greenText,
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   cardActionLink: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: THEME.brandDeep,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
     marginTop: 4,
   },
 
   // ─── Needs Attention Cards with Curved Left Accent Stripe ───
   attentionCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 10,
     position: 'relative',
@@ -1963,7 +1908,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: 4.5,
-    backgroundColor: THEME.brandHeader,
+    backgroundColor: adminColors.brand,
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16,
   },
@@ -1980,29 +1925,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   attentionCardTitle: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   attentionCardMeta: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
     lineHeight: 16,
   },
   attentionActionLink: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: THEME.brandDeep,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
   },
 
   // ─── Accordion Farmer Cards ───
   accordionCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 12,
     marginBottom: 8,
   },
@@ -2015,30 +1959,28 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F5ECE3', // Warm cream circle
+    backgroundColor: adminColors.brandTintWarm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   initialsText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#78350F', // Dark warm brown initials
+    ...adminType.rowTitle,
+    color: adminColors.rustDeep,
   },
   farmerName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   farmerSub: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 1,
   },
   accordionContent: {
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3ECE4',
+    borderTopColor: adminColors.border,
     gap: 6,
   },
   accordionItemRow: {
@@ -2047,21 +1989,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   accordionCropName: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   accordionCropPrice: {
-    fontSize: 12,
-    color: THEME.ink,
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     fontWeight: '700',
   },
 
   // ─── Big Outline Buttons ───
   bigOutlineBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.onBrand,
     borderWidth: 1,
-    borderColor: THEME.brandHeader,
+    borderColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2069,17 +2011,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bigOutlineBtnText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandDeep,
+    color: adminColors.brandDeep,
   },
 
   // ─── Activity Card ───
   activityCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2087,13 +2029,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   activityTitle: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   activityMeta: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
@@ -2107,10 +2049,10 @@ const styles = StyleSheet.create({
   },
   quickCard: {
     width: '31.5%', // 3 columns
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 16,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -2118,61 +2060,54 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickCardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.caption,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
   // ─── Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    ...adminShadow.sm,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: THEME.brandDeep,
+    ...adminType.title,
+    color: adminColors.brandDeep,
     marginBottom: 8,
   },
   modalContent: {
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     lineHeight: 19,
     marginBottom: 18,
   },
   modalCloseBtn: {
-    backgroundColor: THEME.brandHeader,
+    backgroundColor: adminColors.brand,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   modalCloseText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.body,
+    color: adminColors.onBrand,
   },
 
   // ─── Bottom Tab Bar (5 Tabs) ───
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: THEME.tabBorder,
+    borderTopColor: adminColors.border,
     paddingVertical: 8,
     paddingHorizontal: 4,
     justifyContent: 'space-around',
@@ -2183,13 +2118,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: THEME.tabInactive,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2.5,
   },
   tabLabelActive: {
-    color: THEME.tabActive,
+    color: adminColors.brand,
     fontWeight: '800',
   },
 });

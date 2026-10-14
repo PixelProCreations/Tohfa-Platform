@@ -13,31 +13,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // #F0562A
-  white: adminColors.onBrand,
-  canvas: '#FAF8F5',
-  card: '#FFFFFF',
-  border: '#E5E7EB',
-  borderLight: '#F3ECE4',
-  ink: '#111827',
-  muted: '#6B7280',
-  brandOrange: adminColors.brand,
-  brandOrangeTint: '#FDF3F0',
-  badgeCompletedBg: '#EAF7EE',
-  badgeCompletedText: '#15803D',
-  badgeInProgressBg: '#FEF3E2',
-  badgeInProgressText: '#B45309',
-  badgeNotRatedBg: '#F3F4F6',
-  badgeNotRatedText: '#6B7280',
-};
+import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,7 +32,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function HeaderBellIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function HeaderBellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -65,7 +46,7 @@ function HeaderBellIcon({ size = 20, color = THEME.white }: { size?: number; col
   );
 }
 
-function InfoCircleIcon({ size = 18, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -75,7 +56,7 @@ function InfoCircleIcon({ size = 18, color = THEME.brandOrange }: { size?: numbe
   );
 }
 
-function StarActionIcon({ size = 24, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function StarActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -89,7 +70,7 @@ function StarActionIcon({ size = 24, color = THEME.brandOrange }: { size?: numbe
   );
 }
 
-function PendingRatingsIcon({ size = 24, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function PendingRatingsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="2.5" stroke={color} strokeWidth="2" />
@@ -99,7 +80,7 @@ function PendingRatingsIcon({ size = 24, color = THEME.brandOrange }: { size?: n
   );
 }
 
-function HistoryClockIcon({ size = 24, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -108,7 +89,7 @@ function HistoryClockIcon({ size = 24, color = THEME.brandOrange }: { size?: num
   );
 }
 
-function SearchFarmersIcon({ size = 20, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchFarmersIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -117,20 +98,20 @@ function SearchFarmersIcon({ size = 20, color = '#9CA3AF' }: { size?: number; co
   );
 }
 
-function FilterSlidersIcon({ size = 18, color = '#374151' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="8" cy="6" r="2" fill="#FFFFFF" stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="12" r="2" fill="#FFFFFF" stroke={color} strokeWidth="2" />
-      <Circle cx="10" cy="18" r="2" fill="#FFFFFF" stroke={color} strokeWidth="2" />
+      <Circle cx="8" cy="6" r="2" fill={adminColors.card} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="12" r="2" fill={adminColors.card} stroke={color} strokeWidth="2" />
+      <Circle cx="10" cy="18" r="2" fill={adminColors.card} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SortUpDownIcon({ size = 18, color = '#374151' }: { size?: number; color?: string }) {
+function SortUpDownIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M7 4v16M7 4l-3 3M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -138,7 +119,7 @@ function SortUpDownIcon({ size = 18, color = '#374151' }: { size?: number; color
   );
 }
 
-function ChevronDownIcon({ size = 16, color = '#4B5563' }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -146,7 +127,7 @@ function ChevronDownIcon({ size = 16, color = '#4B5563' }: { size?: number; colo
   );
 }
 
-function ChevronUpIcon({ size = 16, color = '#4B5563' }: { size?: number; color?: string }) {
+function ChevronUpIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m18 15-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -154,7 +135,7 @@ function ChevronUpIcon({ size = 16, color = '#4B5563' }: { size?: number; color?
   );
 }
 
-function CalendarInputIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function CalendarInputIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" />
@@ -165,7 +146,7 @@ function CalendarInputIcon({ size = 18, color = '#9CA3AF' }: { size?: number; co
   );
 }
 
-function PencilEditIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function PencilEditIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -179,7 +160,7 @@ function PencilEditIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
   );
 }
 
-function LockIcon({ size = 38, color = '#374151' }: { size?: number; color?: string }) {
+function LockIcon({ size = 38, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="10" width="16" height="11" rx="2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -626,7 +607,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'rating_record') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 5) ── */}
         <View style={styles.header}>
@@ -637,7 +618,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Rating Record</Text>
@@ -732,7 +713,7 @@ export function FarmerRatingsScreen({
 
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 3) ── */}
         <View style={styles.header}>
@@ -743,7 +724,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Rating History</Text>
@@ -780,7 +761,7 @@ export function FarmerRatingsScreen({
               <Text
                 style={[
                   styles.historyCardScore,
-                  idx === 0 ? { color: '#047857' } : { color: THEME.brandOrange },
+                  idx === 0 ? { color: adminColors.success.text } : { color: adminColors.brand },
                 ]}
               >
                 {item.score}/100
@@ -805,7 +786,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'review_rating') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 4) ── */}
         <View style={styles.header}>
@@ -816,7 +797,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Review Rating</Text>
@@ -918,7 +899,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'edit_rating') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 1) ── */}
         <View style={styles.header}>
@@ -929,7 +910,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Edit Farm Rating</Text>
@@ -964,9 +945,9 @@ export function FarmerRatingsScreen({
                       <Text style={styles.scorePillBadgeText}>{currentScore}/10</Text>
                     </View>
                     {isExpanded ? (
-                      <ChevronUpIcon size={16} color="#4B5563" />
+                      <ChevronUpIcon size={16} color={adminColors.muted} />
                     ) : (
-                      <ChevronDownIcon size={16} color="#4B5563" />
+                      <ChevronDownIcon size={16} color={adminColors.muted} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1010,7 +991,7 @@ export function FarmerRatingsScreen({
                     <TextInput
                       style={styles.editNotesInput}
                       placeholder="Notes (optional)"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={adminColors.muted}
                       multiline
                       numberOfLines={3}
                       value={categoryNotes[cat.name] || ''}
@@ -1045,7 +1026,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'permission') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header ── */}
         <View style={styles.header}>
@@ -1056,7 +1037,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Permission Required</Text>
@@ -1070,7 +1051,7 @@ export function FarmerRatingsScreen({
         {/* ── Content Box (Image from latest prompt) ── */}
         <View style={styles.canvasCenter}>
           <View style={styles.permissionCard}>
-            <LockIcon size={36} color="#374151" />
+            <LockIcon size={36} color={adminColors.ink} />
             <Text style={styles.permissionCardTitle}>Rating Edit Permission Required</Text>
             <Text style={styles.permissionCardDesc}>
               You can view this farmer&apos;s rating, but editing requires permission from the authorized admin. Submit a request to edit ratings for this farmer.
@@ -1111,7 +1092,7 @@ export function FarmerRatingsScreen({
 
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header ── */}
         <View style={styles.header}>
@@ -1122,7 +1103,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Farm Rating</Text>
@@ -1138,7 +1119,7 @@ export function FarmerRatingsScreen({
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 110 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Big Rating Hero Card: Admin Theme Orange (#F0562A) ── */}
+          {/* ── Big Rating Hero Card ── */}
           <TouchableOpacity
             style={styles.heroRatingCard}
             onPress={() => setCurrentView('history')}
@@ -1228,7 +1209,7 @@ export function FarmerRatingsScreen({
               onPress={() => setCurrentView('edit_rating')}
               activeOpacity={0.85}
             >
-              <PencilEditIcon size={18} color="#FFFFFF" />
+              <PencilEditIcon size={18} color={adminColors.onBrand} />
               <Text style={styles.detailBottomEditBtnText}>Edit Rating</Text>
             </TouchableOpacity>
           </View>
@@ -1243,7 +1224,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'filter') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header ── */}
         <View style={styles.header}>
@@ -1254,7 +1235,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Search & Filters</Text>
@@ -1276,7 +1257,7 @@ export function FarmerRatingsScreen({
             <TextInput
               style={styles.textInput}
               placeholder="Name, farmer ID or farm name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={adminColors.muted}
               value={filterSearch}
               onChangeText={setFilterSearch}
             />
@@ -1289,7 +1270,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.8}
             >
               <Text style={styles.dropdownValText}>{filterZone}</Text>
-              <ChevronDownIcon size={16} color="#111827" />
+              <ChevronDownIcon size={16} color={adminColors.ink} />
             </TouchableOpacity>
 
             {/* In-place Dropdown Menu for Zone */}
@@ -1333,7 +1314,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.8}
             >
               <Text style={styles.dropdownValText}>{filterStatus}</Text>
-              <ChevronDownIcon size={16} color="#111827" />
+              <ChevronDownIcon size={16} color={adminColors.ink} />
             </TouchableOpacity>
 
             {/* In-place Dropdown Menu for Rating status */}
@@ -1403,11 +1384,11 @@ export function FarmerRatingsScreen({
                   <TextInput
                     style={styles.dateInput}
                     placeholder="dd-mm-yyyy"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     value={filterDateFrom}
                     onChangeText={setFilterDateFrom}
                   />
-                  <CalendarInputIcon size={18} color="#9CA3AF" />
+                  <CalendarInputIcon size={18} color={adminColors.muted} />
                 </View>
               </View>
 
@@ -1417,11 +1398,11 @@ export function FarmerRatingsScreen({
                   <TextInput
                     style={styles.dateInput}
                     placeholder="dd-mm-yyyy"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     value={filterDateTo}
                     onChangeText={setFilterDateTo}
                   />
-                  <CalendarInputIcon size={18} color="#9CA3AF" />
+                  <CalendarInputIcon size={18} color={adminColors.muted} />
                 </View>
               </View>
             </View>
@@ -1434,7 +1415,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.8}
             >
               <Text style={styles.dropdownValText}>{filterTrend}</Text>
-              <ChevronDownIcon size={16} color="#111827" />
+              <ChevronDownIcon size={16} color={adminColors.ink} />
             </TouchableOpacity>
 
             {/* In-place Dropdown Menu for Rating trend */}
@@ -1518,7 +1499,7 @@ export function FarmerRatingsScreen({
   if (currentView === 'list') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header ── */}
         <View style={styles.header}>
@@ -1529,7 +1510,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Farm Ratings</Text>
@@ -1545,11 +1526,11 @@ export function FarmerRatingsScreen({
         >
           {/* Search Bar */}
           <View style={styles.searchBarBox}>
-            <SearchFarmersIcon size={18} color="#9CA3AF" />
+            <SearchFarmersIcon size={18} color={adminColors.muted} />
             <TextInput
               style={styles.searchBarInput}
               placeholder="Name, farmer ID or farm"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -1562,7 +1543,7 @@ export function FarmerRatingsScreen({
               onPress={() => setCurrentView('filter')}
               activeOpacity={0.8}
             >
-              <FilterSlidersIcon size={18} color="#374151" />
+              <FilterSlidersIcon size={18} color={adminColors.ink} />
               <Text style={styles.actionBtnLabel}>Filter</Text>
             </TouchableOpacity>
 
@@ -1571,7 +1552,7 @@ export function FarmerRatingsScreen({
               onPress={() => setSortModalVisible(true)}
               activeOpacity={0.8}
             >
-              <SortUpDownIcon size={18} color="#374151" />
+              <SortUpDownIcon size={18} color={adminColors.ink} />
               <Text style={styles.actionBtnLabel}>Sort</Text>
             </TouchableOpacity>
           </View>
@@ -1697,7 +1678,7 @@ export function FarmerRatingsScreen({
   // ───────────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.rootOrange}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ── Terracotta Header ── */}
       <View style={styles.header}>
@@ -1709,7 +1690,7 @@ export function FarmerRatingsScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>Farm Ratings</Text>
@@ -1723,7 +1704,7 @@ export function FarmerRatingsScreen({
             activeOpacity={0.8}
             accessibilityLabel="Notifications"
           >
-            <HeaderBellIcon size={20} color={THEME.white} />
+            <HeaderBellIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1735,7 +1716,7 @@ export function FarmerRatingsScreen({
       >
         {/* ── Card 1: Recently Updated ── */}
         <View style={styles.recentlyUpdatedCard}>
-          <Text style={styles.recentlyUpdatedLabel}>RECENTLY UPDATED</Text>
+          <Text style={styles.recentlyUpdatedLabel}>{t('farmerRatings.overview.recentlyUpdated')}</Text>
           <Text style={styles.recentlyUpdatedBigNum}>2</Text>
           <Text style={styles.recentlyUpdatedSub}>farmers updated in the last 7 days</Text>
 
@@ -1801,7 +1782,7 @@ export function FarmerRatingsScreen({
 
         {/* Info Callout Banner */}
         <View style={styles.infoBanner}>
-          <InfoCircleIcon size={18} color={THEME.brandOrange} />
+          <InfoCircleIcon size={18} color={adminColors.brand} />
           <Text style={styles.infoBannerText}>
             These score bands are only a way to group the chart. They are not official TOHFA rating tiers, which have not been confirmed.
           </Text>
@@ -1911,7 +1892,7 @@ export function FarmerRatingsScreen({
             }}
             activeOpacity={0.8}
           >
-            <StarActionIcon size={26} color={THEME.brandOrange} />
+            <StarActionIcon size={26} color={adminColors.brand} />
             <Text style={styles.quickActionTitle}>View All Ratings</Text>
           </TouchableOpacity>
 
@@ -1924,7 +1905,7 @@ export function FarmerRatingsScreen({
             }}
             activeOpacity={0.8}
           >
-            <PendingRatingsIcon size={26} color={THEME.brandOrange} />
+            <PendingRatingsIcon size={26} color={adminColors.brand} />
             <Text style={styles.quickActionTitle}>Pending Ratings</Text>
           </TouchableOpacity>
 
@@ -1936,7 +1917,7 @@ export function FarmerRatingsScreen({
             }}
             activeOpacity={0.8}
           >
-            <HistoryClockIcon size={26} color={THEME.brandOrange} />
+            <HistoryClockIcon size={26} color={adminColors.brand} />
             <Text style={styles.quickActionTitle}>Recent Changes</Text>
           </TouchableOpacity>
 
@@ -1946,7 +1927,7 @@ export function FarmerRatingsScreen({
             onPress={() => setCurrentView('filter')}
             activeOpacity={0.8}
           >
-            <SearchFarmersIcon size={26} color={THEME.brandOrange} />
+            <SearchFarmersIcon size={26} color={adminColors.brand} />
             <Text style={styles.quickActionTitle}>Search Farmers</Text>
           </TouchableOpacity>
         </View>
@@ -1960,22 +1941,22 @@ export function FarmerRatingsScreen({
 const styles = StyleSheet.create({
   rootOrange: {
     flex: 1,
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
   },
   scrollCanvas: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   canvasCenter: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 16,
     paddingTop: 16,
   },
 
   // ── Header ──
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
@@ -1989,49 +1970,46 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: adminColors.onBrand,
     marginTop: 2,
   },
   bellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // ── Overview Cards ──
   recentlyUpdatedCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
   },
   recentlyUpdatedLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   recentlyUpdatedBigNum: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     marginTop: 4,
   },
   recentlyUpdatedSub: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 2,
   },
   timeframePillsRow: {
@@ -2047,37 +2025,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timeframePillActive: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   timeframePillInactive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
   },
   timeframePillText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    ...adminType.body,
   },
   timeframePillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   timeframePillTextInactive: {
-    color: '#374151',
+    color: adminColors.ink,
   },
 
   // ── Rating Distribution ──
   sectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
     marginTop: 22,
     marginBottom: 10,
   },
   distributionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     gap: 12,
   },
@@ -2088,35 +2064,34 @@ const styles = StyleSheet.create({
   },
   distBarLabel: {
     width: 65,
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
   },
   distTrack: {
     flex: 1,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     overflow: 'hidden',
   },
   distFill: {
     height: '100%',
     borderRadius: 5,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   distCount: {
     width: 20,
     textAlign: 'right',
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '800',
-    color: '#111827',
+    color: adminColors.ink,
   },
 
   infoBanner: {
-    backgroundColor: '#FBF5EE',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EFE4D6',
+    borderColor: adminColors.border,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2124,18 +2099,18 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 11.5,
-    color: THEME.brandOrange,
+    ...adminType.caption,
+    color: adminColors.brand,
     lineHeight: 16,
     marginLeft: 8,
   },
 
   // ── Recent Activity ──
   activityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2143,17 +2118,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   activityName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activitySub: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
   },
   badgeInProgress: {
-    backgroundColor: THEME.badgeInProgressBg,
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2161,12 +2135,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   badgeInProgressText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.badgeInProgressText,
+    ...adminType.rowMeta,
+    color: adminColors.warning.text,
   },
   badgeCompleted: {
-    backgroundColor: THEME.badgeCompletedBg,
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2174,12 +2147,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   badgeCompletedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.badgeCompletedText,
+    ...adminType.rowMeta,
+    color: adminColors.success.text,
   },
   badgeNotRated: {
-    backgroundColor: THEME.badgeNotRatedBg,
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2187,33 +2159,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   badgeNotRatedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.badgeNotRatedText,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   activityRightCol: {
     alignItems: 'flex-end',
   },
   activityAssessedCount: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   activityScoreBig: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.title,
+    color: adminColors.ink,
     lineHeight: 24,
   },
   activityScoreTotal: {
-    fontSize: 11,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 12,
   },
   activityViewLink: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
     marginTop: 6,
   },
 
@@ -2226,10 +2196,10 @@ const styles = StyleSheet.create({
   },
   quickActionBox: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 20,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -2237,9 +2207,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   quickActionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
@@ -2247,18 +2216,18 @@ const styles = StyleSheet.create({
   searchBarBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     height: 48,
     gap: 8,
   },
   searchBarInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   actionBtnsRow: {
     flexDirection: 'row',
@@ -2269,9 +2238,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2281,33 +2250,32 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   actionBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   farmersCounterText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 14,
     marginBottom: 8,
   },
 
   // Farmer Card
   farmerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 10,
   },
@@ -2317,9 +2285,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   farmerCardName: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     flex: 1,
     paddingRight: 8,
   },
@@ -2327,41 +2294,38 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   farmerCardScoreNum: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.title,
+    color: adminColors.brand,
     lineHeight: 24,
   },
   farmerCardScoreTotal: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
     lineHeight: 14,
   },
   farmerCardTrendUp: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#15803D',
+    ...adminType.rowMeta,
+    color: adminColors.success.text,
     marginTop: 2,
   },
   farmerCardDash: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...adminType.title,
+    color: adminColors.muted,
   },
   farmerCardMeta1: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 6,
   },
   farmerCardMeta2: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   farmerCardMeta3: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   farmerCardBadgeRow: {
@@ -2371,11 +2335,11 @@ const styles = StyleSheet.create({
   // ── Sort Bottom Sheet Modal ──
   bottomSheetBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'flex-end',
   },
   bottomSheetBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -2383,9 +2347,8 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   bottomSheetTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 16,
   },
   sortRadioRow: {
@@ -2394,113 +2357,107 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioCircleActive: {
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   sortRadioText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   sortRadioTextActive: {
-    color: '#111827',
+    color: adminColors.ink,
     fontWeight: '800',
   },
 
   // ── Search & Filter Screen ──
   filterCardBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
   },
   fieldLabel: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '800',
-    color: '#111827',
+    color: adminColors.ink,
     marginBottom: 6,
   },
   textInput: {
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   dropdownTriggerBtn: {
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#111827',
+    borderColor: adminColors.ink,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
   },
   dropdownValText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   inlineDropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#6B7280',
+    borderColor: adminColors.muted,
     borderRadius: 4,
     marginTop: 4,
     overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    ...adminShadow.md,
   },
   inlineDropdownRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   inlineDropdownRowSelected: {
-    backgroundColor: '#6B7280',
+    backgroundColor: adminColors.muted,
   },
   inlineDropdownRowBorder: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: adminColors.border,
   },
   inlineDropdownText: {
-    fontSize: 14,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '500',
   },
   inlineDropdownTextSelected: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   fieldCaptionText: {
-    fontSize: 11,
-    color: THEME.brandOrange,
+    ...adminType.caption,
+    color: adminColors.brand,
     marginTop: 4,
   },
   twoColRow: {
@@ -2511,30 +2468,29 @@ const styles = StyleSheet.create({
   dateInputWrap: {
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
   },
   dateInput: {
     flex: 1,
-    fontSize: 13,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   applyFiltersBtn: {
     height: 48,
     borderRadius: 10,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,
   },
   applyFiltersBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   filterSubBtnsRow: {
     flexDirection: 'row',
@@ -2545,36 +2501,36 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterResetBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
   filterCancelBtn: {
     flex: 1,
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterCancelBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
 
   // ── Detail Screen Styles ──
   heroRatingCard: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 16,
@@ -2582,36 +2538,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroScoreNum: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.kpiValue,
+    color: adminColors.onBrand,
     letterSpacing: -0.5,
   },
   heroRatingLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.95)',
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
     letterSpacing: 0.8,
     marginTop: 6,
   },
   heroRatingDate: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: adminColors.onBrand,
     marginTop: 4,
   },
   sectionHeadingDetail: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
     marginTop: 20,
     marginBottom: 10,
   },
   categoryScoresCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     overflow: 'hidden',
   },
   categoryScoreRow: {
@@ -2621,23 +2574,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
+    borderBottomColor: adminColors.border,
   },
   categoryScoreName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   categoryScoreValue: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: '#111827',
+    color: adminColors.ink,
   },
   farmInfoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
   },
   farmInfoGrid: {
@@ -2645,39 +2597,38 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   farmInfoLabel: {
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   farmInfoValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 2,
   },
   viewHistoryOutlineBtn: {
     height: 46,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
   viewHistoryOutlineBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
   detailStickyBottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 24,
@@ -2685,54 +2636,53 @@ const styles = StyleSheet.create({
   requestToEditBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   requestToEditBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   detailBottomHistoryBtn: {
     flex: 1,
     height: 48,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailBottomHistoryBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
   detailBottomEditBtn: {
     flex: 1.2,
     height: 48,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   detailBottomEditBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 
   // ── Edit Rating Screen Styles (Image 1 & 2) ──
   editAccordionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     marginBottom: 10,
     overflow: 'hidden',
   },
@@ -2744,9 +2694,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   editAccordionTitle: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: '#111827',
+    color: adminColors.ink,
     flex: 1,
     paddingRight: 8,
   },
@@ -2756,21 +2706,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scorePillBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   scorePillBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#374151',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
   },
   editAccordionContent: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F3ECE4',
+    borderTopColor: adminColors.border,
     paddingTop: 14,
   },
   scoreButtonsGrid: {
@@ -2783,107 +2732,102 @@ const styles = StyleSheet.create({
     width: '18%',
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scoreNumberBtnSelected: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   scoreNumberBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   scoreNumberBtnTextSelected: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   editNotesInput: {
     height: 60,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 13,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     textAlignVertical: 'top',
   },
   reviewRatingBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   reviewRatingBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 
   // ── Review Rating Screen Styles (Image 4) ──
   reviewSummaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 20,
   },
   reviewSummaryLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   reviewSummaryScore: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     marginTop: 6,
   },
   reviewSummaryPrevious: {
-    fontSize: 12.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 4,
   },
   reviewNoticeBanner: {
-    backgroundColor: '#FBF5EE',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EFE4D6',
+    borderColor: adminColors.border,
     padding: 14,
     marginTop: 14,
   },
   reviewNoticeText: {
-    fontSize: 12,
-    color: THEME.brandOrange,
+    ...adminType.caption,
+    color: adminColors.brand,
     lineHeight: 18,
     fontWeight: '600',
   },
   submitRatingBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitRatingBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 
   // ── History Screen Styles (Image 3) ──
   historyCardItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2891,51 +2835,47 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   historyCardDate: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   historyCardSub: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 4,
   },
   historyCardScore: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.rowTitle,
   },
   historyTrendBanner: {
-    backgroundColor: '#EAF7EE',
+    backgroundColor: adminColors.success.bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1FAE5',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 6,
   },
   historyTrendBannerText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#047857',
+    ...adminType.rowMeta,
+    color: adminColors.success.text,
   },
 
   // ── Rating Record Screen Styles (Image 5) ──
   recordMetaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 18,
   },
   recordMetaLabel: {
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   recordMetaFarmName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 3,
     marginBottom: 14,
   },
@@ -2944,18 +2884,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   recordMetaVal: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 2,
   },
 
   // ── Permission Screen Styles ──
   permissionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 20,
     paddingTop: 36,
     paddingBottom: 32,
@@ -2963,15 +2902,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   permissionCardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     textAlign: 'center',
     marginTop: 18,
   },
   permissionCardDesc: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...adminType.body,
+    color: adminColors.muted,
     textAlign: 'center',
     lineHeight: 19,
     marginTop: 10,
@@ -2983,14 +2921,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   permissionBackBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
 });

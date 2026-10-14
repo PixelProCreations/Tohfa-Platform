@@ -14,7 +14,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay } from '../../theme';
+import { t } from '../../i18n';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -73,52 +74,6 @@ export type ReceivingSubView =
   | 'transfer_receiving'
   | 'transfer_receiving_inspection';
 
-// ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
-const PALETTE = {
-  // Brand Palette (Page 1)
-  primary: '#F0562A', // Orange - Primary actions, active states, icons
-  headerBg: '#F0562A', // Brand Terracotta Orange
-  headerBgDark: '#D9481E',
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  headerText: '#FFFFFF',
-
-  orangeDeep: '#7A2E14', // Orange Deep - Section headings, emphasis text
-  primarySoft: '#FDF3F0', // Orange Tint - Icon chips, role badges, active pills
-  pageBg: '#F3EFE9', // Background - App canvas soft cream
-
-  // Neutrals (Page 1)
-  textInk: '#1A1A1A', // Ink - Primary text
-  textSecondary: '#5F5E5A', // Muted - Secondary text
-  textMuted: '#5F5E5A', // Muted text
-  border: '#EEDCD3', // Border - Card and input borders
-  borderLight: '#F8F3ED',
-  cardBg: '#FFFFFF', // Card - Card surfaces
-  primaryBorder: '#EEDCD3',
-
-  // Semantic Colors (Page 2)
-  amber: '#854F0B', // Warning (#854F0B)
-  amberBg: '#FEF3E2', // Warning BG (#FEF3E2)
-  green: '#173404', // Success (#173404)
-  greenBg: '#EAF3DE', // Success BG (#EAF3DE)
-  greenText: '#1E8E5A',
-
-  red: '#E24B4A', // Danger (#E24B4A)
-  redBg: '#FCEBEB', // Danger BG (#FCEBEB)
-  redBorder: '#FCA5A5',
-
-  tabInactive: '#5F5E5A',
-  tabActive: '#F0562A',
-  tabBorder: '#EEDCD3',
-  goldProgress: '#B8860B',
-  greenProgress: '#0D684D',
-  trackBg: '#EBE5DC',
-  divider: '#F2ECE5',
-  goldBg: '#FEF9E7',
-  greenPillBg: '#E6F7F2',
-  brandBrown: '#5C3D2E',
-  subTextMuted: '#8C827A',
-};
-
 export type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 type WarehouseSubView =
@@ -175,7 +130,7 @@ type WarehouseSubView =
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
 
-function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -187,7 +142,7 @@ function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; color?: string }) {
+function BellOutlineIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
   // Lucide Bell (exact match to notification bell)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -209,7 +164,7 @@ function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; colo
   );
 }
 
-function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ProfileHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="1.9" />
@@ -224,7 +179,7 @@ function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; co
   );
 }
 
-function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BuildingWarehouseIcon({ size = 16, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide Building2 (exact match to warehouse filter building icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -239,7 +194,7 @@ function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ChevronDownWhiteIcon({ size = 14, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -247,7 +202,7 @@ function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number;
   );
 }
 
-function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
+function ChevronRightGrayIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -255,7 +210,7 @@ function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number;
   );
 }
 
-function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -264,7 +219,7 @@ function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number;
   );
 }
 
-function WarningTriangleIcon({ size = 20, color = '#EF4444' }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -280,7 +235,7 @@ function WarningTriangleIcon({ size = 20, color = '#EF4444' }: { size?: number; 
   );
 }
 
-function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function TruckIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="2" />
@@ -291,7 +246,7 @@ function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; colo
   );
 }
 
-function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function InboxReceiveIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -313,7 +268,7 @@ function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: numbe
   );
 }
 
-function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function TransferArrowsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   // Heroicons arrows-right-left (exact match to design)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -328,7 +283,7 @@ function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: num
   );
 }
 
-function ReviewReceivingIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ReviewReceivingIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   // Checklist card with 3 bars & checkmark (exact match to design)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -339,7 +294,7 @@ function ReviewReceivingIcon({ size = 26, color = PALETTE.primary }: { size?: nu
   );
 }
 
-function BuildingOfficeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function BuildingOfficeIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   // Heroicons building-office-2 stepped building with 11 windows and door (exact match to design)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -361,7 +316,7 @@ function BuildingOfficeIcon({ size = 26, color = PALETTE.primary }: { size?: num
   );
 }
 
-function ManageSwasBadgeIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ManageSwasBadgeIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   // Heroicons identification badge with top clip, avatar & text lines (exact match to design)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -380,7 +335,7 @@ function ManageSwasBadgeIcon({ size = 26, color = PALETTE.primary }: { size?: nu
   );
 }
 
-function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
+function ProhibitedSlashIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -389,7 +344,7 @@ function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; 
   );
 }
 
-function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function StockVerificationIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -400,7 +355,7 @@ function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: 
   );
 }
 
-function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function HorizontalTransferIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -414,7 +369,7 @@ function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?:
   );
 }
 
-function StockBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+function StockBoxIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="5" rx="1.5" stroke={color} strokeWidth="2" />
@@ -424,7 +379,7 @@ function StockBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; c
   );
 }
 
-function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowLeftWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -432,7 +387,7 @@ function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; c
   );
 }
 
-function ScaleBalanceIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ScaleBalanceIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -444,7 +399,7 @@ function ScaleBalanceIcon({ size = 24, color = PALETTE.primary }: { size?: numbe
   );
 }
 
-function TrendingUpLineIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function TrendingUpLineIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m22 7-8.5 8.5-5-5L2 17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -453,7 +408,7 @@ function TrendingUpLineIcon({ size = 24, color = PALETTE.primary }: { size?: num
   );
 }
 
-function CapacityCircularIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function CapacityCircularIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M21 12a9 9 0 1 1-6.219-8.56" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -462,7 +417,7 @@ function CapacityCircularIcon({ size = 24, color = PALETTE.primary }: { size?: n
   );
 }
 
-function GearCogIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function GearCogIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
@@ -480,10 +435,10 @@ const OVERVIEW_WAREHOUSES = [
     id: 'wh-ooty',
     name: 'Ooty',
     capacityLabel: '82% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
+    capacityColor: adminColors.warning.text,
+    capacityBg: adminColors.warning.bg,
     progressWidth: '82%' as const,
-    progressColor: PALETTE.goldProgress,
+    progressColor: adminColors.warning.text,
     stock: '3,420 KG',
     receipts: '420 KG',
     issues: '2',
@@ -493,10 +448,10 @@ const OVERVIEW_WAREHOUSES = [
     id: 'wh-coonoor',
     name: 'Coonoor',
     capacityLabel: '68% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
+    capacityColor: adminColors.success.text,
+    capacityBg: adminColors.success.bg,
     progressWidth: '68%' as const,
-    progressColor: PALETTE.greenProgress,
+    progressColor: adminColors.success.text,
     stock: '3,180 KG',
     receipts: '380 KG',
     issues: '3',
@@ -506,10 +461,10 @@ const OVERVIEW_WAREHOUSES = [
     id: 'wh-kotagiri',
     name: 'Kotagiri',
     capacityLabel: '74% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
+    capacityColor: adminColors.warning.text,
+    capacityBg: adminColors.warning.bg,
     progressWidth: '74%' as const,
-    progressColor: PALETTE.goldProgress,
+    progressColor: adminColors.warning.text,
     stock: '2,940 KG',
     receipts: '310 KG',
     issues: '1',
@@ -519,10 +474,10 @@ const OVERVIEW_WAREHOUSES = [
     id: 'wh-gudalur',
     name: 'Gudalur Market',
     capacityLabel: '61% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
+    capacityColor: adminColors.success.text,
+    capacityBg: adminColors.success.bg,
     progressWidth: '61%' as const,
-    progressColor: PALETTE.greenProgress,
+    progressColor: adminColors.success.text,
     stock: '3,300 KG',
     receipts: '360 KG',
     issues: '1',
@@ -530,7 +485,7 @@ const OVERVIEW_WAREHOUSES = [
   },
 ] as const;
 
-function AlertEscalationIcon({ size = 20, color = PALETTE.red }: { size?: number; color?: string }) {
+function AlertEscalationIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -538,7 +493,7 @@ function AlertEscalationIcon({ size = 20, color = PALETTE.red }: { size?: number
   );
 }
 
-function AlertClockIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function AlertClockIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -602,12 +557,12 @@ const DEFAULT_ALERTS: WarehouseAlertItem[] = [
 function TransferArrowsWhiteIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4" stroke={PALETTE.headerText} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = PALETTE.subTextMuted }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -672,7 +627,7 @@ const TRACKING_TRANSFERS = [
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
 function HomeTabNavIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.tabActive : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -688,7 +643,7 @@ function HomeTabNavIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabNavIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.tabActive : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -711,7 +666,7 @@ function ReceivingTabNavIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabNavIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.tabActive : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="5" rx="1.5" stroke={color} strokeWidth="2" />
@@ -722,7 +677,7 @@ function InventoryTabNavIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabNavIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.tabActive : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -1000,7 +955,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
             </View>
@@ -1018,7 +973,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
           </View>
@@ -1072,7 +1027,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               onPress={() => navigateWh('warehouse_comparison')}
               activeOpacity={0.8}
             >
-              <ScaleBalanceIcon size={24} color={PALETTE.primary} />
+              <ScaleBalanceIcon size={24} color={adminColors.brand} />
               <Text style={styles.moreViewTileLabel}>Comparison</Text>
             </TouchableOpacity>
 
@@ -1081,7 +1036,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               onPress={() => navigateWh('warehouse_performance')}
               activeOpacity={0.8}
             >
-              <TrendingUpLineIcon size={24} color={PALETTE.primary} />
+              <TrendingUpLineIcon size={24} color={adminColors.brand} />
               <Text style={styles.moreViewTileLabel}>Performance</Text>
             </TouchableOpacity>
 
@@ -1090,7 +1045,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               onPress={() => navigateWh('warehouse_capacity')}
               activeOpacity={0.8}
             >
-              <CapacityCircularIcon size={24} color={PALETTE.primary} />
+              <CapacityCircularIcon size={24} color={adminColors.brand} />
               <Text style={styles.moreViewTileLabel}>Capacity Summary</Text>
             </TouchableOpacity>
 
@@ -1099,7 +1054,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               onPress={() => navigateWh('manage_warehouses')}
               activeOpacity={0.8}
             >
-              <GearCogIcon size={24} color={PALETTE.primary} />
+              <GearCogIcon size={24} color={adminColors.brand} />
               <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
             </TouchableOpacity>
           </View>
@@ -1115,7 +1070,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
             </View>
@@ -1130,7 +1085,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
           </View>
@@ -1168,7 +1123,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
             </View>
@@ -1183,7 +1138,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
           </View>
@@ -1232,7 +1187,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
             </View>
@@ -1247,7 +1202,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
           </View>
@@ -1295,7 +1250,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Manage Warehouses</Text>
           </View>
@@ -1309,8 +1264,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View key={wh.id} style={styles.whOverviewCard}>
               <View style={styles.whOverviewHeaderRow}>
                 <Text style={styles.whOverviewTitle}>{wh.name} Warehouse</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>Active</Text>
+                <View style={[styles.whCapacityPill, { backgroundColor: adminColors.success.bg }]}>
+                  <Text style={[styles.whCapacityPillText, { color: adminColors.success.text }]}>Active</Text>
                 </View>
               </View>
 
@@ -1336,7 +1291,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     onPress={() => navigateWh('warehouse_settings')}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                    <Text style={[styles.manageWhActionText, { color: adminColors.brand }]}>Capacity Limits</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1344,17 +1299,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           ))}
 
           {can('admin.sub_wh_admin.create') && (
-            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
+            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: adminColors.border }]}>
               <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
               <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
                 Manage role access, account status, and credentials for regional sub-warehouse admins.
               </Text>
               <TouchableOpacity
-                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
+                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: adminColors.brand }]}
                 onPress={() => navigateWh('manage_swas')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
+                <Text style={[styles.manageWhActionText, { color: adminColors.onBrand }]}>Manage SWA Accounts</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1379,7 +1334,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
           </View>
@@ -1465,16 +1420,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <View
                 style={[
                   styles.alertAccentBar,
-                  { backgroundColor: alert.priority === 'Critical' ? PALETTE.red : PALETTE.primary },
+                  { backgroundColor: alert.priority === 'Critical' ? adminColors.danger.text : adminColors.brand },
                 ]}
               />
               <View style={styles.actionCenterCardContent}>
                 {alert.category === 'Low Stock' ? (
-                  <WarningTriangleIcon size={22} color={PALETTE.red} />
+                  <WarningTriangleIcon size={22} color={adminColors.danger.text} />
                 ) : alert.category === 'Operational' ? (
-                  <AlertEscalationIcon size={22} color={PALETTE.red} />
+                  <AlertEscalationIcon size={22} color={adminColors.danger.text} />
                 ) : (
-                  <AlertClockIcon size={22} color={PALETTE.primary} />
+                  <AlertClockIcon size={22} color={adminColors.brand} />
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionCenterAlertTitle}>{alert.title}</Text>
@@ -1500,7 +1455,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Alert Detail</Text>
           </View>
@@ -1583,7 +1538,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Stock & Transfer Overview</Text>
           </View>
@@ -1663,7 +1618,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Exceptions</Text>
-              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>1</Text>
+              <Text style={[styles.stockTableVal, { color: adminColors.danger.text }]}>1</Text>
             </View>
           </View>
 
@@ -1701,7 +1656,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Consolidated Stock</Text>
           </View>
@@ -1710,11 +1665,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           {/* Search Box */}
           <View style={styles.stockSearchBar}>
-            <SearchIcon size={18} color={PALETTE.subTextMuted} />
+            <SearchIcon size={18} color={adminColors.muted} />
             <TextInput
               style={styles.stockSearchInput}
               placeholder="Product, grade, batch..."
-              placeholderTextColor={PALETTE.subTextMuted}
+              placeholderTextColor={adminColors.muted}
               value={stockSearchQuery}
               onChangeText={setStockSearchQuery}
             />
@@ -1775,7 +1730,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Low Stock & Surplus</Text>
           </View>
@@ -1840,7 +1795,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Transfer Tracking</Text>
           </View>
@@ -1857,7 +1812,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View key={t.id}>
                   <View style={styles.trackingItemRow}>
                     <View style={styles.trackingIconWrap}>
-                      <TransferArrowsIcon size={18} color={PALETTE.primary} />
+                      <TransferArrowsIcon size={18} color={adminColors.brand} />
                     </View>
 
                     <View style={{ flex: 1 }}>
@@ -1868,13 +1823,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         <View
                           style={[
                             styles.trackingBadgePill,
-                            { backgroundColor: isTransit ? adminColors.info.bg : PALETTE.greenPillBg },
+                            { backgroundColor: isTransit ? adminColors.info.bg : adminColors.success.bg },
                           ]}
                         >
                           <Text
                             style={[
                               styles.trackingBadgeText,
-                              { color: isTransit ? adminColors.info.text : PALETTE.greenProgress },
+                              { color: isTransit ? adminColors.info.text : adminColors.success.text },
                             ]}
                           >
                             {t.status}
@@ -1917,7 +1872,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={{ flex: 1 }}>
         {/* ─── Main Dashboard View (Module 1 - Main Dashboard) ─── */}
@@ -1942,7 +1897,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* Top Greeting Row */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Grid4SquaresIcon size={20} color={adminColors.onBrand} />
                   <Text style={styles.headerGreetingText}>Good morning, {displayName}</Text>
                 </View>
 
@@ -1955,7 +1910,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     }}
                     activeOpacity={0.8}
                   >
-                    <BellOutlineIcon size={19} color="#FFFFFF" />
+                    <BellOutlineIcon size={19} color={adminColors.onBrand} />
                     {unreadNotifCount > 0 && (
                       <View style={styles.notificationBadge}>
                         <Text style={styles.notificationBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
@@ -1970,7 +1925,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     }}
                     activeOpacity={0.8}
                   >
-                    <ProfileHeaderIcon size={19} color="#FFFFFF" />
+                    <ProfileHeaderIcon size={19} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1984,9 +1939,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onPress={() => setShowFilterModal(true)}
                 activeOpacity={0.8}
               >
-                <BuildingWarehouseIcon size={16} color="#FFFFFF" />
+                <BuildingWarehouseIcon size={16} color={adminColors.onBrand} />
                 <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
-                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
+                <ChevronDownWhiteIcon size={13} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
 
@@ -2069,7 +2024,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <ChevronRightGrayIcon size={16} />
                 </View>
                 <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: '75%', backgroundColor: PALETTE.goldProgress }]} />
+                  <View style={[styles.progressBarFill, { width: '75%', backgroundColor: adminColors.warning.text }]} />
                 </View>
               </TouchableOpacity>
 
@@ -2087,7 +2042,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <ChevronRightGrayIcon size={16} />
                 </View>
                 <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: '58%', backgroundColor: PALETTE.greenProgress }]} />
+                  <View style={[styles.progressBarFill, { width: '58%', backgroundColor: adminColors.success.text }]} />
                 </View>
               </TouchableOpacity>
 
@@ -2197,7 +2152,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               >
                 <View style={styles.alertAccentBar} />
                 <View style={styles.alertContentRow}>
-                  <WarningTriangleIcon size={24} color={PALETTE.red} />
+                  <WarningTriangleIcon size={24} color={adminColors.danger.text} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.alertTitle}>Coonoor stock below target</Text>
                     <Text style={styles.alertSub}>Warehouse exceptions, escalations and transfer issues</Text>
@@ -2223,7 +2178,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <View style={styles.activityIconBox}>
-                    <TruckIcon size={18} color={PALETTE.primary} />
+                    <TruckIcon size={18} color={adminColors.brand} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.activityTitle}>Transfer TRF-00284 in transit</Text>
@@ -2244,7 +2199,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <View style={styles.activityIconBox}>
-                    <InboxReceiveIcon size={18} color={PALETTE.primary} />
+                    <InboxReceiveIcon size={18} color={adminColors.brand} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.activityTitle}>Goods received</Text>
@@ -2265,7 +2220,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   }}
                   activeOpacity={0.8}
                 >
-                  <StockBoxIcon size={26} color={PALETTE.primary} />
+                  <StockBoxIcon size={26} color={adminColors.brand} />
                   <Text style={styles.quickActionLabel}>Stock Overview</Text>
                 </TouchableOpacity>
 
@@ -2277,7 +2232,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   }}
                   activeOpacity={0.8}
                 >
-                  <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
+                  <BuildingWarehouseIcon size={26} color={adminColors.brand} />
                   <Text style={styles.quickActionLabel}>Manage Warehouses</Text>
                 </TouchableOpacity>
               </View>
@@ -2335,7 +2290,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           )
         )}
 
-        {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
+        {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && whSubView === 'overview' && (
           <ScrollView
             style={styles.scroll}
@@ -2347,7 +2302,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* Header Title Row */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Grid4SquaresIcon size={20} color={adminColors.onBrand} />
                   <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
                 </View>
               </View>
@@ -2358,9 +2313,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onPress={() => setShowFilterModal(true)}
                 activeOpacity={0.8}
               >
-                <BuildingWarehouseIcon size={15} color="#FFFFFF" />
+                <BuildingWarehouseIcon size={15} color={adminColors.onBrand} />
                 <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
-                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
+                <ChevronDownWhiteIcon size={13} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
 
@@ -2497,7 +2452,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
+                  <Text style={[styles.summaryItemValue, { color: adminColors.brand }]}>5</Text>
                 </TouchableOpacity>
 
                 <View style={styles.summaryDivider} />
@@ -2519,7 +2474,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onPress={() => navigateWh('verify_stock')}
                   activeOpacity={0.8}
                 >
-                  <StockVerificationIcon size={26} color={PALETTE.primary} />
+                  <StockVerificationIcon size={26} color={adminColors.brand} />
                   <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
                 </TouchableOpacity>
 
@@ -2528,7 +2483,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onPress={() => navigateWh('inter_warehouse_transfer')}
                   activeOpacity={0.8}
                 >
-                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
+                  <HorizontalTransferIcon size={26} color={adminColors.brand} />
                   <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
                 </TouchableOpacity>
               </View>
@@ -3156,11 +3111,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.headerBg,
+    backgroundColor: adminColors.brand,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollPad: {
     paddingBottom: 24,
@@ -3168,7 +3123,7 @@ const styles = StyleSheet.create({
 
   // ─── Header Banner ───
   headerBanner: {
-    backgroundColor: PALETTE.headerBg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 12 : 10,
     paddingBottom: 16,
@@ -3186,9 +3141,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerGreetingText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerActions: {
@@ -3200,7 +3154,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3209,7 +3163,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3218,7 +3172,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.danger.text,
     borderRadius: 8,
     minWidth: 15,
     height: 15,
@@ -3226,24 +3180,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#EA580C',
+    borderColor: adminColors.brand,
   },
   notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '800',
+    color: adminColors.onBrand,
+    ...adminType.caption,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: adminColors.onBrand,
     marginTop: 4,
   },
   whFilterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: PALETTE.headerPillBg,
+    backgroundColor: adminOverlay.whitePill,
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 5.5,
@@ -3251,21 +3204,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   whFilterPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.body,
+    color: adminColors.onBrand,
   },
 
   // ─── Content Body ───
   contentBody: {
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 16,
     paddingTop: 14,
   },
   sectionHeading: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: PALETTE.orangeDeep,
+    ...adminType.body,
+    color: adminColors.brandDeep,
     letterSpacing: -0.2,
   },
   sectionHeaderRow: {
@@ -3276,9 +3227,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAllLink: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.primary,
+    ...adminType.rowMeta,
+    color: adminColors.brand,
   },
 
   // ─── KPI Grid (Today's Overview) ───
@@ -3291,54 +3241,47 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     width: '48.5%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 14,
     alignItems: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   kpiLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     textAlign: 'left',
   },
   kpiValue: {
-    fontSize: 19, // Design System PDF Page 2: KPI VALUE 19px / 800
-    fontWeight: '800', // Bold in all dashboards
-    color: PALETTE.textInk,
+    ...adminType.kpiValue, // Bold in all dashboards
+    color: adminColors.ink,
     marginTop: 4,
     lineHeight: 24,
     letterSpacing: -0.3,
     textAlign: 'left',
   },
   kpiSub: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '500',
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginTop: 2,
     textAlign: 'left',
   },
   kpiLink: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: PALETTE.primary,
+    ...adminType.caption,
+    color: adminColors.brand,
     marginTop: 8,
     textAlign: 'left',
   },
   kpiInfoBanner: {
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
+    borderColor: adminColors.brandSoft.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -3349,26 +3292,22 @@ const styles = StyleSheet.create({
   },
   kpiInfoText: {
     flex: 1,
-    fontSize: 12,
-    color: PALETTE.orangeDeep,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
     lineHeight: 17,
     fontWeight: '500',
   },
 
   // ─── Warehouse Progress Cards ───
   whProgressCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   whProgressTopRow: {
     flexDirection: 'row',
@@ -3377,13 +3316,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   whProgressTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   progressBarTrack: {
     height: 7,
-    backgroundColor: PALETTE.trackBg,
+    backgroundColor: adminColors.border,
     borderRadius: 3.5,
     overflow: 'hidden',
   },
@@ -3394,10 +3332,10 @@ const styles = StyleSheet.create({
 
   // ─── Operations Card ───
   operationsCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 4,
     marginBottom: 6,
@@ -3406,9 +3344,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   operationsTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     marginBottom: 6,
   },
   operationsMetricsRow: {
@@ -3417,37 +3354,35 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   operationsMetricText: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   operationsMetricBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   operationsMetricRed: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.red,
+    ...adminType.body,
+    color: adminColors.danger.text,
   },
   operationsDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   operationsTimelineSub: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     lineHeight: 16,
   },
 
   // ─── Alert Card ───
   alertCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -3457,7 +3392,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   alertContentRow: {
     flexDirection: 'row',
@@ -3467,24 +3402,23 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   alertTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   alertSub: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '400',
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginTop: 3,
     lineHeight: 16,
   },
 
   // ─── Recent Activity ───
   recentActivityCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 4,
   },
@@ -3497,28 +3431,27 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8, // XS 8px from Design System PDF
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activityTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   activitySub: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   activityTime: {
-    fontSize: 11,
-    color: PALETTE.textMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   activityDivider: {
     height: 1,
-    backgroundColor: PALETTE.border,
+    backgroundColor: adminColors.border,
   },
 
   // ─── Quick Actions ───
@@ -3530,10 +3463,10 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: '48.5%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 16,
     paddingHorizontal: 10,
     alignItems: 'center',
@@ -3541,9 +3474,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickActionLabel: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
@@ -3553,16 +3485,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
     marginTop: 20,
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     borderRadius: 14, // LG 14px from Design System PDF
     padding: 14,
   },
   disclaimerText: {
     flex: 1,
-    fontSize: 12,
-    color: PALETTE.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     lineHeight: 18,
     fontWeight: '500',
   },
@@ -3570,9 +3502,9 @@ const styles = StyleSheet.create({
   // ─── Bottom Tab Bar ───
   bottomTabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
     paddingTop: 8,
     paddingBottom: 10,
     paddingHorizontal: 24,
@@ -3586,22 +3518,21 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
   },
   tabLabelActive: {
-    color: PALETTE.tabActive,
+    color: adminColors.brand,
     fontWeight: '800',
   },
 
   // ─── Inventory & Stock View Specific Styles ───
   summaryListCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginTop: 2,
@@ -3613,24 +3544,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   summaryItemName: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   summaryItemValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: PALETTE.border,
+    backgroundColor: adminColors.border,
     marginVertical: 12,
   },
   inventoryActivityText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#4B433E',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     lineHeight: 18,
   },
   quickActionsDualRow: {
@@ -3640,19 +3568,18 @@ const styles = StyleSheet.create({
   },
   quickActionDualCard: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionDualLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -3660,21 +3587,20 @@ const styles = StyleSheet.create({
   // ─── Filter Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   filterModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 20,
   },
   filterModalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 14,
   },
   filterOptionRow: {
@@ -3686,40 +3612,38 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   filterOptionRowActive: {
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
   },
   filterOptionText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   filterOptionTextActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   filterCheckmark: {
-    fontSize: 15,
+    ...adminType.rowTitle,
     fontWeight: '900',
-    color: PALETTE.primary,
+    color: adminColors.brand,
   },
 
   // ─── Sales View Specific Styles ───
   greenBadgePill: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   greenBadgeText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#0D6B4F',
+    ...adminType.body,
+    color: adminColors.success.text,
   },
   needsAttentionAlertCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.brandTintWarm,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -3736,14 +3660,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   needsAttentionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   needsAttentionSub: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginTop: 2,
   },
   headerBackBtn: {
@@ -3752,10 +3675,10 @@ const styles = StyleSheet.create({
   },
   subScreenContainer: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   subHeaderBanner: {
-    backgroundColor: PALETTE.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: 14,
     paddingBottom: 18,
     paddingHorizontal: 16,
@@ -3768,13 +3691,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   subHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   subHeaderSubtitle: {
-    fontSize: 13,
-    color: '#FFFFFF',
+    ...adminType.body,
+    color: adminColors.onBrand,
     opacity: 0.9,
     marginTop: 4,
     marginLeft: 34,
@@ -3788,17 +3710,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   whOverviewCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   whOverviewHeaderRow: {
     flexDirection: 'row',
@@ -3806,9 +3724,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   whOverviewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   whCapacityPill: {
     paddingHorizontal: 8,
@@ -3816,12 +3733,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   whCapacityPillText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   whProgressBarTrack: {
     height: 6,
-    backgroundColor: PALETTE.trackBg,
+    backgroundColor: adminColors.border,
     borderRadius: 4,
     marginVertical: 10,
     overflow: 'hidden',
@@ -3838,20 +3754,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   whOverviewStatLabel: {
-    fontSize: 11,
-    color: PALETTE.subTextMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   whOverviewStatVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     marginTop: 2,
   },
   overviewSectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.brandBrown,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
     marginTop: 10,
     marginBottom: 12,
   },
@@ -3864,37 +3778,28 @@ const styles = StyleSheet.create({
   },
   moreViewTile: {
     width: '48%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   moreViewTileLabel: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     marginTop: 8,
   },
   comparisonCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   comparisonRow: {
     flexDirection: 'row',
@@ -3903,30 +3808,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   comparisonWhName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   comparisonWhStat: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   metricsGridCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   twoByTwoRow: {
     flexDirection: 'row',
@@ -3936,28 +3835,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   twoByTwoLabel: {
-    fontSize: 11,
-    color: PALETTE.subTextMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   twoByTwoVal: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 4,
   },
   overviewNoticeBox: {
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
+    borderColor: adminColors.brandSoft.border,
     borderRadius: 14,
     padding: 14,
     marginTop: 14,
     marginBottom: 20,
   },
   overviewNoticeText: {
-    fontSize: 12,
-    color: PALETTE.brandBrown,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
     lineHeight: 17,
     fontWeight: '500',
   },
@@ -3968,21 +3866,20 @@ const styles = StyleSheet.create({
   },
   manageWhActionBtn: {
     flex: 1,
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   manageWhSecondaryBtn: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
+    borderColor: adminColors.brandSoft.border,
   },
   manageWhActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.orangeDeep,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
   },
   actionCenterFiltersRow: {
     flexDirection: 'row',
@@ -3990,9 +3887,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionCenterChip: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 8,
@@ -4000,23 +3897,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionCenterChipActive: {
-    backgroundColor: PALETTE.primary,
-    borderColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   actionCenterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.brandBrown,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
   },
   actionCenterChipTextActive: {
-    color: PALETTE.headerText,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   actionCenterAlertCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     marginBottom: 10,
     flexDirection: 'row',
     overflow: 'hidden',
@@ -4030,21 +3926,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionCenterAlertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   actionCenterAlertSub: {
-    fontSize: 12,
-    color: PALETTE.subTextMuted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontWeight: '500',
   },
   alertDetailCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     padding: 18,
     marginTop: 12,
   },
@@ -4056,15 +3951,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertDetailFieldLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '500',
-    color: PALETTE.subTextMuted,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   alertDetailFieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   alertDetailBtnRow: {
     flexDirection: 'row',
@@ -4073,33 +3967,31 @@ const styles = StyleSheet.create({
   },
   openRelatedBtn: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   openRelatedBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.primary,
+    ...adminType.body,
+    color: adminColors.brand,
   },
   acknowledgeBtn: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   acknowledgeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   subScrollWithFooter: {
     paddingHorizontal: 16,
@@ -4114,15 +4006,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   overviewSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.orangeDeep,
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   stockTableCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 4,
   },
@@ -4133,41 +4024,37 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   stockTableLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   stockTableVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   stockTableRowDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   stockTableTotalLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   stockTableTotalVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   lowStockSummaryCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   lowStockSummaryText: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: PALETTE.brandBrown,
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
   fixedBottomBar: {
@@ -4175,14 +4062,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.borderLight,
+    borderTopColor: adminColors.border,
   },
   initiateTransferBtn: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 10,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -4191,16 +4078,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   initiateTransferBtnText: {
-    color: PALETTE.headerText,
-    fontSize: 14,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.body,
   },
   stockSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -4209,38 +4095,37 @@ const styles = StyleSheet.create({
   },
   stockSearchInput: {
     flex: 1,
-    fontSize: 13,
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   consolidatedProductCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 12,
   },
   consolidatedProductTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.brandBrown,
+    ...adminType.body,
+    color: adminColors.brandDeep,
     marginBottom: 4,
   },
   lowStockDetailCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     padding: 16,
     marginTop: 12,
   },
   trackingCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 4,
     marginTop: 12,
@@ -4255,7 +4140,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: PALETTE.primarySoft,
+    backgroundColor: adminColors.brandSoft.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4266,9 +4151,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   trackingTitleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   trackingBadgePill: {
     paddingHorizontal: 8,
@@ -4276,12 +4160,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   trackingBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   trackingSubText: {
-    fontSize: 12,
-    color: PALETTE.subTextMuted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontWeight: '500',
   },
 });
