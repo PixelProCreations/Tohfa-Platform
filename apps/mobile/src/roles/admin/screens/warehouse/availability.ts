@@ -1,31 +1,17 @@
 /**
- * Which warehouse areas the app offers at all. Owner decision (API
- * integration plan, decision 2):
+ * Which warehouse areas the app offers at all.
  *
- *   - Five areas have no server API, so they are hidden for every warehouse
- *     admin: material handling, operational issues, warehouse activity,
- *     warehouse documents and inter-warehouse transfers. Their screens stay in
- *     the code (fixture-backed) until an API exists; only the entry points
- *     (button, row, tile, route) are hidden.
- *   - Staff (roster and attendance) is shown only with `admin.staff.list_view`.
- *     docs/rbac.json grants it MAIN_WH_ADMIN `own` and SUB_WH_ADMIN `none`
- *     (owner decision 2026-10-11, superseding the withdrawn
- *     `warehouse.staff.list_view`).
- *
- *   - Two inventory areas have no server API either (API integration plan,
- *     phase 3): stock adjustments (POST /admin/stock-adjustments is in the
- *     spec but has no server route, and there is no list or approve endpoint)
- *     and stock counts (physical count, stock verification and variance
- *     review have no endpoint). Hidden the same way.
- *
- *   - Five order areas have no server API either (API integration plan,
- *     phase 5): cancelling an order (no admin cancel route), reporting an
- *     order issue (no admin route), the stock check before packing (no
- *     endpoint), delivery preparation and dispatch to a delivery partner
- *     (delivery is not enabled in Track 1, BR-21 / docs/rules.md open
- *     contradiction 3; there is no delivery-partner list and the admin detail
- *     carries no address), and the order invoice (wired in phase 7). Hidden the
- *     same way. Marking a pickup order ready still uses POST .../dispatch.
+ *   - Owner decision (2026-10-14): nothing is hidden for having no server API.
+ *     Material handling, operational issues, warehouse activity, warehouse
+ *     documents, inter-warehouse transfers, stock adjustments, stock counts
+ *     and the five order areas below are all shown; their screens are
+ *     fixture-backed until an API exists, so they display sample data rather
+ *     than live data.
+ *   - Staff (roster and attendance) is still shown only with
+ *     `admin.staff.list_view`. docs/rbac.json grants it MAIN_WH_ADMIN `own`
+ *     and SUB_WH_ADMIN `none` (owner decision 2026-10-11, superseding the
+ *     withdrawn `warehouse.staff.list_view`) -- this is a real permission
+ *     rule, not a no-API hide, so it is unaffected by the above.
  *
  * Hiding is display only. The server refuses what it has no route for, and
  * authorises everything else on the caller's token (root CLAUDE.md 2.1).
@@ -48,20 +34,7 @@ export type WarehouseArea =
   | 'orderInvoices'
   | 'staff';
 
-export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [
-  'materialHandling',
-  'operationalIssues',
-  'warehouseActivity',
-  'warehouseDocuments',
-  'interWarehouseTransfers',
-  'stockAdjustments',
-  'stockCounts',
-  'orderCancellation',
-  'orderIssues',
-  'orderStockCheck',
-  'orderDelivery',
-  'orderInvoices',
-];
+export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [];
 
 /** The docs/rbac.json code that lists the warehouse staff roster. */
 export const STAFF_AREA_CODE = 'admin.staff.list_view';
