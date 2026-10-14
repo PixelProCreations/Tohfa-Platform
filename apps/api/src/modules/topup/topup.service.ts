@@ -4,6 +4,12 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { config } from '../../config.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  requireIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { paymentGateway, type PaymentGateway } from '../../payments/index.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
@@ -70,16 +76,25 @@ const systemScope: ResolvedScope = {
   userId: '00000000-0000-0000-0000-000000000000',
 };
 
+export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
+
+/** The `operation` recorded on an idempotency_keys claim for a cash top-up (BR-18d). */
+const CASH_TOPUP_OPERATION = 'wallet.cash_topup.process';
+
 export function createTopupService(opts: {
   repo?: TopupRepo;
   gateway?: PaymentGateway;
   walletSvc?: WalletService;
   db?: Executor;
+  runTx?: TransactionRunner;
+  idempotency?: IdempotencyStore;
 } = {}): TopupService {
   const repo = opts.repo ?? topupRepo;
   const gateway = opts.gateway ?? paymentGateway;
   const walletSvc = opts.walletSvc ?? walletService;
   const db = opts.db ?? pool;
+  const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
+  const idempotency = opts.idempotency ?? idempotencyStore;
 
   return {
     async createTopup(actor, _scope, input, idempotencyKey) {
@@ -139,6 +154,9 @@ export function createTopupService(opts: {
     },
 
     async processCashTopup(actor, scope, customerId, input, idempotencyKey) {
+      // docs/openapi.yaml IdempotencyKeyHeader is `required: true` on this money-moving POST
+      // (CLAUDE.md 2.4); without a key a retry cannot be told from a second top-up.
+      const key = requireIdempotencyKey(idempotencyKey);
       if (!input.fiscalCashTag || input.fiscalCashTag.trim().length === 0) {
         throw new AppError('FISCAL_TAG_REQUIRED', {
           status: 422,
@@ -169,7 +187,21 @@ export function createTopupService(opts: {
         });
       }
 
-      const { topup, walletTxn } = await withTransaction(async (tx) => {
+      const outcome = await runTx(async (tx) => {
+        // BR-18d: claim the Idempotency-Key BEFORE inserting the top-up. The insert used to run
+        // first, so a replay collided on uq_topups_fiscal_cash_tag and the client got 409
+        // CONFLICT for a top-up that had in fact succeeded. Now a replay (same key, same body)
+        // returns the stored original response and writes nothing; the same key with a different
+        // body is 409 IDEMPOTENCY_KEY_REUSED. The claim shares this transaction, so a top-up that
+        // fails leaves the key unclaimed (http/idempotency.ts).
+        const idem = await beginIdempotent<WalletTransactionResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: CASH_TOPUP_OPERATION,
+          request: { customerId, body: input },
+        });
+        if (idem.replay) return { replayed: true as const, walletTxn: idem.response };
+
         let createdTopup: TopupRecord;
         try {
           createdTopup = await repo.createCashTopup(tx, {
@@ -206,7 +238,9 @@ export function createTopupService(opts: {
             amount: input.amount,
             refType: 'TOPUP',
             refId: createdTopup.id,
-            idempotencyKey: idempotencyKey || `cash_topup_${createdTopup.id}`,
+            // Scoped to the acting user like the claim, so two admins' keys cannot collide on the
+            // ledger's UNIQUE idempotency_key (same shape as sales.service.ts `sale:<user>:<key>`).
+            idempotencyKey: `cash_topup:${actor.userId}:${key}`,
             remarks: input.remarks ?? `Cash Top-up via tag ${input.fiscalCashTag}`,
             createdBy: actor.userId,
           },
@@ -232,18 +266,21 @@ export function createTopupService(opts: {
           },
         });
 
-        return { topup: createdTopup, walletTxn: txn };
+        await idem.complete(txn);
+        return { replayed: false as const, topupId: createdTopup.id, walletTxn: txn };
       });
 
-      // BR-18c: SMS dispatch outcome outside credit transaction
+      if (outcome.replayed) return outcome.walletTxn;
+
+      // BR-18c: SMS dispatch outcome outside credit transaction (never re-sent on a replay)
       try {
-        await repo.updateTopupSmsStatus(db, topup.id, { sentAt: new Date() });
+        await repo.updateTopupSmsStatus(db, outcome.topupId, { sentAt: new Date() });
       } catch (smsErr: unknown) {
         const errorMsg = smsErr instanceof Error ? smsErr.message : 'SMS dispatch error';
-        await repo.updateTopupSmsStatus(db, topup.id, { error: errorMsg });
+        await repo.updateTopupSmsStatus(db, outcome.topupId, { error: errorMsg });
       }
 
-      return walletTxn;
+      return outcome.walletTxn;
     },
 
     async processRazorpayWebhook(rawBody, signature, _eventId) {

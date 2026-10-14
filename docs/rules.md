@@ -381,6 +381,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-18a` A top-up request without a fiscal cash tag → 422, `code: FISCAL_TAG_REQUIRED`; no ledger row.
 - `BR-18b` The credit row records the acting admin id and the warehouse id; both are non-nullable.
 - `BR-18c` SMS dispatch failure does not roll back a completed credit, and the credit is not double-written on retry.
+- `BR-18d` (2026-10-14) The cash top-up claims its `Idempotency-Key` before inserting anything. Replaying the same key with the same body returns the original 201 response (not 409 for the already-used fiscal cash tag) and leaves exactly one `topups` row and one wallet credit; the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED` and writes nothing; a missing key is 422 `VALIDATION_FAILED`. A used fiscal cash tag under a NEW key is still 409 `CONFLICT`. Keys are retained 24 hours (`IdempotencyKeyHeader`); a replay after that is treated as a new request and meets the fiscal-tag 409.
 
 ---
 

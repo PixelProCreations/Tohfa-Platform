@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createHmac, randomUUID } from 'node:crypto';
-import { parseMoney, type Money } from '@tohfa/shared-types';
+import { fromPaise, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { config } from '../../config.js';
@@ -18,6 +18,7 @@ import { cashTopupCustomerLookupQuery } from './topup.schema.js';
 import type { WalletService } from '../wallet/wallet.service.js';
 import { MockPaymentGateway } from '../../payments/mock.gateway.js';
 import type { Executor } from '../../db/pool.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 
 describe('TopupService Unit Tests', () => {
   const mockGateway = new MockPaymentGateway();
@@ -158,6 +159,126 @@ describe('Cash top-up customer lookup (BR-91i, unit)', () => {
     expect(cashTopupCustomerLookupQuery.safeParse({ mobile: '9876543210', code: 'CUST-FIRST-1' }).success).toBe(false);
     expect(cashTopupCustomerLookupQuery.safeParse({ q: 'First' }).success).toBe(false);
     expect(cashTopupCustomerLookupQuery.safeParse({ mobile: '3210' }).success).toBe(false);
+  });
+});
+
+describe('Cash top-up idempotency (BR-18d, unit)', () => {
+  const OOTY = '3f1b7c2e-2a44-4f0e-9b1a-6b0d2f0f1a01';
+  const CUSTOMER = '9d0f2c1e-7a55-4b6e-8f10-2c3d4e5f6a7b';
+  const WALLET = '4a1d2c3b-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+  const actor = { userId: newId(), roles: [{ code: 'SUB_WH_ADMIN' as const, warehouseId: OOTY }], farmerId: null, customerId: null };
+  const scope = aScope({ permission: 'wallet.cash_topup.process', roleCode: 'SUB_WH_ADMIN', warehouseIds: [OOTY], userId: actor.userId });
+  const body = (overrides: Partial<{ amount: string; fiscalCashTag: string; remarks: string }> = {}) => ({
+    amount: parseMoney(overrides.amount ?? '500.00'),
+    warehouseId: OOTY,
+    fiscalCashTag: overrides.fiscalCashTag ?? 'OOTY-2026-10-14-0001',
+    remarks: overrides.remarks ?? 'Cash at counter 1',
+  });
+
+  /**
+   * A fake repo that behaves like the real table where it matters here: `topups.fiscal_cash_tag`
+   * is UNIQUE (0007_money.sql uq_topups_fiscal_cash_tag), so a second insert with a used tag
+   * fails with 23505 exactly as Postgres would.
+   */
+  function cashHarness() {
+    const usedTags = new Set<string>();
+    const topupRows: string[] = [];
+    const credits: { idempotencyKey: string; amount: string }[] = [];
+    let balancePaise = 0;
+    const tx = {
+      query: async () => ({ rows: [{ id: newId() }], rowCount: 1 }),
+    } as unknown as Executor;
+    const repo = {
+      getCashTopupCap: async () => '10000.00',
+      findCustomerWallet: async () => ({ id: WALLET, balance: '0.00' }),
+      createCashTopup: async (_db: Executor, params: { fiscalCashTag: string }) => {
+        if (usedTags.has(params.fiscalCashTag)) {
+          throw Object.assign(new Error('duplicate key value violates unique constraint "uq_topups_fiscal_cash_tag"'), { code: '23505' });
+        }
+        usedTags.add(params.fiscalCashTag);
+        const id = newId();
+        topupRows.push(id);
+        return { id };
+      },
+      updateTopupWalletTxn: async () => undefined,
+      updateTopupSmsStatus: async () => undefined,
+    } as unknown as TopupRepo;
+    const walletSvc = {
+      move: async (_scope: unknown, input: { idempotencyKey: string; amount: string; refId: string; remarks: string; createdBy: string }) => {
+        credits.push({ idempotencyKey: input.idempotencyKey, amount: input.amount });
+        balancePaise += toPaise(parseMoney(input.amount));
+        return {
+          id: newId(),
+          walletId: WALLET,
+          txnType: 'TOPUP_CASH',
+          amount: input.amount,
+          balanceAfter: fromPaise(balancePaise),
+          refType: 'TOPUP',
+          refId: input.refId,
+          fiscalCashTag: null,
+          warehouseId: null,
+          performedBy: input.createdBy,
+          performedAt: new Date().toISOString(),
+          remarks: input.remarks,
+        };
+      },
+    } as unknown as WalletService;
+    const service = createTopupService({
+      repo,
+      walletSvc,
+      db: tx,
+      runTx: async (fn) => fn(tx),
+      idempotency: createInMemoryIdempotencyStore(),
+    });
+    return { service, topupRows, credits };
+  }
+
+  it('BR-18d: replaying a cash top-up with the same Idempotency-Key and body returns the original response (not 409) and moves money once', async () => {
+    const { service, topupRows, credits } = cashHarness();
+    const key = newId();
+
+    const first = await service.processCashTopup(actor, scope, CUSTOMER, body(), key);
+    const replay = await service.processCashTopup(actor, scope, CUSTOMER, body(), key);
+
+    expect(replay).toEqual(first);
+    expect(topupRows).toHaveLength(1);
+    expect(credits).toHaveLength(1);
+  });
+
+  it('BR-18d: the same Idempotency-Key with a different body is 409 IDEMPOTENCY_KEY_REUSED and writes no second top-up or credit', async () => {
+    const { service, topupRows, credits } = cashHarness();
+    const key = newId();
+
+    await service.processCashTopup(actor, scope, CUSTOMER, body(), key);
+    await expect(
+      service.processCashTopup(actor, scope, CUSTOMER, body({ amount: '600.00', fiscalCashTag: 'OOTY-2026-10-14-0002' }), key),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', status: 409 });
+    expect(topupRows).toHaveLength(1);
+    expect(credits).toHaveLength(1);
+  });
+
+  it('BR-18d: a cash top-up without an Idempotency-Key is 422 VALIDATION_FAILED and writes nothing', async () => {
+    const { service, topupRows, credits } = cashHarness();
+
+    await expect(service.processCashTopup(actor, scope, CUSTOMER, body(), undefined)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      status: 422,
+    });
+    await expect(service.processCashTopup(actor, scope, CUSTOMER, body(), '   ')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(topupRows).toHaveLength(0);
+    expect(credits).toHaveLength(0);
+  });
+
+  it('BR-18d: a used fiscal cash tag under a NEW Idempotency-Key is still 409 CONFLICT (a new request, not a replay)', async () => {
+    const { service, topupRows, credits } = cashHarness();
+
+    await service.processCashTopup(actor, scope, CUSTOMER, body(), newId());
+    await expect(service.processCashTopup(actor, scope, CUSTOMER, body(), newId())).rejects.toMatchObject({
+      code: 'CONFLICT',
+      status: 409,
+    });
+    expect(topupRows).toHaveLength(1);
+    expect(credits).toHaveLength(1);
   });
 });
 
@@ -546,6 +667,56 @@ describeIfDatabase('Admin Cash Top-up & Daily Reconciliation (BR-18, BR-19, S-33
 
     expect(res2.status).toBe(409);
     expect(res2.body.code).toBe('CONFLICT');
+  });
+
+  it('BR-18d: a replayed cash top-up (same Idempotency-Key and body) returns the original 201 body, not 409; exactly one topups row and one wallet credit exist', async () => {
+    if (!ready) return;
+
+    const key = newId();
+    const tag = `TAG-REPLAY-${newId().slice(0, 8)}`;
+    const send = () =>
+      request(app)
+        .post(`/v1/admin/wallets/${customerId}/cash-topup`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', key)
+        .send({ amount: '300.00', warehouseId: testWarehouseId, fiscalCashTag: tag });
+
+    const first = await send();
+    expect(first.status).toBe(201);
+    const replay = await send();
+    expect(replay.status).toBe(201);
+    expect(replay.body).toEqual(first.body);
+
+    const topups = await pool.query('SELECT id FROM topups WHERE fiscal_cash_tag = $1', [tag]);
+    expect(topups.rows).toHaveLength(1);
+    const credits = await pool.query(
+      `SELECT id FROM wallet_transactions WHERE ref_type = 'TOPUP' AND ref_id = $1`,
+      [topups.rows[0]!.id],
+    );
+    expect(credits.rows).toHaveLength(1);
+    expect(credits.rows[0]!.id).toBe(first.body.id);
+  });
+
+  it('BR-18d: the same Idempotency-Key with a different body is 409 IDEMPOTENCY_KEY_REUSED and writes nothing more; a missing key is 422', async () => {
+    if (!ready) return;
+
+    const key = newId();
+    const tag1 = `TAG-REUSE1-${newId().slice(0, 8)}`;
+    const tag2 = `TAG-REUSE2-${newId().slice(0, 8)}`;
+    const post = (fiscalCashTag: string, amount: string, idemKey?: string) => {
+      const req = request(app).post(`/v1/admin/wallets/${customerId}/cash-topup`).set('Authorization', `Bearer ${adminToken}`);
+      return (idemKey === undefined ? req : req.set('Idempotency-Key', idemKey)).send({ amount, warehouseId: testWarehouseId, fiscalCashTag });
+    };
+
+    expect((await post(tag1, '400.00', key)).status).toBe(201);
+    const reused = await post(tag2, '450.00', key);
+    expect(reused.status).toBe(409);
+    expect(reused.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect((await pool.query('SELECT id FROM topups WHERE fiscal_cash_tag = $1', [tag2])).rows).toHaveLength(0);
+
+    const noKey = await post(`TAG-NOKEY-${newId().slice(0, 8)}`, '100.00');
+    expect(noKey.status).toBe(422);
+    expect(noKey.body.code).toBe('VALIDATION_FAILED');
   });
 
   it('BR-91i: GET /admin/wallets/cash-topup/customers/lookup is gated by wallet.cash_topup.process: Main and Sub pass the gate (422 on an empty query, not 403); Farmer Admin, Farmer and Customer are 403; anonymous is 401', async () => {

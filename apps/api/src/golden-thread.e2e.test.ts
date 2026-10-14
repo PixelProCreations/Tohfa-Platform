@@ -610,6 +610,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const overCapRes = await request(app)
         .post(`/v1/admin/wallets/${customerId}/cash-topup`)
         .set('Authorization', `Bearer ${mainWhAdminToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           amount: '15000.00',
           warehouseId: warehouseOotyId,
@@ -622,6 +623,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const validCashRes = await request(app)
         .post(`/v1/admin/wallets/${customerId}/cash-topup`)
         .set('Authorization', `Bearer ${mainWhAdminToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           amount: '2500.00',
           warehouseId: warehouseOotyId,
