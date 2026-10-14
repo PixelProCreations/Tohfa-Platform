@@ -1,6 +1,6 @@
 /**
- * Source scan: every entry point into an area with no API (materials,
- * operational issues, warehouse activity, documents, transfers), and into
+ * Source scan: every entry point into an area with no API (operational
+ * issues, warehouse activity, documents, transfers), and into
  * Staff for a Sub admin, is behind isAreaAvailable. The screens themselves stay
  * in the code; only the button, row, tile or route that opens them is hidden.
  * Hooks and JSX cannot render in this plain-Node vitest, so the wiring is
@@ -66,8 +66,8 @@ describe('Warehouse Operations hub (shared Main/Sub)', () => {
     const lines = OPERATIONS_HUB.split('\n');
     const untagged = lines.filter(
       (l) =>
-        /\{ label: .*onPress: (onOpenMaterials|onOpenIssues|\(\) => onOpenActivity|\(\) => onOpenModule\('staff'\))/.test(l) &&
-        !/area: '(materialHandling|operationalIssues|warehouseActivity|staff)'/.test(l),
+        /\{ label: .*onPress: (onOpenIssues|\(\) => onOpenActivity|\(\) => onOpenModule\('staff'\))/.test(l) &&
+        !/area: '(operationalIssues|warehouseActivity|staff)'/.test(l),
     );
     expect(untagged).toEqual([]);
   });
@@ -77,14 +77,13 @@ describe('Warehouse Operations hub (shared Main/Sub)', () => {
     // handler into a hidden area must be a tile tagged with its area (filtered
     // on isAreaAvailable) or the one alias that is undefined when it is hidden.
     const body = OPERATIONS_HUB.slice(OPERATIONS_HUB.indexOf('}: WarehouseOperationsScreenProps) {'));
-    const raw = /\b(onOpenMaterials|onOpenIssues|onOpenActivity|onSelectActivity)\b|onOpenModule\('staff'\)/;
+    const raw = /\b(onOpenIssues|onOpenActivity|onSelectActivity)\b|onOpenModule\('staff'\)/;
     const unguarded = body
       .split('\n')
       .filter((l) => raw.test(l))
-      .filter((l) => !/area: '(materialHandling|operationalIssues|warehouseActivity|staff)'/.test(l))
+      .filter((l) => !/area: '(operationalIssues|warehouseActivity|staff)'/.test(l))
       .filter((l) => !/^\s*const \w+Link = \w+Available \? on\w+ : undefined;$/.test(l));
     expect(unguarded).toEqual([]);
-    expect(OPERATIONS_HUB).toMatch(/const materialsAvailable = isAreaAvailable\('materialHandling', can\)/);
     expect(OPERATIONS_HUB).toMatch(/const issuesAvailable = isAreaAvailable\('operationalIssues', can\)/);
     expect(OPERATIONS_HUB).toMatch(/const activityAvailable = isAreaAvailable\('warehouseActivity', can\)/);
   });

@@ -2,11 +2,17 @@
  * Which warehouse areas the app offers at all.
  *
  *   - Owner decision (2026-10-14): nothing is hidden for having no server API.
- *     Material handling, operational issues, warehouse activity, warehouse
- *     documents, inter-warehouse transfers, stock adjustments, stock counts
- *     and the five order areas below are all shown; their screens are
+ *     Operational issues, warehouse activity, warehouse documents,
+ *     inter-warehouse transfers, stock adjustments, stock counts and the order
+ *     areas below (except delivery) are all shown; their screens are
  *     fixture-backed until an API exists, so they display sample data rather
  *     than live data.
+ *   - Material handling was dropped as a product decision (2026-10-14). It is
+ *     deleted, not hidden: its screens, routes and area no longer exist.
+ *   - Order delivery is hidden again (2026-10-14): the business supports
+ *     warehouse pickup only, not delivery dispatch (BR-21; docs/rules.md open
+ *     contradiction 3). Its screens stay in the code in case delivery is built
+ *     later -- this is a hide, not a delete.
  *   - Staff (roster and attendance) is still shown only with
  *     `admin.staff.list_view`. docs/rbac.json grants it MAIN_WH_ADMIN `own`
  *     and SUB_WH_ADMIN `none` (owner decision 2026-10-11, superseding the
@@ -20,7 +26,6 @@ import type { PermissionCheck } from './finance-expenses/types';
 import type { StorageRoute } from './storage-ops/types';
 
 export type WarehouseArea =
-  | 'materialHandling'
   | 'operationalIssues'
   | 'warehouseActivity'
   | 'warehouseDocuments'
@@ -34,7 +39,7 @@ export type WarehouseArea =
   | 'orderInvoices'
   | 'staff';
 
-export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [];
+export const AREAS_WITHOUT_API: readonly WarehouseArea[] = ['orderDelivery'];
 
 /** The docs/rbac.json code that lists the warehouse staff roster. */
 export const STAFF_AREA_CODE = 'admin.staff.list_view';
@@ -51,9 +56,6 @@ export function isAreaAvailable(area: WarehouseArea, can: PermissionCheck): bool
  * 'support' mode, which is not the operational-issues area.
  */
 const STORAGE_ROUTE_AREA: Partial<Record<StorageRoute, WarehouseArea>> = {
-  MaterialHandling: 'materialHandling',
-  MaterialDetail: 'materialHandling',
-  AddMaterial: 'materialHandling',
   OperationalIssues: 'operationalIssues',
   OperationalIssueDetail: 'operationalIssues',
   Activity: 'warehouseActivity',

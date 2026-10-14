@@ -1,6 +1,9 @@
 /**
  * Which warehouse areas the app offers at all. Owner decision (2026-10-14):
- * nothing is hidden for having no server API -- AREAS_WITHOUT_API is empty.
+ * nothing is hidden for having no server API. The one exception is order
+ * delivery, hidden because the business supports warehouse pickup only
+ * (BR-21; docs/rules.md open contradiction 3). Material handling was deleted
+ * outright (product decision 2026-10-14), so it is no area at all.
  * Staff is still offered only with `admin.staff.list_view`, which
  * docs/rbac.json grants MAIN_WH_ADMIN (own) and not SUB_WH_ADMIN (none); that
  * is a real permission rule, not a no-API hide. The grants used here are the
@@ -27,14 +30,19 @@ const mainCan = makeCan(DEMO_ROLE_PERMISSIONS.MAIN_WH_ADMIN);
 const allowAll = () => true;
 
 describe('AREAS_WITHOUT_API', () => {
-  it('is empty: owner decision 2026-10-14 is to hide nothing for having no server API', () => {
-    expect(AREAS_WITHOUT_API).toEqual([]);
+  it('hides only order delivery: owner decision 2026-10-14 is to hide nothing for having no server API', () => {
+    expect(AREAS_WITHOUT_API).toEqual(['orderDelivery']);
   });
 
-  it('every area but staff is available whatever the permissions, for Sub and Main alike', () => {
+  it('BR-21: order delivery is hidden whatever the permissions, for Sub and Main alike (pickup only)', () => {
+    expect(isAreaAvailable('orderDelivery', allowAll)).toBe(false);
+    expect(isAreaAvailable('orderDelivery', subCan)).toBe(false);
+    expect(isAreaAvailable('orderDelivery', mainCan)).toBe(false);
+  });
+
+  it('every area but staff and order delivery is available whatever the permissions, for Sub and Main alike', () => {
     const areasWithNoApiPreviously: WarehouseArea[] = [
       'interWarehouseTransfers',
-      'materialHandling',
       'operationalIssues',
       'warehouseActivity',
       'warehouseDocuments',
@@ -43,7 +51,6 @@ describe('AREAS_WITHOUT_API', () => {
       'orderCancellation',
       'orderIssues',
       'orderStockCheck',
-      'orderDelivery',
       'orderInvoices',
     ];
     for (const area of areasWithNoApiPreviously) {
@@ -84,9 +91,6 @@ describe('staff', () => {
 describe('storageRouteArea', () => {
   it('maps the storage-ops routes of hidden areas to their area', () => {
     const expected: Record<string, WarehouseArea> = {
-      MaterialHandling: 'materialHandling',
-      MaterialDetail: 'materialHandling',
-      AddMaterial: 'materialHandling',
       OperationalIssues: 'operationalIssues',
       OperationalIssueDetail: 'operationalIssues',
       Activity: 'warehouseActivity',
@@ -142,11 +146,13 @@ describe('ordersRouteArea', () => {
       M5S18: 'orderInvoices', // order invoice (phase 7)
     };
     for (const [route, area] of Object.entries(expected)) {
+      // Delivery is the one hidden order area (BR-21, pickup only).
+      const offered = area !== 'orderDelivery';
       expect({ route, area: ordersRouteArea(route) }).toEqual({ route, area });
       expect({ route, sub: isAreaAvailable(area, subCan), main: isAreaAvailable(area, mainCan) }).toEqual({
         route,
-        sub: true,
-        main: true,
+        sub: offered,
+        main: offered,
       });
     }
   });

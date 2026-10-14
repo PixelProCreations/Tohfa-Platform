@@ -135,8 +135,6 @@ type WarehouseSubView =
   | 'manage_swas'
   | 'storage_locations'
   | 'location_detail'
-  | 'material_handling'
-  | 'material_detail'
   | 'warehouse_capacity'
   | 'warehouse_activity'
   | 'operational_issues'
@@ -819,9 +817,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
-  // Only the old Warehouse Activity / Operations History rows set this (now inside
-  // StorageFlow, W4 storage-ops part B); the 'material_detail' sub-view keeps its default.
-  const [selectedMaterialId] = useState('MAT-0021');
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [alertsList, setAlertsList] = useState<WarehouseAlertItem[]>(DEFAULT_ALERTS);
@@ -2728,25 +2723,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   setWhSubView('overview');
                 }}
               />
-            ) : whSubView === 'material_handling' ? (
-              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-              // actions were ported into the shared screens (inventory.material_handling.manage).
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialHandling"
-                onBack={() => navigateWh('warehouse_operations')}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'material_detail' ? (
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialDetail"
-                initialParams={{ materialId: selectedMaterialId }}
-                onBack={goBackWh}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
             ) : whSubView === 'warehouse_capacity' ? (
               renderWarehouseCapacityScreen()
             ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
@@ -3001,7 +2977,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'todays_operations' ||
             whSubView === 'todays_operations_overview' ||
             whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
             whSubView === 'warehouse_capacity' ||
             whSubView === 'warehouse_activity' ||
             whSubView === 'operational_issues' ||

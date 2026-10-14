@@ -1732,9 +1732,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (storageEntry) {
     return (
       // Shared storage-ops flow (W4, M4 parts A and B), scope-locked to this warehouse:
-      // the Warehouse Operations hub, materials, capacity, activity and operational issues.
-      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own);
-      // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
+      // the Warehouse Operations hub, capacity, activity and operational issues.
+      // Capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
         scope={scope}
         can={can}
