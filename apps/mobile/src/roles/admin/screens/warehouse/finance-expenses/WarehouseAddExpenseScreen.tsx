@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -12,8 +13,13 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { adminErrorKey } from '../../../api/errors';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { t } from '../../../i18n';
+import { parseRupeesToPaise } from '../../../money/paise';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { ExpenseDraft, WarehouseScreenBaseProps } from './types';
+import { useCreateExpenseMutation, useExpenseCategories } from './useFinanceData';
 
 /**
  * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
@@ -23,16 +29,6 @@ import type { ExpenseDraft, WarehouseScreenBaseProps } from './types';
  * - The form has no warehouse selector; the expense is logged against the viewer's scope.
  * The server re-checks every permission (CLAUDE.md 2.1); `can` only decides what to render.
  */
-
-const EXPENSE_CATEGORIES = [
-  'Transport',
-  'Loading',
-  'Unloading',
-  'Maintenance',
-  'Utilities',
-  'Warehouse Operations',
-  'Other',
-];
 
 export interface WarehouseAddExpenseScreenProps extends WarehouseScreenBaseProps {
   onSaveSuccess?: (() => void) | undefined;
@@ -234,6 +230,7 @@ const MONTH_SHORT = [
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export function WarehouseAddExpenseScreen({
+  scope,
   can,
   onBack,
   onSaveSuccess,
@@ -249,11 +246,9 @@ export function WarehouseAddExpenseScreen({
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
   const [, setAttachedDoc] = useState<string | null>(null);
 
-  // Add Category State
-  const [showAddCategoryScreen, setShowAddCategoryScreen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryStatus, setNewCategoryStatus] = useState('Active');
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const { categories } = useExpenseCategories();
+  const createMutation = useCreateExpenseMutation();
+  const idempotencyKey = useIdempotencyKey();
 
   // Confirmation state
   const [isConfirming, setIsConfirming] = useState(false);
@@ -313,126 +308,56 @@ export function WarehouseAddExpenseScreen({
 
   const handleSaveExpense = () => {
     if (!canLog) return;
-    if (!amount.trim() || isNaN(Number(amount.replace(/[^0-9.]/g, '')))) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount.');
+    const paise = parseRupeesToPaise(amount);
+    if (!paise || paise <= 0) {
+      Alert.alert(t('async.error.title'), 'Please enter a valid expense amount.');
       return;
     }
     setIsConfirming(true);
   };
 
   const handleConfirmSave = () => {
-    if (!canLog) return;
-    setIsConfirming(false);
-    setIsSuccess(true);
-  };
-
-  const handleSaveCategory = () => {
-    if (!newCategoryName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a category name.');
+    if (!canLog || createMutation.isPending) return;
+    const paise = parseRupeesToPaise(amount);
+    if (!paise || paise <= 0) {
+      Alert.alert(t('async.error.title'), 'Please enter a valid expense amount.');
       return;
     }
-    Alert.alert('Category Added', `Category "${newCategoryName}" has been successfully added.`);
-    setShowAddCategoryScreen(false);
-    setNewCategoryName('');
-  };
+    const cat = categories.find((c) => c.name === selectedCategory) ?? categories[0];
+    if (!cat) {
+      Alert.alert(t('async.error.title'), 'Please select a valid expense category.');
+      return;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const isoDate = `${calYear}-${pad(calMonth + 1)}-${pad(tempSelectedDay)}`;
+    const body = {
+      warehouseId: scope.warehouseId,
+      categoryId: cat.id,
+      amount: (paise / 100).toFixed(2),
+      expenseDate: isoDate,
+      paymentMethod: paymentMethod.toUpperCase() as 'CASH' | 'UPI' | 'BANK',
+      description: description.trim() || undefined,
+      referenceNumber: vendorPayee.trim() || undefined,
+    };
 
-  if (showAddCategoryScreen) {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* ─── Top Brand Header Banner ─── */}
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.75}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Category</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.confirmCard, { borderColor: adminColors.brand, paddingBottom: adminSpacing.input }]}>
-            <View style={[styles.confirmHeaderRow, { marginBottom: adminSpacing.lg }]}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brandDeep }}>⊕ Add Category</Text>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Category Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="e.g. Packaging"
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <TouchableOpacity
-                style={styles.dropdownBtn}
-                onPress={() => setShowStatusPicker(!showStatusPicker)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownValueText}>{newCategoryStatus}</Text>
-                <ChevronDownIcon size={16} color={adminColors.ink} />
-              </TouchableOpacity>
-
-              {showStatusPicker && (
-                <View style={styles.pickerDropdown}>
-                  {['Active', 'Inactive'].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.pickerOption,
-                        newCategoryStatus === status && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => {
-                        setNewCategoryStatus(status);
-                        setShowStatusPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          newCategoryStatus === status && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {status}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.confirmGreenBtn, { marginTop: adminSpacing.sm }]}
-              onPress={handleSaveCategory}
-              activeOpacity={0.8}
-            >
-              <CheckIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.confirmGreenBtnText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.confirmCancelBtn, { marginTop: adminSpacing.md }]}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+    createMutation.mutate(
+      {
+        body,
+        idempotencyKey: idempotencyKey.keyFor(body),
+      },
+      {
+        onSuccess: () => {
+          idempotencyKey.reset();
+          setIsConfirming(false);
+          setIsSuccess(true);
+        },
+        onError: (err) => {
+          setIsConfirming(false);
+          Alert.alert(t('async.error.title'), t(adminErrorKey(err)));
+        },
+      },
     );
-  }
+  };
 
   // If in Confirmation step, render confirmation view
   if (isConfirming) {
@@ -488,13 +413,19 @@ export function WarehouseAddExpenseScreen({
 
             {/* Confirm Outline Button (Green) */}
             <TouchableOpacity
-              style={[styles.confirmGreenBtn, !canLog && styles.confirmBtnDisabled]}
+              style={[styles.confirmGreenBtn, (!canLog || createMutation.isPending) && styles.confirmBtnDisabled]}
               onPress={handleConfirmSave}
-              disabled={!canLog}
+              disabled={!canLog || createMutation.isPending}
               activeOpacity={0.8}
             >
-              <CheckIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.confirmGreenBtnText}>Confirm</Text>
+              {createMutation.isPending ? (
+                <ActivityIndicator size="small" color={adminColors.success.text} />
+              ) : (
+                <>
+                  <CheckIcon size={18} color={adminColors.success.text} />
+                  <Text style={styles.confirmGreenBtnText}>Confirm</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Cancel Outline Button (Warm Brown) */}
@@ -598,12 +529,7 @@ export function WarehouseAddExpenseScreen({
 
         {/* Field 1: Expense Category */}
         <View style={styles.fieldGroup}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm }}>
-            <Text style={[styles.fieldLabel, { marginBottom: 0 }]}>Expense Category</Text>
-            <TouchableOpacity onPress={() => setShowAddCategoryScreen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brand }}>+ Add</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.fieldLabel}>Expense Category</Text>
           <TouchableOpacity
             style={styles.dropdownBtn}
             onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -616,30 +542,31 @@ export function WarehouseAddExpenseScreen({
           {/* Category Dropdown List */}
           {showCategoryPicker && (
             <View style={styles.pickerDropdown}>
-              {EXPENSE_CATEGORIES.map((cat) => (
+              {(categories.length > 0 ? categories : [{ id: 'default', name: 'Transport', status: 'Active', usedCount: 0 }]).map((cat) => (
                 <TouchableOpacity
-                  key={cat}
+                  key={cat.id}
                   style={[
                     styles.pickerOption,
-                    selectedCategory === cat && styles.pickerOptionActive,
+                    selectedCategory === cat.name && styles.pickerOptionActive,
                   ]}
                   onPress={() => {
-                    setSelectedCategory(cat);
+                    setSelectedCategory(cat.name);
                     setShowCategoryPicker(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.pickerOptionText,
-                      selectedCategory === cat && styles.pickerOptionTextActive,
+                      selectedCategory === cat.name && styles.pickerOptionTextActive,
                     ]}
                   >
-                    {cat}
+                    {cat.name}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
+        </View>
 
           {/* Ported from the Main copy: the list is configuration, not a local list. */}
           <View style={styles.blueCallout}>
@@ -647,7 +574,6 @@ export function WarehouseAddExpenseScreen({
               This list reflects Expense Categories (S06) configuration — never a separately maintained list.
             </Text>
           </View>
-        </View>
 
         {/* Field 2: Expense Date */}
         <View style={styles.fieldGroup}>

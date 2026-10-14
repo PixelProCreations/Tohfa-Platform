@@ -15,7 +15,7 @@
  * detail; FinanceFlow passes `onSelectRevenue` and pushes the detail instead.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -34,6 +34,7 @@ import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
 import type { RevenueRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { useRevenueList } from './useFinanceData';
 
 const CATEGORY_FILTERS = ['All', 'Orders', 'Direct Sales', 'Other'] as const;
 type CategoryFilter = (typeof CATEGORY_FILTERS)[number];
@@ -95,8 +96,11 @@ export function RevenueScreen({
     );
   }
 
+  const liveRevenue = useRevenueList(scope.warehouseId);
+  const sourceRecords = records !== SAMPLE_REVENUE_RECORDS ? records : (liveRevenue.items.length > 0 ? liveRevenue.items : SAMPLE_REVENUE_RECORDS);
+
   const query = searchQuery.trim().toLowerCase();
-  const visible = records.filter((rec) => {
+  const visible = sourceRecords.filter((rec) => {
     if (!inScope(scope, rec.warehouseId, selectedWarehouseId)) return false;
     if (selectedFilter !== 'All' && rec.category !== selectedFilter) return false;
     return (

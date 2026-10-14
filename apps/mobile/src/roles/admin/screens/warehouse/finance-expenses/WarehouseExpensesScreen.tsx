@@ -14,6 +14,7 @@
  */
 import React, { useState } from 'react';
 import {
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -28,6 +29,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
+import { SAMPLE_EXPENSE_RECORDS } from './fixtures';
+import { useExpenseList } from './useFinanceData';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
 import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
@@ -38,44 +41,6 @@ const ALL_WAREHOUSES_LABEL = 'All Warehouses';
 const FILTER_ALL = 'All';
 // Category chips offered by the filter view (ported from the Main filter screen).
 const FILTER_CATEGORIES = [FILTER_ALL, 'Transport', 'Loading'] as const;
-
-const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
-  {
-    id: 'EXP-001245',
-    categoryRef: 'Transport · Collection point → Warehouse',
-    amount: 2400,
-    timestamp: '25 Sep - 09:30 AM',
-    status: 'Recorded',
-  },
-  {
-    id: 'EXP-001244',
-    categoryRef: 'Loading / Unloading · Morning unloading',
-    amount: 1800,
-    timestamp: '25 Sep - 08:15 AM',
-    status: 'Pending',
-  },
-  {
-    id: 'EXP-001241',
-    categoryRef: 'Warehouse Operations · Storage Crates & Pallets',
-    amount: 1200,
-    timestamp: '24 Sep - 05:45 PM',
-    status: 'Approved',
-  },
-  {
-    id: 'EXP-001238',
-    categoryRef: 'Utilities · Generator Diesel & Power',
-    amount: 620,
-    timestamp: '24 Sep - 02:30 PM',
-    status: 'Recorded',
-  },
-  {
-    id: 'EXP-001235',
-    categoryRef: 'Maintenance · Digital Weigh Scale Calibration',
-    amount: 400,
-    timestamp: '24 Sep - 11:00 AM',
-    status: 'Recorded',
-  },
-];
 
 export interface WarehouseExpensesScreenProps extends WarehouseScreenBaseProps {
   onAddExpense?: (() => void) | undefined;
@@ -250,8 +215,11 @@ export function WarehouseExpensesScreen({
     }
   };
 
+  const liveList = useExpenseList(scope.warehouseId);
+  const sourceRecords = liveList.items.length > 0 ? liveList.items : SAMPLE_EXPENSE_RECORDS;
+
   const filteredRecords = canLogExpense
-    ? SAMPLE_EXPENSE_RECORDS.filter((rec) => {
+    ? sourceRecords.filter((rec) => {
         const query = searchQuery.trim().toLowerCase();
         const matchesCategory =
           categoryFilter === FILTER_ALL ||
@@ -419,7 +387,6 @@ export function WarehouseExpensesScreen({
   ];
 
   const statusTone = (status: ExpenseRecord['status']) => {
-    if (status === 'Pending') return adminColors.warning;
     if (status === 'Rejected') return adminColors.danger;
     return adminColors.success; // Recorded, Approved
   };
@@ -463,6 +430,7 @@ export function WarehouseExpensesScreen({
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={liveList.isRefreshing} onRefresh={liveList.refresh} />}
       >
         {/* ─── 4 Top KPI Cards (2x2 Grid) ─── */}
         <View style={styles.kpiGrid}>

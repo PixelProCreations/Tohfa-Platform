@@ -326,6 +326,7 @@ export interface SalesScreenProps extends WarehouseScreenBaseProps {
 
 export function SalesScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -349,7 +350,11 @@ export function SalesScreen({
     SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse)?.warehouseName ??
     'All warehouses';
 
-  const handleOpenNewSale = () => onNavigateToNewSale();
+  const canCreateSale = can ? can('sales.sale.create') : false;
+  const handleOpenNewSale = () => {
+    if (canCreateSale) onNavigateToNewSale();
+    else Alert.alert('New Sale', 'Creating new sales is not permitted for your role.');
+  };
   const handleOpenSalesHistory = () => onNavigateToSalesHistory();
   const handleOpenMarketDaySales = () => onNavigateToMarketDaySales();
   const handleOpenHorecaSales = () => onNavigateToChannelSales('HORECA');
