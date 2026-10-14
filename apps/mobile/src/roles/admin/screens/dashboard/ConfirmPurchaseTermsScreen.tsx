@@ -10,32 +10,12 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  disabledBtn: adminColors.brandTint,
-};
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,7 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function CheckmarkIcon({ size = 12, color = THEME.white }: { size?: number; color?: string }) {
+function CheckmarkIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -78,13 +58,13 @@ export interface ConfirmPurchaseTermsScreenProps {
 }
 
 export function ConfirmPurchaseTermsScreen({
-  farmerName = 'Ramesh Kumar',
-  produceName = 'Organic Carrot — Grade 1',
-  requestedQty = '50 kg',
-  agreedQty = '30 kg',
-  requestedPrice = '₹50/kg',
-  agreedPrice = '₹45/kg',
-  totalAmount = '₹1,350',
+  farmerName,
+  produceName,
+  requestedQty,
+  agreedQty,
+  requestedPrice,
+  agreedPrice,
+  totalAmount,
   onBack,
   onConfirm,
 }: ConfirmPurchaseTermsScreenProps) {
@@ -92,9 +72,9 @@ export function ConfirmPurchaseTermsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 2 Exactly ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -103,10 +83,10 @@ export function ConfirmPurchaseTermsScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Confirm Purchase Terms</Text>
+          <Text style={styles.headerTitle}>{t('confirmPurchaseTerms.title')}</Text>
         </View>
       </View>
 
@@ -120,54 +100,56 @@ export function ConfirmPurchaseTermsScreen({
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farmer</Text>
-              <Text style={styles.fieldValue}>{farmerName}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.farmer')}</Text>
+              <Text style={styles.fieldValue}>{farmerName || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Produce</Text>
-              <Text style={styles.fieldValue}>{produceName}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.produce')}</Text>
+              <Text style={styles.fieldValue}>{produceName || '—'}</Text>
             </View>
           </View>
         </View>
 
         {/* Section: Quantity */}
-        <Text style={styles.sectionHeading}>Quantity</Text>
+        <Text style={styles.sectionHeading}>{t('confirmPurchaseTerms.requestedQty')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Requested/List Quantity</Text>
-              <Text style={styles.fieldValue}>{requestedQty}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.requestedQty')}</Text>
+              <Text style={styles.fieldValue}>{requestedQty || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>TOHFA Purchase Quantity</Text>
-              <Text style={styles.fieldValue}>{agreedQty}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.agreedQty')}</Text>
+              <Text style={styles.fieldValue}>{agreedQty || '—'}</Text>
             </View>
           </View>
         </View>
 
         {/* Section: Price */}
-        <Text style={styles.sectionHeading}>Price</Text>
+        <Text style={styles.sectionHeading}>{t('confirmPurchaseTerms.requestedPrice')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farmer Requested</Text>
-              <Text style={styles.fieldValue}>{requestedPrice}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.requestedPrice')}</Text>
+              <Text style={styles.fieldValue}>{requestedPrice || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Final Agreed</Text>
-              <Text style={styles.fieldValue}>{agreedPrice}</Text>
+              <Text style={styles.fieldLabel}>{t('confirmPurchaseTerms.agreedPrice')}</Text>
+              <Text style={styles.fieldValue}>{agreedPrice || '—'}</Text>
             </View>
           </View>
         </View>
 
         {/* Section: Purchase Calculation */}
-        <Text style={styles.sectionHeading}>Purchase Calculation</Text>
+        <Text style={styles.sectionHeading}>{t('confirmPurchaseTerms.totalAmount')}</Text>
         <View style={[styles.card, styles.calcCard]}>
-          <Text style={styles.calcSubline}>
-            {agreedQty} × {agreedPrice}
-          </Text>
+          {(agreedQty && agreedPrice) ? (
+            <Text style={styles.calcSubline}>
+              {agreedQty} × {agreedPrice}
+            </Text>
+          ) : null}
           <Text style={styles.calcTotal}>
-            Total Purchase Amount: {totalAmount}
+            {totalAmount ? `${t('confirmPurchaseTerms.totalAmount')}: ${totalAmount}` : '—'}
           </Text>
         </View>
 
@@ -178,27 +160,29 @@ export function ConfirmPurchaseTermsScreen({
           activeOpacity={0.8}
         >
           <View style={[styles.checkboxBox, isConfirmed && styles.checkboxBoxChecked]}>
-            {isConfirmed && <CheckmarkIcon size={12} color={THEME.white} />}
+            {isConfirmed && <CheckmarkIcon size={12} color={adminColors.onBrand} />}
           </View>
           <Text style={styles.checkboxLabel}>
-            I confirm the quantity and negotiated purchase price shown above.
+            {t('confirmPurchaseTerms.acknowledgement')}
           </Text>
         </TouchableOpacity>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* ─── Bottom Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.confirmBtn, styles.confirmBtnActive]}
+          style={[styles.confirmBtn, isConfirmed ? styles.confirmBtnActive : styles.confirmBtnDisabled]}
           onPress={() => {
-            setIsConfirmed(true);
-            onConfirm();
+            if (isConfirmed) {
+              onConfirm();
+            }
           }}
           activeOpacity={0.85}
+          disabled={!isConfirmed}
         >
-          <Text style={styles.confirmBtnText}>Confirm Purchase Terms</Text>
+          <Text style={styles.confirmBtnText}>{t('confirmPurchaseTerms.confirmBtn')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -209,27 +193,26 @@ export function ConfirmPurchaseTermsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
-    padding: 4,
-    marginRight: 12,
+    padding: adminSpacing.xs,
+    marginRight: adminSpacing.md,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
 
@@ -237,91 +220,84 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 16,
-    marginBottom: 8,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
 
   card: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     ...adminShadow.sm,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   col: {
     flex: 1,
   },
   fieldLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   fieldValue: {
     ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   calcCard: {
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingVertical: adminSpacing.lg,
   },
   calcSubline: {
     ...adminType.body,
-    fontSize: 13,
-    color: THEME.muted,
-    marginBottom: 6,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   calcTotal: {
-    ...adminType.title,
-    fontSize: 17,
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
 
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 20,
-    gap: 12,
-    paddingHorizontal: 4,
+    marginTop: adminSpacing.xl,
+    gap: adminSpacing.md,
+    paddingHorizontal: adminSpacing.xs,
   },
   checkboxBox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: adminRadius.xs,
     borderWidth: 1.8,
-    borderColor: THEME.muted,
+    borderColor: adminColors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
   },
   checkboxBoxChecked: {
-    backgroundColor: THEME.orangeBtn,
-    borderColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   checkboxLabel: {
     flex: 1,
     ...adminType.body,
-    fontSize: 13,
-    color: THEME.ink,
-    lineHeight: 18,
+    color: adminColors.ink,
   },
 
   bottomBar: {
@@ -329,28 +305,30 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: THEME.canvas,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
     borderTopWidth: 1,
-    borderTopColor: THEME.border,
+    borderTopColor: adminColors.border,
   },
   confirmBtn: {
     borderRadius: adminRadius.lg,
-    paddingVertical: 14,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmBtnActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   confirmBtnDisabled: {
-    backgroundColor: THEME.disabledBtn,
+    backgroundColor: adminColors.brandTint,
   },
   confirmBtnText: {
     ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.white,
+    color: adminColors.onBrand,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

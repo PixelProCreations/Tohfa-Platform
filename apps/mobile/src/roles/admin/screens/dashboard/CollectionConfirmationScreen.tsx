@@ -10,32 +10,12 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  disabledBtn: adminColors.brandTint,
-};
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,7 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function CheckmarkIcon({ size = 12, color = THEME.white }: { size?: number; color?: string }) {
+function CheckmarkIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -79,14 +59,14 @@ export interface CollectionConfirmationScreenProps {
 }
 
 export function CollectionConfirmationScreen({
-  orderId = 'PO-2026-00124',
-  farmerName = 'Ramesh Kumar',
-  expectedQty = '30 kg',
-  receivedQty = '30 kg',
-  totalValue = '₹1,350',
-  collectionDate = '30 Sep 2026',
-  collectedBy = 'Farmer Admin',
-  qualityResult = 'Accepted',
+  orderId,
+  farmerName,
+  expectedQty,
+  receivedQty,
+  totalValue,
+  collectionDate,
+  collectedBy,
+  qualityResult,
   onBack,
   onConfirmCollection,
 }: CollectionConfirmationScreenProps) {
@@ -94,9 +74,9 @@ export function CollectionConfirmationScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 4 Exactly ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -105,13 +85,13 @@ export function CollectionConfirmationScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Collection Confirmation</Text>
+          <Text style={styles.headerTitle}>{t('collectionConfirmation.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>Status: Ready for Completion</Text>
+        <Text style={styles.headerSubtitle}>{t('collectionConfirmation.subtitle')}</Text>
       </View>
 
       {/* ─── Scroll Body ─── */}
@@ -121,53 +101,53 @@ export function CollectionConfirmationScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Section: Purchase Summary */}
-        <Text style={styles.sectionHeading}>Purchase Summary</Text>
+        <Text style={styles.sectionHeading}>{t('collectionConfirmation.section.orderSummary')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>PO ID</Text>
-              <Text style={styles.fieldValue}>{orderId}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.orderId')}</Text>
+              <Text style={styles.fieldValue}>{orderId || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farmer</Text>
-              <Text style={styles.fieldValue}>{farmerName}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.farmer')}</Text>
+              <Text style={styles.fieldValue}>{farmerName || '—'}</Text>
             </View>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: 14 }]}>
+          <View style={[styles.twoColRow, styles.rowSpacing]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Expected Quantity</Text>
-              <Text style={styles.fieldValue}>{expectedQty}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.expectedQty')}</Text>
+              <Text style={styles.fieldValue}>{expectedQty || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Received Quantity</Text>
-              <Text style={styles.fieldValue}>{receivedQty}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.receivedQty')}</Text>
+              <Text style={styles.fieldValue}>{receivedQty || '—'}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Total Purchase Value</Text>
-            <Text style={styles.fieldValue}>{totalValue}</Text>
+          <View style={styles.rowSpacing}>
+            <Text style={styles.fieldLabel}>{t('collectionConfirmation.totalValue')}</Text>
+            <Text style={styles.fieldValue}>{totalValue || '—'}</Text>
           </View>
         </View>
 
         {/* Section: Collection Details */}
-        <Text style={styles.sectionHeading}>Collection Details</Text>
+        <Text style={styles.sectionHeading}>{t('collectionConfirmation.title')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Collection Date</Text>
-              <Text style={styles.fieldValue}>{collectionDate}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.collectionDate')}</Text>
+              <Text style={styles.fieldValue}>{collectionDate || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Collected By</Text>
-              <Text style={styles.fieldValue}>{collectedBy}</Text>
+              <Text style={styles.fieldLabel}>{t('collectionConfirmation.collectedBy')}</Text>
+              <Text style={styles.fieldValue}>{collectedBy || '—'}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Quality Result</Text>
-            <Text style={styles.fieldValue}>{qualityResult}</Text>
+          <View style={styles.rowSpacing}>
+            <Text style={styles.fieldLabel}>{t('collectionConfirmation.qualityResult')}</Text>
+            <Text style={styles.fieldValue}>{qualityResult || '—'}</Text>
           </View>
         </View>
 
@@ -178,27 +158,29 @@ export function CollectionConfirmationScreen({
           activeOpacity={0.8}
         >
           <View style={[styles.checkboxBox, isConfirmed && styles.checkboxBoxChecked]}>
-            {isConfirmed && <CheckmarkIcon size={12} color={THEME.white} />}
+            {isConfirmed && <CheckmarkIcon size={12} color={adminColors.onBrand} />}
           </View>
           <Text style={styles.checkboxLabel}>
-            I confirm that the produce shown above has been received.
+            {t('collectionConfirmation.acknowledgement')}
           </Text>
         </TouchableOpacity>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* ─── Bottom Action Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.confirmBtn, styles.confirmBtnActive]}
+          style={[styles.confirmBtn, isConfirmed ? styles.confirmBtnActive : styles.confirmBtnDisabled]}
           onPress={() => {
-            setIsConfirmed(true);
-            onConfirmCollection();
+            if (isConfirmed) {
+              onConfirmCollection();
+            }
           }}
           activeOpacity={0.85}
+          disabled={!isConfirmed}
         >
-          <Text style={styles.confirmBtnText}>Confirm Collection</Text>
+          <Text style={styles.confirmBtnText}>{t('collectionConfirmation.confirmBtn')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -209,34 +191,33 @@ export function CollectionConfirmationScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
-    padding: 4,
-    marginRight: 12,
+    padding: adminSpacing.xs,
+    marginRight: adminSpacing.md,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 6,
-    marginLeft: 38,
+    ...adminType.body,
+    color: adminColors.brandTint,
+    marginTop: adminSpacing.xs,
+    marginLeft: adminSpacing.xxl,
     fontWeight: '500',
   },
 
@@ -244,75 +225,73 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 18,
-    marginBottom: 8,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
 
   card: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     ...adminShadow.sm,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: adminSpacing.md,
+  },
+  rowSpacing: {
+    marginTop: adminSpacing.md,
   },
   col: {
     flex: 1,
   },
   fieldLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   fieldValue: {
     ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 20,
-    gap: 12,
-    paddingHorizontal: 4,
+    marginTop: adminSpacing.xl,
+    gap: adminSpacing.md,
+    paddingHorizontal: adminSpacing.xs,
   },
   checkboxBox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: adminRadius.xs,
     borderWidth: 1.8,
-    borderColor: THEME.muted,
+    borderColor: adminColors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
   },
   checkboxBoxChecked: {
-    backgroundColor: THEME.orangeBtn,
-    borderColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   checkboxLabel: {
     flex: 1,
     ...adminType.body,
-    fontSize: 13,
-    color: THEME.ink,
-    lineHeight: 18,
+    color: adminColors.ink,
   },
 
   bottomBar: {
@@ -320,28 +299,30 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: THEME.canvas,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
     borderTopWidth: 1,
-    borderTopColor: THEME.border,
+    borderTopColor: adminColors.border,
   },
   confirmBtn: {
     borderRadius: adminRadius.lg,
-    paddingVertical: 14,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmBtnActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   confirmBtnDisabled: {
-    backgroundColor: THEME.disabledBtn,
+    backgroundColor: adminColors.brandTint,
   },
   confirmBtnText: {
     ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.white,
+    color: adminColors.onBrand,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

@@ -10,33 +10,12 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Accent & Action
-  orangeBtn: adminColors.brand,
-  mediumBadgeBg: '#FEF3C7',
-  mediumBadgeText: '#B45309',
-};
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,19 +42,19 @@ export interface ApplicationGuideScreenProps {
 }
 
 export function ApplicationGuideScreen({
-  pestName = 'Aphid',
-  scientificName = 'Aphidoidea',
-  crop = 'Carrot',
-  severity = 'Medium',
+  pestName,
+  scientificName,
+  crop,
+  severity,
   onBack,
   onViewIncidents,
   onSelectRelatedInput,
 }: ApplicationGuideScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 1 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -84,13 +63,17 @@ export function ApplicationGuideScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Application Guide</Text>
+          <Text style={styles.headerTitle}>{t('applicationGuide.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>{pestName} — {crop}</Text>
+        {(pestName || crop) ? (
+          <Text style={styles.headerSubtitle}>
+            {pestName ?? ''}{pestName && crop ? ' — ' : ''}{crop ?? ''}
+          </Text>
+        ) : null}
       </View>
 
       {/* ─── Scroll Container ─── */}
@@ -100,95 +83,95 @@ export function ApplicationGuideScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ─── 1. Pest ─── */}
-        <Text style={styles.sectionHeading}>Pest</Text>
+        <Text style={styles.sectionHeading}>{t('applicationGuide.section.pest')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Pest Name</Text>
-              <Text style={styles.fieldValue}>{pestName}</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.pestName')}</Text>
+              <Text style={styles.fieldValue}>{pestName || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Scientific Name</Text>
-              <Text style={styles.fieldValue}>{scientificName}</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.scientificName')}</Text>
+              <Text style={styles.fieldValue}>{scientificName || '—'}</Text>
             </View>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: 14 }]}>
+          <View style={[styles.twoColRow, styles.rowSpacing]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Crop</Text>
-              <Text style={styles.fieldValue}>{crop}</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.crop')}</Text>
+              <Text style={styles.fieldValue}>{crop || '—'}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Severity</Text>
-              <Text style={styles.fieldValue}>{severity}</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.severity')}</Text>
+              <Text style={styles.fieldValue}>{severity || '—'}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Symptoms</Text>
+          <View style={styles.rowSpacing}>
+            <Text style={styles.fieldLabel}>{t('applicationGuide.symptoms')}</Text>
             <Text style={styles.fieldValueNormal}>
-              Curling leaves, sticky residue on foliage, stunted growth.
+              {t('applicationGuide.sampleSymptoms')}
             </Text>
           </View>
         </View>
 
         {/* ─── 2. Recommended Treatment ─── */}
-        <Text style={styles.sectionHeading}>Recommended Treatment</Text>
+        <Text style={styles.sectionHeading}>{t('applicationGuide.section.treatment')}</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabelUppercase}>CONFIGURED ORGANIC TREATMENT</Text>
+          <Text style={styles.fieldLabelUppercase}>{t('applicationGuide.configuredTreatment')}</Text>
           <Text style={styles.treatmentBody}>
-            Neem-oil based foliar spray, applied per configured schedule.
+            {t('applicationGuide.sampleTreatment')}
           </Text>
         </View>
 
         {/* ─── 3. Application Information ─── */}
-        <Text style={styles.sectionHeading}>Application Information</Text>
+        <Text style={styles.sectionHeading}>{t('applicationGuide.section.applicationInfo')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Application Method</Text>
-              <Text style={styles.fieldValue}>Foliar spray</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.applicationMethod')}</Text>
+              <Text style={styles.fieldValue}>{t('applicationGuide.sampleMethod')}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Timing</Text>
-              <Text style={styles.fieldValue}>Early morning</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.timing')}</Text>
+              <Text style={styles.fieldValue}>{t('applicationGuide.sampleTiming')}</Text>
             </View>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: 14 }]}>
+          <View style={[styles.twoColRow, styles.rowSpacing]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Frequency</Text>
-              <Text style={styles.fieldValue}>Every 7 days</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.frequency')}</Text>
+              <Text style={styles.fieldValue}>{t('applicationGuide.sampleFrequency')}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Crop Stage</Text>
-              <Text style={styles.fieldValue}>Vegetative</Text>
+              <Text style={styles.fieldLabel}>{t('applicationGuide.cropStage')}</Text>
+              <Text style={styles.fieldValue}>{t('applicationGuide.sampleStage')}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Precautions</Text>
+          <View style={styles.rowSpacing}>
+            <Text style={styles.fieldLabel}>{t('applicationGuide.precautions')}</Text>
             <Text style={styles.fieldValueNormal}>
-              Avoid spraying during flowering to protect pollinators.
+              {t('applicationGuide.samplePrecautions')}
             </Text>
           </View>
         </View>
 
         {/* ─── 4. Related Inputs ─── */}
-        <Text style={styles.sectionHeading}>Related Inputs</Text>
+        <Text style={styles.sectionHeading}>{t('applicationGuide.section.relatedInputs')}</Text>
         <TouchableOpacity
           style={styles.card}
           onPress={onSelectRelatedInput}
           activeOpacity={0.8}
         >
-          <Text style={styles.fieldValue}>Neem Oil Concentrate</Text>
-          <Text style={styles.subMuted}>Approved bio-input</Text>
+          <Text style={styles.fieldValue}>{t('applicationGuide.sampleRelatedInput')}</Text>
+          <Text style={styles.subMuted}>{t('applicationGuide.approvedBioInput')}</Text>
         </TouchableOpacity>
 
         {/* ─── 5. Farmer Incidents ─── */}
-        <Text style={styles.sectionHeading}>Farmer Incidents</Text>
+        <Text style={styles.sectionHeading}>{t('applicationGuide.section.incidents')}</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldValueNormal}>12 incidents related to this pest</Text>
+          <Text style={styles.fieldValueNormal}>{t('applicationGuide.sampleIncidents')}</Text>
         </View>
 
         {/* Button: View Incidents */}
@@ -197,10 +180,10 @@ export function ApplicationGuideScreen({
           onPress={onViewIncidents}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineBtnText}>View Incidents</Text>
+          <Text style={styles.outlineBtnText}>{t('applicationGuide.viewIncidents')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -211,12 +194,12 @@ export function ApplicationGuideScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -224,25 +207,24 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
-    paddingRight: 6,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
-    marginLeft: 6,
+    marginLeft: adminSpacing.xs,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginLeft: 34,
+    ...adminType.body,
+    color: adminColors.brandTint,
+    marginLeft: adminSpacing.xxl,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -259,84 +241,79 @@ const styles = StyleSheet.create({
 
   // Section Heading
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 14,
-    marginBottom: 8,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
 
   // Card Structure
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: adminSpacing.md,
+  },
+  rowSpacing: {
+    marginTop: adminSpacing.md,
   },
   col: {
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 11,
-    color: THEME.labelMuted,
-    marginBottom: 4,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   fieldLabelUppercase: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.labelMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   fieldValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   fieldValueNormal: {
-    fontSize: 13,
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '700',
-    color: THEME.ink,
-    lineHeight: 18,
   },
   treatmentBody: {
-    fontSize: 13,
-    color: THEME.ink,
-    lineHeight: 18,
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '600',
   },
   subMuted: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
   // Big Action Outline Button
   outlineBtn: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.md, // 12px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    paddingVertical: 14,
+    borderColor: adminColors.brand,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 14,
+    marginTop: adminSpacing.md,
   },
   outlineBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

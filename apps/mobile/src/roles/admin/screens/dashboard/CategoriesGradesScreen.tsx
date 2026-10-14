@@ -10,33 +10,12 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Badges & Buttons
-  activeBadgeBg: adminColors.success.bg,
-  activeBadgeText: adminColors.success.text,
-  orangeBtn: adminColors.brand,
-};
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -119,7 +98,6 @@ export interface CategoriesGradesScreenProps {
 }
 
 export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) {
-  // Navigation state between list and category detail (Image 3)
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
 
   const handleHeaderBack = () => {
@@ -132,9 +110,9 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 1 & 3 Exactly ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity
@@ -143,9 +121,9 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Categories & Grades</Text>
+          <Text style={styles.headerTitle}>{t('categoriesGrades.title')}</Text>
         </View>
       </View>
 
@@ -156,37 +134,37 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
         showsVerticalScrollIndicator={false}
       >
         {selectedCategory ? (
-          /* ─── Category Detail Screen (Image 3 Request) ─── */
+          /* ─── Category Detail Screen ─── */
           <>
             {/* Top 2x2 Metadata Card */}
             <View style={styles.detailCard}>
               {/* Row 1: Category Name & Category Code */}
               <View style={styles.detailGridRow}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Category Name</Text>
+                  <Text style={styles.detailLabel}>{t('categoriesGrades.tab.categories')}</Text>
                   <Text style={styles.detailValue}>{selectedCategory.name}</Text>
                 </View>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Category Code</Text>
+                  <Text style={styles.detailLabel}>{t('categoriesGrades.detail.categoryCode')}</Text>
                   <Text style={styles.detailValue}>{selectedCategory.code}</Text>
                 </View>
               </View>
 
               {/* Row 2: Product Count & Status */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={[styles.detailGridRow, styles.detailRowSpacing]}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Product Count</Text>
+                  <Text style={styles.detailLabel}>{t('categoriesGrades.detail.totalProducts')}</Text>
                   <Text style={styles.detailValue}>{selectedCategory.productCount}</Text>
                 </View>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text style={styles.detailLabel}>{t('approvedInputs.filterByStatus')}</Text>
                   <Text style={styles.detailValue}>{selectedCategory.status}</Text>
                 </View>
               </View>
             </View>
 
             {/* Section: Products */}
-            <Text style={styles.sectionHeading}>Products</Text>
+            <Text style={styles.sectionHeading}>{t('categoriesGrades.detail.associatedProducts')}</Text>
 
             {/* Products Chips Card */}
             <View style={styles.productsCard}>
@@ -205,14 +183,14 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
               onPress={() => setSelectedCategory(null)}
               activeOpacity={0.8}
             >
-              <Text style={styles.backToCategoriesBtnText}>Back to Categories</Text>
+              <Text style={styles.backToCategoriesBtnText}>{t('categoriesGrades.detail.backToCategories')}</Text>
             </TouchableOpacity>
           </>
         ) : (
-          /* ─── Category List & Grade Reference (Image 1 Request) ─── */
+          /* ─── Category List & Grade Reference ─── */
           <>
             {/* Section 1: Category List */}
-            <Text style={styles.sectionHeading}>Category List</Text>
+            <Text style={styles.sectionHeading}>{t('categoriesGrades.tab.categories')}</Text>
 
             {CATEGORY_LIST.map((cat) => (
               <TouchableOpacity
@@ -232,8 +210,8 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
             ))}
 
             {/* Section 2: Grade Reference */}
-            <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>
-              Grade Reference
+            <Text style={[styles.sectionHeading, styles.gradeSectionSpacing]}>
+              {t('categoriesGrades.tab.grades')}
             </Text>
 
             {GRADE_REFERENCE_LIST.map((grade) => (
@@ -245,7 +223,7 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -256,12 +234,12 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
-  // Header (Screenshot 1 & 3)
+  // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -272,15 +250,14 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
   },
   backBtn: {
-    paddingVertical: 4,
-    paddingRight: 4,
+    paddingVertical: adminSpacing.xs,
+    paddingRight: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
 
@@ -295,26 +272,24 @@ const styles = StyleSheet.create({
   },
 
   sectionHeading: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
     letterSpacing: -0.2,
   },
+  gradeSectionSpacing: {
+    marginTop: adminSpacing.lg,
+  },
 
-  // Category Cards (Screenshot 1 Top)
+  // Category Cards
   categoryCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   categoryHeaderRow: {
     flexDirection: 'row',
@@ -322,57 +297,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   categorySubtext: {
-    fontSize: 13,
-    color: THEME.labelMuted,
-    marginTop: 6,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   activeBadge: {
-    backgroundColor: THEME.activeBadgeBg,
-    paddingHorizontal: 10,
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
     borderRadius: adminRadius.full,
   },
   activeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.activeBadgeText,
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
 
-  // Grade Reference Cards (Screenshot 1 Bottom)
+  // Grade Reference Cards
   gradeCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.sm,
     ...adminShadow.sm,
   },
   gradeLabel: {
     ...adminType.caption,
-    fontSize: 11,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     textTransform: 'none',
   },
   gradeDescription: {
-    ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.ink,
-    marginTop: 4,
-    lineHeight: 20,
+    ...adminType.body,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
 
-  // Category Detail Screen (Image 3)
+  // Category Detail Screen
   detailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
@@ -381,27 +351,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  detailRowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
   detailCol: {
     flex: 1,
   },
   detailLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
   },
   detailValue: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
 
-  // Products Card (Image 3)
+  // Products Card
   productsCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
@@ -412,22 +383,21 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   productPill: {
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
   productPillText: {
     ...adminType.body,
-    fontSize: 13,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
-  // Back to Categories Button (Image 3)
+  // Back to Categories Button
   backToCategoriesBtn: {
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
@@ -436,7 +406,9 @@ const styles = StyleSheet.create({
   },
   backToCategoriesBtnText: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });
