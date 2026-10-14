@@ -9,63 +9,46 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  white: adminColors.onBrand,
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-  // Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: '#5C240E',
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Accent Colors
-  brandOrange: adminColors.brand,
-  blueText: '#2B6CB0',
-  blueBorder: '#1E3A8A',
-  amberText: '#D97706',
-  amberBorder: '#D97706',
-  brownBorder: '#8C5A47',
-};
-
-// ─── Exact SVG Icons ──────────────────────────────────────────────────────────
-
-/** Exact Produce Fruit Icon matching user mockup (circular outline with top-left tilted solid leaf) */
 function TomatoFruitIcon({
   size = 22,
-  color = THEME.white,
+  color = adminColors.onBrand,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase();
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Exact Circular Fruit Outline Body */}
       <Circle cx="12" cy="14" r="5.8" stroke={color} strokeWidth="2.2" />
-      {/* Small Stem */}
       <Path
         d="M12 8.2c.3-1.8 1.1-3 2.3-3.6"
         stroke={resolvedLeafColor}
         strokeWidth="1.8"
         strokeLinecap="round"
       />
-      {/* Solid Leaf tilted to top-left matching screenshot */}
       <Path
         d="M11.8 8.2C11.6 5.8 9.6 4.2 7.8 4.8c-.3 2.1 1.5 3.6 4 3.4z"
         fill={resolvedLeafColor}
@@ -74,8 +57,7 @@ function TomatoFruitIcon({
   );
 }
 
-/** Notification Bell in translucent circular button */
-function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
+function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -89,11 +71,9 @@ function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: s
   );
 }
 
-/** Opposing horizontal swap arrows (⇄) */
-function SwapArrowsIcon({ size = 20, color = THEME.blueBorder }: { size?: number; color?: string }) {
+function SwapArrowsIcon({ size = 20, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top arrow pointing right */}
       <Path
         d="M3 8h13M12 4.5l4 3.5-4 3.5"
         stroke={color}
@@ -101,7 +81,6 @@ function SwapArrowsIcon({ size = 20, color = THEME.blueBorder }: { size?: number
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Bottom arrow pointing left */}
       <Path
         d="M21 16H8M12 12.5l-4 3.5 4 3.5"
         stroke={color}
@@ -113,8 +92,7 @@ function SwapArrowsIcon({ size = 20, color = THEME.blueBorder }: { size?: number
   );
 }
 
-/** Circle with diagonal slash (⊘) prohibited/restricted icon */
-function RestrictedIcon({ size = 20, color = THEME.amberBorder }: { size?: number; color?: string }) {
+function RestrictedIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="8.5" stroke={color} strokeWidth="2.2" />
@@ -123,8 +101,7 @@ function RestrictedIcon({ size = 20, color = THEME.amberBorder }: { size?: numbe
   );
 }
 
-/** Clipboard with clock icon */
-function ClipboardClockIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function ClipboardClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -135,15 +112,13 @@ function ClipboardClockIcon({ size = 26, color = THEME.brandOrange }: { size?: n
         strokeLinejoin="round"
       />
       <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
-      {/* Clock on bottom-right */}
       <Circle cx="18" cy="18" r="4.5" stroke={color} strokeWidth="2" />
       <Path d="M18 16v2l1.5 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-/** Counter-clockwise history clock icon */
-function HistoryClockIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -155,20 +130,6 @@ function HistoryClockIcon({ size = 26, color = THEME.brandOrange }: { size?: num
       />
       <Path d="M3 3v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M12 7.5v4.5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </Svg>
   );
 }
@@ -190,9 +151,9 @@ export function FarmerProduceTabScreen({
 }: FarmerProduceTabScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Produce / Farmer Produce Control (Image 1) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -203,11 +164,11 @@ export function FarmerProduceTabScreen({
                 activeOpacity={0.7}
                 accessibilityLabel="Go back"
               >
-                <BackArrowIcon size={22} color={THEME.white} />
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
             )}
-            <TomatoFruitIcon size={24} color={THEME.white} />
-            <Text style={styles.headerTitle}>Produce</Text>
+            <TomatoFruitIcon size={24} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('farmerProduceTab.title')}</Text>
           </View>
 
           <TouchableOpacity
@@ -216,12 +177,12 @@ export function FarmerProduceTabScreen({
             activeOpacity={0.8}
             accessibilityLabel="Notifications"
           >
-            <BellIcon size={20} color={THEME.white} />
+            <BellIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? 34 : 0 }]}>
-          Produce Listings · Farmer Produce Control
+        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? adminSpacing.xl : 0 }]}>
+          {t('farmerProduceTab.subtitle')}
         </Text>
       </View>
 
@@ -231,44 +192,44 @@ export function FarmerProduceTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 KPI Grid (Image 1) ─── */}
+        {/* ─── 2x2 KPI Grid ─── */}
         <View style={styles.kpiGrid}>
           {/* Tile 1: Pending Review */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING REVIEW</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.pendingReview')}</Text>
             <Text style={styles.kpiValue}>24</Text>
           </View>
 
           {/* Tile 2: Today's Reviews */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TODAY&apos;S REVIEWS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.todayReviews')}</Text>
             <Text style={styles.kpiValue}>18</Text>
-            <Text style={styles.kpiSubMuted}>14 Approved · 2 Rejected · 2 Countered</Text>
+            <Text style={styles.kpiSubMuted}>{t('farmerProduceTab.kpi.todayReviewsBreakdown')}</Text>
           </View>
 
           {/* Tile 3: Counter Offers */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>COUNTER OFFERS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.counterOffers')}</Text>
             <Text style={styles.kpiValue}>06</Text>
-            <Text style={styles.kpiSubBlue}>Awaiting Farmer Response</Text>
+            <Text style={styles.kpiSubBlue}>{t('farmerProduceTab.kpi.awaitingResponse')}</Text>
           </View>
 
           {/* Tile 4: Your Listings */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>YOUR LISTINGS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.yourListings')}</Text>
             <Text style={[styles.kpiValue, styles.kpiValueAmber]}>03</Text>
-            <Text style={styles.kpiSubAmber}>Review Restricted</Text>
+            <Text style={styles.kpiSubAmber}>{t('farmerProduceTab.kpi.reviewRestricted')}</Text>
           </View>
         </View>
 
         {/* ─── Section: Needs Your Attention ─── */}
-        <Text style={styles.sectionHeader}>Needs Your Attention</Text>
+        <Text style={styles.sectionHeader}>{t('farmerProduceTab.section.attention')}</Text>
 
         <View style={styles.attentionList}>
           {/* Card 1: Tomato — Grade 1 */}
           <View style={[styles.attentionCard, styles.attentionBorderBrown]}>
             <View style={styles.attentionIconCol}>
-              <TomatoFruitIcon size={22} color={THEME.brownBorder} />
+              <TomatoFruitIcon size={22} color={adminColors.brandDeep} />
             </View>
             <View style={styles.attentionContentCol}>
               <Text style={styles.attentionTitle}>Tomato — Grade 1</Text>
@@ -278,7 +239,7 @@ export function FarmerProduceTabScreen({
                 activeOpacity={0.7}
                 style={styles.actionLinkTouch}
               >
-                <Text style={styles.actionLinkText}>Review →</Text>
+                <Text style={styles.actionLinkText}>{t('farmerProduceTab.action.review')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -286,7 +247,7 @@ export function FarmerProduceTabScreen({
           {/* Card 2: Carrot — Grade 2 */}
           <View style={[styles.attentionCard, styles.attentionBorderBlue]}>
             <View style={styles.attentionIconCol}>
-              <SwapArrowsIcon size={20} color={THEME.blueBorder} />
+              <SwapArrowsIcon size={20} color={adminColors.info.text} />
             </View>
             <View style={styles.attentionContentCol}>
               <Text style={styles.attentionTitle}>Carrot — Grade 2</Text>
@@ -296,7 +257,7 @@ export function FarmerProduceTabScreen({
                 activeOpacity={0.7}
                 style={styles.actionLinkTouch}
               >
-                <Text style={styles.actionLinkText}>View →</Text>
+                <Text style={styles.actionLinkText}>{t('farmerProduceTab.action.view')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -304,7 +265,7 @@ export function FarmerProduceTabScreen({
           {/* Card 3: Your Listing — Tomato */}
           <View style={[styles.attentionCard, styles.attentionBorderAmber]}>
             <View style={styles.attentionIconCol}>
-              <RestrictedIcon size={22} color={THEME.amberBorder} />
+              <RestrictedIcon size={22} color={adminColors.warning.text} />
             </View>
             <View style={styles.attentionContentCol}>
               <Text style={styles.attentionTitle}>Your Listing — Tomato</Text>
@@ -314,7 +275,7 @@ export function FarmerProduceTabScreen({
         </View>
 
         {/* ─── Section: Quick Actions ─── */}
-        <Text style={styles.sectionHeader}>Quick Actions</Text>
+        <Text style={styles.sectionHeader}>{t('farmerProduceTab.section.quickActions')}</Text>
 
         <View style={styles.quickActionsRow}>
           {/* Tile 1: Pending Listings */}
@@ -323,8 +284,8 @@ export function FarmerProduceTabScreen({
             onPress={() => onNavigateToListings('pending')}
             activeOpacity={0.8}
           >
-            <ClipboardClockIcon size={26} color={THEME.brandOrange} />
-            <Text style={styles.quickActionLabel}>Pending Listings</Text>
+            <ClipboardClockIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerProduceTab.action.pendingListings')}</Text>
           </TouchableOpacity>
 
           {/* Tile 2: Listing History */}
@@ -333,12 +294,12 @@ export function FarmerProduceTabScreen({
             onPress={onNavigateToHistory}
             activeOpacity={0.8}
           >
-            <HistoryClockIcon size={26} color={THEME.brandOrange} />
-            <Text style={styles.quickActionLabel}>Listing History</Text>
+            <HistoryClockIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerProduceTab.action.listingHistory')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 36 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -349,51 +310,50 @@ export function FarmerProduceTabScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 18,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.xl,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
-    paddingRight: 4,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.4,
   },
   notificationBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: THEME.headerPillBg,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.92)',
+    color: adminColors.brandTint,
     letterSpacing: -0.1,
   },
 
@@ -402,99 +362,95 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // ─── 2x2 KPI Grid ───
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 22,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
   },
   kpiCard: {
     width: '48%',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
     minHeight: 96,
   },
   kpiLabel: {
-    fontSize: 10,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#4B5563',
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   kpiValue: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: THEME.ink,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.5,
-    lineHeight: 30,
   },
   kpiValueAmber: {
-    color: THEME.amberText,
+    color: adminColors.warning.text,
   },
   kpiSubMuted: {
-    fontSize: 9.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 4,
-    lineHeight: 13,
   },
   kpiSubBlue: {
-    fontSize: 10,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.blueText,
+    color: adminColors.info.text,
     marginTop: 4,
   },
   kpiSubAmber: {
-    fontSize: 10,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.amberText,
+    color: adminColors.warning.text,
     marginTop: 4,
   },
 
   // ─── Needs Your Attention ───
   sectionHeader: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     letterSpacing: -0.2,
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   attentionList: {
-    gap: 12,
-    marginBottom: 24,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
   },
   attentionCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    gap: adminSpacing.md,
   },
   attentionBorderBrown: {
     borderLeftWidth: 4,
-    borderLeftColor: THEME.brownBorder,
+    borderLeftColor: adminColors.brandDeep,
   },
   attentionBorderBlue: {
     borderLeftWidth: 4,
-    borderLeftColor: THEME.blueBorder,
+    borderLeftColor: adminColors.info.text,
   },
   attentionBorderAmber: {
     borderLeftWidth: 4,
-    borderLeftColor: THEME.amberBorder,
+    borderLeftColor: adminColors.warning.text,
   },
   attentionIconCol: {
     paddingTop: 2,
@@ -503,15 +459,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attentionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
     marginBottom: 3,
   },
   attentionSub: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 6,
   },
   actionLinkTouch: {
@@ -519,32 +474,35 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   actionLinkText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
 
   // ─── Quick Actions ───
   quickActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   quickActionTile: {
     flex: 1,
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
   },
   quickActionLabel: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
     textAlign: 'center',
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

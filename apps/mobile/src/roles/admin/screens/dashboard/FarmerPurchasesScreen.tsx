@@ -8,38 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Accents & Metrics
-  accentBar: adminColors.brandDeep,
-  blueMetric: adminColors.info.text,
-  greenMetric: adminColors.success.text,
-  orangeIcon: adminColors.brand,
-  btnBg: adminColors.brandTint,
-  btnBorder: adminColors.border,
-  btnText: adminColors.brandDeep,
-};
-
-// ─── SVG Icons Matching Exact Design Mockup (Google Material Symbols) ─────────
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -55,7 +29,6 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-// 1. Receipt Long Icon with Curled Bottom & Jagged Top (Google Material Symbols)
 function ReceiptLongIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960" fill={color}>
@@ -82,7 +55,6 @@ function BellIcon({ size = 18, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-// 2. Exact Match to Google Material Symbols Handshake (Ready for Collection)
 function HandshakeIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960" fill={color}>
@@ -91,7 +63,6 @@ function HandshakeIcon({ size = 24, color = adminColors.brand }: { size?: number
   );
 }
 
-// 3. Exact Match to Google Material Symbols History (Purchase History)
 function HistoryClockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960" fill={color}>
@@ -100,7 +71,6 @@ function HistoryClockIcon({ size = 24, color = adminColors.brand }: { size?: num
   );
 }
 
-// 4. Exact Match to Produce Fruit Icon (Produce Listings)
 function ProduceTomatoIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg
@@ -147,9 +117,9 @@ export function FarmerPurchasesScreen({
 }: FarmerPurchasesScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot Exactly with Back Button & Exact Receipt Icon ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -164,7 +134,7 @@ export function FarmerPurchasesScreen({
               </TouchableOpacity>
             )}
             <ReceiptLongIcon size={24} color={adminColors.onBrand} />
-            <Text style={styles.headerTitle}>Purchases</Text>
+            <Text style={styles.headerTitle}>{t('farmerPurchases.title')}</Text>
           </View>
 
           <TouchableOpacity
@@ -177,8 +147,8 @@ export function FarmerPurchasesScreen({
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? 34 : 0 }]}>
-          Purchase Management
+        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? adminSpacing.xl : 0 }]}>
+          {t('farmerPurchases.subtitle')}
         </Text>
       </View>
 
@@ -193,39 +163,39 @@ export function FarmerPurchasesScreen({
           {/* Row 1 */}
           <View style={styles.kpiRow}>
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PENDING PURCHASES</Text>
+              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.pendingPurchases')}</Text>
               <Text style={styles.kpiValueDark}>9</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>READY FOR COLLECTION</Text>
-              <Text style={[styles.kpiValueDark, { color: THEME.blueMetric }]}>5</Text>
+              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.readyForCollection')}</Text>
+              <Text style={[styles.kpiValueDark, styles.kpiBlue]}>5</Text>
             </View>
           </View>
 
           {/* Row 2 */}
           <View style={styles.kpiRow}>
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>TODAY'S COLLECTIONS</Text>
+              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.todayCollections')}</Text>
               <Text style={styles.kpiValueDark}>3</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>COMPLETED PURCHASES</Text>
-              <Text style={[styles.kpiValueDark, { color: '#059669' }]}>142</Text>
+              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.completedPurchases')}</Text>
+              <Text style={[styles.kpiValueDark, styles.kpiGreen]}>142</Text>
             </View>
           </View>
         </View>
 
         {/* ─── Section: Needs Your Attention ─── */}
-        <Text style={styles.sectionHeading}>Needs Your Attention</Text>
+        <Text style={styles.sectionHeading}>{t('farmerPurchases.section.attention')}</Text>
 
         {/* Attention Card 1 */}
         <View style={styles.attentionCard}>
           <View style={styles.attentionAccentBar} />
           <View style={styles.attentionContent}>
             <View style={styles.attentionHeaderRow}>
-              <ReceiptLongIcon size={20} color={THEME.orangeIcon} />
+              <ReceiptLongIcon size={20} color={adminColors.brand} />
               <Text style={styles.attentionOrderTitle}>Purchase PO-2026-00124</Text>
             </View>
 
@@ -239,7 +209,7 @@ export function FarmerPurchasesScreen({
                 onPress={() => onViewPurchaseOrder?.('PO-2026-00124')}
                 activeOpacity={0.75}
               >
-                <Text style={styles.attentionBtnText}>View</Text>
+                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.view')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -247,23 +217,23 @@ export function FarmerPurchasesScreen({
                 onPress={() => onProcessHandover?.('PO-2026-00124')}
                 activeOpacity={0.75}
               >
-                <Text style={styles.attentionBtnText}>Handover</Text>
+                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.handover')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Attention Card 2: PO-2026-00119 (Collection Scheduled - Orange Accent Bar matching user request) */}
+        {/* Attention Card 2 */}
         <View style={styles.attentionCard}>
           <View style={styles.attentionAccentBar} />
           <View style={styles.attentionContent}>
             <View style={styles.attentionHeaderRow}>
-              <ReceiptLongIcon size={20} color={THEME.orangeIcon} />
+              <ReceiptLongIcon size={20} color={adminColors.brand} />
               <Text style={styles.attentionOrderTitle}>Purchase PO-2026-00119</Text>
             </View>
 
             <Text style={styles.attentionSubline}>
-              Farmer: Selvi · Beans · Grade 1 · 30 kg · ₹1,350 · Collection Scheduled
+              Farmer: Selvi · Organic Tomato · Grade 2 · 50 kg · ₹38/kg · Ready for Collection
             </Text>
 
             <View style={styles.attentionActionRow}>
@@ -272,80 +242,82 @@ export function FarmerPurchasesScreen({
                 onPress={() => onViewPurchaseOrder?.('PO-2026-00119')}
                 activeOpacity={0.75}
               >
-                <Text style={styles.attentionBtnText}>View</Text>
+                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.view')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.attentionBtn}
-                onPress={() => onCollect?.('PO-2026-00119') ?? onNavigateReadyForCollection()}
+                onPress={() => onCollect?.('PO-2026-00119')}
                 activeOpacity={0.75}
               >
-                <Text style={styles.attentionBtnText}>Collect</Text>
+                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.collect')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
         {/* ─── Section: Quick Actions ─── */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        <Text style={styles.sectionHeading}>{t('farmerPurchases.section.quickActions')}</Text>
 
         <View style={styles.quickGrid}>
-          {/* Row 1 */}
           <View style={styles.quickRow}>
+            {/* Action 1: Purchase Orders */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigatePurchaseOrders}
               activeOpacity={0.8}
             >
-              <ReceiptLongIcon size={24} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Purchase Orders</Text>
+              <ReceiptLongIcon size={24} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.purchaseOrders')}</Text>
             </TouchableOpacity>
 
+            {/* Action 2: Ready for Collection */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigateReadyForCollection}
               activeOpacity={0.8}
             >
-              <HandshakeIcon size={24} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Ready for Collection</Text>
+              <HandshakeIcon size={24} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.readyForCollection')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Row 2 */}
           <View style={styles.quickRow}>
+            {/* Action 3: Purchase History */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigatePurchaseHistory}
               activeOpacity={0.8}
             >
-              <HistoryClockIcon size={24} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Purchase History</Text>
+              <HistoryClockIcon size={24} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.purchaseHistory')}</Text>
             </TouchableOpacity>
 
+            {/* Action 4: Produce Listings */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigateProduceListings}
               activeOpacity={0.8}
             >
-              <ProduceTomatoIcon size={24} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Produce Listings</Text>
+              <ProduceTomatoIcon size={24} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.produceListings')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={{ height: 28 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
-
   header: {
     backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
@@ -356,6 +328,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
   },
   headerTitleWrap: {
     flexDirection: 'row',
@@ -363,44 +336,40 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    paddingRight: 6,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    ...adminType.body,
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 6,
-    fontWeight: '500',
   },
   notificationBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.brandTint,
+    marginTop: adminSpacing.xs,
+  },
 
-  // Scroll Container
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xl,
   },
 
-  // 2x2 Metric KPI Grid
+  // KPI Grid
   kpiGrid: {
     gap: adminSpacing.sm,
     marginBottom: adminSpacing.lg,
@@ -412,38 +381,35 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl, // 16px as per admin token scale
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: 14,
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   kpiLabel: {
     ...adminType.caption,
-    fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: adminColors.muted,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   kpiValueDark: {
-    fontSize: 26,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
   },
+  kpiBlue: {
+    color: adminColors.info.text,
+  },
+  kpiGreen: {
+    color: adminColors.success.text,
+  },
 
-  // Headings
+  // Section Heading
   sectionHeading: {
     ...adminType.sectionHead,
-    fontSize: 16,
     color: adminColors.brandDeep,
+    marginTop: adminSpacing.md,
     marginBottom: adminSpacing.sm,
   },
 
@@ -456,11 +422,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     marginBottom: adminSpacing.sm,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   attentionAccentBar: {
     width: 5,
@@ -477,12 +439,10 @@ const styles = StyleSheet.create({
   },
   attentionOrderTitle: {
     ...adminType.rowTitle,
-    fontSize: 15,
     color: adminColors.ink,
   },
   attentionSubline: {
     ...adminType.rowMeta,
-    fontSize: 12,
     color: adminColors.muted,
     lineHeight: 18,
     marginTop: 6,
@@ -504,7 +464,6 @@ const styles = StyleSheet.create({
   },
   attentionBtnText: {
     ...adminType.caption,
-    fontSize: 13,
     fontWeight: '700',
     color: adminColors.brandDeep,
   },
@@ -523,21 +482,19 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: 18,
+    paddingVertical: adminSpacing.lg,
     paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   quickCardLabel: {
     ...adminType.rowTitle,
-    fontSize: 13,
     color: adminColors.ink,
     textAlign: 'center',
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

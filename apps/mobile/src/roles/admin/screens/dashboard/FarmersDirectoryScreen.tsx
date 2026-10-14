@@ -10,32 +10,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { SearchFarmersScreen } from './SearchFarmersScreen';
 import { FarmerProfileDetailScreen, type FarmerProfileData } from './FarmerProfileDetailScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#6B7280',
-  brandOrange: adminColors.brand,
-  titleRustDark: adminColors.brandDeep,
-  greenText: adminColors.success.text,
-  amberText: adminColors.warning.text,
-  avatarBg: '#FFF3EC',
-  avatarIcon: '#A63D18',
-  filterBtnBg: 'rgba(255, 255, 255, 0.22)',
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function CommunityHeaderIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function CommunityHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="8" cy="8" r="3.2" fill={color} />
@@ -46,7 +28,7 @@ function CommunityHeaderIcon({ size = 22, color = THEME.white }: { size?: number
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -57,7 +39,7 @@ function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; 
   );
 }
 
-function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -66,7 +48,7 @@ function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: s
   );
 }
 
-function FarmerCardAvatarIcon({ size = 24, color = THEME.avatarIcon }: { size?: number; color?: string }) {
+function FarmerCardAvatarIcon({ size = 24, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="8" r="3.6" stroke={color} strokeWidth="1.8" />
@@ -80,7 +62,7 @@ function FarmerCardAvatarIcon({ size = 24, color = THEME.avatarIcon }: { size?: 
   );
 }
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -185,16 +167,13 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
   // Filtering logic
   const filteredFarmers = useMemo(() => {
     return allFarmers.filter((f) => {
-      // Keyword
       const text = `${f.name} ${f.farmerId} ${f.zone}`.toLowerCase();
       const q = (searchQuery || activeFilters.keyword).toLowerCase().trim();
       if (q && !text.includes(q)) return false;
 
-      // Zone filter
       if (activeFilters.zone !== 'All' && f.zone.toLowerCase() !== activeFilters.zone.toLowerCase()) {
         return false;
       }
-      // Status filter
       if (activeFilters.status !== 'All' && f.accountStatus.toLowerCase() !== activeFilters.status.toLowerCase()) {
         return false;
       }
@@ -227,9 +206,9 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Exact Match to Screenshot with Back Button ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerTitleWrap}>
@@ -240,11 +219,11 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
                 activeOpacity={0.7}
                 accessibilityLabel="Go back"
               >
-                <BackArrowIcon size={22} color={THEME.white} />
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
             )}
-            <CommunityHeaderIcon size={22} color={THEME.white} />
-            <Text style={styles.headerTitle}>Farmers</Text>
+            <CommunityHeaderIcon size={22} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('farmersDirectory.title')}</Text>
           </View>
 
           <TouchableOpacity
@@ -253,10 +232,12 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
             activeOpacity={0.8}
             accessibilityLabel="Filter Farmers"
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? 34 : 0 }]}>Farmer Community</Text>
+        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? adminSpacing.xl : 0 }]}>
+          {t('farmersDirectory.subtitle')}
+        </Text>
       </View>
 
       <ScrollView
@@ -268,40 +249,40 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
         <View style={styles.kpiGrid}>
           {/* Tile 1: All Farmers */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ALL FARMERS</Text>
+            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.allFarmers')}</Text>
             <Text style={styles.kpiValueDark}>245</Text>
           </View>
 
           {/* Tile 2: Active */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ACTIVE</Text>
+            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.active')}</Text>
             <Text style={styles.kpiValueGreen}>221</Text>
           </View>
 
           {/* Tile 3: Pending/Attention */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING/ATTENTION</Text>
+            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.pending')}</Text>
             <Text style={styles.kpiValueAmber}>12</Text>
           </View>
 
           {/* Tile 4: Inactive */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>INACTIVE</Text>
+            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.inactive')}</Text>
             <Text style={styles.kpiValueDark}>12</Text>
           </View>
         </View>
 
-        {/* ─── Search Bar (Tappable & Typeable) ─── */}
+        {/* ─── Search Bar ─── */}
         <TouchableOpacity
           style={styles.searchBarBox}
           onPress={() => setInternalView('search_filter')}
           activeOpacity={0.9}
         >
-          <SearchIcon size={18} color="#6B7280" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by Farmer ID, name or zone"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('farmersDirectory.search.placeholder')}
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -322,9 +303,9 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
             {/* Top row: Avatar + Name + Subtitle */}
             <View style={styles.farmerCardHeader}>
               <View style={styles.avatarCircle}>
-                <FarmerCardAvatarIcon size={22} color={THEME.avatarIcon} />
+                <FarmerCardAvatarIcon size={22} color={adminColors.brandDeep} />
               </View>
-              <View style={{ flex: 1, paddingLeft: 12 }}>
+              <View style={styles.farmerCardInfo}>
                 <Text style={styles.farmerName}>{farmer.name}</Text>
                 <Text style={styles.farmerMeta}>
                   {farmer.farmerId} · {farmer.zone}
@@ -338,15 +319,15 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
             {/* Bottom 3-Column Attributes */}
             <View style={styles.statsRow}>
               <View style={styles.statCol}>
-                <Text style={styles.statLabel}>Farming</Text>
+                <Text style={styles.statLabel}>{t('farmersDirectory.label.farming')}</Text>
                 <Text style={styles.statVal}>{farmer.farmingMethod}</Text>
               </View>
               <View style={styles.statCol}>
-                <Text style={styles.statLabel}>Rating</Text>
+                <Text style={styles.statLabel}>{t('farmersDirectory.label.rating')}</Text>
                 <Text style={styles.statVal}>{farmer.rating}</Text>
               </View>
               <View style={styles.statCol}>
-                <Text style={styles.statLabel}>Status</Text>
+                <Text style={styles.statLabel}>{t('farmersDirectory.label.status')}</Text>
                 <Text
                   style={[
                     styles.statVal,
@@ -362,24 +343,24 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
           </TouchableOpacity>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 1 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
@@ -389,31 +370,30 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
-    paddingRight: 4,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
+    color: adminColors.brandTint,
+    marginTop: adminSpacing.xs,
   },
   filterBtn: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: THEME.filterBtnBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -421,79 +401,76 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
 
   // 2x2 KPI Grid
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     width: '48.3%',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
   },
   kpiLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.labelMuted,
-    marginBottom: 6,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
     letterSpacing: 0.2,
   },
   kpiValueDark: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   kpiValueGreen: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.greenText,
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   kpiValueAmber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.amberText,
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
   },
 
   // Search Bar
   searchBarBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
     height: 48,
-    gap: 10,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
 
   // Farmer Cards
   farmerCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   farmerCardHeader: {
     flexDirection: 'row',
@@ -503,24 +480,27 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: THEME.avatarBg,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  farmerCardInfo: {
+    flex: 1,
+    paddingLeft: adminSpacing.md,
+  },
   farmerName: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   farmerMeta: {
-    fontSize: 12.5,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#F3ECE4',
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   statsRow: {
     flexDirection: 'row',
@@ -530,19 +510,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
-    fontSize: 11.5,
-    color: THEME.labelMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   statVal: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   statusActive: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   statusPending: {
-    color: THEME.amberText,
+    color: adminColors.warning.text,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

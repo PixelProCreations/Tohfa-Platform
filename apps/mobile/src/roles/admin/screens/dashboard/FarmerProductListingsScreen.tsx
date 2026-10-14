@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,48 +10,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
-
-// ─── Theme Tokens (Derived from Admin Theme & Tokens) ────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  white: '#FFFFFF',
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRust: '#A63D18', // Section heading rust
-  titleRustDark: '#7A2E14',
-  ink: '#1F2937', // Dark ink for names & titles
-  muted: '#6B7280', // Secondary gray for metadata
-  labelBrown: '#8C5A47', // "LISTED PRODUCTS" uppercase label
-
-  // Search input
-  inputBg: '#FFFFFF',
-  inputBorder: '#E5E7EB',
-  placeholderColor: '#9CA3AF',
-
-  // Filter Chips
-  filterActiveBg: adminColors.brand,
-  filterActiveText: '#FFFFFF',
-  filterInactiveBg: '#FFFFFF',
-  filterInactiveBorder: '#E5E7EB',
-  filterInactiveText: '#374151',
-
-  // Status Pending Badge
-  pendingBadgeBg: '#FEF3C2', // Soft warm yellow
-  pendingBadgeText: '#B45309', // Amber text
-};
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -66,8 +30,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-/** Exact Slider / Filter icon from top right header and filter panel */
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="7" x2="20" y2="7" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -78,7 +41,7 @@ function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; 
   );
 }
 
-function SearchIcon({ size = 18, color = THEME.placeholderColor }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -87,7 +50,7 @@ function SearchIcon({ size = 18, color = THEME.placeholderColor }: { size?: numb
   );
 }
 
-// ─── Mock Data: 8 Farmers & 24 Pending Listings (Exact from Mockup) ──────────
+// ─── Mock Data ───────────────────────────────────────────────────────────────
 
 export interface ProductListingItem {
   id: string;
@@ -249,256 +212,78 @@ const MOCK_FARMERS_DATA: FarmerListingGroup[] = [
         status: 'Pending',
         zone: 'Ooty',
       },
-      {
-        id: 'L-403',
-        cropName: 'Tomato',
-        grade: 'Grade 1',
-        quantityKg: 40,
-        pricePerKg: 98,
-        submittedTime: '11:20 AM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
-    ],
-  },
-  {
-    farmerId: 'FR-00521',
-    farmerName: 'Venkatesan',
-    avatarInitial: 'V',
-    zone: 'Coonoor',
-    products: [
-      {
-        id: 'L-501',
-        cropName: 'Potato',
-        grade: 'Grade 1',
-        quantityKg: 70,
-        pricePerKg: 42,
-        submittedTime: '11:35 AM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-      {
-        id: 'L-502',
-        cropName: 'Carrot',
-        grade: 'Grade 1',
-        quantityKg: 28,
-        pricePerKg: 82,
-        submittedTime: '11:50 AM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-      {
-        id: 'L-503',
-        cropName: 'Beans',
-        grade: 'Grade 2',
-        quantityKg: 18,
-        pricePerKg: 58,
-        submittedTime: '12:05 PM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-    ],
-  },
-  {
-    farmerId: 'FR-00618',
-    farmerName: 'Murugan',
-    avatarInitial: 'M',
-    zone: 'Ooty',
-    products: [
-      {
-        id: 'L-601',
-        cropName: 'Carrot',
-        grade: 'Grade 1',
-        quantityKg: 33,
-        pricePerKg: 78,
-        submittedTime: '12:50 PM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
-      {
-        id: 'L-602',
-        cropName: 'Beans',
-        grade: 'Grade 1',
-        quantityKg: 22,
-        pricePerKg: 63,
-        submittedTime: '1:05 PM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
-      {
-        id: 'L-603',
-        cropName: 'Potato',
-        grade: 'Grade 2',
-        quantityKg: 90,
-        pricePerKg: 38,
-        submittedTime: '1:20 PM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
-      {
-        id: 'L-604',
-        cropName: 'Tomato',
-        grade: 'Grade 1',
-        quantityKg: 38,
-        pricePerKg: 100,
-        submittedTime: '1:35 PM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
-    ],
-  },
-  {
-    farmerId: 'FR-00729',
-    farmerName: 'Devi',
-    avatarInitial: 'D',
-    zone: 'Coonoor',
-    products: [
-      {
-        id: 'L-701',
-        cropName: 'Onion',
-        grade: 'Grade 1',
-        quantityKg: 45,
-        pricePerKg: 55,
-        submittedTime: '1:50 PM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-      {
-        id: 'L-702',
-        cropName: 'Carrot',
-        grade: 'Grade 2',
-        quantityKg: 27,
-        pricePerKg: 72,
-        submittedTime: '2:05 PM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-      {
-        id: 'L-703',
-        cropName: 'Beans',
-        grade: 'Grade 1',
-        quantityKg: 19,
-        pricePerKg: 68,
-        submittedTime: '2:20 PM',
-        status: 'Pending',
-        zone: 'Coonoor',
-      },
-    ],
-  },
-  {
-    farmerId: 'FR-00810',
-    farmerName: 'Selvi',
-    avatarInitial: 'S',
-    zone: 'Ooty',
-    products: [
-      {
-        id: 'L-801',
-        cropName: 'Tomato',
-        grade: 'Grade 1',
-        quantityKg: 30,
-        pricePerKg: 92,
-        submittedTime: '2:35 PM',
-        status: 'Pending',
-        zone: 'Ooty',
-      },
     ],
   },
 ];
 
 export interface FarmerProductListingsScreenProps {
   onBack: () => void;
-  onSelectListing?: (item: ProductListingItem) => void;
+  onNavigateDetail?: (listingId: string) => void;
 }
 
 export function FarmerProductListingsScreen({
   onBack,
-  onSelectListing,
+  onNavigateDetail,
 }: FarmerProductListingsScreenProps) {
-  // Drill-down State: Produce Verification & Approval (S-03)
-  const [selectedListing, setSelectedListing] = useState<{
-    item: ProductListingItem;
-    farmer: FarmerListingGroup;
-  } | null>(null);
-
-  // Search query
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<'All' | 'Coonoor' | 'Ooty'>('All');
+  const [selectedCrop, setSelectedCrop] = useState<'All' | 'Tomato' | 'Carrot' | 'Beans' | 'Onion' | 'Potato'>('All');
+  const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2'>('All');
+  const [selectedListingForReview, setSelectedListingForReview] = useState<ProductListingItem | null>(null);
 
-  // Filter Drawer / Panel Visibility (Screenshot 3)
-  const [showFilters, setShowFilters] = useState(false);
+  // Filter Farmers and their Product Listings
+  const filteredFarmerGroups = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
 
-  // Active Filter selections
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending Review'>('All');
-  const [gradeFilter, setGradeFilter] = useState<'All' | 'Grade 1' | 'Grade 2'>('All');
-  const [zoneFilter, setZoneFilter] = useState<'All' | 'Coonoor' | 'Ooty'>('All');
+    return MOCK_FARMERS_DATA.map((farmer) => {
+      const filteredProducts = farmer.products.filter((product) => {
+        if (selectedZone !== 'All' && farmer.zone !== selectedZone) return false;
+        if (selectedCrop !== 'All' && product.cropName !== selectedCrop) return false;
+        if (selectedGrade !== 'All' && product.grade !== selectedGrade) return false;
 
-  // Filtered Farmers List (Declared unconditionally at top of component)
-  const filteredFarmers = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-
-    return MOCK_FARMERS_DATA.map((group) => {
-      // Zone filter check
-      if (zoneFilter !== 'All' && group.zone !== zoneFilter) {
-        return null;
-      }
-
-      // Filter products inside this farmer group
-      const matchingProducts = group.products.filter((p) => {
-        // Grade filter check
-        if (gradeFilter !== 'All' && p.grade !== gradeFilter) {
-          return false;
-        }
-
-        // Search text check
         if (q) {
-          const matchCrop = p.cropName.toLowerCase().includes(q);
-          const matchFarmer = group.farmerName.toLowerCase().includes(q);
-          const matchId = p.id.toLowerCase().includes(q);
-          const matchFarmerId = group.farmerId.toLowerCase().includes(q);
-          return matchCrop || matchFarmer || matchId || matchFarmerId;
+          const matchCrop = product.cropName.toLowerCase().includes(q);
+          const matchFarmer = farmer.farmerName.toLowerCase().includes(q);
+          const matchZone = farmer.zone.toLowerCase().includes(q);
+          const matchId = product.id.toLowerCase().includes(q);
+          if (!matchCrop && !matchFarmer && !matchZone && !matchId) return false;
         }
 
         return true;
       });
 
-      if (matchingProducts.length === 0) return null;
-
       return {
-        ...group,
-        products: matchingProducts,
+        ...farmer,
+        products: filteredProducts,
       };
-    }).filter(Boolean) as FarmerListingGroup[];
-  }, [searchQuery, gradeFilter, zoneFilter]);
+    }).filter((farmer) => farmer.products.length > 0);
+  }, [searchQuery, selectedZone, selectedCrop, selectedGrade]);
 
-  const totalFilteredListings = useMemo(() => {
-    return filteredFarmers.reduce((sum, f) => sum + f.products.length, 0);
-  }, [filteredFarmers]);
+  const totalFilteredCount = useMemo(() => {
+    return filteredFarmerGroups.reduce((acc, curr) => acc + curr.products.length, 0);
+  }, [filteredFarmerGroups]);
 
-  // If a listing item is tapped, navigate into Produce Verification & Approval (AFTER all hooks)
-  if (selectedListing) {
+  const handleClearFilters = () => {
+    setSelectedZone('All');
+    setSelectedCrop('All');
+    setSelectedGrade('All');
+    setSearchQuery('');
+  };
+
+  if (selectedListingForReview) {
     return (
       <ProduceVerificationApprovalScreen
-        listingId="PL-001245"
-        cropName={selectedListing.item.cropName}
-        farmerName={
-          selectedListing.farmer.farmerName === 'Ramesh'
-            ? 'Ramesh Kumar'
-            : selectedListing.farmer.farmerName
-        }
-        onBack={() => setSelectedListing(null)}
-        onViewListing={() => setSelectedListing(null)}
-        onSubmitSuccess={() => {
-          setSelectedListing(null);
-          onBack();
-        }}
+        onBack={() => setSelectedListingForReview(null)}
       />
     );
   }
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -507,309 +292,192 @@ export function FarmerProductListingsScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Farmer Product Listings</Text>
+          <Text style={styles.headerTitle}>{t('farmerProductListings.title')}</Text>
 
           <TouchableOpacity
-            style={[styles.filterBtn, showFilters && styles.filterBtnActive]}
-            onPress={() => setShowFilters(!showFilters)}
+            style={[styles.filterBtn, showFilterPanel && styles.filterBtnActive]}
+            onPress={() => setShowFilterPanel(!showFilterPanel)}
             activeOpacity={0.8}
-            accessibilityLabel="Toggle Filters"
+            accessibilityLabel="Filter listings"
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ─── Scrollable Content ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Subtitle counter */}
+        {/* Subtitle Counter */}
         <Text style={styles.counterText}>
-          {totalFilteredListings} pending · {filteredFarmers.length} farmers
+          {totalFilteredCount} {t('farmerProductListings.subtitle')}
         </Text>
 
-        {/* Search Bar (Listing ID, Farmer, Product, Crop) */}
+        {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color={THEME.placeholderColor} />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Listing ID, Farmer, Product, Crop"
-            placeholderTextColor={THEME.placeholderColor}
+            placeholder={t('farmerProductListings.search.placeholder')}
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
           />
         </View>
 
-        {/* ─── Filter Panel (Matching Screenshot 3) ─── */}
-        {showFilters && (
+        {/* ─── Expandable Filter Panel ─── */}
+        {showFilterPanel && (
           <View style={styles.filterCard}>
             <View style={styles.filterTitleRow}>
-              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
-              <Text style={styles.filterTitle}>Filters</Text>
+              <FilterSlidersIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.filterTitle}>{t('farmerProductListings.filters.title')}</Text>
             </View>
 
-            {/* Status Filter */}
-            <Text style={styles.filterSectionLabel}>Status</Text>
+            {/* Filter by Zone */}
+            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.zone')}</Text>
             <View style={styles.chipsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  statusFilter === 'All' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setStatusFilter('All')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    statusFilter === 'All'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  statusFilter === 'Pending Review'
-                    ? styles.filterChipActive
-                    : styles.filterChipInactive,
-                ]}
-                onPress={() => setStatusFilter('Pending Review')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    statusFilter === 'Pending Review'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  Pending Review
-                </Text>
-              </TouchableOpacity>
+              {(['All', 'Coonoor', 'Ooty'] as const).map((z) => {
+                const active = selectedZone === z;
+                return (
+                  <TouchableOpacity
+                    key={z}
+                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
+                    onPress={() => setSelectedZone(z)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                      {z === 'All' ? t('farmerProductListings.filter.all') : z}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Grade Filter */}
-            <Text style={styles.filterSectionLabel}>Grade</Text>
+            {/* Filter by Crop */}
+            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.crop')}</Text>
             <View style={styles.chipsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  gradeFilter === 'All' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setGradeFilter('All')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    gradeFilter === 'All'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  gradeFilter === 'Grade 1' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setGradeFilter('Grade 1')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    gradeFilter === 'Grade 1'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  Grade 1
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  gradeFilter === 'Grade 2' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setGradeFilter('Grade 2')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    gradeFilter === 'Grade 2'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  Grade 2
-                </Text>
-              </TouchableOpacity>
+              {(['All', 'Tomato', 'Carrot', 'Beans', 'Onion', 'Potato'] as const).map((c) => {
+                const active = selectedCrop === c;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
+                    onPress={() => setSelectedCrop(c)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                      {c === 'All' ? t('farmerProductListings.filter.all') : c}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Zone Filter */}
-            <Text style={styles.filterSectionLabel}>Zone</Text>
+            {/* Filter by Grade */}
+            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.grade')}</Text>
             <View style={styles.chipsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  zoneFilter === 'All' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setZoneFilter('All')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    zoneFilter === 'All'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  zoneFilter === 'Coonoor' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setZoneFilter('Coonoor')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    zoneFilter === 'Coonoor'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  Coonoor
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  zoneFilter === 'Ooty' ? styles.filterChipActive : styles.filterChipInactive,
-                ]}
-                onPress={() => setZoneFilter('Ooty')}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    zoneFilter === 'Ooty'
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
-                  ]}
-                >
-                  Ooty
-                </Text>
-              </TouchableOpacity>
+              {(['All', 'Grade 1', 'Grade 2'] as const).map((g) => {
+                const active = selectedGrade === g;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
+                    onPress={() => setSelectedGrade(g)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                      {g === 'All' ? t('farmerProductListings.filter.all') : g}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Action Buttons: Apply & Clear */}
+            {/* Filter Action Buttons */}
             <View style={styles.filterActionsRow}>
               <TouchableOpacity
                 style={styles.applyBtn}
-                onPress={() => setShowFilters(false)}
+                onPress={() => setShowFilterPanel(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.applyBtnText}>Apply</Text>
+                <Text style={styles.applyBtnText}>{t('farmerProductListings.filter.apply')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.clearBtn}
-                onPress={() => {
-                  setStatusFilter('All');
-                  setGradeFilter('All');
-                  setZoneFilter('All');
-                }}
+                onPress={handleClearFilters}
                 activeOpacity={0.8}
               >
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.clearBtnText}>{t('farmerProductListings.filter.clear')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* ─── Farmer Group Cards ─── */}
-        {filteredFarmers.map((farmer) => (
-          <View key={farmer.farmerId} style={styles.farmerCard}>
-            {/* Top Farmer Row */}
+        {/* ─── Farmer Groups & Product Items List ─── */}
+        {filteredFarmerGroups.map((group) => (
+          <View key={group.farmerId} style={styles.farmerCard}>
+            {/* Farmer Header Info */}
             <View style={styles.farmerHeader}>
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{farmer.avatarInitial}</Text>
+                <Text style={styles.avatarText}>{group.avatarInitial}</Text>
               </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.farmerName}>{farmer.farmerName}</Text>
-                <Text style={styles.farmerSub}>{farmer.products.length} pending listings</Text>
+              <View style={styles.farmerInfoCol}>
+                <Text style={styles.farmerName}>{group.farmerName}</Text>
+                <Text style={styles.farmerSub}>
+                  {group.farmerId} · {group.zone}
+                </Text>
               </View>
             </View>
 
-            {/* LISTED PRODUCTS Section Heading */}
-            <Text style={styles.listedProductsLabel}>LISTED PRODUCTS</Text>
+            <Text style={styles.listedProductsLabel}>{t('farmerProductListings.label.listedProducts')}</Text>
             <View style={styles.productsDivider} />
 
-            {/* Product Items inside card */}
-            {farmer.products.map((item, index) => (
+            {/* Product Items */}
+            {group.products.map((item, index) => (
               <TouchableOpacity
                 key={item.id}
                 style={[
                   styles.productRow,
-                  index < farmer.products.length - 1 && styles.productRowBorder,
+                  index < group.products.length - 1 && styles.productRowBorder,
                 ]}
                 onPress={() => {
-                  onSelectListing?.(item);
-                  setSelectedListing({ item, farmer });
+                  if (onNavigateDetail) {
+                    onNavigateDetail(item.id);
+                  } else {
+                    setSelectedListingForReview(item);
+                  }
                 }}
-                activeOpacity={0.75}
+                activeOpacity={0.7}
               >
-                {/* Row 1: Crop Name & Pending Badge */}
+                {/* Row 1: Crop Name & Status Badge */}
                 <View style={styles.productTopLine}>
                   <Text style={styles.cropName}>{item.cropName}</Text>
                   <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingBadgeText}>Pending</Text>
+                    <Text style={styles.pendingBadgeText}>{t('farmerProductListings.badge.pending')}</Text>
                   </View>
                 </View>
 
-                {/* Row 2: Grade, Quantity, Price */}
+                {/* Row 2: Grade, Quantity & Price */}
                 <Text style={styles.productMeta}>
                   {item.grade} · {item.quantityKg} KG · ₹{item.pricePerKg}/KG
                 </Text>
 
                 {/* Row 3: Submitted Time */}
                 <Text style={styles.submittedMeta}>
-                  Submitted: <Text style={styles.submittedTimeBold}>{item.submittedTime}</Text>
+                  {t('farmerProductListings.submittedAt', { time: item.submittedTime })}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -820,15 +488,15 @@ export function FarmerProductListingsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
@@ -840,25 +508,24 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 4,
+    marginRight: adminSpacing.xs,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   filterBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: THEME.headerPillBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterBtnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: adminOverlay.whitePillActive,
   },
 
   // ─── Scroll Area ───
@@ -866,17 +533,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
   },
 
   // ─── Subtitle Counter ───
   counterText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginBottom: 10,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
     letterSpacing: -0.2,
   },
 
@@ -884,210 +551,208 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: THEME.inputBg,
-    borderRadius: 14,
+    gap: adminSpacing.sm,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
 
   // ─── Filter Panel ───
   filterCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
   },
   filterTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   filterTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   filterSectionLabel: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#374151',
-    marginTop: 8,
-    marginBottom: 8,
+    color: adminColors.ink,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   filterChip: {
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 7,
   },
   filterChipActive: {
-    backgroundColor: THEME.filterActiveBg,
+    backgroundColor: adminColors.brand,
   },
   filterChipInactive: {
-    backgroundColor: THEME.filterInactiveBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.filterInactiveBorder,
+    borderColor: adminColors.border,
   },
   filterChipText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: THEME.filterActiveText,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   filterChipTextInactive: {
-    color: THEME.filterInactiveText,
+    color: adminColors.ink,
   },
   filterActionsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 14,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   applyBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.headerBg,
-    borderRadius: 14,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   applyBtnText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.headerBg,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearBtnText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '700',
-    color: '#4B5563',
+    color: adminColors.muted,
   },
 
   // ─── Farmer Card ───
   farmerCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 14,
-    marginBottom: 14,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   farmerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  farmerInfoCol: {
+    flex: 1,
   },
   avatarCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F5ECE3',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   farmerName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   farmerSub: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 1,
   },
   listedProductsLabel: {
-    fontSize: 10,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.labelBrown,
+    color: adminColors.brandDeep,
     letterSpacing: 0.5,
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
   },
   productsDivider: {
     height: 1,
-    backgroundColor: THEME.borderLight,
-    marginBottom: 8,
+    backgroundColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
   },
 
   // ─── Listed Product Item ───
   productRow: {
-    paddingVertical: 10,
+    paddingVertical: adminSpacing.sm,
   },
   productRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: THEME.borderLight,
+    borderBottomColor: adminColors.border,
   },
   productTopLine: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   cropName: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   pendingBadge: {
-    backgroundColor: THEME.pendingBadgeBg,
-    borderRadius: 8,
-    paddingHorizontal: 9,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3.5,
   },
   pendingBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.pendingBadgeText,
+    color: adminColors.warning.text,
   },
   productMeta: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   submittedMeta: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
-  submittedTimeBold: {
-    fontWeight: '800',
-    color: THEME.ink,
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

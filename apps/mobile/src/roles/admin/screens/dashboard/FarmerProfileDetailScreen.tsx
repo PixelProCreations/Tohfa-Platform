@@ -19,32 +19,12 @@ import { FarmerProduceScreen } from './FarmerProduceScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 import { FarmerIssuesScreen } from './FarmerIssuesScreen';
 import { FarmerHistoryScreen } from './FarmerHistoryScreen';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#6B7280',
-  brandOrange: adminColors.brand,
-  titleRustDark: adminColors.brandDeep,
-  avatarBg: '#FFF3EC',
-  avatarIcon: '#A63D18',
-  statusGreenBg: '#EAF7EE',
-  statusGreenText: adminColors.success.text,
-  noticeBg: '#FAF7F2',
-  noticeBorder: adminColors.border,
-  divider: '#F3ECE4',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -58,7 +38,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function UserAvatarIcon({ size = 32, color = THEME.avatarIcon }: { size?: number; color?: string }) {
+function UserAvatarIcon({ size = 32, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="8" r="4.2" stroke={color} strokeWidth="1.8" />
@@ -72,8 +52,7 @@ function UserAvatarIcon({ size = 32, color = THEME.avatarIcon }: { size?: number
   );
 }
 
-// Folded Map Icon (Image 1)
-function FoldedMapIcon({ size = 32, color = '#5F5E5A' }: { size?: number; color?: string }) {
+function FoldedMapIcon({ size = 32, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -90,16 +69,6 @@ function FoldedMapIcon({ size = 32, color = '#5F5E5A' }: { size?: number; color?
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-// Prohibited Circle Slash Icon (Image 3)
-function ProhibitedSlashIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -126,16 +95,16 @@ type TabKey = 'Overview' | 'Farm' | 'Documents' | 'Audits' | 'Produce' | 'Rating
 
 export function FarmerProfileDetailScreen({
   farmer = {
-    farmerId: 'FR-00124',
-    name: 'Ramesh Kumar',
-    zone: 'Coonoor',
-    farmingMethod: 'Organic',
-    accountStatus: 'Active',
-    certification: 'Certified',
-    farmCount: 1,
-    listingCount: 18,
-    rating: '4.6 ★',
-    auditStatus: 'Upcoming',
+    farmerId: '',
+    name: '',
+    zone: '',
+    farmingMethod: '',
+    accountStatus: '',
+    certification: '',
+    farmCount: 0,
+    listingCount: 0,
+    rating: '',
+    auditStatus: '',
   },
   onBack,
 }: FarmerProfileDetailScreenProps) {
@@ -149,23 +118,22 @@ export function FarmerProfileDetailScreen({
 
   // Tab scrollbar dynamic state
   const tabScrollRef = useRef<ScrollView>(null);
-  const [scrollProgress, setScrollProgress] = useState(0); // 0 to 1
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [trackWidth, setTrackWidth] = useState(240);
   const maxScrollWidthRef = useRef(350);
 
-  const tabs: TabKey[] = [
-    'Overview',
-    'Farm',
-    'Documents',
-    'Audits',
-    'Produce',
-    'Ratings',
-    'Activity',
-    'History',
-    'Issues',
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: 'Overview', label: t('farmerProfileDetail.tab.overview') },
+    { key: 'Farm', label: t('farmerProfileDetail.tab.farm') },
+    { key: 'Documents', label: t('farmerProfileDetail.tab.documents') },
+    { key: 'Audits', label: t('farmerProfileDetail.tab.audits') },
+    { key: 'Produce', label: t('farmerProfileDetail.tab.produce') },
+    { key: 'Ratings', label: t('farmerProfileDetail.tab.ratings') },
+    { key: 'Activity', label: t('farmerProfileDetail.tab.activity') },
+    { key: 'History', label: t('farmerProfileDetail.tab.history') },
+    { key: 'Issues', label: t('farmerProfileDetail.tab.issues') },
   ];
 
-  // Pan responder to allow touching and dragging the scrollbar thumb directly
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -210,7 +178,6 @@ export function FarmerProfileDetailScreen({
   const maxThumbTranslate = Math.max(0, trackWidth - thumbWidth);
   const thumbLeft = scrollProgress * maxThumbTranslate;
 
-  // If navigating to full Farmer Produce flow (Mockup 1)
   if (showProduceScreen) {
     return (
       <FarmerProduceScreen
@@ -221,7 +188,6 @@ export function FarmerProfileDetailScreen({
     );
   }
 
-  // If navigating to full Farmer Ratings flow (Mockup 2)
   if (showRatingsScreen) {
     return (
       <FarmerRatingsScreen
@@ -232,7 +198,6 @@ export function FarmerProfileDetailScreen({
     );
   }
 
-  // If navigating to full Farmer Activity flow
   if (showActivityScreen) {
     return (
       <FarmerActivityScreen
@@ -243,7 +208,6 @@ export function FarmerProfileDetailScreen({
     );
   }
 
-  // If navigating to full Farmer History flow (Images 2, 3, 4, 5)
   if (showHistoryScreen) {
     return (
       <FarmerHistoryScreen
@@ -254,7 +218,6 @@ export function FarmerProfileDetailScreen({
     );
   }
 
-  // If navigating to full Farmer Issues flow (Mockups 3 & 4)
   if (showIssuesScreen) {
     return (
       <FarmerIssuesScreen
@@ -267,7 +230,7 @@ export function FarmerProfileDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header: Farmer Profile ─── */}
       <View style={styles.header}>
@@ -278,9 +241,9 @@ export function FarmerProfileDetailScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer Profile</Text>
+          <Text style={styles.headerTitle}>{t('farmerProfileDetail.title')}</Text>
         </View>
       </View>
 
@@ -292,11 +255,11 @@ export function FarmerProfileDetailScreen({
         {/* Top Profile Summary Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarCircle}>
-            <UserAvatarIcon size={34} color={THEME.avatarIcon} />
+            <UserAvatarIcon size={34} color={adminColors.brandDeep} />
           </View>
           <Text style={styles.farmerNameTitle}>{farmer.name}</Text>
           <Text style={styles.farmerSubMeta}>
-            {farmer.farmerId} · {farmer.farmingMethod} Farmer · {farmer.zone}
+            {farmer.farmerId} · {farmer.farmingMethod} · {farmer.zone}
           </Text>
           <View style={styles.statusBadge}>
             <Text style={styles.statusBadgeText}>{farmer.accountStatus}</Text>
@@ -313,17 +276,17 @@ export function FarmerProfileDetailScreen({
             onScroll={handleTabScroll}
             scrollEventThrottle={16}
           >
-            {tabs.map((tab, idx) => {
-              const active = activeTab === tab;
+            {tabs.map(({ key, label }, idx) => {
+              const active = activeTab === key;
               return (
                 <TouchableOpacity
-                  key={tab}
+                  key={key}
                   style={[styles.tabButton, active && styles.tabButtonActive]}
-                  onPress={() => handleTabPress(tab, idx)}
+                  onPress={() => handleTabPress(key, idx)}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.tabText, active ? styles.tabTextActive : styles.tabTextInactive]}>
-                    {tab}
+                    {label}
                   </Text>
                   {active && <View style={styles.tabActiveUnderline} />}
                 </TouchableOpacity>
@@ -331,7 +294,7 @@ export function FarmerProfileDetailScreen({
             })}
           </ScrollView>
 
-          {/* Dynamic Scrollbar Slider: Scrollable & Draggable (Exact match to screenshots) */}
+          {/* Dynamic Scrollbar Slider */}
           <View
             style={styles.sliderBarWrap}
             onLayout={(e: LayoutChangeEvent) => {
@@ -348,7 +311,6 @@ export function FarmerProfileDetailScreen({
               <Text style={styles.sliderArrowText}>◀</Text>
             </TouchableOpacity>
 
-            {/* Track */}
             <View
               style={styles.sliderTrack}
               {...panResponder.panHandlers}
@@ -378,68 +340,65 @@ export function FarmerProfileDetailScreen({
 
         {/* ─── TAB 1: OVERVIEW ─── */}
         {activeTab === 'Overview' && (
-          <>
-            <View style={styles.detailsCard}>
-              <View style={styles.rowTwoCol}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Farmer Name</Text>
-                  <Text style={styles.valBold}>{farmer.name}</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Farmer ID</Text>
-                  <Text style={styles.valBold}>{farmer.farmerId}</Text>
-                </View>
+          <View style={styles.detailsCard}>
+            <View style={styles.rowTwoCol}>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Farmer Name</Text>
+                <Text style={styles.valBold}>{farmer.name}</Text>
               </View>
-
-              <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Zone</Text>
-                  <Text style={styles.valBold}>{farmer.zone}</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Farming Method</Text>
-                  <Text style={styles.valBold}>{farmer.farmingMethod}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Account Status</Text>
-                  <Text style={styles.valBold}>{farmer.accountStatus}</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Certification</Text>
-                  <Text style={styles.valBold}>{farmer.certification}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Farm Count</Text>
-                  <Text style={styles.valBold}>{farmer.farmCount}</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Listing Count</Text>
-                  <Text style={styles.valBold}>{farmer.listingCount}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Rating</Text>
-                  <Text style={styles.valBold}>{farmer.rating}</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Audit Status</Text>
-                  <Text style={styles.valBold}>{farmer.auditStatus}</Text>
-                </View>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Farmer ID</Text>
+                <Text style={styles.valBold}>{farmer.farmerId}</Text>
               </View>
             </View>
 
-          </>
+            <View style={[styles.rowTwoCol, styles.rowSpacing]}>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Zone</Text>
+                <Text style={styles.valBold}>{farmer.zone}</Text>
+              </View>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Farming Method</Text>
+                <Text style={styles.valBold}>{farmer.farmingMethod}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.rowTwoCol, styles.rowSpacing]}>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Account Status</Text>
+                <Text style={styles.valBold}>{farmer.accountStatus}</Text>
+              </View>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Certification</Text>
+                <Text style={styles.valBold}>{farmer.certification}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.rowTwoCol, styles.rowSpacing]}>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Farm Count</Text>
+                <Text style={styles.valBold}>{farmer.farmCount}</Text>
+              </View>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Listing Count</Text>
+                <Text style={styles.valBold}>{farmer.listingCount}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.rowTwoCol, styles.rowSpacing]}>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Rating</Text>
+                <Text style={styles.valBold}>{farmer.rating}</Text>
+              </View>
+              <View style={styles.colHalf}>
+                <Text style={styles.labelMuted}>Audit Status</Text>
+                <Text style={styles.valBold}>{farmer.auditStatus}</Text>
+              </View>
+            </View>
+          </View>
         )}
 
-        {/* ─── TAB 2: FARM (Exact Match to Image 1) ─── */}
+        {/* ─── TAB 2: FARM ─── */}
         {activeTab === 'Farm' && (
           <>
             <View style={styles.detailsCard}>
@@ -454,7 +413,7 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Zone</Text>
                   <Text style={styles.valBold}>Coonoor</Text>
@@ -465,7 +424,7 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Farm Area</Text>
                   <Text style={styles.valBold}>4.2 acres</Text>
@@ -477,26 +436,22 @@ export function FarmerProfileDetailScreen({
               </View>
             </View>
 
-            {/* FMB / Zone Section Heading */}
-            <Text style={styles.subSectionTitle}>FMB / Zone</Text>
+            <Text style={styles.subSectionTitle}>{t('farmerProfileDetail.fmbTitle')}</Text>
 
-            {/* FMB Card with Folded Map Icon (Image 1) */}
             <View style={styles.fmbCard}>
-              <FoldedMapIcon size={36} color="#4A5568" />
+              <FoldedMapIcon size={36} color={adminColors.muted} />
               <Text style={styles.fmbCardText}>
-                FMB information is available as a record.
+                {t('farmerProfileDetail.fmbNotice')}
               </Text>
             </View>
           </>
         )}
 
-        {/* ─── TAB 3: DOCUMENTS (Exact Match to Image 2 & Image 3) ─── */}
+        {/* ─── TAB 3: DOCUMENTS ─── */}
         {activeTab === 'Documents' && (
           <>
-            {/* If NO document detail is open: Show Document Cards (Image 2) */}
             {!selectedDocId ? (
               <View>
-                {/* Doc Card 1: Organic Certification */}
                 <TouchableOpacity
                   style={styles.docCard}
                   onPress={() => setSelectedDocId('DOC-00125')}
@@ -506,7 +461,7 @@ export function FarmerProfileDetailScreen({
                   <View style={styles.docMetaRow}>
                     <Text style={styles.docIdText}>DOC-00125</Text>
                     <View style={styles.badgeActive}>
-                      <Text style={styles.badgeActiveText}>Active</Text>
+                      <Text style={styles.badgeActiveText}>{t('farmerProfileDetail.badge.active')}</Text>
                     </View>
                   </View>
                   <View style={styles.cardDivider} />
@@ -516,7 +471,6 @@ export function FarmerProfileDetailScreen({
                   </View>
                 </TouchableOpacity>
 
-                {/* Doc Card 2: KYC Document */}
                 <TouchableOpacity
                   style={styles.docCard}
                   onPress={() => setSelectedDocId('DOC-00089')}
@@ -526,13 +480,12 @@ export function FarmerProfileDetailScreen({
                   <View style={styles.docMetaRow}>
                     <Text style={styles.docIdText}>DOC-00089</Text>
                     <View style={styles.badgeActive}>
-                      <Text style={styles.badgeActiveText}>Active</Text>
+                      <Text style={styles.badgeActiveText}>{t('farmerProfileDetail.badge.active')}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
               </View>
             ) : (
-              /* If document detail is open: Show Document Detail View (Image 3) */
               <View>
                 <View style={styles.detailsCard}>
                   <View style={styles.rowTwoCol}>
@@ -548,7 +501,7 @@ export function FarmerProfileDetailScreen({
                     </View>
                   </View>
 
-                  <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+                  <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                     <View style={styles.colHalf}>
                       <Text style={styles.labelMuted}>Document Type</Text>
                       <Text style={styles.valBold}>
@@ -557,11 +510,11 @@ export function FarmerProfileDetailScreen({
                     </View>
                     <View style={styles.colHalf}>
                       <Text style={styles.labelMuted}>Status</Text>
-                      <Text style={styles.valBold}>Active</Text>
+                      <Text style={styles.valBold}>{t('farmerProfileDetail.badge.active')}</Text>
                     </View>
                   </View>
 
-                  <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+                  <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                     <View style={styles.colHalf}>
                       <Text style={styles.labelMuted}>Issued Date</Text>
                       <Text style={styles.valBold}>12 Jun 2026</Text>
@@ -572,13 +525,12 @@ export function FarmerProfileDetailScreen({
                     </View>
                   </View>
 
-                  <View style={{ marginTop: 16 }}>
+                  <View style={styles.rowSpacing}>
                     <Text style={styles.labelMuted}>Issuing Authority</Text>
                     <Text style={styles.valBold}>TOHFA Certification Board</Text>
                   </View>
                 </View>
 
-                {/* Preview Button */}
                 <TouchableOpacity
                   style={styles.outlineActionBtn}
                   onPress={() => Alert.alert('Preview Document', `Viewing verified document record for ${selectedDocId}.`)}
@@ -587,10 +539,8 @@ export function FarmerProfileDetailScreen({
                   <Text style={styles.outlineActionBtnText}>Preview</Text>
                 </TouchableOpacity>
 
-
-                {/* Back to Documents Button */}
                 <TouchableOpacity
-                  style={[styles.outlineActionBtn, { marginTop: 14 }]}
+                  style={[styles.outlineActionBtn, styles.rowSpacing]}
                   onPress={() => setSelectedDocId(null)}
                   activeOpacity={0.8}
                 >
@@ -601,7 +551,7 @@ export function FarmerProfileDetailScreen({
           </>
         )}
 
-        {/* ─── TAB 4: AUDITS (Exact Match to Image 4) ─── */}
+        {/* ─── TAB 4: AUDITS ─── */}
         {activeTab === 'Audits' && (
           <>
             <View style={styles.detailsCard}>
@@ -616,13 +566,12 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={{ marginTop: 16 }}>
+              <View style={styles.rowSpacing}>
                 <Text style={styles.labelMuted}>Audit Status</Text>
                 <Text style={styles.valBold}>Upcoming</Text>
               </View>
             </View>
 
-            {/* View Audit History Outline Button (Navigates to Farmer History) */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowHistoryScreen(true)}
@@ -644,23 +593,22 @@ export function FarmerProfileDetailScreen({
                 </View>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Pending Review</Text>
-                  <Text style={[styles.valBold, { color: '#D97706' }]}>03 Batches</Text>
+                  <Text style={[styles.valBold, styles.valPending]}>03 Batches</Text>
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Approved</Text>
                   <Text style={styles.valBold}>12 Batches</Text>
                 </View>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Rejected</Text>
-                  <Text style={[styles.valBold, { color: '#DC2626' }]}>03 Batches</Text>
+                  <Text style={[styles.valBold, styles.valRejected]}>03 Batches</Text>
                 </View>
               </View>
             </View>
 
-            {/* View All Produce Outline Button (Navigates to Mockup 1) */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowProduceScreen(true)}
@@ -686,7 +634,7 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Farm Quality</Text>
                   <Text style={styles.valBold}>4.7 / 5.0</Text>
@@ -698,7 +646,6 @@ export function FarmerProfileDetailScreen({
               </View>
             </View>
 
-            {/* View Ratings Outline Button (Navigates to Mockup 2) */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowRatingsScreen(true)}
@@ -724,7 +671,7 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Total Batches</Text>
                   <Text style={styles.valBold}>18 Listed</Text>
@@ -736,7 +683,6 @@ export function FarmerProfileDetailScreen({
               </View>
             </View>
 
-            {/* View Activity Outline Button */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowActivityScreen(true)}
@@ -745,9 +691,8 @@ export function FarmerProfileDetailScreen({
               <Text style={styles.outlineActionBtnText}>View Activity</Text>
             </TouchableOpacity>
 
-            {/* View Farmer History Outline Button */}
             <TouchableOpacity
-              style={[styles.outlineActionBtn, { marginTop: 12 }]}
+              style={[styles.outlineActionBtn, styles.rowSpacingSm]}
               onPress={() => setShowHistoryScreen(true)}
               activeOpacity={0.8}
             >
@@ -771,7 +716,7 @@ export function FarmerProfileDetailScreen({
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Total Events</Text>
                   <Text style={styles.valBold}>5 Records (2026)</Text>
@@ -783,7 +728,6 @@ export function FarmerProfileDetailScreen({
               </View>
             </View>
 
-            {/* View History Outline Button */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowHistoryScreen(true)}
@@ -805,18 +749,18 @@ export function FarmerProfileDetailScreen({
               <View style={styles.rowTwoCol}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Open Issues</Text>
-                  <Text style={[styles.valBold, { color: '#DC2626' }]}>02 Open</Text>
+                  <Text style={[styles.valBold, styles.valRejected]}>02 Open</Text>
                 </View>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>In Progress</Text>
-                  <Text style={[styles.valBold, { color: '#D97706' }]}>01 Pending</Text>
+                  <Text style={[styles.valBold, styles.valPending]}>01 Pending</Text>
                 </View>
               </View>
 
-              <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
+              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Resolved</Text>
-                  <Text style={[styles.valBold, { color: '#15803D' }]}>08 Resolved</Text>
+                  <Text style={[styles.valBold, styles.valResolved]}>08 Resolved</Text>
                 </View>
                 <View style={styles.colHalf}>
                   <Text style={styles.labelMuted}>Latest ID</Text>
@@ -825,7 +769,6 @@ export function FarmerProfileDetailScreen({
               </View>
             </TouchableOpacity>
 
-            {/* View All Issues Outline Button (Navigates to Mockups 3 & 4) */}
             <TouchableOpacity
               style={styles.outlineActionBtn}
               onPress={() => setShowIssuesScreen(true)}
@@ -836,29 +779,29 @@ export function FarmerProfileDetailScreen({
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching All 4 Images Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -867,90 +810,89 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
 
-  // Top Profile Card
+  // Profile Card
   profileCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 22,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.lg,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   avatarCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: THEME.avatarBg,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   farmerNameTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.title,
+    color: adminColors.ink,
   },
   farmerSubMeta: {
-    fontSize: 12.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 4,
     textAlign: 'center',
   },
   statusBadge: {
-    backgroundColor: THEME.statusGreenBg,
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 4,
-    marginTop: 10,
+    marginTop: adminSpacing.sm,
   },
   statusBadgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.statusGreenText,
+    color: adminColors.success.text,
   },
 
-  // Horizontal Tabs Bar (Matches Images 1, 2, 4)
+  // Horizontal Tabs Bar
   tabsContainer: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   tabsScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 2,
-    gap: 20,
+    gap: adminSpacing.xl,
   },
   tabButton: {
-    paddingVertical: 8,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     position: 'relative',
   },
   tabButtonActive: {},
   tabText: {
-    fontSize: 14.5,
+    ...adminType.body,
   },
   tabTextActive: {
     fontWeight: '800',
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
   tabTextInactive: {
     fontWeight: '600',
-    color: THEME.muted,
+    color: adminColors.muted,
   },
   tabActiveUnderline: {
     position: 'absolute',
@@ -958,58 +900,63 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2.5,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     borderRadius: 2,
   },
 
-  // Dynamic Scrollbar Slider Track (Matches Images 1, 2, 4)
+  // Dynamic Scrollbar Slider Track
   sliderBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    gap: 8,
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   sliderArrowTouch: {
     paddingHorizontal: 3,
   },
   sliderArrowText: {
-    fontSize: 11,
-    color: '#8A8580',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   sliderTrack: {
     flex: 1,
     height: 5,
-    backgroundColor: '#E5DFD7',
-    borderRadius: 3,
+    backgroundColor: adminColors.border,
+    borderRadius: adminRadius.xs,
     position: 'relative',
     justifyContent: 'center',
   },
   sliderThumb: {
     height: 5,
-    backgroundColor: '#8A8580',
-    borderRadius: 3,
+    backgroundColor: adminColors.muted,
+    borderRadius: adminRadius.xs,
   },
 
   // Details Card
   detailsCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.xl,
+    paddingVertical: adminSpacing.xl,
+    marginBottom: adminSpacing.lg,
   },
   subSectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
     marginTop: 6,
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
   rowTwoCol: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  rowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
+  rowSpacingSm: {
+    marginTop: adminSpacing.md,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -1020,48 +967,55 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   labelMuted: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   valBold: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  valPending: {
+    color: adminColors.warning.text,
+  },
+  valRejected: {
+    color: adminColors.danger.text,
+  },
+  valResolved: {
+    color: adminColors.success.text,
   },
 
-  // FMB Card (Image 1)
+  // FMB Card
   fmbCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 28,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fmbCardText: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 14,
     textAlign: 'center',
   },
 
-  // Document Cards (Image 2)
+  // Document Cards
   docCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    marginBottom: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   docCardTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   docMetaRow: {
     flexDirection: 'row',
@@ -1070,78 +1024,45 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   docIdText: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   badgeActive: {
-    backgroundColor: THEME.statusGreenBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 3,
   },
   badgeActiveText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.statusGreenText,
+    color: adminColors.success.text,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: THEME.divider,
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   docDateText: {
-    fontSize: 12.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
 
-  // Actions (Image 3 & Image 4)
+  // Actions
   outlineActionBtn: {
     height: 48,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
-
-  // Prohibited Notice Box (Image 3)
-  prohibitedNoticeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.noticeBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.noticeBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 14,
-  },
-  prohibitedNoticeText: {
-    flex: 1,
-    fontSize: 12.5,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
-
-  // Disclaimer Notice Box (Overview)
-  noticeBox: {
-    backgroundColor: THEME.noticeBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.noticeBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 4,
-  },
-  noticeText: {
-    fontSize: 12.5,
-    color: '#6B7280',
-    lineHeight: 18,
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });
