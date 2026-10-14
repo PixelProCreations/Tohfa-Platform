@@ -118,6 +118,7 @@ export function StaffFlow({
           {...common}
           staff={params.staff}
           onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
+          onViewAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onViewAttendanceHistory={() => navigate('AttendanceHistory')}
           onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}
         />

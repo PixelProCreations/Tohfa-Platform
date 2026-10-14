@@ -29,7 +29,6 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import {
   ChipGroup,
   EmptyState,
-  InfoNote,
   inScope,
   isAllWarehouses,
   KpiRow,
@@ -213,14 +212,7 @@ export function RevenueScreen({
           ]}
         />
 
-        {/* Backend Categories Note (Subwarehouse only) */}
-        {!isMain && (
-          <View style={styles.noteWrap}>
-            <InfoNote tone="info">
-              Only channel categories that actually exist in the backend are shown here.
-            </InfoNote>
-          </View>
-        )}
+
 
         {/* Category Filter Pills (Subwarehouse only - Main uses the full screen filter) */}
         {!isMain && (
@@ -458,7 +450,7 @@ export function RevenueScreen({
 }
 
 const styles = StyleSheet.create({
-  noteWrap: { marginBottom: adminSpacing.sm },
+
   filters: { marginBottom: adminSpacing.md },
 
   searchBar: {

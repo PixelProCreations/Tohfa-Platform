@@ -17,7 +17,7 @@
  * the category chips are the filter.
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -29,9 +29,12 @@ import {
   inScope,
   isAllWarehouses,
   KpiRow,
+  LockIcon,
   PermissionNote,
   ScopeHeader,
   SearchBar,
+  SearchIcon,
+  SlidersIcon,
   StatusBadge,
   WalletButton,
   WalletScreen,
@@ -206,24 +209,62 @@ export function DocumentsScreen({
   }
 
   return (
-    <WalletScreen title="Warehouse Documents" onBack={onBack} headerExtra={header} footer={footer}>
+    <WalletScreen title="Warehouse Documents" onBack={onBack} headerExtra={isMain ? header : undefined} footer={footer}>
       <ScrollView
-        contentContainerStyle={warehouseProfileLayout.scrollContent}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <KpiRow
-          items={[
-            { value: String(visible.length), label: 'TOTAL' },
-            { value: String(visible.filter((d) => d.status === 'Active').length), label: 'ACTIVE', tone: 'success' },
-            { value: String(visible.filter((d) => d.status === 'Expiring Soon').length), label: 'EXPIRING SOON', tone: 'warning' },
-          ]}
-        />
-        <View style={warehouseProfileLayout.gap} />
-        <ChipGroup options={CATEGORIES} value={category} onChange={setCategory} />
-        <View style={warehouseProfileLayout.gap} />
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Document name, ID, type" />
-        <View style={warehouseProfileLayout.gap} />
+        {!isMain ? (
+          <View style={styles.scopeRow}>
+            <LockIcon size={14} color="#374151" />
+            <Text style={styles.scopeText}>{warehouseNameOf(scope, selected, warehouseOptions)}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>TOTAL</Text>
+            <Text style={styles.kpiValueTotal}>{visible.length}</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ACTIVE</Text>
+            <Text style={styles.kpiValueActive}>{visible.filter((d) => d.status === 'Active').length}</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>EXPIRING SOON</Text>
+            <Text style={styles.kpiValueExpiring}>{visible.filter((d) => d.status === 'Expiring Soon').length}</Text>
+          </View>
+        </View>
+
+        <View style={styles.chipsContainer}>
+          {CATEGORIES.map((cat) => {
+            const isSelected = category === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, isSelected && styles.chipSelected]}
+                onPress={() => setCategory(cat)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{cat}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.searchBar}>
+          <SearchIcon size={18} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Document name, ID, type"
+            placeholderTextColor="#6B7280"
+          />
+          <SlidersIcon size={18} color="#4B5563" />
+        </View>
+
         {filtered.length === 0 ? (
           <EmptyState title="No Documents Found" subtitle="Try clearing your search query or selecting another category filter." />
         ) : (
@@ -238,18 +279,24 @@ export function DocumentsScreen({
                 accessibilityRole="button"
                 accessibilityLabel={doc.name}
               >
-                <View style={styles.docText}>
+                <View style={styles.docCardHeader}>
                   <Text style={styles.docTitle}>{doc.name}</Text>
-                  <Text style={styles.docMeta}>
-                    {doc.code}
-                    {isMain ? ` · ${warehouseNameOf(scope, doc.warehouseId, warehouseOptions)}` : ''}
-                  </Text>
-                  <Text style={styles.docMeta}>{doc.dateNote}</Text>
+                  <View style={[styles.badge, expiring ? styles.badgeExpiring : styles.badgeActive]}>
+                    {expiring ? (
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
+                        <Path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#B45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    ) : null}
+                    <Text style={[styles.badgeText, expiring ? styles.badgeTextExpiring : styles.badgeTextActive]}>
+                      {doc.status}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.badgeRow}>
-                  {expiring ? <WarningTriangleIcon /> : null}
-                  <StatusBadge label={doc.status} tone={expiring ? 'warning' : 'success'} />
-                </View>
+                <Text style={styles.docCode}>
+                  {doc.code}
+                  {isMain ? ` · ${warehouseNameOf(scope, doc.warehouseId, warehouseOptions)}` : ''}
+                </Text>
+                <Text style={styles.docDateNote}>{doc.dateNote}</Text>
               </TouchableOpacity>
             );
           })
@@ -260,22 +307,156 @@ export function DocumentsScreen({
 }
 
 const styles = StyleSheet.create({
-  actionRow: { flexDirection: 'row', gap: adminSpacing.md },
-  docCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
+  scrollContent: {
     padding: adminSpacing.lg,
-    marginBottom: adminSpacing.md,
+    paddingBottom: 32,
   },
-  docText: { flex: 1 },
-  docTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  docMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
+  scopeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  scopeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+    letterSpacing: 0.3,
+  },
+  kpiValueTotal: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 6,
+  },
+  kpiValueActive: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#15803D',
+    marginTop: 6,
+  },
+  kpiValueExpiring: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#D97706',
+    marginTop: 6,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  chip: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  chipSelected: {
+    borderWidth: 1.5,
+    borderColor: '#C2410C',
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  chipTextSelected: {
+    color: '#9A3412',
+    fontWeight: '700',
+  },
+  searchBar: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#111827',
+  },
+  docCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 12,
+  },
+  docCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  docTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  badge: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badgeActive: {
+    backgroundColor: '#DCFCE7',
+  },
+  badgeExpiring: {
+    backgroundColor: '#FEF3C7',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  badgeTextActive: {
+    color: '#166534',
+  },
+  badgeTextExpiring: {
+    color: '#B45309',
+  },
+  docCode: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginTop: 4,
+  },
+  docDateNote: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginTop: 8,
+  },
   detailSectionTitle: {
     fontSize: 16,
     fontWeight: '800',

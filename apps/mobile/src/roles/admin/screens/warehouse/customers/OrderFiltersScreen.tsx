@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
-import { CUSTOMER_WAREHOUSES, DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
+import { adminColors } from '../../../theme';
+import { DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
 import type {
   OrderFiltersVariant,
   OrderFilterState,
@@ -97,24 +97,7 @@ function PaymentIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: 
   );
 }
 
-function LockIcon({ size = 18, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="12" cy="16" r="1.2" fill={color} />
-    </Svg>
-  );
-}
 
-function InfoCircleIcon({ size = 18, color = '#0284C7' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -157,7 +140,7 @@ const DATE_OPTIONS = ['Today', 'Yesterday', 'Last 7 Days', 'Custom'] as const;
 const PAYMENT_OPTIONS = ['All', 'Paid', 'Pending', 'Failed'] as const;
 
 export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
-  const { scope, onBack } = props;
+  const { onBack } = props;
 
   const [searchQuery, setSearchQuery] = useState(props.initialFilters?.searchQuery ?? '');
   const [orderStatus, setOrderStatus] = useState<string>(
@@ -215,7 +198,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
     }
   };
 
-  const warehouseName = scope?.warehouseName ?? 'Coonoor Warehouse';
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -369,21 +352,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
           })}
         </View>
 
-        {/* Note Box 1 (Orange) */}
-        <View style={styles.orangeNote}>
-          <LockIcon size={18} color="#9A3412" />
-          <Text style={styles.orangeNoteText}>
-            No warehouse selector — results always scoped to {warehouseName}.
-          </Text>
-        </View>
 
-        {/* Note Box 2 (Blue) */}
-        <View style={styles.blueNote}>
-          <InfoCircleIcon size={18} color="#0284C7" />
-          <Text style={styles.blueNoteText}>
-            Direct Customer Purchase has its own workflow in Module 6 and isn't filtered here.
-          </Text>
-        </View>
       </ScrollView>
 
       {/* Footer */}
@@ -492,43 +461,7 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#F0562A',
   },
-  orangeNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FDBA74',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 22,
-  },
-  orangeNoteText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#9A3412',
-    lineHeight: 18,
-  },
-  blueNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  blueNoteText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0369A1',
-    lineHeight: 18,
-  },
+
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 12,

@@ -23,6 +23,7 @@ import {
   Card,
   InfoCard,
   InfoNote,
+  isAllWarehouses,
   SectionTitle,
   StatusBadge,
   WalletScreen,
@@ -226,9 +227,11 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUC
           </TouchableOpacity>
         </View>
 
-        <InfoNote tone="warning">
-          No Approve Voucher or Reject Voucher action exists: no voucher approval workflow is offered here.
-        </InfoNote>
+        {isAllWarehouses(scope) ? (
+          <InfoNote tone="warning">
+            No Approve Voucher or Reject Voucher action exists: no voucher approval workflow is offered here.
+          </InfoNote>
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );

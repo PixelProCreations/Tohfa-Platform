@@ -23,10 +23,12 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
+import { BatchListScreen } from '../inventory/BatchListScreen';
 import { StorageFlow } from '../storage-ops';
-import { EMPTY_RECEIVING_FILTERS, findReceivingRecord, findShipment, recordsInScope, shipmentsInScope } from './fixtures';
+import { EMPTY_RECEIVING_FILTERS, findReceivingRecord, findShipment, isMainScope, recordsInScope, shipmentsInScope } from './fixtures';
 import { GoodsReceivingWizardScreen } from './GoodsReceivingWizardScreen';
-import { IncomingShipmentsScreen } from './IncomingShipmentsScreen';
+import { TransferReceivingScreen, TransferDetailScreen } from '../transfers';
+import { IncomingShipmentsScreen, PendingQueueScreen, ReceivingActivityScreen } from './IncomingShipmentsScreen';
 import { QualityIssuesScreen } from './QualityIssuesScreen';
 import { ReceivingDashboardScreen } from './ReceivingDashboardScreen';
 import { ReceivingHistoryDetailScreen } from './ReceivingHistoryDetailScreen';
@@ -72,6 +74,8 @@ const SUB_VIEW_ROUTE: Record<string, ReceivingStackEntry> = {
   partial_acceptance: { screen: 'Wizard', params: { wizardStep: 'partial_acceptance' } },
   goods_receipt_summary: { screen: 'Wizard', params: { wizardStep: 'receipt_summary' } },
   batch_assignment: { screen: 'Wizard', params: { wizardStep: 'batch_assignment' } },
+  receiving_activity: { screen: 'ActivityTimeline' },
+  pending_queue: { screen: 'PendingQueue' },
 };
 
 /** Route and params for an old shell sub-view key; unknown keys open the dashboard. */
@@ -82,6 +86,7 @@ export function receivingRouteFor(subView: string | undefined): ReceivingStackEn
 /** True when `can` allows opening `route` (only the wizard routes are gated here). */
 export function canOpenReceivingRoute(route: ReceivingRoute, can: PermissionCheck): boolean {
   if (route === 'Wizard' || route === 'StorageAssignment') return can(RECEIVING_CODES.receiptRecord);
+  if (route === 'Batches') return can(RECEIVING_CODES.batchView);
   return true;
 }
 
@@ -106,6 +111,8 @@ export interface ReceivingFlowProps {
   onOpenTimeline?: (() => void) | undefined;
   /** Where a finished receipt lands: the dashboard (default) or Receiving History. */
   finishTo?: 'Dashboard' | 'History' | undefined;
+  /** View Batch navigation handler */
+  onViewBatch?: ((batchId: string) => void) | undefined;
 }
 
 export function ReceivingFlow({
@@ -122,6 +129,7 @@ export function ReceivingFlow({
   onOpenOperationalIssues,
   onOpenTimeline,
   finishTo = 'Dashboard',
+  onViewBatch,
 }: ReceivingFlowProps) {
   const [stack, setStack] = useState<ReceivingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   const [filters, setFilters] = useState<ReceivingFilters>(EMPTY_RECEIVING_FILTERS);
@@ -188,12 +196,56 @@ export function ReceivingFlow({
           unreadNotifications={unreadNotifications}
           onOpenNotifications={onOpenNotifications}
           onOpenShipments={(statusTab) => navigate('Shipments', { statusTab })}
-          onOpenHistory={(historyFilter) => navigate('History', { historyFilter })}
+          onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
+          onViewIncomingShipments={() => {
+            const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
+            navigate('ShipmentDetail', { shipmentId: s?.code ?? 'SHP-000124' });
+          }}
+          onOpenDamageReport={() => {
+            const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
+            openWizard('damage_mismatch', s?.code ?? 'SHP-000124');
+          }}
+          onOpenReceiptSummary={() => {
+            const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
+            openWizard('receipt_summary', s?.code ?? 'SHP-000124');
+          }}
+          onOpenHistory={(historyFilter) => {
+            if (isMainScope(scope)) {
+              navigate('HistoryDetail', { receiptId: 'GRN-000842' });
+            } else {
+              navigate('History', { historyFilter });
+            }
+          }}
           onOpenQualityIssues={() => navigate('QualityIssues')}
           onSelectIssue={openIssue}
-          onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
-          onStartReceiving={() => openWizard('start_receiving')}
-          onOpenTransferReceiving={onOpenTransferReceiving}
+          onSelectRecord={(receiptId) => {
+            if (!isMainScope(scope)) {
+              navigate('ShipmentDetail', { shipmentId: receiptId });
+            } else {
+              navigate('HistoryDetail', { receiptId });
+            }
+          }}
+          onShipmentArrived={() => {
+            const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
+            navigate('ShipmentDetail', { shipmentId: s?.code ?? 'SHP-000124' });
+          }}
+          onStartReceiving={() => {
+            if (isMainScope(scope)) {
+              const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
+              navigate('ShipmentDetail', { shipmentId: s?.code ?? 'SHP-000124' });
+            } else {
+              openWizard('start_receiving');
+            }
+          }}
+          onOpenTransferReceiving={() => {
+            if (onOpenTransferReceiving) {
+              onOpenTransferReceiving();
+            } else {
+              navigate('TransferReceiving');
+            }
+          }}
+          onOpenActivity={() => navigate('ActivityTimeline')}
+          onOpenPendingQueue={() => navigate('PendingQueue')}
         />
       );
     case 'Shipments':
@@ -227,6 +279,23 @@ export function ReceivingFlow({
           onStartReceiving={(s, resume) => openWizard(resume ? 'receiving_in_progress' : 'start_receiving', s.code)}
           onViewProductDetail={(s) => openWizard('quantity_verification', s.code)}
           onViewTimeline={(s) => openWizard('receipt_summary', s.code)}
+          onSelectStage={(stage, s) => {
+            if (stage === 'Storage Assignment') {
+              navigate('StorageAssignment', { shipmentId: s.code });
+            } else if (stage === 'Batch Assignment') {
+              openWizard('batch_assignment', s.code);
+            } else if (stage === 'Receipt Completion') {
+              openWizard('receipt_confirmation', s.code);
+            } else if (stage === 'Decision') {
+              openWizard('receiving_decision', s.code);
+            } else if (stage === 'Quality Check') {
+              openWizard('quality_check', s.code);
+            } else if (stage === 'Quantity Verification') {
+              openWizard('quantity_verification', s.code);
+            } else {
+              openWizard('start_receiving', s.code);
+            }
+          }}
         />
       );
     case 'History':
@@ -268,11 +337,20 @@ export function ReceivingFlow({
           onBackToShipments={() => backTo('Shipments')}
           onOpenStorageLocations={() => navigate('StorageAssignment', { shipmentId: shipment?.code })}
           onViewHistory={() => navigate('History')}
+          onOpenInventory={() => onTabChange?.('Inventory')}
+          onViewBatch={(batchId) => {
+            if (onViewBatch) {
+              onViewBatch(batchId);
+            } else {
+              navigate('Batches', { batchId });
+            }
+          }}
         />
       );
     }
     case 'StorageAssignment': {
       const shipment = findShipment(scope, params.shipmentId) ?? firstShipment();
+      const isSub = !isMainScope(scope);
       return (
         <StorageFlow
           scope={scope}
@@ -280,14 +358,67 @@ export function ReceivingFlow({
           initialScreen="StorageLocationAssignment"
           initialParams={{
             warehouseId: shipment?.warehouseId ?? scope.warehouseId,
-            productName: shipment?.produce,
-            quantity: shipment ? `${shipment.acceptedQty ?? shipment.receivedQty ?? shipment.expectedQty} KG` : undefined,
+            batchId: isSub ? 'BAT-00512' : undefined,
+            productName: isSub ? 'Tomato · Grade 2' : shipment?.produce,
+            quantity: isSub ? '445 KG' : (shipment ? `${shipment.acceptedQty ?? shipment.receivedQty ?? shipment.expectedQty} KG` : undefined),
           }}
           onBack={back}
-          onConfirmAssignment={() => backTo(finishTo)}
+          onConfirmAssignment={() => {
+            if (isSub) {
+              openWizard('receipt_confirmation', shipment?.code);
+            } else {
+              backTo(finishTo);
+            }
+          }}
         />
       );
     }
+    case 'Batches':
+      return (
+        <BatchListScreen
+          scope={scope}
+          can={can}
+          onBack={back}
+        />
+      );
+    case 'ActivityTimeline':
+      return (
+        <ReceivingActivityScreen
+          onBack={back}
+          onSelectStep={(step) => {
+            if (step === 'shipment_detail') {
+              navigate('ShipmentDetail', { shipmentId: 'SHP-000124' });
+            } else if (step === 'storage_assignment') {
+              navigate('StorageAssignment', { shipmentId: 'SHP-000124' });
+            } else {
+              openWizard(step as any, 'SHP-000124');
+            }
+          }}
+        />
+      );
+    case 'PendingQueue':
+      return (
+        <PendingQueueScreen
+          onBack={back}
+          onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
+        />
+      );
+    case 'TransferReceiving':
+      return (
+        <TransferReceivingScreen
+          {...common}
+          onSelectTransfer={(id) => navigate('TransferDetail', { transferId: id })}
+          onStartTransferInspection={(id) => navigate('TransferDetail', { transferId: id })}
+        />
+      );
+    case 'TransferDetail':
+      return (
+        <TransferDetailScreen
+          {...common}
+          transferId={params.transferId ?? '00284'}
+          onBackToTransfers={back}
+        />
+      );
     default:
       return null;
   }

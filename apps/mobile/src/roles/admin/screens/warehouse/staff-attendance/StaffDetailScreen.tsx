@@ -59,6 +59,7 @@ function DeliveryTruckIcon({ size = 18, color = adminColors.onBrand }: { size?: 
 export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   staff?: StaffMember | undefined;
   onEditProfile?: ((staff: StaffMember) => void) | undefined;
+  onViewAttendance?: ((staff: StaffMember) => void) | undefined;
   /** Attendance summary tap (Main): opens Attendance History. */
   onViewAttendanceHistory?: ((staff: StaffMember) => void) | undefined;
   onAssignDelivery?: ((staff: StaffMember) => void) | undefined;
@@ -71,6 +72,7 @@ export function StaffDetailScreen({
   onNavigate,
   staff,
   onEditProfile,
+  onViewAttendance,
   onViewAttendanceHistory,
   onAssignDelivery,
 }: StaffDetailScreenProps) {
@@ -118,7 +120,7 @@ export function StaffDetailScreen({
       title="Staff Detail"
       onBack={onBack}
       footer={
-        isDriver || onEditProfile ? (
+        (!isMain && onViewAttendanceHistory) || isDriver || onEditProfile ? (
           <WalletFooter>
             {isDriver ? (
               <WalletButton
@@ -127,7 +129,17 @@ export function StaffDetailScreen({
                 onPress={handleAssignDelivery}
               />
             ) : null}
-            {onEditProfile ? (
+            {!isMain ? (
+              <WalletButton
+                label="View Attendance"
+                variant="primary"
+                onPress={() => {
+                  if (onViewAttendance) onViewAttendance(member);
+                  else if (onViewAttendanceHistory) onViewAttendanceHistory(member);
+                  else if (onEditProfile) onEditProfile(member);
+                }}
+              />
+            ) : onEditProfile ? (
               <WalletButton
                 label={`Edit ${isDriver ? 'Driver' : 'Staff'} Profile`}
                 variant={isDriver ? 'outline' : 'primary'}
@@ -197,7 +209,7 @@ export function StaffDetailScreen({
                 [{ label: 'Failed', value: String(DRIVER_DELIVERY_SUMMARY.failed) }],
               ]}
             />
-            <InfoNote>Only metrics the backend actually defines are shown — no invented performance figures.</InfoNote>
+            {isMain ? <InfoNote>Only metrics the backend actually defines are shown — no invented performance figures.</InfoNote> : null}
           </>
         ) : (
           <>
@@ -225,10 +237,12 @@ export function StaffDetailScreen({
                 ],
               ]}
             />
-            <InfoNote tone="danger" icon={<ProhibitedIcon />}>
-              No salary, payroll, bank account, or Aadhaar fields — the source doesn&apos;t define a complete warehouse-staff HR
-              data model, so none is invented here.
-            </InfoNote>
+            {isMain ? (
+              <InfoNote tone="danger" icon={<ProhibitedIcon />}>
+                No salary, payroll, bank account, or Aadhaar fields — the source doesn&apos;t define a complete warehouse-staff HR
+                data model, so none is invented here.
+              </InfoNote>
+            ) : null}
           </>
         )}
 

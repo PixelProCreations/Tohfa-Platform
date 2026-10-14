@@ -21,7 +21,7 @@
  */
 // Design id: M14-S03
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminSpacing } from '../../../theme';
 import {
@@ -33,7 +33,9 @@ import {
   KpiRow,
   ScopeHeader,
   SearchBar,
+  SearchIcon,
   SectionTitle,
+  SlidersIcon,
   WalletScreen,
   WarehouseTabBar,
   walletLayout,
@@ -115,7 +117,7 @@ export function AttendanceScreen({
       trailing={
         <AttendanceStatusText
           status={record.status}
-          lines={[record.status === 'Present' ? record.checkInTime : undefined, dateText]}
+          lines={!isMain ? [record.status === 'Present' ? record.checkInTime : undefined] : [record.status === 'Present' ? record.checkInTime : undefined, dateText]}
         />
       }
       divider={index < list.length - 1}
@@ -137,40 +139,92 @@ export function AttendanceScreen({
         ) : undefined
       }
       headerExtra={
-        <>
-          <DateNavigator
-            label={`${scopeLabel} · ${dateText}`}
-            onPrev={() => shiftDay(-1)}
-            onNext={() => shiftDay(1)}
-            onPressLabel={() => {
-              setPickerDay(day);
-              setPickerOpen(true);
-            }}
-          />
-          {isMain ? (
+        isMain ? (
+          <>
+            <DateNavigator
+              label={`${scopeLabel} · ${dateText}`}
+              onPrev={() => shiftDay(-1)}
+              onNext={() => shiftDay(1)}
+              onPressLabel={() => {
+                setPickerDay(day);
+                setPickerOpen(true);
+              }}
+            />
             <ScopeHeader
               scope={scope}
               warehouseOptions={warehouseOptions}
               selectedWarehouseId={selectedWarehouseId}
               onSelectWarehouse={setSelectedWarehouseId}
             />
-          ) : null}
-        </>
+          </>
+        ) : undefined
       }
-      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
+      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab="More" />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <KpiRow
-          items={[
-            { value: count('Present'), label: 'PRESENT', tone: 'success' },
-            { value: count('Absent'), label: 'ABSENT', tone: 'danger' },
-            { value: count('On Leave'), label: 'ON LEAVE', tone: 'warning' },
-            { value: String(dayRecords.length), label: 'TOTAL' },
-          ]}
-        />
-        <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
-        <View style={styles.gap} />
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search employee..." />
+        {!isMain ? (
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PRESENT</Text>
+              <Text style={[styles.kpiValue, { color: '#16A34A' }]}>{count('Present')}</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ABSENT</Text>
+              <Text style={[styles.kpiValue, { color: '#DC2626' }]}>{count('Absent')}</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ON LEAVE</Text>
+              <Text style={[styles.kpiValue, { color: '#D97706' }]}>{count('On Leave')}</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>TOTAL</Text>
+              <Text style={[styles.kpiValue, { color: '#111827' }]}>{String(dayRecords.length)}</Text>
+            </View>
+          </View>
+        ) : (
+          <KpiRow
+            items={[
+              { value: count('Present'), label: 'PRESENT', tone: 'success' },
+              { value: count('Absent'), label: 'ABSENT', tone: 'danger' },
+              { value: count('On Leave'), label: 'ON LEAVE', tone: 'warning' },
+              { value: String(dayRecords.length), label: 'TOTAL' },
+            ]}
+          />
+        )}
+
+        {isMain ? (
+          <>
+            <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+            <View style={styles.gap} />
+            <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search employee..." />
+          </>
+        ) : (
+          <View style={styles.searchBar}>
+            <SearchIcon size={18} color="#6B7280" />
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search employee..."
+              placeholderTextColor="#6B7280"
+            />
+            <TouchableOpacity
+              onPress={() => {
+                setFilter((prev) => {
+                  if (prev === 'All') return 'Present';
+                  if (prev === 'Present') return 'Absent';
+                  if (prev === 'Absent') return 'On Leave';
+                  return 'All';
+                });
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Filter attendance"
+            >
+              <SlidersIcon size={18} color={filter !== 'All' ? '#C2410C' : '#4B5563'} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {visible.length === 0 ? (
           <EmptyState title="No attendance records" subtitle={`Nothing recorded for ${dateText} with this filter.`} />
@@ -209,4 +263,47 @@ export function AttendanceScreen({
 
 const styles = StyleSheet.create({
   gap: { height: adminSpacing.md },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#4B5563',
+    letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  searchBar: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#111827',
+  },
 });

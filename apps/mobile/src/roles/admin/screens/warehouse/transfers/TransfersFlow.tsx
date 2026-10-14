@@ -118,7 +118,8 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
       return (
         <TransferReceivingScreen
           {...common}
-          onStartTransferInspection={(id) => navigate('TransferInspection', { transferId: id })}
+          onSelectTransfer={(id) => navigate('TransferDetail', { transferId: id })}
+          onStartTransferInspection={(id) => navigate('TransferDetail', { transferId: id })}
         />
       );
     case 'TransferInspection':

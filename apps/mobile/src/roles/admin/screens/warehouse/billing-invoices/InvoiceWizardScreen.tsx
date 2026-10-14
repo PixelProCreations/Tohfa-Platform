@@ -24,6 +24,7 @@ import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
 import {
   BillingButton,
   BillingFooter,
@@ -98,6 +99,7 @@ export function InvoiceWizardScreen({
   review,
   onSuccess,
 }: InvoiceWizardScreenProps) {
+  const isMain = isAllWarehouses(scope);
   const enteredAtReview = review !== undefined;
   const [stepIndex, setStepIndex] = useState(enteredAtReview ? STEPS.length - 1 : 0);
   const [showFailure, setShowFailure] = useState(false);
@@ -193,10 +195,12 @@ export function InvoiceWizardScreen({
                 </View>
               ))}
             </Card>
-            <InfoNote icon={<LockIcon />}>
-              Items reflect the source transaction exactly — quantity and unit price cannot be changed from this
-              screen.
-            </InfoNote>
+            {isMain ? (
+              <InfoNote icon={<LockIcon />}>
+                Items reflect the source transaction exactly — quantity and unit price cannot be changed from this
+                screen.
+              </InfoNote>
+            ) : null}
 
             <SectionTitle>Billing Summary</SectionTitle>
             <Card>
@@ -220,7 +224,7 @@ export function InvoiceWizardScreen({
             <SectionTitle>Invoice Type</SectionTitle>
             <Card>
               <Text style={styles.itemTitle}>{detail.invoiceType}</Text>
-              <Text style={styles.itemDesc}>Derived from source transaction — not editable</Text>
+              {isMain ? <Text style={styles.itemDesc}>Derived from source transaction — not editable</Text> : null}
             </Card>
           </>
         ) : null}
@@ -237,10 +241,12 @@ export function InvoiceWizardScreen({
                 [{ label: 'Contact', value: detail.customerPhone }],
               ]}
             />
-            <InfoNote>
-              GST/business fields (GSTIN, billing address) appear here only for B2B/HORECA source transactions that
-              actually provide them.
-            </InfoNote>
+            {isMain ? (
+              <InfoNote>
+                GST/business fields (GSTIN, billing address) appear here only for B2B/HORECA source transactions that
+                actually provide them.
+              </InfoNote>
+            ) : null}
           </>
         ) : null}
 

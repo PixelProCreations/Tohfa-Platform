@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Pressable,
@@ -418,6 +418,7 @@ interface SubWarehouseAdminDashboardScreenProps {
   initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
+  onTabChange?: (tab: SubWHTab) => void;
 }
 
 // ─── Inventory Module ────────────────────────────────────────────────────────
@@ -860,8 +861,18 @@ function SubWarehouseTodayOverviewView({
 
 function SubWarehouseRecentActivityView({
   onBack,
+  onOpenReceiving,
+  onOpenOrders,
+  onOpenCash,
+  onOpenQC,
+  onOpenInventory,
 }: {
   onBack: () => void;
+  onOpenReceiving?: ((shipmentId?: string) => void) | undefined;
+  onOpenOrders?: ((orderId?: string) => void) | undefined;
+  onOpenCash?: (() => void) | undefined;
+  onOpenQC?: ((shipmentId?: string) => void) | undefined;
+  onOpenInventory?: (() => void) | undefined;
 }) {
   const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'This Week' | 'All Time'>('Today');
   const [activityFilter, setActivityFilter] = useState<'All Activities' | 'Inventory' | 'Receiving' | 'Orders' | 'Cash' | 'QC'>('All Activities');
@@ -1095,68 +1106,87 @@ function SubWarehouseRecentActivityView({
 
         {/* Activity Cards List */}
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
-          {filtered.map((item) => (
-            <View
-              key={item.id}
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#ECE8E3',
-                padding: 16,
-                marginBottom: 14,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 3,
-                elevation: 1,
-              }}
-            >
-              {/* Header: Title + Badge */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
-                <View
-                  style={{
-                    backgroundColor: '#FFF1EB',
-                    paddingHorizontal: 12,
-                    paddingVertical: 3,
-                    borderRadius: 14,
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>{item.badge}</Text>
-                </View>
-              </View>
+          {filtered.map((item) => {
+            const handleCardPress = () => {
+              if (item.type === 'Receiving') {
+                onOpenReceiving?.('SHP-000124');
+              } else if (item.type === 'Orders') {
+                onOpenOrders?.('ORD-10242');
+              } else if (item.type === 'Cash') {
+                onOpenCash?.();
+              } else if (item.type === 'QC') {
+                onOpenQC?.('SHP-000123');
+              } else if (item.type === 'Inventory') {
+                onOpenInventory?.();
+              }
+            };
 
-              {/* Subtitle */}
-              <Text style={{ fontSize: 13.5, color: '#6B7280', marginBottom: item.stats ? 12 : 14 }}>
-                {item.subtitle}
-              </Text>
-
-              {/* Stats Box (Stock Verification) */}
-              {item.stats && (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.system}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>SYSTEM</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.counted}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>COUNTED</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#EF4444' }}>{item.stats.variance}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>VARIANCE</Text>
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={handleCardPress}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#ECE8E3',
+                  padding: 16,
+                  marginBottom: 14,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 3,
+                  elevation: 1,
+                }}
+              >
+                {/* Header: Title + Badge */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
+                  <View
+                    style={{
+                      backgroundColor: '#FFF1EB',
+                      paddingHorizontal: 12,
+                      paddingVertical: 3,
+                      borderRadius: 14,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>{item.badge}</Text>
                   </View>
                 </View>
-              )}
 
-              {/* Footer: Author & Time */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.author}</Text>
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.time}</Text>
-              </View>
-            </View>
-          ))}
+                {/* Subtitle */}
+                <Text style={{ fontSize: 13.5, color: '#6B7280', marginBottom: item.stats ? 12 : 14 }}>
+                  {item.subtitle}
+                </Text>
+
+                {/* Stats Box (Stock Verification) */}
+                {item.stats && (
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.system}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>SYSTEM</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.counted}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>COUNTED</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#EF4444' }}>{item.stats.variance}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>VARIANCE</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Footer: Author & Time */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.author}</Text>
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.time}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -1177,6 +1207,7 @@ export function SubWarehouseAdminDashboardScreen({
   initialTab,
   initialReceivingSubView,
   initialInventoryScreen,
+  onTabChange,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [showTodayOverview, setShowTodayOverview] = useState(initialShowTodayOverview);
   const [showRecentActivity, setShowRecentActivity] = useState(initialShowRecentActivity);
@@ -1191,6 +1222,18 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialShowRecentActivity]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
+  const [returnToTabOnBack, setReturnToTabOnBack] = useState<SubWHTab | null>(null);
+
+  const onTabChangeRef = useRef(onTabChange);
+  onTabChangeRef.current = onTabChange;
+  const prevTabRef = useRef<SubWHTab>(activeTab);
+
+  useEffect(() => {
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab;
+      onTabChangeRef.current?.(activeTab);
+    }
+  }, [activeTab]);
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
   // This entry only says where the tab opens.
@@ -1327,6 +1370,8 @@ export function SubWarehouseAdminDashboardScreen({
 
   /** Switch tab; the Receiving tab opens on its dashboard. */
   const navigateTo = (tab: SubWHTab) => {
+    setReturnToTabOnBack(null);
+    onTabChange?.(tab);
     if (tab === 'Receiving') openReceiving();
     else setActiveTab(tab);
   };
@@ -1345,6 +1390,152 @@ export function SubWarehouseAdminDashboardScreen({
 
   useEffect(() => {
     const onHardwareBack = () => {
+      if (selectedStorageLocationId !== null) {
+        setSelectedStorageLocationId(null);
+        setShowStorageInfo(true);
+        return true;
+      }
+      if (showStorageInfo) {
+        setShowStorageInfo(false);
+        if (storageEntry) setStorageEntry({ screen: 'Operations' });
+        else if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (storageEntry !== null) {
+        const close = storageEntry.closeOnBack === true || storageEntry.screen === 'Operations';
+        setStorageEntry(close ? null : { screen: 'Operations' });
+        if (close && returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showReviewReceiving) {
+        setShowReviewReceiving(false);
+        if (returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        }
+        return true;
+      }
+      if (showTodayOverview) {
+        setShowTodayOverview(false);
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showRecentActivity) {
+        setShowRecentActivity(false);
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showProfile) {
+        setShowProfile(false);
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showReportsScreen) {
+        setShowReportsScreen(false);
+        setActiveTab(returnToTabOnBack || 'More');
+        setReturnToTabOnBack(null);
+        return true;
+      }
+      if (showSalesScreen) {
+        setShowSalesScreen(false);
+        setActiveTab(returnToTabOnBack || 'More');
+        setReturnToTabOnBack(null);
+        return true;
+      }
+      if (showCashTopUp) {
+        setShowCashTopUp(false);
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (customersEntry !== null) {
+        const fromOrders = customersEntry.screen === 'CustomerOrders';
+        setCustomersEntry(null);
+        if (customersEntry.screen === 'CustomersList') {
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
+        } else if (fromOrders && returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        } else if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showBilling) {
+        setShowBilling(false);
+        setActiveTab(returnToTabOnBack || 'More');
+        setReturnToTabOnBack(null);
+        return true;
+      }
+      if (showWalletOperations) {
+        setShowWalletOperations(false);
+        if (returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        } else {
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (returnsEntry !== null) {
+        setReturnsEntry(null);
+        if (returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        } else if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (staffEntry !== null) {
+        setStaffEntry(null);
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+        }
+        return true;
+      }
+      if (showFinanceScreen) {
+        setShowFinanceScreen(false);
+        setActiveTab(returnToTabOnBack || 'More');
+        setReturnToTabOnBack(null);
+        return true;
+      }
+      if (showSettingsScreen) {
+        setShowSettingsScreen(false);
+        setActiveTab(returnToTabOnBack || 'More');
+        setReturnToTabOnBack(null);
+        return true;
+      }
+      if (homeEntry !== null) {
+        setHomeEntry(null);
+        return true;
+      }
+      if (taskOrderNo !== null) {
+        setTaskOrderNo(null);
+        return true;
+      }
       if (showNotifications) {
         setShowNotifications(false);
         return true;
@@ -1354,13 +1545,26 @@ export function SubWarehouseAdminDashboardScreen({
         if (returnToNotificationsOnBack) {
           setReturnToNotificationsOnBack(false);
           setShowNotifications(true);
+        } else if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
         }
         return true;
       }
-      if (activeTab === 'Inventory' && returnToNotificationsOnBack) {
-        setInventoryInitialScreen(undefined);
-        setReturnToNotificationsOnBack(false);
-        setShowNotifications(true);
+      if (activeTab === 'Inventory') {
+        if (returnToNotificationsOnBack) {
+          setInventoryInitialScreen(undefined);
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+          return true;
+        }
+        if (returnToTabOnBack) {
+          setInventoryInitialScreen(undefined);
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+          return true;
+        }
+        setActiveTab('Home');
         return true;
       }
       if (receivingWizardStep !== null) {
@@ -1370,6 +1574,11 @@ export function SubWarehouseAdminDashboardScreen({
       // ReceivingFlow walks its own stack (its listener handles the press).
       if (activeTab === 'Receiving') return false;
       if (activeTab !== 'Home') {
+        if (returnToTabOnBack) {
+          setActiveTab(returnToTabOnBack);
+          setReturnToTabOnBack(null);
+          return true;
+        }
         setActiveTab('Home');
         return true;
       }
@@ -1378,7 +1587,33 @@ export function SubWarehouseAdminDashboardScreen({
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [receivingWizardStep, activeTab, showNotifications, showOrdersModule]);
+  }, [
+    receivingWizardStep,
+    activeTab,
+    showNotifications,
+    showOrdersModule,
+    returnToNotificationsOnBack,
+    returnToTabOnBack,
+    selectedStorageLocationId,
+    showStorageInfo,
+    storageEntry,
+    showReviewReceiving,
+    showTodayOverview,
+    showRecentActivity,
+    showProfile,
+    showReportsScreen,
+    showSalesScreen,
+    showCashTopUp,
+    customersEntry,
+    showBilling,
+    showWalletOperations,
+    returnsEntry,
+    staffEntry,
+    showFinanceScreen,
+    showSettingsScreen,
+    homeEntry,
+    taskOrderNo,
+  ]);
 
   useEffect(() => {
     fetchMe()
@@ -1620,9 +1855,16 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         initialScreen="StorageInfo"
         onBack={() => {
-          // Back from Storage List → go back to Profile or Operations
+          // Back from Storage List → go back to Profile or Operations or previous tab
           setShowStorageInfo(false);
-          if (!showProfile) setStorageEntry({ screen: 'Operations' });
+          if (showProfile) {
+            // stays in profile
+          } else if (storageEntry) {
+            setStorageEntry({ screen: 'Operations' });
+          } else if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
         }}
         onTabChange={(tab) => {
           setShowStorageInfo(false);
@@ -1699,6 +1941,10 @@ export function SubWarehouseAdminDashboardScreen({
           // module opened directly returns to the hub, as the old screens did.
           const close = storageEntry.closeOnBack === true || storageEntry.screen === 'Operations';
           setStorageEntry(close ? null : { screen: 'Operations' });
+          if (close && returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
         }}
         onOpenNotifications={() => {
           setStorageEntry(null);
@@ -1762,28 +2008,39 @@ export function SubWarehouseAdminDashboardScreen({
   if (showTodayOverview) {
     return (
       <SubWarehouseTodayOverviewView
-        onBack={() => setShowTodayOverview(false)}
+        onBack={() => {
+          setShowTodayOverview(false);
+          if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
+        }}
         onOpenReceiving={() => {
           setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
           openReceiving();
         }}
         onOpenOrders={() => {
           setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
           setOrdersInitialScreen('M5S02');
           setOrdersInitialParams(null);
           setShowOrdersModule(true);
         }}
         onOpenInventory={() => {
           setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
           setInventoryInitialScreen('M3S01');
           setActiveTab('Inventory');
         }}
         onOpenSales={() => {
           setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
           setShowSalesScreen(true);
         }}
         onOpenCash={() => {
           setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
           setShowCashTopUp(true);
         }}
       />
@@ -1793,7 +2050,41 @@ export function SubWarehouseAdminDashboardScreen({
   if (showRecentActivity) {
     return (
       <SubWarehouseRecentActivityView
-        onBack={() => setShowRecentActivity(false)}
+        onBack={() => {
+          setShowRecentActivity(false);
+          if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
+        }}
+        onOpenReceiving={(shipmentId) => {
+          setShowRecentActivity(false);
+          setReturnToTabOnBack('Home');
+          openReceiving('ShipmentDetail', { shipmentId: shipmentId ?? 'SHP-000124' });
+        }}
+        onOpenOrders={(orderId) => {
+          setShowRecentActivity(false);
+          setReturnToTabOnBack('Home');
+          setOrdersInitialScreen('M5S02');
+          setOrdersInitialParams({ orderId: orderId ?? 'ORD-10242', orderNo: orderId ?? 'ORD-10242' });
+          setShowOrdersModule(true);
+        }}
+        onOpenCash={() => {
+          setShowRecentActivity(false);
+          setReturnToTabOnBack('Home');
+          setShowCashTopUp(true);
+        }}
+        onOpenQC={(shipmentId) => {
+          setShowRecentActivity(false);
+          setReturnToTabOnBack('Home');
+          openReceiving('ShipmentDetail', { shipmentId: shipmentId ?? 'SHP-000123' });
+        }}
+        onOpenInventory={() => {
+          setShowRecentActivity(false);
+          setReturnToTabOnBack('Home');
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
       />
     );
   }
@@ -1804,7 +2095,13 @@ export function SubWarehouseAdminDashboardScreen({
         scope={scope}
         can={can}
         initialScreen={profileInitialScreen}
-        onBack={() => setShowProfile(false)}
+        onBack={() => {
+          setShowProfile(false);
+          if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
+        }}
         onLogout={onSignOut}
         onTabChange={(tab) => {
           setShowProfile(false);
@@ -1826,7 +2123,8 @@ export function SubWarehouseAdminDashboardScreen({
         canExport={can('report.export.file')}
         onBack={() => {
           setShowReportsScreen(false);
-          setActiveTab('More');
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
         }}
         onTabChange={(tab) => {
           setShowReportsScreen(false);
@@ -1852,7 +2150,8 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         onBack={() => {
           setShowSalesScreen(false);
-          setActiveTab('More');
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
         }}
         onTabChange={(tab) => {
           setShowSalesScreen(false);
@@ -1887,7 +2186,13 @@ export function SubWarehouseAdminDashboardScreen({
         initialScreen="CashTopUp"
         // No customer is preselected from Home (the old selectedCustomer was never set).
         initialParams={walletParamsForCustomer(undefined)}
-        onBack={() => setShowCashTopUp(false)}
+        onBack={() => {
+          setShowCashTopUp(false);
+          if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
+        }}
         onTabChange={(tab) => {
           setShowCashTopUp(false);
           setActiveTab(tab);
@@ -1911,10 +2216,14 @@ export function SubWarehouseAdminDashboardScreen({
           const fromOrders = customersEntry.screen === 'CustomerOrders';
           setCustomersEntry(null);
           if (customersEntry.screen === 'CustomersList') {
-            setActiveTab('More');
+            setActiveTab(returnToTabOnBack || 'More');
+            setReturnToTabOnBack(null);
           } else if (fromOrders && returnToNotificationsOnBack) {
             setReturnToNotificationsOnBack(false);
             setShowNotifications(true);
+          } else if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
           }
         }}
         onTabChange={(tab) => {
@@ -2003,7 +2312,8 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         onBack={() => {
           setShowBilling(false);
-          setActiveTab('More');
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
         }}
         onTabChange={(tab) => {
           setShowBilling(false);
@@ -2030,7 +2340,8 @@ export function SubWarehouseAdminDashboardScreen({
             setReturnToNotificationsOnBack(false);
             setShowNotifications(true);
           } else {
-            setActiveTab('More');
+            setActiveTab(returnToTabOnBack || 'More');
+            setReturnToTabOnBack(null);
           }
         }}
         onTabChange={(tab) => {
@@ -2072,6 +2383,9 @@ export function SubWarehouseAdminDashboardScreen({
           if (returnToNotificationsOnBack) {
             setReturnToNotificationsOnBack(false);
             setShowNotifications(true);
+          } else if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
           }
         }}
         onTabChange={(tab) => {
@@ -2099,7 +2413,13 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         initialScreen={staffEntry.screen}
         initialParams={{ attendanceFilter: staffEntry.filter }}
-        onBack={() => setStaffEntry(null)}
+        onBack={() => {
+          setStaffEntry(null);
+          if (returnToTabOnBack) {
+            setActiveTab(returnToTabOnBack);
+            setReturnToTabOnBack(null);
+          }
+        }}
         onTabChange={(tab) => {
           setStaffEntry(null);
           setActiveTab(tab);
@@ -2122,7 +2442,8 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         onBack={() => {
           setShowFinanceScreen(false);
-          setActiveTab('More');
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
         }}
         onTabChange={(tab) => {
           setShowFinanceScreen(false);
@@ -2144,7 +2465,8 @@ export function SubWarehouseAdminDashboardScreen({
         initialScreen="Settings"
         onBack={() => {
           setShowSettingsScreen(false);
-          setActiveTab('More');
+          setActiveTab(returnToTabOnBack || 'More');
+          setReturnToTabOnBack(null);
         }}
         onLogout={onSignOut}
       />
@@ -2293,6 +2615,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.overviewCard}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S09');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
@@ -2313,7 +2636,10 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 3. Today's Receiving */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => openReceiving('Dashboard')}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    openReceiving('Dashboard');
+                  }}
                   activeOpacity={0.7}
                   accessibilityRole="button"
                 >
@@ -2330,6 +2656,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <TouchableOpacity
                     style={styles.overviewCard}
                     onPress={() => {
+                      setReturnToTabOnBack('Home');
                       setInventoryInitialScreen('M3S09');
                       setActiveTab('Inventory');
                     }}
@@ -2353,6 +2680,7 @@ export function SubWarehouseAdminDashboardScreen({
                       if (onNavigate) {
                         onNavigate('SubWarehouseSales');
                       } else {
+                        setReturnToTabOnBack('Home');
                         setShowSalesScreen(true);
                       }
                     }}
@@ -2375,7 +2703,8 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('SubWarehouseDailyCash');
                     } else {
-                      setStorageEntry({ screen: 'Operations' });
+                      setReturnToTabOnBack('Home');
+                      setStorageEntry({ screen: 'Operations', closeOnBack: true });
                     }
                   }}
                   activeOpacity={0.7}
@@ -2407,6 +2736,7 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
                     } else {
+                      setReturnToTabOnBack('Home');
                       setShowSalesScreen(true);
                     }
                   }}
@@ -2418,7 +2748,10 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => setShowOrdersModule(true)}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setShowOrdersModule(true);
+                  }}
                 >
                   <ViewOrdersActionIcon />
                   <Text style={styles.quickActionLabel}>View Orders</Text>
@@ -2431,7 +2764,7 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('WarehouseWalletOperations');
                     } else {
-                      setActiveTab('More');
+                      navigateTo('More');
                     }
                   }}
                 >
@@ -2442,7 +2775,10 @@ export function SubWarehouseAdminDashboardScreen({
                 {canStock ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => setActiveTab('Inventory')}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setActiveTab('Inventory');
+                  }}
                 >
                   <StockVerifyActionIcon />
                   <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
@@ -2451,7 +2787,10 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => setShowRecentActivity(true)}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setShowRecentActivity(true);
+                  }}
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
@@ -2568,6 +2907,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <TouchableOpacity
                   style={styles.linkButton}
                   onPress={() => {
+                    setReturnToTabOnBack('Home');
                     openReceiving();
                   }}
                   activeOpacity={0.7}
@@ -2588,6 +2928,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.orderReceivingCard}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S09');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
@@ -2608,6 +2949,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <TouchableOpacity
                   style={styles.linkButton}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
@@ -2624,6 +2966,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams({ defaultFilter: 'Confirmed' });
                         setShowOrdersModule(true);
@@ -2636,6 +2979,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams({ defaultFilter: 'Packing' });
                         setShowOrdersModule(true);
@@ -2648,6 +2992,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S09');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
@@ -2660,6 +3005,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams({ defaultFilter: 'Completed' });
                         setShowOrdersModule(true);
@@ -2701,7 +3047,10 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => setActiveTab('Inventory')}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setActiveTab('Inventory');
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View Inventory →</Text>
@@ -2730,6 +3079,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <TouchableOpacity
                   style={styles.tableLinkButton}
                   onPress={() => {
+                    setReturnToTabOnBack('Home');
                     setInventoryInitialScreen('M3S02');
                     setInventoryInitialParams({ initialTab: 'Allocation' });
                     setActiveTab('Inventory');
@@ -2773,6 +3123,7 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
                     } else {
+                      setReturnToTabOnBack('Home');
                       setShowSalesScreen(true);
                     }
                   }}
@@ -2797,7 +3148,10 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => setShowWalletOperations(true)}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setShowWalletOperations(true);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View History →</Text>
@@ -2897,7 +3251,8 @@ export function SubWarehouseAdminDashboardScreen({
             initialParams={receivingEntry.params}
             receiverName={userName}
             onBack={() => {
-              setActiveTab('Home');
+              setActiveTab(returnToTabOnBack || 'Home');
+              setReturnToTabOnBack(null);
               setReceivingEntry({ screen: 'Dashboard' });
             }}
             onTabChange={(tab) => {
@@ -2925,7 +3280,8 @@ export function SubWarehouseAdminDashboardScreen({
               } else if (initialInventoryScreen && onBack) {
                 onBack();
               } else {
-                setActiveTab('Home');
+                setActiveTab(returnToTabOnBack || 'Home');
+                setReturnToTabOnBack(null);
               }
             }}
             onTabChange={(tab) => {
@@ -2953,6 +3309,9 @@ export function SubWarehouseAdminDashboardScreen({
                 setShowNotifications(true);
               } else if (initialShowOrders && onBack) {
                 onBack();
+              } else if (returnToTabOnBack) {
+                setActiveTab(returnToTabOnBack);
+                setReturnToTabOnBack(null);
               }
             }}
             onTabChange={(tab) => {
@@ -2988,68 +3347,105 @@ export function SubWarehouseAdminDashboardScreen({
               if (onNavigate) {
                 onNavigate('SubWarehouseProfile');
               } else {
+                setReturnToTabOnBack('More');
                 setProfileInitialScreen('WarehouseProfile');
                 setShowProfile(true);
               }
             }}
             onNavigateToWallet={() => {
               if (onNavigate) onNavigate('WarehouseWalletOperations');
-              else setShowWalletOperations(true);
+              else {
+                setReturnToTabOnBack('More');
+                setShowWalletOperations(true);
+              }
             }}
             onNavigateToOrders={() => {
+              setReturnToTabOnBack('More');
               setShowOrdersModule(true);
             }}
             onNavigateToSales={() => {
               if (onNavigate) onNavigate('SubWarehouseSales');
-              else setShowSalesScreen(true);
+              else {
+                setReturnToTabOnBack('More');
+                setShowSalesScreen(true);
+              }
             }}
             onNavigateToReports={() => {
+              setReturnToTabOnBack('More');
               setShowReportsScreen(true);
             }}
             onNavigateToReturns={() => {
               if (onNavigate) onNavigate('SubWarehouseReturnsIssues');
-              else openReturns('ReturnsIssues');
+              else {
+                setReturnToTabOnBack('More');
+                openReturns('ReturnsIssues');
+              }
             }}
             onNavigateToReturnHistory={() => {
               if (onNavigate) onNavigate('SubWarehouseReturnHistory');
-              else openReturns('ReturnHistory');
+              else {
+                setReturnToTabOnBack('More');
+                openReturns('ReturnHistory');
+              }
             }}
             onNavigateToCustomers={() => {
               if (onNavigate) onNavigate('SubWarehouseCustomerList');
-              else openCustomers('CustomersList');
+              else {
+                setReturnToTabOnBack('More');
+                openCustomers('CustomersList');
+              }
             }}
             onNavigateToBilling={() => {
               if (onNavigate) onNavigate('SubWarehouseBillingHub');
-              else setShowBilling(true);
+              else {
+                setReturnToTabOnBack('More');
+                setShowBilling(true);
+              }
             }}
             onNavigateToStaff={() => {
               if (onNavigate) onNavigate('SubWarehouseStaff');
-              else setStaffEntry({ screen: 'Staff' });
+              else {
+                setReturnToTabOnBack('More');
+                setStaffEntry({ screen: 'Staff' });
+              }
             }}
             onNavigateToAttendance={() => {
               if (onNavigate) onNavigate('SubWarehouseTodayAttendance');
-              else setStaffEntry({ screen: 'Attendance', filter: 'All' });
+              else {
+                setReturnToTabOnBack('More');
+                setStaffEntry({ screen: 'Attendance', filter: 'All' });
+              }
             }}
             onNavigateToFinance={() => {
               if (onNavigate) onNavigate('SubWarehouseFinance');
-              else setShowFinanceScreen(true);
+              else {
+                setReturnToTabOnBack('More');
+                setShowFinanceScreen(true);
+              }
             }}
             onNavigateToWarehouseOperations={() => {
+              setReturnToTabOnBack('More');
               setStorageEntry({ screen: 'Operations' });
             }}
             onNavigateToStorageLocations={() => {
+              setReturnToTabOnBack('More');
               setShowStorageInfo(true);
             }}
             onNavigateToReceiveGoods={() => {
+              setReturnToTabOnBack('More');
               openReceiving('Shipments');
             }}
             onNavigateToStockVerification={() => {
+              setReturnToTabOnBack('More');
               setInventoryInitialScreen('M3S10');
               setActiveTab('Inventory');
             }}
             onNavigateToSettings={() => {
               if (onNavigate) onNavigate('SubWarehouseSettings');
-              else setShowSettingsScreen(true);
+              else {
+                setReturnToTabOnBack('More');
+                setShowSettingsScreen(true);
+              }
             }}
             onLogout={onSignOut}
           />
@@ -3072,7 +3468,7 @@ export function SubWarehouseAdminDashboardScreen({
 
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => openReceiving()}
+            onPress={() => navigateTo('Receiving')}
             accessibilityRole="tab"
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -3083,7 +3479,7 @@ export function SubWarehouseAdminDashboardScreen({
 
           <Pressable
             style={styles.tabItem}
-            onPress={() => setActiveTab('Inventory')}
+            onPress={() => navigateTo('Inventory')}
             accessibilityRole="tab"
           >
             <InventoryTabIcon active={false} />

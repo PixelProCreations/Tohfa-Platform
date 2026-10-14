@@ -214,7 +214,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
           setNotificationsList((prev) => prev.map((n) => ({ ...n, isRead: true })));
         }}
         onSelectNotification={() => {}}
-        onOpenSettings={() => setShowNotificationSettings(true)}
       />
     );
   }

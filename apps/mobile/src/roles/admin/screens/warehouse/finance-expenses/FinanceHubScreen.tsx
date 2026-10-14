@@ -38,6 +38,7 @@ import {
   isAllWarehouses,
   ScopeHeader,
   SectionTitle,
+  WarehouseTabBar,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
@@ -113,6 +114,7 @@ export function FinanceHubScreen({
   scope,
   can,
   onBack,
+  onTabChange,
   onOpen,
   onOpenWallet,
   onNavigateToNotifications,
@@ -189,7 +191,8 @@ export function FinanceHubScreen({
   return (
     <WalletScreen
       title="Warehouse Finance"
-      onBack={onBack}
+      onBack={isMain ? onBack : undefined}
+      headerLeft={!isMain ? <GridIcon size={22} color={adminColors.onBrand} /> : undefined}
       headerRight={
         <HeaderIconButton
           accessibilityLabel="Notifications"
@@ -201,24 +204,30 @@ export function FinanceHubScreen({
           <BellIcon />
         </HeaderIconButton>
       }
-      headerExtra={<ScopeHeader scope={scope} label={isMain ? 'All Warehouses' : `${scopeLabel(scope)} · Today`} />}
+      headerExtra={<ScopeHeader scope={scope} label={isMain ? 'All Warehouses' : `${scopeLabel(scope)} · Today ▾`} />}
+      footer={!isMain && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab="More" /> : undefined}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
           {kpis.map((kpi) => {
             const onPress = kpi.route ? opener(kpi.route) : undefined;
-            return (
+            return onPress ? (
               <TouchableOpacity
                 key={kpi.label}
                 style={styles.kpiCard}
                 onPress={onPress}
-                disabled={onPress === undefined}
                 activeOpacity={0.75}
               >
                 <Text style={styles.kpiLabel}>{kpi.label}</Text>
                 <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
                 {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
               </TouchableOpacity>
+            ) : (
+              <View key={kpi.label} style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>{kpi.label}</Text>
+                <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
+                {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
+              </View>
             );
           })}
         </View>
@@ -232,7 +241,7 @@ export function FinanceHubScreen({
 
         {can(FINANCE_CODES.salesIncome) ? (
           <>
-            <SectionTitle>Revenue Breakdown</SectionTitle>
+            <Text style={styles.sectionHeading}>Revenue Breakdown</Text>
             <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
               <TableRow label="Direct / Market Sales" value="₹9,850" />
               <TableRow label="Customer Orders" value="₹12,400" divider />
@@ -244,7 +253,7 @@ export function FinanceHubScreen({
 
         {can(FINANCE_CODES.expenseLog) ? (
           <>
-            <SectionTitle>Expense Breakdown</SectionTitle>
+            <Text style={styles.sectionHeading}>Expense Breakdown</Text>
             <TouchableOpacity style={styles.card} onPress={expensesPress} disabled={expensesPress === undefined} activeOpacity={0.8}>
               {expenseRows.map((row, index) => (
                 <TableRow key={row.label} label={row.label} value={row.value} divider={index > 0} />
@@ -252,13 +261,13 @@ export function FinanceHubScreen({
               <TableRow label="Total Expenses" value="₹6,420" total divider />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={categoriesPress} disabled={categoriesPress === undefined} activeOpacity={0.8}>
-              <InfoNote tone={isMain ? 'brandSoft' : 'info'}>
-                {isMain
-                  ? 'Categories mirror Expense Categories (S06) exactly; they are never invented independently on this dashboard.'
-                  : 'Categories are sourced from the configurable Expense Categories screen (S06); tap to view them.'}
-              </InfoNote>
-            </TouchableOpacity>
+            {isMain ? (
+              <TouchableOpacity onPress={categoriesPress} disabled={categoriesPress === undefined} activeOpacity={0.8}>
+                <InfoNote tone="brandSoft">
+                  Categories mirror Expense Categories (S06) exactly; they are never invented independently on this dashboard.
+                </InfoNote>
+              </TouchableOpacity>
+            ) : null}
           </>
         ) : null}
 
@@ -377,10 +386,12 @@ export function FinanceHubScreen({
           </>
         )}
 
-        <InfoNote tone="warning" icon={<ShieldIcon />}>
-          Quick Actions shown here reflect your granted permissions: an action you are not granted is hidden, never
-          shown active and blocked later.
-        </InfoNote>
+        {isMain ? (
+          <InfoNote tone="warning" icon={<ShieldIcon />}>
+            Quick Actions shown here reflect your granted permissions: an action you are not granted is hidden, never
+            shown active and blocked later.
+          </InfoNote>
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );
@@ -391,23 +402,30 @@ const CHART_HEIGHT = 108;
 const CHART_AXIS_WIDTH = 36;
 
 const styles = StyleSheet.create({
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.xs },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: adminSpacing.xs },
   kpiCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
-  kpiLabel: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginBottom: adminSpacing.xs },
+  kpiLabel: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginBottom: adminSpacing.xs, fontWeight: '700' },
   kpiValue: { ...adminType.kpiValue, color: adminColors.ink },
   kpiValueSuccess: { color: adminColors.success.text },
-  kpiDelta: { ...adminType.caption, color: adminColors.success.text, marginTop: 2 },
+  kpiDelta: { ...adminType.caption, color: adminColors.success.text, marginTop: 2, fontWeight: '700' },
 
+  sectionHeading: {
+    ...adminType.title,
+    color: adminColors.ink,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+  },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,

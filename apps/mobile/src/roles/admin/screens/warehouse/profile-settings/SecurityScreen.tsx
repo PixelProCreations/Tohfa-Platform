@@ -16,7 +16,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { Card, CheckIcon, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { Card, CheckIcon, isAllWarehouses, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { defaultProfile, roleLabelOf } from './fixtures';
 import { BlockIcon, KeyIcon, MenuCard, MenuRow, profileLayout, StatusDot, StatusRow } from './ProfileParts';
 import type { AdminAccountProfile, WarehouseScreenBaseProps } from './types';
@@ -59,16 +59,20 @@ export function SecurityScreen({ scope, onBack, profile, onChangePassword, onVie
           </>
         ) : null}
 
-        <SectionTitle>TWO-FACTOR AUTHENTICATION</SectionTitle>
-        <Card>
-          <View style={styles.twoFaHeader}>
-            <BlockIcon color={adminColors.ink} />
-            <Text style={styles.twoFaTitle}>Two-Factor Authentication — Role Protected</Text>
-          </View>
-          <Text style={styles.twoFaText}>
-            2FA management is provisioned at the organizational policy level by system administrators for {roleLabelOf(scope)} accounts.
-          </Text>
-        </Card>
+        {isAllWarehouses(scope) ? (
+          <>
+            <SectionTitle>TWO-FACTOR AUTHENTICATION</SectionTitle>
+            <Card>
+              <View style={styles.twoFaHeader}>
+                <BlockIcon color={adminColors.ink} />
+                <Text style={styles.twoFaTitle}>Two-Factor Authentication — Role Protected</Text>
+              </View>
+              <Text style={styles.twoFaText}>
+                2FA management is provisioned at the organizational policy level by system administrators for {roleLabelOf(scope)} accounts.
+              </Text>
+            </Card>
+          </>
+        ) : null}
 
         <SectionTitle>LOGIN SECURITY</SectionTitle>
         <MenuCard>

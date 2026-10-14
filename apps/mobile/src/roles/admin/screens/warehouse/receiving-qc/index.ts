@@ -1,7 +1,14 @@
 // Warehouse goods receiving & QC screens (design module M2), shared by the Main
 // and Sub warehouse admins. Explicit exports only (no `export *`).
 export { GoodsReceivingWizardScreen, type GoodsReceivingWizardScreenProps } from './GoodsReceivingWizardScreen';
-export { IncomingShipmentsScreen, type IncomingShipmentsScreenProps } from './IncomingShipmentsScreen';
+export {
+  IncomingShipmentsScreen,
+  PendingQueueScreen,
+  ReceivingActivityScreen,
+  type IncomingShipmentsScreenProps,
+  type PendingQueueScreenProps,
+  type ReceivingActivityScreenProps,
+} from './IncomingShipmentsScreen';
 export { QualityIssuesScreen, type QualityIssuesScreenProps } from './QualityIssuesScreen';
 export { ReceivingDashboardScreen, type ReceivingDashboardScreenProps } from './ReceivingDashboardScreen';
 export {

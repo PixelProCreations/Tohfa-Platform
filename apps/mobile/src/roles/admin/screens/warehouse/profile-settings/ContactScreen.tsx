@@ -20,6 +20,7 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
+  isAllWarehouses,
   SectionTitle,
   WalletButton,
   WalletScreen,
@@ -61,6 +62,7 @@ export function ContactScreen({
   onSelectWarehouse,
   contacts = WAREHOUSE_CONTACTS,
 }: ContactScreenProps) {
+  const isMain = isAllWarehouses(scope);
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const contact = recordFor(contacts, warehouseId);
   const warehouseName = warehouseNameOf(scope, warehouseId, warehouseOptions);
@@ -136,8 +138,12 @@ export function ContactScreen({
               />
             </>
           ) : null}
-          <View style={warehouseProfileLayout.gap} />
-          <InfoNote>Contact person and emergency contact are shown only when the warehouse configuration contains them.</InfoNote>
+          {isMain ? (
+            <>
+              <View style={warehouseProfileLayout.gap} />
+              <InfoNote>Contact person and emergency contact are shown only when the warehouse configuration contains them.</InfoNote>
+            </>
+          ) : null}
         </ScrollView>
       )}
     </WalletScreen>

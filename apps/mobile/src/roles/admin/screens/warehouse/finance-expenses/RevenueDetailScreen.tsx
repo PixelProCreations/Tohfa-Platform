@@ -22,7 +22,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { InfoNote, isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { SAMPLE_REVENUE_DETAIL } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, PadlockIcon, scopeLabel } from './FinanceParts';
 import type { RevenueDetail, WarehouseScreenBaseProps } from './types';
@@ -197,11 +197,7 @@ export function RevenueDetailScreen({
               ))}
             </View>
 
-            {!isMain && (
-              <InfoNote tone="warning">
-                Only links that correspond to existing screens and data are shown; nothing is fabricated.
-              </InfoNote>
-            )}
+
           </>
         )}
       </ScrollView>

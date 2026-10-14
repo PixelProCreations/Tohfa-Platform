@@ -19,6 +19,7 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
+import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
 import type { OrderScreenBaseProps } from './types';
 
 /** CancelOrderScreen steps: reason form, confirmation, cancelled result. */
@@ -159,11 +160,13 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 export function CancelOrderScreen({
+  scope,
   onBack,
   onNavigate,
   orderId = 'ORD-1024',
   initialStep = 'form',
 }: CancelOrderScreenProps) {
+  const isMain = isAllWarehouses(scope);
   const [step, setStep] = useState<CancelOrderStep>(initialStep);
   const [reason, setReason] = useState(REASON_PLACEHOLDER);
   const [showReasonPicker, setShowReasonPicker] = useState(false);
@@ -229,7 +232,9 @@ export function CancelOrderScreen({
             <View style={styles.dangerAlertBox}>
               <InfoCircleDangerIcon />
               <Text style={styles.dangerAlertText}>
-                This action cannot be undone. No refund logic is created here unless the payment/refund service supports it.
+                {isMain
+                  ? 'This action cannot be undone. No refund logic is created here unless the payment/refund service supports it.'
+                  : 'This action cannot be undone.'}
               </Text>
             </View>
 
