@@ -110,10 +110,19 @@ export const WAREHOUSE_FEATURES = {
     endpoint: '/admin/returns/{id}/inspect',
   },
   returnsApprove: { permission: 'rma.refund.approve', endpoint: '/admin/returns/{id}/approve' },
+  /** Reject shares the approve permission (apps/api returnRequests.routes.ts, docs/openapi.yaml). */
+  returnsReject: { permission: 'rma.refund.approve', endpoint: '/admin/returns/{id}/reject' },
+  returnsHistory: { permission: 'rma.request.process', endpoint: '/admin/returns/{id}/history' },
   returnsRefundWallet: {
     permission: 'rma.refund.wallet_process',
     endpoint: '/admin/returns/{id}/refund/wallet',
   },
+  /**
+   * Listed for completeness, but NO screen reads it: the warehouse app has no
+   * bank-refund path at all (api/returns.ts does not wrap the endpoint).
+   * `rma.refund.bank_process` is `none` for MAIN_WH_ADMIN/SUB_WH_ADMIN — the
+   * implemented default of docs/rules.md open contradiction #7 (BR-61).
+   */
   returnsRefundBank: {
     permission: 'rma.refund.bank_process',
     endpoint: '/admin/returns/{id}/refund/bank',

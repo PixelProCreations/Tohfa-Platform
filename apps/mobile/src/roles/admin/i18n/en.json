@@ -275,5 +275,26 @@
   "admin.wallet.txnType.SALE_CREDIT": "Sale credit",
   "admin.wallet.txnType.SUBSCRIPTION_DEBIT": "Subscription payment",
   "admin.wallet.txnType.ADJUSTMENT": "Adjustment",
-  "admin.wallet.txnType.unknown": "Wallet transaction"
+  "admin.wallet.txnType.unknown": "Wallet transaction",
+
+  "admin.returns.status.PENDING": "Pending inspection",
+  "admin.returns.status.INSPECTED": "Inspected",
+  "admin.returns.status.APPROVED": "Approved",
+  "admin.returns.status.REJECTED": "Rejected",
+  "admin.returns.status.REFUND_PENDING_BANK": "Bank refund pending",
+  "admin.returns.status.REFUNDED": "Refunded",
+  "admin.returns.status.unknown": "Unknown status",
+  "admin.returns.condition.GOOD": "Good",
+  "admin.returns.condition.DAMAGED": "Damaged",
+  "admin.returns.condition.SPOILED": "Spoiled",
+  "admin.returns.condition.unknown": "Unknown condition",
+  "admin.returns.inspect.errors.conditionRequired": "Choose the condition of this item.",
+  "admin.returns.inspect.errors.qtyInvalid": "Enter a quantity in kg, 0 or more, with at most 3 decimals.",
+  "admin.returns.inspect.errors.qtyAboveRequested": "This is more than the customer asked to return.",
+  "admin.returns.reject.errors.required": "Enter the reason for rejecting this return.",
+  "admin.returns.reject.errors.tooLong": "The reason can be at most 300 characters.",
+  "admin.returns.errors.INVALID_STATE_TRANSITION": "This return has already moved on to another status. Refresh to see where it is now.",
+  "admin.returns.errors.NOT_FOUND": "This return could not be found for your warehouse.",
+  "admin.returns.refund.errors.uncertain": "We could not confirm the refund. It may have gone through. Try again — the same request is resent, so the wallet is credited only once.",
+  "admin.returns.refund.errors.VALIDATION_FAILED": "There is nothing to refund: no quantity was accepted at inspection."
 }
