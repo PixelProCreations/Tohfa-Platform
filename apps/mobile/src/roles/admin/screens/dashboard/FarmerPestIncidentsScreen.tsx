@@ -11,42 +11,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Status Badges
-  mediumBadgeBg: '#FEF3C7',
-  mediumBadgeText: '#B45309',
-  highBadgeBg: '#FEE2E2',
-  highBadgeText: '#DC2626',
-  lowBadgeBg: '#DCFCE7',
-  lowBadgeText: '#15803D',
-  ongoingBadgeBg: '#E0F2FE',
-  ongoingBadgeText: '#0284C7',
-  resolvedBadgeBg: '#DCFCE7',
-  resolvedBadgeText: '#15803D',
-
-  // Accent & Action
-  orangeBtn: adminColors.brand,
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -60,21 +30,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Sliders / Tune Filter Icon (Exact Material Symbols tune)
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -200,9 +169,9 @@ export function FarmerPestIncidentsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 2 & 3 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -211,10 +180,10 @@ export function FarmerPestIncidentsScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Farmer Pest Incidents</Text>
+          <Text style={styles.headerTitle}>{t('farmerPestIncidents.title')}</Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
@@ -222,12 +191,12 @@ export function FarmerPestIncidentsScreen({
             activeOpacity={0.8}
             accessibilityLabel="Filter pest incidents"
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.headerSubtitle}>
-          Monitor pest incidents reported by TOHFA farmers
+          {t('farmerPestIncidents.subtitle')}
         </Text>
       </View>
 
@@ -237,16 +206,16 @@ export function FarmerPestIncidentsScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Filter Section (Screenshot 3) ─── */}
+        {/* ─── Filter Section ─── */}
         {showFilters && (
           <View style={styles.filtersContainer}>
             <View style={styles.filtersHeaderRow}>
-              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
-              <Text style={styles.filtersHeaderTitle}>Filters</Text>
+              <FilterSlidersIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.filtersHeaderTitle}>{t('farmerPestIncidents.filters.title')}</Text>
             </View>
 
             {/* 1. Crop */}
-            <Text style={styles.filterGroupLabel}>Crop</Text>
+            <Text style={styles.filterGroupLabel}>{t('farmerPestIncidents.filter.crop')}</Text>
             <View style={styles.chipRow}>
               {(['All', 'Carrot', 'Cabbage'] as const).map((crop) => {
                 const isActive = selectedCrop === crop;
@@ -263,7 +232,7 @@ export function FarmerPestIncidentsScreen({
                         isActive && styles.filterChipTextActive,
                       ]}
                     >
-                      {crop}
+                      {crop === 'All' ? t('farmerPestIncidents.filter.all') : crop}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -271,7 +240,7 @@ export function FarmerPestIncidentsScreen({
             </View>
 
             {/* 2. Severity */}
-            <Text style={styles.filterGroupLabel}>Severity</Text>
+            <Text style={styles.filterGroupLabel}>{t('farmerPestIncidents.filter.severity')}</Text>
             <View style={styles.chipRow}>
               {(['All', 'Low', 'Medium', 'High'] as const).map((sev) => {
                 const isActive = selectedSeverity === sev;
@@ -288,7 +257,13 @@ export function FarmerPestIncidentsScreen({
                         isActive && styles.filterChipTextActive,
                       ]}
                     >
-                      {sev}
+                      {sev === 'All'
+                        ? t('farmerPestIncidents.filter.all')
+                        : sev === 'Low'
+                        ? t('farmerPestIncidents.filter.low')
+                        : sev === 'Medium'
+                        ? t('farmerPestIncidents.filter.medium')
+                        : t('farmerPestIncidents.filter.high')}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -296,7 +271,7 @@ export function FarmerPestIncidentsScreen({
             </View>
 
             {/* 3. Resolution Status */}
-            <Text style={styles.filterGroupLabel}>Resolution Status</Text>
+            <Text style={styles.filterGroupLabel}>{t('farmerPestIncidents.filter.status')}</Text>
             <View style={styles.chipRow}>
               {(['All', 'Resolved', 'Ongoing'] as const).map((status) => {
                 const isActive = selectedStatus === status;
@@ -313,7 +288,11 @@ export function FarmerPestIncidentsScreen({
                         isActive && styles.filterChipTextActive,
                       ]}
                     >
-                      {status}
+                      {status === 'All'
+                        ? t('farmerPestIncidents.filter.all')
+                        : status === 'Ongoing'
+                        ? t('farmerPestIncidents.filter.ongoing')
+                        : t('farmerPestIncidents.filter.resolved')}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -327,7 +306,7 @@ export function FarmerPestIncidentsScreen({
                 onPress={() => setShowFilters(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.applyBtnText}>Apply</Text>
+                <Text style={styles.applyBtnText}>{t('farmerPestIncidents.filter.apply')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -335,27 +314,27 @@ export function FarmerPestIncidentsScreen({
                 onPress={handleClearFilters}
                 activeOpacity={0.8}
               >
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.clearBtnText}>{t('farmerPestIncidents.filter.clear')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* ─── Search Bar (Screenshot 2) ─── */}
+        {/* ─── Search Bar ─── */}
         {!showFilters && (
           <View style={styles.searchBar}>
-            <SearchIcon size={18} color="#9CA3AF" />
+            <SearchIcon size={18} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Incident ID, Farmer, Farmer ID, Crop, Pest"
-              placeholderTextColor="#9CA3AF"
+              placeholder={t('farmerPestIncidents.search.placeholder')}
+              placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
         )}
 
-        {/* ─── Incident Cards List (Screenshot 2) ─── */}
+        {/* ─── Incident Cards List ─── */}
         {!showFilters && (
           <View style={styles.listContainer}>
             {filteredIncidents.map((incident) => {
@@ -424,7 +403,7 @@ export function FarmerPestIncidentsScreen({
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -435,12 +414,12 @@ export function FarmerPestIncidentsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -449,19 +428,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
     paddingRight: 6,
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
     marginLeft: 6,
   },
@@ -469,14 +447,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
+    ...adminType.caption,
+    color: adminColors.brandTint,
+    marginTop: adminSpacing.xs,
     fontWeight: '500',
   },
 
@@ -494,19 +472,19 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.md, // 12px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     marginBottom: adminSpacing.md,
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
 
@@ -515,167 +493,164 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
   },
   incidentCard: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   incidentIdText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
   incidentSubline: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 10,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
   },
   badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   severityBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
   },
   statusBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
   },
   badgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgeMedium: {
-    backgroundColor: THEME.mediumBadgeBg,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeTextMedium: {
-    color: THEME.mediumBadgeText,
+    color: adminColors.warning.text,
   },
   badgeHigh: {
-    backgroundColor: THEME.highBadgeBg,
+    backgroundColor: adminColors.danger.bg,
   },
   badgeTextHigh: {
-    color: THEME.highBadgeText,
+    color: adminColors.danger.text,
   },
   badgeLow: {
-    backgroundColor: THEME.lowBadgeBg,
+    backgroundColor: adminColors.success.bg,
   },
   badgeTextLow: {
-    color: THEME.lowBadgeText,
+    color: adminColors.success.text,
   },
   badgeOngoing: {
-    backgroundColor: THEME.ongoingBadgeBg,
+    backgroundColor: adminColors.info.bg,
   },
   badgeTextOngoing: {
-    color: THEME.ongoingBadgeText,
+    color: adminColors.info.text,
   },
   badgeResolved: {
-    backgroundColor: THEME.resolvedBadgeBg,
+    backgroundColor: adminColors.success.bg,
   },
   badgeTextResolved: {
-    color: THEME.resolvedBadgeText,
+    color: adminColors.success.text,
   },
   detectedDateText: {
-    fontSize: 11,
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
   },
 
-  // Filters Section (Screenshot 3)
+  // Filters Section
   filtersContainer: {
-    paddingTop: 4,
-    marginBottom: 20,
+    paddingTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xl,
   },
   filtersHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   filtersHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   filterGroupLabel: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.ink,
-    marginTop: 8,
-    marginBottom: 8,
+    color: adminColors.ink,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   filterChip: {
-    backgroundColor: THEME.card,
-    borderRadius: 10,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   filterChipActive: {
-    backgroundColor: THEME.orangeBtn,
-    borderColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   filterChipText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   filterChipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   filterActionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
   },
   applyBtn: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    paddingVertical: 12,
+    borderColor: adminColors.brand,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   applyBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 12,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearBtnText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

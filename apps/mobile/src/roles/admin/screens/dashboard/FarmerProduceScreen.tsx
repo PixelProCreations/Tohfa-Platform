@@ -9,27 +9,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-  brandOrange: adminColors.brand,
-  amberText: '#B45309',
-  amberBg: '#FEF3C7',
-  redText: '#DC2626',
-  greenText: '#15803D',
-  greenBg: '#EAF7EE',
-};
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -45,15 +28,15 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 
 function ProduceExactFruitIcon({
   size = 22,
-  color = THEME.white,
+  color = adminColors.onBrand,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase();
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -89,8 +72,6 @@ export interface FarmerProduceScreenProps {
 }
 
 export function FarmerProduceScreen({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00124',
   onBack,
 }: FarmerProduceScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
@@ -139,18 +120,18 @@ export function FarmerProduceScreen({
     return listings.filter((item) => item.status === selectedFilter);
   }, [listings, selectedFilter]);
 
-  const filterTabs: Array<'All' | 'Pending' | 'Approved' | 'Rejected'> = [
-    'All',
-    'Pending',
-    'Approved',
-    'Rejected',
+  const filterTabs: Array<{ key: 'All' | 'Pending' | 'Approved' | 'Rejected'; label: string }> = [
+    { key: 'All', label: t('farmerProduce.tab.all') },
+    { key: 'Pending', label: t('farmerProduce.tab.pending') },
+    { key: 'Approved', label: t('farmerProduce.tab.approved') },
+    { key: 'Rejected', label: t('farmerProduce.tab.rejected') },
   ];
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Terracotta Header: ← Farmer Produce */}
+      {/* Terracotta Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -159,10 +140,10 @@ export function FarmerProduceScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <ProduceExactFruitIcon size={24} color={THEME.white} />
-          <Text style={[styles.headerTitle, { marginLeft: 8 }]}>Farmer Produce</Text>
+          <ProduceExactFruitIcon size={24} color={adminColors.onBrand} />
+          <Text style={styles.headerTitle}>{t('farmerProduce.title')}</Text>
         </View>
       </View>
 
@@ -171,53 +152,53 @@ export function FarmerProduceScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2x2 Summary Metric Cards Matching Mockup 1 */}
+        {/* 2x2 Summary Metric Cards */}
         <View style={styles.kpiGrid}>
           {/* TOTAL LISTINGS */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL LISTINGS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.totalListings')}</Text>
             <Text style={styles.kpiValueDark}>18</Text>
           </View>
 
           {/* PENDING */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.pending')}</Text>
             <Text style={styles.kpiValueAmber}>03</Text>
           </View>
 
           {/* APPROVED */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>APPROVED</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.approved')}</Text>
             <Text style={styles.kpiValueDark}>12</Text>
           </View>
 
           {/* REJECTED */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>REJECTED</Text>
+            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.rejected')}</Text>
             <Text style={styles.kpiValueRed}>03</Text>
           </View>
         </View>
 
-        {/* Filter Pills Row: All, Pending, Approved, Rejected */}
+        {/* Filter Pills Row */}
         <View style={styles.filterPillsRow}>
-          {filterTabs.map((tab) => {
-            const active = selectedFilter === tab;
+          {filterTabs.map(({ key, label }) => {
+            const active = selectedFilter === key;
             return (
               <TouchableOpacity
-                key={tab}
+                key={key}
                 style={[styles.filterPill, active ? styles.filterPillActive : styles.filterPillInactive]}
-                onPress={() => setSelectedFilter(tab)}
+                onPress={() => setSelectedFilter(key)}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.filterPillText, active ? styles.filterTextActive : styles.filterTextInactive]}>
-                  {tab}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Produce Cards Matching Mockup 1 */}
+        {/* Produce Cards */}
         {filteredListings.map((prod) => {
           const isPending = prod.status === 'Pending';
           const isApproved = prod.status === 'Approved';
@@ -254,7 +235,7 @@ export function FarmerProduceScreen({
           );
         })}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -263,18 +244,18 @@ export function FarmerProduceScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -283,164 +264,141 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
+    marginLeft: adminSpacing.xs,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
 
   // 2x2 KPI Grid
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     width: '48%',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
   },
   kpiLabel: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     letterSpacing: 0.4,
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   kpiValueDark: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   kpiValueAmber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#D97706',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
   },
   kpiValueRed: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.redText,
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
 
   // Filter Pills
   filterPillsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
   },
   filterPillActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   filterPillInactive: {
-    backgroundColor: THEME.card,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   filterPillText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
   },
   filterTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   filterTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // Produce Listing Cards
   produceCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   produceHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   produceName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   produceMeta: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
 
   // Badges
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
   },
   statusBadgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
   },
   badgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   textPending: {
-    color: '#B45309',
-    fontSize: 12,
-    fontWeight: '800',
+    color: adminColors.warning.text,
   },
   badgeApproved: {
-    backgroundColor: THEME.greenBg,
+    backgroundColor: adminColors.success.bg,
   },
   textApproved: {
-    color: THEME.greenText,
-    fontSize: 12,
-    fontWeight: '800',
+    color: adminColors.success.text,
   },
   badgeRejected: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
   },
   textRejected: {
-    color: THEME.redText,
-    fontSize: 12,
-    fontWeight: '800',
+    color: adminColors.danger.text,
   },
-
-  // Disclaimer
-  disclaimerCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 6,
-  },
-  disclaimerText: {
-    fontSize: 12.5,
-    color: '#6B7280',
-    lineHeight: 18,
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

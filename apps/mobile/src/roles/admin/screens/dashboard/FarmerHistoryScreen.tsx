@@ -1,6 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -13,30 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-  brandOrange: adminColors.brand,
-  titleRustDark: adminColors.brandDeep,
-  greenIcon: adminColors.success.text,
-  amberIcon: adminColors.warning.text,
-  moduleBrownBtn: adminColors.brandDeep,
-};
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-// ─── SVG Icons Matching Exact Design ─────────────────────────────────────────
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -53,15 +36,15 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 // 1. Tomato / Produce outline icon
 function TomatoProduceIcon({
   size = 22,
-  color = THEME.amberIcon,
+  color = adminColors.warning.text,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase();
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -81,7 +64,7 @@ function TomatoProduceIcon({
 }
 
 // 2. Rosette badge check icon
-function BadgeCheckIcon({ size = 22, color = THEME.greenIcon }: { size?: number; color?: string }) {
+function BadgeCheckIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -101,7 +84,7 @@ function BadgeCheckIcon({ size = 22, color = THEME.greenIcon }: { size?: number;
 }
 
 // 3. Document icon with folded corner
-function DocumentViewIcon({ size = 22, color = '#6B7280' }: { size?: number; color?: string }) {
+function DocumentViewIcon({ size = 22, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -123,7 +106,7 @@ function DocumentViewIcon({ size = 22, color = '#6B7280' }: { size?: number; col
 }
 
 // 4. Star outline icon
-function StarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: number; color?: string }) {
+function StarOutlineIcon({ size = 22, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -137,8 +120,8 @@ function StarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: number
   );
 }
 
-// 5. Circle checkmark icon (Produce listing approved)
-function CircleCheckIcon({ size = 22, color = THEME.greenIcon }: { size?: number; color?: string }) {
+// 5. Circle checkmark icon
+function CircleCheckIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -174,10 +157,9 @@ export interface FarmerHistoryScreenProps {
 }
 
 export function FarmerHistoryScreen({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00124',
+  farmerName = '',
+  farmerId = '',
   onBack,
-  onNavigateFarmerRatings,
 }: FarmerHistoryScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null);
@@ -189,7 +171,14 @@ export function FarmerHistoryScreen({
   const [trackWidth, setTrackWidth] = useState(240);
   const maxScrollWidthRef = useRef(300);
 
-  const categories = ['All', 'Profile', 'Farm', 'Produce', 'Audit', 'Rating'];
+  const categories = [
+    { key: 'All', label: t('farmerHistory.category.all') },
+    { key: 'Profile', label: t('farmerHistory.category.profile') },
+    { key: 'Farm', label: t('farmerHistory.category.farm') },
+    { key: 'Produce', label: t('farmerHistory.category.produce') },
+    { key: 'Audit', label: t('farmerHistory.category.audit') },
+    { key: 'Rating', label: t('farmerHistory.category.rating') },
+  ];
 
   const historyItems: HistoryItem[] = [
     {
@@ -200,8 +189,6 @@ export function FarmerHistoryScreen({
       reference: 'PL-001245',
       status: 'Recorded',
       category: 'Produce',
-      targetModuleLabel: 'Opens Module 3 — Produce Listing Detail',
-      targetModuleNote: 'Opens Module 3 — Produce Listing Detail (Module 3 not started yet — will link upon module launch)',
     },
     {
       id: 'hist-2',
@@ -211,8 +198,6 @@ export function FarmerHistoryScreen({
       reference: 'AUD-00125',
       status: 'Recorded',
       category: 'Audit',
-      targetModuleLabel: 'Opens Audit Management',
-      targetModuleNote: 'Opens Audit Management (Module not started yet — will link upon module launch)',
     },
     {
       id: 'hist-3',
@@ -231,7 +216,6 @@ export function FarmerHistoryScreen({
       reference: 'RAT-00042',
       status: 'Recorded',
       category: 'Rating',
-      targetModuleLabel: 'Opens Farmer Ratings',
       navigateToRatings: true,
     },
     {
@@ -242,8 +226,6 @@ export function FarmerHistoryScreen({
       reference: 'PL-001230',
       status: 'Recorded',
       category: 'Produce',
-      targetModuleLabel: 'Opens Module 3 — Produce Listing Detail',
-      targetModuleNote: 'Opens Module 3 — Produce Listing Detail (Module 3 not started yet — will link upon module launch)',
     },
   ];
 
@@ -265,7 +247,6 @@ export function FarmerHistoryScreen({
   const maxThumbTranslate = Math.max(0, trackWidth - thumbWidth);
   const thumbLeft = scrollProgress * maxThumbTranslate;
 
-  // Pan responder to allow touching and moving category scrollbar directly
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -296,7 +277,7 @@ export function FarmerHistoryScreen({
     })
   ).current;
 
-  // ─── IF NAVIGATING TO FARMER RATINGS (Mockup 1) ───
+  // ─── IF NAVIGATING TO FARMER RATINGS ───
   if (showRatingsScreen) {
     return (
       <FarmerRatingsScreen
@@ -307,13 +288,13 @@ export function FarmerHistoryScreen({
     );
   }
 
-  // ─── IF A HISTORY ITEM IS SELECTED: SHOW HISTORY DETAIL (Images 3, 4, 5) ───
+  // ─── IF A HISTORY ITEM IS SELECTED: SHOW HISTORY DETAIL ───
   if (selectedHistory) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* Terracotta Header: ← History Detail */}
+        {/* Terracotta Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -322,10 +303,10 @@ export function FarmerHistoryScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back to History"
             >
-              <BackArrowIcon size={24} color={THEME.white} />
+              <BackArrowIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>History Detail</Text>
+              <Text style={styles.headerTitle}>{t('farmerHistory.detail.title')}</Text>
               <Text style={styles.headerSubDetail}>{farmerName} · {farmerId}</Text>
             </View>
           </View>
@@ -336,26 +317,26 @@ export function FarmerHistoryScreen({
           contentContainerStyle={styles.scrollPadDetail}
           showsVerticalScrollIndicator={false}
         >
-          {/* Detail Card (Images 3, 4, 5) */}
+          {/* Detail Card */}
           <View style={styles.detailsCard}>
             <View style={styles.rowTwoCol}>
               <View style={styles.colHalf}>
-                <Text style={styles.labelMuted}>Event</Text>
+                <Text style={styles.labelMuted}>{t('farmerHistory.detail.event')}</Text>
                 <Text style={styles.valBold}>{selectedHistory.event}</Text>
               </View>
               <View style={styles.colHalf}>
-                <Text style={styles.labelMuted}>Date</Text>
+                <Text style={styles.labelMuted}>{t('farmerHistory.detail.date')}</Text>
                 <Text style={styles.valBold}>{selectedHistory.fullDate}</Text>
               </View>
             </View>
 
-            <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
+            <View style={[styles.rowTwoCol, styles.rowSpacing]}>
               <View style={styles.colHalf}>
-                <Text style={styles.labelMuted}>Reference</Text>
+                <Text style={styles.labelMuted}>{t('farmerHistory.detail.reference')}</Text>
                 <Text style={styles.valBold}>{selectedHistory.reference}</Text>
               </View>
               <View style={styles.colHalf}>
-                <Text style={styles.labelMuted}>Status</Text>
+                <Text style={styles.labelMuted}>{t('farmerHistory.detail.status')}</Text>
                 <Text style={styles.valBold}>{selectedHistory.status}</Text>
               </View>
             </View>
@@ -367,21 +348,21 @@ export function FarmerHistoryScreen({
             onPress={() => setSelectedHistory(null)}
             activeOpacity={0.8}
           >
-            <Text style={styles.outlineActionBtnText}>Back to History</Text>
+            <Text style={styles.outlineActionBtnText}>{t('farmerHistory.title')}</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─── MAIN FARMER HISTORY TIMELINE VIEW (Image 2) ───
+  // ─── MAIN FARMER HISTORY TIMELINE VIEW ───
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Terracotta Header: ← Farmer History */}
+      {/* Terracotta Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -390,9 +371,9 @@ export function FarmerHistoryScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer History</Text>
+          <Text style={styles.headerTitle}>{t('farmerHistory.title')}</Text>
         </View>
       </View>
 
@@ -402,7 +383,7 @@ export function FarmerHistoryScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Category Filter Chips with Interactive Slider */}
-        <View style={{ marginBottom: 16 }}>
+        <View style={styles.chipsSection}>
           <ScrollView
             ref={categoryScrollRef}
             horizontal
@@ -411,17 +392,17 @@ export function FarmerHistoryScreen({
             onScroll={handleCategoryScroll}
             scrollEventThrottle={16}
           >
-            {categories.map((cat) => {
-              const active = selectedCategory === cat;
+            {categories.map(({ key, label }) => {
+              const active = selectedCategory === key;
               return (
                 <TouchableOpacity
-                  key={cat}
+                  key={key}
                   style={[styles.categoryChip, active ? styles.categoryChipActive : styles.categoryChipInactive]}
-                  onPress={() => setSelectedCategory(cat)}
+                  onPress={() => setSelectedCategory(key)}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.categoryChipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
-                    {cat}
+                    {label}
                   </Text>
                 </TouchableOpacity>
               );
@@ -468,20 +449,20 @@ export function FarmerHistoryScreen({
           </View>
         </View>
 
-        {/* Year Section Header (Image 2) */}
-        <Text style={styles.yearHeader}>2026</Text>
+        {/* Year Section Header */}
+        <Text style={styles.yearHeader}>{t('farmerHistory.year.2026')}</Text>
 
-        {/* History Cards (Image 2) */}
+        {/* History Cards */}
         {filteredItems.map((item) => {
-          let icon = <TomatoProduceIcon size={22} color={THEME.amberIcon} />;
+          let icon = <TomatoProduceIcon size={22} color={adminColors.warning.text} />;
           if (item.event === 'Farm audit completed') {
-            icon = <BadgeCheckIcon size={22} color={THEME.greenIcon} />;
+            icon = <BadgeCheckIcon size={22} color={adminColors.success.text} />;
           } else if (item.event === 'Certification document viewed') {
-            icon = <DocumentViewIcon size={22} color="#6B7280" />;
+            icon = <DocumentViewIcon size={22} color={adminColors.muted} />;
           } else if (item.event === 'Farmer rating updated') {
-            icon = <StarOutlineIcon size={22} color={THEME.amberIcon} />;
+            icon = <StarOutlineIcon size={22} color={adminColors.warning.text} />;
           } else if (item.event === 'Produce listing approved') {
-            icon = <CircleCheckIcon size={22} color={THEME.greenIcon} />;
+            icon = <CircleCheckIcon size={22} color={adminColors.success.text} />;
           }
 
           return (
@@ -500,7 +481,7 @@ export function FarmerHistoryScreen({
           );
         })}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -509,18 +490,18 @@ export function FarmerHistoryScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -529,111 +510,113 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubDetail: {
-    fontSize: 12.5,
-    color: 'rgba(255, 255, 255, 0.88)',
+    ...adminType.caption,
+    color: adminColors.brandTint,
     marginTop: 2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   scrollPadDetail: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
     flexGrow: 1,
   },
 
   // Category chips
+  chipsSection: {
+    marginBottom: adminSpacing.lg,
+  },
   chipsScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
     paddingVertical: 2,
   },
   categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
   },
   categoryChipActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   categoryChipInactive: {
-    backgroundColor: THEME.card,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   categoryChipText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   chipTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // Slider track
   sliderBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   sliderArrowTouch: {
     paddingHorizontal: 3,
   },
   sliderArrowText: {
-    fontSize: 11,
-    color: '#8A8580',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   sliderTrack: {
     flex: 1,
     height: 5,
-    backgroundColor: '#E5DFD7',
-    borderRadius: 3,
+    backgroundColor: adminColors.border,
+    borderRadius: adminRadius.xs,
     position: 'relative',
     justifyContent: 'center',
   },
   sliderThumb: {
     height: 5,
-    backgroundColor: '#8A8580',
-    borderRadius: 3,
+    backgroundColor: adminColors.muted,
+    borderRadius: adminRadius.xs,
   },
 
   // Year Section Header
   yearHeader: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#78716C',
+    color: adminColors.muted,
     letterSpacing: 0.3,
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
 
-  // History Card (Image 2)
+  // History Card
   historyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
   historyIconCol: {
     width: 32,
@@ -642,78 +625,61 @@ const styles = StyleSheet.create({
   },
   historyTextCol: {
     flex: 1,
-    paddingLeft: 4,
+    paddingLeft: adminSpacing.xs,
   },
   historyTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   historySubtitle: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
 
-  // Detail View (Images 3, 4, 5)
+  // Detail View
   detailsCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    marginBottom: 18,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.xl,
+    marginBottom: adminSpacing.lg,
   },
   rowTwoCol: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  rowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
   colHalf: {
     width: '48%',
   },
   labelMuted: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   valBold: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   outlineActionBtn: {
     height: 48,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
-
-  // Bottom Module Banner (Image 3 & 4)
-  bottomBannerContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-    paddingTop: 8,
-    backgroundColor: THEME.canvas,
-  },
-  bottomModuleBtn: {
-    backgroundColor: THEME.moduleBrownBtn,
-    height: 46,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bottomModuleBtnText: {
-    color: THEME.white,
-    fontSize: 13.5,
-    fontWeight: '800',
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

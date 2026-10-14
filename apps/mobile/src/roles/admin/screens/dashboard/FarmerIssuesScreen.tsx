@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,27 +9,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-  brandOrange: adminColors.brand,
-  titleRustDark: adminColors.brandDeep,
-  redText: adminColors.danger.text,
-  amberText: adminColors.warning.text,
-  greenText: adminColors.success.text,
-  divider: '#F3ECE4',
-};
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,8 +45,8 @@ export interface FarmerIssuesScreenProps {
 }
 
 export function FarmerIssuesScreen({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00124',
+  farmerName = '',
+  farmerId = '',
   onBack,
 }: FarmerIssuesScreenProps) {
   const [selectedIssue, setSelectedIssue] = useState<IssueItem | null>(null);
@@ -94,13 +76,13 @@ export function FarmerIssuesScreen({
     },
   ];
 
-  // ─── IF AN ISSUE IS SELECTED: SHOW ISSUE DETAIL (Image 1) ───
+  // ─── IF AN ISSUE IS SELECTED: SHOW ISSUE DETAIL ───
   if (selectedIssue) {
     return (
       <SafeAreaView style={styles.detailRoot}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* ─── Header: ← Issue Detail (Image 1) ─── */}
+        {/* Header: ← Issue Detail */}
         <View style={styles.detailHeader}>
           <TouchableOpacity
             style={styles.detailBackBtn}
@@ -108,10 +90,10 @@ export function FarmerIssuesScreen({
             activeOpacity={0.7}
             accessibilityLabel="Back to Issues"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.detailHeaderTitle}>Issue Detail</Text>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.detailHeaderTitle}>{t('farmerIssues.detail.title')}</Text>
             <Text style={styles.detailHeaderSub}>
               {selectedIssue.farmerName || farmerName} · {farmerId}
             </Text>
@@ -123,72 +105,71 @@ export function FarmerIssuesScreen({
           contentContainerStyle={styles.detailScrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Issue Detail Card (Image 1) */}
+          {/* Issue Detail Card */}
           <View style={styles.issueDetailCard}>
             {/* Row 1: Issue ID & Category */}
             <View style={styles.detailRow}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Issue ID</Text>
+                <Text style={styles.detailLabel}>{t('farmerIssues.detail.issueId')}</Text>
                 <Text style={styles.detailValBold}>{selectedIssue.id}</Text>
               </View>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Category</Text>
+                <Text style={styles.detailLabel}>{t('farmerIssues.detail.category')}</Text>
                 <Text style={styles.detailValBold}>{selectedIssue.category}</Text>
               </View>
             </View>
 
             {/* Row 2: Farmer & Status */}
-            <View style={[styles.detailRow, { marginTop: 16 }]}>
+            <View style={[styles.detailRow, styles.rowSpacing]}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Farmer</Text>
+                <Text style={styles.detailLabel}>{t('farmerIssues.detail.farmer')}</Text>
                 <Text style={styles.detailValBold}>
                   {selectedIssue.farmerName || farmerName}
                 </Text>
               </View>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Status</Text>
+                <Text style={styles.detailLabel}>{t('farmerIssues.detail.status')}</Text>
                 <Text style={styles.detailValBold}>{selectedIssue.status}</Text>
               </View>
             </View>
 
             {/* Row 3: Related Record */}
-            <View style={{ marginTop: 16 }}>
-              <Text style={styles.detailLabel}>Related Record</Text>
+            <View style={styles.rowSpacing}>
+              <Text style={styles.detailLabel}>{t('farmerIssues.detail.relatedRecord')}</Text>
               <Text style={styles.detailValBold}>
                 {selectedIssue.relatedRecord || 'Tomato — Grade 1 listing'}
               </Text>
             </View>
 
             {/* Row 4: Description */}
-            <View style={{ marginTop: 16 }}>
-              <Text style={styles.detailLabel}>Description</Text>
+            <View style={styles.rowSpacing}>
+              <Text style={styles.detailLabel}>{t('farmerIssues.detail.description')}</Text>
               <Text style={styles.detailDescText}>
                 {selectedIssue.description || 'Farmer reported a discrepancy in listed quantity.'}
               </Text>
             </View>
 
             {/* Row 5: Created */}
-            <View style={{ marginTop: 16 }}>
-              <Text style={styles.detailLabel}>Created</Text>
+            <View style={styles.rowSpacing}>
+              <Text style={styles.detailLabel}>{t('farmerIssues.detail.created')}</Text>
               <Text style={styles.detailValBold}>
                 {selectedIssue.created || '28 Sep 2026'}
               </Text>
             </View>
           </View>
 
-          {/* User requested: "remove this two buttons" -> Buttons removed! */}
-          <View style={{ height: 40 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─── MAIN ISSUES LIST (Mockup 3) ───
+  // ─── MAIN ISSUES LIST ───
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header: ← Farmer Issues (Mockup 3) */}
+      {/* Header: ← Farmer Issues */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -197,9 +178,9 @@ export function FarmerIssuesScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer Issues</Text>
+          <Text style={styles.headerTitle}>{t('farmerIssues.title')}</Text>
         </View>
       </View>
 
@@ -208,25 +189,25 @@ export function FarmerIssuesScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* 3 KPI Cards Row: OPEN, IN PROGRESS, RESOLVED (Mockup 3) */}
+        {/* 3 KPI Cards Row: OPEN, IN PROGRESS, RESOLVED */}
         <View style={styles.kpiRow}>
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>OPEN</Text>
+            <Text style={styles.kpiLabel}>{t('farmerIssues.kpi.open')}</Text>
             <Text style={styles.kpiValueRed}>02</Text>
           </View>
 
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>IN PROGRESS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerIssues.kpi.inProgress')}</Text>
             <Text style={styles.kpiValueAmber}>01</Text>
           </View>
 
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>RESOLVED</Text>
+            <Text style={styles.kpiLabel}>{t('farmerIssues.kpi.resolved')}</Text>
             <Text style={styles.kpiValueGreen}>08</Text>
           </View>
         </View>
 
-        {/* Issue Card Matching Mockup 3 */}
+        {/* Issue Card Matching Mockup */}
         {issues.map((iss) => (
           <TouchableOpacity
             key={iss.id}
@@ -243,7 +224,7 @@ export function FarmerIssuesScreen({
           </TouchableOpacity>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -252,18 +233,18 @@ export function FarmerIssuesScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -272,77 +253,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
 
   // 3 KPI Cards
   kpiRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
   },
   kpiLabel: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     letterSpacing: 0.3,
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   kpiValueRed: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.redText,
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
   kpiValueAmber: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.amberText,
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
   },
   kpiValueGreen: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.greenText,
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
 
   // Issue Card
   issueItemCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   issueTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   issueDivider: {
     height: 1,
-    backgroundColor: THEME.divider,
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   issueFooterRow: {
     flexDirection: 'row',
@@ -350,95 +326,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   issueIdText: {
-    fontSize: 12.5,
-    color: THEME.labelMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   issueStatusText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.amberText,
+    color: adminColors.warning.text,
   },
 
-  // ─── Detail View (Image 1) ───
+  // Detail View
   detailRoot: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   detailHeader: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-    gap: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+    gap: adminSpacing.md,
+  },
+  headerTitleWrap: {
+    flex: 1,
   },
   detailBackBtn: {
-    padding: 4,
+    padding: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   detailHeaderSub: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: adminColors.brandTint,
     marginTop: 2,
   },
   detailScrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   issueDetailCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.xl,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  rowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
   detailCol: {
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   detailValBold: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   detailDescText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#1F2937',
+    color: adminColors.ink,
     lineHeight: 20,
   },
-  outlineActionBtn: {
-    height: 48,
-    backgroundColor: '#FAF7F2',
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });
