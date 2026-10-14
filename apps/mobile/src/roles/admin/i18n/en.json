@@ -283,6 +283,7 @@
   "returns.detail.status": "Status",
   "returns.detail.order": "Order",
   "returns.detail.created": "Requested",
+  "returns.detail.buyer": "Customer",
   "returns.detail.reason": "Reason",
   "returns.detail.note": "Customer note",
   "returns.detail.items": "Returned Items",
