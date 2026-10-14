@@ -11,40 +11,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-  borderDashed: '#D1D5DB',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  orangeBorder: adminColors.brand,
-
-  // Badges
-  notCompletedBg: '#F3F4F6',
-  notCompletedText: '#4B5563',
-
-  // Swatch indicator
-  swatchBeige: '#E8D3B9',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -58,7 +30,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function UploadDocumentIcon({ size = 20, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function UploadDocumentIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -71,17 +43,17 @@ function UploadDocumentIcon({ size = 20, color = THEME.titleRustDark }: { size?:
 function CornerGripIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
-      <Line x1="11" y1="3" x2="3" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-      <Line x1="11" y1="7" x2="7" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+      <Line x1="11" y1="3" x2="3" y2="11" stroke={adminColors.muted} strokeWidth="1.5" strokeLinecap="round" />
+      <Line x1="11" y1="7" x2="7" y2="11" stroke={adminColors.muted} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
 
 export interface ProduceGradeCheckScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
-  selectedGrade?: 'Grade 1' | 'Grade 2' | 'Rejected';
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  selectedGrade?: 'Grade 1' | 'Grade 2' | 'Rejected' | undefined;
   onBack: () => void;
   onPreviousStep: () => void;
   onContinue: (grade: 'Grade 1' | 'Grade 2' | 'Rejected') => void;
@@ -89,9 +61,9 @@ export interface ProduceGradeCheckScreenProps {
 }
 
 export function ProduceGradeCheckScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
+  listingId,
+  cropName,
+  farmerName,
   selectedGrade: initialGrade = 'Grade 1',
   onBack,
   onPreviousStep,
@@ -106,9 +78,11 @@ export function ProduceGradeCheckScreen({
     onContinue(selectedGrade);
   };
 
+  const subtitle = [listingId, cropName, farmerName].filter(Boolean).join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -117,15 +91,15 @@ export function ProduceGradeCheckScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceGradeCheck.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Produce Verification & Approval</Text>
+          <Text style={styles.headerTitle}>{t('produceGradeCheck.title')}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} · {farmerName}
-        </Text>
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {/* ─── Scroll Content ─── */}
@@ -135,7 +109,7 @@ export function ProduceGradeCheckScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Verification steps header */}
-        <Text style={styles.sectionTitle}>Verification steps</Text>
+        <Text style={styles.sectionTitle}>{t('produceGradeCheck.section.steps')}</Text>
 
         {/* Numbered Stepper Circles 1 to 6 (Step 3 active) */}
         <View style={styles.stepperRow}>
@@ -180,26 +154,26 @@ export function ProduceGradeCheckScreen({
 
         {/* Step Header & Status Badge */}
         <View style={styles.stepHeaderRow}>
-          <Text style={styles.stepHeaderTitle}>Step 3 of 6 · Grade Check</Text>
+          <Text style={styles.stepHeaderTitle}>{t('produceGradeCheck.stepHeader')}</Text>
           <View style={styles.notCompletedBadge}>
-            <Text style={styles.notCompletedBadgeText}>Not completed</Text>
+            <Text style={styles.notCompletedBadgeText}>{t('produceGradeCheck.notCompleted')}</Text>
           </View>
         </View>
 
         {/* Outstanding Card */}
         <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>Outstanding</Text>
+          <Text style={styles.outstandingTitle}>{t('produceGradeCheck.section.outstanding')}</Text>
           <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
           <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
           <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
           <Text style={styles.outstandingItem}>• and 2 more</Text>
         </View>
 
-        {/* APPLICABLE GRADING STANDARD Card (Screenshot 1) */}
+        {/* APPLICABLE GRADING STANDARD Card */}
         <View style={styles.standardCard}>
-          <Text style={styles.standardLabel}>APPLICABLE GRADING STANDARD</Text>
+          <Text style={styles.standardLabel}>{t('produceGradeCheck.label.standard')}</Text>
           <Text style={styles.standardText}>
-            Tomato grades as configured by TOHFA. The farmer declared Grade 1.
+            {t('produceGradeCheck.standardText')}
           </Text>
         </View>
 
@@ -215,9 +189,9 @@ export function ProduceGradeCheckScreen({
         >
           <View style={styles.swatchCircle} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.gradeTitle}>Grade 1</Text>
+            <Text style={styles.gradeTitle}>{t('produceGradeCheck.grade1Title')}</Text>
             <Text style={styles.gradeDesc}>
-              Uniform size and colour, no visible defects · reference Rs. 95-105/KG
+              {t('produceGradeCheck.grade1Desc')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -233,9 +207,9 @@ export function ProduceGradeCheckScreen({
         >
           <View style={styles.swatchCircle} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.gradeTitle}>Grade 2</Text>
+            <Text style={styles.gradeTitle}>{t('produceGradeCheck.grade2Title')}</Text>
             <Text style={styles.gradeDesc}>
-              Minor size or colour variation, minor surface marks · reference Rs. 80-90/KG
+              {t('produceGradeCheck.grade2Desc')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -251,18 +225,18 @@ export function ProduceGradeCheckScreen({
         >
           <View style={styles.swatchCircle} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.gradeTitle}>Rejected</Text>
-            <Text style={styles.gradeDesc}>Does not meet Grade 2</Text>
+            <Text style={styles.gradeTitle}>{t('produceGradeCheck.rejectedTitle')}</Text>
+            <Text style={styles.gradeDesc}>{t('produceGradeCheck.rejectedDesc')}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Footnote Caption */}
         <Text style={styles.footnoteCaption}>
-          No grade recommendation is configured, so none is suggested. The grade is chosen by you against the criteria above.
+          {t('produceGradeCheck.footnote')}
         </Text>
 
         {/* Grade remarks input */}
-        <Text style={styles.inputLabelBold}>Grade remarks</Text>
+        <Text style={styles.inputLabelBold}>{t('produceGradeCheck.label.remarks')}</Text>
         <View style={styles.notesWrap}>
           <TextInput
             style={styles.notesInput}
@@ -270,6 +244,7 @@ export function ProduceGradeCheckScreen({
             numberOfLines={4}
             textAlignVertical="top"
             placeholder=""
+            placeholderTextColor={adminColors.placeholder}
             value={gradeRemarks}
             onChangeText={setGradeRemarks}
           />
@@ -279,7 +254,9 @@ export function ProduceGradeCheckScreen({
         </View>
 
         {/* Supporting photographs (optional) upload */}
-        <Text style={[styles.inputLabelBold, { marginTop: 16 }]}>Supporting photographs (optional)</Text>
+        <Text style={[styles.inputLabelBold, { marginTop: adminSpacing.lg }]}>
+          {t('produceGradeCheck.label.photos')}
+        </Text>
         <TouchableOpacity
           style={styles.uploadBox}
           onPress={() => {
@@ -288,9 +265,9 @@ export function ProduceGradeCheckScreen({
           }}
           activeOpacity={0.7}
         >
-          <UploadDocumentIcon size={20} color={THEME.titleRustDark} />
+          <UploadDocumentIcon size={20} color={adminColors.brandDeep} />
           <Text style={styles.uploadText}>
-            {uploadedPhoto ?? 'Upload file'}
+            {uploadedPhoto ?? t('produceGradeCheck.uploadText')}
           </Text>
         </TouchableOpacity>
 
@@ -301,7 +278,7 @@ export function ProduceGradeCheckScreen({
             onPress={onPreviousStep}
             activeOpacity={0.8}
           >
-            <Text style={styles.prevStepBtnText}>Previous Step</Text>
+            <Text style={styles.prevStepBtnText}>{t('produceGradeCheck.action.prevStep')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -309,11 +286,11 @@ export function ProduceGradeCheckScreen({
             onPress={handleContinue}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueStepBtnText}>Continue</Text>
+            <Text style={styles.continueStepBtnText}>{t('produceGradeCheck.action.continue')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -322,18 +299,18 @@ export function ProduceGradeCheckScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -342,191 +319,186 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 14,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginBottom: adminSpacing.md,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
     paddingHorizontal: 4,
   },
   stepCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#E2DDD6',
-    backgroundColor: THEME.white,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     borderWidth: 2,
   },
   stepCircleText: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   stepCircleTextActive: {
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   stepperLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E2DDD6',
+    backgroundColor: adminColors.border,
     marginHorizontal: 0,
   },
   stepperLineActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   stepHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   notCompletedBadge: {
-    backgroundColor: THEME.notCompletedBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   notCompletedBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.notCompletedText,
+    color: adminColors.muted,
   },
   outstandingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
     gap: 4,
+    ...adminShadow.sm,
   },
   outstandingTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   outstandingItem: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 18,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   standardCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   standardLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   standardText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
-    lineHeight: 19,
+    color: adminColors.ink,
   },
   gradeCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    ...adminShadow.sm,
   },
   gradeCardSelected: {
-    borderColor: THEME.orangeBorder,
+    borderColor: adminColors.brand,
     borderWidth: 1.5,
   },
   swatchCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: THEME.swatchBeige,
+    backgroundColor: adminColors.brandTint,
   },
   gradeTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   gradeDesc: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 16,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   footnoteCaption: {
-    fontSize: 11.5,
-    color: THEME.muted,
-    lineHeight: 16,
-    marginVertical: 12,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginVertical: adminSpacing.md,
   },
   inputLabelBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 6,
   },
   notesWrap: {
     position: 'relative',
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
   },
   notesInput: {
     minHeight: 90,
-    padding: 12,
+    padding: adminSpacing.md,
     paddingBottom: 22,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   gripCorner: {
     position: 'absolute',
@@ -534,56 +506,53 @@ const styles = StyleSheet.create({
     bottom: 8,
   },
   uploadBox: {
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: THEME.borderDashed,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   uploadText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   stepActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   prevStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   prevStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   continueStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

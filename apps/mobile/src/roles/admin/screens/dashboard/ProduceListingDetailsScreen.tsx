@@ -11,37 +11,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: '#5C240E',
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Buttons & Accents
-  brandOrange: adminColors.brand,
-  greenText: adminColors.success.text,
-  peachBg: '#FFF7ED',
-  peachIconBg: '#FFEDD5',
-  peachBorder: '#FED7AA',
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Exact SVG Icons ──────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -55,7 +30,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function ProhibitedIcon({ size = 18, color = '#78716C' }: { size?: number; color?: string }) {
+function ProhibitedIcon({ size = 18, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="8.5" stroke={color} strokeWidth="1.8" />
@@ -64,7 +39,7 @@ function ProhibitedIcon({ size = 18, color = '#78716C' }: { size?: number; color
   );
 }
 
-function ArrowRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -79,7 +54,7 @@ function ArrowRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color
 }
 
 /** Timeline Icon 1: Upload tray with arrow */
-function UploadTrayIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function UploadTrayIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -89,7 +64,7 @@ function UploadTrayIcon({ size = 16, color = THEME.titleRustDark }: { size?: num
 }
 
 /** Timeline Icon 2: Speech bubble / ellipsis */
-function EllipsisBubbleIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function EllipsisBubbleIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -101,7 +76,7 @@ function EllipsisBubbleIcon({ size = 16, color = THEME.titleRustDark }: { size?:
 }
 
 /** Timeline Icon 3: ID badge / user card */
-function IdBadgeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function IdBadgeIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -114,9 +89,9 @@ function IdBadgeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ProduceListingDetailsScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
   onBack: () => void;
   onViewFarmer?: (farmerId: string) => void;
   onViewFullHistory?: () => void;
@@ -125,9 +100,9 @@ export interface ProduceListingDetailsScreenProps {
 }
 
 export function ProduceListingDetailsScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
+  listingId,
+  cropName,
+  farmerName,
   onBack,
   onViewFarmer,
   onViewFullHistory,
@@ -139,24 +114,24 @@ export function ProduceListingDetailsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Produce Listing Details (Image 1) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceListingDetails.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Produce Listing Details</Text>
+          <Text style={styles.headerTitle}>{t('produceListingDetails.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>{listingId} · Pending Review</Text>
+        <Text style={styles.headerSubtitle}>{listingId} · {t('produceListingDetails.subtitle')}</Text>
       </View>
 
       {/* ─── Scrollable Body ─── */}
@@ -183,7 +158,7 @@ export function ProduceListingDetailsScreen({
                   : styles.chipTextInactive,
               ]}
             >
-              Other Farmer
+              {t('produceListingDetails.chip.otherFarmer')}
             </Text>
           </TouchableOpacity>
 
@@ -203,13 +178,13 @@ export function ProduceListingDetailsScreen({
                   : styles.chipTextInactive,
               ]}
             >
-              Own Listing
+              {t('produceListingDetails.chip.ownListing')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* ─── 1. Farmer Information ─── */}
-        <Text style={styles.sectionTitle}>Farmer Information</Text>
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.farmerInfo')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -226,7 +201,7 @@ export function ProduceListingDetailsScreen({
             </View>
           </View>
 
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
+          <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Zone</Text>
               <Text style={styles.fieldValue}>
@@ -241,12 +216,12 @@ export function ProduceListingDetailsScreen({
         </View>
 
         {/* ─── 2. Listing Overview ─── */}
-        <Text style={styles.sectionTitle}>Listing Overview</Text>
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.listingOverview')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Crop</Text>
-              <Text style={styles.fieldValue}>{cropName}</Text>
+              <Text style={styles.fieldValue}>{cropName ?? ''}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Grade</Text>
@@ -254,10 +229,10 @@ export function ProduceListingDetailsScreen({
             </View>
           </View>
 
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
+          <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Listing ID</Text>
-              <Text style={styles.fieldValue}>{listingId}</Text>
+              <Text style={styles.fieldValue}>{listingId ?? ''}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Status</Text>
@@ -265,14 +240,14 @@ export function ProduceListingDetailsScreen({
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: adminSpacing.md }}>
             <Text style={styles.fieldLabel}>Submitted</Text>
             <Text style={styles.fieldValue}>29 Sep 2026 · 10:24 AM</Text>
           </View>
         </View>
 
         {/* ─── 3. Produce Information ─── */}
-        <Text style={styles.sectionTitle}>Produce Information</Text>
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.produceInfo')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -285,14 +260,14 @@ export function ProduceListingDetailsScreen({
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: adminSpacing.md }}>
             <Text style={styles.fieldLabel}>Quality Information</Text>
             <Text style={styles.fieldValue}>Grade 1, no visible defects</Text>
           </View>
         </View>
 
-        {/* ─── 4. Pricing (Image 2) ─── */}
-        <Text style={styles.sectionTitle}>Pricing</Text>
+        {/* ─── 4. Pricing ─── */}
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.pricing')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -305,16 +280,16 @@ export function ProduceListingDetailsScreen({
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: adminSpacing.md }}>
             <Text style={styles.fieldLabel}>Price Compliance</Text>
-            <Text style={[styles.fieldValue, { color: THEME.greenText }]}>
+            <Text style={[styles.fieldValue, { color: adminColors.success.text }]}>
               Within configured rule
             </Text>
           </View>
         </View>
 
-        {/* ─── 5. Quantity Requirement (Image 2) ─── */}
-        <Text style={styles.sectionTitle}>Quantity Requirement</Text>
+        {/* ─── 5. Quantity Requirement ─── */}
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.qtyRequirement')}</Text>
         <View style={styles.card}>
           <View style={styles.flowRow}>
             <View style={styles.flowCol}>
@@ -322,14 +297,14 @@ export function ProduceListingDetailsScreen({
               <Text style={styles.flowValue}>50 KG</Text>
             </View>
 
-            <ArrowRightIcon size={18} color="#9CA3AF" />
+            <ArrowRightIcon size={18} color={adminColors.muted} />
 
             <View style={styles.flowCol}>
               <Text style={styles.flowLabel}>TOHFA REQUIRED</Text>
               <Text style={styles.flowValue}>30 KG</Text>
             </View>
 
-            <ArrowRightIcon size={18} color="#9CA3AF" />
+            <ArrowRightIcon size={18} color={adminColors.muted} />
 
             <View style={styles.flowCol}>
               <Text style={styles.flowLabel}>REQUIRED PURCHASE</Text>
@@ -343,11 +318,11 @@ export function ProduceListingDetailsScreen({
           onPress={() => onNavigateToVerification?.()}
           activeOpacity={0.8}
         >
-          <Text style={styles.outlineActionBtnText}>Purchase Required Quantity</Text>
+          <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.purchase')}</Text>
         </TouchableOpacity>
 
-        {/* ─── 6. Certification (Image 2) ─── */}
-        <Text style={styles.sectionTitle}>Certification</Text>
+        {/* ─── 6. Certification ─── */}
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.certification')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -361,13 +336,13 @@ export function ProduceListingDetailsScreen({
           </View>
         </View>
 
-        {/* ─── 7. Activity / History (Image 2 & 3) ─── */}
-        <Text style={styles.sectionTitle}>Activity / History</Text>
+        {/* ─── 7. Activity / History ─── */}
+        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.history')}</Text>
         <View style={styles.timelineList}>
           {/* Event 1: Listing Submitted */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <UploadTrayIcon size={16} color={THEME.titleRustDark} />
+              <UploadTrayIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Listing Submitted</Text>
@@ -378,7 +353,7 @@ export function ProduceListingDetailsScreen({
           {/* Event 2: Moved to Pending Review */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <EllipsisBubbleIcon size={16} color={THEME.titleRustDark} />
+              <EllipsisBubbleIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Moved to Pending Review</Text>
@@ -389,7 +364,7 @@ export function ProduceListingDetailsScreen({
           {/* Event 3: Assigned for FA Review */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <IdBadgeIcon size={16} color={THEME.titleRustDark} />
+              <IdBadgeIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitle}>Assigned for FA Review</Text>
@@ -403,17 +378,17 @@ export function ProduceListingDetailsScreen({
           onPress={onViewFullHistory}
           activeOpacity={0.8}
         >
-          <Text style={styles.outlineActionBtnText}>View Full History</Text>
+          <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.fullHistory')}</Text>
         </TouchableOpacity>
 
-        {/* Own Listing Notice Banner (Image 3) */}
+        {/* Own Listing Notice Banner */}
         {selectedFarmerType === 'Own Listing' && (
           <View style={styles.ownListingNoticeCard}>
-            <ProhibitedIcon size={20} color="#DC2626" />
+            <ProhibitedIcon size={20} color={adminColors.danger.text} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.ownListingNoticeTitle}>Your Own Listing</Text>
+              <Text style={styles.ownListingNoticeTitle}>{t('produceListingDetails.ownListingTitle')}</Text>
               <Text style={styles.ownListingNoticeText}>
-                This listing belongs to you as a farmer. You cannot review, approve, or purchase your own produce listing — an independent Farmer Admin or SA must perform this verification.
+                {t('produceListingDetails.ownListingNotice')}
               </Text>
             </View>
           </View>
@@ -422,7 +397,7 @@ export function ProduceListingDetailsScreen({
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ─── Sticky Bottom Action Bar: Review Listing (Image 1, 2, 3) ─── */}
+      {/* ─── Sticky Bottom Action Bar: Review Listing ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={[
@@ -432,7 +407,7 @@ export function ProduceListingDetailsScreen({
           onPress={() => {
             if (selectedFarmerType === 'Own Listing') {
               setModalMessage(
-                'This listing belongs to you as a farmer. You cannot review or approve your own produce listing — an independent FA or SA must perform this verification.'
+                t('produceListingDetails.ownListingNotice')
               );
               return;
             }
@@ -446,7 +421,7 @@ export function ProduceListingDetailsScreen({
               selectedFarmerType === 'Own Listing' && styles.reviewListingBtnTextDisabled,
             ]}
           >
-            Review Listing
+            {t('produceListingDetails.action.review')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -466,7 +441,7 @@ export function ProduceListingDetailsScreen({
               onPress={() => setModalMessage(null)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalCloseText}>Done</Text>
+              <Text style={styles.modalCloseText}>{t('produceListingDetails.done')}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -475,25 +450,23 @@ export function ProduceListingDetailsScreen({
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -503,15 +476,14 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
     marginLeft: 42,
   },
 
@@ -520,9 +492,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 30,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // ─── Top Segmented Chips ───
@@ -532,35 +504,34 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   chip: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 9,
   },
   chipActive: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   chipInactive: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.caption,
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '800',
   },
   chipTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
     fontWeight: '700',
   },
 
   // ─── Section Typography ───
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
     letterSpacing: -0.2,
     marginTop: 6,
     marginBottom: 10,
@@ -568,12 +539,13 @@ const styles = StyleSheet.create({
 
   // ─── Information Card ───
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
@@ -583,52 +555,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   fieldValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
 
-  // ─── Outline Action Button (View Farmer, Purchase, Certificate, etc.) ───
+  // ─── Outline Action Button ───
   outlineActionBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    borderRadius: 16,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.xl,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: adminSpacing.lg,
   },
   outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.brandOrange,
-  },
-
-  // ─── Notice Box (SA only) ───
-  noticeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: THEME.card,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 18,
-  },
-  noticeText: {
-    flex: 1,
-    fontSize: 11.5,
-    color: '#78716C',
-    lineHeight: 16,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
 
   // ─── Quantity Requirement Flow Row ───
@@ -641,28 +591,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   flowLabel: {
-    fontSize: 9.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.4,
     marginBottom: 4,
   },
   flowValue: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: THEME.ink,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.3,
   },
 
   // ─── Activity / History Timeline ───
   timelineList: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     gap: 16,
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   timelineItem: {
     flexDirection: 'row',
@@ -673,7 +623,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: THEME.peachIconBg,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -681,14 +631,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   timelineTime: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 1,
   },
 
@@ -698,91 +647,86 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: THEME.canvas,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: 10,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: THEME.borderLight,
+    borderTopColor: adminColors.border,
   },
   reviewListingBtn: {
-    backgroundColor: THEME.brandOrange,
-    borderRadius: 16,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.xl,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   reviewListingBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   reviewListingBtnDisabled: {
-    backgroundColor: '#E5E7EB',
-    borderColor: '#D1D5DB',
+    backgroundColor: adminColors.brandTint,
   },
   reviewListingBtnTextDisabled: {
-    color: '#9CA3AF',
+    color: adminColors.brandDeep,
   },
 
-  // ─── Own Listing Warning Card (Image 3) ───
+  // ─── Own Listing Warning Card ───
   ownListingNoticeCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminColors.danger.bg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 14,
-    padding: 14,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
     flexDirection: 'row',
     gap: 12,
     alignItems: 'flex-start',
-    marginTop: 14,
+    marginTop: adminSpacing.md,
   },
   ownListingNoticeTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#B91C1C',
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
     marginBottom: 4,
   },
   ownListingNoticeText: {
-    fontSize: 12,
-    color: '#7F1D1D',
-    lineHeight: 17,
+    ...adminType.caption,
+    color: adminColors.danger.text,
   },
 
   // ─── Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 20,
     width: '100%',
     alignItems: 'center',
+    ...adminShadow.md,
   },
   modalText: {
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     textAlign: 'center',
     marginBottom: 16,
-    lineHeight: 20,
   },
   modalCloseBtn: {
-    backgroundColor: THEME.brandOrange,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     paddingHorizontal: 24,
     paddingVertical: 10,
   },
   modalCloseText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

@@ -10,40 +10,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  disabledBtnBg: '#F4CCA4', // Peach disabled background for Approve & Handover
-  disabledBtnText: '#FFFFFF',
-  rejectRed: '#DC2626',
-
-  // Badges & Notices
-  notCompletedBg: '#F3F4F6',
-  notCompletedText: '#4B5563',
-  warningBg: '#F2EDE4',
-  warningText: '#1F2937',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -58,12 +30,12 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 }
 
 export interface ProduceFinalEligibilityDecisionScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
-  farmerId?: string;
-  listedQty?: number;
-  selectedGrade?: string;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  farmerId?: string | undefined;
+  listedQty?: number | undefined;
+  selectedGrade?: string | undefined;
   onBack: () => void;
   onPreviousStep: () => void;
   onApproveSuccess?: () => void;
@@ -71,12 +43,12 @@ export interface ProduceFinalEligibilityDecisionScreenProps {
 }
 
 export function ProduceFinalEligibilityDecisionScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00241',
-  listedQty = 50,
-  selectedGrade = 'Grade 1',
+  listingId,
+  cropName,
+  farmerName,
+  farmerId,
+  listedQty,
+  selectedGrade,
   onBack,
   onPreviousStep,
   onApproveSuccess,
@@ -93,9 +65,11 @@ export function ProduceFinalEligibilityDecisionScreen({
     { label: 'Listing eligibility', status: 'Pending' },
   ];
 
+  const subtitle = [listingId, cropName, farmerName].filter(Boolean).join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -104,15 +78,15 @@ export function ProduceFinalEligibilityDecisionScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceFinalEligibilityDecision.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Produce Verification & Approval</Text>
+          <Text style={styles.headerTitle}>{t('produceFinalEligibilityDecision.title')}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} · {farmerName}
-        </Text>
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {/* ─── Scroll Content ─── */}
@@ -122,7 +96,7 @@ export function ProduceFinalEligibilityDecisionScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Verification steps header */}
-        <Text style={styles.sectionTitle}>Verification steps</Text>
+        <Text style={styles.sectionTitle}>{t('produceFinalEligibilityDecision.section.steps')}</Text>
 
         {/* Numbered Stepper Circles 1 to 6 (Step 6 active - all highlighted) */}
         <View style={styles.stepperRow}>
@@ -166,82 +140,86 @@ export function ProduceFinalEligibilityDecisionScreen({
 
         {/* Step Header & Status Badge */}
         <View style={styles.stepHeaderRow}>
-          <Text style={styles.stepHeaderTitle}>Step 6 of 6 · Final Eligibility & Decision</Text>
+          <Text style={styles.stepHeaderTitle}>{t('produceFinalEligibilityDecision.stepHeader')}</Text>
           <View style={styles.notCompletedBadge}>
-            <Text style={styles.notCompletedBadgeText}>Not completed</Text>
+            <Text style={styles.notCompletedBadgeText}>{t('produceFinalEligibilityDecision.notCompleted')}</Text>
           </View>
         </View>
 
         {/* Outstanding Card */}
         <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>Outstanding</Text>
+          <Text style={styles.outstandingTitle}>{t('produceFinalEligibilityDecision.section.outstanding')}</Text>
           <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
           <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
           <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
           <Text style={styles.outstandingItem}>• and 2 more</Text>
         </View>
 
-        {/* Verification Summary (Screenshot 1) */}
-        <Text style={styles.sectionHeaderTitle}>Verification summary</Text>
+        {/* Verification Summary */}
+        <Text style={styles.sectionHeaderTitle}>{t('produceFinalEligibilityDecision.section.summary')}</Text>
         <View style={styles.summaryCard}>
           <View style={styles.summaryGridRow}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Farmer</Text>
-              <Text style={styles.summaryColValue}>{farmerName} · {farmerId}</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.farmer')}</Text>
+              <Text style={styles.summaryColValue}>
+                {[farmerName, farmerId].filter(Boolean).join(' · ')}
+              </Text>
             </View>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Listing</Text>
-              <Text style={styles.summaryColValue}>{listingId} · {cropName}</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.listing')}</Text>
+              <Text style={styles.summaryColValue}>
+                {[listingId, cropName].filter(Boolean).join(' · ')}
+              </Text>
             </View>
           </View>
 
           <View style={styles.summaryGridRow}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Listed quantity</Text>
-              <Text style={styles.summaryColValue}>{listedQty} KG</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.listedQty')}</Text>
+              <Text style={styles.summaryColValue}>{listedQty ? `${listedQty} KG` : '—'}</Text>
             </View>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Verified quantity</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.verifiedQty')}</Text>
               <Text style={styles.summaryColValue}>—</Text>
             </View>
           </View>
 
           <View style={styles.summaryGridRow}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Damaged quantity</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.damagedQty')}</Text>
               <Text style={styles.summaryColValue}>—</Text>
             </View>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Potential acceptable</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.potentialAcceptable')}</Text>
               <Text style={styles.summaryColValue}>—</Text>
             </View>
           </View>
 
           <View style={styles.summaryGridRow}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Selected grade</Text>
-              <Text style={styles.summaryColValue}>{selectedGrade}</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.selectedGrade')}</Text>
+              <Text style={styles.summaryColValue}>{selectedGrade ?? '—'}</Text>
             </View>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Remaining required</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.remainingRequired')}</Text>
               <Text style={styles.summaryColValue}>30 KG</Text>
             </View>
           </View>
 
           <View style={styles.summaryGridRow}>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Proposed purchase price</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.proposedPrice')}</Text>
               <Text style={styles.summaryColValue}>—</Text>
             </View>
             <View style={styles.summaryCol}>
-              <Text style={styles.summaryColLabel}>Eligible purchase quantity</Text>
+              <Text style={styles.summaryColLabel}>{t('produceFinalEligibilityDecision.label.eligibleQty')}</Text>
               <Text style={styles.summaryColValue}>—</Text>
             </View>
           </View>
         </View>
 
-        {/* Eligibility Checklist (Screenshot 2) */}
-        <Text style={styles.sectionHeaderTitle}>Eligibility checklist</Text>
+        {/* Eligibility Checklist */}
+        <Text style={styles.sectionHeaderTitle}>{t('produceFinalEligibilityDecision.section.checklist')}</Text>
         <View style={styles.checklistCard}>
           {checklistItems.map((item, idx) => (
             <View
@@ -259,14 +237,14 @@ export function ProduceFinalEligibilityDecisionScreen({
           ))}
         </View>
         <Text style={styles.checklistFootnote}>
-          Evidence attached: none. Remarks are kept with each step.
+          {t('produceFinalEligibilityDecision.checklistFootnote')}
         </Text>
 
-        {/* Decision Section (Screenshot 2) */}
-        <Text style={styles.sectionHeaderTitle}>Decision</Text>
+        {/* Decision Section */}
+        <Text style={styles.sectionHeaderTitle}>{t('produceFinalEligibilityDecision.section.decision')}</Text>
         <View style={styles.warningBox}>
           <Text style={styles.warningText}>
-            Some checks are not complete. Approve stays unavailable; you can still reject or send the listing for further review.
+            {t('produceFinalEligibilityDecision.warningText')}
           </Text>
         </View>
 
@@ -282,27 +260,27 @@ export function ProduceFinalEligibilityDecisionScreen({
           }}
           activeOpacity={0.8}
         >
-          <Text style={styles.approveBtnTextDisabled}>Approve & Handover</Text>
+          <Text style={styles.approveBtnTextDisabled}>{t('produceFinalEligibilityDecision.action.approve')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.rejectBtn}
           onPress={() => {
-            Alert.alert('Listing Rejected', `Listing ${listingId} marked as rejected.`);
+            Alert.alert('Listing Rejected', `Listing ${listingId ?? ''} marked as rejected.`);
           }}
           activeOpacity={0.8}
         >
-          <Text style={styles.rejectBtnText}>Reject</Text>
+          <Text style={styles.rejectBtnText}>{t('produceFinalEligibilityDecision.action.reject')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.reviewBtn}
           onPress={() => {
-            Alert.alert('Sent for Further Review', `Listing ${listingId} flagged for secondary review.`);
+            Alert.alert('Sent for Further Review', `Listing ${listingId ?? ''} flagged for secondary review.`);
           }}
           activeOpacity={0.8}
         >
-          <Text style={styles.reviewBtnText}>Send for Further Review</Text>
+          <Text style={styles.reviewBtnText}>{t('produceFinalEligibilityDecision.action.review')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -310,10 +288,10 @@ export function ProduceFinalEligibilityDecisionScreen({
           onPress={onPreviousStep}
           activeOpacity={0.8}
         >
-          <Text style={styles.prevBtnText}>Previous Step</Text>
+          <Text style={styles.prevBtnText}>{t('produceFinalEligibilityDecision.action.prevStep')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -322,18 +300,18 @@ export function ProduceFinalEligibilityDecisionScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -342,127 +320,125 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginBottom: 14,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginBottom: adminSpacing.md,
   },
   sectionHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 18,
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
     paddingHorizontal: 4,
   },
   stepCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#E2DDD6',
-    backgroundColor: THEME.white,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     borderWidth: 2,
   },
   stepCircleText: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   stepCircleTextActive: {
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   stepperLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E2DDD6',
+    backgroundColor: adminColors.border,
     marginHorizontal: 0,
   },
   stepperLineActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   stepHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   notCompletedBadge: {
-    backgroundColor: THEME.notCompletedBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   notCompletedBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.notCompletedText,
+    color: adminColors.muted,
   },
   outstandingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 8,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
     gap: 4,
+    ...adminShadow.sm,
   },
   outstandingTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   outstandingItem: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 18,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   summaryCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     gap: 14,
+    ...adminShadow.sm,
   },
   summaryGridRow: {
     flexDirection: 'row',
@@ -472,22 +448,22 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   summaryColLabel: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   summaryColValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   checklistCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 6,
+    ...adminShadow.sm,
   },
   checkRow: {
     flexDirection: 'row',
@@ -497,94 +473,87 @@ const styles = StyleSheet.create({
   },
   checkRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   checkLabel: {
-    fontSize: 12.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   checkLabelBold: {
     fontWeight: '800',
   },
   checkStatus: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   checklistFootnote: {
-    fontSize: 11,
-    color: THEME.muted,
-    marginTop: 8,
-    lineHeight: 15,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
   warningBox: {
-    backgroundColor: THEME.warningBg,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
+    backgroundColor: adminColors.brandTintWarm,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   warningText: {
-    fontSize: 12,
-    color: THEME.warningText,
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '600',
-    lineHeight: 17,
   },
   approveBtnDisabled: {
-    backgroundColor: THEME.disabledBtnBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   approveBtnTextDisabled: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.disabledBtnText,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   rejectBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.rejectRed,
-    borderRadius: 12,
+    borderColor: adminColors.danger.text,
+    borderRadius: adminRadius.md,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   rejectBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.rejectRed,
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
   reviewBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   reviewBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   prevBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   prevBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
 });

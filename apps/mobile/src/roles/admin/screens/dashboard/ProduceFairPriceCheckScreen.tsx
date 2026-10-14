@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,36 +9,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  orangeBorder: adminColors.brand,
-
-  // Badges
-  notCompletedBg: '#F3F4F6',
-  notCompletedText: '#4B5563',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -53,7 +28,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function CurrencyCheckIcon({ size = 34, color = '#4B5563' }: { size?: number; color?: string }) {
+function CurrencyCheckIcon({ size = 34, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -65,11 +40,11 @@ function CurrencyCheckIcon({ size = 34, color = '#4B5563' }: { size?: number; co
 }
 
 export interface ProduceFairPriceCheckScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
-  grade?: string;
-  fairPriceRange?: string;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  grade?: string | undefined;
+  fairPriceRange?: string | undefined;
   onBack: () => void;
   onPreviousStep: () => void;
   onContinue: () => void;
@@ -77,19 +52,21 @@ export interface ProduceFairPriceCheckScreenProps {
 }
 
 export function ProduceFairPriceCheckScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
-  grade = 'Grade 1',
-  fairPriceRange = 'Rs. 95-105/KG',
+  listingId,
+  cropName,
+  farmerName,
+  grade,
+  fairPriceRange,
   onBack,
   onPreviousStep,
   onContinue,
   onGoToStep,
 }: ProduceFairPriceCheckScreenProps) {
+  const subtitle = [listingId, cropName, farmerName].filter(Boolean).join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -98,15 +75,15 @@ export function ProduceFairPriceCheckScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceFairPriceCheck.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Produce Verification & Approval</Text>
+          <Text style={styles.headerTitle}>{t('produceFairPriceCheck.title')}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} · {farmerName}
-        </Text>
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {/* ─── Scroll Content ─── */}
@@ -116,7 +93,7 @@ export function ProduceFairPriceCheckScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Verification steps header */}
-        <Text style={styles.sectionTitle}>Verification steps</Text>
+        <Text style={styles.sectionTitle}>{t('produceFairPriceCheck.section.steps')}</Text>
 
         {/* Numbered Stepper Circles 1 to 6 (Step 5 active) */}
         <View style={styles.stepperRow}>
@@ -161,42 +138,42 @@ export function ProduceFairPriceCheckScreen({
 
         {/* Step Header & Status Badge */}
         <View style={styles.stepHeaderRow}>
-          <Text style={styles.stepHeaderTitle}>Step 5 of 6 · Fair Price Check</Text>
+          <Text style={styles.stepHeaderTitle}>{t('produceFairPriceCheck.stepHeader')}</Text>
           <View style={styles.notCompletedBadge}>
-            <Text style={styles.notCompletedBadgeText}>Not completed</Text>
+            <Text style={styles.notCompletedBadgeText}>{t('produceFairPriceCheck.notCompleted')}</Text>
           </View>
         </View>
 
         {/* Outstanding Card */}
         <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>Outstanding</Text>
+          <Text style={styles.outstandingTitle}>{t('produceFairPriceCheck.section.outstanding')}</Text>
           <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
           <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
           <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
           <Text style={styles.outstandingItem}>• and 2 more</Text>
         </View>
 
-        {/* Grade & Fair Price Reference Summary Card (Screenshot 4) */}
+        {/* Grade & Fair Price Reference Summary Card */}
         <View style={styles.priceSummaryCard}>
           <View style={styles.priceCol}>
-            <Text style={styles.priceColLabel}>Grade</Text>
-            <Text style={styles.priceColVal}>{grade}</Text>
+            <Text style={styles.priceColLabel}>{t('produceFairPriceCheck.label.grade')}</Text>
+            <Text style={styles.priceColVal}>{grade ?? ''}</Text>
           </View>
 
           <View style={styles.priceCol}>
-            <Text style={styles.priceColLabel}>Fair price reference</Text>
-            <Text style={styles.priceColVal}>{fairPriceRange}</Text>
+            <Text style={styles.priceColLabel}>{t('produceFairPriceCheck.label.reference')}</Text>
+            <Text style={styles.priceColVal}>{fairPriceRange ?? ''}</Text>
           </View>
         </View>
 
-        {/* Center Price Check Waiting Card (Exact from Screenshot 4) */}
+        {/* Center Price Check Waiting Card */}
         <View style={styles.waitingCard}>
           <View style={styles.waitingIconWrap}>
-            <CurrencyCheckIcon size={32} color="#4B5563" />
+            <CurrencyCheckIcon size={32} color={adminColors.muted} />
           </View>
-          <Text style={styles.waitingTitle}>Price check waiting</Text>
+          <Text style={styles.waitingTitle}>{t('produceFairPriceCheck.waitingTitle')}</Text>
           <Text style={styles.waitingSubtitle}>
-            Select a grade first; the price reference depends on the grade.
+            {t('produceFairPriceCheck.waitingSubtitle')}
           </Text>
         </View>
 
@@ -207,7 +184,7 @@ export function ProduceFairPriceCheckScreen({
             onPress={onPreviousStep}
             activeOpacity={0.8}
           >
-            <Text style={styles.prevStepBtnText}>Previous Step</Text>
+            <Text style={styles.prevStepBtnText}>{t('produceFairPriceCheck.action.prevStep')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -215,11 +192,11 @@ export function ProduceFairPriceCheckScreen({
             onPress={onContinue}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueStepBtnText}>Continue</Text>
+            <Text style={styles.continueStepBtnText}>{t('produceFairPriceCheck.action.continue')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,18 +205,18 @@ export function ProduceFairPriceCheckScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -248,200 +225,195 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginBottom: 14,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginBottom: adminSpacing.md,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
     paddingHorizontal: 2,
   },
   stepCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#E2DDD6',
-    backgroundColor: THEME.white,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     borderWidth: 2,
   },
   stepCircleText: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   stepCircleTextActive: {
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   stepperLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E2DDD6',
+    backgroundColor: adminColors.border,
     marginHorizontal: 0,
   },
   stepperLineActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   stepHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   notCompletedBadge: {
-    backgroundColor: THEME.notCompletedBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   notCompletedBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.notCompletedText,
+    color: adminColors.muted,
   },
   outstandingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
     gap: 4,
+    ...adminShadow.sm,
   },
   outstandingTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   outstandingItem: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 18,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   priceSummaryCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    ...adminShadow.sm,
   },
   priceCol: {
     flex: 1,
   },
   priceColLabel: {
-    fontSize: 11.5,
-    color: THEME.muted,
-    marginBottom: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   priceColVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   waitingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 36,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   waitingIconWrap: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
   waitingTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 6,
     textAlign: 'center',
   },
   waitingSubtitle: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     textAlign: 'center',
-    lineHeight: 17,
   },
   stepActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   prevStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   prevStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   continueStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

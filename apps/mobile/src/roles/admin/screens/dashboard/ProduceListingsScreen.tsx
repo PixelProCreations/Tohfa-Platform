@@ -1,7 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Modal,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,60 +10,17 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 import { ReviewProduceListingScreen } from './ReviewProduceListingScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
 import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
 import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  white: '#FFFFFF',
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: '#5C240E',
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Search input
-  inputBg: '#FFFFFF',
-  inputBorder: '#E5E7EB',
-  placeholderColor: '#9CA3AF',
-
-  // Filter Chips
-  filterActiveBg: adminColors.brand,
-  filterActiveText: '#FFFFFF',
-  filterInactiveBg: '#FFFFFF',
-  filterInactiveBorder: '#E5E7EB',
-  filterInactiveText: '#374151',
-
-  // Status Badge Colors (Image 2)
-  pendingBadgeBg: '#FEF3C7',
-  pendingBadgeText: '#D97706',
-  counterBadgeBg: '#E0F2FE',
-  counterBadgeText: '#0284C7',
-  approvedBadgeBg: '#DCFCE7',
-  approvedBadgeText: '#16A34A',
-  rejectedBadgeBg: '#FEE2E2',
-  rejectedBadgeText: '#DC2626',
-  restrictedBadgeBg: '#FEF3C7',
-  restrictedBadgeText: '#D97706',
-};
-
 // ─── Exact SVG Icons ──────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -79,8 +34,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-/** Exact Filter Sliders icon (Image 2 header & Image 3 modal) */
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="7" x2="20" y2="7" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -91,7 +45,7 @@ function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; 
   );
 }
 
-function SearchIcon({ size = 18, color = THEME.placeholderColor }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.placeholder }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -118,10 +72,9 @@ export interface ListingCardItem {
   isOwnListing?: boolean;
 }
 
-// ─── Mock Listings (Exact cards from Image 2 + comprehensive data) ─────────────
+// ─── Mock Listings ────────────────────────────────────────────────────────────
 
 const MOCK_LISTINGS: ListingCardItem[] = [
-  // Card 1 from Image 2
   {
     id: 'PL-001241',
     title: 'Tomato',
@@ -135,7 +88,6 @@ const MOCK_LISTINGS: ListingCardItem[] = [
     submittedTime: '29 Sep, 10:24 AM',
     zone: 'Coonoor',
   },
-  // Card 2 from Image 2
   {
     id: 'PL-001242',
     title: 'Beans',
@@ -147,7 +99,6 @@ const MOCK_LISTINGS: ListingCardItem[] = [
     farmerName: 'Kumar',
     zone: 'Ooty',
   },
-  // Card 3 from Image 2
   {
     id: 'PL-001243',
     title: 'Carrot',
@@ -159,7 +110,6 @@ const MOCK_LISTINGS: ListingCardItem[] = [
     farmerName: 'Selvi',
     zone: 'Ooty',
   },
-  // Card 4 from Image 2
   {
     id: 'PL-001244',
     title: 'Beans',
@@ -171,7 +121,6 @@ const MOCK_LISTINGS: ListingCardItem[] = [
     reason: 'Quality incomplete',
     zone: 'Coonoor',
   },
-  // Card 5 from Image 2
   {
     id: 'PL-001245',
     title: 'Your Listing — Tomato',
@@ -182,7 +131,6 @@ const MOCK_LISTINGS: ListingCardItem[] = [
     zone: 'Coonoor',
     isOwnListing: true,
   },
-  // Additional items to populate lists & filter variants
   {
     id: 'PL-001246',
     title: 'Tomato',
@@ -266,7 +214,7 @@ export function ProduceListingsScreen({
   const [detailsItem, setDetailsItem] = useState<ListingCardItem | null>(null);
   const [currentSubView, setCurrentSubView] = useState<'details' | 'review' | 'history' | 'farmer' | 'verification'>('details');
 
-  // Filters Popup Modal State (Image 3)
+  // Filters Popup Modal State
   const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Selected Filter States
@@ -324,7 +272,7 @@ export function ProduceListingsScreen({
     });
   }, [searchQuery, statusFilter, cropFilter, gradeFilter, zoneFilter]);
 
-  // If a listing is selected, handle details, review, history, and farmer profile sub-views
+  // If a listing is selected, handle sub-views
   if (detailsItem) {
     if (currentSubView === 'farmer') {
       return (
@@ -369,7 +317,6 @@ export function ProduceListingsScreen({
       );
     }
 
-    // Default: Produce Listing Details (Images 1, 2, 3)
     return (
       <ProduceListingDetailsScreen
         listingId={detailsItem.id}
@@ -388,7 +335,7 @@ export function ProduceListingsScreen({
   if (showFilterModal) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ─── Header ─── */}
         <View style={styles.header}>
@@ -397,24 +344,24 @@ export function ProduceListingsScreen({
               style={styles.backBtn}
               onPress={() => setShowFilterModal(false)}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('produceListings.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Filter Listings</Text>
+            <Text style={styles.headerTitle}>{t('produceListings.filterPage.title')}</Text>
             <View style={{ width: 36 }} />
           </View>
         </View>
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.filterPageCard}>
             {/* ─── 1. Status Filter ─── */}
-            <Text style={styles.filterCategoryLabel}>Status</Text>
+            <Text style={styles.filterCategoryLabel}>{t('produceListings.filterPage.status')}</Text>
             <View style={styles.chipsRow}>
               {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((opt) => {
                 const isActive = statusFilter === opt;
@@ -439,7 +386,9 @@ export function ProduceListingsScreen({
             </View>
 
             {/* ─── 2. Crop Filter ─── */}
-            <Text style={[styles.filterCategoryLabel, { marginTop: 16 }]}>Crop</Text>
+            <Text style={[styles.filterCategoryLabel, { marginTop: adminSpacing.lg }]}>
+              {t('produceListings.filterPage.crop')}
+            </Text>
             <View style={styles.chipsRow}>
               {(['All', 'Tomato', 'Carrot', 'Beans'] as const).map((opt) => {
                 const isActive = cropFilter === opt;
@@ -464,7 +413,9 @@ export function ProduceListingsScreen({
             </View>
 
             {/* ─── 3. Grade Filter ─── */}
-            <Text style={[styles.filterCategoryLabel, { marginTop: 16 }]}>Grade</Text>
+            <Text style={[styles.filterCategoryLabel, { marginTop: adminSpacing.lg }]}>
+              {t('produceListings.filterPage.grade')}
+            </Text>
             <View style={styles.chipsRow}>
               {(['All', 'Grade 1', 'Grade 2'] as const).map((opt) => {
                 const isActive = gradeFilter === opt;
@@ -489,7 +440,9 @@ export function ProduceListingsScreen({
             </View>
 
             {/* ─── 4. Zone Filter ─── */}
-            <Text style={[styles.filterCategoryLabel, { marginTop: 16 }]}>Zone</Text>
+            <Text style={[styles.filterCategoryLabel, { marginTop: adminSpacing.lg }]}>
+              {t('produceListings.filterPage.zone')}
+            </Text>
             <View style={styles.chipsRow}>
               {(['All', 'Coonoor', 'Ooty'] as const).map((opt) => {
                 const isActive = zoneFilter === opt;
@@ -526,7 +479,7 @@ export function ProduceListingsScreen({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.clearOutlineBtnText}>Clear All</Text>
+              <Text style={styles.clearOutlineBtnText}>{t('produceListings.filterPage.clearAll')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -534,7 +487,7 @@ export function ProduceListingsScreen({
               onPress={() => setShowFilterModal(false)}
               activeOpacity={0.85}
             >
-              <Text style={styles.applyOutlineBtnText}>Apply Filters</Text>
+              <Text style={styles.applyOutlineBtnText}>{t('produceListings.filterPage.apply')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -546,21 +499,21 @@ export function ProduceListingsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Produce Listings (Image 2) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceListings.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Produce Listings</Text>
+          <Text style={styles.headerTitle}>{t('produceListings.title')}</Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
@@ -568,7 +521,7 @@ export function ProduceListingsScreen({
             activeOpacity={0.8}
             accessibilityLabel="Open Filters"
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
@@ -579,23 +532,23 @@ export function ProduceListingsScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Counter Text (Image 2) */}
-        <Text style={styles.pendingCounterText}>24 Pending</Text>
+        {/* Counter Text */}
+        <Text style={styles.pendingCounterText}>{t('produceListings.pendingCounter')}</Text>
 
-        {/* Search Bar (Image 2) */}
+        {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color={THEME.placeholderColor} />
+          <SearchIcon size={18} color={adminColors.placeholder} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Listing ID, Farmer name/ID, Crop/product"
-            placeholderTextColor={THEME.placeholderColor}
+            placeholder={t('produceListings.searchPlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
           />
         </View>
 
-        {/* ─── Listing Cards List (Image 2) ─── */}
+        {/* ─── Listing Cards List ─── */}
         <View style={styles.cardsList}>
           {filteredListings.map((item) => (
             <TouchableOpacity
@@ -612,7 +565,6 @@ export function ProduceListingsScreen({
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
 
-                {/* Status Badges with Exact Colors from Image 2 */}
                 {item.status === 'Pending Review' && (
                   <View style={[styles.badge, styles.badgePending]}>
                     <Text style={[styles.badgeText, styles.badgeTextPending]}>Pending Review</Text>
@@ -640,13 +592,13 @@ export function ProduceListingsScreen({
                 )}
               </View>
 
-              {/* Row 2: Specs (Grade · Quantity · Price) */}
+              {/* Row 2: Specs */}
               <Text style={styles.cardSpecText}>
                 {item.grade} · {item.quantityKg} KG
                 {item.pricePerKg ? ` · ₹${item.pricePerKg}/KG` : ''}
               </Text>
 
-              {/* Thin Divider Line (Only if metadata exists) */}
+              {/* Thin Divider Line */}
               {(item.farmerName || item.reason) && <View style={styles.cardDivider} />}
 
               {/* Metadata: Farmer */}
@@ -668,7 +620,7 @@ export function ProduceListingsScreen({
                 </View>
               )}
 
-              {/* Metadata: Reason (for Rejected) */}
+              {/* Metadata: Reason */}
               {item.reason && (
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Reason:</Text>
@@ -685,20 +637,18 @@ export function ProduceListingsScreen({
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
@@ -714,16 +664,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   filterBtn: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: THEME.headerPillBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -733,17 +682,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // ─── Counter Text ───
   pendingCounterText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginBottom: 12,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
     letterSpacing: -0.2,
   },
 
@@ -752,31 +700,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: THEME.inputBg,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
 
   // ─── Listing Cards List ───
   cardsList: {
-    gap: 12,
+    gap: adminSpacing.md,
   },
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -785,19 +734,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   cardSpecText: {
-    fontSize: 12.5,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: THEME.borderLight,
+    backgroundColor: adminColors.border,
     marginVertical: 10,
   },
   metaRow: {
@@ -806,104 +754,69 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metaLabel: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   metaValue: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // ─── Badges ───
   badge: {
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgePending: {
-    backgroundColor: THEME.pendingBadgeBg,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeTextPending: {
-    color: THEME.pendingBadgeText,
+    color: adminColors.warning.text,
   },
   badgeCounter: {
-    backgroundColor: THEME.counterBadgeBg,
+    backgroundColor: adminColors.info.bg,
   },
   badgeTextCounter: {
-    color: THEME.counterBadgeText,
+    color: adminColors.info.text,
   },
   badgeApproved: {
-    backgroundColor: THEME.approvedBadgeBg,
+    backgroundColor: adminColors.success.bg,
   },
   badgeTextApproved: {
-    color: THEME.approvedBadgeText,
+    color: adminColors.success.text,
   },
   badgeRejected: {
-    backgroundColor: THEME.rejectedBadgeBg,
+    backgroundColor: adminColors.danger.bg,
   },
   badgeTextRejected: {
-    color: THEME.rejectedBadgeText,
+    color: adminColors.danger.text,
   },
   badgeRestricted: {
-    backgroundColor: THEME.restrictedBadgeBg,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeTextRestricted: {
-    color: THEME.restrictedBadgeText,
+    color: adminColors.warning.text,
   },
 
-  // ─── Filters Popup Modal (Image 3) ───
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 32,
-  },
   // ─── Filter Page Card ───
   filterPageCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     padding: 18,
     borderWidth: 1,
-    borderColor: THEME.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: 20,
-  },
-  modalCard: {
-    backgroundColor: THEME.canvas,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 22,
-    maxHeight: '90%',
-  },
-  filterHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 18,
-  },
-  filterHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
-    letterSpacing: -0.3,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    marginBottom: adminSpacing.lg,
   },
   filterCategoryLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 10,
     marginBottom: 10,
   },
@@ -914,31 +827,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   chip: {
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 9,
   },
   chipActive: {
-    backgroundColor: THEME.filterActiveBg,
+    backgroundColor: adminColors.brand,
   },
   chipInactive: {
-    backgroundColor: THEME.filterInactiveBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.filterInactiveBorder,
+    borderColor: adminColors.border,
   },
   chipText: {
-    fontSize: 12.5,
+    ...adminType.caption,
   },
   chipTextActive: {
-    color: THEME.filterActiveText,
+    color: adminColors.onBrand,
     fontWeight: '800',
   },
   chipTextInactive: {
-    color: THEME.filterInactiveText,
+    color: adminColors.ink,
     fontWeight: '700',
   },
 
-  // ─── Filter Bottom Actions (Image 3) ───
+  // ─── Filter Bottom Actions ───
   filterActionsRow: {
     flexDirection: 'row',
     gap: 14,
@@ -946,32 +859,28 @@ const styles = StyleSheet.create({
   },
   applyOutlineBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
-    borderWidth: 1.5,
-    borderColor: THEME.headerBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.xl,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   applyOutlineBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.headerBg,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   clearOutlineBtn: {
     flex: 1,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.border,
-    borderRadius: 16,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.xl,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearOutlineBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#4B5563',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
 });
