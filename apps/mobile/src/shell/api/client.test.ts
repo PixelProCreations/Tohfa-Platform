@@ -12,7 +12,7 @@
  * roles/farmer/tests/token_refresh.test.ts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NetworkError, request, setAccessToken } from './client';
+import { ApiError, NetworkError, configureTokenStorage, request, setAccessToken } from './client';
 
 type FetchArgs = [RequestInfo | URL, RequestInit | undefined];
 
@@ -132,4 +132,109 @@ describe('request() without timeoutMs (existing callers unchanged)', () => {
     caller.abort();
     await expect(pending).rejects.toBeInstanceOf(NetworkError);
   });
+});
+
+/**
+ * request(): which endpoints skip the refresh-and-retry-on-401 path.
+ *
+ * A 401 normally means "your access token expired": the client refreshes once and resends.
+ * For an auth endpoint a 401 means something else -- bad credentials, a bad OTP, a bad
+ * refresh token -- and resending only repeats the failure. `POST /auth/me/change-password`
+ * answers a wrong CURRENT password with 401 too; treating that as an expired token silently
+ * resent the same wrong password (two strikes against the rate limiter for one typo) and could
+ * sign the user out if the refresh then failed.
+ */
+describe('request() 401 refresh-and-retry exclusions', () => {
+  const unauthorized = () =>
+    new Response(
+      JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401, code: 'UNAUTHORIZED' }),
+      { status: 401, headers: { 'Content-Type': 'application/problem+json' } },
+    );
+
+  function memoryStore() {
+    let tokens: { accessToken: string; refreshToken: string } | null = {
+      accessToken: 'old-access',
+      refreshToken: 'refresh-1',
+    };
+    return {
+      getTokens: async () => tokens,
+      setTokens: async (next: { accessToken: string; refreshToken: string }) => {
+        tokens = next;
+      },
+      clearTokens: async () => {
+        tokens = null;
+      },
+    };
+  }
+
+  /** 401s every call made with the old token; the refresh itself succeeds. */
+  function refreshingFetch() {
+    return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith('/v1/auth/refresh') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ accessToken: 'new-access', refreshToken: 'refresh-2' }), {
+          status: 200,
+        });
+      }
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (headers['Authorization'] === 'Bearer new-access') {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return unauthorized();
+    });
+  }
+
+  const refreshCalls = (fetchMock: ReturnType<typeof refreshingFetch>) =>
+    fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/v1/auth/refresh')).length;
+
+  beforeEach(() => {
+    vi.useRealTimers();
+    configureTokenStorage(memoryStore());
+    setAccessToken('old-access');
+  });
+
+  afterEach(() => {
+    configureTokenStorage(null);
+    setAccessToken(null);
+  });
+
+  it('does not refresh-and-resend when a wrong current password on /auth/me/change-password returns 401', async () => {
+    const fetchMock = refreshingFetch();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      request('/auth/me/change-password', {
+        method: 'POST',
+        body: { currentPassword: 'typo', newPassword: 'Str0ng!Passw0rd' },
+      }),
+    ).rejects.toBeInstanceOf(ApiError);
+
+    // Exactly one attempt: no refresh, and the wrong password was not sent a second time.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(refreshCalls(fetchMock)).toBe(0);
+  });
+
+  it.each(['/auth/login', '/auth/refresh', '/auth/otp/verify'])(
+    'still excludes the original auth endpoint %s from refresh-and-retry',
+    async (path) => {
+      // Always 401, so a refresh attempt (were one made) would show up as a second call.
+      const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => unauthorized());
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(request(path, { method: 'POST', body: {} })).rejects.toBeInstanceOf(ApiError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['/auth/me', '/auth/me/sessions', '/admin/orders'])(
+    'still refreshes once and retries a 401 from the ordinary endpoint %s',
+    async (path) => {
+      const fetchMock = refreshingFetch();
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(request(path)).resolves.toEqual({ ok: true });
+      expect(refreshCalls(fetchMock)).toBe(1);
+      // the original 401, the refresh, and the successful retry
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    },
+  );
 });
