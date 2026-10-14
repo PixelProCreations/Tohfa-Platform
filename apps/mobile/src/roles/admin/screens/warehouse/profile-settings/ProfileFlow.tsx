@@ -39,6 +39,7 @@ import { SessionSecurityScreen } from './SessionSecurityScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { StorageInfoScreen } from './StorageInfoScreen';
 import { UserProfileScreen } from './UserProfileScreen';
+import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
@@ -171,7 +172,16 @@ export function ProfileFlow({
     case 'About':
       return <AboutScreen {...common} />;
     case 'WarehouseProfile':
-      return <WarehouseInfoScreen {...common} {...selection} onOpen={navigate} />;
+      return (
+        <WarehouseInfoScreen
+          {...common}
+          {...selection}
+          onOpen={navigate}
+          onEdit={() => navigate('WarehouseEditProfile')}
+        />
+      );
+    case 'WarehouseEditProfile':
+      return <WarehouseEditProfileScreen {...common} {...selection} />;
     case 'StorageInfo':
       return <StorageInfoScreen {...common} {...selection} onSelectLocation={onSelectStorageLocation} />;
     case 'OperatingInfo':

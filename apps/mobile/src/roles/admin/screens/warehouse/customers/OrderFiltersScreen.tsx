@@ -166,6 +166,17 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
   const [paymentStatus, setPaymentStatus] = useState<string>(
     props.config === 'order' ? props.initialFilters?.paymentStatus ?? 'All' : 'All'
   );
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    props.initialFilters?.warehouseId
+  );
+
+  const warehouseList = [
+    { id: undefined, name: 'All' },
+    { id: 'WH-COON', name: 'Coonoor' },
+    { id: 'WH-OOTY', name: 'Ooty' },
+    { id: 'WH-KOTA', name: 'Kotagiri' },
+    { id: 'WH-GUDA', name: 'Gudalur' },
+  ];
 
   const clearAll = () => {
     setSearchQuery('');
@@ -174,6 +185,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
     setChannel('Online');
     setDatePreset('Today');
     setPaymentStatus('All');
+    setSelectedWarehouseId(undefined);
   };
 
   const apply = () => {
@@ -187,6 +199,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
         channel: channel as any,
         datePreset: datePreset as any,
         paymentStatus: paymentStatus as any,
+        warehouseId: selectedWarehouseId,
       });
     } else {
       props.onApplyFilters({
@@ -352,7 +365,26 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
           })}
         </View>
 
-
+        {/* Warehouse */}
+        <View style={styles.sectionHeadRow}>
+          <StoreIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Warehouse</Text>
+        </View>
+        <View style={styles.chipWrap}>
+          {warehouseList.map((wh) => {
+            const active = wh.id === selectedWarehouseId;
+            return (
+              <TouchableOpacity
+                key={wh.id ?? 'all'}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setSelectedWarehouseId(wh.id)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{wh.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </ScrollView>
 
       {/* Footer */}

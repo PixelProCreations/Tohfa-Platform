@@ -61,7 +61,14 @@ function FlagIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-
+function LockIcon({ size = 18, color = '#9A3412' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -77,16 +84,33 @@ function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
   );
 }
 
+function BuildingWarehouseIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export type HistoryDateRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
+export const DATE_RANGE_OPTIONS: readonly HistoryDateRange[] = ['Today', '7 Days', '30 Days', 'This Month'];
+
 export interface StaffFilterValues {
   searchQuery: string;
   role: 'All' | 'Warehouse Staff' | 'Driver';
   attendance: 'All' | 'Present' | 'Absent' | 'On Leave';
   status: 'All' | 'Active' | 'Inactive';
+  warehouseId?: string | undefined;
+  dateRange?: HistoryDateRange | undefined;
 }
 
 export interface StaffFiltersScreenProps {
   initialFilters: StaffFilterValues;
   warehouseName?: string | undefined;
+  showWarehouseSelector?: boolean | undefined;
+  showDateRangeFilter?: boolean | undefined;
+  warehouses?: readonly { id: string; name: string }[] | undefined;
   onBack: () => void;
   onApply: (filters: StaffFilterValues) => void;
 }
@@ -95,9 +119,20 @@ const ROLE_OPTIONS = ['All', 'Warehouse Staff', 'Driver'] as const;
 const ATTENDANCE_OPTIONS = ['All', 'Present', 'Absent', 'On Leave'] as const;
 const STATUS_OPTIONS = ['All', 'Active', 'Inactive'] as const;
 
+export const DEFAULT_WAREHOUSE_OPTIONS = [
+  { id: 'ALL', name: 'All Warehouses' },
+  { id: 'WH-COON', name: 'Coonoor Warehouse' },
+  { id: 'WH-OOTY', name: 'Ooty Warehouse' },
+  { id: 'WH-KTYM', name: 'Kotagiri Warehouse' },
+  { id: 'WH-METP', name: 'Mettupalayam Warehouse' },
+];
+
 export function StaffFiltersScreen({
   initialFilters,
-  warehouseName: _warehouseName = 'Coonoor Warehouse',
+  warehouseName = 'Coonoor Warehouse',
+  showWarehouseSelector = false,
+  showDateRangeFilter = false,
+  warehouses = DEFAULT_WAREHOUSE_OPTIONS,
   onBack,
   onApply,
 }: StaffFiltersScreenProps) {
@@ -105,12 +140,16 @@ export function StaffFiltersScreen({
   const [role, setRole] = useState(initialFilters.role);
   const [attendance, setAttendance] = useState(initialFilters.attendance);
   const [status, setStatus] = useState(initialFilters.status);
+  const [dateRange, setDateRange] = useState<HistoryDateRange>(initialFilters.dateRange ?? 'This Month');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(initialFilters.warehouseId ?? 'ALL');
 
   const clearAll = () => {
     setSearchQuery('');
     setRole('All');
     setAttendance('All');
     setStatus('All');
+    setDateRange('This Month');
+    setSelectedWarehouse('ALL');
   };
 
   const handleApply = () => {
@@ -119,6 +158,8 @@ export function StaffFiltersScreen({
       role,
       attendance,
       status,
+      dateRange: showDateRangeFilter ? dateRange : undefined,
+      warehouseId: selectedWarehouse === 'ALL' ? undefined : selectedWarehouse,
     });
   };
 
@@ -232,7 +273,65 @@ export function StaffFiltersScreen({
           })}
         </View>
 
+        {/* Date Range (shown only for Attendance History screen) */}
+        {showDateRangeFilter ? (
+          <>
+            <View style={styles.sectionHeadRow}>
+              <CalendarIcon size={17} color="#1E293B" />
+              <Text style={styles.sectionTitle}>Date Range</Text>
+            </View>
+            <View style={styles.chipWrap}>
+              {DATE_RANGE_OPTIONS.map((item) => {
+                const active = item === dateRange;
+                return (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setDateRange(item)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
+        {/* Warehouse Selector (shown when All Warehouses is selected on previous screen) */}
+        {showWarehouseSelector ? (
+          <>
+            <View style={styles.sectionHeadRow}>
+              <BuildingWarehouseIcon size={18} color="#1E293B" />
+              <Text style={styles.sectionTitle}>Warehouse</Text>
+            </View>
+            <View style={styles.chipWrap}>
+              {warehouses.map((w) => {
+                const active = w.id === selectedWarehouse;
+                return (
+                  <TouchableOpacity
+                    key={w.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setSelectedWarehouse(w.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{w.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        {/* Scoped Warehouse Lock Note (Orange) - only when a specific warehouse is scoped */}
+        {!showWarehouseSelector && warehouseName ? (
+          <View style={styles.orangeNote}>
+            <LockIcon size={18} color="#9A3412" />
+            <Text style={styles.orangeNoteText}>
+              No warehouse selector — results always scoped to {warehouseName}.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Footer Apply Button */}
@@ -340,6 +439,25 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#F0562A',
+  },
+
+  orangeNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 24,
+  },
+  orangeNoteText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9A3412',
+    lineHeight: 18,
   },
 
   footer: {

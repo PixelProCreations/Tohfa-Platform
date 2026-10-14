@@ -430,6 +430,10 @@ export function BillingToast({
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     if (visible) {
@@ -459,24 +463,22 @@ export function BillingToast({
         }),
       ]).start();
 
-      if (onDismiss) {
-        timerRef.current = setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(opacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: -8,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            onDismiss();
-          });
-        }, duration);
-      }
+      timerRef.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: -8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          onDismissRef.current?.();
+        });
+      }, duration);
     } else {
       if (timerRef.current) clearTimeout(timerRef.current);
     }
@@ -484,7 +486,7 @@ export function BillingToast({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [visible, duration, onDismiss, opacity, scale, translateY]);
+  }, [visible, duration, opacity, scale, translateY]);
 
   if (!visible) return null;
 

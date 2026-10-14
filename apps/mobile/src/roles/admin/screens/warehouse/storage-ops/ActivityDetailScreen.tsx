@@ -75,9 +75,6 @@ export function ActivityDetailScreen({ scope, onBack, activityId, activities = A
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.titleRow}>
-          <View style={styles.iconBox}>
-            <ActivityCategoryIcon category={activity.category} size={20} />
-          </View>
           <Text style={styles.title}>{activity.title}</Text>
           <StatusBadge label={activity.status} tone={ACTIVITY_STATUS_TONE[activity.status] ?? 'info'} />
         </View>

@@ -25,6 +25,7 @@ import { ApprovalAlertsScreen } from './ApprovalAlertsScreen';
 import { defaultNotifications, NOTIFICATION_WAREHOUSES } from './fixtures';
 import { NotificationDetailScreen } from './NotificationDetailScreen';
 import { NotificationsScreen } from './NotificationsScreen';
+import { NotificationSettingsScreen } from '../profile-settings/NotificationSettingsScreen';
 import type {
   ApprovalAlertItem,
   NotificationItem,
@@ -137,6 +138,7 @@ export function NotificationsFlow({
           onSelectNotification={(item) => navigate('NotificationDetail', { notification: item })}
           onOpenTarget={onOpenTarget}
           onOpenAlerts={() => navigate('ApprovalAlerts')}
+          onOpenSettings={() => navigate('NotificationSettings')}
         />
       );
     case 'NotificationDetail':
@@ -148,6 +150,12 @@ export function NotificationsFlow({
           alerts={alerts}
           warehouseOptions={warehouseOptions}
           onOpenRecord={onOpenAlertRecord}
+        />
+      );
+    case 'NotificationSettings':
+      return (
+        <NotificationSettingsScreen
+          {...common}
         />
       );
     default:

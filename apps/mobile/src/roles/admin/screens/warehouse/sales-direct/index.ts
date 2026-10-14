@@ -10,6 +10,7 @@ export { SelectCustomerScreen, type SelectCustomerScreenProps } from './SelectCu
 export { PaymentScreen, type PaymentScreenProps } from './PaymentScreen';
 export { SaleConfirmationScreen, type SaleConfirmationScreenProps } from './SaleConfirmationScreen';
 export { SalesHistoryScreen, type SalesHistoryScreenProps } from './SalesHistoryScreen';
+export { SalesFiltersScreen, type SalesFiltersScreenProps, type SalesFilterState } from './SalesFiltersScreen';
 export { SaleDetailScreen, type SaleDetailScreenProps } from './SaleDetailScreen';
 export { MarketDaySalesScreen, type MarketDaySalesScreenProps } from './MarketDaySalesScreen';
 export { ChannelSalesScreen, type ChannelSalesScreenProps } from './ChannelSalesScreen';

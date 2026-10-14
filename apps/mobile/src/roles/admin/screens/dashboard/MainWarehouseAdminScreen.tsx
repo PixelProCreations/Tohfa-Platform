@@ -18,7 +18,6 @@ import { MainWarehouseListScreen, type WarehouseListItem } from './MainWarehouse
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 import { MainWarehouseAddScreen, type AddedWarehouseData } from './MainWarehouseAddScreen';
 import { MainWarehouseManageSWAsScreen } from './MainWarehouseManageSWAsScreen';
-import { MainWarehouseCapacityScreen } from './MainWarehouseCapacityScreen';
 import { NotificationsScreen } from '../warehouse/notifications/NotificationsScreen';
 import { NotificationSettingsScreen } from '../warehouse/profile-settings/NotificationSettingsScreen';
 import { defaultNotifications } from '../warehouse/notifications/fixtures';
@@ -97,36 +96,6 @@ function WarehouseListIcon({ size = 24, color = adminColors.brand }: { size?: nu
   );
 }
 
-function CapacityIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 4a9 9 0 0 0-9 9c0 2.2.8 4.2 2.1 5.8h13.8A8.96 8.96 0 0 0 21 13a9 9 0 0 0-9-9z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 13l3.5-3.5"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="13" r="1.5" fill={color} />
-    </Svg>
-  );
-}
-
-function WarningIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 9v4M12 17h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function NoSWaIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
@@ -165,7 +134,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
   const [showManageSWAs, setShowManageSWAs] = useState(false);
   const [manageSWAView, setManageSWAView] = useState<'list' | 'detail'>('list');
   const [manageSWAAdminId, setManageSWAAdminId] = useState<string | undefined>(undefined);
-  const [showCapacity, setShowCapacity] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [notificationsList, setNotificationsList] = useState<readonly NotificationItem[]>(() => defaultNotifications(MAIN_SCOPE));
@@ -220,10 +188,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
 
   if (selectedWarehouse) {
     return <MainWarehouseDetailScreen onBack={() => setSelectedWarehouse(null)} warehouse={selectedWarehouse} />;
-  }
-
-  if (showCapacity) {
-    return <MainWarehouseCapacityScreen onBack={() => setShowCapacity(false)} warehouseName="Gudalur Market" />;
   }
 
   if (showManageSWAs) {
@@ -350,17 +314,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
 
           <Text style={styles.sectionTitle}>Needs Attention</Text>
           <TouchableOpacity
-            style={[styles.attentionCard, styles.attentionCardWarning]}
-            activeOpacity={0.8}
-            onPress={() => setShowCapacity(true)}
-          >
-            <View style={styles.attentionIcon}><WarningIcon /></View>
-            <View style={styles.attentionTextWrap}>
-              <Text style={styles.attentionTitle}>Gudalur Market nearing capacity</Text>
-              <Text style={styles.attentionDesc}>81% utilization</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.attentionCard, styles.attentionCardDanger]}
             activeOpacity={0.8}
             onPress={() => {
@@ -397,10 +350,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
             <TouchableOpacity style={styles.actionCard} onPress={() => setShowList(true)} activeOpacity={0.8}>
               <View style={styles.actionIconWrap}><WarehouseListIcon /></View>
               <Text style={styles.actionLabel}>Warehouse List</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} onPress={() => setShowCapacity(true)} activeOpacity={0.8}>
-              <View style={styles.actionIconWrap}><CapacityIcon /></View>
-              <Text style={styles.actionLabel}>Capacity</Text>
             </TouchableOpacity>
           </View>
           <View style={{ height: adminSpacing.lg }} />

@@ -118,6 +118,7 @@ export type ProfileRoute =
   | 'HelpSupport'
   | 'About'
   | 'WarehouseProfile'
+  | 'WarehouseEditProfile'
   | 'StorageInfo'
   | 'OperatingInfo'
   | 'Contact'

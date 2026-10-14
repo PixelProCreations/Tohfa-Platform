@@ -32,7 +32,9 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { WarehouseSelector } from '../inventory';
 import {
+  BellRingIcon,
   HeaderIconButton,
   InfoNote,
   isAllWarehouses,
@@ -62,6 +64,7 @@ import {
   scopeLabel,
   type FinanceAction,
 } from './FinanceParts';
+import { FINANCE_WAREHOUSES } from './fixtures';
 import type { FinanceRoute, PermissionCheck, WarehouseScreenBaseProps } from './types';
 
 type TrendTab = 'Revenue' | 'Expenses' | 'Net';
@@ -104,7 +107,7 @@ export function canOpenFinanceRoute(can: PermissionCheck, route: FinanceRoute): 
 
 export interface FinanceHubScreenProps extends WarehouseScreenBaseProps {
   /** Open a finance route (FinanceFlow pushes it). */
-  onOpen: (route: FinanceRoute) => void;
+  onOpen: (route: FinanceRoute, warehouseId?: string | undefined) => void;
   /** Open the wallet & cash top-up module; without it the Wallet action is not shown. */
   onOpenWallet?: (() => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
@@ -120,6 +123,7 @@ export function FinanceHubScreen({
   onNavigateToNotifications,
 }: FinanceHubScreenProps) {
   const [trendTab, setTrendTab] = useState<TrendTab>('Revenue');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
   if (!can(FINANCE_CODES.dashboard)) {
     return (
@@ -134,37 +138,121 @@ export function FinanceHubScreen({
   const isMain = isAllWarehouses(scope);
   const allowed = (route: FinanceRoute) => canOpenFinanceRoute(can, route);
   /** onPress for a tappable tile: undefined (not tappable) when the viewer may not open it. */
-  const opener = (route: FinanceRoute) => (allowed(route) ? () => onOpen(route) : undefined);
+  const opener = (route: FinanceRoute) =>
+    allowed(route) ? () => onOpen(route, selectedWarehouseId) : undefined;
 
   const iconColor = adminColors.brandDeep;
   const candidates: (FinanceAction & { route?: FinanceRoute })[] = [
-    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: <PlusCircleIcon color={iconColor} />, onPress: () => onOpen('AddExpense') },
-    { key: 'revenue', route: 'Revenue', label: isMain ? 'Revenue' : 'View Revenue', icon: <TrendUpIcon color={iconColor} />, onPress: () => onOpen('Revenue') },
-    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: <ListDocIcon color={iconColor} />, onPress: () => onOpen('Expenses') },
-    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: <GridIcon color={iconColor} />, onPress: () => onOpen('ExpenseCategories') },
-    { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon color={iconColor} />, onPress: () => onOpen('Vouchers') },
-    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash') },
-    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory') },
-    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon color={iconColor} />, onPress: () => onOpen('FinanceReports') },
+    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: <PlusCircleIcon color={iconColor} />, onPress: () => onOpen('AddExpense', selectedWarehouseId) },
+    { key: 'revenue', route: 'Revenue', label: isMain ? 'Revenue' : 'View Revenue', icon: <TrendUpIcon color={iconColor} />, onPress: () => onOpen('Revenue', selectedWarehouseId) },
+    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: <ListDocIcon color={iconColor} />, onPress: () => onOpen('Expenses', selectedWarehouseId) },
+    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: <GridIcon color={iconColor} />, onPress: () => onOpen('ExpenseCategories', selectedWarehouseId) },
+    { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon color={iconColor} />, onPress: () => onOpen('Vouchers', selectedWarehouseId) },
+    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash', selectedWarehouseId) },
+    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory', selectedWarehouseId) },
+    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon color={iconColor} />, onPress: () => onOpen('FinanceReports', selectedWarehouseId) },
   ];
-  if (onOpenWallet && can(FINANCE_CODES.cashTopUp)) {
-    candidates.push({ key: 'wallet', label: 'Wallet', icon: <WalletIcon color={iconColor} />, onPress: onOpenWallet });
-  }
-  // Sub's hub led with 6 quick actions; Main's grid has full set.
+  // Sub's hub led with 6 quick actions; Main's grid has 8 quick actions (wallet quick action removed).
   const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history', 'reports'];
-  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports', 'wallet'];
+  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports'];
   const order = isMain ? MAIN_ORDER : SUB_ORDER;
   const actions = candidates
     .filter((a) => (isMain ? true : SUB_ORDER.includes(a.key)))
     .filter((a) => a.route === undefined || allowed(a.route))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
+  // Per-warehouse calculations for Main Warehouse
+  const WAREHOUSE_FINANCE_METRICS: Record<
+    string,
+    {
+      revenue: string;
+      expenses: string;
+      net: string;
+      cashBalance: string;
+      revenueBreakdown: { direct: string; orders: string; other: string; total: string };
+      expenseBreakdown: { label: string; value: string }[];
+      totalExpenses: string;
+    }
+  > = {
+    All: {
+      revenue: '₹24,850',
+      expenses: '₹6,420',
+      net: '₹18,430',
+      cashBalance: '₹22,080',
+      revenueBreakdown: { direct: '₹9,850', orders: '₹12,400', other: '₹2,600', total: '₹24,850' },
+      expenseBreakdown: [
+        { label: 'Transport', value: '₹2,400' },
+        { label: 'Loading / Unloading', value: '₹1,800' },
+        { label: 'Warehouse Operations', value: '₹1,200' },
+        { label: 'Utilities', value: '₹620' },
+        { label: 'Maintenance', value: '₹400' },
+      ],
+      totalExpenses: '₹6,420',
+    },
+    'WH-OOTY': {
+      revenue: '₹10,800',
+      expenses: '₹2,400',
+      net: '₹8,400',
+      cashBalance: '₹9,500',
+      revenueBreakdown: { direct: '₹4,200', orders: '₹6,600', other: '₹0', total: '₹10,800' },
+      expenseBreakdown: [
+        { label: 'Transport', value: '₹1,200' },
+        { label: 'Loading / Unloading', value: '₹700' },
+        { label: 'Utilities', value: '₹500' },
+      ],
+      totalExpenses: '₹2,400',
+    },
+    'WH-COON': {
+      revenue: '₹8,200',
+      expenses: '₹2,420',
+      net: '₹5,780',
+      cashBalance: '₹7,180',
+      revenueBreakdown: { direct: '₹6,300', orders: '₹1,900', other: '₹0', total: '₹8,200' },
+      expenseBreakdown: [
+        { label: 'Transport', value: '₹1,200' },
+        { label: 'Loading / Unloading', value: '₹600' },
+        { label: 'Utilities', value: '₹620' },
+      ],
+      totalExpenses: '₹2,420',
+    },
+    'WH-KOTA': {
+      revenue: '₹2,600',
+      expenses: '₹800',
+      net: '₹1,800',
+      cashBalance: '₹3,000',
+      revenueBreakdown: { direct: '₹0', orders: '₹0', other: '₹2,600', total: '₹2,600' },
+      expenseBreakdown: [
+        { label: 'Warehouse Operations', value: '₹500' },
+        { label: 'Maintenance', value: '₹300' },
+      ],
+      totalExpenses: '₹800',
+    },
+    'WH-GUDA': {
+      revenue: '₹3,250',
+      expenses: '₹800',
+      net: '₹2,450',
+      cashBalance: '₹2,400',
+      revenueBreakdown: { direct: '₹3,250', orders: '₹0', other: '₹0', total: '₹3,250' },
+      expenseBreakdown: [
+        { label: 'Loading / Unloading', value: '₹500' },
+        { label: 'Maintenance', value: '₹100' },
+        { label: 'Utilities', value: '₹200' },
+      ],
+      totalExpenses: '₹800',
+    },
+  };
+
+  const DEFAULT_METRICS = WAREHOUSE_FINANCE_METRICS.All!;
+  const selectedMetrics =
+    (selectedWarehouseId && WAREHOUSE_FINANCE_METRICS[selectedWarehouseId]) ||
+    DEFAULT_METRICS;
+
   const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; delta?: string }[] = isMain
     ? [
-        { label: 'REVENUE', value: '₹24,850', route: 'Revenue' },
-        { label: 'EXPENSES', value: '₹6,420', route: 'Expenses' },
-        { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
-        { label: 'CASH BALANCE', value: '₹22,080' },
+        { label: 'REVENUE', value: selectedMetrics.revenue, route: 'Revenue' },
+        { label: 'EXPENSES', value: selectedMetrics.expenses, route: 'Expenses' },
+        { label: 'NET MOVEMENT', value: selectedMetrics.net, tone: 'success' },
+        { label: 'CASH BALANCE', value: selectedMetrics.cashBalance },
       ]
     : [
         { label: "TODAY'S REVENUE", value: '₹24,850', route: 'Revenue', delta: '↑ 8.4% vs yesterday' },
@@ -175,13 +263,19 @@ export function FinanceHubScreen({
         { label: 'CASH OUT', value: '₹6,420', route: 'Expenses' },
       ];
 
-  const expenseRows = [
-    { label: 'Transport', value: '₹2,400' },
-    { label: 'Loading / Unloading', value: '₹1,800' },
-    { label: 'Warehouse Operations', value: '₹1,200' },
-    { label: 'Utilities', value: '₹620' },
-    { label: 'Maintenance', value: '₹400' },
-  ];
+  const expenseRows = isMain
+    ? selectedMetrics.expenseBreakdown
+    : [
+        { label: 'Transport', value: '₹2,400' },
+        { label: 'Loading / Unloading', value: '₹1,800' },
+        { label: 'Warehouse Operations', value: '₹1,200' },
+        { label: 'Utilities', value: '₹620' },
+        { label: 'Maintenance', value: '₹400' },
+      ];
+
+  const revenueBreakdown = isMain
+    ? selectedMetrics.revenueBreakdown
+    : { direct: '₹9,850', orders: '₹12,400', other: '₹2,600', total: '₹24,850' };
 
   const revenuePress = opener('Revenue');
   const expensesPress = opener('Expenses');
@@ -201,35 +295,31 @@ export function FinanceHubScreen({
             else Alert.alert('Notifications', '3 unread finance notifications.');
           }}
         >
-          <BellIcon />
+          <BellRingIcon size={20} color={adminColors.onBrand} />
         </HeaderIconButton>
       }
-      headerExtra={<ScopeHeader scope={scope} label={isMain ? 'All Warehouses' : `${scopeLabel(scope)} · Today ▾`} />}
-      footer={!isMain && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab="More" /> : undefined}
+      headerExtra={
+        isMain ? (
+          <WarehouseSelector
+            scope={scope}
+            options={FINANCE_WAREHOUSES}
+            selectedId={selectedWarehouseId}
+            onSelect={setSelectedWarehouseId}
+          />
+        ) : (
+          <ScopeHeader scope={scope} label={`${scopeLabel(scope)} · Today`} />
+        )
+      }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => {
-            const onPress = kpi.route ? opener(kpi.route) : undefined;
-            return onPress ? (
-              <TouchableOpacity
-                key={kpi.label}
-                style={styles.kpiCard}
-                onPress={onPress}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.kpiLabel}>{kpi.label}</Text>
-                <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
-                {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
-              </TouchableOpacity>
-            ) : (
-              <View key={kpi.label} style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>{kpi.label}</Text>
-                <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
-                {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
-              </View>
-            );
-          })}
+          {kpis.map((kpi) => (
+            <View key={kpi.label} style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>{kpi.label}</Text>
+              <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
+              {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
+            </View>
+          ))}
         </View>
 
         {isMain && actions.length > 0 ? (
@@ -243,10 +333,10 @@ export function FinanceHubScreen({
           <>
             <Text style={styles.sectionHeading}>Revenue Breakdown</Text>
             <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
-              <TableRow label="Direct / Market Sales" value="₹9,850" />
-              <TableRow label="Customer Orders" value="₹12,400" divider />
-              <TableRow label="Other channels" value="₹2,600" divider />
-              <TableRow label="Total Revenue" value="₹24,850" total divider />
+              <TableRow label="Direct / Market Sales" value={revenueBreakdown.direct} />
+              <TableRow label="Customer Orders" value={revenueBreakdown.orders} divider />
+              <TableRow label="Other channels" value={revenueBreakdown.other} divider />
+              <TableRow label="Total Revenue" value={revenueBreakdown.total} total divider />
             </TouchableOpacity>
           </>
         ) : null}
@@ -258,7 +348,7 @@ export function FinanceHubScreen({
               {expenseRows.map((row, index) => (
                 <TableRow key={row.label} label={row.label} value={row.value} divider={index > 0} />
               ))}
-              <TableRow label="Total Expenses" value="₹6,420" total divider />
+              <TableRow label="Total Expenses" value={isMain ? selectedMetrics.totalExpenses : '₹6,420'} total divider />
             </TouchableOpacity>
 
             {isMain ? (

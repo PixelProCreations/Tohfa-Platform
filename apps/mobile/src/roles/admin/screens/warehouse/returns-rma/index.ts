@@ -11,6 +11,7 @@ export { ReturnApprovedScreen, type ReturnApprovedScreenProps } from './ReturnAp
 export { ReturnHistoryDetailScreen, type ReturnHistoryDetailScreenProps } from './ReturnHistoryDetailScreen';
 export { ReturnHistoryScreen, type ReturnHistoryScreenProps } from './ReturnHistoryScreen';
 export { ReturnsIssuesScreen, type ReturnsIssuesScreenProps } from './ReturnsIssuesScreen';
+export { ReturnsFiltersScreen, type ReturnsFiltersScreenProps, type RmaFilterValues, type RmaFilterStatus, type RmaFilterDate, type RmaFilterReason, type RmaFilterRefundMethod } from './ReturnsFiltersScreen';
 export { ReviewReturnRequestScreen, type ReviewReturnRequestScreenProps } from './ReviewReturnRequestScreen';
 export { RmaDetailScreen, type RmaDetailScreenProps } from './RmaDetailScreen';
 export { ReturnsFlow, type ReturnsFlowProps, type ReturnsStackEntry } from './ReturnsFlow';

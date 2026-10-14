@@ -20,7 +20,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CASH_BREAKDOWN, SAMPLE_DATE, TOP_UP_HISTORY } from './fixtures';
-import type { TopUpHistoryRow, WarehouseScreenBaseProps } from './types';
+import type { TopUpHistoryRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
   ArrowDownIcon,
@@ -45,6 +45,8 @@ import {
 export interface DailyCashSummaryScreenProps extends WarehouseScreenBaseProps {
   date?: string | undefined;
   rows?: readonly TopUpHistoryRow[] | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
+  initialWarehouseId?: string | undefined;
   onViewTopUpHistory?: (() => void) | undefined;
   /** Open the full daily cash ledger (DailyCashScreen). */
   onNavigateToDailyCash?: (() => void) | undefined;
@@ -60,24 +62,27 @@ export function DailyCashSummaryScreen({
   onTabChange,
   date = SAMPLE_DATE,
   rows = TOP_UP_HISTORY,
+  warehouseOptions,
+  initialWarehouseId,
   onViewTopUpHistory,
   onNavigateToDailyCash,
 }: DailyCashSummaryScreenProps) {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const [physicalCount, setPhysicalCount] = useState(String(SYSTEM_CASH));
   const allWarehouses = isAllWarehouses(scope);
   const canTopUps = can('wallet.cash_topup.process');
 
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
   const variance = parsedPhysical - SYSTEM_CASH;
-  const todaysTopUps = rows.filter((row) => row.date === date && inScope(scope, row.warehouseId));
+  const todaysTopUps = rows.filter(
+    (row) => row.date === date && inScope(scope, row.warehouseId, selectedWarehouseId),
+  );
 
   const handleReconcile = () => {
-    // No rbac code covers the physical count / variance save (SPEC_GAPS W4i-3).
     Alert.alert(
-      'Reconcile Cash',
-      variance === 0
-        ? 'Physical cash matches system cash. Reconciliation submitted.'
-        : `Variance of ${formatRupees(Math.abs(variance))} submitted for review. The wallet ledger is not changed.`,
+      'Reconciliation Submitted',
+      `Physical Cash: ${formatRupees(parsedPhysical)}\nVariance: ${variance === 0 ? '₹0 (Balanced)' : `${variance > 0 ? '+' : '-'}${formatRupees(Math.abs(variance))}`}`,
+      [{ text: 'OK' }],
     );
   };
 
@@ -85,8 +90,14 @@ export function DailyCashSummaryScreen({
     <WalletScreen
       title="Daily Cash Summary"
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} />}
-      footer={scope.warehouseId !== undefined && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
+      headerExtra={
+        <ScopeHeader
+          scope={scope}
+          warehouseOptions={warehouseOptions}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelectWarehouse={setSelectedWarehouseId}
+        />
+      }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <TouchableOpacity

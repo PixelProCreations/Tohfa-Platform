@@ -130,6 +130,7 @@ export function OrdersFlow({
             onBack={back}
             config="order"
             variant="queue"
+            initialFilters={params?.initialFilters as any}
             onApplyFilters={(filters) => {
               const listParams = {
                 defaultFilter: filters.orderStatus === 'All' ? undefined : filters.orderStatus,

@@ -81,7 +81,6 @@ export function ContactScreen({
       headerExtra={
         <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       {contact === undefined ? (
         <EmptyState title="No contact details" subtitle="Nothing is configured for this warehouse yet." />

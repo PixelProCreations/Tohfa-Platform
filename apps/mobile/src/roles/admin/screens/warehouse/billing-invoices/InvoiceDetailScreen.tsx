@@ -101,18 +101,12 @@ export function InvoiceDetailScreen({
     );
   }
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+  const handleDismissToast = React.useCallback(() => {
+    setShowToast(false);
   }, []);
 
   const handlePdfDownload = () => {
-    setShowToast(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setShowToast(true), 10);
+    setShowToast(true);
     onDownload?.(invoiceId);
   };
 
@@ -136,7 +130,7 @@ export function InvoiceDetailScreen({
             <BillingToast
               message="Invoice downloaded"
               visible={showToast}
-              onDismiss={() => setShowToast(false)}
+              onDismiss={handleDismissToast}
             />
           ) : null
         }
@@ -221,7 +215,7 @@ export function InvoiceDetailScreen({
           <BillingToast
             message="Invoice downloaded"
             visible={showToast}
-            onDismiss={() => setShowToast(false)}
+            onDismiss={handleDismissToast}
           />
         ) : null
       }

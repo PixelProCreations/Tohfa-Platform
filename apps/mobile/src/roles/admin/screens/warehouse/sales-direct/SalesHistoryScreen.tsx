@@ -13,9 +13,9 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-import { WarehouseChips, inWarehouse, isAllWarehouses } from './SalesParts';
+import { inWarehouse, isAllWarehouses } from './SalesParts';
 import type { SaleRecord, WarehouseScreenBaseProps } from './types';
-
+import type { SalesFilterState } from './SalesFiltersScreen';
 
 export type SaleHistoryItem = SaleRecord;
 
@@ -162,6 +162,8 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
 // Design id: M6-S08
 export interface SalesHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectSale: (sale: SaleHistoryItem) => void;
+  onOpenFilters?: () => void;
+  filters?: SalesFilterState | undefined;
   sales?: readonly SaleHistoryItem[] | undefined;
 }
 
@@ -169,16 +171,33 @@ export function SalesHistoryScreen({
   scope,
   onBack,
   onSelectSale,
+  onOpenFilters,
+  filters,
   sales = INITIAL_SALES_DATA,
 }: SalesHistoryScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  // Main only: the picked warehouse (undefined = all). A Sub list is always
-  // filtered to scope.warehouseId (FINAL_LIST row 116).
-  const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState(filters?.searchQuery ?? '');
   const showWarehouse = isAllWarehouses(scope);
+
+  const pickedWarehouse = filters?.warehouseId;
+  const statusFilter = filters?.status;
+  const channelFilter = filters?.channel;
+  const paymentFilter = filters?.paymentStatus;
 
   const filteredSales = sales.filter((sale) => {
     if (!inWarehouse(scope, pickedWarehouse, sale.warehouseId)) return false;
+
+    if (statusFilter && statusFilter !== 'All' && sale.status.toLowerCase() !== statusFilter.toLowerCase()) {
+      return false;
+    }
+
+    if (paymentFilter && paymentFilter !== 'All' && sale.status.toLowerCase() !== paymentFilter.toLowerCase()) {
+      return false;
+    }
+
+    if (channelFilter && channelFilter !== 'All' && !sale.channel.toLowerCase().includes(channelFilter.toLowerCase())) {
+      return false;
+    }
+
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -212,7 +231,7 @@ export function SalesHistoryScreen({
 
           <TouchableOpacity
             style={styles.filterBtn}
-            onPress={() => Alert.alert('Filter Sales', 'Filter by Date range, Channel, or Payment Status.')}
+            onPress={onOpenFilters}
             activeOpacity={0.8}
           >
             <FilterSlidersIcon size={20} color={adminColors.onBrand} />
@@ -234,8 +253,6 @@ export function SalesHistoryScreen({
             clearButtonMode="while-editing"
           />
         </View>
-
-        <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} />
 
         {/* Sales List */}
         <FlatList

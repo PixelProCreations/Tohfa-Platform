@@ -256,15 +256,6 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
           <Text style={styles.photoBoxText}>{hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
         </TouchableOpacity>
 
-        <View style={styles.noticeBox}>
-          <View style={styles.noticeIconWrap}>
-            <InfoCircleIcon />
-          </View>
-          <Text style={styles.noticeText}>
-            Further RMA/refund processing happens in Module 10 — Returns & Issues. No refund calculation is performed here.
-          </Text>
-        </View>
-
         <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onSubmit}>
           <SendPlaneIcon />
           <Text style={styles.primaryBtnText}>Submit Issue</Text>

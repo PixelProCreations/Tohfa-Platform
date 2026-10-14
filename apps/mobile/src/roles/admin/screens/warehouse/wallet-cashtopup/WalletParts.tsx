@@ -137,6 +137,15 @@ export function SearchIcon({ size = 18, color = adminColors.muted }: IconProps) 
   );
 }
 
+export function FilterSlidersIcon({ size = 18, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16 4v4M8 10v4M15 16v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function SlidersIcon({ size = 18, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -199,9 +208,20 @@ export function ReceiptIcon({ size = 20, color = adminColors.onBrand }: IconProp
 export function BellRingIcon({ size = 24, color = adminColors.ink }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M4 2C2.8 3.7 2 5.7 2 8M22 8c0-2.3-.8-4.3-2-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -447,10 +467,14 @@ export function SearchBar({
   value,
   onChangeText,
   placeholder,
+  onFilterPress,
+  rightAction,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
+  onFilterPress?: (() => void) | undefined;
+  rightAction?: React.ReactNode | undefined;
 }) {
   return (
     <View style={styles.searchBar}>
@@ -463,6 +487,18 @@ export function SearchBar({
         onChangeText={onChangeText}
         returnKeyType="search"
       />
+      {rightAction !== undefined ? (
+        rightAction
+      ) : onFilterPress !== undefined ? (
+        <TouchableOpacity
+          onPress={onFilterPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.searchFilterBtn}
+        >
+          <FilterSlidersIcon size={18} color={adminColors.brand} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -763,6 +799,12 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   searchInput: { ...adminType.body, flex: 1, color: adminColors.ink, paddingVertical: 0 },
+  searchFilterBtn: {
+    padding: 6,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
   chip: {

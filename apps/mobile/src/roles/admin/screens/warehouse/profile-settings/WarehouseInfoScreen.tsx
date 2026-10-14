@@ -34,6 +34,8 @@ import {
   WalletScreen,
   WarehouseTabBar,
 } from '../wallet-cashtopup/WalletParts';
+import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
+import Svg, { Path } from 'react-native-svg';
 import { MenuCard, MenuRow } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo, StorageLocationItem } from './types';
 import { PROFILE_WAREHOUSES, STORAGE_LOCATIONS, WAREHOUSE_PROFILES } from './warehouseFixtures';
@@ -54,10 +56,33 @@ import {
   warehouseProfileLayout,
 } from './WarehouseProfileParts';
 
+function PencilEditIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** The sub-screens this profile opens (ProfileFlow routes). */
 export type WarehouseProfileChildRoute = 'StorageInfo' | 'OperatingInfo' | 'Contact' | 'Documents';
 
 export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
+  /** Optional callback when edit icon is pressed in Main Warehouse view */
+  onEdit?: (() => void) | undefined;
   /** Open a sub-screen. Without it the section list is not shown. */
   onOpen?: ((route: WarehouseProfileChildRoute) => void) | undefined;
   profiles?: readonly WarehouseProfileInfo[] | undefined;
@@ -70,6 +95,7 @@ export function WarehouseInfoScreen({
   onBack,
   onTabChange,
   onOpen,
+  onEdit,
   warehouseOptions = PROFILE_WAREHOUSES,
   selectedWarehouseId,
   onSelectWarehouse,
@@ -82,9 +108,7 @@ export function WarehouseInfoScreen({
   const profile = recordFor(profiles, warehouseId);
   const locationCount = storageLocations.filter((loc) => loc.warehouseId === warehouseId).length;
 
-  const handleRefresh = () => {
-    Alert.alert('Profile Refreshed', `${profile?.warehouseName ?? 'Warehouse'} profile data is up to date.`);
-  };
+  const isMainWarehouse = isAllWarehouses(scope);
 
   const openDirections = () => {
     if (!profile) return;
@@ -94,19 +118,28 @@ export function WarehouseInfoScreen({
     });
   };
 
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit();
+    } else {
+      Alert.alert('Edit Warehouse', `Edit details for ${profile?.warehouseName ?? 'Warehouse'}`);
+    }
+  };
+
   return (
     <WalletScreen
       title="Warehouse Profile"
       onBack={onBack}
       headerRight={
-        <HeaderIconButton onPress={handleRefresh} accessibilityLabel="Refresh profile">
-          <RefreshIcon />
-        </HeaderIconButton>
+        isMainWarehouse ? (
+          <HeaderIconButton onPress={handleEdit} accessibilityLabel="Edit warehouse profile">
+            <PencilEditIcon size={20} color={adminColors.onBrand} />
+          </HeaderIconButton>
+        ) : null
       }
       headerExtra={
         <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       {profile === undefined ? (
         <EmptyState title="No warehouse profile" subtitle="This warehouse has no profile data yet." />

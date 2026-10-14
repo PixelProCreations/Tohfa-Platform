@@ -113,6 +113,7 @@ export type SalesRoute =
   | 'Payment'
   | 'SaleConfirmation'
   | 'SalesHistory'
+  | 'SalesFilters'
   | 'SaleDetail'
   | 'MarketDaySales'
   | 'ChannelSales'
@@ -125,3 +126,4 @@ export interface SalesRouteParams {
   customerName?: string | undefined;
   customerCode?: string | undefined;
 }
+

@@ -329,35 +329,16 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
             <Text style={styles.headerTitle}>Orders</Text>
           </View>
 
-          <TouchableOpacity style={styles.filterButton} activeOpacity={0.75} onPress={() => onNavigate?.('M5S03')}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            activeOpacity={0.75}
+            onPress={() => onNavigate?.('M5S03', { initialFilters: { warehouseId: selectedWarehouseId } })}
+          >
             <FilterSlidersIcon />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {isAllWarehouses ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.whChipScroll}
-              contentContainerStyle={styles.whChipRow}
-            >
-              {selectorOptions.map((wh) => {
-                const isActive = wh.id === selectedWarehouseId;
-                return (
-                  <TouchableOpacity
-                    key={wh.id ?? 'all'}
-                    style={[styles.whChip, isActive && styles.whChipActive]}
-                    activeOpacity={0.75}
-                    onPress={() => setSelectedWarehouseId(wh.id)}
-                  >
-                    <BuildingWarehouseIcon color={isActive ? adminColors.onBrand : adminColors.ink} />
-                    <Text style={[styles.whChipText, isActive && styles.whChipTextActive]}>{wh.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          ) : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <Text style={styles.orderCountLabel}>

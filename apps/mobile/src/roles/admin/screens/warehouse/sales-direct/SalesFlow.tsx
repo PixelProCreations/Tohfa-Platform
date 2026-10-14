@@ -29,6 +29,7 @@ import { SaleConfirmationScreen } from './SaleConfirmationScreen';
 import { SaleDetailScreen } from './SaleDetailScreen';
 import { SaleSummaryScreen } from './SaleSummaryScreen';
 import { SalesHistoryScreen } from './SalesHistoryScreen';
+import { SalesFiltersScreen, type SalesFilterState, DEFAULT_SALES_FILTERS } from './SalesFiltersScreen';
 import { SalesScreen } from './SalesScreen';
 import { SALE_WAREHOUSES } from './SalesParts';
 import { SelectCustomerScreen } from './SelectCustomerScreen';
@@ -89,6 +90,7 @@ export function SalesFlow({
   const [total, setTotal] = useState(320);
   const [itemsCount, setItemsCount] = useState(2);
   const [method, setMethod] = useState<SalePaymentMethod>('Cash');
+  const [salesFilters, setSalesFilters] = useState<SalesFilterState>(DEFAULT_SALES_FILTERS);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
@@ -247,7 +249,25 @@ export function SalesFlow({
         />
       );
     case 'SalesHistory':
-      return <SalesHistoryScreen {...common} onSelectSale={(sale) => navigate('SaleDetail', { sale })} />;
+      return (
+        <SalesHistoryScreen
+          {...common}
+          filters={salesFilters}
+          onOpenFilters={() => navigate('SalesFilters')}
+          onSelectSale={(sale) => navigate('SaleDetail', { sale })}
+        />
+      );
+    case 'SalesFilters':
+      return (
+        <SalesFiltersScreen
+          {...common}
+          initialFilters={salesFilters}
+          onApplyFilters={(nextFilters) => {
+            setSalesFilters(nextFilters);
+            back();
+          }}
+        />
+      );
     case 'SaleDetail':
       return (
         <SaleDetailScreen
