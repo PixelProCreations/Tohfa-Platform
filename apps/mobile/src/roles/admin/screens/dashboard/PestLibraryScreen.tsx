@@ -11,37 +11,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Severity Badges
-  mediumBadgeBg: '#FEF3C7',
-  mediumBadgeText: '#B45309',
-  highBadgeBg: '#FEE2E2',
-  highBadgeText: '#DC2626',
-  lowBadgeBg: '#DCFCE7',
-  lowBadgeText: '#15803D',
-  neutralBadgeBg: '#F3F4F6',
-  neutralBadgeText: '#4B5563',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -55,7 +30,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.placeholder }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -133,21 +108,21 @@ export function PestLibraryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 5 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('pestLibrary.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Pest & Pesticide Library</Text>
+          <Text style={styles.headerTitle}>{t('pestLibrary.title')}</Text>
         </View>
       </View>
 
@@ -157,13 +132,13 @@ export function PestLibraryScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Search Bar (Screenshot 5) ─── */}
+        {/* ─── Search Bar ─── */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9CA3AF" />
+          <SearchIcon size={18} color={adminColors.placeholder} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Pest name, scientific name, crop, symptom, treatment"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('pestLibrary.searchPlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -216,23 +191,21 @@ export function PestLibraryScreen({
           })}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -243,14 +216,13 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     paddingRight: 6,
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
     marginLeft: 6,
   },
@@ -269,19 +241,19 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.md, // 12px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     marginBottom: adminSpacing.md,
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
 
@@ -290,77 +262,68 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
   },
   pestCard: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   pestName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.rowTitle,
     fontStyle: 'italic',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   scientificName: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontStyle: 'italic',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 2,
     marginBottom: 10,
   },
   badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   cropBadge: {
-    backgroundColor: THEME.neutralBadgeBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
   },
   cropBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.neutralBadgeText,
+    color: adminColors.ink,
   },
   severityBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
   },
   severityBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgeMedium: {
-    backgroundColor: THEME.mediumBadgeBg,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeTextMedium: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.mediumBadgeText,
+    color: adminColors.warning.text,
   },
   badgeHigh: {
-    backgroundColor: THEME.highBadgeBg,
+    backgroundColor: adminColors.danger.bg,
   },
   badgeTextHigh: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.highBadgeText,
+    color: adminColors.danger.text,
   },
   badgeLow: {
-    backgroundColor: THEME.lowBadgeBg,
+    backgroundColor: adminColors.success.bg,
   },
   badgeTextLow: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.lowBadgeText,
+    color: adminColors.success.text,
   },
 });

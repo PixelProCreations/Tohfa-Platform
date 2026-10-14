@@ -9,35 +9,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: '#5C240E',
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Accent & Timeline
-  brandOrange: adminColors.brand,
-  peachIconBg: '#FFEDD5',
-  peachNoticeBg: '#FFF7ED',
-  noticeText: '#9A3412',
-};
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Exact SVG Icons ──────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 }
 
 /** Icon 1: Target / plus in circle (Listing Created) */
-function TargetPlusIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function TargetPlusIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -63,7 +40,7 @@ function TargetPlusIcon({ size = 16, color = THEME.titleRustDark }: { size?: num
 }
 
 /** Icon 2: Play triangle pointing right (Submitted for Review) */
-function PlayTriangleIcon({ size = 15, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function PlayTriangleIcon({ size = 15, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M7 5l12 7-12 7V5z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
@@ -72,7 +49,7 @@ function PlayTriangleIcon({ size = 15, color = THEME.titleRustDark }: { size?: n
 }
 
 /** Icon 3: ID badge / user card (Assigned to Farmer Admin) */
-function IdBadgeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function IdBadgeIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -83,7 +60,7 @@ function IdBadgeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number
 }
 
 /** Icon 4: Eye icon (Listing Reviewed) */
-function EyeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function EyeIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -99,7 +76,7 @@ function EyeIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; co
 }
 
 /** Icon 5: Opposing horizontal swap arrows (Counter Offer Sent) */
-function SwapArrowsIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function SwapArrowsIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 8h14M14 4.5l4 3.5-4 3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -111,68 +88,72 @@ function SwapArrowsIcon({ size = 16, color = THEME.titleRustDark }: { size?: num
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ListingHistoryScreenProps {
-  listingId?: string;
-  cropName?: string;
-  grade?: string;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  grade?: string | undefined;
   onBack: () => void;
 }
 
 export function ListingHistoryScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  grade = 'Grade 1',
+  listingId,
+  cropName,
+  grade,
   onBack,
 }: ListingHistoryScreenProps) {
   const historyEvents = [
     {
-      title: 'Listing Created',
+      title: t('listingHistory.event.created'),
       time: '29 Sep · 10:24 AM',
-      icon: <TargetPlusIcon size={16} color={THEME.titleRustDark} />,
+      icon: <TargetPlusIcon size={16} color={adminColors.brandDeep} />,
     },
     {
-      title: 'Submitted for Review',
+      title: t('listingHistory.event.submitted'),
       time: '29 Sep · 10:25 AM',
-      icon: <PlayTriangleIcon size={15} color={THEME.titleRustDark} />,
+      icon: <PlayTriangleIcon size={15} color={adminColors.brandDeep} />,
     },
     {
-      title: 'Assigned to Farmer Admin',
+      title: t('listingHistory.event.assigned'),
       time: '29 Sep · 11:10 AM',
-      icon: <IdBadgeIcon size={16} color={THEME.titleRustDark} />,
+      icon: <IdBadgeIcon size={16} color={adminColors.brandDeep} />,
     },
     {
-      title: 'Listing Reviewed',
+      title: t('listingHistory.event.reviewed'),
       time: '29 Sep · 11:18 AM',
-      icon: <EyeIcon size={16} color={THEME.titleRustDark} />,
+      icon: <EyeIcon size={16} color={adminColors.brandDeep} />,
     },
     {
-      title: 'Counter Offer Sent',
+      title: t('listingHistory.event.counterSent'),
       time: '29 Sep · 11:20 AM',
-      icon: <SwapArrowsIcon size={16} color={THEME.titleRustDark} />,
+      icon: <SwapArrowsIcon size={16} color={adminColors.brandDeep} />,
     },
   ];
 
+  const subtitle = [listingId, cropName && grade ? `${cropName} — ${grade}` : cropName || grade]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Listing History (Image 5) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('listingHistory.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Listing History</Text>
+          <Text style={styles.headerTitle}>{t('listingHistory.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} — {grade}
-        </Text>
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {/* ─── Body ─── */}
@@ -183,7 +164,7 @@ export function ListingHistoryScreen({
       >
         {/* Timeline Events List */}
         <View style={styles.timelineCard}>
-          {historyEvents.map((ev, index) => (
+          {historyEvents.map((ev) => (
             <View key={ev.title} style={styles.timelineItem}>
               <View style={styles.timelineIconBadge}>{ev.icon}</View>
               <View style={styles.timelineContent}>
@@ -194,32 +175,29 @@ export function ListingHistoryScreen({
           ))}
         </View>
 
-
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -229,15 +207,14 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
     marginLeft: 42,
   },
 
@@ -246,16 +223,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 30,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // ─── Timeline Card ───
   timelineCard: {
-    backgroundColor: THEME.canvas,
-    gap: 18,
-    marginBottom: 20,
+    backgroundColor: adminColors.canvas,
+    gap: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
   },
   timelineItem: {
     flexDirection: 'row',
@@ -266,7 +243,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: THEME.peachIconBg,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -274,30 +251,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   timelineTime: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
   // ─── Notice Box ───
   noticeBox: {
-    backgroundColor: THEME.peachNoticeBg,
-    borderRadius: 14,
+    backgroundColor: adminColors.brandTintWarm,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
   },
   noticeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.noticeText,
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
 });

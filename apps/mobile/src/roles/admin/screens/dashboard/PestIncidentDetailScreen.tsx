@@ -10,33 +10,13 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-import { IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Accent & Action
-  orangeBtn: adminColors.brand,
-  ongoingBlue: '#0284C7',
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
+import { IncidentItem } from './FarmerPestIncidentsScreen';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,21 +30,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-// Circle Slash Read-only Icon (Exact Material Symbols block)
-function BlockCircleIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -88,33 +67,33 @@ export function PestIncidentDetailScreen({
   onViewPest,
   onViewApplicationGuide,
 }: PestIncidentDetailScreenProps) {
-  const item: IncidentItem = incident ?? SAMPLE_INCIDENTS[0]!;
+  const item = incident;
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 4 & 5 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('pestIncidentDetail.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Incident Detail</Text>
+          <Text style={styles.headerTitle}>{t('pestIncidentDetail.title')}</Text>
 
           <View style={styles.filterBtn}>
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </View>
         </View>
 
         <Text style={styles.headerSubtitle}>
-          Monitor pest incidents reported by TOHFA farmers
+          {t('pestIncidentDetail.subtitle')}
         </Text>
       </View>
 
@@ -124,80 +103,80 @@ export function PestIncidentDetailScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Farmer (View Farmer button explicitly removed as per instruction) ─── */}
-        <Text style={styles.sectionHeading}>Farmer</Text>
+        {/* ─── 1. Farmer ─── */}
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.farmer')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Name</Text>
-              <Text style={styles.fieldValue}>{item.farmer}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.name')}</Text>
+              <Text style={styles.fieldValue}>{item?.farmer ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farmer ID</Text>
-              <Text style={styles.fieldValue}>{item.farmerId}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmerId')}</Text>
+              <Text style={styles.fieldValue}>{item?.farmerId ?? ''}</Text>
             </View>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: 14 }]}>
+          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farm</Text>
-              <Text style={styles.fieldValue}>{item.farm}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farm')}</Text>
+              <Text style={styles.fieldValue}>{item?.farm ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Zone</Text>
-              <Text style={styles.fieldValue}>{item.zone}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.zone')}</Text>
+              <Text style={styles.fieldValue}>{item?.zone ?? ''}</Text>
             </View>
           </View>
         </View>
 
         {/* ─── 2. Crop ─── */}
-        <Text style={styles.sectionHeading}>Crop</Text>
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.crop')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Crop Name</Text>
-              <Text style={styles.fieldValue}>{item.crop}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.cropName')}</Text>
+              <Text style={styles.fieldValue}>{item?.crop ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Variety</Text>
-              <Text style={styles.fieldValue}>{item.variety}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.variety')}</Text>
+              <Text style={styles.fieldValue}>{item?.variety ?? ''}</Text>
             </View>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: 14 }]}>
+          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Farm Zone</Text>
-              <Text style={styles.fieldValue}>{item.farmZone}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmZone')}</Text>
+              <Text style={styles.fieldValue}>{item?.farmZone ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Crop Stage</Text>
-              <Text style={styles.fieldValue}>{item.cropStage}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.cropStage')}</Text>
+              <Text style={styles.fieldValue}>{item?.cropStage ?? ''}</Text>
             </View>
           </View>
         </View>
 
         {/* ─── 3. Pest ─── */}
-        <Text style={styles.sectionHeading}>Pest</Text>
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.pest')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Common Name</Text>
-              <Text style={styles.fieldValue}>{item.pest}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.commonName')}</Text>
+              <Text style={styles.fieldValue}>{item?.pest ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Scientific Name</Text>
-              <Text style={styles.fieldValue}>{item.scientificName}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.scientificName')}</Text>
+              <Text style={styles.fieldValue}>{item?.scientificName ?? ''}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Severity</Text>
-            <Text style={styles.fieldValue}>{item.severity}</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.severity')}</Text>
+            <Text style={styles.fieldValue}>{item?.severity ?? ''}</Text>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Symptoms</Text>
-            <Text style={styles.fieldValueNormal}>{item.farmerNotes || 'Curling leaves, sticky residue on foliage.'}</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.symptoms')}</Text>
+            <Text style={styles.fieldValueNormal}>{item?.farmerNotes || 'Curling leaves, sticky residue on foliage.'}</Text>
           </View>
         </View>
 
@@ -207,56 +186,56 @@ export function PestIncidentDetailScreen({
           onPress={onViewPest}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineBtnText}>View Pest</Text>
+          <Text style={styles.outlineBtnText}>{t('pestIncidentDetail.action.viewPest')}</Text>
         </TouchableOpacity>
 
         {/* ─── 4. Detection ─── */}
-        <Text style={styles.sectionHeading}>Detection</Text>
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.detection')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Date</Text>
-              <Text style={styles.fieldValue}>{item.detectedDate}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.date')}</Text>
+              <Text style={styles.fieldValue}>{item?.detectedDate ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Location/Zone</Text>
-              <Text style={styles.fieldValue}>{item.farmZone}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.locationZone')}</Text>
+              <Text style={styles.fieldValue}>{item?.farmZone ?? ''}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Farmer Notes</Text>
-            <Text style={styles.fieldValueNormal}>{item.farmerNotes}</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmerNotes')}</Text>
+            <Text style={styles.fieldValueNormal}>{item?.farmerNotes ?? ''}</Text>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Photos</Text>
-            <Text style={styles.fieldValue}>{item.photos}</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.photos')}</Text>
+            <Text style={styles.fieldValue}>{item?.photos ?? ''}</Text>
           </View>
         </View>
 
         {/* ─── 5. Treatment ─── */}
-        <Text style={styles.sectionHeading}>Treatment</Text>
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.treatment')}</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabelUppercase}>TREATMENT</Text>
-          <Text style={styles.fieldValueNormal}>{item.treatmentName}</Text>
+          <Text style={styles.fieldLabelUppercase}>{t('pestIncidentDetail.label.treatment')}</Text>
+          <Text style={styles.fieldValueNormal}>{item?.treatmentName ?? ''}</Text>
         </View>
 
-        <View style={[styles.card, { marginTop: 10 }]}>
+        <View style={[styles.card, { marginTop: adminSpacing.sm }]}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Application Date</Text>
-              <Text style={styles.fieldValue}>{item.treatmentDate}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.applicationDate')}</Text>
+              <Text style={styles.fieldValue}>{item?.treatmentDate ?? ''}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Treatment Status</Text>
-              <Text style={styles.fieldValue}>{item.treatmentStatus}</Text>
+              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.treatmentStatus')}</Text>
+              <Text style={styles.fieldValue}>{item?.treatmentStatus ?? ''}</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Notes</Text>
-            <Text style={styles.fieldValueNormal}>{item.treatmentNotes}</Text>
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.notes')}</Text>
+            <Text style={styles.fieldValueNormal}>{item?.treatmentNotes ?? ''}</Text>
           </View>
         </View>
 
@@ -266,36 +245,33 @@ export function PestIncidentDetailScreen({
           onPress={onViewApplicationGuide}
           activeOpacity={0.85}
         >
-          <Text style={styles.outlineBtnText}>View Application Guide</Text>
+          <Text style={styles.outlineBtnText}>{t('pestIncidentDetail.action.viewApplicationGuide')}</Text>
         </TouchableOpacity>
 
         {/* ─── 6. Resolution ─── */}
-        <Text style={styles.sectionHeading}>Resolution</Text>
+        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.resolution')}</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Status</Text>
-          <Text style={[styles.fieldValue, { color: THEME.ongoingBlue }]}>
-            {item.status}
+          <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.status')}</Text>
+          <Text style={[styles.fieldValue, { color: adminColors.info.text }]}>
+            {item?.status ?? ''}
           </Text>
         </View>
 
-
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -304,19 +280,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
     paddingRight: 6,
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
     marginLeft: 6,
   },
@@ -324,14 +299,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     fontWeight: '500',
   },
 
@@ -347,94 +323,86 @@ const styles = StyleSheet.create({
 
   // Section Heading
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 14,
-    marginBottom: 8,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
 
   // Card Structure
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   col: {
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 11,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
     fontWeight: '500',
   },
   fieldLabelUppercase: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     letterSpacing: 0.3,
     marginBottom: 6,
   },
   fieldValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   fieldValueNormal: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
     lineHeight: 18,
   },
 
   // Outline Buttons
   outlineBtn: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.md, // 12px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: adminSpacing.sm,
   },
   outlineBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
 
   // Read-only Banner
   readOnlyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginTop: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    marginTop: adminSpacing.md,
     gap: 10,
   },
   readOnlyText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     lineHeight: 16,
   },
 });

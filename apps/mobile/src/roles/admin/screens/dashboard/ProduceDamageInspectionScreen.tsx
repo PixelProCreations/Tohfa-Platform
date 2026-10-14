@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,36 +10,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  orangeBorder: adminColors.brand,
-
-  // Badges
-  notCompletedBg: '#F3F4F6',
-  notCompletedText: '#4B5563',
-};
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -57,17 +32,17 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 function CornerGripIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
-      <Line x1="11" y1="3" x2="3" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-      <Line x1="11" y1="7" x2="7" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+      <Line x1="11" y1="3" x2="3" y2="11" stroke={adminColors.muted} strokeWidth="1.5" strokeLinecap="round" />
+      <Line x1="11" y1="7" x2="7" y2="11" stroke={adminColors.muted} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
 
 export interface ProduceDamageInspectionScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
-  verifiedQty?: number;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  verifiedQty?: number | undefined;
   onBack: () => void;
   onPreviousStep: () => void;
   onContinue: () => void;
@@ -75,10 +50,10 @@ export interface ProduceDamageInspectionScreenProps {
 }
 
 export function ProduceDamageInspectionScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
-  verifiedQty = 50,
+  listingId,
+  cropName,
+  farmerName,
+  verifiedQty = 0,
   onBack,
   onPreviousStep,
   onContinue,
@@ -92,9 +67,11 @@ export function ProduceDamageInspectionScreen({
   const damagePct = verifiedQty > 0 && damagedNum > 0 ? ((damagedNum / verifiedQty) * 100).toFixed(1) + '%' : '—';
   const acceptableQty = hasDamage === 'Yes' && damagedNum > 0 ? `${verifiedQty - damagedNum} KG` : hasDamage === 'No' ? `${verifiedQty} KG` : '—';
 
+  const subtitle = [listingId, cropName, farmerName].filter(Boolean).join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -103,15 +80,15 @@ export function ProduceDamageInspectionScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceDamageInspection.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Produce Verification & Approval</Text>
+          <Text style={styles.headerTitle}>{t('produceDamageInspection.title')}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} · {farmerName}
-        </Text>
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {/* ─── Scroll Content ─── */}
@@ -121,7 +98,7 @@ export function ProduceDamageInspectionScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Verification steps header */}
-        <Text style={styles.sectionTitle}>Verification steps</Text>
+        <Text style={styles.sectionTitle}>{t('produceDamageInspection.section.steps')}</Text>
 
         {/* Numbered Stepper Circles 1 to 6 (Step 4 active) */}
         <View style={styles.stepperRow}>
@@ -166,27 +143,26 @@ export function ProduceDamageInspectionScreen({
 
         {/* Step Header & Status Badge */}
         <View style={styles.stepHeaderRow}>
-          <Text style={styles.stepHeaderTitle}>Step 4 of 6 · Damage Inspection</Text>
+          <Text style={styles.stepHeaderTitle}>{t('produceDamageInspection.stepHeader')}</Text>
           <View style={styles.notCompletedBadge}>
-            <Text style={styles.notCompletedBadgeText}>Not completed</Text>
+            <Text style={styles.notCompletedBadgeText}>{t('produceDamageInspection.notCompleted')}</Text>
           </View>
         </View>
 
         {/* Outstanding Card */}
         <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>Outstanding</Text>
+          <Text style={styles.outstandingTitle}>{t('produceDamageInspection.section.outstanding')}</Text>
           <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
           <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
           <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
           <Text style={styles.outstandingItem}>• and 2 more</Text>
         </View>
 
-        {/* Damaged produce detected? (Red for Yes, Green for No) */}
+        {/* Damaged produce detected? */}
         <Text style={styles.inputLabelBold}>
-          Damaged produce detected <Text style={{ color: '#EF4444' }}>*</Text>
+          {t('produceDamageInspection.label.damageDetected')} <Text style={{ color: adminColors.danger.text }}>*</Text>
         </Text>
         <View style={styles.decisionRow}>
-          {/* Yes -> Red border & soft red bg */}
           <TouchableOpacity
             style={[
               styles.decisionBtn,
@@ -194,7 +170,7 @@ export function ProduceDamageInspectionScreen({
             ]}
             onPress={() => setHasDamage('Yes')}
             activeOpacity={0.8}
-            accessibilityLabel="Damaged produce detected: Yes"
+            accessibilityLabel={`${t('produceDamageInspection.label.damageDetected')}: ${t('produceDamageInspection.yes')}`}
           >
             <Text
               style={[
@@ -202,11 +178,10 @@ export function ProduceDamageInspectionScreen({
                 hasDamage === 'Yes' && styles.decisionBtnTextYesActive,
               ]}
             >
-              Yes
+              {t('produceDamageInspection.yes')}
             </Text>
           </TouchableOpacity>
 
-          {/* No -> Green border & soft green bg (as in mockup) */}
           <TouchableOpacity
             style={[
               styles.decisionBtn,
@@ -217,7 +192,7 @@ export function ProduceDamageInspectionScreen({
               setDamagedQty('0');
             }}
             activeOpacity={0.8}
-            accessibilityLabel="Damaged produce detected: No"
+            accessibilityLabel={`${t('produceDamageInspection.label.damageDetected')}: ${t('produceDamageInspection.no')}`}
           >
             <Text
               style={[
@@ -225,21 +200,22 @@ export function ProduceDamageInspectionScreen({
                 hasDamage === 'No' && styles.decisionBtnTextNoActive,
               ]}
             >
-              No
+              {t('produceDamageInspection.no')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* If Damaged Yes, input for damaged quantity */}
         {hasDamage === 'Yes' && (
-          <View style={{ marginBottom: 14 }}>
+          <View style={{ marginBottom: adminSpacing.md }}>
             <Text style={styles.inputLabelBold}>
-              Damaged quantity (KG) <Text style={{ color: '#EF4444' }}>*</Text>
+              {t('produceDamageInspection.label.damagedQty')} <Text style={{ color: adminColors.danger.text }}>*</Text>
             </Text>
             <TextInput
               style={styles.damagedInput}
               keyboardType="numeric"
               placeholder="e.g. 5"
+              placeholderTextColor={adminColors.placeholder}
               value={damagedQty}
               onChangeText={setDamagedQty}
             />
@@ -247,7 +223,9 @@ export function ProduceDamageInspectionScreen({
         )}
 
         {/* Inspection remarks */}
-        <Text style={[styles.inputLabelBold, { marginTop: 10 }]}>Inspection remarks</Text>
+        <Text style={[styles.inputLabelBold, { marginTop: adminSpacing.sm }]}>
+          {t('produceDamageInspection.label.remarks')}
+        </Text>
         <View style={styles.notesWrap}>
           <TextInput
             style={styles.notesInput}
@@ -255,6 +233,7 @@ export function ProduceDamageInspectionScreen({
             numberOfLines={4}
             textAlignVertical="top"
             placeholder=""
+            placeholderTextColor={adminColors.placeholder}
             value={inspectionRemarks}
             onChangeText={setInspectionRemarks}
           />
@@ -263,32 +242,32 @@ export function ProduceDamageInspectionScreen({
           </View>
         </View>
 
-        {/* Quantity summary card (Exact from Screenshot 3) */}
+        {/* Quantity summary card */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Quantity summary</Text>
+          <Text style={styles.summaryTitle}>{t('produceDamageInspection.section.summary')}</Text>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Verified quantity</Text>
+            <Text style={styles.summaryLabel}>{t('produceDamageInspection.label.verifiedQty')}</Text>
             <Text style={styles.summaryVal}>{verifiedQty ? `${verifiedQty} KG` : '—'}</Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Damaged quantity</Text>
+            <Text style={styles.summaryLabel}>{t('produceDamageInspection.label.damagedQty')}</Text>
             <Text style={styles.summaryVal}>{hasDamage === 'Yes' && damagedNum > 0 ? `${damagedNum} KG` : '—'}</Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Damage percentage</Text>
+            <Text style={styles.summaryLabel}>{t('produceDamageInspection.label.damagePct')}</Text>
             <Text style={styles.summaryVal}>{damagePct}</Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Potential acceptable (preliminary)</Text>
+            <Text style={styles.summaryLabel}>{t('produceDamageInspection.label.potentialAcceptable')}</Text>
             <Text style={styles.summaryVal}>{acceptableQty}</Text>
           </View>
 
           <Text style={styles.summaryFootnote}>
-            Preliminary only: verified minus damaged. It is not a purchase approval; the purchase quantity also follows the grade result and TOHFA&apos;s remaining requirement.
+            {t('produceDamageInspection.summaryFootnote')}
           </Text>
         </View>
 
@@ -299,7 +278,7 @@ export function ProduceDamageInspectionScreen({
             onPress={onPreviousStep}
             activeOpacity={0.8}
           >
-            <Text style={styles.prevStepBtnText}>Previous Step</Text>
+            <Text style={styles.prevStepBtnText}>{t('produceDamageInspection.action.prevStep')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -307,11 +286,11 @@ export function ProduceDamageInspectionScreen({
             onPress={onContinue}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueStepBtnText}>Continue</Text>
+            <Text style={styles.continueStepBtnText}>{t('produceDamageInspection.action.continue')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -320,18 +299,18 @@ export function ProduceDamageInspectionScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -340,181 +319,177 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: adminSpacing.xs,
     paddingLeft: 42,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 14,
+    ...adminType.sectionHead,
+    color: adminColors.rustDeep,
+    marginBottom: adminSpacing.md,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
     paddingHorizontal: 4,
   },
   stepCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#E2DDD6',
-    backgroundColor: THEME.white,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     borderWidth: 2,
   },
   stepCircleText: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   stepCircleTextActive: {
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   stepperLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E2DDD6',
+    backgroundColor: adminColors.border,
     marginHorizontal: 0,
   },
   stepperLineActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   stepHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   notCompletedBadge: {
-    backgroundColor: THEME.notCompletedBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   notCompletedBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.notCompletedText,
+    color: adminColors.muted,
   },
   outstandingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
     gap: 4,
+    ...adminShadow.sm,
   },
   outstandingTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   outstandingItem: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 18,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   inputLabelBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 8,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
   },
   decisionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   decisionBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: THEME.white,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   decisionBtnYesActive: {
-    borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
+    borderColor: adminColors.danger.text,
+    backgroundColor: adminColors.danger.bg,
     borderWidth: 1.5,
   },
   decisionBtnNoActive: {
-    borderColor: '#15803D',
-    backgroundColor: '#F0FDF4',
+    borderColor: adminColors.success.text,
+    backgroundColor: adminColors.success.bg,
     borderWidth: 1.5,
   },
   decisionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   decisionBtnTextYesActive: {
-    color: '#DC2626',
+    color: adminColors.danger.text,
     fontWeight: '800',
   },
   decisionBtnTextNoActive: {
-    color: '#15803D',
+    color: adminColors.success.text,
     fontWeight: '800',
   },
   damagedInput: {
     height: 46,
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: THEME.ink,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   notesWrap: {
     position: 'relative',
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.lg,
   },
   notesInput: {
     minHeight: 90,
-    padding: 12,
+    padding: adminSpacing.md,
     paddingBottom: 22,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   gripCorner: {
     position: 'absolute',
@@ -522,17 +497,17 @@ const styles = StyleSheet.create({
     bottom: 8,
   },
   summaryCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 8,
   },
   summaryRow: {
@@ -540,57 +515,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   summaryLabel: {
-    fontSize: 12.5,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   summaryVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   summaryFootnote: {
-    fontSize: 11,
-    color: THEME.muted,
-    lineHeight: 15,
-    marginTop: 12,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.md,
   },
   stepActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   prevStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   prevStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   continueStepBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });
