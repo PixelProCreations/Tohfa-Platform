@@ -200,6 +200,8 @@ export const adminOverlay = {
   whitePill: hex('adminWhitePillOverlay'),
   /** 38% white pill overlay active/pressed state on brand orange headers. */
   whitePillActive: hex('adminWhitePillOverlayActive'),
+  /** 45% dark scrim for modal backdrops. */
+  scrim: hex('adminScrim'),
 } as const;
 
 export const adminTheme = {
