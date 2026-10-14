@@ -62,7 +62,6 @@ export function OperatingInfoScreen({
       headerExtra={
         <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       {info === undefined ? (
         <EmptyState title="No operating information" subtitle="Nothing is configured for this warehouse yet." />

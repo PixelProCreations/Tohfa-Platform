@@ -108,8 +108,8 @@ export function StaffFlow({
         <StaffScreen
           {...common}
           onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
-          onNavigateToAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
-          onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToAttendance={(warehouseId) => navigate('Attendance', { attendanceFilter: 'All', warehouseId })}
+          onNavigateToHistory={(warehouseId) => navigate('AttendanceHistory', { warehouseId })}
         />
       );
     case 'StaffDetail':
@@ -130,8 +130,9 @@ export function StaffFlow({
         <AttendanceScreen
           {...common}
           initialFilter={params.attendanceFilter}
+          initialWarehouseId={params.warehouseId}
           onSelectRecord={(record) => navigate('AttendanceDetail', { record })}
-          onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToHistory={() => navigate('AttendanceHistory', { warehouseId: params.warehouseId })}
         />
       );
     case 'AttendanceDetail':
@@ -140,11 +141,12 @@ export function StaffFlow({
       return (
         <AttendanceHistoryScreen
           {...common}
+          initialWarehouseId={params.warehouseId}
           onNavigateToToday={() => {
             // Back to the overview when History was opened from it; otherwise open it.
             const prev = stack[stack.length - 2];
             if (prev?.screen === 'Attendance') back();
-            else navigate('Attendance', { attendanceFilter: 'All' });
+            else navigate('Attendance', { attendanceFilter: 'All', warehouseId: params.warehouseId });
           }}
         />
       );

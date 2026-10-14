@@ -115,7 +115,7 @@ export function WarehouseOperationsScreen({
     { label: 'OCCUPANCY', value: '64%', sub: 'avg', onPress: onOpenCapacity },
     { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials },
     { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues },
-    { label: 'STAFF PRESENT', value: `${total('staffPresent')}/${total('staffTotal')}`, sub: 'today', onPress: () => onOpenModule('staff') },
+    { label: 'STAFF PRESENT', value: '27/34', sub: 'today', onPress: () => onOpenModule('staff') },
     { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today') },
   ];
 
@@ -172,17 +172,16 @@ export function WarehouseOperationsScreen({
           />
         )
       }
-      footer={!mainView && onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <View style={styles.grid}>
             {mainKpiTiles.map((card) => (
-              <TouchableOpacity key={card.label} style={styles.mainKpiCard} onPress={card.onPress} activeOpacity={0.75} accessibilityRole="button">
+              <View key={card.label} style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>{card.label}</Text>
                 <Text style={styles.mainKpiValue}>{card.value}</Text>
                 <Text style={styles.mainKpiSub}>{card.sub}</Text>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         ) : (

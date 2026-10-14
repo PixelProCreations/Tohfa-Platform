@@ -111,7 +111,7 @@ export function DocumentsScreen({
   const header = (
     <ScopeHeader scope={scope} warehouseOptions={warehouseOptions} selectedWarehouseId={selected} onSelectWarehouse={select} />
   );
-  const footer = onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined;
+  const footer = undefined;
 
   if (openDoc !== null) {
     const issuedDate =

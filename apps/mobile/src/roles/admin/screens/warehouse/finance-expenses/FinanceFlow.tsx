@@ -99,7 +99,7 @@ export function FinanceFlow({
   onNavigateToInvoiceList,
   warehouseOptions = FINANCE_WAREHOUSES,
 }: FinanceFlowProps) {
-  const hubWarehouseId: string | undefined = undefined;
+  const [hubWarehouseId, setHubWarehouseId] = useState<string | undefined>(undefined);
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
@@ -143,7 +143,10 @@ export function FinanceFlow({
       return (
         <FinanceHubScreen
           {...common}
-          onOpen={(route) => navigate(route)}
+          onOpen={(route, warehouseId) => {
+            setHubWarehouseId(warehouseId);
+            navigate(route);
+          }}
           onOpenWallet={onOpenWallet}
           onNavigateToNotifications={onNavigateToNotifications}
         />
@@ -281,6 +284,7 @@ export function FinanceFlow({
           // for SUB_WH_ADMIN; /auth/me drops the grant scope, so the Main view
           // keeps Generate/Export off explicitly (SPEC_GAPS section 1 #11).
           canExport={isMain ? false : undefined}
+          initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
           onNavigateToCustomerOrders={onNavigateToCustomerOrders}
           onNavigateToInvoiceList={onNavigateToInvoiceList}
           onNavigateToHistory={openHistory}

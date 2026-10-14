@@ -129,11 +129,10 @@ export function WarehouseSnapshotScreen({
 }: WarehouseSnapshotScreenProps) {
   const [showMap, setShowMap] = useState(false);
   const warehouseId = scope.warehouseId;
-  const footer = onTabChange !== undefined ? <WarehouseTabBar activeTab="Home" onTabChange={onTabChange} onBack={onBack} /> : undefined;
 
   if (warehouseId === undefined) {
     return (
-      <WalletScreen title="Warehouse Overview" onBack={onBack} footer={footer}>
+      <WalletScreen title="Warehouse Overview" onBack={onBack}>
         <EmptyState
           title="Single-warehouse view"
           subtitle="This overview is locked to one warehouse. The all-warehouses view is on the Main warehouse login."
@@ -159,7 +158,7 @@ export function WarehouseSnapshotScreen({
   const canOrders = can(HOME_CODES.orderList);
 
   return (
-    <WalletScreen title="Warehouse Overview" subtitle={`${name} · ${statusLabel}`} onBack={onBack} footer={footer}>
+    <WalletScreen title="Warehouse Overview" subtitle={`${name} · ${statusLabel}`} onBack={onBack}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Warehouse Identity</SectionTitle>
         <InfoCard

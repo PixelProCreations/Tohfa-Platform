@@ -11,6 +11,7 @@ export { AboutScreen, type AboutScreenProps } from './AboutScreen';
 export { ProfileFlow, type ProfileFlowProps } from './ProfileFlow';
 // Part B: warehouse-facing profile screens (design module M15).
 export { WarehouseInfoScreen, type WarehouseInfoScreenProps, type WarehouseProfileChildRoute } from './WarehouseInfoScreen';
+export { WarehouseEditProfileScreen, type WarehouseEditProfileScreenProps, type EditWarehouseTab } from './WarehouseEditProfileScreen';
 export { StorageInfoScreen, type StorageInfoScreenProps } from './StorageInfoScreen';
 export { OperatingInfoScreen, type OperatingInfoScreenProps } from './OperatingInfoScreen';
 export { ContactScreen, type ContactScreenProps } from './ContactScreen';

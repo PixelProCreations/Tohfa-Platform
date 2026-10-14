@@ -119,7 +119,6 @@ export function StorageInfoScreen({
           onSelectWarehouse={select}
         />
       }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
       <ScrollView
         contentContainerStyle={warehouseProfileLayout.scrollContent}

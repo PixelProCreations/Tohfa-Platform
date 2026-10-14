@@ -126,6 +126,8 @@ export function IncomingShipmentsScreen({
           </View>
         ) : null}
 
+
+
         {rows.length === 0 ? <EmptyState title="No shipments" subtitle="Nothing matches this status and these filters." /> : null}
 
         {rows.map((s) => (

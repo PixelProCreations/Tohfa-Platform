@@ -245,6 +245,7 @@ export function WalletFlow({
       return (
         <DailyCashSummaryScreen
           {...common}
+          warehouseOptions={warehouseOptions}
           onViewTopUpHistory={() => navigate('TopUpHistory')}
           onNavigateToDailyCash={() => navigate('DailyCash')}
         />

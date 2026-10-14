@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -190,18 +191,17 @@ function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; col
 }
 
 function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; color?: string }) {
-  // Lucide Bell (exact match to notification bell)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M10.3 21a1.94 1.94 0 0 0 3.4 0"
+        d="M13.73 21a2 2 0 0 1-3.46 0"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -245,6 +245,20 @@ function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterFunnelWhiteIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -710,6 +724,7 @@ const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
  * quick action (it used to open the Sub roster key 'SubWarehouseStaff').
  */
 const WAREHOUSE_ADMIN_ENTRY: Partial<Record<WarehouseSubView, WarehouseAdminRoute>> = {
+  warehouse_overview: 'WarehouseOverview',
   warehouse_city_detail: 'WarehouseCityDetail',
   manage_swas: 'ManageSubWarehouseAdmins',
 };
@@ -802,8 +817,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [alertsList, setAlertsList] = useState<WarehouseAlertItem[]>(DEFAULT_ALERTS);
   const [selectedAlert, setSelectedAlert] = useState<WarehouseAlertItem>(DEFAULT_ALERTS[0]!);
   const [alertStatusFilter, setAlertStatusFilter] = useState<'All' | 'Unread' | 'Resolved'>('All');
-  const [alertPriorityFilter, setAlertPriorityFilter] = useState<'All Priority' | 'Critical'>('All Priority');
+  const [alertPriorityFilter, setAlertPriorityFilter] = useState<'All Priority' | 'Critical' | 'High'>('All Priority');
   const [alertWhFilter, setAlertWhFilter] = useState('All Warehouses');
+  const [alertCategoryFilter, setAlertCategoryFilter] = useState('All');
+  const [showAlertsFilterModal, setShowAlertsFilterModal] = useState(false);
+  const [tempAlertWh, setTempAlertWh] = useState('All Warehouses');
+  const [tempAlertCategory, setTempAlertCategory] = useState('All');
+  const [tempAlertStatus, setTempAlertStatus] = useState<'All' | 'Unread' | 'Resolved'>('All');
+  const [tempAlertPriority, setTempAlertPriority] = useState<'All Priority' | 'Critical' | 'High'>('All Priority');
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -971,156 +992,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     />
   );
 
-  const renderWarehouseOverviewScreen = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
-            </View>
-          </View>
-          <View style={styles.loadingCenter}>
-            <ActivityIndicator size="large" color={adminColors.brand} />
-          </View>
-        </View>
-      );
-    }
 
-    if (!canAllView) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
-            </View>
-          </View>
-          <EmptyState
-            title="Multi-warehouse view not available"
-            subtitle="The all-warehouses overview needs warehouse.all.view."
-          />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
-          </View>
-          <Text style={styles.subHeaderSubtitle}>All 4 warehouses at a glance</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {OVERVIEW_WAREHOUSES.map((wh) => (
-            <TouchableOpacity
-              key={wh.id}
-              style={styles.whOverviewCard}
-              onPress={() => {
-                setSelectedWHName(`${wh.name} Warehouse`);
-                navigateWh('warehouse_city_detail');
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name}</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: wh.capacityBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: wh.capacityColor }]}>{wh.capacityLabel}</Text>
-                </View>
-              </View>
-
-              <View style={styles.whProgressBarTrack}>
-                <View style={[styles.whProgressBarFill, { width: wh.progressWidth, backgroundColor: wh.progressColor }]} />
-              </View>
-
-              <View style={styles.whOverviewStatsRow}>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Stock</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.stock}</Text>
-                </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Receipts</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.receipts}</Text>
-                </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Issues</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.issues}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          <Text style={styles.overviewSectionHeading}>More Views</Text>
-
-          <View style={styles.moreViewsGrid}>
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_comparison')}
-              activeOpacity={0.8}
-            >
-              <ScaleBalanceIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Comparison</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_performance')}
-              activeOpacity={0.8}
-            >
-              <TrendingUpLineIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Performance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_capacity')}
-              activeOpacity={0.8}
-            >
-              <CapacityCircularIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Capacity Summary</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('manage_warehouses')}
-              activeOpacity={0.8}
-            >
-              <GearCogIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
-            </TouchableOpacity>
-          </View>
-
-          {can('admin.sub_wh_admin.create') && (
-            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
-              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                Manage role access, account status, and credentials for regional sub-warehouse admins.
-              </Text>
-              <TouchableOpacity
-                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
-                onPress={() => navigateWh('manage_swas')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </View>
-    );
-  };
 
   const renderWarehouseComparisonScreen = () => {
     if (isLoading) {
@@ -1181,12 +1053,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
               </React.Fragment>
             ))}
-          </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Common units and the same time period across every row — this is a side-by-side comparison, not four separate summaries.
-            </Text>
           </View>
         </ScrollView>
       </View>
@@ -1264,12 +1130,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Only metrics actually defined by the backend are shown — no invented performance figures.
-            </Text>
-          </View>
         </ScrollView>
       </View>
     );
@@ -1346,12 +1206,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Capacity exceptions (a warehouse nearing its configured limit) are flagged here for visibility only — not resolved from this screen.
-            </Text>
-          </View>
         </ScrollView>
       </View>
     );
@@ -1418,90 +1272,73 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertsActionCenterScreen = () => {
+    const isWhMatch = (alertWh: string, filterWh: string) => {
+      if (!filterWh || filterWh === 'All Warehouses' || filterWh === 'All') return true;
+      const cleanFilter = filterWh.replace(/ Warehouse$/i, '').trim().toLowerCase();
+      const cleanAlert = alertWh.replace(/ Warehouse$/i, '').trim().toLowerCase();
+      return cleanAlert === cleanFilter;
+    };
+
     const visibleAlerts = alertsList.filter((alert) => {
       if (alertStatusFilter === 'Unread' && alert.status !== 'unread') return false;
       if (alertStatusFilter === 'Resolved' && alert.status !== 'resolved') return false;
       if (alertPriorityFilter === 'Critical' && alert.priority !== 'Critical') return false;
-      if (alertWhFilter !== 'All Warehouses' && alert.warehouse !== alertWhFilter) return false;
+      if (alertPriorityFilter === 'High' && alert.priority !== 'High') return false;
+      if (!isWhMatch(alert.warehouse, alertWhFilter)) return false;
+      if (alertCategoryFilter !== 'All' && alert.category !== alertCategoryFilter) return false;
       return true;
     });
+
+    const hasActiveAlertFilters =
+      alertWhFilter !== 'All Warehouses' ||
+      alertStatusFilter !== 'All' ||
+      alertPriorityFilter !== 'All Priority' ||
+      alertCategoryFilter !== 'All';
+
+    const ALERT_WAREHOUSES = [
+      'All Warehouses',
+      'Ooty Warehouse',
+      'Coonoor Warehouse',
+      'Kotagiri Warehouse',
+      'Gudalur Market Warehouse',
+    ] as const;
+    const ALERT_CATEGORIES = ['All', 'Low Stock', 'Operational', 'Transfer'] as const;
+    const ALERT_STATUSES = ['All', 'Unread', 'Resolved'] as const;
+    const ALERT_PRIORITIES = ['All Priority', 'Critical', 'High'] as const;
 
     return (
       <View style={styles.subScreenContainer}>
         <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+          <View style={styles.alertsHeaderTopRow}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setTempAlertWh(alertWhFilter);
+                setTempAlertCategory(alertCategoryFilter);
+                setTempAlertStatus(alertStatusFilter);
+                setTempAlertPriority(alertPriorityFilter);
+                setShowAlertsFilterModal(true);
+              }}
+              style={styles.alertsHeaderFilterBtn}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={{ position: 'relative' }}>
+                <FilterFunnelWhiteIcon size={20} color="#FFFFFF" />
+                {hasActiveAlertFilters && <View style={styles.alertsFilterActiveDot} />}
+              </View>
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
           </View>
           <Text style={styles.subHeaderSubtitle}>Warehouse-level problems requiring attention</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {/* Filter Row 1 */}
-          <View style={styles.actionCenterFiltersRow}>
-            {(['All', 'Unread', 'Resolved'] as const).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.actionCenterChip,
-                  alertStatusFilter === status && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertStatusFilter(status)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertStatusFilter === status && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Filter Row 2 */}
-          <View style={styles.actionCenterFiltersRow}>
-            {(['All Priority', 'Critical'] as const).map((prio) => (
-              <TouchableOpacity
-                key={prio}
-                style={[
-                  styles.actionCenterChip,
-                  alertPriorityFilter === prio && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertPriorityFilter(prio)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertPriorityFilter === prio && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {prio}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={styles.actionCenterChip}
-              onPress={() => {
-                const whs = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur Market'];
-                const curIdx = whs.indexOf(alertWhFilter);
-                setAlertWhFilter(whs[(curIdx + 1) % whs.length] ?? 'All Warehouses');
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.actionCenterChipText}>
-                {alertWhFilter === 'All Warehouses' ? 'All Warehouses ▾' : `${alertWhFilter} ▾`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 6 }} />
+          <View style={{ height: 4 }} />
 
           {/* Alerts List */}
           {visibleAlerts.map((alert) => (
@@ -1542,6 +1379,169 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
           <View style={{ height: 24 }} />
         </ScrollView>
+
+        {/* Filter Full Screen Modal matching Screen 2 */}
+        <Modal
+          visible={showAlertsFilterModal}
+          animationType="slide"
+          onRequestClose={() => setShowAlertsFilterModal(false)}
+        >
+          <SafeAreaView style={styles.alertsFullScreenFilterModal}>
+            <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
+
+            {/* Top Orange Header */}
+            <View style={styles.alertsFilterModalHeader}>
+              <TouchableOpacity
+                onPress={() => setShowAlertsFilterModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.alertsFilterModalTitle}>Filter Alerts & Actions</Text>
+              <TouchableOpacity
+                onPress={() => setShowAlertsFilterModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Text style={styles.alertsFilterCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.alertsFilterModalScroll}
+              contentContainerStyle={styles.alertsFilterModalScrollContent}
+            >
+              {/* Section 1: Warehouse */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>WAREHOUSE</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_WAREHOUSES.map((wh) => {
+                    const active = tempAlertWh === wh;
+                    return (
+                      <TouchableOpacity
+                        key={wh}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertWh(wh)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {wh}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 2: Channel / Category */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>CHANNEL / CATEGORY</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_CATEGORIES.map((cat) => {
+                    const active = tempAlertCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertCategory(cat)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 3: Status */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>STATUS</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_STATUSES.map((st) => {
+                    const active = tempAlertStatus === st;
+                    return (
+                      <TouchableOpacity
+                        key={st}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertStatus(st)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {st}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 4: Priority */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>PRIORITY</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_PRIORITIES.map((pr) => {
+                    const active = tempAlertPriority === pr;
+                    return (
+                      <TouchableOpacity
+                        key={pr}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertPriority(pr)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {pr}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Footer Buttons */}
+            <View style={styles.alertsFilterFooter}>
+              <TouchableOpacity
+                style={styles.alertsModalApplyBtn}
+                onPress={() => {
+                  setAlertWhFilter(tempAlertWh);
+                  setAlertCategoryFilter(tempAlertCategory);
+                  setAlertStatusFilter(tempAlertStatus);
+                  setAlertPriorityFilter(tempAlertPriority);
+                  setShowAlertsFilterModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertsModalApplyBtnText}>Apply</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.alertsModalResetBtn}
+                onPress={() => {
+                  setTempAlertWh('All Warehouses');
+                  setTempAlertCategory('All');
+                  setTempAlertStatus('All');
+                  setTempAlertPriority('All Priority');
+                  setAlertWhFilter('All Warehouses');
+                  setAlertCategoryFilter('All');
+                  setAlertStatusFilter('All');
+                  setAlertPriorityFilter('All Priority');
+                  setShowAlertsFilterModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertsModalResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </Modal>
       </View>
     );
   };
@@ -2011,7 +2011,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     }}
                     activeOpacity={0.8}
                   >
-                    <BellOutlineIcon size={19} color="#FFFFFF" />
+                    <BellOutlineIcon size={20} color={adminColors.onBrand} />
                     {unreadNotifCount > 0 && (
                       <View style={styles.notificationBadge}>
                         <Text style={styles.notificationBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
@@ -2049,25 +2049,49 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setActiveTab('Inventory');
+                    setWhSubView('overview');
+                    setWhHistory([]);
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
                   <Text style={styles.kpiValue}>{homeKpi.totalStock}</Text>
                   <Text style={styles.kpiSub}>KG</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Incoming Goods */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setActiveTab('Receiving');
+                    setReceivingSubView('incoming_shipments');
+                    setWhSubView('overview');
+                    setWhHistory([]);
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
                   <Text style={styles.kpiValue}>{homeKpi.incomingGoods}</Text>
                   <Text style={styles.kpiSub}>KG today</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Pending Transfers */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('inter_warehouse_transfer')}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
                   <Text style={styles.kpiValue}>{homeKpi.pendingTransfers}</Text>
                   <Text style={styles.kpiSub}>transfers</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Today's Orders */}
                 <TouchableOpacity
@@ -2096,11 +2120,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
 
                 {/* Open Issues */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('operational_issues')}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
                   <Text style={styles.kpiValue}>{homeKpi.openIssues}</Text>
                   <Text style={styles.kpiSub}>issues</Text>
-                </View>
+                </TouchableOpacity>
               </View>
 
               {/* ─── 2. Warehouse Overview ─── */}
@@ -2414,7 +2443,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   setWhSubView('overview');
                 }
               }}
-              onTabChange={handleMoreTabChange}
               onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
               onOpenOperationalIssues={() => {
                 setActiveTab('Home');
@@ -2430,22 +2458,215 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && whSubView === 'overview' && (
-          <InventoryFlow
-            scope={MAIN_WAREHOUSE_SCOPE}
-            can={can}
-            initialScreen="M3S01"
-            warehouseOptions={HOME_WAREHOUSE_OPTIONS}
-            onBack={() => {
-              setActiveTab('Home');
-              setWhSubView('overview');
-            }}
-            onTabChange={(tab) => {
-              setActiveTab(tab);
-              setWhSubView('overview');
-              setWhHistory([]);
-            }}
-            onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
-          />
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollPad}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header Banner */}
+            <View style={styles.headerBanner}>
+              {/* Header Title Row */}
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerTitleWrap}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setActiveTab('Home');
+                      setWhSubView('overview');
+                      setWhHistory([]);
+                    }}
+                    style={styles.headerBackBtn}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to Home"
+                  >
+                    <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
+                </View>
+              </View>
+
+              {/* Warehouse Dropdown Filter Pill */}
+              <WarehouseSelector
+                scope={MAIN_WAREHOUSE_SCOPE}
+                options={HOME_WAREHOUSE_OPTIONS}
+                selectedId={selectedWHId}
+                onSelect={handleSelectWarehouseScope}
+              />
+            </View>
+
+            {/* Content Container */}
+            <View style={styles.contentBody}>
+              {/* 1. KPI 2x2 Grid */}
+              <View style={styles.kpiGrid}>
+                {/* Total Stock */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                  <Text style={styles.kpiValue}>12,840 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Incoming Today */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
+                  <Text style={styles.kpiValue}>1,240 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Allocated */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
+                  <Text style={styles.kpiValue}>240 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Low Stock SKUs */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
+                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiSub}>SKUs</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 2. Warehouse Summary */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('stock_ledger')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.summaryListCard}>
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Ooty</Text>
+                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
+                </TouchableOpacity>
+
+                <View style={styles.summaryDivider} />
+
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => {
+                    setSelectedWHName('Coonoor Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Coonoor</Text>
+                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 3. Inventory Activity */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Inventory Activity</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('stock_ledger')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.summaryListCard}
+                onPress={() => navigateWh('stock_ledger')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.inventoryActivityText}>
+                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
+                </Text>
+              </TouchableOpacity>
+
+              {/* 4. Pending Actions */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Pending Actions</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.summaryListCard}>
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
+                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
+                </TouchableOpacity>
+
+                <View style={styles.summaryDivider} />
+
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => navigateWh('stock_adjustment_approval')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
+                  <Text style={styles.summaryItemValue}>2</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
+              <View style={styles.quickActionsDualRow}>
+                <TouchableOpacity
+                  style={styles.quickActionDualCard}
+                  onPress={() => navigateWh('verify_stock')}
+                  activeOpacity={0.8}
+                >
+                  <StockVerificationIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionDualCard}
+                  onPress={() => navigateWh('inter_warehouse_transfer')}
+                  activeOpacity={0.8}
+                >
+                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ height: 20 }} />
+            </View>
+          </ScrollView>
         )}
 
         {/* ─── More Tab ─── */}
@@ -2534,10 +2755,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               initialScreen="Settings"
               onBack={() => setMoreSubScreen(null)}
               onLogout={onSignOut}
-              onTabChange={handleMoreTabChange}
             />
           ) : (
-            <MainWarehouseAdminScreen onBack={() => setMoreSubScreen(null)} />
+            <MainWarehouseAdminScreen
+              onBack={() => setMoreSubScreen(null)}
+            />
           )
         )}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
@@ -2567,7 +2789,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             onNavigateToCustomers={() => navigateWh('customers_list')}
             onNavigateToBilling={() => navigateWh('billing_invoices')}
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
-            onNavigateToProfile={() => navigateWh('profile')}
+            onNavigateToProfile={() => navigateWh('warehouse_profile')}
             onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
             // The More row is the account hub ("Manage account and application settings",
             // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
@@ -2577,7 +2799,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
         {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
         {whSubView !== 'overview' && (
-          whSubView === 'profile' ? (
+          whSubView === 'warehouse_profile' ? (
+            // Warehouse Profile screen (WarehouseInfoScreen in ProfileFlow)
+            // Notice: no onTabChange passed, so no bottom nav bar is rendered in Warehouse Profile or its inner screens
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="WarehouseProfile"
+              onBack={goBackWh}
+              onLogout={onSignOut}
+            />
+          ) : whSubView === 'profile' ? (
             // The admin's own profile is the shared UserProfileScreen (W4, absorbs
             // MainWarehouseProfileScreen); Main sees the all-warehouses account.
             <ProfileFlow
@@ -2586,7 +2818,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               initialScreen="UserProfile"
               onBack={goBackWh}
               onLogout={onSignOut}
-              onTabChange={handleMoreTabChange}
             />
           ) : whSubView === 'dashboard_operations' ||
             whSubView === 'todays_operations' ||
@@ -2615,8 +2846,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 }}
                 onManageCapacity={() => navigateWh('warehouse_settings')}
               />
-            ) : whSubView === 'warehouse_overview' ? (
-              renderWarehouseOverviewScreen()
             ) : whSubView === 'warehouse_comparison' ? (
               renderWarehouseComparisonScreen()
             ) : whSubView === 'manage_warehouses' ? (
@@ -3042,8 +3271,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <MoreTabNavIcon active={activeTab === 'More'} />
-              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+              <MoreTabNavIcon active={(activeTab as string) === 'More'} />
+              <Text style={[styles.tabLabel, (activeTab as string) === 'More' && styles.tabLabelActive]}>More</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -3668,6 +3897,131 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  alertsHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertsHeaderFilterBtn: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsFilterActiveDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: PALETTE.headerBg,
+  },
+  alertsFullScreenFilterModal: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+  },
+  alertsFilterModalHeader: {
+    backgroundColor: PALETTE.headerBg,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertsFilterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  alertsFilterCloseText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  alertsFilterModalScroll: {
+    flex: 1,
+  },
+  alertsFilterModalScrollContent: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+  alertsFilterSection: {
+    marginBottom: 22,
+  },
+  alertsFilterSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6E6760',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  alertsChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  alertsFilterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2DDD6',
+  },
+  alertsFilterChipActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: PALETTE.headerBg,
+  },
+  alertsFilterChipText: {
+    fontSize: 13.5,
+    color: '#3A332C',
+    fontWeight: '500',
+  },
+  alertsFilterChipTextActive: {
+    color: PALETTE.headerBg,
+    fontWeight: '700',
+  },
+  alertsFilterFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EBE5DC',
+  },
+  alertsModalApplyBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: PALETTE.headerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsModalApplyBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  alertsModalResetBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DDD6CE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsModalResetBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4B433E',
   },
   subHeaderSubtitle: {
     fontSize: 13,

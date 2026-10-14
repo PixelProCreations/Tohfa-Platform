@@ -130,7 +130,7 @@ export interface ApprovalAlertItem {
 }
 
 /** Routes of NotificationsFlow. The old App.tsx keys map onto these (NOTIFICATIONS_ROUTE_ENTRY). */
-export type NotificationsRoute = 'Notifications' | 'NotificationDetail' | 'ApprovalAlerts';
+export type NotificationsRoute = 'Notifications' | 'NotificationDetail' | 'ApprovalAlerts' | 'NotificationSettings';
 
 /** Params a NotificationsFlow route can carry. */
 export interface NotificationsRouteParams {

@@ -84,7 +84,6 @@ export function ReturnHistoryScreen({
           />
         ) : null
       }
-      footer={<SWABottomNav activeTab="More" onTabChange={onTabChange} />}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.searchBar}>

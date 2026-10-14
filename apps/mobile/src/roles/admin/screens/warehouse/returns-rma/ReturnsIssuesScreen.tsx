@@ -22,6 +22,14 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import { SWABottomNav } from '../../swa/components';
 import { WarehouseSelector } from '../inventory';
 import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS, RMA_STATUS_COUNTS } from './fixtures';
+import {
+  ReturnsFiltersScreen,
+  type RmaFilterDate,
+  type RmaFilterReason,
+  type RmaFilterRefundMethod,
+  type RmaFilterStatus,
+  type RmaFilterValues,
+} from './ReturnsFiltersScreen';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { RmaRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
@@ -165,22 +173,106 @@ export function ReturnsIssuesScreen({
   );
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterScreen, setShowFilterScreen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<RmaFilterStatus>('All');
+  const [filterDate, setFilterDate] = useState<RmaFilterDate>('Today');
+  const [filterReason, setFilterReason] = useState<RmaFilterReason>('All');
+  const [filterRefundMethod, setFilterRefundMethod] = useState<RmaFilterRefundMethod>('All');
+
+  const hasActiveFilters =
+    filterStatus !== 'All' ||
+    filterReason !== 'All' ||
+    filterRefundMethod !== 'All' ||
+    filterDate !== 'Today' ||
+    (allWarehouses && selectedWarehouseId !== undefined);
+
+  if (showFilterScreen) {
+    const warehouseList = warehouseOptions?.map((w) => ({
+      id: w.warehouseId || 'ALL',
+      name: w.warehouseName || 'All Warehouses',
+    })) ?? [
+      { id: 'ALL', name: 'All Warehouses' },
+      { id: 'wh-ooty', name: 'Ooty Warehouse' },
+      { id: 'wh-coonoor', name: 'Coonoor Warehouse' },
+      { id: 'wh-kotagiri', name: 'Kotagiri Warehouse' },
+      { id: 'wh-gudalur', name: 'Gudalur Market Warehouse' },
+    ];
+
+    return (
+      <ReturnsFiltersScreen
+        initialFilters={{
+          searchQuery,
+          status: filterStatus,
+          date: filterDate,
+          reason: filterReason,
+          refundMethod: filterRefundMethod,
+          warehouseId: selectedWarehouseId,
+        }}
+        warehouseName={scope.warehouseName ?? (scope.warehouseId ? `${scope.warehouseId} Warehouse` : undefined)}
+        showWarehouseSelector={allWarehouses && !selectedWarehouseId}
+        warehouses={warehouseList}
+        onBack={() => setShowFilterScreen(false)}
+        onApply={(applied) => {
+          setSearchQuery(applied.searchQuery);
+          setFilterStatus(applied.status);
+          setFilterDate(applied.date);
+          setFilterReason(applied.reason);
+          setFilterRefundMethod(applied.refundMethod);
+          if (allWarehouses) {
+            setSelectedWarehouseId(applied.warehouseId);
+          }
+          setShowFilterScreen(false);
+        }}
+      />
+    );
+  }
 
   if (allWarehouses) {
     const mainItems = visibleItems.filter((item) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        item.rmaId.toLowerCase().includes(q) ||
-        item.orderId.toLowerCase().includes(q) ||
-        item.customerName.toLowerCase().includes(q) ||
-        item.productName.toLowerCase().includes(q)
-      );
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesQuery =
+          item.rmaId.toLowerCase().includes(q) ||
+          item.orderId.toLowerCase().includes(q) ||
+          item.customerName.toLowerCase().includes(q) ||
+          item.productName.toLowerCase().includes(q);
+        if (!matchesQuery) return false;
+      }
+
+      // Status filter
+      if (filterStatus !== 'All') {
+        if (filterStatus === 'Under Review' && item.status !== 'Under Review' && item.status !== 'New') {
+          return false;
+        } else if (filterStatus === 'Approved' && item.status !== 'Approved') {
+          return false;
+        } else if (filterStatus === 'Refund Pending' && item.status !== 'Pending Resolution') {
+          return false;
+        } else if (filterStatus === 'Pending' && item.status !== 'New' && item.status !== 'Under Review') {
+          return false;
+        }
+      }
+
+      // Reason filter
+      if (filterReason !== 'All') {
+        const itemReason = item.issueCategory.toLowerCase();
+        if (filterReason === 'Damaged Product' && !itemReason.includes('damage')) {
+          return false;
+        } else if (filterReason === 'Quality Issue' && !itemReason.includes('quality')) {
+          return false;
+        } else if (filterReason === 'Missing Item' && !itemReason.includes('missing')) {
+          return false;
+        } else if (filterReason === 'Wrong Item' && !itemReason.includes('wrong')) {
+          return false;
+        }
+      }
+
+      return true;
     });
 
     return (
       <ReturnsScreen
-        title="RETURNS & ISSUES"
+        title="Returns & Issues"
         onBack={onBack}
         headerRight={
           onNavigateToNotifications ? (
@@ -238,7 +330,15 @@ export function ReturnsIssuesScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterSlidersIcon />
+            <TouchableOpacity
+              onPress={() => setShowFilterScreen(true)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Open Filters"
+            >
+              <FilterSlidersIcon color={hasActiveFilters ? adminColors.brand : '#9E9690'} />
+            </TouchableOpacity>
           </View>
 
           {/* RMA Cards */}
@@ -309,7 +409,6 @@ export function ReturnsIssuesScreen({
         ) : null
       }
       headerExtra={headerExtra}
-      footer={<SWABottomNav activeTab="More" onTabChange={onTabChange} />}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.metricsGrid}>

@@ -32,6 +32,7 @@ import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
 import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
+import { WarehouseSelector } from '../inventory';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
@@ -604,8 +605,18 @@ export function WarehouseExpensesScreen({
           ) : null}
         </View>
 
-        {/* Removed All Warehouses button for Main Warehouse; kept only for Sub Warehouse */}
-        {!isAllWarehouses && (
+        {isAllWarehouses ? (
+          hideWarehouseFilter ? null : (
+            <View style={styles.warehousePillRow}>
+              <WarehouseSelector
+                scope={scope}
+                options={warehouseOptions}
+                selectedId={selectedWarehouseId}
+                onSelect={setSelectedWarehouseId}
+              />
+            </View>
+          )
+        ) : (
           <View style={styles.warehousePillRow}>
             <View style={styles.warehousePill}>
               <LockIcon size={11} />

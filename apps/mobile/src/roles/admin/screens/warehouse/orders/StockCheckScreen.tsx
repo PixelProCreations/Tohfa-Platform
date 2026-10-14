@@ -319,14 +319,6 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
             </View>
           </View>
 
-          <View style={styles.noticeBox}>
-            <InfoCircleIcon />
-            <Text style={styles.noticeText}>
-              Partial fulfillment or substitution isn&apos;t defined by the source requirements, so no such action is
-              offered here.
-            </Text>
-          </View>
-
           <View style={styles.scrollSpacer} />
         </ScrollView>
 

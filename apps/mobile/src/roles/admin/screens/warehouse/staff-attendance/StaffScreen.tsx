@@ -50,8 +50,8 @@ const FILTERS: readonly RosterFilter[] = ['All', 'Warehouse Staff', 'Drivers'];
 
 export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onSelectStaff?: ((staff: StaffMember) => void) | undefined;
-  onNavigateToAttendance?: (() => void) | undefined;
-  onNavigateToHistory?: (() => void) | undefined;
+  onNavigateToAttendance?: ((warehouseId?: string) => void) | undefined;
+  onNavigateToHistory?: ((warehouseId?: string) => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Roster rows; defaults to the mock set until a roster API exists. */
@@ -98,6 +98,10 @@ export function StaffScreen({
   });
 
   if (showFilterScreen) {
+    const isSpecificScope = !isMain || !!selectedWarehouseId;
+    const currentWarehouseScope = selectedWarehouseId ? warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId) : undefined;
+    const currentWarehouseName = isSpecificScope ? (currentWarehouseScope?.warehouseName ?? scope.warehouseName ?? selectedWarehouseId) : undefined;
+
     return (
       <StaffFiltersScreen
         initialFilters={{
@@ -105,14 +109,25 @@ export function StaffScreen({
           role: roleFilter,
           attendance: attendanceFilter,
           status: statusFilter,
+          warehouseId: selectedWarehouseId,
         }}
-        warehouseName={isMain ? undefined : scope.warehouseName ?? scope.warehouseId}
+        showWarehouseSelector={isMain && !selectedWarehouseId}
+        warehouseName={currentWarehouseName}
+        warehouses={[
+          { id: 'ALL', name: 'All Warehouses' },
+          ...warehouseOptions
+            .filter((w) => !!w.warehouseId)
+            .map((w) => ({ id: w.warehouseId!, name: w.warehouseName ?? w.warehouseId! })),
+        ]}
         onBack={() => setShowFilterScreen(false)}
         onApply={(newFilters) => {
           setSearchQuery(newFilters.searchQuery);
           setRoleFilter(newFilters.role);
           setAttendanceFilter(newFilters.attendance);
           setStatusFilter(newFilters.status);
+          if (isMain && !selectedWarehouseId && newFilters.warehouseId !== undefined) {
+            setSelectedWarehouseId(newFilters.warehouseId);
+          }
           if (newFilters.role === 'Warehouse Staff') setFilter('Warehouse Staff');
           else if (newFilters.role === 'Driver') setFilter('Drivers');
           else setFilter('All');
@@ -131,11 +146,6 @@ export function StaffScreen({
         </View>
       }
       onBack={onBack}
-      headerRight={
-        <HeaderIconButton accessibilityLabel="Filter staff" onPress={() => setShowFilterScreen(true)}>
-          <FilterSlidersIcon />
-        </HeaderIconButton>
-      }
       headerExtra={
         <ScopeHeader
           scope={scope}
@@ -145,7 +155,6 @@ export function StaffScreen({
           onSelectWarehouse={setSelectedWarehouseId}
         />
       }
-      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     >
       {children}
     </WalletScreen>
@@ -219,29 +228,18 @@ export function StaffScreen({
 
   return frame(
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-      {isMain && onNavigateToAttendance ? (
-        <TouchableOpacity style={styles.banner} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
-          <View style={styles.bannerIcon}>
-            <CalendarIcon color={adminColors.brand} />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.bannerTitle}>Attendance Dashboard</Text>
-            <Text style={styles.meta}>View today&apos;s attendance & history</Text>
-          </View>
-          <ChevronRightIcon color={adminColors.brand} />
-        </TouchableOpacity>
-      ) : null}
+
 
       <View style={styles.kpiGrid}>
         <View style={styles.kpiRow}>
           <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
-            <Text style={styles.kpiValue}>{scoped.length}</Text>
+            <Text style={styles.kpiValue}>{isMain ? '12' : scoped.length}</Text>
           </View>
           <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
             <Text style={[styles.kpiValue, { color: adminColors.success.text }]}>
-              {count((m) => m.attendance === 'Present')}
+              {isMain ? '9' : count((m) => m.attendance === 'Present')}
             </Text>
           </View>
         </View>
@@ -249,17 +247,44 @@ export function StaffScreen({
           <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>ABSENT</Text>
             <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>
-              {count((m) => m.attendance === 'Absent')}
+              {isMain ? '2' : count((m) => m.attendance === 'Absent')}
             </Text>
           </View>
           <View style={styles.kpiCard}>
             <Text style={styles.kpiLabel}>ON LEAVE</Text>
             <Text style={[styles.kpiValue, { color: adminColors.warning.text }]}>
-              {count((m) => m.attendance === 'On Leave')}
+              {isMain ? '1' : count((m) => m.attendance === 'On Leave')}
             </Text>
           </View>
         </View>
       </View>
+
+      {isMain ? (
+        <View style={styles.actionRow}>
+          {onNavigateToAttendance ? (
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => onNavigateToAttendance(selectedWarehouseId)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <CalendarIcon size={22} color="#F0562A" />
+              <Text style={styles.actionText}>Attendance</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNavigateToHistory ? (
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => onNavigateToHistory(selectedWarehouseId)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <HistoryIcon size={22} color="#F0562A" />
+              <Text style={styles.actionText}>Attendance History</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
 
       {(attendanceFilter !== 'All' || statusFilter !== 'All') && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 }}>
@@ -304,30 +329,37 @@ export function StaffScreen({
         </View>
       )}
 
-      <View style={styles.chipRow}>
-        {FILTERS.map((item) => {
-          const active = item === filter;
-          return (
-            <TouchableOpacity
-              key={item}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => {
-                setFilter(item);
-                if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
-                else if (item === 'Drivers') setRoleFilter('Driver');
-                else setRoleFilter('All');
-              }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {!isMain ? (
+        <View style={styles.chipRow}>
+          {FILTERS.map((item) => {
+            const active = item === filter;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => {
+                  setFilter(item);
+                  if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
+                  else if (item === 'Drivers') setRoleFilter('Driver');
+                  else setRoleFilter('All');
+                }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
 
-      <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Staff name, Staff ID, Driver ID, Role" />
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Staff name, Staff ID, Driver ID, Role"
+        onFilterPress={() => setShowFilterScreen(true)}
+      />
 
       {visible.length === 0 ? <EmptyState title="No staff found" subtitle="Try another name, ID or filter." /> : null}
 
@@ -345,13 +377,23 @@ export function StaffScreen({
       {!isMain ? (
         <View style={styles.actionRow}>
           {onNavigateToAttendance ? (
-            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => onNavigateToAttendance(selectedWarehouseId)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
               <CalendarIcon size={22} color="#F0562A" />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
           {onNavigateToHistory ? (
-            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToHistory} activeOpacity={0.8} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => onNavigateToHistory(selectedWarehouseId)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
               <HistoryIcon size={22} color="#F0562A" />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>

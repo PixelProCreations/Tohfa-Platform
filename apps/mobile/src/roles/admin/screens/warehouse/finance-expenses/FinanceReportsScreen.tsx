@@ -108,6 +108,7 @@ export interface FinanceReportsScreenProps extends WarehouseScreenBaseProps {
   onNavigateToCustomerOrders?: (() => void) | undefined;
   onNavigateToInvoiceList?: (() => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
+  initialWarehouseId?: string | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -278,13 +279,26 @@ export function FinanceReportsScreen({
   onSelectReport,
   onNavigateToCustomerOrders,
   onNavigateToInvoiceList,
+  initialWarehouseId,
 }: FinanceReportsScreenProps) {
   const [activeSubScreen, setActiveSubScreen] = useState<
     'revenue' | 'expense' | 'daily' | 'monthly' | 'categories' | 'vouchers' | null
   >(null);
 
   const isMain = scope.warehouseId === undefined;
-  const warehouseLabel = isMain ? 'All Warehouses' : (scope.warehouseName ?? '');
+  const warehouseLabel = isMain
+    ? initialWarehouseId && initialWarehouseId !== 'All'
+      ? initialWarehouseId === 'WH-OOTY'
+        ? 'Ooty Warehouse'
+        : initialWarehouseId === 'WH-COON'
+        ? 'Coonoor Warehouse'
+        : initialWarehouseId === 'WH-KOTA'
+        ? 'Kotagiri Warehouse'
+        : initialWarehouseId === 'WH-GUDA'
+        ? 'Gudalur Market Warehouse'
+        : initialWarehouseId
+      : 'All Warehouses'
+    : (scope.warehouseName ?? '');
   const exportAllowed = canExport ?? can('report.export.file');
   const visibleReports = FINANCE_REPORTS
     .filter((r) => (isMain ? true : r.item.id !== 'voucher_report'))

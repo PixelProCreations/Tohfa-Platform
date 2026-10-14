@@ -41,6 +41,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
 import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { WarehouseSelector } from '../inventory';
 import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
 import type { RevenueRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -186,7 +187,16 @@ export function RevenueScreen({
       title="Revenue"
       onBack={onBack}
       headerExtra={
-        isMain ? undefined : (
+        isMain ? (
+          hideWarehouseFilter ? undefined : (
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
+          )
+        ) : (
           <ScopeHeader
             scope={scope}
             label={`${scopeLabel(scope)} · Today`}

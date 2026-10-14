@@ -19,7 +19,8 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_B
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
 import { CHANNEL_COPY, CHANNEL_KPIS, CHANNEL_ORDERS } from './fixtures';
-import { isAllWarehouses } from './SalesParts';
+import { SALE_WAREHOUSES, isAllWarehouses } from './SalesParts';
+import { WarehouseSelector } from '../inventory';
 import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -979,65 +980,16 @@ export function ChannelSalesScreen({
         </View>
 
         {isMain ? (
-          <View style={styles.warehouseDropdownRow}>
-            <TouchableOpacity
-              style={styles.warehouseDropdownPill}
-              onPress={() => setShowWarehouseModal(true)}
-              activeOpacity={0.85}
-            >
-              <BuildingIcon size={16} color={adminColors.brand} />
-              <Text style={styles.warehouseDropdownText}>{pickedWarehouseName}</Text>
-              <ChevronDownIcon size={16} color={adminColors.brand} />
-            </TouchableOpacity>
+          <View style={{ marginTop: 6 }}>
+            <WarehouseSelector
+              scope={scope}
+              options={SALE_WAREHOUSES}
+              selectedId={pickedWarehouse}
+              onSelect={setPickedWarehouse}
+            />
           </View>
         ) : null}
       </View>
-
-      {/* ─── Warehouse Selection Modal (Main Warehouse) ─── */}
-      {isMain ? (
-        <Modal
-          visible={showWarehouseModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowWarehouseModal(false)}
-        >
-          <TouchableWithoutFeedback onPress={() => setShowWarehouseModal(false)}>
-            <View style={styles.modalBackdrop}>
-              <TouchableWithoutFeedback>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Select Warehouse</Text>
-                  {WAREHOUSE_OPTIONS.map((item) => {
-                    const isSelected = pickedWarehouse === item.id;
-                    return (
-                      <TouchableOpacity
-                        key={item.name}
-                        style={[styles.modalItem, isSelected && styles.modalItemSelected]}
-                        onPress={() => {
-                          setPickedWarehouse(item.id);
-                          setShowWarehouseModal(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
-                          {item.name}
-                        </Text>
-                        {isSelected ? <CheckmarkIcon size={18} color={adminColors.brand} /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setShowWarehouseModal(false)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      ) : null}
 
       {/* ─── Main Content ─── */}
       <View style={styles.mainContainer}>

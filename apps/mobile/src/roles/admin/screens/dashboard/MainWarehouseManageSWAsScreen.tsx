@@ -16,6 +16,8 @@ import {
   adminType,
   ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
+import { WarehouseSelector } from '../warehouse/inventory/WarehouseSelector';
+import type { WarehouseScope } from '../warehouse/inventory/types';
 
 function ArrowBackIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -118,6 +120,8 @@ export interface MainWarehouseManageSWAsScreenProps {
   initialWarehouse?: string | undefined;
 }
 
+const MAIN_SCOPE: WarehouseScope = { warehouseId: undefined, warehouseName: 'All Warehouses' };
+
 export function MainWarehouseManageSWAsScreen({
   onBack,
   initialView = 'list',
@@ -148,6 +152,13 @@ export function MainWarehouseManageSWAsScreen({
 
   const [currentView, setCurrentView] = useState<'list' | 'detail' | 'create'>(initialView);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminRecordItem>(getInitialAdmin);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    initialWarehouse
+      ? DEFAULT_ADMINS.find(
+          (a) => a.warehouse.toLowerCase() === initialWarehouse.toLowerCase()
+        )?.warehouse
+      : undefined
+  );
   const [searchQuery, setSearchQuery] = useState('');
 
   // Create wizard state
@@ -155,7 +166,26 @@ export function MainWarehouseManageSWAsScreen({
   const [newAdminName, setNewAdminName] = useState('');
   const [assignedWarehouse, setAssignedWarehouse] = useState('Gudalur Market');
 
-  const filteredAdmins = DEFAULT_ADMINS.filter((item) => {
+  // Match selectedWarehouseId (which can be 'WH-OOTY', 'WH-COON', 'WH-KOTA', 'WH-GUDA' or warehouse name)
+  const isMatchingWarehouse = (adminWarehouse: string, selId: string) => {
+    const norm = selId.toLowerCase();
+    if (norm === 'wh-ooty' || norm.includes('ooty')) return adminWarehouse.toLowerCase().includes('ooty');
+    if (norm === 'wh-coon' || norm.includes('coon')) return adminWarehouse.toLowerCase().includes('coon');
+    if (norm === 'wh-kota' || norm.includes('kota')) return adminWarehouse.toLowerCase().includes('kota');
+    if (norm === 'wh-guda' || norm.includes('guda')) return adminWarehouse.toLowerCase().includes('guda');
+    return adminWarehouse.toLowerCase().includes(norm);
+  };
+
+  const scopedAdmins = selectedWarehouseId
+    ? DEFAULT_ADMINS.filter((item) => isMatchingWarehouse(item.warehouse, selectedWarehouseId))
+    : DEFAULT_ADMINS;
+
+  const totalSWAs = scopedAdmins.length;
+  const activeSWAs = scopedAdmins.filter((a) => a.status === 'Active').length;
+  const pendingSWAs = scopedAdmins.filter((a) => a.status === 'Pending' || a.isUnassigned).length;
+  const attentionSWAs = scopedAdmins.filter((a) => a.isUnassigned).length;
+
+  const filteredAdmins = scopedAdmins.filter((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -349,37 +379,38 @@ export function MainWarehouseManageSWAsScreen({
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sub Warehouse Admins</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <ArrowBackIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sub Warehouse Admins</Text>
+          </View>
         </View>
+        <WarehouseSelector
+          scope={MAIN_SCOPE}
+          selectedId={selectedWarehouseId}
+          onSelect={(id) => setSelectedWarehouseId(id)}
+        />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.warehouseDropdown} activeOpacity={0.8}>
-          <WarehouseBuildingIcon />
-          <Text style={styles.warehouseDropdownText}>All Warehouses</Text>
-          <ChevronDownIcon />
-        </TouchableOpacity>
-
         <View style={styles.grid}>
           <View style={styles.cardHalf}>
             <Text style={styles.cardLabel}>TOTAL SWAS</Text>
-            <Text style={styles.cardValue}>3</Text>
+            <Text style={styles.cardValue}>{totalSWAs}</Text>
           </View>
           <View style={styles.cardHalf}>
             <Text style={styles.cardLabel}>ACTIVE</Text>
-            <Text style={styles.cardValue}>3</Text>
+            <Text style={styles.cardValue}>{activeSWAs}</Text>
           </View>
           <View style={styles.cardHalf}>
             <Text style={styles.cardLabel}>PENDING ASSIGNMENT</Text>
-            <Text style={[styles.cardValue, styles.cardValueWarning]}>1</Text>
+            <Text style={[styles.cardValue, styles.cardValueWarning]}>{pendingSWAs}</Text>
           </View>
           <View style={styles.cardHalf}>
             <Text style={styles.cardLabel}>ATTENTION REQUIRED</Text>
-            <Text style={[styles.cardValue, styles.cardValueDanger]}>1</Text>
+            <Text style={[styles.cardValue, styles.cardValueDanger]}>{attentionSWAs}</Text>
           </View>
         </View>
 
@@ -441,34 +472,19 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
-    paddingBottom: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   backBtn: { marginRight: adminSpacing.md, paddingVertical: adminSpacing.xs },
   headerTitle: { ...adminType.title, color: adminColors.onBrand },
   scroll: { flex: 1 },
   scrollContent: { padding: adminSpacing.lg, paddingBottom: adminSpacing.xl },
-
-  warehouseDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.brandTint,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.md,
-    alignSelf: 'flex-start',
-    marginBottom: adminSpacing.lg,
-    gap: adminSpacing.sm,
-  },
-  warehouseDropdownText: {
-    ...adminType.rowTitle,
-    color: adminColors.brandDeep,
-  },
 
   grid: {
     flexDirection: 'row',
