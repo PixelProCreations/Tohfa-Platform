@@ -102,3 +102,50 @@ export function summarizeTaskCounts(summary: TaskSummaryDto | null | undefined):
     returnsPending: returnInspection + returnApproval,
   };
 }
+
+/**
+ * Formats a clean headline for the task card on the dashboard (BR-77).
+ */
+export function formatTaskTitle(task: TaskItemDto): string {
+  const badge = mapTaskBadgeLabel(task.type);
+  const refCode = (task.params['orderNumber'] ??
+    task.params['grnNumber'] ??
+    task.params['rmaNumber'] ??
+    task.params['refCode']) as string | undefined;
+  if (refCode) {
+    return `${badge} · ${refCode}`;
+  }
+  return badge;
+}
+
+/**
+ * Formats subtitle details from task parameters without fabricating info (BR-77).
+ */
+export function formatTaskDetails(task: TaskItemDto): string | null {
+  const parts: string[] = [];
+  const produce = (task.params['produce'] ?? task.params['cropName'] ?? task.params['productName']) as string | undefined;
+  const qty = (task.params['grossQtyKg'] ?? task.params['qtyKg'] ?? task.params['quantity']) as string | number | undefined;
+  const customer = (task.params['customerName'] ?? task.params['customer']) as string | undefined;
+
+  if (produce && qty) {
+    parts.push(`${produce} · ${qty} KG`);
+  } else if (produce) {
+    parts.push(produce);
+  } else if (qty) {
+    parts.push(`${qty} KG`);
+  }
+
+  if (customer) {
+    parts.push(`Customer: ${customer}`);
+  }
+
+  if (parts.length > 0) {
+    return parts.join(' — ');
+  }
+
+  const reason = (task.params['reason'] ?? task.params['description']) as string | undefined;
+  if (reason) return reason;
+
+  return null;
+}
+

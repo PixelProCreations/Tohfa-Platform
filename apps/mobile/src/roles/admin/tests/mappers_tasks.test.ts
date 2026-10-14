@@ -4,7 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskItemDto, TaskSummaryDto } from '../api/tasks';
 import {
+  formatTaskDetails,
   formatTaskDue,
+  formatTaskTitle,
   mapTaskBadgeLabel,
   mapTaskDestination,
   summarizeTaskCounts,
@@ -84,4 +86,25 @@ describe('mappers_tasks.ts (BR-77, BR-78)', () => {
       expect(counts.returnsPending).toBe(2);
     });
   });
+
+  describe('formatTaskTitle and formatTaskDetails (BR-77)', () => {
+    it('formats title with badge and ref code', () => {
+      expect(formatTaskTitle(SAMPLE_TASK)).toBe('QC Pending · GR-1024');
+      const orderTask: TaskItemDto = {
+        ...SAMPLE_TASK,
+        type: 'ORDER_PACK',
+        params: { orderNumber: 'ORD-501', produce: 'Tomato', grossQtyKg: '20.000' },
+      };
+      expect(formatTaskTitle(orderTask)).toBe('Packing · ORD-501');
+      expect(formatTaskDetails(orderTask)).toBe('Tomato · 20.000 KG');
+    });
+
+    it('returns null details when no parameters provide details', () => {
+      const bareTask: TaskItemDto = { ...SAMPLE_TASK, params: {} };
+      expect(formatTaskTitle(bareTask)).toBe('QC Pending');
+      expect(formatTaskDetails(bareTask)).toBeNull();
+    });
+  });
 });
+
+

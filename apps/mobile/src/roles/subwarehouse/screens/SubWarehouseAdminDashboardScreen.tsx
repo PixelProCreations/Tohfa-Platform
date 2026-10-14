@@ -66,6 +66,30 @@ import {
 } from '../../admin/screens/warehouse/returns-rma';
 // Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
 import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
+import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../admin/api/hooks';
+import { adminKeys } from '../../admin/api/queryKeys';
+import {
+  getTaskSummary,
+  listTasks,
+  markTaskDone,
+  type TaskItemDto,
+  type TaskType,
+} from '../../admin/api/tasks';
+import {
+  formatTaskDetails,
+  formatTaskDue,
+  formatTaskTitle,
+  mapTaskBadgeLabel,
+  mapTaskDestination,
+  summarizeTaskCounts,
+  type SummarizedTaskCounts,
+} from '../../admin/screens/warehouse/dashboard-home-more/mappers_tasks';
+import { getSalesSummary } from '../../admin/api/sales';
+import { getDailyCashSummary } from '../../admin/api/finance';
+import { mapDailyCashSummary } from '../../admin/screens/warehouse/finance-expenses/mappers';
+import { formatPaise } from '../../admin/money/paise';
+import { parseMoney, toPaise } from '@tohfa/shared-types';
+import { AdminLoadingState } from '../../admin/screens/warehouse/shared/AsyncStates';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -621,6 +645,11 @@ function SubWarehouseTodayOverviewView({
   onOpenInventory,
   onOpenSales,
   onOpenCash,
+  taskCounts,
+  salesRevenueText,
+  salesTxnCountText,
+  cashTopUpText,
+  warehouseLabel,
 }: {
   onBack: () => void;
   onOpenReceiving?: () => void;
@@ -628,6 +657,11 @@ function SubWarehouseTodayOverviewView({
   onOpenInventory?: () => void;
   onOpenSales?: () => void;
   onOpenCash?: () => void;
+  taskCounts?: SummarizedTaskCounts | undefined;
+  salesRevenueText?: string | undefined;
+  salesTxnCountText?: string | undefined;
+  cashTopUpText?: string | undefined;
+  warehouseLabel?: string | undefined;
 }) {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
@@ -651,7 +685,7 @@ function SubWarehouseTodayOverviewView({
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>Today's Overview</Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>{warehouseLabel ? `Assigned Warehouse · ${warehouseLabel}` : 'Warehouse Overview'}</Text>
           </View>
         </View>
       </View>
@@ -704,16 +738,8 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>03</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>total</Text>
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>01</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : '00'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -740,16 +766,12 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>actionable</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>08</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>27</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready pickup</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -776,12 +798,8 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>05</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>00</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
-                </View>
-                <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>verification pending</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -808,11 +826,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>42</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesTxnCountText ?? '0 transactions'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹24,850</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesRevenueText ?? '₹0'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -839,12 +857,8 @@ function SubWarehouseTodayOverviewView({
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Cash Top-Up</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
-                </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹18,500</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{cashTopUpText ?? '₹0'}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -1161,6 +1175,37 @@ function SubWarehouseRecentActivityView({
   );
 }
 
+function getTaskIcon(type: TaskType) {
+  switch (type) {
+    case 'GOODS_RECEIPT_QC':
+      return <FlaskIcon />;
+    case 'ORDER_PACK':
+      return <PackageBagIcon />;
+    case 'ORDER_DISPATCH':
+      return <DeliveryTruckIcon />;
+    case 'ORDER_PICKUP_OTP':
+      return <PersonCheckIcon />;
+    case 'RETURN_INSPECTION':
+      return <BrokenCrateIcon />;
+    case 'RETURN_APPROVAL':
+      return <ExclamationCircleIcon />;
+  }
+}
+
+function getTaskIconBg(type: TaskType): string {
+  switch (type) {
+    case 'GOODS_RECEIPT_QC':
+    case 'ORDER_PACK':
+    case 'ORDER_PICKUP_OTP':
+      return PALETTE.amberIconBg;
+    case 'ORDER_DISPATCH':
+      return PALETTE.tealBadge;
+    case 'RETURN_INSPECTION':
+    case 'RETURN_APPROVAL':
+      return PALETTE.redIconBg;
+  }
+}
+
 export function SubWarehouseAdminDashboardScreen({
   scope,
   can,
@@ -1346,6 +1391,102 @@ export function SubWarehouseAdminDashboardScreen({
   const canOrders = can(HOME_CODES.orderList);
   const canStock = can(HOME_CODES.batchView);
   const canSales = can(HOME_CODES.salesIncome);
+
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  // Live task summary query (BR-77)
+  const taskSummaryQuery = useAdminQuery(
+    adminKeys.scoped('tasks', scope.warehouseId, { resource: 'summary' }),
+    (signal) => getTaskSummary({ warehouseId: scope.warehouseId }, signal),
+  );
+  const taskSummary = taskSummaryQuery.data;
+  const taskCounts = useMemo(() => summarizeTaskCounts(taskSummary), [taskSummary]);
+
+  // Live open tasks query (BR-77)
+  const openTasksQuery = useAdminQuery(
+    adminKeys.scoped('tasks', scope.warehouseId, { resource: 'open-tasks' }),
+    (signal) => listTasks({ state: 'open', warehouseId: scope.warehouseId }, signal),
+  );
+  const openTasks = useMemo(() => openTasksQuery.data?.items ?? [], [openTasksQuery.data]);
+
+  // Live sales summary query (BR-96)
+  const salesSummaryQuery = useAdminQuery(
+    adminKeys.scoped('sales', scope.warehouseId, { resource: 'summary', from: todayIso, to: todayIso }),
+    (signal) => getSalesSummary({ warehouseId: scope.warehouseId, from: todayIso, to: todayIso }, signal),
+    { enabled: canSales },
+  );
+  const salesSummary = salesSummaryQuery.data;
+
+  // Live daily cash summary query (BR-74)
+  const dailyCashQuery = useAdminQuery(
+    adminKeys.scoped('finance', scope.warehouseId, { resource: 'daily-summary', date: todayIso }),
+    (signal) => getDailyCashSummary({ warehouseId: scope.warehouseId, date: todayIso }, signal),
+  );
+  const dailyCashSummary = useMemo(
+    () => (dailyCashQuery.data ? mapDailyCashSummary(dailyCashQuery.data) : undefined),
+    [dailyCashQuery.data],
+  );
+
+  // markTaskDone mutation with Idempotency-Key (BR-78)
+  const idempotency = useIdempotencyKey();
+  const markDoneMutation = useAdminMutation({
+    mutationFn: ({ itemKey, idempotencyKey }: { itemKey: string; idempotencyKey: string }) =>
+      markTaskDone(itemKey, idempotencyKey),
+    invalidates: [adminKeys.scoped('tasks', scope.warehouseId)],
+  });
+
+  const handleMarkDone = (task: TaskItemDto) => {
+    const key = idempotency.keyFor(task.itemKey);
+    markDoneMutation.mutate({ itemKey: task.itemKey, idempotencyKey: key });
+  };
+
+  const handleOpenTask = (task: TaskItemDto) => {
+    const dest = mapTaskDestination(task);
+    if (dest.module === 'receiving') {
+      openReceiving('Shipments', { shipmentId: dest.refId });
+    } else if (dest.module === 'orders') {
+      setOrdersInitialScreen('M5S04');
+      setOrdersInitialParams({ orderId: dest.refId });
+      setShowOrdersModule(true);
+    } else if (dest.module === 'returns') {
+      openReturns('ReturnsIssues');
+    }
+  };
+
+  const salesRevenueText = useMemo(() => {
+    if (!salesSummary) return '₹0';
+    try {
+      const paise = toPaise(parseMoney(String(salesSummary.revenue || '0')));
+      return formatPaise(paise);
+    } catch {
+      return `₹${salesSummary.revenue}`;
+    }
+  }, [salesSummary]);
+
+  const salesTxnCountText = useMemo(() => {
+    if (!salesSummary) return '0 transactions';
+    return `${salesSummary.count} transaction${salesSummary.count === 1 ? '' : 's'}`;
+  }, [salesSummary]);
+
+  const cashTopUpText = useMemo(() => {
+    if (!dailyCashSummary) return '₹0';
+    return formatPaise(dailyCashSummary.cashTopUpsPaise);
+  }, [dailyCashSummary]);
+
+  const formatChannelRevenue = (...channels: string[]) => {
+    if (!salesSummary) return '₹0';
+    const totalPaise = salesSummary.byChannel
+      .filter((c) => channels.includes(c.channel))
+      .reduce((sum, c) => {
+        try {
+          return sum + toPaise(parseMoney(String(c.revenue || '0')));
+        } catch {
+          return sum;
+        }
+      }, 0);
+    return formatPaise(totalPaise);
+  };
+
 
   if (taskOrderNo !== null) {
     // Order detail of a HomeFlow order task; back returns to the task list.
@@ -1665,6 +1806,11 @@ export function SubWarehouseAdminDashboardScreen({
           setShowTodayOverview(false);
           setShowCashTopUp(true);
         }}
+        taskCounts={taskCounts}
+        salesRevenueText={salesRevenueText}
+        salesTxnCountText={salesTxnCountText}
+        cashTopUpText={cashTopUpText}
+        warehouseLabel={warehouseLabel}
       />
     );
   }
@@ -2154,9 +2300,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>12</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.ordersActionable).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>8 need action</Text>
+                  <Text style={styles.overviewSub}>{taskCounts.ordersActionable} need action</Text>
                 </View>
 
                 {/* 2. Ready for Pickup */}
@@ -2164,9 +2310,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>08</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.readyForPickup).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>3 customers expected</Text>
+                  <Text style={styles.overviewSub}>{taskCounts.readyForPickup} customers expected</Text>
                 </View>
                 </>
                 ) : null}
@@ -2176,9 +2322,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>03</Text>
+                  <Text style={styles.overviewNumber}>{String(taskCounts.qcPending).padStart(2, '0')}</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>1 awaiting QC · 2 completed</Text>
+                  <Text style={styles.overviewSub}>{taskCounts.qcPending} awaiting QC</Text>
                 </View>
 
                 {/* 4. Low Stock Items */}
@@ -2187,7 +2333,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
                   </View>
-                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
+                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>
+                    {taskSummary?.byType['LOW_STOCK'] !== undefined ? String(taskSummary.byType['LOW_STOCK']).padStart(2, '0') : '00'}
+                  </Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
                 </View>
@@ -2199,9 +2347,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <BanknotesIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>₹24,850</Text>
+                  <Text style={styles.overviewNumber}>{salesRevenueText}</Text>
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>42 transactions</Text>
+                  <Text style={styles.overviewSub}>{salesTxnCountText}</Text>
                 </View>
                 ) : null}
 
@@ -2210,9 +2358,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <WalletIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>₹18,500</Text>
+                  <Text style={styles.overviewNumber}>{cashTopUpText}</Text>
                   <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>12 transactions</Text>
+                  <Text style={styles.overviewSub}>Daily total</Text>
                 </View>
               </View>
 
@@ -2290,99 +2438,109 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.sectionHeaderRow}>
                 <WarningTriangleIcon color="#D97706" size={17} />
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Needs Attention</Text>
+                {openTasks.length > 0 ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{openTasks.length}</Text>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.alertList}>
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <FlaskIcon />
+                {openTasksQuery.isPending ? (
+                  <AdminLoadingState label="Loading tasks..." />
+                ) : openTasks.length === 0 ? (
+                  <View style={styles.emptyTasksCard}>
+                    <Text style={styles.emptyTasksTitle}>All caught up!</Text>
+                    <Text style={styles.emptyTasksSub}>No pending tasks needing attention right now.</Text>
                   </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>QC Pending</Text>
-                    <Text style={styles.alertCardSub}>
-                      Tomato — Batch GR-1024 · Received 95 KG, awaiting quality check
-                    </Text>
-                  </View>
-                </View>
+                ) : (
+                  openTasks.map((task) => {
+                    const title = formatTaskTitle(task);
+                    const details = formatTaskDetails(task);
+                    const due = formatTaskDue(task.dueOn);
+                    const isPendingDone = markDoneMutation.isPending && markDoneMutation.variables?.itemKey === task.itemKey;
 
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <ExclamationCircleIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Quantity Mismatch</Text>
-                    <Text style={styles.alertCardSub}>Expected 100 KG, received 95 KG</Text>
-                  </View>
-                </View>
-
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <BrokenCrateIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Damage Report</Text>
-                    <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
-                  </View>
-                </View>
-
-                {canOrders ? (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <ClockIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Pickup Pending</Text>
-                    <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
-                  </View>
-                </View>
-                ) : null}
-
-                {canStock ? (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <BoxIcon color="#D97706" />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Low Stock</Text>
-                    <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
-                  </View>
-                </View>
-                ) : null}
+                    return (
+                      <TouchableOpacity
+                        key={task.itemKey}
+                        style={styles.alertCard}
+                        onPress={() => handleOpenTask(task)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.alertIconCircle, { backgroundColor: getTaskIconBg(task.type) }]}>
+                          {getTaskIcon(task.type)}
+                        </View>
+                        <View style={styles.alertCardTextWrap}>
+                          <View style={styles.taskCardHeaderRow}>
+                            <Text style={styles.alertCardTitle}>{title}</Text>
+                            <View style={styles.taskTypeBadge}>
+                              <Text style={styles.taskTypeBadgeText}>{mapTaskBadgeLabel(task.type)}</Text>
+                            </View>
+                          </View>
+                          {details ? (
+                            <Text style={styles.alertCardSub} numberOfLines={2}>
+                              {details}
+                            </Text>
+                          ) : null}
+                          <View style={styles.taskFooterRow}>
+                            {due ? <Text style={styles.taskDueText}>{due}</Text> : <View />}
+                            <TouchableOpacity
+                              style={[styles.taskDoneBtn, isPendingDone && styles.taskDoneBtnDisabled]}
+                              disabled={markDoneMutation.isPending}
+                              onPress={(e) => {
+                                e.stopPropagation?.();
+                                handleMarkDone(task);
+                              }}
+                              activeOpacity={0.8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Mark ${title} as done`}
+                            >
+                              <Text style={styles.taskDoneBtnText}>{isPendingDone ? 'Saving...' : 'Done'}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
               </View>
 
               {/* 5. Today's Receiving */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Today's Receiving</Text>
-                <Text style={styles.sectionHeaderSub}>3 Shipments</Text>
+                <Text style={styles.sectionHeaderSub}>
+                  {taskCounts.qcPending > 0 ? `${taskCounts.qcPending} Pending QC` : 'All QC Done'}
+                </Text>
               </View>
 
               <View style={styles.cardStack}>
-                <View style={styles.orderReceivingCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-00124</Text>
-                    <View style={styles.awaitingQcBadge}>
-                      <Text style={styles.awaitingQcText}>Awaiting QC</Text>
+                {openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').slice(0, 3).map((task) => (
+                  <TouchableOpacity
+                    key={task.itemKey}
+                    style={styles.orderReceivingCard}
+                    onPress={() => handleOpenTask(task)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.itemCodeBold}>
+                        {String(task.params['grnNumber'] ?? task.refId.slice(0, 8))}
+                      </Text>
+                      <View style={styles.awaitingQcBadge}>
+                        <Text style={styles.awaitingQcText}>Awaiting QC</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
-                  <Text style={styles.produceTitle}>Tomato · Grade 1</Text>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.detailText}>Expected: 150 KG</Text>
-                    <Text style={styles.timeText}>09:40 AM</Text>
-                  </View>
-                </View>
-
-                <View style={styles.orderReceivingCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-00123</Text>
-                    <View style={styles.qcCompletedBadge}>
-                      <Text style={styles.qcCompletedText}>✓ QC Completed</Text>
+                    <Text style={styles.routeText}>Warehouse → {warehouseShort}</Text>
+                    <Text style={styles.produceTitle}>
+                      {String(task.params['produce'] ?? task.params['cropName'] ?? task.params['productName'] ?? 'Goods Receipt')}
+                    </Text>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.detailText}>
+                        {task.params['grossQtyKg'] ? `Received: ${task.params['grossQtyKg']} KG` : ''}
+                      </Text>
+                      <Text style={styles.timeText}>{formatTaskDue(task.dueOn) ?? ''}</Text>
                     </View>
-                  </View>
-                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
-                  <Text style={styles.produceTitle}>Carrot · Grade 1</Text>
-                  <Text style={styles.detailText}>Received: 80 KG</Text>
-                </View>
+                  </TouchableOpacity>
+                ))}
 
                 <TouchableOpacity
                   style={styles.linkButton}
@@ -2400,20 +2558,38 @@ export function SubWarehouseAdminDashboardScreen({
               <>
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Today's Orders</Text>
-                <Text style={styles.sectionHeaderSub}>12 Orders</Text>
+                <Text style={styles.sectionHeaderSub}>
+                  {taskCounts.ordersActionable > 0 ? `${taskCounts.ordersActionable} Orders Need Action` : 'All Actioned'}
+                </Text>
               </View>
 
               <View style={styles.cardStack}>
-                <View style={styles.orderReceivingCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>#ORD-10245</Text>
-                    <View style={styles.readyPickupBadge}>
-                      <Text style={styles.readyPickupText}>Ready for Pickup</Text>
+                {openTasks.filter((t) => t.type.startsWith('ORDER_')).slice(0, 3).map((task) => (
+                  <TouchableOpacity
+                    key={task.itemKey}
+                    style={styles.orderReceivingCard}
+                    onPress={() => handleOpenTask(task)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.itemCodeBold}>
+                        {String(task.params['orderNumber'] ?? task.refId.slice(0, 8))}
+                      </Text>
+                      <View style={styles.readyPickupBadge}>
+                        <Text style={styles.readyPickupText}>{mapTaskBadgeLabel(task.type)}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
-                  <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
-                </View>
+                    <Text style={styles.produceTitle}>
+                      {String(task.params['customerName'] ?? task.params['customer'] ?? 'Customer Order')}
+                    </Text>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.detailText}>
+                        {task.params['produce'] ? String(task.params['produce']) : ''}
+                      </Text>
+                      <Text style={styles.timeText}>{formatTaskDue(task.dueOn) ?? ''}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
 
                 <TouchableOpacity
                   style={styles.linkButton}
@@ -2428,20 +2604,28 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Order Status Summary</Text>
               <View style={styles.statusSummaryGrid}>
                 <View style={styles.statusSummaryTile}>
-                  <Text style={styles.statusSummaryNum}>04</Text>
-                  <Text style={styles.statusSummaryLabel}>NEW</Text>
-                </View>
-                <View style={styles.statusSummaryTile}>
-                  <Text style={styles.statusSummaryNum}>03</Text>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_PACK'] ?? 0).padStart(2, '0')}
+                  </Text>
                   <Text style={styles.statusSummaryLabel}>PACKING</Text>
                 </View>
                 <View style={styles.statusSummaryTile}>
-                  <Text style={styles.statusSummaryNum}>08</Text>
-                  <Text style={styles.statusSummaryLabel}>READY</Text>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_DISPATCH'] ?? 0).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>DISPATCH</Text>
                 </View>
                 <View style={styles.statusSummaryTile}>
-                  <Text style={styles.statusSummaryNum}>27</Text>
-                  <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskSummary?.byType['ORDER_PICKUP_OTP'] ?? 0).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>PICKUP OTP</Text>
+                </View>
+                <View style={styles.statusSummaryTile}>
+                  <Text style={styles.statusSummaryNum}>
+                    {String(taskCounts.ordersActionable).padStart(2, '0')}
+                  </Text>
+                  <Text style={styles.statusSummaryLabel}>ACTIONABLE</Text>
                 </View>
               </View>
               </>
@@ -2522,24 +2706,24 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
-                  <Text style={styles.salesTotalAmount}>₹24,850</Text>
-                  <Text style={styles.salesTxnCount}>42 transactions</Text>
+                  <Text style={styles.salesTotalAmount}>{salesRevenueText}</Text>
+                  <Text style={styles.salesTxnCount}>{salesTxnCountText}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Online</Text>
-                  <Text style={styles.infoTableValue}>₹12,400</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('ONLINE')}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Market</Text>
-                  <Text style={styles.infoTableValue}>₹7,250</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('MARKET', 'DIRECT')}</Text>
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>HORECA</Text>
-                  <Text style={styles.infoTableValue}>₹3,200</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('HORECA')}</Text>
                 </View>
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.infoTableLabel}>B2B</Text>
-                  <Text style={styles.infoTableValue}>₹2,000</Text>
+                  <Text style={styles.infoTableValue}>{formatChannelRevenue('B2B')}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -2562,12 +2746,22 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Cash Operations</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
-                  <Text style={styles.salesTotalAmount}>₹18,500</Text>
-                  <Text style={styles.salesTxnCount}>12 transactions</Text>
+                  <Text style={styles.salesTotalAmount}>
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.expectedClosingPaise) : '₹0'}
+                  </Text>
+                  <Text style={styles.salesTxnCount}>
+                    {dailyCashSummary?.closed ? 'Closed' : 'Active today'}
+                  </Text>
+                </View>
+                <View style={styles.infoTableRow}>
+                  <Text style={styles.infoTableLabel}>Cash Top-Ups</Text>
+                  <Text style={styles.infoTableValue}>{cashTopUpText}</Text>
                 </View>
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>Last transaction</Text>
-                  <Text style={styles.infoTableValue}>₹1,500 · 11:42 AM</Text>
+                  <Text style={styles.infoTableLabel}>Cash Sales</Text>
+                  <Text style={styles.infoTableValue}>
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.cashSalesPaise) : '₹0'}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -2578,83 +2772,93 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* 12. Recent Activity */}
-              <View style={styles.sectionHeaderBetween}>
-                <Text style={styles.sectionHeading}>Recent Activity</Text>
-                {isAreaAvailable('warehouseActivity', can) ? (
-                <TouchableOpacity
-                  onPress={() => setShowRecentActivity(true)}
-                  activeOpacity={0.75}
-                  style={{ paddingVertical: 4 }}
-                >
-                  <Text style={styles.viewAllText}>View all</Text>
-                </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <View style={styles.activityCardContainer}>
-                {/* Activity 1 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <ReceiveGoodsActionIcon />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Goods Received</Text>
-                    <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
-                    <Text style={styles.activityTimeText}>10:42 AM</Text>
-                  </View>
-                </View>
-
-                {canOrders ? (
+              {/* 12. Recent Activity: gated by warehouseActivity */}
+              {isAreaAvailable('warehouseActivity', can) ? (
                 <>
-                <View style={styles.cardDivider} />
+                  <View style={styles.sectionHeaderBetween}>
+                    <Text style={styles.sectionHeading}>Recent Activity</Text>
+                    {isAreaAvailable('warehouseActivity', can) ? (
+                      <TouchableOpacity
+                        onPress={() => setShowRecentActivity(true)}
+                        activeOpacity={0.75}
+                        style={{ paddingVertical: 4 }}
+                      >
+                        <Text style={styles.viewAllText}>View all</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
 
-                {/* Activity 2 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <PackageBagIcon />
+                  <View style={styles.activityCardContainer}>
+                    {/* Activity 1 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <ReceiveGoodsActionIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Goods Received</Text>
+                        <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
+                        <Text style={styles.activityTimeText}>10:42 AM</Text>
+                      </View>
+                    </View>
+
+                    {canOrders ? (
+                    <>
+                    <View style={styles.cardDivider} />
+
+                    {/* Activity 2 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <PackageBagIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Order Packed</Text>
+                        <Text style={styles.activityItemSub}>ORD-10242</Text>
+                        <Text style={styles.activityTimeText}>10:20 AM</Text>
+                      </View>
+                    </View>
+                    </>
+                    ) : null}
+
+                    <View style={styles.cardDivider} />
+
+                    {/* Activity 3 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <CashTopUpActionIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
+                        <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
+                        <Text style={styles.activityTimeText}>09:55 AM</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Order Packed</Text>
-                    <Text style={styles.activityItemSub}>ORD-10242</Text>
-                    <Text style={styles.activityTimeText}>10:20 AM</Text>
-                  </View>
-                </View>
                 </>
-                ) : null}
-
-                <View style={styles.cardDivider} />
-
-                {/* Activity 3 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <CashTopUpActionIcon />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
-                    <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
-                    <Text style={styles.activityTimeText}>09:55 AM</Text>
-                  </View>
-                </View>
-              </View>
+              ) : null}
 
               {/* 13. Warehouse Alerts */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
               <View style={styles.alertsContainerCard}>
                 <View style={styles.alertBulletRow}>
                   <WarningTriangleIcon color="#D97706" size={16} />
-                  <Text style={styles.alertBulletText}>2 QC checks pending</Text>
+                  <Text style={styles.alertBulletText}>
+                    {taskCounts.qcPending} QC check{taskCounts.qcPending === 1 ? '' : 's'} pending
+                  </Text>
                 </View>
                 {canStock ? (
                   <View style={styles.alertBulletRow}>
                     <WarningTriangleIcon color="#D97706" size={16} />
-                    <Text style={styles.alertBulletText}>5 low-stock products</Text>
+                    <Text style={styles.alertBulletText}>
+                      {taskSummary?.byType['LOW_STOCK'] ?? 0} low-stock products
+                    </Text>
                   </View>
                 ) : null}
                 {canOrders ? (
                   <View style={styles.alertBulletRow}>
                     <InfoCircleIcon color="#2563EB" size={16} />
-                    <Text style={styles.alertBulletText}>3 pickups scheduled today</Text>
+                    <Text style={styles.alertBulletText}>
+                      {taskCounts.readyForPickup} pickup{taskCounts.readyForPickup === 1 ? '' : 's'} scheduled today
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -3447,11 +3651,81 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: PALETTE.textInk,
   },
-
-
-
-
-
+  countBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  taskCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  taskTypeBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  taskTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  taskFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  taskDueText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  taskDoneBtn: {
+    backgroundColor: PALETTE.primary,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  taskDoneBtnDisabled: {
+    opacity: 0.6,
+  },
+  taskDoneBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyTasksCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 8,
+  },
+  emptyTasksTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+  },
+  emptyTasksSub: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginTop: 4,
+  },
 
   // ─── Bottom Tab Bar ────────────────────────────────────────────────────────
   bottomTabBar: {
