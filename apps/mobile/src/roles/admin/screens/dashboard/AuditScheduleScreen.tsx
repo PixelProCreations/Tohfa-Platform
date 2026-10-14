@@ -12,45 +12,44 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // #F0562A Admin Theme Orange
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 Soft cream
-  card: adminColors.card, // #FFFFFF Crisp card
-  border: adminColors.border, // #EEDCD3
-  borderLight: '#F3ECE4',
-  borderGrey: '#D1D5DB',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep, // #7A2E14
-  sectionTitle: adminColors.brandDeep, // #7A2E14
-  ink: adminColors.ink, // #1A1A1A
-  muted: adminColors.muted, // #5F5E5A
-  labelDark: '#374151',
-
-  // Actions & Highlights — Unified Admin Theme Orange
-  brandOrange: adminColors.brand, // #F0562A
-  brandOrangeActive: adminColors.brand,
-  orangeBadgeText: adminColors.brand,
-  orangeBadgeBg: adminColors.brandTint, // #FDF3F0
-  blueText: '#0369A1',
-  blueBg: '#E0F2FE',
-  purpleText: '#3C3489',
-  purpleBg: '#EEEDFE',
-  greenText: '#15803D',
-  greenBg: '#EAF7EE',
-  amberText: '#B45309',
-  amberBg: '#FEF3E2',
-};
+import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
+import { t } from '../../i18n';
+export * from './fixtures';
+import {
+  INSPECTION_SECTIONS,
+  ALL_CROPS,
+  ALL_PLOTS,
+  ALL_WATER_SOURCES,
+  ALL_STEP6_WATER_SOURCES,
+  ALL_WATER_USE_PURPOSES,
+  type Step6WaterSourceEntry,
+  type Step7SectionKey,
+  type Step7SectionData,
+  STEP7_SECTIONS_CONFIG,
+  STEP7_INSPECTION_RESULTS,
+  STEP7_EXISTING_EVIDENCES,
+  type Step8EvidenceEntry,
+  STEP8_EVIDENCE_CATEGORIES,
+  STEP8_DOCUMENT_TYPES,
+  STEP8_VERIFICATION_STATUSES,
+  STEP8_MISSING_REASONS,
+  STEP8_RELATED_SECTIONS,
+  type Step9ObservationEntry,
+  STEP9_OBSERVATION_CATEGORIES,
+  STEP9_FOLLOWUP_RECOMMENDATIONS,
+  STEP9_FOLLOWUP_REQUIRED_OPTIONS,
+  STEP10_OVERALL_ASSESSMENT_OPTIONS,
+  STEP10_FOLLOWUP_REQUIRED_OPTIONS,
+  STEP10_RECOMMENDATION_OPTIONS,
+  type Step11RatingCategory,
+  STEP11_RATING_CATEGORIES,
+  type AuditScheduleRecord,
+  INITIAL_SCHEDULE_RECORDS,
+} from './fixtures';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -64,7 +63,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function CertCheckIcon({ size = 18, color = '#15803D' }: { size?: number; color?: string }) {
+function CertCheckIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -73,7 +72,7 @@ function CertCheckIcon({ size = 18, color = '#15803D' }: { size?: number; color?
   );
 }
 
-function PlusIcon({ size = 18, color = THEME.white }: { size?: number; color?: string }) {
+function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -81,7 +80,7 @@ function PlusIcon({ size = 18, color = THEME.white }: { size?: number; color?: s
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -90,7 +89,7 @@ function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: s
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Top track */}
@@ -111,7 +110,7 @@ function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; 
   );
 }
 
-function TimelineCalendarIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function TimelineCalendarIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
@@ -122,7 +121,7 @@ function TimelineCalendarIcon({ size = 18, color = '#854F0B' }: { size?: number;
   );
 }
 
-function TimelineInspectionIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function TimelineInspectionIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="17" rx="3" stroke={color} strokeWidth="1.8" />
@@ -133,7 +132,7 @@ function TimelineInspectionIcon({ size = 18, color = '#854F0B' }: { size?: numbe
   );
 }
 
-function TimelineCompletedIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function TimelineCompletedIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -143,7 +142,7 @@ function TimelineCompletedIcon({ size = 18, color = '#854F0B' }: { size?: number
 }
 
 
-function PdfDocIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function PdfDocIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -161,7 +160,7 @@ function PdfDocIcon({ size = 20, color = THEME.white }: { size?: number; color?:
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m9 18 6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -169,7 +168,7 @@ function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; col
   );
 }
 
-function ChevronLeftIcon({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
+function ChevronLeftIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m15 18-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,7 +176,7 @@ function ChevronLeftIcon({ size = 18, color = '#4B5563' }: { size?: number; colo
   );
 }
 
-function BanSlashIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function BanSlashIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -186,7 +185,7 @@ function BanSlashIcon({ size = 18, color = '#6B7280' }: { size?: number; color?:
   );
 }
 
-function HeaderBellIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function HeaderBellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -200,7 +199,7 @@ function HeaderBellIcon({ size = 20, color = THEME.white }: { size?: number; col
   );
 }
 
-function PendingCircleIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function PendingCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" fill="none" />
@@ -209,7 +208,7 @@ function PendingCircleIcon({ size = 18, color = '#9CA3AF' }: { size?: number; co
 }
 
 
-function VerifiedBadgeIcon({ size = 18, color = '#15803D' }: { size?: number; color?: string }) {
+function VerifiedBadgeIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -231,7 +230,7 @@ function VerifiedBadgeIcon({ size = 18, color = '#15803D' }: { size?: number; co
 }
 
 /** Exact Lucide flag icon for Red Flag banner */
-function FlagIcon({ size = 18, color = '#DC2626' }: { size?: number; color?: string }) {
+function FlagIcon({ size = 18, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -247,7 +246,7 @@ function FlagIcon({ size = 18, color = '#DC2626' }: { size?: number; color?: str
 }
 
 /** Exact Lucide lock icon for read-only fields */
-function LockIcon({ size = 14, color = '#78716C' }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect width="18" height="11" x="3" y="11" rx="2" stroke={color} strokeWidth="2" />
@@ -257,7 +256,7 @@ function LockIcon({ size = 14, color = '#78716C' }: { size?: number; color?: str
 }
 
 /** Exact Lucide chevron-down icon for dropdown selectors */
-function ChevronDownIcon({ size = 16, color = '#1F2937' }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -266,7 +265,7 @@ function ChevronDownIcon({ size = 16, color = '#1F2937' }: { size?: number; colo
 }
 
 /** Exact diagonal double-slash resize handle in bottom right of textarea */
-function ResizeHandleIcon({ size = 12, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ResizeHandleIcon({ size = 12, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 12 12" fill="none">
       <Line x1="11" y1="5" x2="5" y2="11" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
@@ -276,7 +275,7 @@ function ResizeHandleIcon({ size = 12, color = '#9CA3AF' }: { size?: number; col
 }
 
 /** Exact Lucide circle-play (Circle with play arrow inside) */
-function CirclePlayIcon({ size = 18, color = '#C05621' }: { size?: number; color?: string }) {
+function CirclePlayIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -286,7 +285,7 @@ function CirclePlayIcon({ size = 18, color = '#C05621' }: { size?: number; color
 }
 
 /** Exact Lucide newspaper (Inspection card icon) */
-function NewspaperIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function NewspaperIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -304,7 +303,7 @@ function NewspaperIcon({ size = 18, color = '#854F0B' }: { size?: number; color?
 }
 
 /** Exact Lucide clipboard-check (Findings recorded) */
-function ClipboardCheckIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function ClipboardCheckIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect width="8" height="4" x="8" y="2" rx="1" stroke={color} strokeWidth="1.8" />
@@ -321,7 +320,7 @@ function ClipboardCheckIcon({ size = 18, color = '#6B7280' }: { size?: number; c
 }
 
 /** Exact Lucide hard-hat (Safety helmet on Start / Resume button) */
-function HardHatIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function HardHatIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -359,7 +358,7 @@ function HardHatIcon({ size = 20, color = THEME.white }: { size?: number; color?
 }
 
 /** Lucide file-text (FMB Sketch card icon) */
-function FileTextIcon({ size = 19, color = '#854F0B' }: { size?: number; color?: string }) {
+function FileTextIcon({ size = 19, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -384,7 +383,7 @@ function FileTextIcon({ size = 19, color = '#854F0B' }: { size?: number; color?:
 }
 
 /** Lucide file-up (Upload file dashed box icon) */
-function UploadFileIcon({ size = 19, color = '#854F0B' }: { size?: number; color?: string }) {
+function UploadFileIcon({ size = 19, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -408,7 +407,7 @@ function UploadFileIcon({ size = 19, color = '#854F0B' }: { size?: number; color
 }
 
 /** Lucide download icon for popup download action */
-function DownloadIcon({ size = 18, color = THEME.white }: { size?: number; color?: string }) {
+function DownloadIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -419,7 +418,7 @@ function DownloadIcon({ size = 18, color = THEME.white }: { size?: number; color
 }
 
 /** Lucide x (close) icon for modal close button */
-function CloseXIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CloseXIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6 6 18M6 6l12 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -428,7 +427,7 @@ function CloseXIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: s
 }
 
 /** Lucide sliders-horizontal (for Crops Grown field trigger) */
-function SlidersHorizontalIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function SlidersHorizontalIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="8" x2="20" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -440,7 +439,7 @@ function SlidersHorizontalIcon({ size = 18, color = '#854F0B' }: { size?: number
 }
 
 /** Checkbox component for multi-select crops list */
-function CheckSquareIcon({ checked = false, size = 18, color = '#F0562A' }: { checked?: boolean; size?: number; color?: string }) {
+function CheckSquareIcon({ checked = false, size = 18, color = adminColors.brand }: { checked?: boolean; size?: number; color?: string }) {
   return (
     <View
       style={{
@@ -448,15 +447,15 @@ function CheckSquareIcon({ checked = false, size = 18, color = '#F0562A' }: { ch
         height: size,
         borderRadius: 4,
         borderWidth: 1.5,
-        borderColor: checked ? color : '#D1D5DB',
-        backgroundColor: checked ? color : '#FFFFFF',
+        borderColor: checked ? color : adminColors.border,
+        backgroundColor: checked ? color : adminColors.card,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       {checked && (
         <Svg width={size - 5} height={size - 5} viewBox="0 0 24 24" fill="none">
-          <Path d="M20 6L9 17l-5-5" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M20 6L9 17l-5-5" stroke={adminColors.onBrand} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       )}
     </View>
@@ -464,7 +463,7 @@ function CheckSquareIcon({ checked = false, size = 18, color = '#F0562A' }: { ch
 }
 
 /** Radio button dot component for single-select Plot/Zone and Water Source */
-function RadioDotIcon({ selected = false, size = 18, color = '#F0562A' }: { selected?: boolean; size?: number; color?: string }) {
+function RadioDotIcon({ selected = false, size = 18, color = adminColors.brand }: { selected?: boolean; size?: number; color?: string }) {
   return (
     <View
       style={{
@@ -475,7 +474,7 @@ function RadioDotIcon({ selected = false, size = 18, color = '#F0562A' }: { sele
         borderColor: color,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: adminColors.card,
       }}
     >
       {selected && (
@@ -493,7 +492,7 @@ function RadioDotIcon({ selected = false, size = 18, color = '#F0562A' }: { sele
 }
 
 /** Lucide calendar icon for date fields */
-function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" />
@@ -505,7 +504,7 @@ function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?:
 }
 
 /** Lucide chevron-up icon for accordion expanded state */
-function ChevronUpIcon({ size = 16, color = '#1F2937' }: { size?: number; color?: string }) {
+function ChevronUpIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m18 15-6-6-6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -514,7 +513,7 @@ function ChevronUpIcon({ size = 16, color = '#1F2937' }: { size?: number; color?
 }
 
 /** Up arrow icon for calendar header navigation */
-function ArrowUpIcon({ size = 16, color = '#374151' }: { size?: number; color?: string }) {
+function ArrowUpIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 19V5M12 5L6 11M12 5L18 11" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -523,7 +522,7 @@ function ArrowUpIcon({ size = 16, color = '#374151' }: { size?: number; color?: 
 }
 
 /** Down arrow icon for calendar header navigation */
-function ArrowDownIcon({ size = 16, color = '#374151' }: { size?: number; color?: string }) {
+function ArrowDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5V19M12 19L6 13M12 19L18 13" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -532,7 +531,7 @@ function ArrowDownIcon({ size = 16, color = '#374151' }: { size?: number; color?
 }
 
 /** Solid downward triangle icon for dropdown selector */
-function SolidTriangleDownIcon({ size = 10, color = '#111827' }: { size?: number; color?: string }) {
+function SolidTriangleDownIcon({ size = 10, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 10 7" fill="none">
       <Path d="M5 6.5L0.5 0.5H9.5L5 6.5Z" fill={color} />
@@ -541,7 +540,7 @@ function SolidTriangleDownIcon({ size = 10, color = '#111827' }: { size?: number
 }
 
 /** Lucide info icon for banner */
-function InfoIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function InfoIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -552,7 +551,7 @@ function InfoIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: str
 }
 
 /** Lucide ban/prohibited icon for read-only notice */
-function ProhibitedIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function ProhibitedIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -562,7 +561,7 @@ function ProhibitedIcon({ size = 18, color = '#6B7280' }: { size?: number; color
 }
 
 /** Exact Lucide layers-2 icon for Soil & Land Management */
-function LayersIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function LayersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -584,7 +583,7 @@ function LayersIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: s
 }
 
 /** Exact Lucide tractor icon for Farming Practices */
-function TractorIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function TractorIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m10 11 11 .9a1 1 0 0 1 .8 1.1l-.665 4.158a1 1 0 0 1-.988.842H20" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -601,7 +600,7 @@ function TractorIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: 
 }
 
 /** Exact Lucide leaf icon for Environmental Sustainability */
-function LeafIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function LeafIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -624,15 +623,15 @@ function LeafIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: str
 /** Exact Produce Fruit icon matching user mockup (circular outline with top-left tilted solid leaf) */
 function ProduceFruitIcon({
   size = 18,
-  color = '#854F0B',
+  color = adminColors.brand,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase() || color?.toLowerCase() === 'white';
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -652,7 +651,7 @@ function ProduceFruitIcon({
 }
 
 /** Exact Lucide qr-code icon for Traceability & Transparency */
-function QrCodeIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function QrCodeIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect width="5" height="5" x="3" y="3" rx="1" stroke={color} strokeWidth="1.8" />
@@ -669,7 +668,7 @@ function QrCodeIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: s
 }
 
 /** Exact solid 3-person group icon for Social & Labor Practices */
-function UsersIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function UsersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Center Person */}
@@ -686,7 +685,7 @@ function UsersIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: st
 }
 
 /** Exact Lucide landmark icon for Financial & Operational */
-function LandmarkIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function LandmarkIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="3" y1="22" x2="21" y2="22" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
@@ -700,7 +699,7 @@ function LandmarkIcon({ size = 18, color = '#854F0B' }: { size?: number; color?:
 }
 
 /** Exact Lucide store icon for Market & Buyer Relations */
-function StoreIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function StoreIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -713,7 +712,7 @@ function StoreIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: st
 }
 
 /** Exact Lucide lightbulb icon for Innovation & Improvement */
-function LightbulbIcon({ size = 18, color = '#854F0B' }: { size?: number; color?: string }) {
+function LightbulbIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
@@ -774,423 +773,6 @@ function getCalendarMatrix(year: number, month: number) {
 }
 
 // ─── Data Types & Initial Records ───────────────────────────────────────────
-
-export interface InspectionSectionItem {
-  id: number;
-  title: string;
-  requiredLeft: string;
-}
-
-export const INSPECTION_SECTIONS: InspectionSectionItem[] = [
-  { id: 1, title: 'Farmer Contact Verification', requiredLeft: '1 required field left' },
-  { id: 2, title: 'FMB & Land Verification', requiredLeft: '1 required field left' },
-  { id: 3, title: 'Farm Details Verification', requiredLeft: '1 required field left' },
-  { id: 4, title: 'Certification Verification', requiredLeft: '2 required fields left' },
-  { id: 5, title: 'Soil Testing & Soil Report', requiredLeft: '1 required field left' },
-  { id: 6, title: 'Water Source & Water pH Testing', requiredLeft: '1 required field left' },
-  { id: 7, title: 'Farm Practices Checklist', requiredLeft: '4 required fields left' },
-  { id: 8, title: 'Documents & Evidence', requiredLeft: 'Not started' },
-  { id: 9, title: 'Inspection Observations & Findings', requiredLeft: 'Not started' },
-  { id: 10, title: 'Farmer Admin Assessment', requiredLeft: '1 required field left' },
-  { id: 11, title: 'Farmer Rating', requiredLeft: 'Rate the farmer based on the audit inspection.' },
-];
-
-export const ALL_CROPS = [
-  'Beans',
-  'Beetroot',
-  'Cabbage',
-  'Carrot',
-  'Cauliflower',
-  'Garlic',
-  'Peas',
-  'Potato',
-  'Radish',
-  'Tomato',
-];
-
-export const ALL_PLOTS = ['Plot A', 'Plot B', 'Plot C'];
-
-export const ALL_WATER_SOURCES = ['Open Well', 'Borewell'];
-
-export const ALL_STEP6_WATER_SOURCES = ['Open Well 1', 'Borewell 1'];
-export const ALL_WATER_USE_PURPOSES = ['Drinking', 'Irrigation', 'Livestock', 'Processing'];
-
-export interface Step6WaterSourceEntry {
-  id: string;
-  sourceName: string;
-  sourceType: string;
-  location: string;
-  usePurposes: string[];
-  verification: string;
-  condition: string;
-  testDate: string;
-  testingMethod: string;
-  testingDevice: string;
-  uploadedReport: string | null;
-  phMeasurementStatus: string;
-  testVerificationStatus: string;
-  notes: string;
-}
-
-export type Step7SectionKey = 'farmDoc' | 'organicPractices' | 'cropMgmt' | 'inputUsage';
-
-export interface Step7SectionData {
-  inspectionResult: string;
-  notes: string;
-  evidence: string;
-  uploadedFile: { name: string; size: string } | null;
-}
-
-export const STEP7_SECTIONS_CONFIG: {
-  key: Step7SectionKey;
-  title: string;
-}[] = [
-  { key: 'farmDoc', title: 'FARM DOCUMENTATION' },
-  { key: 'organicPractices', title: 'ORGANIC PRACTICES' },
-  { key: 'cropMgmt', title: 'CROP MANAGEMENT' },
-  { key: 'inputUsage', title: 'INPUT USAGE' },
-];
-
-export const STEP7_INSPECTION_RESULTS = [
-  'Select...',
-  'Compliant',
-  'Non-Compliant',
-  'Not Applicable',
-] as const;
-
-export const STEP7_EXISTING_EVIDENCES = [
-  'FMB Sketch (on file)',
-  'PGS Organic Certificate (on file)',
-];
-
-export interface Step8EvidenceEntry {
-  id: string;
-  category: string;
-  relatedSection: string;
-  documentType: string;
-  uploadedFile: { name: string; size: string } | null;
-  verificationStatus: string;
-  missingReason: string;
-  notes: string;
-}
-
-export const STEP8_EVIDENCE_CATEGORIES = [
-  'Select...',
-  'Documentation',
-  'Photo Evidence',
-  'Test Report',
-  'Other',
-] as const;
-
-export const STEP8_DOCUMENT_TYPES = [
-  'Select...',
-  'PDF',
-  'Image',
-  'Scanned Copy',
-] as const;
-
-export const STEP8_VERIFICATION_STATUSES = [
-  'Select...',
-  'Verified',
-  'Could Not Verify',
-] as const;
-
-export const STEP8_MISSING_REASONS = [
-  'Select...',
-  'Not Applicable',
-  'Farmer Did Not Provide',
-  'Lost / Misplaced',
-] as const;
-
-export const STEP8_RELATED_SECTIONS = [
-  'Farmer Contact Verification',
-  'FMB & Land Verification',
-  'Farm Details Verification',
-  'Certification Verification',
-  'Soil Testing & Soil Report',
-  'Water Source & Water pH Testing',
-  'Farm Practices Checklist',
-  'Documents & Evidence',
-  'Inspection Observations & Findings',
-  'Farmer Admin Assessment',
-];
-
-export interface Step9ObservationEntry {
-  id: string;
-  relatedSection: string;
-  category: string;
-  observation: string;
-  followUpRecommendation: string;
-  recommendationNotes: string;
-  evidenceReference: string;
-  followUpRequired: string;
-}
-
-export const STEP9_OBSERVATION_CATEGORIES = [
-  'Select...',
-  'Documentation Gap',
-  'Practice Concern',
-  'Positive Observation',
-  'Other',
-] as const;
-
-export const STEP9_FOLLOWUP_RECOMMENDATIONS = [
-  'Select...',
-  'Re-visit Recommended',
-  'Farmer Guidance Needed',
-  'No Action Needed',
-] as const;
-
-export const STEP9_FOLLOWUP_REQUIRED_OPTIONS = [
-  'Select...',
-  'Yes',
-  'No',
-] as const;
-
-// ─── Step 10 Constants (Farmer Admin Assessment - Screenshots 1 to 5) ───
-export const STEP10_OVERALL_ASSESSMENT_OPTIONS = [
-  'Select...',
-  'Satisfactory',
-  'Needs Improvement',
-  'Unsatisfactory',
-] as const;
-
-export const STEP10_FOLLOWUP_REQUIRED_OPTIONS = [
-  'Select...',
-  'Yes',
-  'No',
-] as const;
-
-export const STEP10_RECOMMENDATION_OPTIONS = [
-  'Select...',
-  'Continue Certification',
-  'Re-audit Required',
-  'Escalate to Senior Auditor',
-] as const;
-
-// ─── Step 11 Constants (Farmer Rating - Screenshots 1 to 4) ───
-export interface Step11RatingCategory {
-  id: string;
-  title: string;
-  iconName: 'verified' | 'layers' | 'tractor' | 'leaf' | 'fruit' | 'qr' | 'users' | 'landmark' | 'store' | 'lightbulb';
-  previousAudit: string;
-}
-
-export const STEP11_RATING_CATEGORIES: Step11RatingCategory[] = [
-  { id: 'cert', title: 'Certification & Compliance', iconName: 'verified', previousAudit: '8/10' },
-  { id: 'soil', title: 'Soil & Land Management', iconName: 'layers', previousAudit: '7/10' },
-  { id: 'farm', title: 'Farming Practices', iconName: 'tractor', previousAudit: '7/10' },
-  { id: 'env', title: 'Environmental Sustainability', iconName: 'leaf', previousAudit: '6/10' },
-  { id: 'yield', title: 'Produce Quality & Yield', iconName: 'fruit', previousAudit: '8/10' },
-  { id: 'trace', title: 'Traceability & Transparency', iconName: 'qr', previousAudit: '7/10' },
-  { id: 'social', title: 'Social & Labor Practices', iconName: 'users', previousAudit: '6/10' },
-  { id: 'financial', title: 'Financial & Operational', iconName: 'landmark', previousAudit: '8/10' },
-  { id: 'market', title: 'Market & Buyer Relations', iconName: 'store', previousAudit: '6/10' },
-  { id: 'innovation', title: 'Innovation & Improvement', iconName: 'lightbulb', previousAudit: '5/10' },
-];
-
-export interface AuditScheduleRecord {
-  id: string;
-  badge: 'Completed' | 'Upcoming' | 'Scheduled' | 'In Progress' | 'Cancelled' | 'Rescheduled';
-  farmerName: string;
-  farmerId?: string | undefined;
-  farmingType?: string | undefined;
-  yearsOrganic?: number | undefined;
-  farm: string;
-  type: 'Internal' | 'External' | 'Field Visit';
-  date: string;
-  assignedText?: string | undefined;
-  auditor?: string | undefined;
-  dateBucket?: 'Today' | 'This Week' | 'This Month' | 'Custom' | undefined;
-  score?: string | undefined;
-  majorFindings?: number | undefined;
-  minorFindings?: number | undefined;
-  redFlags?: number | undefined;
-  year?: '2026' | '2025' | '2024' | undefined;
-  remarks?: string | undefined;
-  inference?: string | undefined;
-  timeline?: Array<{ title: string; date: string; iconType: 'calendar' | 'inspection' | 'completed' }> | undefined;
-  pgsOrganic?: { status: string; renewalDate: string } | undefined;
-  npop?: { status: string; renewalDate: string } | undefined;
-  previousSummary?: { date: string; score: string } | undefined;
-}
-
-const INITIAL_SCHEDULE_RECORDS: AuditScheduleRecord[] = [
-  {
-    id: 'AUD-2026-0042',
-    badge: 'Upcoming',
-    farmerName: 'Ramesh Kumar',
-    farmerId: 'FR-00241',
-    farmingType: 'Organic',
-    yearsOrganic: 6,
-    farm: 'Ooty Farm 01',
-    type: 'Internal',
-    date: '15 Oct 2026',
-    score: '0/100',
-    majorFindings: 0,
-    minorFindings: 1,
-    redFlags: 0,
-    year: '2026',
-    assignedText: 'Assigned Auditor',
-    auditor: 'Suresh Kumar',
-    dateBucket: 'Today',
-    remarks: 'Minor pest-management notation on plot 2; farmer advised on organic treatment and has since addressed it.',
-    inference: 'Farm continues to meet organic certification standards. Recommended for continued certification with routine follow-up at next quarterly audit.',
-    timeline: [
-      { title: 'Audit Started', date: '15 Oct 2026, 9:40 AM', iconType: 'calendar' },
-      { title: 'Inspection', date: '15 Oct 2026, 10:15 AM', iconType: 'inspection' },
-      { title: 'Findings Recorded', date: 'Pending', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '12 Jun 2027' },
-    npop: { status: 'Active', renewalDate: '01 Mar 2027' },
-    previousSummary: { date: '15 Jul 2026', score: '0/100' },
-  },
-  {
-    id: 'AUD-2026-0035',
-    badge: 'Completed',
-    farmerName: 'Selvi',
-    farmerId: 'FR-00192',
-    farmingType: 'Organic',
-    yearsOrganic: 4,
-    farm: 'Coonoor Farm',
-    type: 'External',
-    date: '10 Apr 2026',
-    score: '91/100',
-    majorFindings: 0,
-    minorFindings: 0,
-    redFlags: 0,
-    year: '2026',
-    assignedText: 'External',
-    auditor: 'External Inspector',
-    dateBucket: 'Today',
-    remarks: 'Full bio-input and documentation compliance maintained on all plots.',
-    inference: 'Annual organic compliance audit completed with high rating.',
-    timeline: [
-      { title: 'Audit Scheduled', date: '25 Mar 2026', iconType: 'calendar' },
-      { title: 'Inspection', date: '10 Apr 2026, 9:30 AM', iconType: 'inspection' },
-      { title: 'Audit Completed', date: '10 Apr 2026, 12:00 PM', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '24 Sep 2027' },
-    npop: { status: 'Active', renewalDate: '15 Nov 2026' },
-    previousSummary: { date: '10 Apr 2026', score: '91/100' },
-  },
-  {
-    id: 'FV-2026-0018',
-    badge: 'Scheduled',
-    farmerName: 'Selvi',
-    farmerId: 'FR-00192',
-    farmingType: 'Organic',
-    yearsOrganic: 4,
-    farm: 'Coonoor Farm',
-    type: 'Field Visit',
-    date: '08 Oct 2026',
-    dateBucket: 'Today',
-    year: '2026',
-    assignedText: 'Assigned Auditor',
-    auditor: 'Selvi / Field Officer',
-    score: '85/100',
-    majorFindings: 0,
-    minorFindings: 0,
-    redFlags: 0,
-    remarks: 'Routine pre-harvest inspection.',
-    inference: 'Satisfactory adherence.',
-    timeline: [
-      { title: 'Audit Scheduled', date: '01 Oct 2026', iconType: 'calendar' },
-      { title: 'Inspection', date: '08 Oct 2026, 10:00 AM', iconType: 'inspection' },
-      { title: 'Audit Completed', date: 'Pending', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '24 Sep 2027' },
-    npop: { status: 'Active', renewalDate: '15 Nov 2026' },
-    previousSummary: { date: '10 Aug 2026', score: '85/100' },
-  },
-  {
-    id: 'AUD-2026-0039',
-    badge: 'Upcoming',
-    farmerName: 'Kumar',
-    farmerId: 'FR-00318',
-    farmingType: 'Organic',
-    yearsOrganic: 5,
-    farm: 'Ooty Farm 03',
-    type: 'External',
-    date: '20 Oct 2026',
-    assignedText: 'Assigned Auditor',
-    auditor: 'External Inspector',
-    dateBucket: 'This Week',
-    year: '2026',
-    score: '78/100',
-    majorFindings: 0,
-    minorFindings: 2,
-    redFlags: 0,
-    remarks: 'Pre-audit documentation verification required.',
-    inference: 'Recommended for follow-up review.',
-    timeline: [
-      { title: 'Audit Scheduled', date: '10 Oct 2026', iconType: 'calendar' },
-      { title: 'Inspection', date: '20 Oct 2026, 11:00 AM', iconType: 'inspection' },
-      { title: 'Audit Completed', date: 'Pending', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '18 May 2027' },
-    npop: { status: 'Active', renewalDate: '12 Aug 2027' },
-    previousSummary: { date: '02 Jun 2026', score: '78/100' },
-  },
-  {
-    id: 'FV-2026-0022',
-    badge: 'Scheduled',
-    farmerName: 'Vijay Anand',
-    farmerId: 'FR-00288',
-    farmingType: 'Natural',
-    yearsOrganic: 3,
-    farm: 'Kotagiri Farm',
-    type: 'Field Visit',
-    date: '24 Oct 2026',
-    assignedText: 'Assigned Auditor',
-    auditor: 'Field Officer',
-    dateBucket: 'This Week',
-    year: '2026',
-    score: '82/100',
-    majorFindings: 0,
-    minorFindings: 1,
-    redFlags: 0,
-    remarks: 'Soil conservation practice assessment scheduled.',
-    inference: 'On track for regular certification.',
-    timeline: [
-      { title: 'Audit Scheduled', date: '14 Oct 2026', iconType: 'calendar' },
-      { title: 'Inspection', date: '24 Oct 2026, 2:00 PM', iconType: 'inspection' },
-      { title: 'Audit Completed', date: 'Pending', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '10 Jan 2027' },
-    npop: { status: 'Active', renewalDate: '05 Apr 2027' },
-    previousSummary: { date: '14 May 2026', score: '82/100' },
-  },
-  {
-    id: 'AUD-2026-0045',
-    badge: 'In Progress',
-    farmerName: 'Meena Krishnan',
-    farmerId: 'FR-00412',
-    farmingType: 'Organic',
-    yearsOrganic: 7,
-    farm: 'Coonoor Farm 02',
-    type: 'Internal',
-    date: '28 Oct 2026',
-    assignedText: 'Assigned Auditor',
-    auditor: 'Assigned Auditor',
-    dateBucket: 'This Month',
-    year: '2026',
-    score: '90/100',
-    majorFindings: 0,
-    minorFindings: 0,
-    redFlags: 0,
-    remarks: 'Field audit in progress.',
-    inference: 'High adherence to standards.',
-    timeline: [
-      { title: 'Audit Scheduled', date: '18 Oct 2026', iconType: 'calendar' },
-      { title: 'Inspection', date: '28 Oct 2026, 10:00 AM', iconType: 'inspection' },
-      { title: 'Audit Completed', date: 'Pending', iconType: 'completed' },
-    ],
-    pgsOrganic: { status: 'Active', renewalDate: '19 Oct 2027' },
-    npop: { status: 'Active', renewalDate: '22 Feb 2027' },
-    previousSummary: { date: '21 Jun 2026', score: '90/100' },
-  },
-];
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -1668,7 +1250,7 @@ export function AuditScheduleScreen({
     if (calendarViewMode === 'List') {
       return (
         <SafeAreaView style={styles.rootOrange}>
-          <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
           {/* ── Terracotta Header (Image 1 Center Screen: M5_002 Audit Schedule) ── */}
           <View style={styles.header}>
@@ -1680,7 +1262,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.7}
                   accessibilityLabel="Back"
                 >
-                  <BackArrowIcon size={22} color={THEME.white} />
+                  <BackArrowIcon size={22} color={adminColors.onBrand} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Audit Schedule</Text>
               </View>
@@ -1691,7 +1273,7 @@ export function AuditScheduleScreen({
                 activeOpacity={0.8}
                 accessibilityLabel="Filters"
               >
-                <FilterSlidersIcon size={19} color={THEME.white} />
+                <FilterSlidersIcon size={19} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1699,12 +1281,12 @@ export function AuditScheduleScreen({
           {/* ── Search Bar (Image 1 Center: "Farmer name, Farmer ID, Audit ID, Farm, Zone") ── */}
           <View style={styles.searchBarContainer}>
             <View style={styles.searchIconWrap}>
-              <SearchIcon size={18} color="#9CA3AF" />
+              <SearchIcon size={18} color={adminColors.muted} />
             </View>
             <TextInput
               style={styles.searchInput}
               placeholder="Farmer name, Farmer ID, Audit ID, Farm, Zone"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -1811,7 +1393,7 @@ export function AuditScheduleScreen({
               }}
               activeOpacity={0.85}
             >
-              <PlusIcon size={18} color={THEME.white} />
+              <PlusIcon size={18} color={adminColors.onBrand} />
               <Text style={styles.addScheduleVisitBtnText}>Schedule Field Visit</Text>
             </TouchableOpacity>
           </View>
@@ -1821,7 +1403,7 @@ export function AuditScheduleScreen({
 
     return (
       <SafeAreaView style={styles.calRoot}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.brandOrange} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 1) ── */}
         <View style={styles.calHeader}>
@@ -1833,7 +1415,7 @@ export function AuditScheduleScreen({
                 activeOpacity={0.7}
                 accessibilityLabel="Back"
               >
-                <BackArrowIcon size={22} color={THEME.white} />
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <View>
                 <Text style={styles.calHeaderTitle}>Audit Calendar</Text>
@@ -1847,7 +1429,7 @@ export function AuditScheduleScreen({
               activeOpacity={0.8}
               accessibilityLabel="Notifications"
             >
-              <HeaderBellIcon size={20} color={THEME.white} />
+              <HeaderBellIcon size={20} color={adminColors.onBrand} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1925,7 +1507,7 @@ export function AuditScheduleScreen({
               onPress={() => Alert.alert('Calendar', 'Showing September 2026')}
               activeOpacity={0.7}
             >
-              <ChevronLeftIcon size={18} color="#4B5563" />
+              <ChevronLeftIcon size={18} color={adminColors.muted} />
             </TouchableOpacity>
 
             <Text style={styles.calMonthNavTitle}>October 2026</Text>
@@ -1935,7 +1517,7 @@ export function AuditScheduleScreen({
               onPress={() => Alert.alert('Calendar', 'Showing November 2026')}
               activeOpacity={0.7}
             >
-              <ChevronRightIcon size={18} color="#4B5563" />
+              <ChevronRightIcon size={18} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
 
@@ -1978,9 +1560,9 @@ export function AuditScheduleScreen({
 
                       {/* Dots indicators matching Image 1 */}
                       {isSelected ? (
-                        <View style={[styles.calDotSingle, { backgroundColor: '#FFFFFF' }]} />
+                        <View style={[styles.calDotSingle, { backgroundColor: adminColors.card }]} />
                       ) : hasGreenDot ? (
-                        <View style={[styles.calDotSingle, { backgroundColor: '#15803D' }]} />
+                        <View style={[styles.calDotSingle, { backgroundColor: adminColors.success.text }]} />
                       ) : hasThreeDots ? (
                         <View style={styles.calDotsRow}>
                           <View style={styles.calDotMini} />
@@ -1988,9 +1570,9 @@ export function AuditScheduleScreen({
                           <View style={styles.calDotMini} />
                         </View>
                       ) : hasOrangeDot ? (
-                        <View style={[styles.calDotSingle, { backgroundColor: THEME.brandOrange }]} />
+                        <View style={[styles.calDotSingle, { backgroundColor: adminColors.brand }]} />
                       ) : hasGreyDot ? (
-                        <View style={[styles.calDotSingle, { backgroundColor: '#9CA3AF' }]} />
+                        <View style={[styles.calDotSingle, { backgroundColor: adminColors.muted }]} />
                       ) : (
                         <View style={{ height: 6 }} />
                       )}
@@ -2075,7 +1657,7 @@ export function AuditScheduleScreen({
 
     return (
       <SafeAreaView style={styles.calRoot}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.brandOrange} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 1 Right Screen: M5_003 Audit / Field Visit Detail) ── */}
         <View style={styles.calHeader}>
@@ -2089,7 +1671,7 @@ export function AuditScheduleScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
             <View>
@@ -2134,13 +1716,13 @@ export function AuditScheduleScreen({
           <View style={styles.detCard}>
             {/* PGS Organic */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <CertCheckIcon size={18} color="#15803D" />
-              <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>PGS Organic</Text>
+              <CertCheckIcon size={18} color={adminColors.success.text} />
+              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>PGS Organic</Text>
             </View>
             <View style={[styles.detRow, { marginTop: 10 }]}>
               <View style={styles.detCol}>
                 <Text style={styles.detLabel}>Status</Text>
-                <Text style={[styles.detValue, { color: '#15803D' }]}>{record.pgsOrganic?.status || 'Active'}</Text>
+                <Text style={[styles.detValue, { color: adminColors.success.text }]}>{record.pgsOrganic?.status || 'Active'}</Text>
               </View>
               <View style={styles.detCol}>
                 <Text style={styles.detLabel}>Renewal Date</Text>
@@ -2152,13 +1734,13 @@ export function AuditScheduleScreen({
 
             {/* NPOP */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <CertCheckIcon size={18} color="#15803D" />
-              <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>NPOP</Text>
+              <CertCheckIcon size={18} color={adminColors.success.text} />
+              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>NPOP</Text>
             </View>
             <View style={[styles.detRow, { marginTop: 10 }]}>
               <View style={styles.detCol}>
                 <Text style={styles.detLabel}>Status</Text>
-                <Text style={[styles.detValue, { color: '#15803D' }]}>{record.npop?.status || 'Active'}</Text>
+                <Text style={[styles.detValue, { color: adminColors.success.text }]}>{record.npop?.status || 'Active'}</Text>
               </View>
               <View style={styles.detCol}>
                 <Text style={styles.detLabel}>Renewal Date</Text>
@@ -2177,7 +1759,7 @@ export function AuditScheduleScreen({
               </View>
               <View style={styles.detCol}>
                 <Text style={styles.detLabel}>Previous Score</Text>
-                <Text style={[styles.detValue, { color: THEME.brandOrange, fontWeight: '800' }]}>
+                <Text style={[styles.detValue, { color: adminColors.brand, fontWeight: '800' }]}>
                   {completedInspectionScore !== null ? `${completedInspectionScore}/100` : '0/100'}
                 </Text>
               </View>
@@ -2227,8 +1809,8 @@ export function AuditScheduleScreen({
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'pdf_viewer') {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.brandOrange} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.canvas }}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ── Terracotta Header (Image 4) ── */}
         <View style={styles.pdfHeader}>
@@ -2237,7 +1819,7 @@ export function AuditScheduleScreen({
             activeOpacity={0.7}
             style={{ padding: 4 }}
           >
-            <PdfDocIcon size={24} color={THEME.white} />
+            <PdfDocIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
           <Text style={styles.pdfHeaderTitle}>Checklist.pdf</Text>
         </View>
@@ -2261,22 +1843,22 @@ export function AuditScheduleScreen({
             showsVerticalScrollIndicator={false}
           >
             <View style={{ alignItems: 'center', marginVertical: 30, opacity: 0.25 }}>
-              <PdfDocIcon size={72} color="#4B5563" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#4B5563', marginTop: 12 }}>
+              <PdfDocIcon size={72} color={adminColors.muted} />
+              <Text style={{ ...adminType.rowTitle, color: adminColors.muted, marginTop: 12 }}>
                 Audit Checklist Document Preview
               </Text>
-              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
+              <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: 4 }}>
                 AUD-2026-0042 · Official Inspection Checklist
               </Text>
             </View>
 
             {/* Simulated document lines */}
             <View style={{ gap: 10, opacity: 0.15 }}>
-              <View style={{ height: 12, backgroundColor: '#111827', borderRadius: 4, width: '90%' }} />
-              <View style={{ height: 12, backgroundColor: '#111827', borderRadius: 4, width: '100%' }} />
-              <View style={{ height: 12, backgroundColor: '#111827', borderRadius: 4, width: '75%' }} />
-              <View style={{ height: 12, backgroundColor: '#111827', borderRadius: 4, width: '85%' }} />
-              <View style={{ height: 12, backgroundColor: '#111827', borderRadius: 4, width: '60%' }} />
+              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '90%' }} />
+              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '100%' }} />
+              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '75%' }} />
+              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '85%' }} />
+              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '60%' }} />
             </View>
           </ScrollView>
         </View>
@@ -2301,7 +1883,7 @@ export function AuditScheduleScreen({
   if (currentView === 'audit_detail' || currentView === 'detail') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Solid Theme Orange Header */}
         <View style={styles.screenHeader}>
@@ -2321,7 +1903,7 @@ export function AuditScheduleScreen({
             activeOpacity={0.7}
             accessibilityLabel="Back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Audit Detail</Text>
@@ -2335,7 +1917,7 @@ export function AuditScheduleScreen({
             activeOpacity={0.8}
             accessibilityLabel="Filters"
           >
-            <FilterSlidersIcon size={19} color={THEME.white} />
+            <FilterSlidersIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
@@ -2376,7 +1958,7 @@ export function AuditScheduleScreen({
             {/* Timeline item 1: Audit Scheduled */}
             <View style={styles.timelineItemRow}>
               <View style={styles.timelineIconTile}>
-                <TimelineCalendarIcon size={18} color="#854F0B" />
+                <TimelineCalendarIcon size={18} color={adminColors.brand} />
               </View>
               <View style={styles.timelineTextWrap}>
                 <Text style={styles.timelineTitleText}>Audit Scheduled</Text>
@@ -2389,7 +1971,7 @@ export function AuditScheduleScreen({
             {/* Timeline item 2: Inspection */}
             <View style={styles.timelineItemRow}>
               <View style={styles.timelineIconTile}>
-                <TimelineInspectionIcon size={18} color="#854F0B" />
+                <TimelineInspectionIcon size={18} color={adminColors.brand} />
               </View>
               <View style={styles.timelineTextWrap}>
                 <Text style={styles.timelineTitleText}>Inspection</Text>
@@ -2402,7 +1984,7 @@ export function AuditScheduleScreen({
             {/* Timeline item 3: Audit Completed */}
             <View style={styles.timelineItemRow}>
               <View style={styles.timelineIconTile}>
-                <TimelineCompletedIcon size={18} color="#854F0B" />
+                <TimelineCompletedIcon size={18} color={adminColors.brand} />
               </View>
               <View style={styles.timelineTextWrap}>
                 <Text style={styles.timelineTitleText}>Audit Completed</Text>
@@ -2438,7 +2020,7 @@ export function AuditScheduleScreen({
   if (currentView === 'audit_report') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Solid Theme Orange Header */}
         <View style={styles.screenHeader}>
@@ -2456,7 +2038,7 @@ export function AuditScheduleScreen({
             activeOpacity={0.7}
             accessibilityLabel="Back"
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Farmer Audit Report</Text>
@@ -2593,7 +2175,7 @@ export function AuditScheduleScreen({
             }
             activeOpacity={0.85}
           >
-            <DownloadIcon size={18} color="#FFFFFF" />
+            <DownloadIcon size={18} color={adminColors.onBrand} />
             <Text style={styles.downloadPdfBtnText}>Download PDF</Text>
           </TouchableOpacity>
         </View>
@@ -2607,7 +2189,7 @@ export function AuditScheduleScreen({
   if (currentView === 'schedule_visit') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Solid Theme Orange Header */}
         <View style={styles.screenHeader}>
@@ -2624,7 +2206,7 @@ export function AuditScheduleScreen({
             }}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Schedule Field Visit</Text>
@@ -2681,7 +2263,7 @@ export function AuditScheduleScreen({
             <TextInput
               style={styles.visitNotesInput}
               placeholder="Optional notes"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={adminColors.muted}
               value={visitNotes}
               onChangeText={setVisitNotes}
               multiline
@@ -2719,7 +2301,7 @@ export function AuditScheduleScreen({
 
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Solid Theme Orange Header */}
         <View style={styles.screenHeader}>
@@ -2735,7 +2317,7 @@ export function AuditScheduleScreen({
             }}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Inspection / Findings</Text>
@@ -2894,7 +2476,7 @@ export function AuditScheduleScreen({
           ) : (
             <View style={{ marginTop: 10 }}>
               <View style={styles.redFlagBanner}>
-                <InfoIcon size={20} color="#B91C1C" />
+                <InfoIcon size={20} color={adminColors.danger.text} />
                 <Text style={styles.redFlagBannerText}>
                   No active red flags escalated for this audit cycle. All minor notations are managed in the checklist section.
                 </Text>
@@ -2912,7 +2494,7 @@ export function AuditScheduleScreen({
             onPress={() => setCurrentView('audit_inspection')}
             activeOpacity={0.85}
           >
-            <HardHatIcon size={18} color={THEME.white} />
+            <HardHatIcon size={18} color={adminColors.onBrand} />
             <Text style={styles.startResumeBtnText}>Start / Resume</Text>
           </TouchableOpacity>
         </View>
@@ -2929,7 +2511,7 @@ export function AuditScheduleScreen({
 
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Orange Header */}
         <View style={styles.screenHeader}>
@@ -2938,7 +2520,7 @@ export function AuditScheduleScreen({
             onPress={() => setCurrentView('inspection')}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Audit Inspection</Text>
@@ -3027,7 +2609,7 @@ export function AuditScheduleScreen({
 
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.stepCardTitle}>{sec.title}</Text>
-                  <Text style={[styles.stepCardSub, isDone && { color: THEME.greenText, fontWeight: '700' }]}>
+                  <Text style={[styles.stepCardSub, isDone && { color: adminColors.success.text, fontWeight: '700' }]}>
                     {isDone ? 'Completed' : sec.requiredLeft}
                   </Text>
                 </View>
@@ -3193,7 +2775,7 @@ export function AuditScheduleScreen({
               </Text>
               <View style={{ marginLeft: 5, marginTop: 1 }}>
                 <Svg width={8} height={5} viewBox="0 0 10 6" fill="none">
-                  <Path d="M1 1L5 5L9 1" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M1 1L5 5L9 1" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
             </View>
@@ -3205,7 +2787,7 @@ export function AuditScheduleScreen({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                 activeOpacity={0.7}
               >
-                <ArrowUpIcon size={16} color="#374151" />
+                <ArrowUpIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNextMonth}
@@ -3213,7 +2795,7 @@ export function AuditScheduleScreen({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
                 activeOpacity={0.7}
               >
-                <ArrowDownIcon size={16} color="#374151" />
+                <ArrowDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
             </View>
           </View>
@@ -3339,7 +2921,7 @@ export function AuditScheduleScreen({
               </Text>
               <View style={{ marginLeft: 5, marginTop: 1 }}>
                 <Svg width={8} height={5} viewBox="0 0 10 6" fill="none">
-                  <Path d="M1 1L5 5L9 1" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M1 1L5 5L9 1" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
             </View>
@@ -3351,7 +2933,7 @@ export function AuditScheduleScreen({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                 activeOpacity={0.7}
               >
-                <ArrowUpIcon size={16} color="#374151" />
+                <ArrowUpIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNextMonth}
@@ -3359,7 +2941,7 @@ export function AuditScheduleScreen({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
                 activeOpacity={0.7}
               >
-                <ArrowDownIcon size={16} color="#374151" />
+                <ArrowDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
             </View>
           </View>
@@ -3427,7 +3009,7 @@ export function AuditScheduleScreen({
 
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Orange Header with Step Pill */}
         <View style={styles.screenHeader}>
@@ -3464,11 +3046,11 @@ export function AuditScheduleScreen({
             }}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 4 }}>
-              <Text style={[styles.screenHeaderTitle, { fontSize: 17, flex: 1 }]} numberOfLines={1}>
+              <Text style={[styles.screenHeaderTitle, { ...adminType.title, flex: 1 }]} numberOfLines={1}>
                 {activeSec.title}
               </Text>
               <View style={styles.headerStepPill}>
@@ -3493,7 +3075,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farmer Name</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>{selectedRecord.farmerName}</Text>
@@ -3504,7 +3086,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farmer ID</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>{selectedRecord.farmerId || 'FMR-00124'}</Text>
@@ -3515,7 +3097,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Phone Number</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>+91 98XXX XX011</Text>
@@ -3533,7 +3115,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Address</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>12, Hill View Road, Coonoor, Nilgiris</Text>
@@ -3559,7 +3141,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{preferredContact}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {contactDropdownOpen && (
@@ -3588,7 +3170,7 @@ export function AuditScheduleScreen({
               {/* Contact Verification Status * */}
               <View style={styles.formFieldGroup}>
                 <Text style={styles.formLabel}>
-                  Contact Verification Status <Text style={{ color: '#DC2626' }}>*</Text>
+                  Contact Verification Status <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -3599,7 +3181,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{verificationStatus}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {statusDropdownOpen && (
@@ -3634,12 +3216,12 @@ export function AuditScheduleScreen({
                     value={stepNotes}
                     onChangeText={setStepNotes}
                     placeholder=""
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     multiline
                     textAlignVertical="top"
                   />
                   <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color="#9CA3AF" />
+                    <ResizeHandleIcon size={12} color={adminColors.muted} />
                   </View>
                 </View>
               </View>
@@ -3656,7 +3238,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <View style={styles.fileCardLeft}>
-                    <FileTextIcon size={19} color="#854F0B" />
+                    <FileTextIcon size={19} color={adminColors.brand} />
                     <Text style={styles.fileCardTitle}>FMB Sketch</Text>
                   </View>
                   <TouchableOpacity
@@ -3680,7 +3262,7 @@ export function AuditScheduleScreen({
                   }}
                   activeOpacity={0.7}
                 >
-                  <UploadFileIcon size={19} color="#854F0B" />
+                  <UploadFileIcon size={19} color={adminColors.brand} />
                   <Text style={styles.dashedUploadText}>
                     {fmbUploadedFile ? fmbUploadedFile : 'Upload file'}
                   </Text>
@@ -3695,7 +3277,7 @@ export function AuditScheduleScreen({
                   value={surveyRefNumber}
                   onChangeText={setSurveyRefNumber}
                   placeholder=""
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
                 <Text style={styles.surveyHelperText}>
                   Not on record — enter it from the document.
@@ -3705,7 +3287,7 @@ export function AuditScheduleScreen({
               {/* FMB Document Available * */}
               <View style={styles.formFieldGroup}>
                 <Text style={styles.formLabel}>
-                  FMB Document Available <Text style={{ color: '#DC2626' }}>*</Text>
+                  FMB Document Available <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -3715,7 +3297,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{fmbDocAvailable}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'fmbDoc' && (
@@ -3752,7 +3334,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{docLegibility}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'legibility' && (
@@ -3789,7 +3371,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{boundaryVerification}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'boundary' && (
@@ -3826,7 +3408,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{farmLocationVerification}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'location' && (
@@ -3863,7 +3445,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{plotMappingStatus}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'mapping' && (
@@ -3900,7 +3482,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{landBoundaryStatus}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step2OpenDropdown === 'landBoundary' && (
@@ -3935,12 +3517,12 @@ export function AuditScheduleScreen({
                     value={step2Notes}
                     onChangeText={setStep2Notes}
                     placeholder=""
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     multiline
                     textAlignVertical="top"
                   />
                   <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color="#9CA3AF" />
+                    <ResizeHandleIcon size={12} color={adminColors.muted} />
                   </View>
                 </View>
               </View>
@@ -3956,7 +3538,7 @@ export function AuditScheduleScreen({
                   }}
                   activeOpacity={0.7}
                 >
-                  <UploadFileIcon size={19} color="#854F0B" />
+                  <UploadFileIcon size={19} color={adminColors.brand} />
                   <Text style={styles.dashedUploadText}>
                     {evidenceUploadedFile ? evidenceUploadedFile : 'Upload file'}
                   </Text>
@@ -3970,7 +3552,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farm Name</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>Ramesh Organic Farm</Text>
@@ -3981,7 +3563,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farm ID</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>FRM-00124-01</Text>
@@ -3992,7 +3574,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farm Location</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>Coonoor, Nilgiris</Text>
@@ -4003,7 +3585,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>GPS Coordinates</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>11.3530° N, 76.7959° E</Text>
@@ -4014,7 +3596,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Farm Area</Text>
-                  <LockIcon size={13} color="#78716C" />
+                  <LockIcon size={13} color={adminColors.muted} />
                 </View>
                 <View style={styles.lockedInputBox}>
                   <Text style={styles.lockedInputText}>2.4 acres</Text>
@@ -4032,7 +3614,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{farmingType}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
                 <Text style={styles.surveyHelperText}>
                   Recorded on profile: Organic
@@ -4075,13 +3657,13 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      selectedCrops.length === 0 && { color: '#9CA3AF' },
+                      selectedCrops.length === 0 && { color: adminColors.muted },
                     ]}
                     numberOfLines={1}
                   >
                     {selectedCrops.length > 0 ? selectedCrops.join(', ') : 'Select...'}
                   </Text>
-                  <SlidersHorizontalIcon size={18} color="#854F0B" />
+                  <SlidersHorizontalIcon size={18} color={adminColors.brand} />
                 </TouchableOpacity>
               </View>
 
@@ -4099,12 +3681,12 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      selectedPlotZone === 'Select...' && { color: '#9CA3AF' },
+                      selectedPlotZone === 'Select...' && { color: adminColors.muted },
                     ]}
                   >
                     {selectedPlotZone}
                   </Text>
-                  <SearchIcon size={18} color="#854F0B" />
+                  <SearchIcon size={18} color={adminColors.brand} />
                 </TouchableOpacity>
               </View>
 
@@ -4122,12 +3704,12 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      selectedWaterSource === 'Select...' && { color: '#9CA3AF' },
+                      selectedWaterSource === 'Select...' && { color: adminColors.muted },
                     ]}
                   >
                     {selectedWaterSource}
                   </Text>
-                  <SearchIcon size={18} color="#854F0B" />
+                  <SearchIcon size={18} color={adminColors.brand} />
                 </TouchableOpacity>
               </View>
 
@@ -4142,7 +3724,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{irrigationType}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step3OpenDropdown === 'irrigation' && (
@@ -4179,7 +3761,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{farmRecordsAvailability}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step3OpenDropdown === 'records' && (
@@ -4208,7 +3790,7 @@ export function AuditScheduleScreen({
               {/* Farm Details Verification * */}
               <View style={styles.formFieldGroup}>
                 <Text style={styles.formLabel}>
-                  Farm Details Verification <Text style={{ color: '#DC2626' }}>*</Text>
+                  Farm Details Verification <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -4218,7 +3800,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{farmDetailsVerification}</Text>
-                  <ChevronDownIcon size={16} color="#1F2937" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step3OpenDropdown === 'verification' && (
@@ -4253,12 +3835,12 @@ export function AuditScheduleScreen({
                     value={step3Notes}
                     onChangeText={setStep3Notes}
                     placeholder=""
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     multiline
                     textAlignVertical="top"
                   />
                   <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color="#9CA3AF" />
+                    <ResizeHandleIcon size={12} color={adminColors.muted} />
                   </View>
                 </View>
               </View>
@@ -4280,9 +3862,9 @@ export function AuditScheduleScreen({
                     </Text>
                   </View>
                   {pgsExpanded ? (
-                    <ChevronUpIcon size={18} color="#7A2E14" />
+                    <ChevronUpIcon size={18} color={adminColors.brandDeep} />
                   ) : (
-                    <ChevronDownIcon size={18} color="#7A2E14" />
+                    <ChevronDownIcon size={18} color={adminColors.brandDeep} />
                   )}
                 </TouchableOpacity>
 
@@ -4298,7 +3880,7 @@ export function AuditScheduleScreen({
                     <View style={styles.formFieldGroup}>
                       <View style={styles.labelWithLockRow}>
                         <Text style={styles.formLabel}>Certification Type</Text>
-                        <LockIcon size={13} color="#78716C" />
+                        <LockIcon size={13} color={adminColors.muted} />
                       </View>
                       <View style={styles.lockedInputBox}>
                         <Text style={styles.lockedInputText}>PGS Organic</Text>
@@ -4316,7 +3898,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{pgsCertStatus}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {step4OpenDropdown === 'pgsStatus' && (
@@ -4347,7 +3929,7 @@ export function AuditScheduleScreen({
                       <Text style={styles.formLabel}>Certificate Document</Text>
                       <View style={styles.fileCard}>
                         <View style={styles.fileCardLeft}>
-                          <FileTextIcon size={19} color="#854F0B" />
+                          <FileTextIcon size={19} color={adminColors.brand} />
                           <Text style={styles.fileCardTitle}>PGS Organic Certificate</Text>
                         </View>
                         <TouchableOpacity
@@ -4378,7 +3960,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <UploadFileIcon size={19} color="#854F0B" />
+                        <UploadFileIcon size={19} color={adminColors.brand} />
                         <Text style={styles.dashedUploadText}>Upload file</Text>
                       </TouchableOpacity>
                     </View>
@@ -4399,7 +3981,7 @@ export function AuditScheduleScreen({
                           value={pgsCertifiedDate}
                           onChangeText={setPgsCertifiedDate}
                           placeholder="dd-mm-yyyy"
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           onFocus={() => {
                             setStep4OpenDropdown(null);
                             setActiveCalendarField('pgsCertified');
@@ -4413,7 +3995,7 @@ export function AuditScheduleScreen({
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <CalendarIcon size={18} color="#6B7280" />
+                          <CalendarIcon size={18} color={adminColors.muted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                       {activeCalendarField === 'pgsCertified' && renderCalendarDropdown('pgsCertified')}
@@ -4435,7 +4017,7 @@ export function AuditScheduleScreen({
                           value={pgsExpiryDate}
                           onChangeText={setPgsExpiryDate}
                           placeholder="dd-mm-yyyy"
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           onFocus={() => {
                             setStep4OpenDropdown(null);
                             setActiveCalendarField('pgsExpiry');
@@ -4449,7 +4031,7 @@ export function AuditScheduleScreen({
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <CalendarIcon size={18} color="#6B7280" />
+                          <CalendarIcon size={18} color={adminColors.muted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                       {activeCalendarField === 'pgsExpiry' && renderCalendarDropdown('pgsExpiry')}
@@ -4458,7 +4040,7 @@ export function AuditScheduleScreen({
                     {/* Document Verification * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Document Verification <Text style={{ color: '#DC2626' }}>*</Text>
+                        Document Verification <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -4468,7 +4050,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{pgsDocVerification}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {step4OpenDropdown === 'pgsDocVerif' && (
@@ -4503,12 +4085,12 @@ export function AuditScheduleScreen({
                           value={pgsVerificationNotes}
                           onChangeText={setPgsVerificationNotes}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -4530,9 +4112,9 @@ export function AuditScheduleScreen({
                     </Text>
                   </View>
                   {npopExpanded ? (
-                    <ChevronUpIcon size={18} color="#7A2E14" />
+                    <ChevronUpIcon size={18} color={adminColors.brandDeep} />
                   ) : (
-                    <ChevronDownIcon size={18} color="#7A2E14" />
+                    <ChevronDownIcon size={18} color={adminColors.brandDeep} />
                   )}
                 </TouchableOpacity>
 
@@ -4548,7 +4130,7 @@ export function AuditScheduleScreen({
                     <View style={styles.formFieldGroup}>
                       <View style={styles.labelWithLockRow}>
                         <Text style={styles.formLabel}>Certification Type</Text>
-                        <LockIcon size={13} color="#78716C" />
+                        <LockIcon size={13} color={adminColors.muted} />
                       </View>
                       <View style={styles.lockedInputBox}>
                         <Text style={styles.lockedInputText}>NPOP</Text>
@@ -4566,7 +4148,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{npopCertStatus}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {step4OpenDropdown === 'npopStatus' && (
@@ -4597,7 +4179,7 @@ export function AuditScheduleScreen({
                       <Text style={styles.formLabel}>Certificate Document</Text>
                       <View style={styles.fileCard}>
                         <View style={styles.fileCardLeft}>
-                          <FileTextIcon size={19} color="#854F0B" />
+                          <FileTextIcon size={19} color={adminColors.brand} />
                           <Text style={styles.fileCardTitle}>NPOP Certificate</Text>
                         </View>
                         <TouchableOpacity
@@ -4628,7 +4210,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <UploadFileIcon size={19} color="#854F0B" />
+                        <UploadFileIcon size={19} color={adminColors.brand} />
                         <Text style={styles.dashedUploadText}>Upload file</Text>
                       </TouchableOpacity>
                     </View>
@@ -4649,7 +4231,7 @@ export function AuditScheduleScreen({
                           value={npopCertifiedDate}
                           onChangeText={setNpopCertifiedDate}
                           placeholder="dd-mm-yyyy"
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           onFocus={() => {
                             setStep4OpenDropdown(null);
                             setActiveCalendarField('npopCertified');
@@ -4663,7 +4245,7 @@ export function AuditScheduleScreen({
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <CalendarIcon size={18} color="#6B7280" />
+                          <CalendarIcon size={18} color={adminColors.muted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                       {activeCalendarField === 'npopCertified' && renderCalendarDropdown('npopCertified')}
@@ -4685,7 +4267,7 @@ export function AuditScheduleScreen({
                           value={npopExpiryDate}
                           onChangeText={setNpopExpiryDate}
                           placeholder="dd-mm-yyyy"
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           onFocus={() => {
                             setStep4OpenDropdown(null);
                             setActiveCalendarField('npopExpiry');
@@ -4699,7 +4281,7 @@ export function AuditScheduleScreen({
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <CalendarIcon size={18} color="#6B7280" />
+                          <CalendarIcon size={18} color={adminColors.muted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                       {activeCalendarField === 'npopExpiry' && renderCalendarDropdown('npopExpiry')}
@@ -4708,7 +4290,7 @@ export function AuditScheduleScreen({
                     {/* Document Verification * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Document Verification <Text style={{ color: '#DC2626' }}>*</Text>
+                        Document Verification <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -4718,7 +4300,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{npopDocVerification}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {step4OpenDropdown === 'npopDocVerif' && (
@@ -4753,12 +4335,12 @@ export function AuditScheduleScreen({
                           value={npopVerificationNotes}
                           onChangeText={setNpopVerificationNotes}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -4772,7 +4354,7 @@ export function AuditScheduleScreen({
               {/* Soil Report Availability * */}
               <View style={styles.formFieldGroup}>
                 <Text style={styles.formLabel}>
-                  Soil Report Availability <Text style={{ color: '#DC2626' }}>*</Text>
+                  Soil Report Availability <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -4780,7 +4362,7 @@ export function AuditScheduleScreen({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.dropdownSelectorText}>{soilReportAvailability}</Text>
-                  <SolidTriangleDownIcon size={10} color="#111827" />
+                  <SolidTriangleDownIcon size={10} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step5DropdownOpen && (
@@ -4839,7 +4421,7 @@ export function AuditScheduleScreen({
                           }}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#DC2626' }}>Remove</Text>
+                          <Text style={{ ...adminType.rowMeta, color: adminColors.danger.text }}>Remove</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -4860,12 +4442,12 @@ export function AuditScheduleScreen({
                         <Text
                           style={[
                             styles.dropdownSelectorText,
-                            entry.sourceName === 'Select...' && { color: '#9CA3AF' },
+                            entry.sourceName === 'Select...' && { color: adminColors.muted },
                           ]}
                         >
                           {entry.sourceName}
                         </Text>
-                        <SearchIcon size={18} color="#854F0B" />
+                        <SearchIcon size={18} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
@@ -4883,7 +4465,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.sourceType}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isTypeDropdownOpen && (
@@ -4925,7 +4507,7 @@ export function AuditScheduleScreen({
                           )
                         }
                         placeholder=""
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={adminColors.muted}
                       />
                       <Text style={styles.locationHelperText}>
                         No location is recorded for this source — enter it if you are authorized to.
@@ -4948,13 +4530,13 @@ export function AuditScheduleScreen({
                         <Text
                           style={[
                             styles.dropdownSelectorText,
-                            entry.usePurposes.length === 0 && { color: '#9CA3AF' },
+                            entry.usePurposes.length === 0 && { color: adminColors.muted },
                           ]}
                           numberOfLines={1}
                         >
                           {entry.usePurposes.length > 0 ? entry.usePurposes.join(', ') : 'Select...'}
                         </Text>
-                        <SlidersHorizontalIcon size={18} color="#854F0B" />
+                        <SlidersHorizontalIcon size={18} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
@@ -4972,7 +4554,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.verification}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isVerifDropdownOpen && (
@@ -5014,7 +4596,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.condition}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isConditionDropdownOpen && (
@@ -5062,7 +4644,7 @@ export function AuditScheduleScreen({
                             )
                           }
                           placeholder="dd-mm-yyyy"
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           onFocus={() => {
                             setStep6OpenDropdown(null);
                             setActiveWaterCalendarIndex(idx);
@@ -5076,7 +4658,7 @@ export function AuditScheduleScreen({
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <CalendarIcon size={18} color="#6B7280" />
+                          <CalendarIcon size={18} color={adminColors.muted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                       {isCalendarOpen && renderWaterCalendarDropdown(idx)}
@@ -5096,7 +4678,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.testingMethod}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isMethodDropdownOpen && (
@@ -5138,7 +4720,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.testingDevice}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isDeviceDropdownOpen && (
@@ -5183,7 +4765,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <UploadFileIcon size={19} color="#854F0B" />
+                        <UploadFileIcon size={19} color={adminColors.brand} />
                         <Text style={styles.dashedUploadText}>
                           {entry.uploadedReport ? entry.uploadedReport : 'Upload file'}
                         </Text>
@@ -5193,7 +4775,7 @@ export function AuditScheduleScreen({
                     {/* 11. pH Measurement Status * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        pH Measurement Status <Text style={{ color: '#DC2626' }}>*</Text>
+                        pH Measurement Status <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -5206,7 +4788,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.phMeasurementStatus}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isPhStatusDropdownOpen && (
@@ -5248,7 +4830,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.testVerificationStatus}</Text>
-                        <ChevronDownIcon size={16} color="#1F2937" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isTestVerifDropdownOpen && (
@@ -5291,12 +4873,12 @@ export function AuditScheduleScreen({
                             )
                           }
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -5348,7 +4930,7 @@ export function AuditScheduleScreen({
                     {/* Inspection Result * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Inspection Result <Text style={{ color: '#DC2626' }}>*</Text>
+                        Inspection Result <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -5358,7 +4940,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{data.inspectionResult}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isDropdownOpen && (
@@ -5409,12 +4991,12 @@ export function AuditScheduleScreen({
                             }));
                           }}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -5434,14 +5016,14 @@ export function AuditScheduleScreen({
                           style={[
                             styles.dropdownSelectorText,
                             (!data.evidence || data.evidence === 'Select...') && {
-                              color: '#9CA3AF',
+                              color: adminColors.muted,
                               fontWeight: '400',
                             },
                           ]}
                         >
                           {data.evidence || 'Select...'}
                         </Text>
-                        <SearchIcon size={17} color="#854F0B" />
+                        <SearchIcon size={17} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
@@ -5451,7 +5033,7 @@ export function AuditScheduleScreen({
                       {data.uploadedFile ? (
                         <View style={styles.uploadedFileCard}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                            <FileTextIcon size={18} color="#854F0B" />
+                            <FileTextIcon size={18} color={adminColors.brand} />
                             <View style={{ flex: 1 }}>
                               <Text style={styles.uploadedFileName} numberOfLines={1}>
                                 {data.uploadedFile.name}
@@ -5468,7 +5050,7 @@ export function AuditScheduleScreen({
                             }}
                             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                           >
-                            <CloseXIcon size={16} color="#DC2626" />
+                            <CloseXIcon size={16} color={adminColors.danger.text} />
                           </TouchableOpacity>
                         </View>
                       ) : (
@@ -5487,7 +5069,7 @@ export function AuditScheduleScreen({
                           }}
                           activeOpacity={0.75}
                         >
-                          <UploadFileIcon size={19} color="#854F0B" />
+                          <UploadFileIcon size={19} color={adminColors.brand} />
                           <Text style={styles.uploadEvidenceText}>Upload file</Text>
                         </TouchableOpacity>
                       )}
@@ -5505,7 +5087,7 @@ export function AuditScheduleScreen({
               {/* FMB Sketch Card */}
               <View style={styles.step8DocCard}>
                 <View style={styles.step8DocCardLeft}>
-                  <FileTextIcon size={20} color="#854F0B" />
+                  <FileTextIcon size={20} color={adminColors.brand} />
                   <View>
                     <Text style={styles.step8DocTitle}>FMB Sketch</Text>
                     <Text style={styles.step8DocSub}>On file</Text>
@@ -5545,7 +5127,7 @@ export function AuditScheduleScreen({
               {/* PGS Organic Certificate Card */}
               <View style={styles.step8DocCard}>
                 <View style={styles.step8DocCardLeft}>
-                  <FileTextIcon size={20} color="#854F0B" />
+                  <FileTextIcon size={20} color={adminColors.brand} />
                   <View>
                     <Text style={styles.step8DocTitle}>PGS Organic Certificate</Text>
                     <Text style={styles.step8DocSub}>On file</Text>
@@ -5615,7 +5197,7 @@ export function AuditScheduleScreen({
                     {/* Field 1: Evidence Category * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Evidence Category <Text style={{ color: '#DC2626' }}>*</Text>
+                        Evidence Category <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -5627,7 +5209,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.category}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isCatOpen && (
@@ -5668,7 +5250,7 @@ export function AuditScheduleScreen({
                     {/* Field 2: Related Inspection Section * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Related Inspection Section <Text style={{ color: '#DC2626' }}>*</Text>
+                        Related Inspection Section <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.step7SearchBox}
@@ -5682,14 +5264,14 @@ export function AuditScheduleScreen({
                           style={[
                             styles.dropdownSelectorText,
                             (!entry.relatedSection || entry.relatedSection === 'Select...') && {
-                              color: '#9CA3AF',
+                              color: adminColors.muted,
                               fontWeight: '400',
                             },
                           ]}
                         >
                           {entry.relatedSection || 'Select...'}
                         </Text>
-                        <SearchIcon size={17} color="#854F0B" />
+                        <SearchIcon size={17} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
@@ -5706,7 +5288,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.documentType}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isDocTypeOpen && (
@@ -5750,7 +5332,7 @@ export function AuditScheduleScreen({
                       {entry.uploadedFile ? (
                         <View style={styles.uploadedFileCard}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                            <FileTextIcon size={18} color="#854F0B" />
+                            <FileTextIcon size={18} color={adminColors.brand} />
                             <View style={{ flex: 1 }}>
                               <Text style={styles.uploadedFileName} numberOfLines={1}>
                                 {entry.uploadedFile.name}
@@ -5768,7 +5350,7 @@ export function AuditScheduleScreen({
                             }}
                             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                           >
-                            <CloseXIcon size={16} color="#DC2626" />
+                            <CloseXIcon size={16} color={adminColors.danger.text} />
                           </TouchableOpacity>
                         </View>
                       ) : (
@@ -5790,7 +5372,7 @@ export function AuditScheduleScreen({
                           }}
                           activeOpacity={0.75}
                         >
-                          <UploadFileIcon size={19} color="#854F0B" />
+                          <UploadFileIcon size={19} color={adminColors.brand} />
                           <Text style={styles.uploadEvidenceText}>Upload file</Text>
                         </TouchableOpacity>
                       )}
@@ -5809,7 +5391,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.verificationStatus}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isVerifOpen && (
@@ -5850,7 +5432,7 @@ export function AuditScheduleScreen({
                     {/* Field 6: Missing Document Reason * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Missing Document Reason <Text style={{ color: '#DC2626' }}>*</Text>
+                        Missing Document Reason <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -5862,7 +5444,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.missingReason}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isMissingOpen && (
@@ -5915,12 +5497,12 @@ export function AuditScheduleScreen({
                             );
                           }}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -5959,7 +5541,7 @@ export function AuditScheduleScreen({
 
               {/* Info Banner */}
               <View style={styles.step9InfoBanner}>
-                <InfoIcon size={18} color="#854F0B" />
+                <InfoIcon size={18} color={adminColors.brand} />
                 <Text style={styles.step9InfoBannerText}>
                   These are Farmer Admin supporting observations. They are kept separate from the official audit findings.
                 </Text>
@@ -5993,7 +5575,7 @@ export function AuditScheduleScreen({
                     {/* Field 1: Related Section * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Related Section <Text style={{ color: '#DC2626' }}>*</Text>
+                        Related Section <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.step7SearchBox}
@@ -6007,21 +5589,21 @@ export function AuditScheduleScreen({
                           style={[
                             styles.dropdownSelectorText,
                             (!entry.relatedSection || entry.relatedSection === 'Select...') && {
-                              color: '#9CA3AF',
+                              color: adminColors.muted,
                               fontWeight: '400',
                             },
                           ]}
                         >
                           {entry.relatedSection || 'Select...'}
                         </Text>
-                        <SearchIcon size={17} color="#854F0B" />
+                        <SearchIcon size={17} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
                     {/* Field 2: Observation Category * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Observation Category <Text style={{ color: '#DC2626' }}>*</Text>
+                        Observation Category <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <TouchableOpacity
                         style={styles.dropdownSelectorBox}
@@ -6033,7 +5615,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.category}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isCatOpen && (
@@ -6074,7 +5656,7 @@ export function AuditScheduleScreen({
                     {/* Field 3: Observation * */}
                     <View style={styles.formFieldGroup}>
                       <Text style={styles.formLabel}>
-                        Observation <Text style={{ color: '#DC2626' }}>*</Text>
+                        Observation <Text style={{ color: adminColors.danger.text }}>*</Text>
                       </Text>
                       <View style={styles.notesTextareaContainer}>
                         <TextInput
@@ -6088,12 +5670,12 @@ export function AuditScheduleScreen({
                             );
                           }}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -6111,7 +5693,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.followUpRecommendation}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isRecOpen && (
@@ -6164,12 +5746,12 @@ export function AuditScheduleScreen({
                             );
                           }}
                           placeholder=""
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={adminColors.muted}
                           multiline
                           textAlignVertical="top"
                         />
                         <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color="#9CA3AF" />
+                          <ResizeHandleIcon size={12} color={adminColors.muted} />
                         </View>
                       </View>
                     </View>
@@ -6189,14 +5771,14 @@ export function AuditScheduleScreen({
                           style={[
                             styles.dropdownSelectorText,
                             (!entry.evidenceReference || entry.evidenceReference === 'Select...') && {
-                              color: '#9CA3AF',
+                              color: adminColors.muted,
                               fontWeight: '400',
                             },
                           ]}
                         >
                           {entry.evidenceReference || 'Select...'}
                         </Text>
-                        <SearchIcon size={17} color="#854F0B" />
+                        <SearchIcon size={17} color={adminColors.brand} />
                       </TouchableOpacity>
                     </View>
 
@@ -6213,7 +5795,7 @@ export function AuditScheduleScreen({
                         activeOpacity={0.8}
                       >
                         <Text style={styles.dropdownSelectorText}>{entry.followUpRequired}</Text>
-                        <ChevronDownIcon size={16} color="#111827" />
+                        <ChevronDownIcon size={16} color={adminColors.ink} />
                       </TouchableOpacity>
 
                       {isFollowUpOpen && (
@@ -6294,7 +5876,7 @@ export function AuditScheduleScreen({
               </View>
 
               <View style={styles.step9NoticeCard}>
-                <ProhibitedIcon size={18} color="#6B7280" />
+                <ProhibitedIcon size={18} color={adminColors.muted} />
                 <Text style={styles.step9NoticeText}>
                   Official findings, severity, status, red-flag state and audit completion are set by the authorized audit workflow. Farmer Admin cannot change them.
                 </Text>
@@ -6306,7 +5888,7 @@ export function AuditScheduleScreen({
               {/* Field 1: Overall Assessment * */}
               <View style={styles.formFieldGroup}>
                 <Text style={styles.formLabel}>
-                  Overall Assessment <Text style={{ color: '#DC2626' }}>*</Text>
+                  Overall Assessment <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -6318,12 +5900,12 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      step10OverallAssessment === 'Select...' && { color: '#9CA3AF', fontWeight: '400' },
+                      step10OverallAssessment === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
                     ]}
                   >
                     {step10OverallAssessment}
                   </Text>
-                  <ChevronDownIcon size={16} color="#111827" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step10OpenDropdown === 'overall' && (
@@ -6366,12 +5948,12 @@ export function AuditScheduleScreen({
                     value={step10StrengthsObserved}
                     onChangeText={setStep10StrengthsObserved}
                     placeholder=""
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     multiline
                     textAlignVertical="top"
                   />
                   <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color="#9CA3AF" />
+                    <ResizeHandleIcon size={12} color={adminColors.muted} />
                   </View>
                 </View>
               </View>
@@ -6389,12 +5971,12 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      step10FollowUpRequired === 'Select...' && { color: '#9CA3AF', fontWeight: '400' },
+                      step10FollowUpRequired === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
                     ]}
                   >
                     {step10FollowUpRequired}
                   </Text>
-                  <ChevronDownIcon size={16} color="#111827" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step10OpenDropdown === 'followUp' && (
@@ -6441,12 +6023,12 @@ export function AuditScheduleScreen({
                   <Text
                     style={[
                       styles.dropdownSelectorText,
-                      step10Recommendation === 'Select...' && { color: '#9CA3AF', fontWeight: '400' },
+                      step10Recommendation === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
                     ]}
                   >
                     {step10Recommendation}
                   </Text>
-                  <ChevronDownIcon size={16} color="#111827" />
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
                 </TouchableOpacity>
 
                 {step10OpenDropdown === 'recommendation' && (
@@ -6489,12 +6071,12 @@ export function AuditScheduleScreen({
                     value={step10SupportingRemarks}
                     onChangeText={setStep10SupportingRemarks}
                     placeholder=""
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={adminColors.muted}
                     multiline
                     textAlignVertical="top"
                   />
                   <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color="#9CA3AF" />
+                    <ResizeHandleIcon size={12} color={adminColors.muted} />
                   </View>
                 </View>
               </View>
@@ -6503,7 +6085,7 @@ export function AuditScheduleScreen({
               <View style={styles.formFieldGroup}>
                 <View style={styles.labelWithLockRow}>
                   <Text style={styles.formLabel}>Official Audit Score</Text>
-                  <LockIcon size={13} color="#854F0B" />
+                  <LockIcon size={13} color={adminColors.brand} />
                 </View>
                 <View style={styles.step10ScoreCard}>
                   <Text style={styles.step10ScoreText}>Not scored yet</Text>
@@ -6556,7 +6138,7 @@ export function AuditScheduleScreen({
               {/* OVERALL RATING Card */}
               <View style={styles.step11OverallCard}>
                 <Text style={styles.step11OverallTitle}>OVERALL RATING</Text>
-                <Text style={[styles.step11OverallScoreText, step11RatedCount === 10 && { color: THEME.brandOrange }]}>
+                <Text style={[styles.step11OverallScoreText, step11RatedCount === 10 && { color: adminColors.brand }]}>
                   {step11RatedCount === 10 ? `${step11TotalScore} / 100` : 'Pending'}
                 </Text>
                 <Text style={styles.step11OverallSubtext}>
@@ -6580,27 +6162,27 @@ export function AuditScheduleScreen({
                 const renderCategoryIcon = (iconName: Step11RatingCategory['iconName']) => {
                   switch (iconName) {
                     case 'verified':
-                      return <VerifiedBadgeIcon size={18} color="#854F0B" />;
+                      return <VerifiedBadgeIcon size={18} color={adminColors.brand} />;
                     case 'layers':
-                      return <LayersIcon size={18} color="#854F0B" />;
+                      return <LayersIcon size={18} color={adminColors.brand} />;
                     case 'tractor':
-                      return <TractorIcon size={18} color="#854F0B" />;
+                      return <TractorIcon size={18} color={adminColors.brand} />;
                     case 'leaf':
-                      return <LeafIcon size={18} color="#854F0B" />;
+                      return <LeafIcon size={18} color={adminColors.brand} />;
                     case 'fruit':
-                      return <ProduceFruitIcon size={18} color="#854F0B" />;
+                      return <ProduceFruitIcon size={18} color={adminColors.brand} />;
                     case 'qr':
-                      return <QrCodeIcon size={18} color="#854F0B" />;
+                      return <QrCodeIcon size={18} color={adminColors.brand} />;
                     case 'users':
-                      return <UsersIcon size={18} color="#854F0B" />;
+                      return <UsersIcon size={18} color={adminColors.brand} />;
                     case 'landmark':
-                      return <LandmarkIcon size={18} color="#854F0B" />;
+                      return <LandmarkIcon size={18} color={adminColors.brand} />;
                     case 'store':
-                      return <StoreIcon size={18} color="#854F0B" />;
+                      return <StoreIcon size={18} color={adminColors.brand} />;
                     case 'lightbulb':
-                      return <LightbulbIcon size={18} color="#854F0B" />;
+                      return <LightbulbIcon size={18} color={adminColors.brand} />;
                     default:
-                      return <VerifiedBadgeIcon size={18} color="#854F0B" />;
+                      return <VerifiedBadgeIcon size={18} color={adminColors.brand} />;
                   }
                 };
 
@@ -6629,9 +6211,9 @@ export function AuditScheduleScreen({
                           </View>
                         )}
                         {isExpanded ? (
-                          <ChevronUpIcon size={16} color="#6B7280" />
+                          <ChevronUpIcon size={16} color={adminColors.muted} />
                         ) : (
-                          <ChevronDownIcon size={16} color="#6B7280" />
+                          <ChevronDownIcon size={16} color={adminColors.muted} />
                         )}
                       </View>
                     </TouchableOpacity>
@@ -6717,7 +6299,7 @@ export function AuditScheduleScreen({
 
               {/* Read-only Farm Rating notice */}
               <View style={[styles.step9NoticeCard, { marginTop: 6, marginBottom: 12 }]}>
-                <ProhibitedIcon size={18} color="#6B7280" />
+                <ProhibitedIcon size={18} color={adminColors.muted} />
                 <Text style={styles.step9NoticeText}>
                   This is the farmer's Farm Rating. It is separate from the official Audit Score, which stays read-only.
                 </Text>
@@ -6774,7 +6356,7 @@ export function AuditScheduleScreen({
               <View style={styles.fmbModalHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <View style={styles.fmbModalIconWrap}>
-                    <FileTextIcon size={20} color="#854F0B" />
+                    <FileTextIcon size={20} color={adminColors.brand} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fmbModalTitle}>FMB Sketch Document</Text>
@@ -6788,7 +6370,7 @@ export function AuditScheduleScreen({
                   onPress={() => setFmbModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#6B7280" />
+                  <CloseXIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -6814,7 +6396,7 @@ export function AuditScheduleScreen({
                   </View>
                   <View style={styles.fmbDocMetaCol}>
                     <Text style={styles.fmbDocMetaLabel}>Status</Text>
-                    <Text style={[styles.fmbDocMetaVal, { color: '#15803D' }]}>Verified Copy</Text>
+                    <Text style={[styles.fmbDocMetaVal, { color: adminColors.success.text }]}>Verified Copy</Text>
                   </View>
                 </View>
               </View>
@@ -6832,32 +6414,32 @@ export function AuditScheduleScreen({
                 <View style={styles.fmbBlueprintGraphic}>
                   <Svg width={270} height={130} viewBox="0 0 270 130">
                     {/* Background grid markings */}
-                    <Line x1="10" y1="35" x2="260" y2="35" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
-                    <Line x1="10" y1="70" x2="260" y2="70" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
-                    <Line x1="10" y1="105" x2="260" y2="105" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
-                    <Line x1="70" y1="10" x2="70" y2="120" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
-                    <Line x1="140" y1="10" x2="140" y2="120" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
-                    <Line x1="210" y1="10" x2="210" y2="120" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="10" y1="35" x2="260" y2="35" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="10" y1="70" x2="260" y2="70" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="10" y1="105" x2="260" y2="105" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="70" y1="10" x2="70" y2="120" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="140" y1="10" x2="140" y2="120" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
+                    <Line x1="210" y1="10" x2="210" y2="120" stroke={adminColors.border} strokeWidth="1" strokeDasharray="4,4" />
 
                     {/* Cadastral Polygon Boundaries */}
                     <Path
                       d="M 40 30 L 195 22 L 235 95 L 85 115 Z"
-                      fill="rgba(240, 86, 42, 0.08)"
-                      stroke="#F0562A"
+                      fill={adminColors.brandTint}
+                      stroke={adminColors.brand}
                       strokeWidth="2.2"
                     />
                     <Path
                       d="M 120 27 L 155 105"
-                      stroke="#B45309"
+                      stroke={adminColors.warning.text}
                       strokeWidth="1.5"
                       strokeDasharray="5,3"
                     />
 
                     {/* Plot Points & Markers */}
-                    <Circle cx="40" cy="30" r="4" fill="#7A2E14" />
-                    <Circle cx="195" cy="22" r="4" fill="#7A2E14" />
-                    <Circle cx="235" cy="95" r="4" fill="#7A2E14" />
-                    <Circle cx="85" cy="115" r="4" fill="#7A2E14" />
+                    <Circle cx="40" cy="30" r="4" fill={adminColors.brandDeep} />
+                    <Circle cx="195" cy="22" r="4" fill={adminColors.brandDeep} />
+                    <Circle cx="235" cy="95" r="4" fill={adminColors.brandDeep} />
+                    <Circle cx="85" cy="115" r="4" fill={adminColors.brandDeep} />
                   </Svg>
 
                   {/* Plot tags */}
@@ -6905,7 +6487,7 @@ export function AuditScheduleScreen({
                   onPress={() => setCropsModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#6B7280" />
+                  <CloseXIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -6916,7 +6498,7 @@ export function AuditScheduleScreen({
                   value={cropSearchQuery}
                   onChangeText={setCropSearchQuery}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -6937,7 +6519,7 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.7}
                     >
-                      <CheckSquareIcon checked={isChecked} size={18} color="#F0562A" />
+                      <CheckSquareIcon checked={isChecked} size={18} color={adminColors.brand} />
                       <Text style={styles.pickerCheckText}>{crop}</Text>
                     </TouchableOpacity>
                   );
@@ -6973,7 +6555,7 @@ export function AuditScheduleScreen({
                   onPress={() => setPlotModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={14} color="#FFFFFF" />
+                  <CloseXIcon size={14} color={adminColors.onBrand} />
                 </TouchableOpacity>
               </View>
 
@@ -6984,7 +6566,7 @@ export function AuditScheduleScreen({
                   value={plotSearchQuery}
                   onChangeText={setPlotSearchQuery}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7004,8 +6586,8 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.7}
                     >
-                      <RadioDotIcon selected={isSelected} size={18} color="#F0562A" />
-                      <Text style={[styles.pickerRadioText, isSelected && { color: '#7A2E14', fontWeight: '800' }]}>
+                      <RadioDotIcon selected={isSelected} size={18} color={adminColors.brand} />
+                      <Text style={[styles.pickerRadioText, isSelected && { color: adminColors.brandDeep, fontWeight: '800' }]}>
                         {plot}
                       </Text>
                     </TouchableOpacity>
@@ -7033,7 +6615,7 @@ export function AuditScheduleScreen({
                   onPress={() => setWaterModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={14} color="#FFFFFF" />
+                  <CloseXIcon size={14} color={adminColors.onBrand} />
                 </TouchableOpacity>
               </View>
 
@@ -7044,7 +6626,7 @@ export function AuditScheduleScreen({
                   value={waterSearchQuery}
                   onChangeText={setWaterSearchQuery}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7064,8 +6646,8 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.7}
                     >
-                      <RadioDotIcon selected={isSelected} size={18} color="#F0562A" />
-                      <Text style={[styles.pickerRadioText, isSelected && { color: '#7A2E14', fontWeight: '800' }]}>
+                      <RadioDotIcon selected={isSelected} size={18} color={adminColors.brand} />
+                      <Text style={[styles.pickerRadioText, isSelected && { color: adminColors.brandDeep, fontWeight: '800' }]}>
                         {source}
                       </Text>
                     </TouchableOpacity>
@@ -7089,7 +6671,7 @@ export function AuditScheduleScreen({
               <View style={styles.fmbModalHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <View style={styles.fmbModalIconWrap}>
-                    <FileTextIcon size={20} color="#854F0B" />
+                    <FileTextIcon size={20} color={adminColors.brand} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fmbModalTitle}>{certPdfModalDoc?.title || 'Certificate Document'}</Text>
@@ -7103,7 +6685,7 @@ export function AuditScheduleScreen({
                   onPress={() => setCertPdfModalDoc(null)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#6B7280" />
+                  <CloseXIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -7129,7 +6711,7 @@ export function AuditScheduleScreen({
                   </View>
                   <View style={styles.fmbDocMetaCol}>
                     <Text style={styles.fmbDocMetaLabel}>Authority</Text>
-                    <Text style={[styles.fmbDocMetaVal, { color: '#15803D' }]} numberOfLines={1}>
+                    <Text style={[styles.fmbDocMetaVal, { color: adminColors.success.text }]} numberOfLines={1}>
                       Accredited
                     </Text>
                   </View>
@@ -7192,7 +6774,7 @@ export function AuditScheduleScreen({
                   onPress={() => setActiveWaterSourcePickerIndex(null)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#6B7280" />
+                  <CloseXIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -7203,7 +6785,7 @@ export function AuditScheduleScreen({
                   value={waterSourceSearchText}
                   onChangeText={setWaterSourceSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7233,8 +6815,8 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.7}
                     >
-                      <RadioDotIcon selected={isSelected} size={18} color="#F0562A" />
-                      <Text style={[styles.pickerRadioText, isSelected && { color: '#7A2E14', fontWeight: '800' }]}>
+                      <RadioDotIcon selected={isSelected} size={18} color={adminColors.brand} />
+                      <Text style={[styles.pickerRadioText, isSelected && { color: adminColors.brandDeep, fontWeight: '800' }]}>
                         {source}
                       </Text>
                     </TouchableOpacity>
@@ -7262,7 +6844,7 @@ export function AuditScheduleScreen({
                   onPress={() => setActivePurposePickerIndex(null)}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#6B7280" />
+                  <CloseXIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -7273,7 +6855,7 @@ export function AuditScheduleScreen({
                   value={purposeSearchText}
                   onChangeText={setPurposeSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7306,7 +6888,7 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.7}
                     >
-                      <CheckSquareIcon checked={isChecked} size={18} color="#F0562A" />
+                      <CheckSquareIcon checked={isChecked} size={18} color={adminColors.brand} />
                       <Text style={styles.pickerCheckText}>{purpose}</Text>
                     </TouchableOpacity>
                   );
@@ -7342,7 +6924,7 @@ export function AuditScheduleScreen({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#111827" />
+                  <CloseXIcon size={18} color={adminColors.ink} />
                 </TouchableOpacity>
               </View>
 
@@ -7353,7 +6935,7 @@ export function AuditScheduleScreen({
                   value={step7EvidenceSearchText}
                   onChangeText={setStep7EvidenceSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7386,7 +6968,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <RadioDotIcon selected={isSelected} size={20} color="#F0562A" />
+                        <RadioDotIcon selected={isSelected} size={20} color={adminColors.brand} />
                         <Text style={styles.step7EvidenceRadioText}>{evItem}</Text>
                       </TouchableOpacity>
                       {evIdx < STEP7_EXISTING_EVIDENCES.length - 1 && (
@@ -7417,7 +6999,7 @@ export function AuditScheduleScreen({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#111827" />
+                  <CloseXIcon size={18} color={adminColors.ink} />
                 </TouchableOpacity>
               </View>
 
@@ -7428,7 +7010,7 @@ export function AuditScheduleScreen({
                   value={step8RelatedSearchText}
                   onChangeText={setStep8RelatedSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7459,7 +7041,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <RadioDotIcon selected={isSelected} size={20} color="#F0562A" />
+                        <RadioDotIcon selected={isSelected} size={20} color={adminColors.brand} />
                         <Text style={styles.step7EvidenceRadioText}>{secName}</Text>
                       </TouchableOpacity>
                       {secIdx < STEP8_RELATED_SECTIONS.length - 1 && (
@@ -7490,7 +7072,7 @@ export function AuditScheduleScreen({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#111827" />
+                  <CloseXIcon size={18} color={adminColors.ink} />
                 </TouchableOpacity>
               </View>
 
@@ -7501,7 +7083,7 @@ export function AuditScheduleScreen({
                   value={step9RelatedSearchText}
                   onChangeText={setStep9RelatedSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7532,7 +7114,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <RadioDotIcon selected={isSelected} size={20} color="#F0562A" />
+                        <RadioDotIcon selected={isSelected} size={20} color={adminColors.brand} />
                         <Text style={styles.step7EvidenceRadioText}>{secName}</Text>
                       </TouchableOpacity>
                       {secIdx < STEP8_RELATED_SECTIONS.length - 1 && (
@@ -7563,7 +7145,7 @@ export function AuditScheduleScreen({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   activeOpacity={0.7}
                 >
-                  <CloseXIcon size={18} color="#111827" />
+                  <CloseXIcon size={18} color={adminColors.ink} />
                 </TouchableOpacity>
               </View>
 
@@ -7574,7 +7156,7 @@ export function AuditScheduleScreen({
                   value={step9EvidenceRefSearchText}
                   onChangeText={setStep9EvidenceRefSearchText}
                   placeholder="Search..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                 />
               </View>
 
@@ -7605,7 +7187,7 @@ export function AuditScheduleScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <RadioDotIcon selected={isSelected} size={20} color="#F0562A" />
+                        <RadioDotIcon selected={isSelected} size={20} color={adminColors.brand} />
                         <Text style={styles.step7EvidenceRadioText}>{evName}</Text>
                       </TouchableOpacity>
                       {evIdx < STEP7_EXISTING_EVIDENCES.length - 1 && (
@@ -7628,7 +7210,7 @@ export function AuditScheduleScreen({
   if (currentView === 'filters') {
     return (
       <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Solid Theme Orange Header */}
         <View style={styles.filterPageHeader}>
@@ -7637,11 +7219,11 @@ export function AuditScheduleScreen({
             onPress={() => setCurrentView('list')}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
           <View style={styles.filterHeaderTitleWrap}>
-            <FilterSlidersIcon size={22} color={THEME.white} />
+            <FilterSlidersIcon size={22} color={adminColors.onBrand} />
             <Text style={styles.filterPageTitle}>Filters</Text>
           </View>
         </View>
@@ -7766,7 +7348,7 @@ export function AuditScheduleScreen({
   // ───────────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.rootOrange}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Terracotta Header with Back button and Circular Sliders button */}
       <View style={styles.header}>
@@ -7788,7 +7370,7 @@ export function AuditScheduleScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Audit History</Text>
           </View>
@@ -7799,7 +7381,7 @@ export function AuditScheduleScreen({
             activeOpacity={0.8}
             accessibilityLabel="Filters"
           >
-            <FilterSlidersIcon size={19} color={THEME.white} />
+            <FilterSlidersIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
@@ -7807,12 +7389,12 @@ export function AuditScheduleScreen({
       {/* Search Input Bar (Screenshot 1: "Farmer, Audit ID, Farm, Zone") */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchIconWrap}>
-          <SearchIcon size={18} color="#9CA3AF" />
+          <SearchIcon size={18} color={adminColors.muted} />
         </View>
         <TextInput
           style={styles.searchInput}
           placeholder="Farmer, Audit ID, Farm, Zone"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={adminColors.muted}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -7829,7 +7411,7 @@ export function AuditScheduleScreen({
           <View style={styles.inlineFilterCard}>
             {/* Header: Sliders icon + "Filters" */}
             <View style={styles.inlineFilterHeaderRow}>
-              <FilterSlidersIcon size={20} color="#854F0B" />
+              <FilterSlidersIcon size={20} color={adminColors.brand} />
               <Text style={styles.inlineFilterTitle}>Filters</Text>
             </View>
 
@@ -7978,20 +7560,20 @@ export function AuditScheduleScreen({
 const styles = StyleSheet.create({
   rootOrange: {
     flex: 1,
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
   },
   scroll: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   scrollCanvas: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // Headers
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 14,
@@ -8010,9 +7592,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   headerFilterBtn: {
@@ -8022,17 +7603,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // ─── Audit Schedule List Styles (Image 1 Center Screen) ───
   scheduleRecordCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
@@ -8044,41 +7625,38 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   scheduleRecordCardId: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   badgeUpcoming: {
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
   },
   badgeUpcomingText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#D97706',
+    ...adminType.caption,
+    color: adminColors.warning.text,
   },
   badgeScheduled: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: adminColors.info.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
   },
   badgeScheduledText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#0369A1',
+    ...adminType.caption,
+    color: adminColors.info.text,
   },
   scheduleRecordCardSub: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#4B5563',
+    color: adminColors.muted,
     marginBottom: 4,
   },
   scheduleRecordCardMeta: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   singleBottomBarFixed: {
     position: 'absolute',
@@ -8088,13 +7666,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: adminColors.border,
   },
   addScheduleVisitBtn: {
     height: 48,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -8102,9 +7680,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addScheduleVisitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
   },
   inspectionChip: {
     paddingHorizontal: 22,
@@ -8113,30 +7690,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   inspectionChipActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   inspectionChipInactive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   inspectionChipText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    ...adminType.body,
   },
   inspectionChipTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   inspectionChipTextInactive: {
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
 
   // ─── Audit History Styles (Screenshot 1) ───
   historyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
@@ -8148,47 +7724,41 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   historyCardId: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   historyBadgeCompleted: {
-    backgroundColor: '#EAF7EE',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
   },
   historyBadgeCompletedText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#15803D',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   historyCardSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#4B5563',
+    color: adminColors.muted,
     marginBottom: 4,
   },
   historyCardFootnote: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
 
   // ─── Inline Filters Card Styles (Screenshot 5) ───
   inlineFilterCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   inlineFilterHeaderRow: {
     flexDirection: 'row',
@@ -8197,14 +7767,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   inlineFilterTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
   },
   inlineFilterSectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 6,
     marginBottom: 8,
   },
@@ -8223,25 +7791,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
   },
   inlineFilterPillActive: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   inlineFilterPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   inlineFilterPillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   filterScrollIndicatorTrack: {
     height: 5,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: adminColors.border,
     borderRadius: 3,
     marginTop: 8,
     marginBottom: 16,
@@ -8250,7 +7817,7 @@ const styles = StyleSheet.create({
   filterScrollIndicatorBar: {
     width: '60%',
     height: '100%',
-    backgroundColor: '#9CA3AF',
+    backgroundColor: adminColors.muted,
     borderRadius: 3,
   },
   inlineFilterActionsRow: {
@@ -8263,51 +7830,47 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inlineFilterApplyBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F0562A',
+    ...adminType.body,
+    color: adminColors.brand,
   },
   inlineFilterClearBtn: {
     flex: 1,
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inlineFilterClearBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.body,
+    color: adminColors.muted,
   },
 
   // ─── Audit Detail Styles (Screenshot 2) ───
   auditSummaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
   },
   auditSummaryValBold: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   timelineSectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
     marginBottom: 12,
   },
   timelineListContainer: {
@@ -8325,9 +7888,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -8335,29 +7898,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineTitleText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   timelineSubText: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   viewReportBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   viewReportBtnText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
   },
 
   // ─── Farmer Audit Report Styles (Screenshots 3 & 4) ───
@@ -8367,24 +7928,22 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   reportSectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
     marginTop: 14,
     marginBottom: 8,
   },
   reportCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   reportMetaValBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   findingsSummaryRow: {
     flexDirection: 'row',
@@ -8392,36 +7951,35 @@ const styles = StyleSheet.create({
   },
   findingsSummaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   findingsSummaryLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   findingsSummaryValDark: {
-    fontSize: 20,
+    ...adminType.title,
     fontWeight: '900',
-    color: '#111827',
+    color: adminColors.ink,
   },
   findingsSummaryValAmber: {
-    fontSize: 20,
+    ...adminType.title,
     fontWeight: '900',
-    color: '#D97706',
+    color: adminColors.warning.text,
   },
   auditScoreCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -8431,49 +7989,46 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   auditScoreBigNum: {
-    fontSize: 34,
+    ...adminType.kpiValue,
     fontWeight: '900',
-    color: '#854F0B',
+    color: adminColors.warning.text,
   },
   auditScoreTotalText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...adminType.title,
+    color: adminColors.muted,
   },
   auditScoreCaption: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.8,
     marginTop: 6,
   },
   reportTextContent: {
-    fontSize: 12.5,
-    color: '#1F2937',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     lineHeight: 18,
   },
   viewAuditHistoryOutlineBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewAuditHistoryOutlineBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
   reportBottomStickyBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: adminColors.border,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
@@ -8481,37 +8036,34 @@ const styles = StyleSheet.create({
   downloadPdfBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   downloadPdfBtnText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 
   screenHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 14,
     gap: 12,
   },
   screenHeaderTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   screenHeaderSub: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
     marginTop: 2,
   },
 
@@ -8519,10 +8071,10 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 8,
@@ -8534,8 +8086,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     height: 40,
     padding: 0,
   },
@@ -8548,10 +8100,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   recordCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -8562,9 +8114,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   recordId: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   recordBadge: {
@@ -8573,37 +8124,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeOrange: {
-    backgroundColor: THEME.orangeBadgeBg,
+    backgroundColor: adminColors.brandTint,
   },
   badgeBlue: {
-    backgroundColor: THEME.blueBg,
+    backgroundColor: adminColors.info.bg,
   },
   badgePurple: {
-    backgroundColor: THEME.purpleBg,
+    backgroundColor: adminColors.purple.bg,
   },
   recordBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   badgeTextOrange: {
-    color: THEME.orangeBadgeText,
+    color: adminColors.brand,
   },
   badgeTextBlue: {
-    color: THEME.blueText,
+    color: adminColors.info.text,
   },
   badgeTextPurple: {
-    color: THEME.purpleText,
+    color: adminColors.purple.text,
   },
   recordMetaLine1: {
-    fontSize: 12.5,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: THEME.muted,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   recordMetaLine2: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: THEME.muted,
+    color: adminColors.muted,
   },
   emptyContainer: {
     paddingVertical: 48,
@@ -8611,14 +8161,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   emptySub: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
 
   // Bottom action
@@ -8626,19 +8175,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   scheduleFieldVisitBtn: {
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
     height: 48,
     borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scheduleFieldVisitBtnText: {
-    color: THEME.white,
-    fontSize: 14,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.body,
   },
 
   // ─── Detail Screen Styles ───
@@ -8648,17 +8196,16 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   detailSectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
     marginTop: 16,
     marginBottom: 10,
   },
   detailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -8670,23 +8217,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailMetaLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '500',
-    color: THEME.muted,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   detailMetaValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
 
   // Certifications
   certCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -8697,9 +8243,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   certName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   certDetailRow: {
     flexDirection: 'row',
@@ -8707,75 +8252,69 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   certLabel: {
-    fontSize: 11,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   certValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   certValueGreen: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.greenText,
+    ...adminType.body,
+    color: adminColors.success.text,
   },
 
   // Buttons
   outlineOrangeBtn: {
     height: 48,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
   },
   outlineOrangeBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.sectionTitle,
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   detailBottomActionRow: {
     paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 10,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
     gap: 10,
   },
   primaryOrangeBtn: {
     height: 48,
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryOrangeBtnText: {
-    color: THEME.white,
-    fontSize: 14.5,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
   },
   secondaryWhiteBtn: {
     height: 48,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryWhiteBtnText: {
-    color: THEME.ink,
-    fontSize: 14,
-    fontWeight: '700',
+    color: adminColors.ink,
+    ...adminType.body,
   },
 
   // ─── Schedule Field Visit Screen ───
   fieldSectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 8,
   },
   pillsRow: {
@@ -8791,44 +8330,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   smallPillActive: {
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
   },
   smallPillInactive: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.borderGrey,
+    borderColor: adminColors.border,
   },
   smallPillText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.body,
   },
   smallPillTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   smallPillTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   visitNotesCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: 12,
     minHeight: 110,
   },
   visitNotesInput: {
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     textAlignVertical: 'top',
     padding: 0,
   },
 
   // ─── Inspection / Findings Screen ───
   checklistCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
@@ -8839,13 +8377,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   checklistLabel: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   checklistDivider: {
     height: 1,
-    backgroundColor: THEME.borderLight,
+    backgroundColor: adminColors.border,
   },
   statusChip: {
     paddingHorizontal: 10,
@@ -8853,20 +8390,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusChipGreen: {
-    backgroundColor: THEME.greenBg,
+    backgroundColor: adminColors.success.bg,
   },
   statusChipAmber: {
-    backgroundColor: THEME.amberBg,
+    backgroundColor: adminColors.warning.bg,
   },
   statusChipText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   statusChipTextGreen: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   statusChipTextAmber: {
-    color: THEME.amberText,
+    color: adminColors.warning.text,
   },
 
   summaryKpiRow: {
@@ -8875,36 +8411,33 @@ const styles = StyleSheet.create({
   },
   summaryKpiCard: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   summaryKpiLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
     marginBottom: 4,
   },
   summaryKpiValueDark: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   summaryKpiValueAmber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.kpiValue,
+    color: adminColors.brand,
   },
 
   findingCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -8912,63 +8445,58 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   findingTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   findingBadgesRow: {
     flexDirection: 'row',
     gap: 6,
   },
   minorBadge: {
-    backgroundColor: THEME.amberBg,
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   minorBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.amberText,
+    ...adminType.caption,
+    color: adminColors.warning.text,
   },
   openBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   openBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.caption,
+    color: adminColors.ink,
   },
   majorBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   majorBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#DC2626',
+    ...adminType.caption,
+    color: adminColors.danger.text,
   },
   resolvedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   resolvedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803D',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   redFlagBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: adminColors.danger.bg,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -8978,30 +8506,29 @@ const styles = StyleSheet.create({
   },
   redFlagBannerText: {
     flex: 1,
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#B91C1C',
+    ...adminType.rowMeta,
+    color: adminColors.danger.text,
     lineHeight: 18,
   },
 
   infoNoteCard: {
-    backgroundColor: '#F7F5F0',
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.borderLight,
+    borderColor: adminColors.border,
     padding: 12,
   },
   infoNoteText: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     lineHeight: 17,
   },
 
   timelineCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -9013,9 +8540,9 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 7,
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9023,28 +8550,27 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 7,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineItemTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   timelineItemMeta: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
   ratingCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -9055,19 +8581,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   ratingBigScore: {
-    fontSize: 36,
+    ...adminType.kpiValue,
     fontWeight: '900',
-    color: '#854F0B',
+    color: adminColors.warning.text,
   },
   ratingTotal: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: THEME.muted,
+    ...adminType.title,
+    color: adminColors.muted,
   },
   ratingCaption: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.8,
     marginTop: 6,
   },
@@ -9076,11 +8600,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 10,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   startResumeBtn: {
     height: 48,
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -9088,9 +8612,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   startResumeBtnText: {
-    color: THEME.white,
-    fontSize: 15,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
   },
 
   // ─── Filter Page Styles (Screenshot 4) ───
@@ -9100,7 +8623,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     gap: 12,
   },
   filterBackBtn: {
@@ -9112,24 +8635,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterPageTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   filterBodyContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   filterPageContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   filterSectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     marginTop: 18,
     marginBottom: 12,
   },
@@ -9146,99 +8667,94 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillButtonActive: {
-    backgroundColor: THEME.brandOrangeActive,
-    borderColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
     borderWidth: 1,
   },
   pillButtonInactive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
   },
   pillButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.body,
   },
   pillButtonTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   pillButtonTextInactive: {
-    color: '#1F2937',
+    color: adminColors.ink,
   },
   filterBottomActionRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     gap: 12,
   },
   applyBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrangeActive,
+    borderColor: adminColors.brand,
     borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   applyBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.brandOrangeActive,
+    ...adminType.body,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.body,
+    color: adminColors.muted,
   },
 
   // ─── Audit Inspection Styles (Screenshots 1 & 2) ───
   progressCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   progressCardSub: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
     marginBottom: 10,
   },
   progressBarTrack: {
     height: 6,
-    backgroundColor: '#F3ECE4',
+    backgroundColor: adminColors.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: 6,
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
     borderRadius: 3,
   },
   inspectionSectionsTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
+    ...adminType.body,
+    color: adminColors.brandDeep,
     marginTop: 18,
     marginBottom: 10,
   },
   inspectionSectionCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -9249,65 +8765,61 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FDF3E0',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   stepNumCircleDone: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   stepNumText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   stepNumTextDone: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   stepCardTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   stepCardSub: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   stepCardStatus: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.caption,
+    color: adminColors.ink,
   },
   stepCardStatusDone: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   inspectionBottomBar: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   saveDraftBtn: {
     height: 48,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrangeActive,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   saveDraftBtnText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: THEME.sectionTitle,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
 
   // ─── Step Detail Styles (Screenshots 3 & 4) ───
   headerStepPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: adminOverlay.whitePill,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -9315,9 +8827,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerStepPillText: {
-    color: THEME.white,
-    fontSize: 12,
-    fontWeight: '800',
+    color: adminColors.onBrand,
+    ...adminType.rowMeta,
   },
   formFieldGroup: {
     marginBottom: 14,
@@ -9329,56 +8840,53 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   formLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 6,
   },
   lockedInputBox: {
     height: 46,
-    backgroundColor: '#F5F2EB',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5DFD5',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
   lockedInputText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   reportCorrectionText: {
-    fontSize: 11.5,
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 4,
   },
   underlineLink: {
-    color: '#1E40AF',
+    color: adminColors.info.text,
     textDecorationLine: 'underline',
     fontWeight: '700',
   },
   dropdownSelectorBox: {
     height: 46,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownSelectorText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   dropdownMenu: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4B5563',
+    borderColor: adminColors.muted,
     marginTop: 4,
     overflow: 'hidden',
   },
@@ -9387,23 +8895,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   dropdownMenuItemActive: {
-    backgroundColor: '#6B7280',
+    backgroundColor: adminColors.muted,
   },
   dropdownMenuText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   dropdownMenuTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
 
   // ─── Step 2 Styles (FMB & Land Verification) ───
   fileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -9416,29 +8923,27 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   fileCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   viewOutlineBtn: {
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   viewOutlineBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   dashedUploadBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#C7A28E',
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -9446,39 +8951,37 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dashedUploadText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   whiteInputBox: {
     height: 46,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   surveyHelperText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#1E40AF',
+    ...adminType.caption,
+    color: adminColors.info.text,
     marginTop: 4,
   },
 
   notesTextareaContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     minHeight: 115,
     padding: 12,
     position: 'relative',
   },
   notesTextareaInput: {
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
     minHeight: 85,
     textAlignVertical: 'top',
@@ -9491,7 +8994,7 @@ const styles = StyleSheet.create({
   // ─── FMB Sketch Preview Modal Styles ───
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -9499,14 +9002,10 @@ const styles = StyleSheet.create({
   fmbModalCard: {
     width: '100%',
     maxWidth: 370,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
+    ...adminShadow.md,
   },
   fmbModalHeader: {
     flexDirection: 'row',
@@ -9518,18 +9017,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fmbModalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   fmbModalSub: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontWeight: '600',
     marginTop: 1,
   },
@@ -9537,15 +9035,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fmbDocMetaBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 12,
     marginBottom: 12,
   },
@@ -9556,25 +9054,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fmbDocMetaFileName: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     flex: 1,
   },
   fmbPdfBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   fmbPdfBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#DC2626',
+    ...adminType.caption,
+    color: adminColors.danger.text,
   },
   fmbDocMetaDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: adminColors.border,
     marginVertical: 8,
   },
   fmbDocMetaGrid: {
@@ -9585,21 +9081,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fmbDocMetaLabel: {
-    fontSize: 10.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '600',
     marginBottom: 2,
   },
   fmbDocMetaVal: {
-    fontSize: 11.5,
-    color: '#111827',
+    ...adminType.caption,
+    color: adminColors.ink,
     fontWeight: '700',
   },
   fmbSketchPreviewContainer: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     padding: 12,
     marginBottom: 16,
   },
@@ -9610,21 +9106,19 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   fmbBlueprintTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   fmbVerifiedPill: {
-    backgroundColor: '#EAF7EE',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   fmbVerifiedPillText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#15803D',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   fmbBlueprintGraphic: {
     alignItems: 'center',
@@ -9636,41 +9130,39 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
   },
   fmbPlotTagAText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#7A2E14',
+    ...adminType.caption,
+    color: adminColors.brandDeep,
   },
   fmbPlotTagB: {
     position: 'absolute',
     top: 50,
     right: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#B45309',
+    borderColor: adminColors.warning.text,
   },
   fmbPlotTagBText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.caption,
+    color: adminColors.warning.text,
   },
   fmbSketchFoot: {
     marginTop: 6,
     alignItems: 'center',
   },
   fmbSketchFootText: {
-    fontSize: 10.5,
-    color: '#94A3B8',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '600',
   },
   fmbModalActionsRow: {
@@ -9682,60 +9174,53 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fmbCancelBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   fmbCloseFullBtn: {
     width: '100%',
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fmbCloseFullBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   fmbDownloadBtn: {
     flex: 1.3,
     height: 46,
     borderRadius: 10,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
   fmbDownloadBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.body,
+    color: adminColors.onBrand,
   },
 
   // ─── Step 3 Picker Modal Styles (Crops, Plot, Water) ───
   pickerModalCard: {
     width: '100%',
     maxWidth: 370,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
+    ...adminShadow.md,
   },
   pickerModalHeader: {
     flexDirection: 'row',
@@ -9744,9 +9229,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   pickerModalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   pickerModalCloseBtn: {
     width: 28,
@@ -9758,7 +9242,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 4,
-    backgroundColor: '#2563EB',
+    backgroundColor: adminColors.info.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -9767,13 +9251,13 @@ const styles = StyleSheet.create({
   },
   pickerSearchInput: {
     height: 42,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   pickerCheckRow: {
     flexDirection: 'row',
@@ -9781,12 +9265,11 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   pickerCheckText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   pickerRadioRow: {
     flexDirection: 'row',
@@ -9794,33 +9277,31 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3ECE4',
+    borderBottomColor: adminColors.border,
   },
   pickerRadioText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   pickerDoneBtn: {
     height: 46,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
   pickerDoneBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.body,
+    color: adminColors.onBrand,
   },
 
   // ─── Step 4 Styles (Certification Verification) ───
   certAccordionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EEDCD3',
+    borderColor: adminColors.border,
     marginBottom: 14,
     overflow: 'hidden',
   },
@@ -9830,16 +9311,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   certAccordionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#7A2E14',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   certAccordionSub: {
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
   },
   certAccordionBody: {
@@ -9847,21 +9327,21 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 6,
     borderTopWidth: 1,
-    borderTopColor: '#F3ECE4',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: adminColors.border,
+    backgroundColor: adminColors.card,
   },
   certInfoText: {
-    fontSize: 11,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
     marginBottom: 12,
   },
   dateInputRow: {
     height: 46,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -9869,47 +9349,45 @@ const styles = StyleSheet.create({
   },
   dateTextInput: {
     flex: 1,
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
   certGraphicCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: adminColors.border,
     padding: 12,
     alignItems: 'center',
     marginVertical: 4,
   },
   certSealPill: {
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
     marginBottom: 6,
   },
   certSealPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.caption,
+    color: adminColors.warning.text,
     letterSpacing: 0.5,
   },
   certSubjectText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     textAlign: 'center',
   },
   certStandardText: {
-    fontSize: 11,
-    color: '#4B5563',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
     textAlign: 'center',
   },
   certScopeText: {
-    fontSize: 10.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
     textAlign: 'center',
   },
@@ -9920,19 +9398,15 @@ const styles = StyleSheet.create({
     top: 72,
     left: 0,
     width: 252,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 10,
     zIndex: 9999,
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
+    ...adminShadow.md,
   },
   calendarHeaderRow: {
     flexDirection: 'row',
@@ -9946,9 +9420,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calendarMonthTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   calendarNavArrows: {
     flexDirection: 'row',
@@ -9968,9 +9441,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calendarWeekDayText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...adminType.caption,
+    color: adminColors.ink,
   },
   calendarGridWrap: {
     flexDirection: 'row',
@@ -9992,20 +9464,20 @@ const styles = StyleSheet.create({
   },
   calendarDayBoxSelected: {
     borderWidth: 1.8,
-    borderColor: '#111827',
+    borderColor: adminColors.ink,
   },
   calendarDayText: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#111827',
+    color: adminColors.ink,
   },
   calendarDayTextInactive: {
-    color: '#9CA3AF',
+    color: adminColors.muted,
     fontWeight: '400',
   },
   calendarDayTextSelected: {
     fontWeight: '800',
-    color: '#111827',
+    color: adminColors.ink,
   },
   calendarBottomRow: {
     flexDirection: 'row',
@@ -10016,25 +9488,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   calendarBlueActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0284C7',
+    ...adminType.rowMeta,
+    color: adminColors.info.text,
   },
 
   // ─── Step 6 Styles (Water Source & Water pH Testing) ───
   locationInputBox: {
     height: 46,
-    backgroundColor: '#F5F2EB',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5DFD5',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
-    fontSize: 13.5,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   locationHelperText: {
-    fontSize: 11.5,
-    color: '#1E40AF',
+    ...adminType.caption,
+    color: adminColors.info.text,
     marginTop: 4,
   },
   waterSourceSectionHeaderRow: {
@@ -10045,41 +9516,38 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   waterSourceSectionTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
     letterSpacing: 0.5,
   },
   addWaterSourceBtn: {
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
     marginBottom: 10,
   },
   addWaterSourceBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
 
   // ─── Step 7 Styles (Farm Practices Checklist - Screenshots 1 to 5) ───
   step7SectionHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#7A2E14',
+    ...adminType.body,
+    color: adminColors.brandDeep,
     letterSpacing: 0.4,
     marginBottom: 12,
   },
   step7DropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4B5563',
+    borderColor: adminColors.muted,
     marginTop: 4,
     overflow: 'hidden',
   },
@@ -10088,22 +9556,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   step7DropdownMenuItemActive: {
-    backgroundColor: '#6B7280',
+    backgroundColor: adminColors.muted,
   },
   step7DropdownMenuText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step7DropdownMenuTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   step7SearchBox: {
     height: 46,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -10111,10 +9578,10 @@ const styles = StyleSheet.create({
   },
   uploadEvidenceDashedBox: {
     height: 52,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     borderStyle: 'dashed',
     flexDirection: 'row',
     alignItems: 'center',
@@ -10122,15 +9589,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   uploadEvidenceText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
   uploadedFileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -10138,33 +9604,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   uploadedFileName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   uploadedFileSize: {
-    fontSize: 11,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   step7BottomModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'flex-end',
   },
   step7EvidenceBottomSheetCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 36,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 12,
+    ...adminShadow.md,
   },
   step7EvidenceModalHeader: {
     flexDirection: 'row',
@@ -10173,22 +9634,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   step7EvidenceModalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   step7EvidenceSearchBox: {
     height: 46,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#111827',
+    borderColor: adminColors.ink,
     paddingHorizontal: 14,
     justifyContent: 'center',
     marginBottom: 8,
   },
   step7EvidenceSearchInput: {
-    fontSize: 14,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
   step7EvidenceRadioRow: {
@@ -10198,28 +9658,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   step7EvidenceRadioText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step7EvidenceDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Step 8 Styles (Documents & Evidence - Screenshots 1 to 5) ───
   step8SectionHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#7A2E14',
+    ...adminType.body,
+    color: adminColors.brandDeep,
     letterSpacing: 0.3,
     marginBottom: 12,
   },
   step8DocCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
     marginBottom: 10,
@@ -10234,13 +9692,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   step8DocTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step8DocSub: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   step8DocActionsRow: {
@@ -10253,37 +9710,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#B45309',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.warning.text,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   step8DocActionBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.rowMeta,
+    color: adminColors.warning.text,
   },
   step8AddEvidenceBtn: {
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
     marginBottom: 16,
   },
   step8AddEvidenceBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
   step8SubsequentEntryBox: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5DFD5',
+    borderTopColor: adminColors.border,
   },
   step8EntryHeaderRow: {
     flexDirection: 'row',
@@ -10292,22 +9747,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   step8EntryHeaderTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
   step8RemoveText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#DC2626',
+    ...adminType.rowMeta,
+    color: adminColors.danger.text,
   },
 
   // ─── Step 9 Styles (Inspection Observations & Findings) ───
   step9InfoBanner: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D97706',
+    borderColor: adminColors.warning.text,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -10315,38 +9768,36 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   step9InfoBannerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#854F0B',
+    ...adminType.rowMeta,
+    color: adminColors.warning.text,
     lineHeight: 16.5,
     flex: 1,
   },
   step9EmptyHint: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontWeight: '600',
     marginTop: -4,
     marginBottom: 8,
   },
   step9FindingCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
   },
   step9FindingText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step9NoticeCard: {
-    backgroundColor: '#FBF9F6',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -10355,31 +9806,29 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   step9NoticeText: {
-    fontSize: 11.5,
-    color: '#4B5563',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
     flex: 1,
   },
 
   // ─── Step 10 Styles (Farmer Admin Assessment - Screenshots 1 to 5) ───
   step10ScoreCard: {
-    backgroundColor: '#ECEAE4',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2DDD4',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     justifyContent: 'center',
   },
   step10ScoreText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step10ScoreCaption: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E65A6',
+    ...adminType.rowMeta,
+    color: adminColors.info.text,
     lineHeight: 16.5,
     marginTop: 6,
     marginBottom: 6,
@@ -10387,16 +9836,15 @@ const styles = StyleSheet.create({
 
   // ─── Step 11 Styles (Farmer Rating - Screenshots 1 to 4) ───
   step11Breadcrumb: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.rowMeta,
+    color: adminColors.warning.text,
     marginBottom: 10,
   },
   step11MetaGridCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 12,
   },
@@ -10408,53 +9856,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   step11MetaLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   step11MetaValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step11OverallCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 16,
   },
   step11OverallTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   step11OverallScoreText: {
-    fontSize: 26,
+    ...adminType.kpiValue,
     fontWeight: '900',
-    color: '#374151',
+    color: adminColors.ink,
     marginBottom: 8,
   },
   step11OverallSubtext: {
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
     marginBottom: 8,
   },
   step11OverallSubtext2: {
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
   },
   step11CategoryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     marginBottom: 10,
     overflow: 'hidden',
   },
@@ -10473,9 +9918,8 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   step11CategoryTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     flex: 1,
   },
   step11CategoryHeaderRight: {
@@ -10484,38 +9928,35 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   step11PillNotAssessed: {
-    backgroundColor: '#ECEAE4',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   step11PillNotAssessedText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   step11PillAssessed: {
-    backgroundColor: '#ECEAE4',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   step11PillAssessedText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
   },
   step11CategoryBody: {
     paddingHorizontal: 14,
     paddingBottom: 14,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3EFE9',
+    borderTopColor: adminColors.canvas,
   },
   step11ScoreLabel: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
     marginBottom: 10,
   },
   step11ScoreGridRow: {
@@ -10528,58 +9969,55 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   step11ScoreNumBtnActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   step11ScoreNumText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   step11ScoreNumTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   step11PrevAuditText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 6,
   },
   step11BackBtn: {
     height: 48,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   step11BackBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
 
   stepBottomBar: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
 
   // ─── Module 5: Audit Calendar Styles (Image 1) ───
   calRoot: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
   },
   calHeader: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
@@ -10590,22 +10028,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   calHeaderSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: adminColors.onBrand,
     marginTop: 2,
   },
   calBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -10619,29 +10056,27 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calTabActiveText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.body,
+    color: adminColors.onBrand,
   },
   calTabInactive: {
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calTabInactiveText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   calFiltersRow: {
     flexDirection: 'row',
@@ -10651,23 +10086,21 @@ const styles = StyleSheet.create({
   },
   calFilterCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
   calFilterLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   calFilterValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
     marginTop: 4,
   },
   calMonthNav: {
@@ -10681,16 +10114,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calMonthNavTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   calWeekdaysRow: {
     flexDirection: 'row',
@@ -10701,9 +10133,8 @@ const styles = StyleSheet.create({
   calWeekdayText: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   calGridContainer: {
     paddingHorizontal: 12,
@@ -10716,16 +10147,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 3,
   },
   calGridDayCellSelected: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   calGridDayCellEmpty: {
     flex: 1,
@@ -10733,12 +10164,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   calGridDayText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   calGridDayTextSelected: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   calDotSingle: {
     width: 4,
@@ -10757,7 +10187,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   calSelectedDateSection: {
     paddingHorizontal: 16,
@@ -10765,21 +10195,20 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   calSelectedDateTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   calSelectedDateCount: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 2,
   },
   calAuditCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     marginTop: 12,
   },
@@ -10789,40 +10218,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calAuditCardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   calAuditBadgeBlue: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   calAuditBadgeBlueText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#2563EB',
+    ...adminType.caption,
+    color: adminColors.info.text,
   },
   calAuditCardSubtitle: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#4B5563',
+    color: adminColors.muted,
     marginTop: 6,
   },
   calAuditCardMeta: {
-    fontSize: 12.5,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 3,
   },
   calViewDetailsBtn: {
     marginTop: 12,
   },
   calViewDetailsText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.body,
+    color: adminColors.brand,
   },
 
   // ─── Module 5: Audit Details Styles (Images 2 & 3) ───
@@ -10833,28 +10259,26 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   detUpcomingBadge: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 10,
     paddingVertical: 2.5,
     borderRadius: 12,
   },
   detUpcomingBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#B45309',
+    ...adminType.caption,
+    color: adminColors.warning.text,
   },
   detSectionHeader: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
     marginTop: 8,
     marginBottom: 8,
   },
   detCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 12,
   },
@@ -10867,37 +10291,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   detValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 3,
   },
   detViewProfileBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
     marginBottom: 14,
   },
   detViewProfileBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.body,
+    color: adminColors.warning.text,
   },
   detDocCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -10911,9 +10332,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   detDocCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   detChecklistRow: {
     flexDirection: 'row',
@@ -10922,9 +10342,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   detChecklistTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   detChecklistPendingWrap: {
     flexDirection: 'row',
@@ -10932,19 +10351,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detChecklistPendingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   detDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
   },
   detDisclaimerCard: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D9',
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -10954,15 +10372,15 @@ const styles = StyleSheet.create({
   },
   detDisclaimerText: {
     flex: 1,
-    fontSize: 11.5,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
     fontWeight: '500',
   },
 
   // ─── Module 5: Checklist PDF Viewer Styles (Image 4) ───
   pdfHeader: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
@@ -10971,22 +10389,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   pdfHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   pdfMetaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     margin: 16,
     padding: 16,
     flexDirection: 'row',
   },
   pdfPreviewArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   pdfBottomBar: {
     flexDirection: 'row',
@@ -10994,39 +10411,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 28,
     paddingTop: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: adminColors.border,
   },
   pdfDownloadBtn: {
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pdfDownloadBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.body,
+    color: adminColors.brand,
   },
   pdfCloseBtn: {
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pdfCloseBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
 
   // ─── Module 5: Audit Detail Double Bottom Bar Styles (Image 1 Right) ───
@@ -11035,44 +10450,38 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: adminColors.border,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 8,
+    ...adminShadow.sm,
   },
   primarySupportAuditBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primarySupportAuditBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   outlineScheduleVisitBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineScheduleVisitBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    ...adminType.body,
+    color: adminColors.ink,
   },
 });

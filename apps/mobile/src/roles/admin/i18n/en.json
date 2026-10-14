@@ -1509,5 +1509,21 @@
   "mainWarehouseAdminDashboard.tab.receiving": "Receiving",
   "mainWarehouseAdminDashboard.tab.inventory": "Inventory",
   "mainWarehouseAdminDashboard.tab.more": "More",
-  "mainWarehouseAdminDashboard.action.manageSwa": "Manage SWA Accounts"
+  "mainWarehouseAdminDashboard.action.manageSwa": "Manage SWA Accounts",
+
+  "auditSchedule.title": "Audit Schedule & Field Visits",
+  "auditSchedule.header.calendar": "Audit Calendar",
+  "auditSchedule.header.history": "Audit History",
+  "auditSchedule.header.inspection": "Field Inspection",
+  "auditSchedule.header.report": "Audit Report",
+  "auditSchedule.header.details": "Audit Details",
+  "auditSchedule.action.back": "Back",
+  "auditSchedule.action.close": "Close",
+  "auditSchedule.action.save": "Save Changes",
+  "auditSchedule.action.submit": "Submit Inspection",
+  "auditSchedule.action.schedule": "Schedule Visit",
+  "auditSchedule.filter.all": "All",
+  "auditSchedule.filter.today": "Today",
+  "auditSchedule.filter.upcoming": "Upcoming",
+  "auditSchedule.filter.completed": "Completed"
 }
