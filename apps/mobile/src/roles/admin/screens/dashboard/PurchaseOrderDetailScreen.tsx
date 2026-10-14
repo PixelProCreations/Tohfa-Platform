@@ -8,37 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Accent & Timeline
-  brandOrange: adminColors.brand,
-  peachIconBg: adminColors.warning.bg,
-  peachCardBg: adminColors.brandTint,
-  peachBorder: adminColors.border,
-};
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +28,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function TargetPlusIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function TargetPlusIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -62,7 +38,7 @@ function TargetPlusIcon({ size = 16, color = THEME.titleRustDark }: { size?: num
   );
 }
 
-function CheckCircleIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function CheckCircleIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -71,7 +47,7 @@ function CheckCircleIcon({ size = 16, color = THEME.titleRustDark }: { size?: nu
   );
 }
 
-function ReceiptIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function ReceiptIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -87,7 +63,7 @@ function ReceiptIcon({ size = 16, color = THEME.titleRustDark }: { size?: number
   );
 }
 
-function HourglassIcon({ size = 16, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function HourglassIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -104,40 +80,44 @@ function HourglassIcon({ size = 16, color = THEME.titleRustDark }: { size?: numb
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface PurchaseOrderDetailScreenProps {
-  orderId?: string;
+  orderId?: string | undefined;
   onBack: () => void;
-  onViewOriginalListing?: () => void;
-  onProcessHandover?: () => void;
+  onViewOriginalListing?: (() => void) | undefined;
+  onProcessHandover?: (() => void) | undefined;
 }
 
 export function PurchaseOrderDetailScreen({
-  orderId = 'PO-2026-00124',
+  orderId,
   onBack,
   onViewOriginalListing,
   onProcessHandover,
 }: PurchaseOrderDetailScreenProps) {
   const [negotiationType, setNegotiationType] = useState<'Counter Offer' | 'Direct Approval'>('Counter Offer');
 
+  const subtitleText = orderId
+    ? `${orderId} · ${t('purchaseOrderDetail.subtitle')}`
+    : t('purchaseOrderDetail.subtitle');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Purchase Order (Image 3) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('purchaseOrderDetail.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Purchase Order</Text>
+          <Text style={styles.headerTitle}>{t('purchaseOrderDetail.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>{orderId} · Awaiting Handover</Text>
+        <Text style={styles.headerSubtitle}>{subtitleText}</Text>
       </View>
 
       {/* ─── Scroll Body ─── */}
@@ -146,50 +126,50 @@ export function PurchaseOrderDetailScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Purchase Summary ─── */}
-        <Text style={styles.sectionTitle}>Purchase Summary</Text>
+        {/* 1. Purchase Summary */}
+        <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.summary')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Purchase Order ID</Text>
-              <Text style={styles.fieldValue}>{orderId}</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.orderId')}</Text>
+              <Text style={styles.fieldValue}>{orderId ?? '—'}</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Listing ID</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.listingId')}</Text>
               <Text style={styles.fieldValue}>LST-00452</Text>
             </View>
           </View>
 
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
+          <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Farmer</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.farmer')}</Text>
               <Text style={styles.fieldValue}>Ramesh Kumar</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Produce</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.produce')}</Text>
               <Text style={styles.fieldValue}>Carrot, Grade 1</Text>
             </View>
           </View>
 
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
+          <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Quantity</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.quantity')}</Text>
               <Text style={styles.fieldValue}>30 kg</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Agreed Price</Text>
+              <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.agreedPrice')}</Text>
               <Text style={styles.fieldValue}>₹45/kg</Text>
             </View>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.fieldLabel}>Total Purchase Amount</Text>
+          <View style={styles.fieldRowSpacing}>
+            <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.totalAmount')}</Text>
             <Text style={styles.fieldValue}>₹1,350</Text>
           </View>
         </View>
 
-        {/* ─── 2. Farmer Information (WITHOUT View Farmer Button as Requested) ─── */}
-        <Text style={styles.sectionTitle}>Farmer Information</Text>
+        {/* 2. Farmer Information */}
+        <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.farmerInfo')}</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -198,182 +178,126 @@ export function PurchaseOrderDetailScreen({
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farm/Location</Text>
-              <Text style={styles.fieldValue}>Coonoor</Text>
+              <Text style={styles.fieldValue}>Coonoor, Nilgiris</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, styles.fieldRowSpacing]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Contact</Text>
+              <Text style={styles.fieldValue}>+91 98XXX XX045</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Verification</Text>
+              <Text style={styles.fieldValue}>Verified</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── 3. Produce Information ─── */}
-        <Text style={styles.sectionTitle}>Produce Information</Text>
-        <View style={styles.card}>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Listed Quantity</Text>
-              <Text style={styles.fieldValue}>50 kg</Text>
-            </View>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Agreed Quantity</Text>
-              <Text style={styles.fieldValue}>30 kg</Text>
-            </View>
-          </View>
+        {/* 3. Negotiated Terms */}
+        <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.terms')}</Text>
 
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Listed Price</Text>
-              <Text style={styles.fieldValue}>₹50/kg</Text>
-            </View>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Agreed Price</Text>
-              <Text style={styles.fieldValue}>₹45/kg</Text>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={onViewOriginalListing}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.outlineActionBtnText}>View Original Listing</Text>
-        </TouchableOpacity>
-
-        {/* ─── 4. Negotiation Summary (Image 4) ─── */}
-        <Text style={styles.sectionTitle}>Negotiation Summary</Text>
-        <View style={styles.chipsRow}>
+        <View style={styles.chipToggleRow}>
           <TouchableOpacity
-            style={[
-              styles.chip,
-              negotiationType === 'Counter Offer' ? styles.chipActive : styles.chipInactive,
-            ]}
+            style={[styles.chip, negotiationType === 'Counter Offer' ? styles.chipActive : styles.chipInactive]}
             onPress={() => setNegotiationType('Counter Offer')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <Text
-              style={[
-                styles.chipText,
-                negotiationType === 'Counter Offer' ? styles.chipTextActive : styles.chipTextInactive,
-              ]}
-            >
+            <Text style={[styles.chipText, negotiationType === 'Counter Offer' ? styles.chipTextActive : styles.chipTextInactive]}>
               Counter Offer
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.chip,
-              negotiationType === 'Direct Approval' ? styles.chipActive : styles.chipInactive,
-            ]}
+            style={[styles.chip, negotiationType === 'Direct Approval' ? styles.chipActive : styles.chipInactive]}
             onPress={() => setNegotiationType('Direct Approval')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <Text
-              style={[
-                styles.chipText,
-                negotiationType === 'Direct Approval' ? styles.chipTextActive : styles.chipTextInactive,
-              ]}
-            >
+            <Text style={[styles.chipText, negotiationType === 'Direct Approval' ? styles.chipTextActive : styles.chipTextInactive]}>
               Direct Approval
             </Text>
           </TouchableOpacity>
         </View>
 
-        {negotiationType === 'Direct Approval' ? (
-          <View style={[styles.card, styles.finalTermsCard]}>
-            <Text style={styles.termHeading}>DIRECT APPROVAL — NO COUNTER OFFER</Text>
-            <Text style={styles.finalTermBody}>Quantity: 50 kg · Price: ₹100/kg · Total: ₹5,000</Text>
-          </View>
-        ) : (
+        {negotiationType === 'Counter Offer' ? (
           <>
-            {/* Card 1: Original Farmer Request */}
             <View style={styles.card}>
-              <Text style={styles.termHeading}>ORIGINAL FARMER REQUEST</Text>
-              <Text style={styles.termBody}>Quantity: 50 kg · Price: ₹50/kg</Text>
+              <Text style={styles.termHeading}>ORIGINAL LISTING TERMS</Text>
+              <Text style={styles.termBody}>₹50/kg · 50 kg listed · Total: ₹2,500</Text>
             </View>
 
-            {/* Card 2: TOHFA Counter Offer */}
             <View style={styles.card}>
-              <Text style={styles.termHeading}>TOHFA COUNTER OFFER</Text>
-              <Text style={styles.termBody}>Quantity: 30 kg · Price: ₹45/kg</Text>
+              <Text style={styles.termHeading}>COUNTER-OFFER ROUND 1 (BY TOHFA)</Text>
+              <Text style={styles.termBody}>₹45/kg · 30 kg required · Reason: Market alignment</Text>
             </View>
 
-            {/* Card 3: Final Agreed Terms */}
             <View style={[styles.card, styles.finalTermsCard]}>
               <Text style={styles.termHeading}>FINAL AGREED TERMS</Text>
-              <Text style={styles.finalTermBody}>Quantity: 30 kg · Price: ₹45/kg · Total: ₹1,350</Text>
+              <Text style={styles.finalTermBody}>₹45/kg · 30 kg · ₹1,350 Total</Text>
             </View>
           </>
+        ) : (
+          <View style={[styles.card, styles.finalTermsCard]}>
+            <Text style={styles.termHeading}>DIRECT PURCHASE TERMS</Text>
+            <Text style={styles.finalTermBody}>₹50/kg · 50 kg · ₹2,500 Total</Text>
+          </View>
         )}
 
-        {/* ─── 5. Purchase Timeline (Image 4) ─── */}
-        <Text style={styles.sectionTitle}>Purchase Timeline</Text>
+        {/* 4. Order Timeline */}
+        <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.timeline')}</Text>
         <View style={styles.timelineList}>
-          {/* Step 1 */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <TargetPlusIcon size={16} color={THEME.titleRustDark} />
+              <TargetPlusIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Listing Created</Text>
-              <Text style={styles.timelineTime}>28 Sep · Farmer</Text>
+              <Text style={styles.timelineTitle}>Counter-Offer Accepted by Farmer</Text>
+              <Text style={styles.timelineTime}>29 Sep 2026, 14:30</Text>
             </View>
           </View>
 
-          {/* Step 2 */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <CheckCircleIcon size={16} color={THEME.titleRustDark} />
+              <CheckCircleIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Listing Approved</Text>
-              <Text style={styles.timelineTime}>29 Sep · Farmer Admin</Text>
+              <Text style={styles.timelineTitle}>Counter-Offer Sent by TOHFA</Text>
+              <Text style={styles.timelineTime}>29 Sep 2026, 11:15</Text>
             </View>
           </View>
 
-          {/* Step 3 */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <ReceiptIcon size={16} color={THEME.titleRustDark} />
+              <ReceiptIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Purchase Order Created</Text>
-              <Text style={styles.timelineTime}>29 Sep · System</Text>
+              <Text style={styles.timelineTitle}>Original Listing Submitted</Text>
+              <Text style={styles.timelineTime}>28 Sep 2026, 09:00</Text>
             </View>
           </View>
 
-          {/* Step 4 */}
           <View style={styles.timelineItem}>
             <View style={styles.timelineIconBadge}>
-              <CheckCircleIcon size={16} color={THEME.titleRustDark} />
+              <HourglassIcon size={16} color={adminColors.brandDeep} />
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Terms Confirmed</Text>
-              <Text style={styles.timelineTime}>29 Sep · Farmer Admin</Text>
-            </View>
-          </View>
-
-          {/* Step 5 */}
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIconBadge}>
-              <HourglassIcon size={16} color={THEME.titleRustDark} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Awaiting Handover</Text>
-              <Text style={styles.timelineTime}>30 Sep · Current</Text>
+              <Text style={styles.timelineTitle}>Handover Scheduled</Text>
+              <Text style={styles.timelineTime}>30 Sep 2026, 10:00 AM · Coonoor Point</Text>
             </View>
           </View>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ─── Sticky Bottom Action: Process Handover ─── */}
+      {/* ─── Sticky Bottom Bar ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.processHandoverBtn}
-          onPress={onProcessHandover}
-          activeOpacity={0.85}
+          onPress={() => onProcessHandover?.()}
+          activeOpacity={0.8}
         >
-          <Text style={styles.processHandoverBtnText}>Process Handover</Text>
+          <Text style={styles.processHandoverBtnText}>{t('purchaseOrderDetail.action.processHandover')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -385,181 +309,149 @@ export function PurchaseOrderDetailScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.3,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginLeft: 42,
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    marginTop: adminSpacing.xs,
+    paddingLeft: 40,
   },
-
-  // ─── Scroll Area ───
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 30,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: 90,
   },
-
-  // ─── Section Title ───
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
-    letterSpacing: -0.2,
-    marginTop: 6,
-    marginBottom: 10,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
-
-  // ─── Card ───
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   gridCol: {
-    flex: 1,
+    width: '48%',
   },
   fieldLabel: {
-    fontSize: 12,
-    color: THEME.muted,
-    marginBottom: 3,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   fieldValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
-    letterSpacing: -0.2,
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // ─── Outline Action Button ───
-  outlineActionBtn: {
-    backgroundColor: THEME.white,
-    borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+  fieldRowSpacing: {
+    marginTop: adminSpacing.md,
   },
-  outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.brandOrange,
-  },
-
-  // ─── Chips Row ───
-  chipsRow: {
+  chipToggleRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   chip: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   chipInactive: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.body,
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '800',
   },
   chipTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
     fontWeight: '700',
   },
-
-  // ─── Terms ───
   termHeading: {
-    fontSize: 10,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.5,
-    marginBottom: 5,
+    marginBottom: adminSpacing.xs,
   },
   termBody: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '600',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   finalTermsCard: {
-    backgroundColor: THEME.peachCardBg,
-    borderColor: THEME.peachBorder,
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.border,
     borderWidth: 1.5,
   },
   finalTermBody: {
-    fontSize: 14,
+    ...adminType.rowTitle,
     fontWeight: '900',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
-
-  // ─── Timeline ───
   timelineList: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    gap: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   timelineIconBadge: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: THEME.peachIconBg,
+    borderRadius: adminRadius.xl,
+    backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -567,41 +459,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineTitle: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
-    letterSpacing: -0.2,
+    color: adminColors.ink,
   },
   timelineTime: {
-    fontSize: 11.5,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 1,
   },
-
-  // ─── Sticky Bottom Bar ───
+  bottomSpacer: {
+    height: 20,
+  },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: THEME.canvas,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 24,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xxl,
     borderTopWidth: 1,
-    borderTopColor: THEME.borderLight,
+    borderTopColor: adminColors.border,
   },
   processHandoverBtn: {
-    backgroundColor: THEME.brandOrange,
-    borderRadius: 16,
-    paddingVertical: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.xl,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   processHandoverBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.2,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

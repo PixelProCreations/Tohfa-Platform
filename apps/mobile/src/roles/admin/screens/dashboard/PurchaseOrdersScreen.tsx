@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Modal,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,43 +10,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  divider: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  label: '#4B5563',
-
-  // Status Badges
-  amberBg: adminColors.warning.bg,
-  amberText: adminColors.warning.text,
-  blueBg: adminColors.info.bg,
-  blueText: adminColors.info.text,
-  greenBg: adminColors.success.bg,
-  greenText: adminColors.success.text,
-
-  // Action Buttons
-  btnBg: adminColors.brandTint,
-  btnBorder: adminColors.border,
-  btnText: adminColors.brandDeep,
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -62,20 +29,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -84,7 +51,7 @@ function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: s
   );
 }
 
-function CloseIcon({ size = 20, color = '#6B7280' }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="18" y1="6" x2="6" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -141,7 +108,7 @@ export interface PurchaseOrdersScreenProps {
   onBack: () => void;
   onViewOrder: (orderId: string) => void;
   onHandover: (orderId: string) => void;
-  onCollect?: (orderId: string) => void;
+  onCollect?: ((orderId: string) => void) | undefined;
   onViewHistory: () => void;
 }
 
@@ -180,7 +147,7 @@ export function PurchaseOrdersScreen({
   if (filterModalVisible) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ─── Header ─── */}
         <View style={styles.header}>
@@ -189,98 +156,86 @@ export function PurchaseOrdersScreen({
               style={styles.backBtn}
               onPress={() => setFilterModalVisible(false)}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('purchaseOrders.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Filter Purchase Orders</Text>
-            <View style={{ width: 36 }} />
+            <Text style={styles.headerTitle}>{t('purchaseOrders.filterPage.title')}</Text>
+            <View style={styles.headerRightSpacer} />
           </View>
         </View>
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
+          contentContainerStyle={styles.filterScrollPad}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.filterCard}>
-            {/* Filter Section: Status */}
-            <Text style={styles.filterSectionTitle}>Status</Text>
+            {/* Status Filter */}
+            <Text style={styles.filterSectionTitle}>{t('purchaseOrders.filterPage.status')}</Text>
             <View style={styles.chipRow}>
-              {(['All', 'Awaiting Handover', 'Collection Scheduled', 'Completed'] as const).map(
-                (item) => {
-                  const active = statusFilter === item;
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                      onPress={() => setStatusFilter(item)}
-                      activeOpacity={0.75}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          active && styles.filterChipTextActive,
-                        ]}
-                      >
-                        {item}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }
-              )}
-            </View>
-
-            {/* Filter Section: Produce */}
-            <Text style={[styles.filterSectionTitle, { marginTop: 20 }]}>Produce</Text>
-            <View style={styles.chipRow}>
-              {(['All', 'Carrot', 'Beans', 'Tomato'] as const).map((crop) => {
-                const active = produceFilter === crop;
+              {(['All', 'Awaiting Handover', 'Collection Scheduled', 'Completed'] as const).map((st) => {
+                const isActive = statusFilter === st;
                 return (
                   <TouchableOpacity
-                    key={crop}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setProduceFilter(crop)}
-                    activeOpacity={0.75}
+                    key={st}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setStatusFilter(st)}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {crop}
+                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                      {st}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+
+            {/* Produce Filter */}
+            <Text style={[styles.filterSectionTitle, styles.filterSectionSpacing]}>
+              {t('purchaseOrders.filterPage.produce')}
+            </Text>
+            <View style={styles.chipRow}>
+              {(['All', 'Carrot', 'Beans', 'Tomato'] as const).map((prod) => {
+                const isActive = produceFilter === prod;
+                return (
+                  <TouchableOpacity
+                    key={prod}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setProduceFilter(prod)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                      {prod}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={() => {
+                  setStatusFilter('All');
+                  setProduceFilter('All');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalResetText}>{t('purchaseOrders.filterPage.clearAll')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={() => setFilterModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalApplyText}>{t('purchaseOrders.filterPage.apply')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          {/* Page Actions */}
-          <View style={styles.modalBtnRow}>
-            <TouchableOpacity
-              style={styles.modalResetBtn}
-              onPress={() => {
-                setStatusFilter('All');
-                setProduceFilter('All');
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.modalResetText}>Clear All</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalApplyBtn}
-              onPress={() => setFilterModalVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalApplyText}>Apply Filters</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -288,297 +243,262 @@ export function PurchaseOrdersScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Screenshot 2 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('purchaseOrders.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Purchase Orders</Text>
+          <Text style={styles.headerTitle}>{t('purchaseOrders.title')}</Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
             onPress={() => setFilterModalVisible(true)}
-            activeOpacity={0.8}
-            accessibilityLabel="Filter purchase orders"
+            activeOpacity={0.7}
+            accessibilityLabel={t('purchaseOrders.filterPage.title')}
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* ─── Scroll Container ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ─── Search Bar ─── */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9CA3AF" />
+        {/* Search Bar */}
+        <View style={styles.searchWrap}>
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="PO ID, Listing ID, Farmer, Produce"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('purchaseOrders.searchPlaceholder')}
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <CloseIcon size={16} color={adminColors.muted} />
+            </TouchableOpacity>
+          )}
         </View>
+      </View>
 
-        {/* ─── Active Filter Pills (if filters active) ─── */}
-        {(statusFilter !== 'All' || produceFilter !== 'All') && (
-          <View style={styles.activeFilterRow}>
-            {statusFilter !== 'All' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>{statusFilter}</Text>
-                <TouchableOpacity onPress={() => setStatusFilter('All')}>
-                  <CloseIcon size={14} color={THEME.btnText} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {produceFilter !== 'All' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>{produceFilter}</Text>
-                <TouchableOpacity onPress={() => setProduceFilter('All')}>
-                  <CloseIcon size={14} color={THEME.btnText} />
-                </TouchableOpacity>
-              </View>
-            )}
+      {/* ─── List Content ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.listPad}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Purchase History Banner */}
+        <TouchableOpacity
+          style={styles.historyBanner}
+          onPress={onViewHistory}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.historyBannerText}>{t('purchaseOrders.action.viewHistory')}</Text>
+        </TouchableOpacity>
+
+        {filteredOrders.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>{t('purchaseOrders.empty')}</Text>
           </View>
-        )}
+        ) : (
+          filteredOrders.map((order) => {
+            const isAwaiting = order.status === 'Awaiting Handover';
+            const isCollection = order.status === 'Collection Scheduled';
+            const isCompleted = order.status === 'Completed';
 
-        {/* ─── Orders List (Matching Screenshot 2 Cards) ─── */}
-        {filteredOrders.map((order) => {
-          const isAwaiting = order.status === 'Awaiting Handover';
-          const isScheduled = order.status === 'Collection Scheduled';
-          const isCompleted = order.status === 'Completed';
-
-          return (
-            <TouchableOpacity
-              key={order.id}
-              style={styles.orderCard}
-              onPress={() => onViewOrder(order.id)}
-              activeOpacity={0.85}
-            >
-              {/* Card Header Row: PO ID + Status Badge */}
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.orderIdText}>{order.id}</Text>
-
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isAwaiting && styles.badgeAmber,
-                    isScheduled && styles.badgeBlue,
-                    isCompleted && styles.badgeGreen,
-                  ]}
-                >
-                  <Text
+            return (
+              <TouchableOpacity
+                key={order.id}
+                style={styles.orderCard}
+                onPress={() => onViewOrder(order.id)}
+                activeOpacity={0.8}
+              >
+                {/* Header: ID + Status Badge */}
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.orderIdText}>{order.id}</Text>
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      isAwaiting && styles.badgeTextAmber,
-                      isScheduled && styles.badgeTextBlue,
-                      isCompleted && styles.badgeTextGreen,
+                      styles.statusBadge,
+                      isAwaiting && styles.badgeAmber,
+                      isCollection && styles.badgeBlue,
+                      isCompleted && styles.badgeGreen,
                     ]}
                   >
-                    {order.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isAwaiting && styles.badgeTextAmber,
+                        isCollection && styles.badgeTextBlue,
+                        isCompleted && styles.badgeTextGreen,
+                      ]}
+                    >
+                      {order.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              {/* Subline: Farmer · Produce */}
-              <Text style={styles.farmerProduceText}>
-                {order.farmer} · {order.produce}
-              </Text>
+                {/* Farmer and Produce */}
+                <Text style={styles.farmerProduceText}>
+                  {order.farmer} · {order.produce}
+                </Text>
 
-              {/* Divider */}
-              <View style={styles.cardDivider} />
+                {/* Divider */}
+                <View style={styles.cardDivider} />
 
-              {/* Key Value Details: Quantity & Total */}
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Quantity</Text>
-                <Text style={styles.detailValue}>{order.quantity}</Text>
-              </View>
+                {/* Details */}
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Quantity</Text>
+                  <Text style={styles.detailValue}>{order.quantity}</Text>
+                </View>
 
-              <View style={[styles.detailRow, { marginTop: 6 }]}>
-                <Text style={styles.detailLabel}>Total</Text>
-                <Text style={styles.detailValue}>{order.total}</Text>
-              </View>
+                <View style={[styles.detailRow, styles.detailRowSpacing]}>
+                  <Text style={styles.detailLabel}>Total</Text>
+                  <Text style={styles.detailValue}>{order.total}</Text>
+                </View>
 
-              {/* Action Buttons Row */}
-              {isAwaiting && (
+                {/* Action Buttons Row */}
                 <View style={styles.actionBtnRow}>
                   <TouchableOpacity
                     style={styles.actionBtn}
                     onPress={() => onViewOrder(order.id)}
-                    activeOpacity={0.75}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.actionBtnText}>View</Text>
+                    <Text style={styles.actionBtnText}>{t('purchaseOrders.action.viewOrder')}</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => onHandover(order.id)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.actionBtnText}>Handover</Text>
-                  </TouchableOpacity>
+                  {isAwaiting && (
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => onHandover(order.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.actionBtnText}>{t('purchaseOrders.action.handover')}</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {isCollection && onCollect && (
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => onCollect(order.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.actionBtnText}>{t('purchaseOrders.action.collect')}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              )}
-
-              {isScheduled && (
-                <View style={styles.actionBtnRow}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => onViewOrder(order.id)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.actionBtnText}>View</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => onCollect?.(order.id) ?? onHandover(order.id)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.actionBtnText}>Collect</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {isCompleted && (
-                <View style={styles.actionBtnRow}>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { flex: 1 }]}
-                    onPress={onViewHistory}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.actionBtnText}>History</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-
+              </TouchableOpacity>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Header matching Screenshot 2
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
   },
   backBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
-    marginLeft: 12,
-  },
-  filterBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Scroll Container
-  scroll: {
-    flex: 1,
+  headerTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
-  scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+  headerRightSpacer: {
+    width: 36,
   },
-
-  // Search Bar
-  searchBar: {
+  filterBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-    gap: 10,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
-
-  // Active filter chips
-  activeFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
+  scroll: {
+    flex: 1,
   },
-  activeFilterChip: {
-    flexDirection: 'row',
+  listPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
+  },
+  filterScrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: 40,
+  },
+  historyBanner: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
     alignItems: 'center',
-    backgroundColor: THEME.btnBg,
-    borderColor: THEME.btnBorder,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
+    borderColor: adminColors.brand,
   },
-  activeFilterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.btnText,
+  historyBannerText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
-
-  // Order Card matching Screenshot 2
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
   orderCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -586,190 +506,158 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   orderIdText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.xs,
   },
   badgeAmber: {
-    backgroundColor: THEME.amberBg,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeBlue: {
-    backgroundColor: THEME.blueBg,
+    backgroundColor: adminColors.info.bg,
   },
   badgeGreen: {
-    backgroundColor: THEME.greenBg,
+    backgroundColor: adminColors.success.bg,
   },
   statusBadgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgeTextAmber: {
-    color: THEME.amberText,
+    color: adminColors.warning.text,
   },
   badgeTextBlue: {
-    color: THEME.blueText,
+    color: adminColors.info.text,
   },
   badgeTextGreen: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   farmerProduceText: {
-    fontSize: 13,
-    color: THEME.muted,
-    marginTop: 4,
+    ...adminType.body,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: THEME.divider,
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  detailRowSpacing: {
+    marginTop: adminSpacing.xs,
+  },
   detailLabel: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   detailValue: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   actionBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 14,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: THEME.btnBg,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: THEME.btnBorder,
+    borderColor: adminColors.border,
   },
   actionBtnText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.btnText,
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    color: adminColors.brandDeep,
   },
   filterCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     padding: 18,
     borderWidth: 1,
-    borderColor: THEME.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: 20,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: THEME.card,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    marginBottom: adminSpacing.xl,
   },
   filterSectionTitle: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  filterSectionSpacing: {
+    marginTop: adminSpacing.lg,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs + 3,
+    borderRadius: adminRadius.xl,
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
   },
   filterChipActive: {
-    backgroundColor: THEME.amberBg,
-    borderColor: '#FDBA74',
+    backgroundColor: adminColors.warning.bg,
+    borderColor: adminColors.warning.border,
   },
   filterChipText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.muted,
   },
   filterChipTextActive: {
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
     fontWeight: '700',
   },
   modalBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xxl,
   },
   modalResetBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.btnBg,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.brandTint,
   },
   modalResetText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   modalApplyBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: THEME.headerBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brand,
   },
   modalApplyText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

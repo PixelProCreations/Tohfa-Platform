@@ -12,40 +12,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens (Directly Bound to Theme File Structure) ───────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  divider: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Badges
-  greenBg: adminColors.success.bg,
-  greenText: adminColors.success.text,
-  amberBg: adminColors.warning.bg,
-  amberText: adminColors.warning.text,
-
-  // Buttons & Chips
-  btnBg: adminColors.brandTint,
-  btnBorder: adminColors.border,
-  btnText: adminColors.brandDeep,
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,20 +31,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -81,7 +53,7 @@ function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: s
   );
 }
 
-function CloseIcon({ size = 20, color = '#6B7280' }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="18" y1="6" x2="6" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -172,7 +144,7 @@ export function PurchaseHistoryScreen({
   if (filterModalVisible) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ─── Header ─── */}
         <View style={styles.header}>
@@ -181,41 +153,36 @@ export function PurchaseHistoryScreen({
               style={styles.backBtn}
               onPress={() => setFilterModalVisible(false)}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('purchaseHistory.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Filter History</Text>
-            <View style={{ width: 36 }} />
+            <Text style={styles.headerTitle}>{t('purchaseHistory.filterPage.title')}</Text>
+            <View style={styles.headerRightSpacer} />
           </View>
         </View>
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
+          contentContainerStyle={styles.filterScrollPad}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.filterCard}>
             {/* Status Filter */}
-            <Text style={styles.filterSectionTitle}>Status</Text>
+            <Text style={styles.filterSectionTitle}>{t('purchaseHistory.filterPage.status')}</Text>
             <View style={styles.chipRow}>
-              {(['All', 'Completed'] as const).map((item) => {
-                const active = statusFilter === item;
+              {(['All', 'Completed'] as const).map((st) => {
+                const isActive = statusFilter === st;
                 return (
                   <TouchableOpacity
-                    key={item}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setStatusFilter(item)}
-                    activeOpacity={0.75}
+                    key={st}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setStatusFilter(st)}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {item}
+                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                      {st}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -223,24 +190,21 @@ export function PurchaseHistoryScreen({
             </View>
 
             {/* Produce Filter */}
-            <Text style={[styles.filterSectionTitle, { marginTop: 20 }]}>Produce</Text>
+            <Text style={[styles.filterSectionTitle, styles.filterSectionSpacing]}>
+              {t('purchaseHistory.filterPage.produce')}
+            </Text>
             <View style={styles.chipRow}>
-              {(['All', 'Tomato', 'Beans', 'Carrot'] as const).map((crop) => {
-                const active = produceFilter === crop;
+              {(['All', 'Tomato', 'Beans', 'Carrot'] as const).map((prod) => {
+                const isActive = produceFilter === prod;
                 return (
                   <TouchableOpacity
-                    key={crop}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setProduceFilter(crop)}
-                    activeOpacity={0.75}
+                    key={prod}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setProduceFilter(prod)}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {crop}
+                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                      {prod}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -248,55 +212,50 @@ export function PurchaseHistoryScreen({
             </View>
 
             {/* Time Period Filter */}
-            <Text style={[styles.filterSectionTitle, { marginTop: 20 }]}>Time Period</Text>
+            <Text style={[styles.filterSectionTitle, styles.filterSectionSpacing]}>
+              {t('purchaseHistory.filterPage.period')}
+            </Text>
             <View style={styles.chipRow}>
-              {(['All', 'Last 7 Days', 'Last 30 Days'] as const).map((item) => {
-                const active = periodFilter === item;
+              {(['All', 'Last 7 Days', 'Last 30 Days'] as const).map((period) => {
+                const isActive = periodFilter === period;
                 return (
                   <TouchableOpacity
-                    key={item}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setPeriodFilter(item)}
-                    activeOpacity={0.75}
+                    key={period}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setPeriodFilter(period)}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        active && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {item}
+                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                      {period}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={() => {
+                  setStatusFilter('All');
+                  setProduceFilter('All');
+                  setPeriodFilter('All');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalResetText}>{t('purchaseHistory.filterPage.clearAll')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={() => setFilterModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalApplyText}>{t('purchaseHistory.filterPage.apply')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          {/* Page Actions */}
-          <View style={styles.modalBtnRow}>
-            <TouchableOpacity
-              style={styles.modalResetBtn}
-              onPress={() => {
-                setStatusFilter('All');
-                setProduceFilter('All');
-                setPeriodFilter('All');
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.modalResetText}>Clear All</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalApplyBtn}
-              onPress={() => setFilterModalVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalApplyText}>Apply Filters</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -304,232 +263,190 @@ export function PurchaseHistoryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Straight Bottom (Matching Screenshot 2 Exactly) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('purchaseHistory.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Purchase History</Text>
+          <Text style={styles.headerTitle}>{t('purchaseHistory.title')}</Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
             onPress={() => setFilterModalVisible(true)}
-            activeOpacity={0.8}
-            accessibilityLabel="Filter purchase history"
+            activeOpacity={0.7}
+            accessibilityLabel={t('purchaseHistory.filterPage.title')}
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* ─── Scroll Container ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ─── Search Bar (Placeholder matching Screenshot 2) ─── */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9CA3AF" />
+        {/* Search Bar */}
+        <View style={styles.searchWrap}>
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="PO ID, Farmer, Listing, Produce"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('purchaseHistory.searchPlaceholder')}
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <CloseIcon size={16} color={adminColors.muted} />
+            </TouchableOpacity>
+          )}
         </View>
+      </View>
 
-        {/* ─── Active Filter Pills ─── */}
-        {(produceFilter !== 'All' || periodFilter !== 'All' || statusFilter !== 'All') && (
-          <View style={styles.activeFilterRow}>
-            {produceFilter !== 'All' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>{produceFilter}</Text>
-                <TouchableOpacity onPress={() => setProduceFilter('All')}>
-                  <CloseIcon size={14} color={THEME.btnText} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {periodFilter !== 'All' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>{periodFilter}</Text>
-                <TouchableOpacity onPress={() => setPeriodFilter('All')}>
-                  <CloseIcon size={14} color={THEME.btnText} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {statusFilter !== 'All' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>{statusFilter}</Text>
-                <TouchableOpacity onPress={() => setStatusFilter('All')}>
-                  <CloseIcon size={14} color={THEME.btnText} />
-                </TouchableOpacity>
-              </View>
-            )}
+      {/* ─── List Content ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.listPad}
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredHistory.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>{t('purchaseHistory.empty')}</Text>
           </View>
-        )}
-
-        {/* ─── History Cards (Tapping content opens order detail) ─── */}
-        {filteredHistory.map((order) => (
-          <TouchableOpacity
-            key={order.id}
-            style={styles.historyCard}
-            onPress={() => onViewOrder(order.id)}
-            activeOpacity={0.85}
-          >
-            {/* Header: PO ID + Badge */}
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.orderIdText}>{order.id}</Text>
-              <View style={styles.badgeGreen}>
-                <Text style={styles.badgeTextGreen}>Completed</Text>
+        ) : (
+          filteredHistory.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.orderCard}
+              onPress={() => onViewOrder(item.id)}
+              activeOpacity={0.8}
+            >
+              {/* Card Header: PO ID + Completed Badge */}
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.orderIdText}>{item.id}</Text>
+                <View style={styles.statusBadgeGreen}>
+                  <Text style={styles.badgeTextGreen}>{item.status}</Text>
+                </View>
               </View>
-            </View>
 
-            {/* Subline: Farmer · Produce */}
-            <Text style={styles.farmerProduceText}>
-              {order.farmer} · {order.produce}
-            </Text>
+              {/* Farmer and Produce */}
+              <Text style={styles.farmerProduceText}>
+                {item.farmer} · {item.produce}
+              </Text>
 
-            {/* Divider */}
-            <View style={styles.cardDivider} />
+              {/* Divider */}
+              <View style={styles.cardDivider} />
 
-            {/* Detail: Quantity */}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>{order.quantity}</Text>
-            </View>
+              {/* Quantity and Total Row */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{t('purchaseHistory.label.quantity')}</Text>
+                <Text style={styles.detailValue}>{item.quantity}</Text>
+              </View>
 
-            {/* Detail: Total */}
-            <View style={[styles.detailRow, { marginTop: 6 }]}>
-              <Text style={styles.detailLabel}>Total</Text>
-              <Text style={styles.detailValue}>{order.total}</Text>
-            </View>
+              <View style={[styles.detailRow, styles.detailRowSpacing]}>
+                <Text style={styles.detailLabel}>{t('purchaseHistory.label.total')}</Text>
+                <Text style={styles.detailValue}>{item.total}</Text>
+              </View>
 
-            {/* Detail: Collection Date */}
-            <Text style={styles.collectionDateText}>
-              Collection Date: {order.collectionDate}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={{ height: 28 }} />
+              {/* Collection Date Footer */}
+              <Text style={styles.collectionDateText}>
+                {t('purchaseHistory.label.collectionDate')}: {item.collectionDate}
+              </Text>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Straight header matching Screenshot 2
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
   },
   backBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
-    marginLeft: 12,
-  },
-  filterBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  scroll: {
-    flex: 1,
+  headerTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
-  scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+  headerRightSpacer: {
+    width: 36,
   },
-
-  searchBar: {
+  filterBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-    gap: 10,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
-
-  activeFilterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
+  scroll: {
+    flex: 1,
   },
-  activeFilterChip: {
-    flexDirection: 'row',
+  listPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
+  },
+  filterScrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: 40,
+  },
+  emptyContainer: {
+    paddingVertical: 60,
     alignItems: 'center',
-    backgroundColor: THEME.btnBg,
-    borderColor: THEME.btnBorder,
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
   },
-  activeFilterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.btnText,
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
   },
-
-  historyCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+  orderCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -537,158 +454,127 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   orderIdText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
-  badgeGreen: {
-    backgroundColor: THEME.greenBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  statusBadgeGreen: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.xs,
   },
   badgeTextGreen: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
   farmerProduceText: {
-    fontSize: 13,
-    color: THEME.muted,
-    marginTop: 4,
+    ...adminType.body,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: THEME.divider,
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  detailRowSpacing: {
+    marginTop: adminSpacing.xs,
+  },
   detailLabel: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   detailValue: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   collectionDateText: {
-    fontSize: 12,
-    color: THEME.muted,
-    marginTop: 8,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
   filterCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     padding: 18,
     borderWidth: 1,
-    borderColor: THEME.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: 20,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: THEME.card,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    marginBottom: adminSpacing.xl,
   },
   filterSectionTitle: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#374151',
-    marginBottom: 8,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  filterSectionSpacing: {
+    marginTop: adminSpacing.lg,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs + 3,
+    borderRadius: adminRadius.xl,
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
   },
   filterChipActive: {
-    backgroundColor: THEME.amberBg,
-    borderColor: '#FDBA74',
+    backgroundColor: adminColors.warning.bg,
+    borderColor: adminColors.warning.border,
   },
   filterChipText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.muted,
   },
   filterChipTextActive: {
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
     fontWeight: '700',
   },
   modalBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xxl,
   },
   modalResetBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.btnBg,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.brandTint,
   },
   modalResetText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   modalApplyBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: THEME.headerBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brand,
   },
   modalApplyText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

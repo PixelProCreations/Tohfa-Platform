@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,8 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import Svg, { Line, Path } from 'react-native-svg';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 import { ProduceQualityVerificationScreen } from './ProduceQualityVerificationScreen';
 import { ProduceGradeCheckScreen } from './ProduceGradeCheckScreen';
 import { ProduceDamageInspectionScreen } from './ProduceDamageInspectionScreen';
@@ -21,40 +21,9 @@ import { ProduceFinalEligibilityDecisionScreen } from './ProduceFinalEligibility
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
-  card: adminColors.card, // #FFFFFF — Card surface
-  border: adminColors.border, // #EEDCD3 — Border stroke
-  borderLight: '#F3ECE4',
-  borderDashed: '#D1D5DB',
-
-  // Typography
-  titleRust: '#A63D18', // Warm rust
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink, // Dark ink
-  muted: adminColors.muted, // Secondary gray
-  labelMuted: '#78716C',
-
-  // Buttons & Actions
-  orangeBtn: adminColors.brand,
-  disabledBtnBg: '#F8D8CE', // Soft muted peach for disabled Submit Verification
-  disabledBtnText: 'rgba(255, 255, 255, 0.85)',
-
-  // Badges
-  notCompletedBg: '#F3F4F6',
-  notCompletedText: '#4B5563',
-  verifiedText: '#15803D',
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -68,7 +37,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function ChevronDownIcon({ size = 18, color = THEME.muted }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -76,7 +45,7 @@ function ChevronDownIcon({ size = 18, color = THEME.muted }: { size?: number; co
   );
 }
 
-function ChevronUpIcon({ size = 18, color = THEME.muted }: { size?: number; color?: string }) {
+function ChevronUpIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -84,10 +53,9 @@ function ChevronUpIcon({ size = 18, color = THEME.muted }: { size?: number; colo
   );
 }
 
-function UploadDocumentIcon({ size = 20, color = THEME.titleRustDark }: { size?: number; color?: string }) {
+function UploadDocumentIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Document outline with folded top-right corner */}
       <Path
         d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
         stroke={color}
@@ -102,7 +70,6 @@ function UploadDocumentIcon({ size = 20, color = THEME.titleRustDark }: { size?:
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Upload Arrow with base bar (Image 1 Left Exact) */}
       <Path
         d="M12 15V8M9 11l3-3 3 3"
         stroke={color}
@@ -123,134 +90,44 @@ function UploadDocumentIcon({ size = 20, color = THEME.titleRustDark }: { size?:
   );
 }
 
-function CornerGripIcon() {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
-      <Line x1="11" y1="3" x2="3" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-      <Line x1="11" y1="7" x2="7" y2="11" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-// ─── Step 2 Quality Checks Config (Exact from Mockups S03B) ───────────────────
-interface QualityCheckConfig {
-  id: string;
-  title: string;
-  standard: string;
-  leftLabel: string;
-  rightLabel: string;
-}
-
-const QUALITY_CHECKS_CONFIG: QualityCheckConfig[] = [
-  {
-    id: 'freshness',
-    title: 'Freshness',
-    standard: 'Standard: Fresh, no wilting',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-  {
-    id: 'colour',
-    title: 'Colour',
-    standard: 'Standard: Uniform ripe colour',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-  {
-    id: 'size_appearance',
-    title: 'Size and Appearance',
-    standard: 'Standard: Even size, no blemishes',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-  {
-    id: 'maturity',
-    title: 'Maturity',
-    standard: 'Standard: Correct maturity for the grade',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-  {
-    id: 'cleanliness',
-    title: 'Cleanliness',
-    standard: 'Standard: Free of soil and residue',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-  {
-    id: 'foreign_matter',
-    title: 'Foreign Matter',
-    standard: 'Standard: Within allowed limit',
-    leftLabel: 'Within Allowed Limit',
-    rightLabel: 'Exceeds Allowed Limit',
-  },
-  {
-    id: 'firmness',
-    title: 'Firmness',
-    standard: 'Standard: Firm to the touch',
-    leftLabel: 'Meets Standard',
-    rightLabel: 'Does Not Meet Standard',
-  },
-];
+// ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ProduceVerificationApprovalScreenProps {
-  listingId?: string;
-  cropName?: string;
-  farmerName?: string;
-  initialStep?: number;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  initialStep?: number | undefined;
   onBack: () => void;
-  onSubmitSuccess?: () => void;
-  onViewFarmerProfile?: () => void;
-  onViewListing?: () => void;
+  onSubmitSuccess?: (() => void) | undefined;
+  onViewFarmerProfile?: (() => void) | undefined;
+  onViewListing?: (() => void) | undefined;
 }
 
 export function ProduceVerificationApprovalScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  farmerName = 'Ramesh Kumar',
+  listingId,
+  cropName,
+  farmerName,
   initialStep = 1,
   onBack,
   onSubmitSuccess,
   onViewFarmerProfile,
   onViewListing,
 }: ProduceVerificationApprovalScreenProps) {
-  // Navigation to Module 2 Farmer Profile
   const [showFarmerProfile, setShowFarmerProfile] = useState(false);
-
-  // Collapsible Accordions State
   const [farmerInfoOpen, setFarmerInfoOpen] = useState(true);
   const [produceInfoOpen, setProduceInfoOpen] = useState(true);
   const [tohfaReqOpen, setTohfaReqOpen] = useState(true);
 
-  // Verification Step Active (1 to 6) — Defaults to 1 (S03A Verification Workspace)
   const [activeStep, setActiveStep] = useState(initialStep);
   const [showHandoverConfirmation, setShowHandoverConfirmation] = useState(false);
 
-  // Step 1 Form Inputs State (Image 1 Left: Starts Clean / Empty)
   const [verifiedQuantity, setVerifiedQuantity] = useState('');
   const [weighingRef, setWeighingRef] = useState('');
   const [remarks, setRemarks] = useState('');
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
-
-  // Step 2 Quality Check States (Matches Screenshot S03B: freshness=fail, colour=pass)
-  const [qualityCheckResults, setQualityCheckResults] = useState<Record<string, 'pass' | 'fail' | null>>({
-    freshness: 'fail',
-    colour: 'pass',
-    size_appearance: null,
-    maturity: null,
-    cleanliness: null,
-    foreign_matter: null,
-    firmness: null,
-  });
-  const [inspectionNotes, setInspectionNotes] = useState('');
-  const [inspectionPhoto, setInspectionPhoto] = useState<string | null>(null);
-
-  // Step 3 Grade Check State
   const [selectedGrade, setSelectedGrade] = useState<'Grade 1' | 'Grade 2' | 'Rejected' | null>('Grade 1');
 
-  const isStep1Valid = Boolean(verifiedQuantity.trim());
-
-  // ─── Step 2: Quality Verification (S03B Dedicated Screen - AFTER ALL HOOKS) ───
+  // ─── Step 2: Quality Verification ───
   if (activeStep === 2) {
     return (
       <ProduceQualityVerificationScreen
@@ -265,7 +142,7 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
-  // ─── Step 3: Grade Check (Dedicated Screen - AFTER ALL HOOKS) ───
+  // ─── Step 3: Grade Check ───
   if (activeStep === 3) {
     return (
       <ProduceGradeCheckScreen
@@ -284,7 +161,7 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
-  // ─── Step 4: Damage Inspection (Dedicated Screen - AFTER ALL HOOKS) ───
+  // ─── Step 4: Damage Inspection ───
   if (activeStep === 4) {
     return (
       <ProduceDamageInspectionScreen
@@ -300,7 +177,7 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
-  // ─── Step 5: Fair Price Check (Dedicated Screen - AFTER ALL HOOKS) ───
+  // ─── Step 5: Fair Price Check ───
   if (activeStep === 5) {
     return (
       <ProduceFairPriceCheckScreen
@@ -317,7 +194,7 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
-  // ─── Step 6: Final Eligibility & Decision (Dedicated Screen - AFTER ALL HOOKS) ───
+  // ─── Step 6: Final Eligibility & Decision ───
   if (activeStep === 6) {
     if (showHandoverConfirmation) {
       return (
@@ -345,13 +222,12 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
-  // If navigating into Module 2 Farmer Profile
   if (showFarmerProfile) {
     return (
       <FarmerProfileDetailScreen
         farmer={{
           farmerId: 'FR-00241',
-          name: farmerName,
+          name: farmerName ?? '',
           zone: 'Coonoor',
           farmingMethod: 'Organic',
           accountStatus: 'Active',
@@ -366,9 +242,11 @@ export function ProduceVerificationApprovalScreen({
     );
   }
 
+  const headerSub = [listingId, cropName, farmerName].filter(Boolean).join(' · ');
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.header}>
@@ -377,15 +255,15 @@ export function ProduceVerificationApprovalScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('produceVerificationApproval.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Produce Verification & Approval</Text>
+          <Text style={styles.headerTitle}>{t('produceVerificationApproval.title')}</Text>
         </View>
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} · {farmerName}
-        </Text>
+        {headerSub.length > 0 && (
+          <Text style={styles.headerSubtitle}>{headerSub}</Text>
+        )}
       </View>
 
       {/* ─── Body Scroll ─── */}
@@ -394,48 +272,46 @@ export function ProduceVerificationApprovalScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Top Metadata Card (Screenshot 1) */}
+        {/* Top Metadata Card */}
         <View style={styles.metaCard}>
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
-              <Text style={styles.metaLabel}>Verification ID</Text>
-              <Text style={styles.metaValue}>Assigned on first save</Text>
+              <Text style={styles.metaLabel}>{t('produceVerificationApproval.meta.verificationId')}</Text>
+              <Text style={styles.metaValue}>{t('produceVerificationApproval.meta.verificationIdVal')}</Text>
             </View>
             <View style={styles.metaCol}>
-              <Text style={styles.metaLabel}>Product Listing ID</Text>
-              <Text style={styles.metaValue}>{listingId}</Text>
+              <Text style={styles.metaLabel}>{t('produceVerificationApproval.meta.listingId')}</Text>
+              <Text style={styles.metaValue}>{listingId ?? '—'}</Text>
             </View>
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
-              <Text style={styles.metaLabel}>Verification status</Text>
-              <Text style={styles.metaValue}>Not started</Text>
+              <Text style={styles.metaLabel}>{t('produceVerificationApproval.meta.status')}</Text>
+              <Text style={styles.metaValue}>{t('produceVerificationApproval.meta.statusVal')}</Text>
             </View>
             <View style={styles.metaCol}>
-              <Text style={styles.metaLabel}>Inspection date and time</Text>
+              <Text style={styles.metaLabel}>{t('produceVerificationApproval.meta.dateTime')}</Text>
               <Text style={styles.metaValue}>10 Oct 2026, 10:00</Text>
             </View>
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
-              <Text style={styles.metaLabel}>Farmer Admin</Text>
+              <Text style={styles.metaLabel}>{t('produceVerificationApproval.meta.farmerAdmin')}</Text>
               <Text style={styles.metaValue}>Suresh Kumar</Text>
             </View>
           </View>
         </View>
 
-
-
-        {/* 4. Farmer Information Accordion */}
+        {/* Farmer Information Accordion */}
         <View style={styles.accordionCard}>
           <TouchableOpacity
             style={styles.accordionHeader}
             onPress={() => setFarmerInfoOpen(!farmerInfoOpen)}
             activeOpacity={0.8}
           >
-            <Text style={styles.accordionTitle}>Farmer information</Text>
+            <Text style={styles.accordionTitle}>{t('produceVerificationApproval.accordion.farmerInfo')}</Text>
             {farmerInfoOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </TouchableOpacity>
 
@@ -448,7 +324,7 @@ export function ProduceVerificationApprovalScreen({
 
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Farmer name</Text>
-                <Text style={styles.dataValue}>{farmerName}</Text>
+                <Text style={styles.dataValue}>{farmerName ?? '—'}</Text>
               </View>
 
               <View style={styles.dataRow}>
@@ -463,7 +339,7 @@ export function ProduceVerificationApprovalScreen({
 
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Farmer verification status</Text>
-                <Text style={[styles.dataValue, { color: THEME.verifiedText }]}>Verified</Text>
+                <Text style={[styles.dataValue, styles.verifiedText]}>Verified</Text>
               </View>
 
               <TouchableOpacity
@@ -477,20 +353,20 @@ export function ProduceVerificationApprovalScreen({
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.viewSubBtnText}>View Farmer Profile</Text>
+                <Text style={styles.viewSubBtnText}>{t('produceVerificationApproval.action.viewFarmer')}</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* 5. Produce Information Accordion */}
+        {/* Produce Information Accordion */}
         <View style={styles.accordionCard}>
           <TouchableOpacity
             style={styles.accordionHeader}
             onPress={() => setProduceInfoOpen(!produceInfoOpen)}
             activeOpacity={0.8}
           >
-            <Text style={styles.accordionTitle}>Produce information</Text>
+            <Text style={styles.accordionTitle}>{t('produceVerificationApproval.accordion.produceInfo')}</Text>
             {produceInfoOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </TouchableOpacity>
 
@@ -498,7 +374,7 @@ export function ProduceVerificationApprovalScreen({
             <View style={styles.accordionBody}>
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Product</Text>
-                <Text style={styles.dataValue}>Tomato</Text>
+                <Text style={styles.dataValue}>{cropName ?? '—'}</Text>
               </View>
 
               <View style={styles.dataRow}>
@@ -517,7 +393,7 @@ export function ProduceVerificationApprovalScreen({
               </View>
 
               <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Farmer&apos;s expected price</Text>
+                <Text style={styles.dataLabel}>Farmer expected price</Text>
                 <Text style={styles.dataValue}>Rs. 100/KG</Text>
               </View>
 
@@ -552,20 +428,20 @@ export function ProduceVerificationApprovalScreen({
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.viewSubBtnText}>View Listing</Text>
+                <Text style={styles.viewSubBtnText}>{t('produceVerificationApproval.action.viewListing')}</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* 6. TOHFA Purchase Requirements Accordion */}
+        {/* TOHFA Purchase Requirements Accordion */}
         <View style={styles.accordionCard}>
           <TouchableOpacity
             style={styles.accordionHeader}
             onPress={() => setTohfaReqOpen(!tohfaReqOpen)}
             activeOpacity={0.8}
           >
-            <Text style={styles.accordionTitle}>TOHFA purchase requirements</Text>
+            <Text style={styles.accordionTitle}>{t('produceVerificationApproval.accordion.tohfaReq')}</Text>
             {tohfaReqOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </TouchableOpacity>
 
@@ -573,7 +449,7 @@ export function ProduceVerificationApprovalScreen({
             <View style={styles.accordionBody}>
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Required product</Text>
-                <Text style={styles.dataValue}>Tomato</Text>
+                <Text style={styles.dataValue}>{cropName ?? '—'}</Text>
               </View>
 
               <View style={styles.dataRow}>
@@ -608,14 +484,14 @@ export function ProduceVerificationApprovalScreen({
           )}
         </View>
 
-        {/* 7. Verification Steps (Stepper + Forms from Screenshots 3 & 4) */}
-        <Text style={styles.sectionTitle}>Verification steps</Text>
+        {/* Verification steps header */}
+        <Text style={styles.sectionTitle}>{t('produceVerificationApproval.section.steps')}</Text>
 
         {/* Numbered Stepper Circles 1 to 6 */}
         <View style={styles.stepperRow}>
           {[1, 2, 3, 4, 5, 6].map((step, idx) => {
             const isCurrent = activeStep === step;
-            const isCompleted = activeStep > step || (activeStep >= 2 && step === 1);
+            const isCompleted = activeStep > step;
             return (
               <React.Fragment key={step}>
                 <TouchableOpacity
@@ -648,408 +524,144 @@ export function ProduceVerificationApprovalScreen({
           })}
         </View>
 
-        {/* ─── STEP 1: QUANTITY CHECK ─── */}
-        {activeStep === 1 && (
-          <View>
-            <View style={styles.stepHeaderRow}>
-              <Text style={styles.stepHeaderTitle}>Step 1 of 6 · Quantity Check</Text>
-              <View style={styles.notCompletedBadge}>
-                <Text style={styles.notCompletedBadgeText}>Not completed</Text>
-              </View>
-            </View>
-
-            <View style={styles.outstandingCard}>
-              <Text style={styles.outstandingTitle}>Outstanding</Text>
-              <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-              <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-              <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-              <Text style={styles.outstandingItem}>• and 2 more</Text>
-            </View>
-
-            <View style={styles.qtyCard}>
-              <View style={styles.qtyRow}>
-                <View style={styles.qtyCol}>
-                  <Text style={styles.qtyLabel}>Listed quantity</Text>
-                  <Text style={styles.qtyValue}>50 KG</Text>
-                </View>
-                <View style={styles.qtyCol}>
-                  <Text style={styles.qtyLabel}>TOHFA required</Text>
-                  <Text style={styles.qtyValue}>30 KG</Text>
-                </View>
-              </View>
-
-              <View style={styles.qtyRow}>
-                <View style={styles.qtyCol}>
-                  <Text style={styles.qtyLabel}>Previously committed</Text>
-                  <Text style={styles.qtyValue}>0 KG</Text>
-                </View>
-                <View style={styles.qtyCol}>
-                  <Text style={styles.qtyLabel}>Remaining required</Text>
-                  <Text style={styles.qtyValue}>30 KG</Text>
-                </View>
-              </View>
-
-              <View style={styles.qtyRow}>
-                <View style={styles.qtyCol}>
-                  <Text style={styles.qtyLabel}>Unit</Text>
-                  <Text style={styles.qtyValue}>KG</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.formSection}>
-              <Text style={styles.inputLabel}>
-                Verified available quantity (KG) <Text style={{ color: '#EF4444' }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.inputBox}
-                keyboardType="numeric"
-                placeholder=""
-                value={verifiedQuantity}
-                onChangeText={setVerifiedQuantity}
-              />
-              <Text style={styles.inputCaption}>
-                Enter the quantity confirmed by inspection or weighing. This is separate from the quantity the farmer listed.
-              </Text>
-
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Weighing reference</Text>
-              <TextInput
-                style={styles.inputBox}
-                placeholder=""
-                value={weighingRef}
-                onChangeText={setWeighingRef}
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Remarks</Text>
-              <TextInput
-                style={[styles.inputBox, styles.inputBoxMultiline]}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                value={remarks}
-                onChangeText={setRemarks}
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>Supporting evidence (optional)</Text>
-              <TouchableOpacity
-                style={styles.uploadBox}
-                onPress={() => {
-                  setUploadedFile('weighing_slip_001.jpg');
-                  Alert.alert('File Attached', 'weighing_slip_001.jpg attached successfully.');
-                }}
-                activeOpacity={0.7}
-              >
-                <UploadDocumentIcon size={20} color={THEME.titleRustDark} />
-                <Text style={styles.uploadText}>
-                  {uploadedFile ?? 'Upload file'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.comparisonCard}>
-              <Text style={styles.comparisonTitle}>Quantity comparison</Text>
-
-              <View style={styles.comparisonRow}>
-                <Text style={styles.comparisonLabel}>Listed (declared by the farmer)</Text>
-                <Text style={styles.comparisonValue}>50 KG</Text>
-              </View>
-
-              <View style={styles.comparisonRow}>
-                <Text style={styles.comparisonLabel}>Verified available</Text>
-                <Text style={[styles.comparisonValue, !verifiedQuantity && { color: THEME.ink }]}>
-                  {verifiedQuantity ? `${verifiedQuantity} KG` : 'Not entered'}
-                </Text>
-              </View>
-
-              <View style={styles.comparisonRow}>
-                <Text style={styles.comparisonLabel}>TOHFA remaining</Text>
-                <Text style={styles.comparisonValue}>30 KG</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.continueBtn}
-              onPress={() => {
-                if (!verifiedQuantity.trim()) {
-                  Alert.alert('Required Field', 'Please enter the verified available quantity in KG.');
-                  return;
-                }
-                setActiveStep(2);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.continueBtnText}>Continue</Text>
-            </TouchableOpacity>
+        {/* STEP 1: QUANTITY CHECK */}
+        <View style={styles.stepHeaderRow}>
+          <Text style={styles.stepHeaderTitle}>{t('produceVerificationApproval.stepHeader')}</Text>
+          <View style={styles.notCompletedBadge}>
+            <Text style={styles.notCompletedBadgeText}>{t('produceVerificationApproval.notCompleted')}</Text>
           </View>
-        )}
+        </View>
 
-        {/* ─── STEP 2: QUALITY VERIFICATION (Exact UI from Mockup S03B) ─── */}
-        {activeStep === 2 && (
-          <View>
-            {/* Step Header & Status Badge */}
-            <View style={styles.stepHeaderRow}>
-              <Text style={styles.stepHeaderTitle}>Step 2 of 6 · Quality Verification</Text>
-              <View style={styles.notCompletedBadge}>
-                <Text style={styles.notCompletedBadgeText}>Not completed</Text>
-              </View>
+        <View style={styles.outstandingCard}>
+          <Text style={styles.outstandingTitle}>{t('produceVerificationApproval.section.outstanding')}</Text>
+          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
+          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
+          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
+          <Text style={styles.outstandingItem}>• and 2 more</Text>
+        </View>
+
+        <View style={styles.qtyCard}>
+          <View style={styles.qtyRow}>
+            <View style={styles.qtyCol}>
+              <Text style={styles.qtyLabel}>{t('produceVerificationApproval.label.listedQty')}</Text>
+              <Text style={styles.qtyValue}>50 KG</Text>
             </View>
-
-            {/* Outstanding Card */}
-            <View style={styles.outstandingCard}>
-              <Text style={styles.outstandingTitle}>Outstanding</Text>
-              <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-              <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-              <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-              <Text style={styles.outstandingItem}>• and 2 more</Text>
+            <View style={styles.qtyCol}>
+              <Text style={styles.qtyLabel}>{t('produceVerificationApproval.label.tohfaReqQty')}</Text>
+              <Text style={styles.qtyValue}>30 KG</Text>
             </View>
+          </View>
 
-            {/* Standard Notice Caption */}
-            <Text style={styles.stepCaptionText}>
-              Only the checks configured for Tomato are shown, with the configured standard beside each.
-            </Text>
+          <View style={styles.qtyRow}>
+            <View style={styles.qtyCol}>
+              <Text style={styles.qtyLabel}>{t('produceVerificationApproval.label.prevCommitted')}</Text>
+              <Text style={styles.qtyValue}>0 KG</Text>
+            </View>
+            <View style={styles.qtyCol}>
+              <Text style={styles.qtyLabel}>{t('produceVerificationApproval.label.remainingReq')}</Text>
+              <Text style={styles.qtyValue}>30 KG</Text>
+            </View>
+          </View>
 
-            {/* The 7 Quality Check Cards */}
-            {QUALITY_CHECKS_CONFIG.map((check) => {
-              const result = qualityCheckResults[check.id];
-              const isPass = result === 'pass';
-              const isFail = result === 'fail';
+          <View style={styles.qtyRow}>
+            <View style={styles.qtyCol}>
+              <Text style={styles.qtyLabel}>{t('produceVerificationApproval.label.unit')}</Text>
+              <Text style={styles.qtyValue}>KG</Text>
+            </View>
+          </View>
+        </View>
 
-              return (
-                <View key={check.id} style={styles.qualityCard}>
-                  <Text style={styles.qualityTitle}>
-                    {check.title} <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <Text style={styles.qualityStandard}>{check.standard}</Text>
+        <View style={styles.formSection}>
+          <Text style={styles.inputLabel}>
+            {t('produceVerificationApproval.label.verifiedQty')} <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.inputBox}
+            keyboardType="numeric"
+            placeholder=""
+            value={verifiedQuantity}
+            onChangeText={setVerifiedQuantity}
+          />
+          <Text style={styles.inputCaption}>
+            {t('produceVerificationApproval.caption.verifiedQty')}
+          </Text>
 
-                  <View style={styles.qualityBtnRow}>
-                    {/* Left Button -> Meets Standard (Green active when clicked) */}
-                    <TouchableOpacity
-                      style={[
-                        styles.qualityBtn,
-                        isPass ? styles.qualityBtnPassActive : styles.qualityBtnDefault,
-                      ]}
-                      onPress={() =>
-                        setQualityCheckResults((prev) => ({
-                          ...prev,
-                          [check.id]: 'pass',
-                        }))
-                      }
-                      activeOpacity={0.7}
-                      accessibilityLabel={`${check.title} ${check.leftLabel}`}
-                    >
-                      <Text
-                        style={[
-                          styles.qualityBtnText,
-                          isPass ? styles.qualityBtnTextPass : styles.qualityBtnTextDefault,
-                        ]}
-                      >
-                        {check.leftLabel}
-                      </Text>
-                    </TouchableOpacity>
+          <Text style={[styles.inputLabel, styles.inputLabelSpacing]}>{t('produceVerificationApproval.label.weighingRef')}</Text>
+          <TextInput
+            style={styles.inputBox}
+            placeholder=""
+            value={weighingRef}
+            onChangeText={setWeighingRef}
+          />
 
-                    {/* Right Button -> Does Not Meet Standard (Red active when clicked) */}
-                    <TouchableOpacity
-                      style={[
-                        styles.qualityBtn,
-                        isFail ? styles.qualityBtnFailActive : styles.qualityBtnDefault,
-                      ]}
-                      onPress={() =>
-                        setQualityCheckResults((prev) => ({
-                          ...prev,
-                          [check.id]: 'fail',
-                        }))
-                      }
-                      activeOpacity={0.7}
-                      accessibilityLabel={`${check.title} ${check.rightLabel}`}
-                    >
-                      <Text
-                        style={[
-                          styles.qualityBtnText,
-                          isFail ? styles.qualityBtnTextFail : styles.qualityBtnTextDefault,
-                        ]}
-                      >
-                        {check.rightLabel}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+          <Text style={[styles.inputLabel, styles.inputLabelSpacing]}>{t('produceVerificationApproval.label.remarks')}</Text>
+          <TextInput
+            style={[styles.inputBox, styles.inputBoxMultiline]}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            value={remarks}
+            onChangeText={setRemarks}
+          />
+
+          <Text style={[styles.inputLabel, styles.inputLabelSpacing]}>{t('produceVerificationApproval.label.evidence')}</Text>
+          <TouchableOpacity
+            style={styles.uploadBox}
+            onPress={() => {
+              setUploadedFile('weighing_slip_001.jpg');
+              Alert.alert(
+                t('produceVerificationApproval.alert.fileTitle'),
+                t('produceVerificationApproval.alert.fileMsg'),
               );
-            })}
+            }}
+            activeOpacity={0.7}
+          >
+            <UploadDocumentIcon size={20} color={adminColors.brandDeep} />
+            <Text style={styles.uploadText}>
+              {uploadedFile ?? t('produceVerificationApproval.uploadText')}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* Inspection notes Textarea with corner grip */}
-            <Text style={styles.inputLabelBold}>Inspection notes</Text>
-            <View style={styles.notesWrap}>
-              <TextInput
-                style={styles.notesInput}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                placeholder=""
-                value={inspectionNotes}
-                onChangeText={setInspectionNotes}
-              />
-              <View style={styles.gripCorner}>
-                <CornerGripIcon />
-              </View>
-            </View>
+        <View style={styles.comparisonCard}>
+          <Text style={styles.comparisonTitle}>{t('produceVerificationApproval.section.qtyComparison')}</Text>
 
-            {/* Inspection photographs upload box */}
-            <Text style={[styles.inputLabelBold, { marginTop: 16 }]}>Inspection photographs</Text>
-            <TouchableOpacity
-              style={styles.uploadBox}
-              onPress={() => {
-                setInspectionPhoto('quality_inspection_photo_01.jpg');
-                Alert.alert('Photograph Attached', 'quality_inspection_photo_01.jpg attached.');
-              }}
-              activeOpacity={0.7}
-            >
-              <UploadDocumentIcon size={20} color={THEME.titleRustDark} />
-              <Text style={styles.uploadText}>
-                {inspectionPhoto ?? 'Upload file'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Action Buttons Row: Previous Step (Outline) & Continue (Solid Orange) */}
-            <View style={styles.stepActionRow}>
-              <TouchableOpacity
-                style={styles.prevStepBtn}
-                onPress={() => setActiveStep(1)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.prevStepBtnText}>Previous Step</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.continueStepBtn}
-                onPress={() => setActiveStep(3)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.continueStepBtnText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.comparisonRow}>
+            <Text style={styles.comparisonLabel}>Listed (declared by the farmer)</Text>
+            <Text style={styles.comparisonValue}>50 KG</Text>
           </View>
-        )}
 
-        {/* ─── STEP 3: GRADE CHECK ─── */}
-        {activeStep === 3 && (
-          <View>
-            <View style={styles.stepHeaderRow}>
-              <Text style={styles.stepHeaderTitle}>Step 3 of 6 · Grade Check</Text>
-              <View style={styles.notCompletedBadge}>
-                <Text style={styles.notCompletedBadgeText}>Not completed</Text>
-              </View>
-            </View>
-
-            <View style={styles.outstandingCard}>
-              <Text style={styles.outstandingTitle}>Outstanding</Text>
-              <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-              <Text style={styles.outstandingItem}>• Step 4 Price Confirmation: Confirm fair price ceiling.</Text>
-              <Text style={styles.outstandingItem}>• and 2 more</Text>
-            </View>
-
-            <View style={styles.qualityCard}>
-              <Text style={styles.qualityTitle}>Applicable Grade Check</Text>
-              <Text style={styles.qualityStandard}>Tomato declared grade: Grade 1</Text>
-
-              <View style={styles.qualityBtnRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.qualityBtn,
-                    selectedGrade === 'Grade 1' ? styles.qualityBtnPassActive : styles.qualityBtnDefault,
-                  ]}
-                  onPress={() => setSelectedGrade('Grade 1')}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.qualityBtnText,
-                      selectedGrade === 'Grade 1' ? styles.qualityBtnTextPass : styles.qualityBtnTextDefault,
-                    ]}
-                  >
-                    Grade 1 (Assigned)
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.qualityBtn,
-                    selectedGrade === 'Grade 2' ? styles.qualityBtnPassActive : styles.qualityBtnDefault,
-                  ]}
-                  onPress={() => setSelectedGrade('Grade 2')}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.qualityBtnText,
-                      selectedGrade === 'Grade 2' ? styles.qualityBtnTextPass : styles.qualityBtnTextDefault,
-                    ]}
-                  >
-                    Grade 2
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.stepActionRow}>
-              <TouchableOpacity
-                style={styles.prevStepBtn}
-                onPress={() => setActiveStep(2)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.prevStepBtnText}>Previous Step</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.continueStepBtn}
-                onPress={() => {
-                  Alert.alert('Verification Progress', 'Step 3 Grade Check recorded. Ready for Final Approval.', [
-                    { text: 'OK', onPress: () => onSubmitSuccess?.() },
-                  ]);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.continueStepBtnText}>Continue</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.comparisonRow}>
+            <Text style={styles.comparisonLabel}>Verified available</Text>
+            <Text style={styles.comparisonValue}>
+              {verifiedQuantity ? `${verifiedQuantity} KG` : 'Not entered'}
+            </Text>
           </View>
-        )}
 
-        {/* ─── STEPS 4, 5, 6 FALLBACK ─── */}
-        {activeStep > 3 && (
-          <View>
-            <View style={styles.stepHeaderRow}>
-              <Text style={styles.stepHeaderTitle}>Step {activeStep} of 6</Text>
-              <View style={styles.notCompletedBadge}>
-                <Text style={styles.notCompletedBadgeText}>In progress</Text>
-              </View>
-            </View>
-
-            <View style={styles.stepActionRow}>
-              <TouchableOpacity
-                style={styles.prevStepBtn}
-                onPress={() => setActiveStep(activeStep - 1)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.prevStepBtnText}>Previous Step</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.continueStepBtn}
-                onPress={() => {
-                  if (activeStep < 6) setActiveStep(activeStep + 1);
-                  else onSubmitSuccess?.();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.continueStepBtnText}>
-                  {activeStep === 6 ? 'Complete' : 'Continue'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.comparisonRow}>
+            <Text style={styles.comparisonLabel}>TOHFA remaining</Text>
+            <Text style={styles.comparisonValue}>30 KG</Text>
           </View>
-        )}
+        </View>
 
-        <View style={{ height: 40 }} />
+        <TouchableOpacity
+          style={styles.continueBtn}
+          onPress={() => {
+            if (!verifiedQuantity.trim()) {
+              Alert.alert(
+                t('produceVerificationApproval.alert.requiredTitle'),
+                t('produceVerificationApproval.alert.requiredMsg'),
+              );
+              return;
+            }
+            setActiveStep(2);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.continueBtnText}>{t('produceVerificationApproval.action.continue')}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1060,20 +672,18 @@ export function ProduceVerificationApprovalScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -1082,38 +692,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.2,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
-    paddingLeft: 42,
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    marginTop: adminSpacing.xs,
+    paddingLeft: 40,
   },
-
-  // ─── Scroll Area ───
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
   },
-
-  // ─── Top Meta Card ───
   metaCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    gap: 12,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   metaRow: {
     flexDirection: 'row',
@@ -1123,68 +726,21 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   metaLabel: {
-    fontSize: 11,
-    color: THEME.muted,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   metaValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginTop: 2,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // ─── Action Buttons Row ───
-  actionRowTwo: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  outlineActionBtn: {
-    flex: 1,
-    backgroundColor: THEME.white,
-    borderWidth: 1,
-    borderColor: THEME.headerBg,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineActionBtnText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-  },
-
-  // ─── Submit Disabled Button ───
-  submitBtnDisabled: {
-    backgroundColor: THEME.disabledBtnBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitBtnTextDisabled: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.disabledBtnText,
-  },
-  disabledHintText: {
-    fontSize: 11,
-    color: THEME.muted,
-    marginTop: 6,
-    marginBottom: 14,
-    lineHeight: 15,
-  },
-
-  // ─── Accordion Cards ───
   accordionCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   accordionHeader: {
     flexDirection: 'row',
@@ -1192,160 +748,145 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   accordionTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   accordionBody: {
-    marginTop: 12,
-    paddingTop: 8,
+    marginTop: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: THEME.borderLight,
+    borderTopColor: adminColors.border,
   },
   dataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 7,
+    paddingVertical: adminSpacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8F5F0',
+    borderBottomColor: adminColors.border,
   },
   dataLabel: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   dataValue: {
-    fontSize: 12.5,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
     textAlign: 'right',
   },
+  verifiedText: {
+    color: adminColors.success.text,
+  },
   viewSubBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.headerBg,
-    borderRadius: 12,
-    paddingVertical: 10,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 14,
+    marginTop: adminSpacing.md,
   },
   viewSubBtnText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
   footnoteText: {
-    fontSize: 11,
-    color: THEME.muted,
-    marginTop: 8,
-    lineHeight: 15,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
-
-  // ─── Stepper ───
   sectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginTop: 12,
-    marginBottom: 12,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.xs,
   },
   stepCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#E2DDD6',
-    backgroundColor: THEME.white,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    borderColor: THEME.orangeBtn,
-    borderWidth: 2,
-  },
-  stepCircleDone: {
-    backgroundColor: THEME.orangeBtn,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
   },
   stepCircleText: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   stepCircleTextActive: {
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   stepperLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#E2DDD6',
-    marginHorizontal: 0,
+    backgroundColor: adminColors.border,
   },
   stepperLineActive: {
-    backgroundColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   stepHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   notCompletedBadge: {
-    backgroundColor: THEME.notCompletedBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
   notCompletedBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.notCompletedText,
+    color: adminColors.muted,
   },
-
-  // ─── Outstanding Card ───
   outstandingCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
-    gap: 4,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    gap: adminSpacing.xs,
   },
   outstandingTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
   outstandingItem: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 18,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
-
-  // ─── Quantity Card ───
   qtyCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    gap: 12,
-    marginBottom: 14,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   qtyRow: {
     flexDirection: 'row',
@@ -1355,239 +896,106 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   qtyLabel: {
-    fontSize: 11,
-    color: THEME.muted,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   qtyValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginTop: 2,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // ─── Form Section ───
   formSection: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   inputLabel: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 6,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+  },
+  requiredAsterisk: {
+    color: adminColors.danger.text,
+  },
+  inputLabelSpacing: {
+    marginTop: adminSpacing.lg,
   },
   inputBox: {
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13.5,
-    color: THEME.ink,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   inputBoxMultiline: {
     height: 85,
+    textAlignVertical: 'top',
   },
   inputCaption: {
-    fontSize: 11,
-    color: THEME.muted,
-    marginTop: 4,
-    lineHeight: 15,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   uploadBox: {
-    backgroundColor: THEME.white,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: THEME.borderDashed,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   uploadText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
-
-  // ─── Quantity Comparison Card ───
   comparisonCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 16,
-    gap: 10,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    gap: adminSpacing.sm,
   },
   comparisonTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 2,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
   comparisonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8F5F0',
+    borderBottomColor: adminColors.border,
   },
   comparisonLabel: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   comparisonValue: {
-    fontSize: 12.5,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
-
-  // ─── Continue Button (Step 1) ───
   continueBtn: {
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
-
-  // ─── Step 2 & 3: Quality Verification & Grade Check ───
-  stepCaptionText: {
-    fontSize: 12,
-    color: THEME.muted,
-    lineHeight: 17,
-    marginTop: 2,
-    marginBottom: 14,
-  },
-  qualityCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  qualityTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
-  },
-  qualityStandard: {
-    fontSize: 12,
-    color: THEME.muted,
-    marginTop: 3,
-    marginBottom: 14,
-  },
-  qualityBtnRow: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-  qualityBtn: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 46,
-    borderWidth: 1.5,
-  },
-  qualityBtnDefault: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
-  },
-  qualityBtnPassActive: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#15803D',
-  },
-  qualityBtnFailActive: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#DC2626',
-  },
-  qualityBtnText: {
-    fontSize: 12.5,
-    textAlign: 'center',
-  },
-  qualityBtnTextDefault: {
-    color: THEME.ink,
-    fontWeight: '700',
-  },
-  qualityBtnTextPass: {
-    color: '#15803D',
-    fontWeight: '800',
-  },
-  qualityBtnTextFail: {
-    color: '#DC2626',
-    fontWeight: '800',
-  },
-  inputLabelBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: THEME.ink,
-    marginBottom: 6,
-  },
-  notesWrap: {
-    position: 'relative',
-    backgroundColor: THEME.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  notesInput: {
-    minHeight: 90,
-    padding: 12,
-    paddingBottom: 22,
-    fontSize: 13,
-    color: THEME.ink,
-  },
-  gripCorner: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-  },
-  stepActionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  prevStepBtn: {
-    flex: 1,
-    height: 48,
-    backgroundColor: THEME.white,
-    borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  prevStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
-  },
-  continueStepBtn: {
-    flex: 1,
-    height: 48,
-    backgroundColor: THEME.orangeBtn,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueStepBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.white,
+  bottomSpacer: {
+    height: 40,
   },
 });
