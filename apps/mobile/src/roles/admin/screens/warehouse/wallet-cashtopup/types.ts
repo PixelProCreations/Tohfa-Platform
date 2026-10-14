@@ -24,6 +24,8 @@
  * amounts in records are pre-formatted strings from the mock data; nothing here
  * computes money from them (CLAUDE.md 2.2).
  */
+import type { Paise } from '@tohfa/shared-types';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -47,11 +49,14 @@ export interface WalletCustomer {
    * With it the wallet reads GET /admin/customers/{id}/wallet (plan phase 6).
    */
   customerUuid?: string | undefined;
+  /** The balance in integer paise, when a live read gave one (the counter lookup, plan phase 9). */
+  balancePaise?: Paise | undefined;
 }
 
-/** A wallet customer with every display field filled (the uuid stays optional). */
-export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'customerUuid'>]-?: string } & {
+/** A wallet customer with every display field filled (the uuid and paise balance stay optional). */
+export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'customerUuid' | 'balancePaise'>]-?: string } & {
   customerUuid?: string | undefined;
+  balancePaise?: Paise | undefined;
 };
 
 /**
