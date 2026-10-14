@@ -24,8 +24,10 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
   };
 });
 
-import { ApiError, request } from '../../../shell/api/client';
+import { ApiError, NetworkError, request } from '../../../shell/api/client';
+import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
 import { adminErrorKey } from '../api/errors';
+import { bodyFingerprint } from '../api/hookHelpers';
 import { ADMIN_REQUEST_TIMEOUT_MS } from '../api/http';
 import * as returnsApi from '../api/returns';
 import {
@@ -39,7 +41,7 @@ import {
   rejectReturn,
 } from '../api/returns';
 import { hasKey } from '../i18n';
-import { createReturnRefundKeyRing } from '../screens/warehouse/returns-rma/mappers';
+import { refundIdempotencyFingerprint } from '../screens/warehouse/returns-rma/mappers';
 
 const requestMock = vi.mocked(request);
 
@@ -158,20 +160,30 @@ describe('refundReturnToWallet (BR-61, root CLAUDE.md 2.4)', () => {
     expect(requestMock).not.toHaveBeenCalled();
   });
 
-  it('BR-61d: a retry of the same refund reuses its key on the wire', async () => {
+  it('BR-61d: a retry of the same refund sends the same Idempotency-Key header (useIdempotencyKey keyed on the return)', async () => {
     let n = 0;
-    const keys = createReturnRefundKeyRing(() => `key-${(n += 1)}`);
-    await refundReturnToWallet(RETURN_ID, keys.keyFor(RETURN_ID));
-    await refundReturnToWallet(RETURN_ID, keys.keyFor(RETURN_ID));
+    // What useIdempotencyKey() holds for the screen's lifetime, fed as the refund hook feeds it.
+    const cache = createIdempotencyKeyCache(() => `key-${(n += 1)}`);
+    const keyFor = (returnId: string) => cache.keyFor(bodyFingerprint(refundIdempotencyFingerprint(returnId)));
+    await refundReturnToWallet(RETURN_ID, keyFor(RETURN_ID));
+    requestMock.mockRejectedValueOnce(new NetworkError(new Error('dropped')));
+    await refundReturnToWallet(RETURN_ID, keyFor(RETURN_ID)).catch(() => undefined);
+    await refundReturnToWallet(RETURN_ID, keyFor(RETURN_ID));
     const sent = requestMock.mock.calls.map((call) => (call[1] as Record<string, unknown>)['idempotencyKey']);
-    expect(sent).toEqual(['key-1', 'key-1']);
+    expect(sent).toEqual(['key-1', 'key-1', 'key-1']);
+    // Every call is the same POST with an empty body: only the key ties them together.
+    for (const call of requestMock.mock.calls) {
+      expect(call[0]).toBe(`/admin/returns/${RETURN_ID}/refund/wallet`);
+      expect(call[1]).toMatchObject({ method: 'POST', body: {} });
+    }
   });
 
   it('two returns never share a refund key', () => {
     let n = 0;
-    const keys = createReturnRefundKeyRing(() => `key-${(n += 1)}`);
-    expect(keys.keyFor(RETURN_ID)).not.toBe(keys.keyFor(OTHER_RETURN));
-    expect(keys.keyFor(RETURN_ID)).toBe('key-1');
+    const cache = createIdempotencyKeyCache(() => `key-${(n += 1)}`);
+    const keyFor = (returnId: string) => cache.keyFor(bodyFingerprint(refundIdempotencyFingerprint(returnId)));
+    expect(keyFor(RETURN_ID)).toBe('key-1');
+    expect(keyFor(OTHER_RETURN)).not.toBe('key-1');
   });
 
   it('BR-61: the bank refund (none for both warehouse roles) is not exported', () => {
