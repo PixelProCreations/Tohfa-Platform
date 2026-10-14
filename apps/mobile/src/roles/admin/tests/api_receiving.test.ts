@@ -18,9 +18,10 @@
  * to its own warehouse uuid whatever was selected.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as ClientModule from '../../../shell/api/client';
 
 vi.mock('../../../shell/api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shell/api/client')>();
+  const actual = await importOriginal<typeof ClientModule>();
   return {
     ...actual,
     request: vi.fn(async () => ({ items: [], page: { nextCursor: null, hasMore: false } })),
