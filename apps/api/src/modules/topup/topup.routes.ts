@@ -3,9 +3,10 @@ import { parseMoney } from '@tohfa/shared-types';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
   cashTopupCreateSchema,
+  cashTopupCustomerLookupQuery,
   createTopupSchema,
   customerIdParamSchema,
 } from './topup.schema.js';
@@ -14,6 +15,20 @@ import { topupService } from './topup.service.js';
 export const topupRouter: Router = Router();
 export const webhookRouter: Router = Router();
 export const adminTopupRouter: Router = Router();
+
+// GET /v1/admin/wallets/cash-topup/customers/lookup  (BR-91i, BR-92g)
+// Its own route and permission rather than a mode of /admin/sales/customers/lookup: that one is
+// gated by sales.sale.create, which Main does not hold, and keeps BR-91's visibility predicate.
+adminTopupRouter.get(
+  '/wallets/cash-topup/customers/lookup',
+  requireAuth,
+  requirePermission('wallet.cash_topup.process'),
+  validate({ query: cashTopupCustomerLookupQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await topupService.lookupCashTopupCustomers(scope, getValidated(req, 'query', cashTopupCustomerLookupQuery)));
+  }),
+);
 
 adminTopupRouter.post(
   '/wallets/:customerId/cash-topup',

@@ -381,6 +381,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-18a` A top-up request without a fiscal cash tag → 422, `code: FISCAL_TAG_REQUIRED`; no ledger row.
 - `BR-18b` The credit row records the acting admin id and the warehouse id; both are non-nullable.
 - `BR-18c` SMS dispatch failure does not roll back a completed credit, and the credit is not double-written on retry.
+- `BR-18d` (2026-10-14) The cash top-up claims its `Idempotency-Key` before inserting anything. Replaying the same key with the same body returns the original 201 response (not 409 for the already-used fiscal cash tag) and leaves exactly one `topups` row and one wallet credit; the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED` and writes nothing; a missing key is 422 `VALIDATION_FAILED`. A used fiscal cash tag under a NEW key is still 409 `CONFLICT`. Keys are retained 24 hours (`IdempotencyKeyHeader`); a replay after that is treated as a new request and meets the fiscal-tag 409.
 
 ---
 
@@ -2122,6 +2123,8 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 **Rule.** For an actor whose resolved scope is `own`, a customer is visible if and only if the customer has an order or a top-up at that actor's warehouse, or `preferred_warehouse_id` equals it (Owner decision 2026-10-11, D8). Anything else is an empty list on list routes and 404 on `/customers/{customerId}` and every sub-resource, never 403 (BR-30, `requirePermission.ts`). Scope `all` sees every customer. The same predicate applies to the customer sub-routes (purchases, orders, wallet, issues, support tickets) so a guessed id does not leak existence. Customer list summary counts (`total`, `active`, `new`) are computed over the visible set only. "Active" uses the window of BR-98.
 
+**Exception, the cash top-up lookup (BR-91i, spec gap 2026-10-14).** `GET /admin/wallets/cash-topup/customers/lookup` (`wallet.cash_topup.process`) does NOT apply this predicate. A customer's first top-up at a warehouse would otherwise be impossible to start: the successful top-up is what makes them visible, and the lookup that precedes it required them to be visible already. The exception is kept narrow: exact mobile (last 10 digits) or exact customer code only, no name or partial search; the response is the sales counter allow-list (`SaleCustomerMatch`: id, code, name, masked mobile, wallet balance). The customer list, detail, sub-routes and the sales counter lookup (`/admin/sales/customers/lookup`) keep the predicate.
+
 **Failure mode if unenforced.** A Sub admin reads another warehouse's customers, or learns by a 403 which customer ids exist.
 
 **Test contract.**
@@ -2133,6 +2136,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-91f` A customer later placing an order at the warehouse becomes visible; the scope is evaluated per request, not cached on the token.
 - `BR-91g` The sub-resources never return rows from another warehouse's orders for an in-scope customer unless the actor's scope covers them (purchases and orders are confined to the warehouse for `own`).
 - `BR-91h` Issues (`GET /customers/{customerId}/issues`, from `return_requests`, which has no number column) carry derived values, pinned by test: `reference` = `RET-` + the first 8 hex characters of the request id, upper-cased (a display label, not unique, never a key); `refundAmount` = sum of `unit_price * accepted_qty` over the request's items, rounded to 2 decimals, and ABSENT until an inspection recorded an accepted quantity; `resolvedAt` = the earliest status-history row to `REJECTED` or `REFUNDED`, null while open.
+- `BR-91i` A customer with no order, no top-up and no `preferred_warehouse_id` at warehouse X is returned by `GET /admin/wallets/cash-topup/customers/lookup` to a SUB_WH_ADMIN of X by exact mobile and by exact code, with the mobile masked; the same customer is still an empty result on `GET /admin/sales/customers/lookup` for that admin. A `q` (or no parameter, or both) is 422. The route is 200/422 for MAIN_WH_ADMIN and SUB_WH_ADMIN (no 403 for Main), 403 for FARMER_ADMIN, FARMER and CUSTOMER, 401 anonymous.
 
 ---
 
