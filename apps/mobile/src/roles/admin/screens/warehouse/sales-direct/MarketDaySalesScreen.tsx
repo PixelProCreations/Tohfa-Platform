@@ -1,0 +1,619 @@
+import React, { useState } from 'react';
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { WarehouseChips, SALE_WAREHOUSES } from './SalesParts';
+import type { SaleRecord, WarehouseScreenBaseProps } from './types';
+import { adminColors, adminType, adminShadow } from '../../../theme';
+
+
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function LockBadgeIcon({ size = 12, color = adminColors.warning.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ShoppingCartActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="9" cy="21" r="1" stroke={color} strokeWidth="2" />
+      <Circle cx="20" cy="21" r="1" stroke={color} strokeWidth="2" />
+      <Path
+        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 6v6l4 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ─── Component Props ─────────────────────────────────────────────────────────
+
+// Design id: M6-S10
+export interface MarketDaySalesScreenProps extends WarehouseScreenBaseProps {
+  marketDate?: string | undefined;
+  onNavigateToNewMarketSale?: (() => void) | undefined;
+  onNavigateToSalesHistory?: (() => void) | undefined;
+  onSelectTransaction?: ((tx: SaleRecord) => void) | undefined;
+}
+
+export function MarketDaySalesScreen({
+  scope,
+  can,
+  marketDate = '24 Sep 2026',
+  onBack,
+  onNavigateToNewMarketSale,
+  onNavigateToSalesHistory,
+  onSelectTransaction,
+}: MarketDaySalesScreenProps) {
+  // Main picks the market's warehouse (from Main's Market Day slice, M6-S10);
+  // a Sub admin is locked to its own.
+  const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(SALE_WAREHOUSES[0]?.warehouseId);
+  const marketWarehouse =
+    scope.warehouseId !== undefined ? scope : SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse) ?? scope;
+  // Creating a market-day sale needs sales.channel.manage (FINAL_LIST row 109).
+  const canCreateSale = can('sales.channel.manage');
+
+  const handleOpenNewSale = () => {
+    if (onNavigateToNewMarketSale) {
+      onNavigateToNewMarketSale();
+    } else {
+      Alert.alert('New Market Sale', 'Starting a live market day sale transaction...');
+    }
+  };
+
+  const handleOpenHistory = () => {
+    if (onNavigateToSalesHistory) {
+      onNavigateToSalesHistory();
+    } else {
+      Alert.alert('Sales History', 'Viewing sales history...');
+    }
+  };
+
+  const handleTxPress = (txId: string, itemText: string, amount: number) => {
+    if (onSelectTransaction) {
+      onSelectTransaction({
+        id: txId,
+        customerName: 'Walk-in Customer',
+        customerCode: 'CUS-WALKIN',
+        channel: 'Market Sale',
+        dateText: '24 Sep · 3:10 PM',
+        amount,
+        status: 'Completed',
+        invoiceNo: `INV-${txId.replace('SALE-', '')}`,
+        paymentMethod: 'Cash',
+        warehouseId: marketWarehouse.warehouseId,
+        warehouseName: marketWarehouse.warehouseName,
+      });
+    } else {
+      Alert.alert(txId, `${itemText} · ₹${amount} (Paid)`);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} color={adminColors.onBrand} />
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Market Day Sales</Text>
+        </View>
+      </View>
+
+      {/* ─── Scrollable Main Content ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── Warehouse Pill ─── */}
+        {scope.warehouseId !== undefined ? (
+          <View style={styles.warehousePill}>
+            <LockBadgeIcon size={12} color={adminColors.warning.text} />
+            <Text style={styles.warehousePillText}>{scope.warehouseName}</Text>
+          </View>
+        ) : (
+          <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} allowAll={false} />
+        )}
+
+        {/* ─── Market Day Active Banner ─── */}
+        <View style={styles.marketDayCard}>
+          <Text style={styles.marketDayTitle}>Market Day · {marketDate}</Text>
+          <View style={styles.activePill}>
+            <Text style={styles.activePillDot}>•</Text>
+            <Text style={styles.activePillText}>Active</Text>
+          </View>
+        </View>
+
+        {/* ─── Market KPIs Row ─── */}
+        <Text style={styles.sectionHeading}>Market KPIs</Text>
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>₹7,850</Text>
+            <Text style={styles.kpiLabel}>SALES</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>42</Text>
+            <Text style={styles.kpiLabel}>TXNS</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>186 KG</Text>
+            <Text style={styles.kpiLabel}>QTY SOLD</Text>
+          </View>
+        </View>
+
+        {/* ─── Quick Actions Row ─── */}
+        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        <View style={styles.quickActionsRow}>
+          {canCreateSale && (
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={handleOpenNewSale}
+              activeOpacity={0.78}
+            >
+              <ShoppingCartActionIcon size={24} />
+              <Text style={styles.actionCardLabel}>New Market Sale</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={handleOpenHistory}
+            activeOpacity={0.78}
+          >
+            <HistoryClockActionIcon size={24} />
+            <Text style={styles.actionCardLabel}>Sales History</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ─── Market Product Availability ─── */}
+        <Text style={styles.sectionHeading}>Market Product Availability</Text>
+        <View style={styles.card}>
+          <View style={styles.productGridRow}>
+            <View style={styles.productGridCol}>
+              <Text style={styles.productName}>Tomato Grade 1</Text>
+              <Text style={styles.productQty}>120 KG</Text>
+            </View>
+
+            <View style={styles.productGridCol}>
+              <Text style={styles.productName}>Carrot Grade 1</Text>
+              <Text style={styles.productQty}>80 KG</Text>
+            </View>
+          </View>
+
+          <View style={[styles.productGridRow, { marginTop: 14 }]}>
+            <View style={styles.productGridCol}>
+              <Text style={styles.productName}>Beans Grade 1</Text>
+              <Text style={styles.productQty}>60 KG</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── Market Transactions ─── */}
+        <Text style={styles.sectionHeading}>Market Transactions</Text>
+        <TouchableOpacity
+          style={styles.txCard}
+          onPress={() => handleTxPress('SALE-00321', 'Tomato · 2 KG', 200)}
+          activeOpacity={0.82}
+        >
+          <View style={styles.txCardTop}>
+            <Text style={styles.txSaleId}>SALE-00321</Text>
+            <View style={styles.txPaidPill}>
+              <Text style={styles.txPaidText}>Paid</Text>
+            </View>
+          </View>
+          <View style={styles.txCardBottom}>
+            <Text style={styles.txSubtitle}>Tomato · 2 KG</Text>
+            <Text style={styles.txAmount}>₹200</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.txCard}
+          onPress={() => handleTxPress('SALE-00322', 'Carrot · 5 KG', 450)}
+          activeOpacity={0.82}
+        >
+          <View style={styles.txCardTop}>
+            <Text style={styles.txSaleId}>SALE-00322</Text>
+            <View style={styles.txPaidPill}>
+              <Text style={styles.txPaidText}>Paid</Text>
+            </View>
+          </View>
+          <View style={styles.txCardBottom}>
+            <Text style={styles.txSubtitle}>Carrot · 5 KG</Text>
+            <Text style={styles.txAmount}>₹450</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* ─── Market Summary ─── */}
+        <View style={styles.summaryHeaderRow}>
+          <Text style={styles.sectionHeadingNoMargin}>Market Summary</Text>
+          <TouchableOpacity
+            onPress={() => Alert.alert('Previous Market Days', 'Showing archive of past market schedules.')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.previousDaysLink}>Previous Market Days</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Sales</Text>
+            <Text style={styles.summaryValue}>₹7,850</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Transactions</Text>
+            <Text style={styles.summaryValue}>42</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Cash</Text>
+            <Text style={styles.summaryValue}>₹3,200</Text>
+          </View>
+          <View style={styles.summaryStrongDivider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryStrongLabel}>UPI</Text>
+            <Text style={styles.summaryStrongValue}>₹4,650</Text>
+          </View>
+        </View>
+      </ScrollView>
+
+    </SafeAreaView>
+  );
+}
+
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+    letterSpacing: 0.2,
+    flex: 1,
+    marginLeft: 8,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 32,
+  },
+  warehousePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: adminColors.warning.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginBottom: 10,
+    gap: 6,
+  },
+  warehousePillText: {
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
+  },
+  marketDayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    ...adminShadow.sm,
+  },
+  marketDayTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  activePillDot: {
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
+  },
+  activePillText: {
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
+  },
+  sectionHeading: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  sectionHeadingNoMargin: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  kpiValue: {
+    ...adminType.title,
+    color: adminColors.ink,
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...adminShadow.sm,
+  },
+  actionCardLabel: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    ...adminShadow.sm,
+  },
+  productGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  productGridCol: {
+    flex: 1,
+  },
+  productName: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  productQty: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  txCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  txCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  txSaleId: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  txPaidPill: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 2.5,
+    borderRadius: 10,
+  },
+  txPaidText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+  txCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  txSubtitle: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  txAmount: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  previousDaysLink: {
+    ...adminType.rowTitle,
+    color: adminColors.warning.text,
+  },
+  summaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    ...adminShadow.sm,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  summaryValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 10,
+  },
+  summaryStrongDivider: {
+    height: 1.5,
+    backgroundColor: adminColors.ink,
+    marginVertical: 10,
+  },
+  summaryStrongLabel: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  summaryStrongValue: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.info.bg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+    padding: 12,
+    marginTop: 14,
+    gap: 10,
+  },
+  infoBannerText: {
+    flex: 1,
+    ...adminType.body,
+    color: adminColors.info.text,
+    lineHeight: 16,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 3,
+  },
+  navLabelActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+});

@@ -18,7 +18,7 @@ import splashTeaGarden from '../../assets/splash-bg.jpg';
 
 interface SplashScreenProps {
   onNavigate: (
-    screen: 'Welcome' | 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported',
+    screen: 'Welcome' | 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported',
     params?: Record<string, string | number | undefined>,
   ) => void;
 }
@@ -60,14 +60,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
 
     async function checkSession() {
       try {
-        const token = await getAccessToken();
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+        const token = await Promise.race([getAccessToken(), timeoutPromise]);
         if (!token) {
           if (active) onNavigate('Welcome');
           return;
         }
 
-        const me = await fetchMe();
+        const me = await Promise.race([fetchMe(), timeoutPromise]);
         if (!active) return;
+        if (!me) {
+          onNavigate('Welcome');
+          return;
+        }
 
         const route = resolveRouteAfterAuth(me);
         onNavigate(route.name, route.params);

@@ -11,6 +11,7 @@ import {
 import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
 import { useTheme, authPalette as P, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import {
   ID_PROOF_SUB_TYPES,
   FARM_DOC_SUB_TYPES,
@@ -269,7 +270,7 @@ export const Step4Documents: React.FC<Step4Props> = ({ applicationId, initialDat
             style={[styles.backButtonCircle, { borderColor: colors.borderMedium, backgroundColor: colors.white }]}
             onPress={onBack}
           >
-            <Text style={[styles.backButtonArrow, { color: colors.brandGreen }]}>‹</Text>
+            <BackButtonIcon size={20} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.textDark }]}>Documents</Text>

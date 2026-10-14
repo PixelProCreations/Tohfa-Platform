@@ -33,10 +33,12 @@ const config = {
   },
   resolver: {
     blockList: exclusionList([
-      /.*\/android\/.gradle\/.*/,
-      /.*\/android\/build\/.*/,
-      /.*\/android\/app\/build\/.*/,
-      /.*\/ios\/build\/.*/,
+      /.*[/\\]android[/\\]\.gradle[/\\].*/,
+      /.*[/\\]android[/\\]build[/\\].*/,
+      /.*[/\\]android[/\\]app[/\\]build[/\\].*/,
+      /.*[/\\]ios[/\\]build[/\\].*/,
+      /.*[/\\]\.git[/\\].*/,
+      /.*[/\\]\.gradle[/\\].*/,
     ]),
     assetExts: assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...sourceExts, 'svg'],

@@ -18,6 +18,7 @@ export type FontWeightName = keyof typeof rawObj.fontWeight;
 export type SpacingName = keyof typeof rawObj.spacing;
 export type RadiusName = keyof typeof rawObj.radius;
 export type FontStackName = keyof typeof rawObj.fontStack;
+export type ShadowName = keyof typeof rawObj.shadow;
 
 export interface ColorToken {
   readonly hex: string;
@@ -29,6 +30,23 @@ export interface TypeStyle {
   readonly size: number;
   readonly lineHeight: number;
   readonly weight: number;
+}
+
+/**
+ * An elevation shadow. Structured for React Native (x/y -> shadowOffset,
+ * blur -> shadowRadius, color -> shadowColor, opacity -> shadowOpacity,
+ * elevation -> Android `elevation`); `css` is the verbatim box-shadow for web.
+ * `elevation` is not derivable from a CSS shadow — see `$shadowNote`.
+ */
+export interface ShadowToken {
+  readonly x: number;
+  readonly y: number;
+  readonly blur: number;
+  readonly spread: number;
+  readonly color: string;
+  readonly opacity: number;
+  readonly elevation: number;
+  readonly css: string;
 }
 
 export interface Tokens {
@@ -47,8 +65,9 @@ export interface Tokens {
   readonly lineHeight: { readonly body: number; readonly heading: number };
   readonly spacing: Readonly<Record<SpacingName, number>>;
   readonly radius: Readonly<Record<RadiusName, number>>;
-  readonly size: { readonly minTouchTarget: number };
+  readonly size: { readonly minTouchTarget: number; readonly adminButtonHeight: number };
   readonly fontStack: Readonly<Record<FontStackName, string>>;
+  readonly shadow: Readonly<Record<ShadowName, ShadowToken>>;
 }
 
 export const tokens: Tokens = rawObj as unknown as Tokens;
@@ -59,8 +78,8 @@ export const tokens: Tokens = rawObj as unknown as Tokens;
  * searched rather than forcing a duplicate grey into the brand palette.
  */
 function lookup(name: ColorName | NeutralName): ColorToken {
-  const palette = tokens.color as Readonly<Record<string, ColorToken | undefined>>;
-  const greys = tokens.neutral as Readonly<Record<string, ColorToken | undefined>>;
+  const palette = (tokens?.color ?? {}) as Readonly<Record<string, ColorToken | undefined>>;
+  const greys = (tokens?.neutral ?? {}) as Readonly<Record<string, ColorToken | undefined>>;
   const token = palette[name] ?? greys[name];
   if (!token) {
     // Unreachable through the typed API; guards against a hand-edited tokens.json
@@ -83,12 +102,12 @@ export function typeStyle(name: TypeStyleName): TypeStyle {
 /** Resolve a role code to the hex value used for its badges and chips. */
 export function roleHex(role: RoleCodeWithColor): string {
   const colorName = tokens.roleColor[role];
-  return tokens.color[colorName].hex;
+  return (tokens.color?.[colorName] ?? lookup(colorName as any))?.hex ?? '#3F7D32';
 }
 
 /** Hex of a raw brand colour. */
 export function hex(name: ColorName): string {
-  return tokens.color[name].hex;
+  return (tokens.color?.[name] ?? lookup(name))?.hex ?? '#3F7D32';
 }
 
 /**
@@ -98,7 +117,12 @@ export function hex(name: ColorName): string {
  * this package exists to prevent.
  */
 export function neutral(name: NeutralName): string {
-  return tokens.neutral[name].hex;
+  return (tokens.neutral?.[name] ?? lookup(name))?.hex ?? '#FFFFFF';
+}
+
+/** Resolve a named elevation shadow (`adminMd`) to its structured value. */
+export function shadow(name: ShadowName): ShadowToken {
+  return tokens.shadow[name];
 }
 
 export { rawObj as tokensJson };

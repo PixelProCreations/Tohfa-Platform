@@ -924,7 +924,7 @@ export function ProfileScreen({
 
             <TouchableOpacity
               style={styles.quickStatCard}
-              onPress={() => setIsAuditsModalVisible(true)}
+              onPress={() => (onNavigateToAudits ? onNavigateToAudits() : setIsAuditsModalVisible(true))}
               activeOpacity={0.8}
             >
               <Icon name="calendar_today" size={18} color={P.orange900} style={styles.statEmoji} />
@@ -934,7 +934,7 @@ export function ProfileScreen({
 
             <TouchableOpacity
               style={styles.quickStatCard}
-              onPress={openFarmEdit}
+              onPress={() => (onNavigateToFMBSketch ? onNavigateToFMBSketch() : openFarmEdit())}
               activeOpacity={0.8}
             >
               <Icon name="eco" size={18} color={P.deepGreen} style={styles.statEmoji} />
@@ -1024,7 +1024,7 @@ export function ProfileScreen({
               <Text style={styles.cardTitle}>{t('farmer.profile.farm.title')}</Text>
               <Text style={styles.cardSubtitle}>{t('farmer.profile.farm.subtitle')}</Text>
             </View>
-            <TouchableOpacity onPress={openFarmEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={() => (onNavigateToFMBSketch ? onNavigateToFMBSketch() : openFarmEdit())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.cardActionLink}>{t('farmer.common.edit')}</Text>
             </TouchableOpacity>
           </View>
@@ -1230,7 +1230,7 @@ export function ProfileScreen({
               <Text style={styles.cardTitle}>{t('farmer.profile.audits.title')}</Text>
               <Text style={styles.cardSubtitle}>{t('farmer.profile.audits.subtitle')}</Text>
             </View>
-            <TouchableOpacity onPress={() => setIsAuditsModalVisible(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={() => (onNavigateToAudits ? onNavigateToAudits() : setIsAuditsModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.cardActionLink}>{t('farmer.common.viewAll')}</Text>
             </TouchableOpacity>
           </View>

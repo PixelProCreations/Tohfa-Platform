@@ -15,6 +15,8 @@
     "infra:up": "docker compose up -d --wait postgres redis",
     "infra:down": "docker compose down",
     "dev:api": "pnpm --filter @tohfa/api dev",
+    "dev:mobile": "pnpm --filter @tohfa/mobile start",
+    "mobile:start": "pnpm --filter @tohfa/mobile start",
     "dev:worker": "pnpm --filter @tohfa/api dev:worker",
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -b tsconfig.json && pnpm --filter @tohfa/admin-web --filter @tohfa/mobile typecheck",
@@ -29,6 +31,7 @@
     "db:seed": "pnpm --filter @tohfa/api db:seed",
     "db:reset": "pnpm --filter @tohfa/api db:reset",
     "rbac:check": "tsx scripts/check-rbac-drift.ts",
+    "gen:demo-grants": "tsx scripts/gen-demo-grants.ts",
     "spec:lint": "spectral lint docs/openapi.yaml --fail-severity=error",
     "spec:drift": "tsx scripts/check-spec-drift.ts",
     "new:module": "tsx scripts/new-module.ts"

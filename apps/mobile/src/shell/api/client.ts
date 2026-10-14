@@ -134,7 +134,40 @@ interface RequestOptions {
   /** Required on every non-idempotent write. See docs/rules.md. */
   idempotencyKey?: string | undefined;
   signal?: AbortSignal | undefined;
+  /**
+   * Opt-in deadline (ms) for this request. When set, the request aborts after
+   * `timeoutMs` OR when `signal` aborts, whichever comes first. Without it the
+   * old rule stands: a 5 s timeout only when no `signal` is passed, none at
+   * all when one is (so a caller's signal used to switch the timeout off).
+   */
+  timeoutMs?: number | undefined;
   _isRetry?: boolean | undefined;
+}
+
+/**
+ * A signal that aborts after `timeoutMs` or when `outer` aborts. Linked by
+ * hand with an 'abort' listener rather than `AbortSignal.any`/`.timeout`,
+ * which Hermes does not ship. `outer` itself is never aborted by the timeout.
+ * `dispose` clears the timer and the listener once the request settles.
+ */
+function linkedTimeoutSignal(
+  outer: AbortSignal | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; dispose: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const onOuterAbort = (): void => controller.abort();
+  if (outer !== undefined) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener('abort', onOuterAbort);
+  }
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      clearTimeout(timer);
+      outer?.removeEventListener('abort', onOuterAbort);
+    },
+  };
 }
 
 function correlationId(): string {
@@ -215,12 +248,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   let response: Response;
+  // Opt-in deadline (timeoutMs) covers the whole attempt, emulator fallback
+  // included. Without it, the original behaviour below is unchanged.
+  const deadline = options.timeoutMs === undefined ? null : linkedTimeoutSignal(options.signal, options.timeoutMs);
+  const requestSignal = deadline?.signal ?? options.signal;
+  const controller = deadline !== null || options.signal ? null : new AbortController();
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
       headers,
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      signal: requestSignal ?? controller?.signal,
     });
   } catch (error) {
     if (isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
@@ -230,7 +269,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
           method: options.method ?? 'GET',
           headers,
           ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          ...(requestSignal === undefined ? {} : { signal: requestSignal }),
         });
         API_BASE_URL = 'http://10.0.2.2:3000';
       } catch {
@@ -239,13 +278,21 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } else {
       throw new NetworkError(error);
     }
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    deadline?.dispose();
   }
 
-  // Handle mid-session 401 token expiry with collapsed refresh and single retry
+  // Handle mid-session 401 token expiry with collapsed refresh and single retry.
+  // On these endpoints a 401 means bad credentials, not an expired token, so a refresh
+  // and resend would only repeat the failure. change-password answers a wrong CURRENT
+  // password with 401: retrying it resent the same wrong password (two rate-limiter
+  // strikes for one typo) and could sign the user out if the refresh then failed.
   const isAuthEndpoint =
     path.includes('/auth/login') ||
     path.includes('/auth/refresh') ||
-    path.includes('/auth/otp');
+    path.includes('/auth/otp') ||
+    path.includes('/auth/me/change-password');
 
   if (response.status === 401 && !options._isRetry && !isAuthEndpoint) {
     const newAccessToken = await refreshAuthTokens();

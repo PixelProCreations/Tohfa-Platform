@@ -16,7 +16,13 @@
  * role; it hands off to customer/CustomerMainApp.tsx or its own MainTabs
  * once a role is known.
  */
-import { AppRegistry } from 'react-native';
+import { AppRegistry, LogBox } from 'react-native';
 import App from './src/roles/farmer/App';
 
+LogBox.ignoreLogs([
+  'new NativeEventEmitter()',
+  'new NativeEventEmitter',
+]);
+
 AppRegistry.registerComponent('TohfaMobile', () => App);
+

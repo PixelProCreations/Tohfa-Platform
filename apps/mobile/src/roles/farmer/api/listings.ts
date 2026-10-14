@@ -1,4 +1,5 @@
 import { api, ApiError, NetworkError } from '../../../shell/api/client';
+import { collectPages } from '../../../shell/api/pagination';
 import { fromPaise, isMoney, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 
 export type Grade = 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'REJECT';
@@ -356,17 +357,7 @@ export async function listAllMyListings(
   status?: ListingStatus,
   signal?: AbortSignal,
 ): Promise<ListingHistory> {
-  const items: Listing[] = [];
-  let cursor: string | undefined;
-  for (let i = 0; i < LISTING_MAX_PAGES; i += 1) {
-    const page = await getMyListings(status, cursor, LISTING_PAGE_SIZE, signal);
-    items.push(...page.items);
-    if (!page.page.hasMore || page.page.nextCursor === null) {
-      return { items, complete: true };
-    }
-    cursor = page.page.nextCursor;
-  }
-  return { items, complete: false };
+  return collectPages((cursor) => getMyListings(status, cursor, LISTING_PAGE_SIZE, signal), LISTING_MAX_PAGES);
 }
 
 /**
@@ -731,48 +722,8 @@ export function isStaleListingError(error: unknown): boolean {
 }
 
 /**
- * UUIDv4 for the `Idempotency-Key` header. Hermes on older Androids has no
- * `crypto.randomUUID`; the fallback only has to be unique per logical
- * operation from this device (the server scopes keys and keeps them 24h), not
- * unguessable, so Math.random is acceptable there.
+ * The Idempotency-Key helpers moved to src/shell/api/idempotency.ts so the
+ * admin role can share them; re-exported here so farmer screens and tests
+ * keep importing them from this module.
  */
-export function newIdempotencyKey(): string {
-  const cryptoLike = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (typeof cryptoLike?.randomUUID === 'function') return cryptoLike.randomUUID();
-  const hex = '0123456789abcdef';
-  let key = '';
-  for (let i = 0; i < 36; i += 1) {
-    if (i === 8 || i === 13 || i === 18 || i === 23) {
-      key += '-';
-    } else if (i === 14) {
-      key += '4';
-    } else {
-      const nibble = Math.floor(Math.random() * 16);
-      key += hex.charAt(i === 19 ? (nibble & 0x3) | 0x8 : nibble);
-    }
-  }
-  return key;
-}
-
-/**
- * One key per logical request: a retry of the same body replays the same key
- * (the server returns the original result), while a changed body gets a new
- * key (re-using one would be 409 IDEMPOTENCY_KEY_REUSED).
- */
-export function createIdempotencyKeyCache(generate: () => string = newIdempotencyKey): {
-  keyFor: (fingerprint: string) => string;
-  reset: () => void;
-} {
-  let current: { fingerprint: string; key: string } | null = null;
-  return {
-    keyFor(fingerprint: string): string {
-      if (current === null || current.fingerprint !== fingerprint) {
-        current = { fingerprint, key: generate() };
-      }
-      return current.key;
-    },
-    reset(): void {
-      current = null;
-    },
-  };
-}
+export { createIdempotencyKeyCache, newIdempotencyKey } from '../../../shell/api/idempotency';

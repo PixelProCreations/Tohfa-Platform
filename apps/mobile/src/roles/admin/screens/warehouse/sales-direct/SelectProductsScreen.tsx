@@ -1,0 +1,1006 @@
+import React, { useState, useMemo } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+import type { SaleProduct, WarehouseScreenBaseProps } from './types';
+import { adminColors, adminType, adminShadow } from '../../../theme';
+
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.2" />
+      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 12h14M12 5l7 7-7 7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ProduceIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="14" r="7" stroke={color} strokeWidth="2" />
+      <Path
+        d="M12 7V4M10 5.5l4-3M14 5.5l-4-3"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QuestionCircleIcon({ size = 20, color = '#059669' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path
+        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckmarkOutlineIcon({ size = 18, color = '#059669' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 13l4 4L19 7"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CancelCrossIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 6L6 18M6 6l12 12"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+type ProductItem = SaleProduct;
+
+const MOCK_PRODUCTS: ProductItem[] = [
+  {
+    id: 'prod-2',
+    name: 'Carrot',
+    grade: 'Grade 1',
+    pricePerKg: 120,
+    availableKg: 32,
+    status: 'Available',
+    batch: 'BTH-00232',
+    location: 'Cold Storage · B01',
+  },
+  {
+    id: 'prod-3',
+    name: 'Beans',
+    grade: 'Grade 1',
+    pricePerKg: 140,
+    availableKg: 6,
+    status: 'Low Stock',
+    batch: 'BTH-00233',
+    location: 'Dry Rack · C03',
+  },
+  {
+    id: 'prod-1',
+    name: 'Tomato',
+    grade: 'Grade 1',
+    pricePerKg: 100,
+    availableKg: 48,
+    status: 'Available',
+    batch: 'BTH-00231',
+    location: 'Cold Storage · A02',
+  },
+  {
+    id: 'prod-4',
+    name: 'Potato',
+    grade: 'Grade 1',
+    pricePerKg: 45,
+    availableKg: 60,
+    status: 'Available',
+    batch: 'BTH-00234',
+    location: 'Storage · D01',
+  },
+  {
+    id: 'prod-5',
+    name: 'Cabbage',
+    grade: 'Grade 2',
+    pricePerKg: 35,
+    availableKg: 25,
+    status: 'Available',
+    batch: 'BTH-00235',
+    location: 'Storage · D02',
+  },
+];
+
+type FilterType = 'All' | 'Grade 1' | 'Available' | 'Low Stock';
+
+// Design id: M6-S03
+export interface SelectProductsScreenProps extends WarehouseScreenBaseProps {
+  /** Warehouse the sale is made from: only its stock is offered. Defaults to scope.warehouseId. */
+  saleWarehouseId?: string | undefined;
+  products?: readonly SaleProduct[] | undefined;
+  onContinue: (selectedItems: SaleProduct[]) => void;
+}
+
+export function SelectProductsScreen({
+  scope,
+  saleWarehouseId,
+  products = MOCK_PRODUCTS,
+  onBack,
+  onContinue,
+}: SelectProductsScreenProps) {
+  // Products are limited to the sale warehouse's stock (FINAL_LIST row 118).
+  // Batches without a warehouseId are the (mock) stock of the viewer's own warehouse.
+  const stockWarehouse = saleWarehouseId ?? scope.warehouseCode ?? scope.warehouseId;
+  const warehouseStock = useMemo(
+    () => products.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
+    [products, stockWarehouse],
+  );
+  const [screenStep, setScreenStep] = useState<'initial' | 'confirm_add' | 'summary'>('initial');
+  const [pendingProduct, setPendingProduct] = useState<ProductItem | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(['prod-1', 'prod-2']);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({
+    'prod-1': 2,
+    'prod-2': 1,
+  });
+  const [expandedProductId, setExpandedProductId] = useState<string | null>('prod-1');
+  const [configuringQuantity, setConfiguringQuantity] = useState<number>(2);
+
+  const displayProducts = useMemo(() => {
+    const list = [...warehouseStock];
+    if (screenStep === 'initial') {
+      return list.sort((a, b) => {
+        const order = ['prod-2', 'prod-3', 'prod-1', 'prod-4', 'prod-5'];
+        const ai = order.indexOf(a.id);
+        const bi = order.indexOf(b.id);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    } else {
+      return list.sort((a, b) => {
+        const order = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5'];
+        const ai = order.indexOf(a.id);
+        const bi = order.indexOf(b.id);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    }
+  }, [warehouseStock, screenStep]);
+
+  const visibleProducts = useMemo(() => {
+    if (screenStep !== 'summary') {
+      return displayProducts;
+    }
+    return displayProducts.filter((item) => {
+      if (activeFilter === 'Grade 1' && item.grade !== 'Grade 1') return false;
+      if (activeFilter === 'Available' && item.status !== 'Available') return false;
+      if (activeFilter === 'Low Stock' && item.status !== 'Low Stock') return false;
+      return true;
+    });
+  }, [displayProducts, activeFilter, screenStep]);
+
+  const handleOpenAddProduct = (product: ProductItem) => {
+    if (expandedProductId === product.id) {
+      setExpandedProductId(null);
+    } else {
+      setExpandedProductId(product.id);
+      setConfiguringQuantity(selectedQuantities[product.id] || 2);
+    }
+  };
+
+  const handleDecrementQuantity = () => {
+    setConfiguringQuantity((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleIncrementQuantity = (maxKg: number) => {
+    setConfiguringQuantity((prev) => Math.min(maxKg, prev + 1));
+  };
+
+  const handleAddToSalePress = (product: ProductItem) => {
+    setPendingProduct(product);
+    setExpandedProductId(null);
+    setScreenStep('confirm_add');
+  };
+
+  const handleConfirmAddProduct = () => {
+    if (pendingProduct) {
+      setSelectedProductIds((prev) => (prev.includes(pendingProduct.id) ? prev : [...prev, pendingProduct.id]));
+      setSelectedQuantities((prev) => ({
+        ...prev,
+        [pendingProduct.id]: configuringQuantity,
+      }));
+    }
+    setScreenStep('summary');
+  };
+
+  const handleCancelAddProduct = () => {
+    setScreenStep('initial');
+    setExpandedProductId(pendingProduct?.id || 'prod-1');
+  };
+
+  const handleContinuePress = () => {
+    const selected = warehouseStock.filter((p) => selectedProductIds.includes(p.id)).map((p) => ({
+      ...p,
+      selectedQty: selectedQuantities[p.id] || 2,
+    }));
+    onContinue(selected);
+  };
+
+  return (
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Select Products</Text>
+        </View>
+      </View>
+
+      {/* ─── Product Cards List ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {screenStep === 'summary' && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterPillsRow}
+          >
+            {(['All', 'Grade 1', 'Available', 'Low Stock'] as FilterType[]).map((filter) => {
+              const isSelected = activeFilter === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterPill,
+                    isSelected && styles.filterPillSelected,
+                  ]}
+                  onPress={() => setActiveFilter(filter)}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      isSelected && styles.filterPillTextSelected,
+                    ]}
+                  >
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {visibleProducts.map((product) => {
+          const isExpanded = screenStep === 'initial' && expandedProductId === product.id;
+          const isAdded = selectedProductIds.includes(product.id);
+          const isAvailable = product.status === 'Available';
+
+          if (isExpanded) {
+            return (
+              <View key={product.id} style={styles.expandedProductCard}>
+                {/* Header with Produce Icon & Title */}
+                <TouchableOpacity
+                  style={styles.expandedTitleRow}
+                  activeOpacity={0.7}
+                  onPress={() => setExpandedProductId(null)}
+                >
+                  <ProduceIcon size={18} color={adminColors.warning.text} />
+                  <Text style={styles.expandedTitleText}>
+                    {product.name} · {product.grade}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 2-Column Details: Selling Price & Available */}
+                <View style={styles.expandedGridRow}>
+                  <View style={styles.expandedGridCol}>
+                    <Text style={styles.expandedGridLabel}>Selling Price</Text>
+                    <Text style={styles.expandedGridValuePrice}>₹{product.pricePerKg} / KG</Text>
+                  </View>
+                  <View style={styles.expandedGridCol}>
+                    <Text style={styles.expandedGridLabel}>Available</Text>
+                    <Text style={styles.expandedGridValueAvail}>{product.availableKg} KG</Text>
+                  </View>
+                </View>
+
+                {/* 2-Column Details: Batch & Location */}
+                <View style={[styles.expandedGridRow, { marginTop: 12 }]}>
+                  <View style={styles.expandedGridCol}>
+                    <Text style={styles.expandedGridLabel}>Batch</Text>
+                    <Text style={styles.expandedGridValueBatch}>
+                      {product.batch || 'BTH-00231'}
+                    </Text>
+                  </View>
+                  <View style={styles.expandedGridCol}>
+                    <Text style={styles.expandedGridLabel}>Location</Text>
+                    <Text style={styles.expandedGridValueLoc}>
+                      {product.location || 'Cold Storage · A02'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Internal Traceability Alert Banner */}
+                <View style={styles.traceabilityBanner}>
+                  <InfoCircleBlueIcon size={16} />
+                  <Text style={styles.traceabilityText}>
+                    Internal traceability (batch/location) is visible to SWA; farmer identity is never shown in this customer-facing flow.
+                  </Text>
+                </View>
+
+                {/* Quantity Section */}
+                <Text style={styles.quantitySectionHeader}>Quantity</Text>
+                <View style={styles.quantityStepperRow}>
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    activeOpacity={0.7}
+                    onPress={handleDecrementQuantity}
+                  >
+                    <Text style={styles.stepperBtnText}>−</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.stepperValueText}>{configuringQuantity} KG</Text>
+
+                  <TouchableOpacity
+                    style={styles.stepperBtn}
+                    activeOpacity={0.7}
+                    onPress={() => handleIncrementQuantity(product.availableKg)}
+                  >
+                    <Text style={styles.stepperBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* + Add to Sale CTA Button */}
+                <TouchableOpacity
+                  style={styles.addToSaleBtn}
+                  activeOpacity={0.85}
+                  onPress={() => handleAddToSalePress(product)}
+                >
+                  <Text style={styles.addToSaleBtnText}>+ Add to Sale</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
+          return (
+            <TouchableOpacity
+              key={product.id}
+              style={styles.productCard}
+              onPress={() => handleOpenAddProduct(product)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.cardTopRow}>
+                <View>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.productGradePrice}>
+                    {product.grade} · ₹{product.pricePerKg} / KG
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isAvailable ? styles.statusBadgeAvailable : styles.statusBadgeLowStock,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isAvailable ? styles.statusBadgeTextAvailable : styles.statusBadgeTextLowStock,
+                    ]}
+                  >
+                    {product.status}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.cardBottomRow}>
+                <View>
+                  <Text style={styles.availableLabel}>Available</Text>
+                  <Text style={styles.availableValue}>{product.availableKg} KG</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.addBtn, isAdded && styles.addBtnSelected]}
+                  onPress={() => handleOpenAddProduct(product)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.addBtnText, isAdded && styles.addBtnTextSelected]}>
+                    {isAdded ? `Added (${selectedQuantities[product.id] || 2} KG) ✓` : 'Add +'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* ─── Add Product? Confirmation Card (Image 2) ─── */}
+        {screenStep === 'confirm_add' && (
+          <View style={styles.confirmAddCard}>
+            <View style={styles.confirmAddHeader}>
+              <QuestionCircleIcon size={20} color="#059669" />
+              <Text style={styles.confirmAddTitle}>Add Product?</Text>
+            </View>
+
+            <View style={styles.confirmAddSubBox}>
+              <Text style={styles.confirmAddProdName}>
+                {pendingProduct?.name || 'Tomato'} · {pendingProduct?.grade || 'Grade 1'}
+              </Text>
+              <Text style={styles.confirmAddCalculation}>
+                {configuringQuantity} KG × ₹{pendingProduct?.pricePerKg || 100} = ₹{configuringQuantity * (pendingProduct?.pricePerKg || 100)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.confirmAddBtn}
+              onPress={handleConfirmAddProduct}
+              activeOpacity={0.8}
+            >
+              <CheckmarkOutlineIcon size={18} color="#059669" />
+              <Text style={styles.confirmAddBtnText}>Add to Sale</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.confirmCancelBtn}
+              onPress={handleCancelAddProduct}
+              activeOpacity={0.8}
+            >
+              <CancelCrossIcon size={18} color="#92400E" />
+              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ─── Sale Summary Card (Image 3) ─── */}
+        {screenStep === 'summary' && (
+          <View style={styles.summaryCardBox}>
+            <View style={styles.summaryHeaderRow}>
+              <Text style={styles.summaryTitleText}>2 Products</Text>
+              <Text style={styles.summarySubText}>in this sale</Text>
+            </View>
+
+            <View style={styles.summaryItemRow}>
+              <Text style={styles.summaryItemName}>Tomato</Text>
+              <Text style={styles.summaryItemQty}>2 KG</Text>
+            </View>
+
+            <View style={styles.summaryItemRow}>
+              <Text style={styles.summaryItemName}>Carrot</Text>
+              <Text style={styles.summaryItemQty}>1 KG</Text>
+            </View>
+
+            <View style={styles.summaryDivider} />
+
+            <View style={styles.summaryTotalRow}>
+              <Text style={styles.summaryTotalLabel}>Total</Text>
+              <Text style={styles.summaryTotalValue}>₹320</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
+
+      {/* ─── Bottom Action Button ─── */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.continueBtn}
+          onPress={handleContinuePress}
+          activeOpacity={0.85}
+        >
+          <ArrowRightIcon size={18} />
+          <Text style={styles.continueBtnText}>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    marginLeft: -4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+    letterSpacing: 0.2,
+  },
+  topControlContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 14,
+    height: 46,
+    gap: 10,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    ...adminType.body,
+    color: adminColors.ink,
+    paddingVertical: 0,
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 6,
+  },
+  filterPill: {
+    backgroundColor: adminColors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  filterPillSelected: {
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
+  },
+  filterPillText: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  filterPillTextSelected: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  productCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 12,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  productName: {
+    ...adminType.title,
+    color: adminColors.ink,
+    marginBottom: 3,
+  },
+  productGradePrice: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  statusBadgeAvailable: {
+    backgroundColor: adminColors.success.bg,
+  },
+  statusBadgeLowStock: {
+    backgroundColor: adminColors.danger.bg,
+  },
+  statusBadgeText: {
+    ...adminType.caption,
+  },
+  statusBadgeTextAvailable: {
+    color: adminColors.success.text,
+  },
+  statusBadgeTextLowStock: {
+    color: adminColors.danger.text,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  availableLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  availableValue: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
+  addBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  addBtnSelected: {
+    backgroundColor: adminColors.brandTint,
+  },
+  addBtnText: {
+    ...adminType.sectionHead,
+    color: adminColors.brand,
+  },
+  addBtnTextSelected: {
+    color: adminColors.brand,
+    fontWeight: '800',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+
+  // ─── Expanded Product Card (Matching Reference Design) ───
+  expandedProductCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D97706',
+    padding: 16,
+    marginBottom: 16,
+    ...adminShadow.sm,
+  },
+  expandedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  expandedTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  expandedGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  expandedGridCol: {
+    flex: 1,
+  },
+  expandedGridLabel: {
+    fontSize: 13,
+    color: adminColors.muted,
+    marginBottom: 3,
+  },
+  expandedGridValuePrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  expandedGridValueAvail: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  expandedGridValueBatch: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  expandedGridValueLoc: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  traceabilityBanner: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  traceabilityText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#1D4ED8',
+  },
+  quantitySectionHeader: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  quantityStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  stepperBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBtnText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#854F0B',
+    marginTop: -2,
+  },
+  stepperValueText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: adminColors.ink,
+    minWidth: 70,
+    textAlign: 'center',
+  },
+  addToSaleBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    ...adminShadow.sm,
+  },
+  addToSaleBtnText: {
+    color: adminColors.onBrand,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  bottomBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 20,
+    backgroundColor: adminColors.canvas,
+  },
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    height: 50,
+    gap: 8,
+  },
+  continueBtnText: {
+    color: adminColors.onBrand,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  confirmAddCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    padding: 16,
+    marginTop: 12,
+  },
+  confirmAddHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  confirmAddTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  confirmAddSubBox: {
+    backgroundColor: '#F6F4EE',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+  },
+  confirmAddProdName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#52525B',
+    marginBottom: 6,
+  },
+  confirmAddCalculation: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  confirmAddBtn: {
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    borderRadius: 12,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  confirmAddBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  confirmCancelBtn: {
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    borderRadius: 12,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  confirmCancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  summaryCardBox: {
+    backgroundColor: '#FEFBF6',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    padding: 16,
+    marginTop: 12,
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  summaryTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  summarySubText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#78350F',
+  },
+  summaryItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  summaryItemQty: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78350F',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#D97706',
+    opacity: 0.4,
+    marginVertical: 10,
+  },
+  summaryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  summaryTotalValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+});

@@ -1,0 +1,615 @@
+// Design id: M3S15
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
+import Svg, { Path } from 'react-native-svg';
+import { SWAHeader } from '../../swa/components';
+
+export type StockMovementDetailScreenProps = InventoryScreenBaseProps;
+
+const TIMELINE_EVENTS = [
+  { label: 'Movement Created', time: '10:40 AM' },
+  { label: 'Quantity Recorded', time: '10:41 AM' },
+  { label: 'Ledger Posted', time: '10:42 AM' },
+  { label: 'Completed', time: '10:42 AM' },
+];
+
+function MoreDotsIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+        fill={adminColors.card}
+      />
+    </Svg>
+  );
+}
+
+function PhotoThumbnailIcon() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={adminColors.brand} strokeWidth="1.8" />
+      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke={adminColors.brand} strokeWidth="1.5" />
+      <Path d="M21 15l-5-5-8 8" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 14l2-2 5 5" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function TimelineGreenDot() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.success.text} strokeWidth="2.5" fill={adminColors.card} />
+      <Path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z" fill={adminColors.success.text} />
+    </Svg>
+  );
+}
+
+function InfoCircleIcon() {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.info.text} strokeWidth="1.8" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QrIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function DocumentReferenceIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function HistoryLedgerIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 3v5h5M12 7v5l4 2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LockNoticeIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, routeParams }: StockMovementDetailScreenProps) {
+  // rbac: stock_ledger.view_all MAIN=all, SUB=none. Without it the movement is
+  // forced to the viewer's own warehouse (view_own) whatever the deep link says.
+  const canViewAll = can('inventory.stock_ledger.view_all');
+  const warehouseLabel = canViewAll
+    ? String(routeParams?.warehouseName ?? scope.warehouseName ?? '—')
+    : (scope.warehouseName ?? '—');
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <SWAHeader 
+          title="Stock Movement"
+          onBack={onBack}
+          rightAction={
+            <TouchableOpacity 
+              style={styles.moreButton} 
+              activeOpacity={0.7}
+              onPress={() => onNavigate?.('M3S18')}
+            >
+              <MoreDotsIcon />
+            </TouchableOpacity>
+          }
+        />
+        
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Top Hero Card */}
+          <View style={styles.heroCard}>
+            <View style={styles.receiptBadge}>
+              <Text style={styles.receiptBadgeText}>RECEIPT · Completed</Text>
+            </View>
+            <Text style={styles.movementIdBig}>MOV-000248</Text>
+          </View>
+
+          {/* Movement Summary - 2-Column Grid */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Movement Summary</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Movement Type</Text>
+                  <Text style={styles.colValue}>RECEIPT</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Status</Text>
+                  <Text style={styles.colValue}>Completed</Text>
+                </View>
+              </View>
+
+              <View style={[styles.twoColRow, { marginTop: 12 }]}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Movement ID</Text>
+                  <Text style={styles.colValue}>MOV-000248</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Warehouse</Text>
+                  <Text style={styles.colValue}>{warehouseLabel}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.twoColRow, { marginTop: 12 }]}>
+                <View style={styles.fullCol}>
+                  <Text style={styles.colLabel}>Date & Time</Text>
+                  <Text style={styles.colValue}>16 Sep 2026, 10:42 AM</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Product Information - 2-Column Grid */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Product Information</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Product / Crop</Text>
+                  <Text style={styles.colValue}>Tomato</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Grade</Text>
+                  <Text style={styles.colValue}>Grade 1</Text>
+                </View>
+              </View>
+
+              <View style={[styles.twoColRow, { marginTop: 12 }]}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Unit</Text>
+                  <Text style={styles.colValue}>KG</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Batch</Text>
+                  <Text style={styles.colValue}>BAT-COO-00241</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Quantity Movement */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quantity Movement</Text>
+            <View style={styles.quantityCard}>
+              <Text style={styles.quantityCardLabel}>QUANTITY MOVEMENT</Text>
+              <Text style={styles.quantityBigValue}>+140 KG</Text>
+              
+              <View style={styles.flowRow}>
+                <View style={styles.flowStep}>
+                  <Text style={styles.flowStepValue}>0 KG</Text>
+                  <Text style={styles.flowStepLabel}>BEFORE</Text>
+                </View>
+                <Text style={styles.flowArrow}>→</Text>
+                <View style={styles.flowStep}>
+                  <Text style={styles.flowStepValueGreen}>+140 KG</Text>
+                  <Text style={styles.flowStepLabelGreen}>MOVEMENT</Text>
+                </View>
+                <Text style={styles.flowArrow}>→</Text>
+                <View style={styles.flowStep}>
+                  <Text style={styles.flowStepValue}>140 KG</Text>
+                  <Text style={styles.flowStepLabel}>AFTER</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Blue Info Notice */}
+            <View style={styles.blueNoticeBox}>
+              <InfoCircleIcon />
+              <Text style={styles.blueNoticeText}>
+                Values shown are returned by the backend — never calculated or overwritten in this app.
+              </Text>
+            </View>
+          </View>
+
+          {/* Storage Location - 2-Column Grid */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Storage Location</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Storage Type</Text>
+                  <Text style={styles.colValue}>Cold Storage</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Section</Text>
+                  <Text style={styles.colValue}>Section A</Text>
+                </View>
+              </View>
+
+              <View style={[styles.twoColRow, { marginTop: 12 }]}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Rack</Text>
+                  <Text style={styles.colValue}>Rack 02</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Shelf / Bin</Text>
+                  <Text style={styles.colValue}>Shelf 03</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Reference - 2-Column Grid */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reference</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Goods Receipt</Text>
+                  <Text style={styles.colValue}>GRN-00291</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Received From</Text>
+                  <Text style={styles.colValue}>Main Warehouse</Text>
+                </View>
+              </View>
+
+              <View style={[styles.twoColRow, { marginTop: 12 }]}>
+                <View style={styles.fullCol}>
+                  <Text style={styles.colLabel}>Related Batch</Text>
+                  <Text style={styles.colValue}>BAT-COO-00241</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Performed By - 2-Column Grid */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Performed By</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Performed By</Text>
+                  <Text style={styles.colValue}>Warehouse Admin · {warehouseLabel} (Suresh)</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.colLabel}>Date & Time</Text>
+                  <Text style={styles.colValue}>16 Sep 2026, 10:42 AM</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Notes & Evidence */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Notes & Evidence</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.colLabel}>Notes</Text>
+              <Text style={styles.notesText}>Received and accepted after QC.</Text>
+              
+              <View style={styles.evidenceThumbnailsRow}>
+                <View style={styles.thumbnailBox}>
+                  <PhotoThumbnailIcon />
+                </View>
+                <View style={styles.thumbnailBox}>
+                  <PhotoThumbnailIcon />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Movement Timeline */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Movement Timeline</Text>
+            <View style={styles.timelineCard}>
+              {TIMELINE_EVENTS.map((event, index) => (
+                <View key={index} style={styles.timelineStepRow}>
+                  <View style={styles.timelineIndicatorCol}>
+                    <TimelineGreenDot />
+                    {index < TIMELINE_EVENTS.length - 1 && <View style={styles.timelineVerticalLine} />}
+                  </View>
+                  <View style={styles.timelineTextCol}>
+                    <Text style={styles.timelineStepTitle}>{event.label}</Text>
+                    <Text style={styles.timelineStepTime}>{event.time}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Actions</Text>
+            <TouchableOpacity
+              style={styles.actionOutlineBtn}
+              onPress={() => onNavigate?.('M3S04')}
+              activeOpacity={0.7}
+            >
+              <QrIcon color={adminColors.brand} size={18} />
+              <Text style={styles.actionBtnText}>View Batch</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionOutlineBtn}
+              onPress={() => onNavigate?.('M3S06')}
+              activeOpacity={0.7}
+            >
+              <DocumentReferenceIcon color={adminColors.brand} size={18} />
+              <Text style={styles.actionBtnText}>View Reference</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionOutlineBtn}
+              onPress={() => onNavigate?.('M3S06')}
+              activeOpacity={0.7}
+            >
+              <HistoryLedgerIcon color={adminColors.brand} size={18} />
+              <Text style={styles.actionBtnText}>View Ledger History</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Disclaimer Banner */}
+          <View style={styles.disclaimerBox}>
+            <LockNoticeIcon color={adminColors.brand} size={18} />
+            <Text style={styles.disclaimerText}>
+              No Edit Balance action exists on this screen. Stock changes only ever happen through a new ledger movement — never a direct edit here.
+            </Text>
+          </View>
+
+          <View style={{ height: 28 }} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: adminColors.brand,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  moreButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  heroCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  receiptBadge: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 6,
+  },
+  receiptBadgeText: {
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
+  },
+  movementIdBig: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
+  section: {
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: 8,
+  },
+  infoCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+  },
+  twoColRow: {
+    flexDirection: 'row',
+  },
+  col: {
+    flex: 1,
+  },
+  fullCol: {
+    flex: 1,
+  },
+  colLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 3,
+  },
+  colValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  quantityCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  quantityCardLabel: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    letterSpacing: 0.8,
+  },
+  quantityBigValue: {
+    ...adminType.kpiValue,
+    color: adminColors.success.text,
+    marginVertical: 6,
+  },
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 8,
+    gap: 12,
+  },
+  flowStep: {
+    alignItems: 'center',
+  },
+  flowStepValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  flowStepLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  flowStepValueGreen: {
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
+  },
+  flowStepLabelGreen: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    marginTop: 2,
+  },
+  flowArrow: {
+    ...adminType.title,
+    color: adminColors.muted,
+    marginBottom: 10,
+  },
+  blueNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: adminColors.info.bg,
+    borderWidth: 1,
+    borderColor: adminColors.info.bg,
+    borderRadius: 10,
+    padding: 12,
+    gap: 8,
+  },
+  blueNoticeText: {
+    ...adminType.rowMeta,
+    flex: 1,
+    lineHeight: 16,
+    color: adminColors.info.text,
+  },
+  notesText: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  evidenceThumbnailsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  thumbnailBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: adminColors.brandTint,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+  },
+  timelineStepRow: {
+    flexDirection: 'row',
+    minHeight: 46,
+  },
+  timelineIndicatorCol: {
+    alignItems: 'center',
+    width: 20,
+    marginRight: 10,
+  },
+  timelineVerticalLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: adminColors.success.text,
+    marginVertical: 3,
+  },
+  timelineTextCol: {
+    flex: 1,
+    paddingBottom: 10,
+  },
+  timelineStepTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  timelineStepTime: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  actionOutlineBtn: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  actionBtnText: {
+    ...adminType.sectionHead,
+    color: adminColors.brand,
+  },
+  disclaimerBox: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+    marginBottom: 24,
+  },
+  disclaimerText: {
+    ...adminType.body,
+    flex: 1,
+    color: adminColors.brandDeep,
+    lineHeight: 18,
+  },
+});

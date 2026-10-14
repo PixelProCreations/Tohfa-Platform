@@ -597,6 +597,53 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'TOHFA Admin cannot configure rating tier thresholds.',
   },
 
+  // --- Owner decision 2026-10-09: Sub Warehouse Admin sees the Finance hub. ---
+  // (The 2026-10-09 warehouse.staff.list_view roster code and the Main Warehouse
+  // Admin `own` -> `all` widening were superseded by the owner decision of
+  // 2026-10-11 and are not asserted here; see docs/rbac.json conflicts.)
+  {
+    permission: 'finance.dashboard.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.VIEW,
+    because: 'Main Warehouse Admin keeps read-only access to the financial dashboard (matrix §11).',
+  },
+  {
+    permission: 'finance.dashboard.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Owner decision: Sub Warehouse Admin sees the Finance hub for its own warehouse only.',
+  },
+  {
+    permission: 'admin.staff.list_view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff.',
+  },
+  {
+    permission: 'customer.list.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin sees customers of its own warehouse only.',
+  },
+  {
+    permission: 'finance.sales_income.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin sees sales income of its own warehouse only.',
+  },
+  {
+    permission: 'sales.channel.manage',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin manages sales channels of its own warehouse only.',
+  },
+  {
+    permission: 'auditlog.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Audit-log scope is its own open Ch.6-vs-matrix conflict.',
+  },
+
   // --- Audit Management (BR-03, BR-05, BR-36). audit.view and
   //     audit.red_flag.manage were added by the audit-module contract. ---
   {

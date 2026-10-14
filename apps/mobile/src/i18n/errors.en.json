@@ -12,5 +12,7 @@
   "error.PRICE_ABOVE_CEILING": "This price is above the fair price ceiling for this crop.",
   "error.STOCK_UNAVAILABLE": "Sorry, that quantity just sold out.",
   "error.UNAUTHORIZED": "Invalid mobile number or password.",
+  "error.UNAUTHENTICATED": "Invalid mobile number or password.",
+  "error.INTERNAL": "Something went wrong. Please try again.",
   "error.WALLET_INSUFFICIENT": "Your wallet balance is too low for this order."
 }

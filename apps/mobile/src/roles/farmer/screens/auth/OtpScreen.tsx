@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
@@ -45,7 +46,7 @@ interface OtpScreenProps {
    */
   linkToken?: string | undefined;
   onNavigate: (
-    screen: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
+    screen: 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
     params?: Record<string, string | number | undefined>
   ) => void;
 }
@@ -198,13 +199,13 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         >
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('Login')}>
-              <Text style={{ fontSize: typography.title, fontWeight: '700', color: themeAuthPalette.primary, marginTop: -2 }}>{'‹'}</Text>
+              <BackButtonIcon size={20} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.iconWrapper}>
             <View style={styles.iconCircle}>
-              <Icon name="mark_email_read" size={32} color={authPalette.primary} />
+              <LockIcon size={32} color={authPalette.primary} />
             </View>
           </View>
 
