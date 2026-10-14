@@ -136,7 +136,6 @@ import { CustomerMainApp } from '../customer/CustomerMainApp';
 import {
   SuperAdminDashboardScreen,
   TohfaAdminDashboardScreen,
-  FarmerAdminDashboardScreen,
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
@@ -256,6 +255,7 @@ import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/scr
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
+import { FarmerAdminDashboardScreen } from '../admin/screens/dashboard/FarmerAdminDashboardScreen';
 import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, type ToastData } from '../admin/components/TohfaToast';
 import { makeCan } from '../admin/permissions/can';

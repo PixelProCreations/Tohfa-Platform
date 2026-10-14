@@ -1,456 +1,776 @@
-/**
- * Screen 39 — Fair Price Ceiling Dashboard
- * Super Admin can view current ceiling prices across all produce categories
- * with category tabs and price change indicators since last update.
- */
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  PanResponder,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  orangeLight: '#FFF3EF',
-  red: '#D32F2F',
-  green: '#2E7D32',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+const THEME = {
+  headerBg: adminColors.brand,
+  white: adminColors.onBrand,
+
+  // Canvas & Surfaces
+  canvas: adminColors.canvas,
+  card: adminColors.card,
+  border: adminColors.border,
+
+  // Typography
+  titleRustDark: adminColors.brandDeep,
+  ink: adminColors.ink,
+  muted: adminColors.muted,
+  labelMuted: '#78716C',
+
+  // Badges & Actions
+  activeBadgeBg: '#DCFCE7',
+  activeBadgeText: '#15803D',
+  orangeBtn: adminColors.brand,
 };
 
-type Category = 'All' | 'Vegetables' | 'Fruits' | 'Grains' | 'Dairy';
+// ─── Icons ───────────────────────────────────────────────────────────────────
 
-interface PriceItem {
-  name: string;
-  category: string;
-  price: number;
-  change?: number; // +2 means ₹2 increase, -3 means ₹3 decrease
-  lastUpdate: string;
+function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
-const MOCK_PRICES: PriceItem[] = [
-  // Vegetables
-  { name: 'Carrots', category: 'Vegetables', price: 42, change: 2, lastUpdate: 'Aug 12' },
-  { name: 'Cabbage', category: 'Vegetables', price: 28, change: -3, lastUpdate: 'Aug 12' },
-  { name: 'Beetroot', category: 'Vegetables', price: 35, change: 1, lastUpdate: 'Aug 12' },
-  
-  // Fruits
-  { name: 'Apples', category: 'Fruits', price: 85, change: 5, lastUpdate: 'Aug 12' },
-  { name: 'Oranges', category: 'Fruits', price: 60, change: -2, lastUpdate: 'Aug 12' },
-  { name: 'Bananas', category: 'Fruits', price: 45, change: 0, lastUpdate: 'Aug 12' },
-  
-  // Grains
-  { name: 'Rice', category: 'Grains', price: 52, change: 3, lastUpdate: 'Aug 12' },
-  { name: 'Wheat', category: 'Grains', price: 48, change: 1, lastUpdate: 'Aug 12' },
-  { name: 'Corn', category: 'Grains', price: 38, change: -1, lastUpdate: 'Aug 12' },
-  
-  // Dairy
-  { name: 'Milk', category: 'Dairy', price: 55, change: 2, lastUpdate: 'Aug 12' },
-  { name: 'Paneer', category: 'Dairy', price: 320, change: 10, lastUpdate: 'Aug 12' },
-  { name: 'Yogurt', category: 'Dairy', price: 65, change: 0, lastUpdate: 'Aug 12' },
+// Sliders / Tune Filter Icon (Exact Material Symbols tune)
+function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Data Types ──────────────────────────────────────────────────────────────
+
+export interface FairPriceItem {
+  id: string;
+  crop: string;
+  category: 'Vegetables' | 'Fruits';
+  grade: 'Grade 1' | 'Grade 2' | 'Reject';
+  fairPriceCeiling: string;
+  frequency: string;
+  effectiveFrom: string;
+  status: 'Active';
+  purchasePrice?: string;
+  markup?: string;
+  expensesDetail?: string;
+  retailPrice?: string;
+  customerDiscount?: string;
+}
+
+export const SAMPLE_FAIR_PRICES: FairPriceItem[] = [
+  {
+    id: 'FP-001',
+    crop: 'Carrot',
+    category: 'Vegetables',
+    grade: 'Grade 1',
+    fairPriceCeiling: '₹100.00/kg',
+    frequency: 'Weekly',
+    effectiveFrom: '30 Sep 2026',
+    status: 'Active',
+    purchasePrice: '₹80.00/kg',
+    markup: '10%',
+    expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+    retailPrice: '₹98.00/kg',
+    customerDiscount: '₹5.00',
+  },
+  {
+    id: 'FP-002',
+    crop: 'Cabbage',
+    category: 'Vegetables',
+    grade: 'Grade 2',
+    fairPriceCeiling: '₹100.00/kg',
+    frequency: 'Weekly',
+    effectiveFrom: '30 Sep 2026',
+    status: 'Active',
+    purchasePrice: '₹80.00/kg',
+    markup: '10%',
+    expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+    retailPrice: '₹98.00/kg',
+    customerDiscount: '₹5.00',
+  },
+  {
+    id: 'FP-003',
+    crop: 'Tomato',
+    category: 'Vegetables',
+    grade: 'Grade 1',
+    fairPriceCeiling: '₹60.00/kg',
+    frequency: 'Weekly',
+    effectiveFrom: '29 Sep 2026',
+    status: 'Active',
+    purchasePrice: '₹48.00/kg',
+    markup: '10%',
+    expensesDetail: 'Freight ₹4.00 · Loading ₹1.50 · Unloading ₹2.50',
+    retailPrice: '₹59.00/kg',
+    customerDiscount: '₹3.00',
+  },
 ];
 
-interface FairPriceCeilingScreenProps {
+// ─── Component Props ──────────────────────────────────────────────────────────
+
+export interface FairPriceCeilingScreenProps {
   onBack: () => void;
-  onUpdatePrice: (item: PriceItem) => void;
-  onBulkUpdate: () => void;
-  onViewHistory: (item: PriceItem) => void;
+  onSelectPriceItem?: (item: FairPriceItem) => void;
+  onNavigateToBreakdown?: (item: FairPriceItem) => void;
+  onUpdatePrice?: (item: any) => void;
+  onBulkUpdate?: () => void;
+  onViewHistory?: (item: any) => void;
 }
 
 export function FairPriceCeilingScreen({
   onBack,
-  onUpdatePrice,
-  onBulkUpdate,
-  onViewHistory,
+  onSelectPriceItem,
+  onNavigateToBreakdown,
 }: FairPriceCeilingScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [scrollBarWidth, setScrollBarWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
-  const [scrollViewWidth, setScrollViewWidth] = useState(0);
-  const [currentScrollX, setCurrentScrollX] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<FairPriceItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
-  const categories: Category[] = ['All', 'Vegetables', 'Fruits', 'Grains', 'Dairy'];
+  // Filter States (Screenshot 4)
+  const [selectedCategory, setSelectedCategory] = useState<'All' | 'Fruits' | 'Vegetables'>('All');
+  const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2' | 'Reject'>('All');
+  const [selectedEffectiveDate, setSelectedEffectiveDate] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
 
-  const filteredPrices =
-    selectedCategory === 'All'
-      ? MOCK_PRICES
-      : MOCK_PRICES.filter((p) => p.category === selectedCategory);
+  // Filtered List
+  const filteredPrices = SAMPLE_FAIR_PRICES.filter((item) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      item.crop.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      item.grade.toLowerCase().includes(q);
 
-  // Pan responder for draggable scroll bar
-  const startScrollX = useRef(0);
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        startScrollX.current = currentScrollX;
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (scrollViewRef.current && scrollBarWidth > 0 && contentWidth > scrollViewWidth) {
-          // Calculate the scroll position based on gesture
-          const maxScrollDistance = contentWidth - scrollViewWidth;
-          const scrollRatio = gestureState.dx / scrollBarWidth;
-          const deltaScroll = scrollRatio * maxScrollDistance;
-          const newScrollX = Math.max(0, Math.min(maxScrollDistance, startScrollX.current + deltaScroll));
-          scrollViewRef.current.scrollTo({ x: newScrollX, animated: false });
-          setCurrentScrollX(newScrollX);
-        }
-      },
-    })
-  ).current;
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+    const matchesGrade = selectedGrade === 'All' || item.grade === selectedGrade;
+
+    return matchesSearch && matchesCategory && matchesGrade;
+  });
+
+  const handleClearFilters = () => {
+    setSelectedCategory('All');
+    setSelectedGrade('All');
+    setSelectedEffectiveDate('Today');
+  };
+
+  const handleHeaderBack = () => {
+    if (showFilters) {
+      setShowFilters(false);
+    } else if (selectedItem) {
+      setSelectedItem(null);
+    } else {
+      onBack();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
 
-      {/* Header */}
+      {/* ─── Header: Matching Screenshot 3 & 4 ─── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={handleHeaderBack}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+          >
+            <BackArrowIcon size={22} color={THEME.white} />
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Fair Price</Text>
+
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={() => {
+              if (!showFilters && selectedItem) {
+                setSelectedItem(null);
+              }
+              setShowFilters(!showFilters);
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel="Filter fair prices"
+          >
+            <FilterSlidersIcon size={20} color={THEME.white} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.headerSubtitle}>
+          View current TOHFA fair-price ceilings used for produce listing and purchase decisions
+        </Text>
       </View>
 
-      {/* Fixed Header Content */}
-      <View style={styles.fixedHeader}>
-        {/* Title */}
-        <Text style={styles.title}>Fair Price Ceilings</Text>
-        <Text style={styles.subtitle}>Current ceiling prices across all produce categories</Text>
+      {/* ─── Scroll Container ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollPad}
+        showsVerticalScrollIndicator={false}
+      >
+        {showFilters ? (
+          /* ─── Filters Section (Screenshot 4) ─── */
+          <View style={styles.filtersContainer}>
+            <View style={styles.filtersHeaderRow}>
+              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
+              <Text style={styles.filtersHeaderTitle}>Filters</Text>
+            </View>
 
-        {/* Category Tabs with Scroll Indicator */}
-        <View style={styles.tabsWrapper}>
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsContainer}
-            style={styles.tabsScroll}
-            onContentSizeChange={(width) => setContentWidth(width)}
-            onLayout={(e) => setScrollViewWidth(e.nativeEvent.layout.width)}
-            onScroll={(e) => setCurrentScrollX(e.nativeEvent.contentOffset.x)}
-            scrollEventThrottle={16}
-          >
-            {categories.map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => setSelectedCategory(cat)}
-                  style={[styles.tab, isActive && styles.tabActive]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{cat}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          
-          {/* Scroll Indicator Bar */}
-          <View style={styles.scrollIndicatorWrapper}>
-            <Text style={styles.scrollArrow}>‹</Text>
-            <View
-              style={styles.scrollBarContainer}
-              onLayout={(e) => setScrollBarWidth(e.nativeEvent.layout.width)}
-            >
-              <View style={styles.scrollBarTrack}>
-                <View style={styles.scrollBar} {...panResponder.panHandlers} />
+            {/* 1. Category */}
+            <Text style={styles.filterGroupLabel}>Category</Text>
+            <View style={styles.chipRow}>
+              {(['All', 'Fruits', 'Vegetables'] as const).map((cat) => {
+                const isActive = selectedCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setSelectedCategory(cat)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        isActive && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 2. Grade */}
+            <Text style={styles.filterGroupLabel}>Grade</Text>
+            <View style={styles.chipRow}>
+              {(['All', 'Grade 1', 'Grade 2', 'Reject'] as const).map((grade) => {
+                const isActive = selectedGrade === grade;
+                return (
+                  <TouchableOpacity
+                    key={grade}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setSelectedGrade(grade)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        isActive && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {grade}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 3. Effective Date */}
+            <Text style={styles.filterGroupLabel}>Effective Date</Text>
+            <View style={styles.chipRow}>
+              {(['Today', 'This Week', 'This Month', 'Custom'] as const).map((date) => {
+                const isActive = selectedEffectiveDate === date;
+                return (
+                  <TouchableOpacity
+                    key={date}
+                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    onPress={() => setSelectedEffectiveDate(date)}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        isActive && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {date}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Buttons: Apply & Clear */}
+            <View style={styles.filterActionRow}>
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => {
+                  setSelectedItem(null);
+                  setShowFilters(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.applyBtnText}>Apply</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.clearBtn}
+                onPress={() => {
+                  handleClearFilters();
+                  setSelectedItem(null);
+                  setShowFilters(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : selectedItem ? (
+          /* ─── Fair Price Detail View (Image 1 Request) ─── */
+          <>
+            <View style={styles.detailCard}>
+              {/* Row 1: Product & Grade */}
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Product</Text>
+                  <Text style={styles.detailValue}>{selectedItem.crop}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Grade</Text>
+                  <Text style={styles.detailValue}>{selectedItem.grade}</Text>
+                </View>
+              </View>
+
+              {/* Row 2: Purchase Price & Markup */}
+              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Purchase Price</Text>
+                  <Text style={styles.detailValue}>{selectedItem.purchasePrice || '₹80.00/kg'}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Markup</Text>
+                  <Text style={styles.detailValue}>{selectedItem.markup || '10%'}</Text>
+                </View>
+              </View>
+
+              {/* Row 3: Expenses */}
+              <View style={{ marginTop: adminSpacing.lg }}>
+                <Text style={styles.detailLabel}>Expenses</Text>
+                <Text style={[styles.detailExpensesValue, { marginTop: 4 }]}>
+                  {selectedItem.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00'}
+                </Text>
+              </View>
+
+              {/* Row 4: Retail Price & Customer Discount */}
+              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Retail Price</Text>
+                  <Text style={styles.detailValue}>{selectedItem.retailPrice || '₹98.00/kg'}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>Customer Discount</Text>
+                  <Text style={styles.detailValue}>{selectedItem.customerDiscount || '₹5.00'}</Text>
+                </View>
               </View>
             </View>
-            <Text style={styles.scrollArrow}>›</Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Scrollable Content */}
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Price List */}
-        <View style={styles.priceList}>
-          {filteredPrices.map((item, idx) => (
+            {/* Button 1: View Markup & Pricing Breakdown */}
             <TouchableOpacity
-              key={idx}
-              style={styles.priceCard}
-              onPress={() => onUpdatePrice(item)}
-              activeOpacity={0.7}
+              style={styles.viewBreakdownBtn}
+              onPress={() => onNavigateToBreakdown?.(selectedItem)}
+              activeOpacity={0.8}
             >
-              <View style={styles.priceCardLeft}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemCategory}>{item.category}</Text>
-                {item.change !== 0 ? (
-                  <Text
-                    style={[
-                      styles.changeText,
-                      item.change && item.change > 0 ? styles.changeGreen : styles.changeRed,
-                    ]}
-                  >
-                    {item.change && item.change > 0 ? '↑' : '↓'} ₹{Math.abs(item.change || 0)}{' '}
-                    since last update ({item.lastUpdate})
-                  </Text>
-                ) : (
-                  <Text style={styles.noChangeText}>No change since last update</Text>
-                )}
-              </View>
-              <View style={styles.priceCardRight}>
-                <Text style={styles.priceAmount}>₹{item.price}</Text>
-                <Text style={styles.priceUnit}>per kg</Text>
-              </View>
+              <Text style={styles.viewBreakdownBtnText}>
+                View Markup & Pricing Breakdown
+              </Text>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Action Buttons */}
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={() => onUpdatePrice(MOCK_PRICES[0]!)}
-          activeOpacity={0.8}
-        >
-          <Icon name="edit" size={16} color="#FFFFFF" />
-          <Text style={styles.primaryBtnText}>Update a Price</Text>
-        </TouchableOpacity>
+            {/* Button 2: Back to Retail Pricing */}
+            <TouchableOpacity
+              style={styles.backToRetailBtn}
+              onPress={() => setSelectedItem(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.backToRetailBtnText}>Back to Retail Pricing</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          /* ─── Search Bar & Price Cards List (Screenshot 3) ─── */
+          <>
+            <View style={styles.searchBar}>
+              <SearchIcon size={18} color="#9CA3AF" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Crop, product, crop code, category"
+                placeholderTextColor="#9CA3AF"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={onBulkUpdate} activeOpacity={0.8}>
-          <Icon name="description" size={16} color={P.darkBrown} />
-          <Text style={styles.secondaryBtnText}>Bulk Update Prices</Text>
-        </TouchableOpacity>
+            <View style={styles.listContainer}>
+              {filteredPrices.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.priceCard}
+                  onPress={() => {
+                    setSelectedItem(item);
+                    onSelectPriceItem?.(item);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cropTitle}>{item.crop}</Text>
+                    <View style={styles.activePill}>
+                      <Text style={styles.activePillText}>{item.status}</Text>
+                    </View>
+                  </View>
 
-        <TouchableOpacity
-          style={styles.secondaryBtn}
-          onPress={() => onViewHistory(MOCK_PRICES[0]!)}
-          activeOpacity={0.8}
-        >
-          <Icon name="trending_up" size={16} color={P.darkBrown} />
-          <Text style={styles.secondaryBtnText}>View Price History</Text>
-        </TouchableOpacity>
+                  <Text style={styles.cropSubline}>
+                    {item.category} · {item.grade}
+                  </Text>
+
+                  {/* 3 Detail Columns */}
+                  <View style={styles.detailColsRow}>
+                    <View style={styles.col}>
+                      <Text style={styles.colLabel}>Fair Price Ceiling</Text>
+                      <Text style={styles.colValue}>{item.fairPriceCeiling}</Text>
+                    </View>
+
+                    <View style={styles.col}>
+                      <Text style={styles.colLabel}>Frequency</Text>
+                      <Text style={styles.colValue}>{item.frequency}</Text>
+                    </View>
+
+                    <View style={styles.col}>
+                      <Text style={styles.colLabel}>Effective From</Text>
+                      <Text style={styles.colValue}>{item.effectiveFrom}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: THEME.canvas,
   },
+
+  // Header
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    backgroundColor: THEME.headerBg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    paddingRight: 6,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '800',
+    color: THEME.white,
+    letterSpacing: -0.3,
+    marginLeft: 6,
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fixedHeader: {
-    backgroundColor: P.pageBg,
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 20,
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+    fontWeight: '500',
   },
+
+  // Scroll Container
   scroll: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 40,
+  scrollPad: {
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: P.darkBrown,
-    marginBottom: 4,
-    letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: P.lightGray,
-    marginBottom: 16,
-    lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  tabsWrapper: {
-    marginBottom: 4,
-  },
-  tabsScroll: {
-    marginBottom: 8,
-    marginHorizontal: -20,
-  },
-  tabsContainer: {
-    paddingHorizontal: 20,
-    gap: 10,
-  },
-  scrollIndicatorWrapper: {
+
+  // Search Bar
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 2,
-    gap: 10,
-    marginTop: 2,
-  },
-  scrollArrow: {
-    fontSize: 16,
-    color: '#8B8480',
-    fontWeight: '400',
-    lineHeight: 20,
-  },
-  scrollBarContainer: {
-    flex: 1,
-    height: 20,
-    justifyContent: 'center',
-  },
-  scrollBarTrack: {
-    width: '100%',
-    height: 3,
-    backgroundColor: '#D1CCC7',
-    borderRadius: 1.5,
-    overflow: 'visible',
-  },
-  scrollBar: {
-    width: '100%',
-    height: 3,
-    backgroundColor: '#8B8480',
-    borderRadius: 1.5,
-  },
-  tab: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    backgroundColor: THEME.card,
+    borderRadius: adminRadius.md, // 12px
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: THEME.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: adminSpacing.md,
+    gap: 8,
   },
-  tabActive: {
-    backgroundColor: P.orange,
-    borderColor: P.orange,
-  },
-  tabText: {
+  searchInput: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: P.body,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: THEME.ink,
+    padding: 0,
   },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  priceList: {
-    gap: 12,
-    marginBottom: 20,
+
+  // List of Price Cards
+  listContainer: {
+    gap: adminSpacing.md,
   },
   priceCard: {
-    flexDirection: 'row',
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: THEME.card,
+    borderRadius: adminRadius.xl, // 16px
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: THEME.border,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  priceCardLeft: {
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  cropTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: THEME.ink,
+  },
+  activePill: {
+    backgroundColor: THEME.activeBadgeBg,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.activeBadgeText,
+  },
+  cropSubline: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  detailColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  col: {
     flex: 1,
   },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
+  colLabel: {
+    fontSize: 11,
+    color: THEME.labelMuted,
     marginBottom: 4,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    fontWeight: '500',
   },
-  itemCategory: {
-    fontSize: 12,
-    color: P.lightGray,
-    marginBottom: 6,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  changeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  changeGreen: {
-    color: P.green,
-  },
-  changeRed: {
-    color: P.red,
-  },
-  noChangeText: {
-    fontSize: 11,
-    color: P.lightGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-  },
-  priceCardRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  priceAmount: {
-    fontSize: 17,
+  colValue: {
+    fontSize: 13,
     fontWeight: '800',
-    color: 'rgb(26, 26, 26)',
-    lineHeight: 32,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: THEME.ink,
   },
-  priceUnit: {
-    fontSize: 11,
-    color: P.lightGray,
-    marginTop: -2,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+
+  // Filters Section (Screenshot 4)
+  filtersContainer: {
+    paddingTop: 4,
+    marginBottom: 20,
   },
-  primaryBtn: {
+  filtersHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 10,
-    paddingVertical: 14,
-    marginBottom: 10,
-    gap: 6,
+    gap: 8,
+    marginBottom: 14,
   },
-  primaryBtnText: {
+  filtersHeaderTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
-    lineHeight: 18,
+    fontWeight: '800',
+    color: THEME.titleRustDark,
   },
-  secondaryBtn: {
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: THEME.ink,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  chipRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 10,
-    paddingVertical: 14,
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
+  },
+  filterChip: {
+    backgroundColor: THEME.card,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: P.border,
-    gap: 6,
+    borderColor: THEME.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  secondaryBtnText: {
-    fontSize: 15,
+  filterChipActive: {
+    backgroundColor: THEME.orangeBtn,
+    borderColor: THEME.orangeBtn,
+  },
+  filterChipText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
-    lineHeight: 18,
+    color: THEME.ink,
+  },
+  filterChipTextActive: {
+    color: THEME.white,
+    fontWeight: '700',
+  },
+  filterActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  applyBtn: {
+    flex: 1,
+    backgroundColor: THEME.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1.5,
+    borderColor: THEME.orangeBtn,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.orangeBtn,
+  },
+  clearBtn: {
+    flex: 1,
+    backgroundColor: THEME.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME.ink,
+  },
+
+  // ─── Detail View Styles (Image 1 Request) ──────────────────────────────────
+  detailCard: {
+    backgroundColor: THEME.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  detailGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailCol: {
+    flex: 1,
+  },
+  detailLabel: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: THEME.labelMuted,
+  },
+  detailValue: {
+    ...adminType.title,
+    fontSize: 16,
+    color: THEME.ink,
+    marginTop: 4,
+  },
+  detailExpensesValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    color: THEME.ink,
+  },
+  viewBreakdownBtn: {
+    borderWidth: 1.5,
+    borderColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewBreakdownBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    color: THEME.titleRustDark,
+  },
+  backToRetailBtn: {
+    borderWidth: 1,
+    borderColor: THEME.border,
+    backgroundColor: THEME.canvas,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.sm,
+  },
+  backToRetailBtnText: {
+    ...adminType.caption,
+    fontSize: 14,
+    color: THEME.titleRustDark,
   },
 });

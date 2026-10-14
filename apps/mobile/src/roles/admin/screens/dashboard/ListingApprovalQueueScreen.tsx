@@ -234,13 +234,6 @@ export function ListingApprovalQueueScreen({
             </View>
           ))}
 
-          {/* Conflict of Interest Warning */}
-          <View style={styles.warningCard}>
-            <Icon name="warning" size={16} color={P.warningText} style={{ marginRight: 8 }} />
-            <Text style={styles.warningText}>
-              Farmer Admin's own listings are auto-routed here for SA/TA review — conflict-of-interest rule.
-            </Text>
-          </View>
         </View>
 
         <View style={{ height: 40 }} />
