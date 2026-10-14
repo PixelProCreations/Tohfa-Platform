@@ -228,7 +228,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-10b` The expiry job transitions untouched offers to `expired` and is idempotent when re-run.
 - `BR-10` (quality counter-offer at goods receipt, `POST /admin/goods-receipts/{id}/counter-offer`, `apps/api/src/modules/goods-receipts/goods-receipts.counter-offer.test.ts`, real PostgreSQL) The offer is written on the listing behind the receipt's purchase order (`listing_id`, `actor = ADMIN`, `actor_user_id`, `goods_receipt_id`) and returns the documented `CounterOffer` body; `expires_at` follows `system_config.counter_offer_window_hours` (changed to 6 inside the test transaction → 6 hours) and an invalid value is a 500 with nothing written; the round continues the listing's rounds and is 409 `COUNTER_LIMIT_REACHED` when all 4 are used (BR-11); a second offer while one is PENDING is 409 `CONFLICT`; a listing that is not ACCEPTED is 409 `INVALID_STATE_TRANSITION`; the receipt keeps its quantities and rejection reason; the farmer can accept, reject or counter it through the listing endpoints; a farmer reject or an expiry returns a listing that has a purchase order to ACCEPTED, while a listing without one still returns to PENDING_APPROVAL.
 
-**Note (2026-10-11, UNCONFIRMED default, owner decision pending).** "Quality counter-offer at goods receipt" is listed under Rules NOT enforced in Track 1 as a second counter-offer surface. Its endpoint existed but could never run: its INSERT named columns `counter_offers` does not have. It was repaired with the smallest behaviour that fits this rule and BR-11 instead of a new rule: the quality counter-offer is one more round of the listing negotiation (same `system_config` window, same round ceiling, one PENDING offer per listing), linked to its receipt by the nullable `counter_offers.goods_receipt_id` (db/migrations/0058). "Prior state" is read as ACCEPTED for a listing that already has a purchase order. Not decided and not built: whether the quality round should have its own budget instead of sharing the listing's 4 rounds; what an accepted, rejected or lapsed quality offer does to the goods receipt (it stays COUNTER_OFFERED, which keeps it out of payout dues), the purchase order price and the payout; and any limit on the offered price or quantity.
+**Note (2026-10-11, UNCONFIRMED default, owner decision pending).** "Quality counter-offer at goods receipt" is listed under Rules NOT enforced in Track 1 as a second counter-offer surface. Its endpoint existed but could never run: its INSERT named columns `counter_offers` does not have. It was repaired with the smallest behaviour that fits this rule and BR-11 instead of a new rule: the quality counter-offer is one more round of the listing negotiation (same `system_config` window, same round ceiling, one PENDING offer per listing), linked to its receipt by the nullable `counter_offers.goods_receipt_id` (db/migrations/0058). "Prior state" is read as ACCEPTED for a listing that already has a purchase order. Not decided and not built: whether the quality round should have its own budget instead of sharing the listing's 4 rounds; what an accepted, rejected or lapsed quality offer does to the goods receipt status (it stays COUNTER_OFFERED, which keeps it out of payout dues), the purchase order price and the payout; and any limit on the offered price or quantity. (Amended 2026-10-14: the STOCK side is now decided, see BR-106: an accepted quality offer stocks a receipt that is not stocked yet; a reject or a lapse stocks nothing.)
 
 ---
 
@@ -2505,6 +2505,51 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-105e` Edit changes only the given fields; an archived document is 409 on edit; archive is once and a repeat writes nothing.
 - `BR-105f` The list filters by type and derived status and excludes archived rows by default.
 - `BR-105g` One masked audit row per change in the same transaction (no title, no document number); a no-op writes nothing.
+
+---
+
+### BR-106 — Accepted goods are stocked as exactly one inventory batch, through the ledger, in the transaction that accepted them
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-10-14 (cost, batch code, grade, expiry, counter-offer timing; numbered 1-5 below); closes the "S-26 handles inventory batches" gap of `POST /admin/goods-receipts/{id}/quality-check`, which answered `batch: null` and stocked nothing; extends BR-10 (quality counter-offer), BR-12, BR-37 |
+| **Status** | DERIVED (decisions 1-5 owner-approved; the items marked UNCONFIRMED are implementer defaults) |
+| **Layer** | Server-side, `apps/api/src/modules/goods-receipts/` (`recordQualityCheck`, `stockAcceptedQualityCounterOffer`), called from `apps/api/src/modules/listings/counter-offers.service.ts` `respondAccept`; `inventory_batch_number_seq`, `quality_checks.expiry_on` / `storage_location` and the partial unique index `uq_inventory_batches_goods_receipt_id` (`0070_inventory_batch_on_qc_accept.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Direct path.** A quality check with outcome `ACCEPTED` or `PARTIALLY_ACCEPTED`, an accepted quantity above zero and a grade other than `REJECT` stocks the receipt in the same transaction as the check: one `inventory_batches` row (`qty_available` 0), one `RECEIPT` row in `stock_ledger` that fills it through the trigger (`ref_type = 'GOODS_RECEIPT'`, `ref_id` = the receipt, `created_by` = the admin), the BR-12 channel allocation, and one `inventory.batch.assign` audit row. The quantity is `acceptedQtyKg` only, never the rejected part. The response's `batch` is that batch; otherwise `null`. A `REJECT` grade is never sellable, so it is never stocked (UNCONFIRMED: such a check is still recorded as given).
+2. **Cost (decision 1).** `cost_per_kg` = the purchase order's agreed `price_per_kg`, as-is: the QC `priceAdjustment` is not applied and a quality counter-offer's price is not used.
+3. **Code (decision 2).** `BATCH-<year>-<6-digit sequence>` from `inventory_batch_number_seq`, the `PO-`/`GRN-` pattern; one counter across years, never reset.
+4. **Grade (decision 3).** The inspector's `assignedGrade` from the quality check, never the farmer's listed grade.
+5. **Expiry (decision 4).** The check's optional `expiryOn` (a real calendar date, else 422), copied as given; `expiry_on` is NULL when it was not given. No shelf-life default is derived. `storageLocation` is copied the same way. Both are stored on the `quality_checks` row so a deferred batch (item 6) can use them.
+6. **Counter-offer timing (decision 5).** Sending a quality counter-offer (`POST /admin/goods-receipts/{id}/counter-offer`) stocks nothing. The batch is created when the farmer ACCEPTS that offer (`POST /listings/{id}/counter-offers/{offerId}/accept`), in the accept's own transaction, with the grade, expiry and storage location of the receipt's quality check and the offer quantity capped at the receipt's gross quantity (UNCONFIRMED: an offer is not validated against what arrived, and stock may never exceed it). The audit row is `actor_type = SYSTEM` (the farmer's acceptance is audited separately as the farmer's action) and names the offer. A farmer reject or a lapse stocks nothing. A replayed `Idempotency-Key` stocks nothing again. The farmer's response stays the `Listing`; the batch is read on the receipt (`GoodsReceipt.batchId` / `batchCode`).
+7. **One batch per receipt.** A receipt is stocked at most once, whichever path gets there first: the services lock the receipt row and check, and the partial unique index is the backstop (a quality check on an already-stocked receipt is 409 `CONFLICT` and nothing is written). So an accepted quality counter-offer on a receipt its quality check already stocked adds nothing.
+8. **Atomicity.** Any failure while stocking rolls back the decision that accepted the goods (the quality check, the receipt status and their audit rows; or the farmer's acceptance) with it.
+
+**Not decided and not built (UNCONFIRMED).**
+- **Ordering conflict with decision 5.** The Sub Warehouse Admin app records the quality check FIRST and offers "Propose Counter-Offer" afterwards, on the recorded lot, for the accepted quantity. Item 1 stocks an accepted check at once, because the server cannot know a counter-offer will follow; so in that flow the batch already exists (and is sellable) while the offer is open, and item 6 only stocks a lot whose check accepted nothing (`REJECTED`) or none was stocked. Honouring decision 5 for the app's flow needs an owner choice: a QC flag or outcome that defers stocking, refusing a counter-offer on a stocked lot, or holding the batch unsellable while an offer is open.
+- A receipt counter-offered with no quality check is not stocked on accept (there is no inspector grade, and decision 3 forbids the listed grade), and `recordQualityCheck` refuses a receipt that is no longer `AWAITING_QC`, so such a lot cannot be stocked through the API.
+- The receipt keeps status `COUNTER_OFFERED` after the accept (BR-10 note); its `accepted_qty_kg`, the purchase order and the payout are unchanged.
+
+**Failure mode if unenforced.** Goods a warehouse accepted never become stock: nothing can sell, allocate, transfer or trace them, and the farmer's lot is paid against stock that the ledger says does not exist. Or the opposite: one receipt stocked twice, or a lot priced under negotiation sold before the farmer agreed.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.batch.test.ts`, real PostgreSQL; the same-transaction unit tests in `goods-receipts.test.ts`)
+- `BR-106a` An `ACCEPTED` check creates one batch: `BATCH-<current year>-<6+ digits>`, the inspector grade (not the listed one), the accepted quantity, `qty_available` filled by the ledger, the purchase-order cost with the price adjustment not applied, the given expiry and storage location; one `RECEIPT` row with the receipt reference; the response carries the batch.
+- `BR-106b` `PARTIALLY_ACCEPTED` stocks the accepted quantity only; an omitted `expiryOn` leaves `expiry_on` NULL.
+- `BR-106c` `REJECTED` stocks nothing: no batch, no ledger row, no batch audit row; `batch` is `null`.
+- `BR-106d` One `inventory.batch.assign` audit row (the admin, the warehouse, code, receipt, grade, quantity) and the BR-12 allocation summing to the batch quantity.
+- `BR-106e` A receipt that already has a batch is 409 `CONFLICT`; the check, the receipt status and the audit roll back together.
+- `BR-106f` Codes come from the sequence: a later receipt gets a higher number.
+- `BR-106g` An accepted check at grade `REJECT` stocks nothing.
+- `BR-106h` The receipt read returns `batchId` and `batchCode`.
+- `BR-106i` Sending the quality counter-offer creates no batch.
+- `BR-106j` The farmer's accept stocks one batch: QC grade, expiry and storage location, the offer quantity, the purchase-order cost (not the offer price), one `RECEIPT` row, one `SYSTEM` audit row naming the offer.
+- `BR-106k` Replaying the accept's `Idempotency-Key` stocks nothing twice.
+- `BR-106l` A farmer reject stocks nothing.
+- `BR-106m` An offer quantity above the received gross quantity is stocked at the gross quantity.
+- `BR-106n` A lot already stocked by its check is not stocked again when a later counter-offer on it is accepted.
+- `BR-106o` A counter-offer on a receipt with no quality check stocks nothing on accept.
+- `BR-106` (unit) The batch, ledger row, allocation and both audit rows run on the quality check's transaction executor; a failing batch insert fails the whole check.
 
 ---
 
