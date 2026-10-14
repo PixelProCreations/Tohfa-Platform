@@ -722,82 +722,58 @@ export function SalesScreen({
 
             <View style={styles.channelGrid}>
               {/* Card 1: Today's Sales */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={() => Alert.alert("Today's Sales", '₹24,850 total revenue across 42 transactions today.')}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <MoneyCardIcon />
                 </View>
                 <Text style={styles.cardAmount}>₹24,850</Text>
                 <Text style={styles.cardSubtitle}>Today's Sales · 42 txns</Text>
-              </TouchableOpacity>
+              </View>
 
               {/* Card 2: Direct */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <StorefrontCardIcon />
                 </View>
                 <Text style={styles.cardAmount}>₹8,450</Text>
                 <Text style={styles.cardSubtitle}>Direct · 18 sales</Text>
-              </TouchableOpacity>
+              </View>
 
               {/* Card 3: Market */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <StorefrontCardIcon />
                 </View>
                 <Text style={styles.cardAmount}>₹7,200</Text>
                 <Text style={styles.cardSubtitle}>Market · 15 sales</Text>
-              </TouchableOpacity>
+              </View>
 
               {/* Card 4: HORECA */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <CutleryCardIcon />
                 </View>
                 <Text style={styles.cardAmount}>₹4,800</Text>
                 <Text style={styles.cardSubtitle}>HORECA · 5 orders</Text>
-              </TouchableOpacity>
+              </View>
 
               {/* Card 5: B2B */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <BuildingCardIcon color={adminColors.brand} />
                 </View>
                 <Text style={styles.cardAmount}>₹4,400</Text>
                 <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
-              </TouchableOpacity>
+              </View>
 
               {/* Card 6: Needs Attention */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={() => handleOpenNeedsAttention('all')}
-                activeOpacity={0.75}
-              >
+              <View style={styles.channelCard}>
                 <View style={styles.cardIconWrap}>
                   <ExclamationCircleCardIcon color={adminColors.danger.text} />
                 </View>
                 <Text style={[styles.cardAmount, { color: adminColors.danger.text }]}>5</Text>
                 <Text style={styles.cardSubtitle}>Needs Attention</Text>
-              </TouchableOpacity>
+              </View>
             </View>
 
             {/* 2. Quick Actions */}

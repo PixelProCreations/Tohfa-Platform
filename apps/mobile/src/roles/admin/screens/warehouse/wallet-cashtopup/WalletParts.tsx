@@ -608,15 +608,18 @@ export function WarehouseTabBar({
   onTabChange,
   onBack,
   activeTab = 'More',
+  hideMoreTab = false,
 }: {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onBack?: (() => void) | undefined;
   /** Highlighted tab (the module's home tab); More by default. */
   activeTab?: WarehouseTab | undefined;
+  hideMoreTab?: boolean | undefined;
 }) {
+  const tabs = hideMoreTab ? TABS.filter((tab) => tab !== 'More') : TABS;
   return (
     <View style={styles.tabBar}>
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab === activeTab;
         return (
           <TouchableOpacity

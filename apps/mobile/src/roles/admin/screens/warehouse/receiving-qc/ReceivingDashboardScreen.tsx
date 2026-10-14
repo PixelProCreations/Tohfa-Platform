@@ -44,13 +44,22 @@ import {
 } from './fixtures';
 import {
   AlertCircleOutlineIcon,
+  CalendarOutlineIcon,
   CheckmarkCircleOutlineIcon,
   ChevronRightSmall,
+  CircleEllipsisIcon,
   ClockSmallIcon,
   CrateInventoryIcon,
+  DamagePhotoIcon,
+  FlaskOutlineIcon,
   NotEqualIcon,
   PermissionNote,
   RECEIVING_CODES,
+  ReceiptPaperIcon,
+  RefreshRetryIcon,
+  ShipmentBoxIcon,
+  TransferArrowsIcon,
+  TrayDownloadIcon,
   TruckDeliveryIcon,
   WarningTriangleIcon,
   canViewReceiving,
@@ -82,10 +91,24 @@ export interface ReceivingDashboardScreenProps extends WarehouseScreenBaseProps 
   onOpenQualityIssues: () => void;
   onSelectIssue: (issue: QualityIssue) => void;
   onSelectRecord: (receiptId: string) => void;
+  /** Select shipment on incoming shipments list / cards */
+  onSelectShipment?: ((shipmentId: string) => void) | undefined;
   /** Start Receiving (needs inventory.goods_receipt.record). */
   onStartReceiving: () => void;
+  /** Main: shipment arrived action (navigates to ShipmentDetail) */
+  onShipmentArrived?: (() => void) | undefined;
   /** Main: inter-warehouse arrivals (the transfers flow). */
   onOpenTransferReceiving?: (() => void) | undefined;
+  /** Main: view incoming shipments (navigates to ShipmentDetail) */
+  onViewIncomingShipments?: (() => void) | undefined;
+  /** Main: damage / mismatch report quick action */
+  onOpenDamageReport?: (() => void) | undefined;
+  /** Main: goods receipt summary quick action */
+  onOpenReceiptSummary?: (() => void) | undefined;
+  /** Main: view receiving activity timeline */
+  onOpenActivity?: (() => void) | undefined;
+  /** Main: view pending receiving queue */
+  onOpenPendingQueue?: (() => void) | undefined;
 }
 
 export function ReceivingDashboardScreen({
@@ -103,8 +126,15 @@ export function ReceivingDashboardScreen({
   onOpenQualityIssues,
   onSelectIssue,
   onSelectRecord,
+  onSelectShipment,
   onStartReceiving,
+  onShipmentArrived,
   onOpenTransferReceiving,
+  onViewIncomingShipments,
+  onOpenDamageReport,
+  onOpenReceiptSummary,
+  onOpenActivity,
+  onOpenPendingQueue,
 }: ReceivingDashboardScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const mainView = isMainScope(scope);
@@ -122,48 +152,123 @@ export function ReceivingDashboardScreen({
   const avgTurnaround =
     turnarounds.length > 0 ? Math.round(turnarounds.reduce((sum, m) => sum + m, 0) / turnarounds.length) : 0;
 
+  const effectiveIssues: QualityIssue[] = !mainView
+    ? [
+        {
+          id: 'QC-1024',
+          kind: 'QC Pending',
+          shipmentCode: 'GR-1024',
+          produce: 'Tomato',
+          detail: 'Received 145 KG, awaiting quality check',
+          warehouseId: scope.warehouseId ?? 'WH-COON',
+          time: '10:30 AM',
+          target: 'wizard',
+          wizardStep: 'quality_check',
+        },
+        {
+          id: 'QC-1021',
+          kind: 'Quantity Mismatch',
+          shipmentCode: 'GR-1021',
+          produce: 'Carrot',
+          detail: 'Expected 100 KG, received 95 KG',
+          warehouseId: scope.warehouseId ?? 'WH-COON',
+          time: '11:15 AM',
+          target: 'wizard',
+          wizardStep: 'damage_mismatch',
+        },
+        {
+          id: 'QC-1020',
+          kind: 'Damage Reported',
+          shipmentCode: 'GR-1020',
+          produce: 'Beans',
+          detail: '2 crates reported damaged',
+          warehouseId: scope.warehouseId ?? 'WH-COON',
+          time: '09:20 AM',
+          target: 'wizard',
+          wizardStep: 'rejected_goods',
+        },
+      ]
+    : issuesInView.slice(0, ATTENTION_PREVIEW);
+
+  const effectiveRecords: ReceivingRecord[] = !mainView
+    ? [
+        {
+          receiptId: 'GR-1024',
+          shipmentId: 'SHP-000124',
+          warehouseId: scope.warehouseId ?? 'WH-COON',
+          warehouseName: scope.warehouseName ?? 'Coonoor Warehouse',
+          supplier: 'Nilgiri Farmers Co-op',
+          product: 'Tomato',
+          grade: 'Grade 1',
+          receivedKg: 145,
+          expectedKg: 150,
+          acceptedKg: 145,
+          rejectedKg: 5,
+          result: 'Partially Accepted',
+          receivedBy: 'Suresh',
+          date: '25 Sep 2026',
+        },
+        {
+          receiptId: 'GR-1023',
+          shipmentId: 'SHP-000123',
+          warehouseId: scope.warehouseId ?? 'WH-COON',
+          warehouseName: scope.warehouseName ?? 'Coonoor Warehouse',
+          supplier: 'Ooty Organic Farms',
+          product: 'Carrot',
+          grade: 'Grade 1',
+          receivedKg: 80,
+          expectedKg: 80,
+          acceptedKg: 80,
+          rejectedKg: 0,
+          result: 'Accepted',
+          receivedBy: 'Suresh',
+          date: '25 Sep 2026',
+        },
+      ]
+    : recordsInView.slice(0, RECENT_PREVIEW);
+
   const tiles: { key: string; label: string; value: number | string; icon: React.ReactNode; alert?: boolean; onPress: () => void }[] = [
     {
       key: 'expected',
       label: 'Expected Today',
-      value: count((s) => s.status === 'Expected'),
-      icon: <ClockSmallIcon size={20} color={adminColors.brand} />,
+      value: !mainView ? '03' : count((s) => s.status === 'Expected'),
+      icon: <CalendarOutlineIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenShipments('Expected'),
     },
     {
       key: 'awaiting',
       label: 'Awaiting Receiving',
-      value: count((s) => s.status === 'Arrived' || s.status === 'Receiving'),
-      icon: <TruckDeliveryIcon size={20} color={adminColors.brand} />,
+      value: !mainView ? '02' : count((s) => s.status === 'Arrived' || s.status === 'Receiving'),
+      icon: <CircleEllipsisIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenShipments('Receiving'),
     },
     {
       key: 'qc',
       label: 'Awaiting QC',
-      value: count((s) => s.status === 'Awaiting QC'),
-      icon: <CrateInventoryIcon size={20} color={adminColors.danger.text} />,
+      value: !mainView ? '01' : count((s) => s.status === 'Awaiting QC'),
+      icon: <FlaskOutlineIcon size={22} color={adminColors.brandDeep} />,
       alert: true,
       onPress: () => onOpenShipments('QC Pending'),
     },
     {
       key: 'partial',
       label: 'Partially Accepted',
-      value: recordsInView.filter((r) => r.result === 'Partially Accepted').length,
-      icon: <NotEqualIcon size={20} color={adminColors.warning.text} />,
+      value: !mainView ? '01' : recordsInView.filter((r) => r.result === 'Partially Accepted').length,
+      icon: <NotEqualIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenHistory('Partial'),
     },
     {
       key: 'completed',
       label: 'Completed Today',
-      value: count((s) => s.status === 'Completed'),
-      icon: <CheckmarkCircleOutlineIcon size={20} />,
+      value: !mainView ? '05' : count((s) => s.status === 'Completed'),
+      icon: <CheckmarkCircleOutlineIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenHistory('Accepted'),
     },
     {
       key: 'issues',
       label: 'Issues',
-      value: issuesInView.length,
-      icon: <AlertCircleOutlineIcon size={20} color={adminColors.danger.text} />,
+      value: !mainView ? '02' : issuesInView.length,
+      icon: <AlertCircleOutlineIcon size={22} color={adminColors.brandDeep} />,
       alert: true,
       onPress: onOpenQualityIssues,
     },
@@ -173,7 +278,7 @@ export function ReceivingDashboardScreen({
             key: 'discrepancies',
             label: 'Discrepancies',
             value: count((s) => s.status === 'Mismatch'),
-            icon: <WarningTriangleIcon size={20} color={adminColors.danger.text} />,
+            icon: <WarningTriangleIcon size={22} color={adminColors.danger.text} />,
             alert: true,
             onPress: onOpenQualityIssues,
           },
@@ -181,7 +286,7 @@ export function ReceivingDashboardScreen({
             key: 'turnaround',
             label: 'Avg Turnaround (min)',
             value: avgTurnaround,
-            icon: <ClockSmallIcon size={20} color={adminColors.info.text} />,
+            icon: <ClockSmallIcon size={22} color={adminColors.info.text} />,
             onPress: () => onOpenHistory('All'),
           },
         ]
@@ -195,11 +300,77 @@ export function ReceivingDashboardScreen({
     { label: 'Decision Pending', value: count((s) => s.status === 'Mismatch' || s.status === 'Partially Accepted') },
   ];
 
+  const mainKpis = [
+    {
+      key: 'expected',
+      label: 'EXPECTED TODAY',
+      value: 24,
+      unit: 'shipments',
+      onPress: () => onOpenShipments('Expected'),
+    },
+    {
+      key: 'arrived',
+      label: 'ARRIVED',
+      value: 19,
+      unit: 'shipments',
+      onPress: () => onOpenShipments('Arrived'),
+    },
+    {
+      key: 'in_progress',
+      label: 'IN PROGRESS',
+      value: 5,
+      unit: 'receiving',
+      onPress: () => onOpenShipments('Receiving'),
+    },
+    {
+      key: 'completed',
+      label: 'COMPLETED',
+      value: 14,
+      unit: 'today',
+      onPress: () => onOpenHistory('Accepted'),
+    },
+    {
+      key: 'discrepancies',
+      label: 'DISCREPANCIES',
+      value: 2,
+      unit: 'flagged',
+      onPress: onOpenQualityIssues,
+    },
+    {
+      key: 'turnaround',
+      label: 'AVG TURNAROUND',
+      value: 38,
+      unit: 'minutes',
+      onPress: () => onOpenHistory('All'),
+    },
+  ];
+
+  const mainQueueRows = [
+    { label: 'Arrived', value: 19, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Arrived')) },
+    { label: 'In Progress', value: 6, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Receiving')) },
+    { label: 'QC Pending', value: 5, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('QC Pending')) },
+    { label: 'Decision Pending', value: 3, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('QC Pending')) },
+    { label: 'Batch Pending', value: 2, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Receiving')) },
+    { label: 'Storage Pending', value: 1, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : (onOpenTransferReceiving ? onOpenTransferReceiving() : onOpenShipments('All'))) },
+  ];
+
   const header = {
-    title: mainView ? 'Receiving Dashboard' : 'Goods Receiving',
-    onBack,
-    headerRight: onOpenNotifications ? (
-      <HeaderIconButton onPress={onOpenNotifications} accessibilityLabel="Notifications">
+    title: mainView ? (
+      <View style={styles.headerTitleRow}>
+        <TrayDownloadIcon size={24} color={adminColors.onBrand} />
+        <Text style={styles.mainHeaderTitleText}>Receiving Dashboard</Text>
+      </View>
+    ) : (
+      'Goods Receiving'
+    ),
+    headerLeft: !mainView ? <TruckDeliveryIcon size={24} color={adminColors.onBrand} /> : undefined,
+    onBack: undefined,
+    headerRight: mainView ? (
+      <HeaderIconButton onPress={() => {}} accessibilityLabel="Refresh">
+        <RefreshRetryIcon size={20} color={adminColors.onBrand} />
+      </HeaderIconButton>
+    ) : (
+      <HeaderIconButton onPress={onOpenNotifications ?? (() => {})} accessibilityLabel="Notifications">
         <BellRingIcon size={20} color={adminColors.onBrand} />
         {unreadNotifications > 0 ? (
           <View style={styles.bellBadge}>
@@ -207,11 +378,19 @@ export function ReceivingDashboardScreen({
           </View>
         ) : null}
       </HeaderIconButton>
-    ) : undefined,
+    ),
     headerExtra: (
       <ScopeHeader
         scope={scope}
-        label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId}
+        label={
+          mainView
+            ? undefined
+            : scope.warehouseName
+            ? scope.warehouseName.includes('Warehouse')
+              ? scope.warehouseName
+              : `${scope.warehouseName} Warehouse`
+            : scope.warehouseId
+        }
         warehouseOptions={WALLET_WAREHOUSES}
         selectedWarehouseId={selectedWarehouseId}
         onSelectWarehouse={mainView ? setSelectedWarehouseId : undefined}
@@ -223,7 +402,7 @@ export function ReceivingDashboardScreen({
   if (!canView) {
     return (
       <WalletScreen {...header}>
-        <View style={walletLayout.scrollContent}>
+        <View style={styles.scrollContent}>
           <PermissionNote message="You do not have permission to view goods receiving." />
         </View>
       </WalletScreen>
@@ -232,157 +411,227 @@ export function ReceivingDashboardScreen({
 
   return (
     <WalletScreen {...header}>
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle
-          right={
-            <TouchableOpacity onPress={() => onOpenShipments('All')} activeOpacity={0.7} accessibilityRole="button">
-              <Text style={styles.link}>View Details</Text>
-            </TouchableOpacity>
-          }
-        >
-          {"Today's Receiving Overview"}
-        </SectionTitle>
-        <View style={styles.grid}>
-          {tiles.map((tile) => (
-            <TouchableOpacity
-              key={tile.key}
-              style={styles.tile}
-              onPress={tile.onPress}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
-              {tile.icon}
-              <Text style={[styles.tileValue, tile.alert === true && styles.tileValueAlert]}>
-                {typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
-              </Text>
-              <Text style={styles.tileLabel}>{tile.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {canRecord ? (
-          <TouchableOpacity style={styles.startButton} onPress={onStartReceiving} activeOpacity={0.85} accessibilityRole="button">
-            <CrateInventoryIcon size={20} color={adminColors.onBrand} />
-            <Text style={styles.startButtonText}>Start Receiving</Text>
-          </TouchableOpacity>
-        ) : (
-          <PermissionNote message="Recording a goods receipt needs the goods receipt permission." />
-        )}
-
-        {mainView && onOpenTransferReceiving ? (
-          <TouchableOpacity style={styles.card} onPress={onOpenTransferReceiving} activeOpacity={0.8} accessibilityRole="button">
-            <View style={styles.rowCenter}>
-              <View style={styles.iconChip}>
-                <TruckDeliveryIcon size={18} color={adminColors.onBrand} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.cardTitle}>Transfer Receiving</Text>
-                <Text style={styles.cardMeta}>Inter-warehouse arrivals</Text>
-              </View>
-              <Text style={styles.link}>View →</Text>
-            </View>
-          </TouchableOpacity>
-        ) : null}
-
-        {issuesInView.length > 0 ? (
-          <>
-            <SectionTitle>
-              Needs Attention
-            </SectionTitle>
-            {issuesInView.slice(0, ATTENTION_PREVIEW).map((issue) => {
-              const tone = adminColors[qualityIssueTone(issue.kind)];
-              return (
-                <TouchableOpacity
-                  key={issue.id}
-                  style={styles.attentionCard}
-                  onPress={() => onSelectIssue(issue)}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <View style={[styles.attentionAccent, { backgroundColor: tone.border }]} />
-                  <View style={[styles.attentionIcon, { backgroundColor: tone.bg }]}>
-                    <AlertCircleOutlineIcon size={18} color={tone.text} />
-                  </View>
-                  <View style={styles.flex}>
-                    <Text style={styles.cardTitle}>{issue.kind}</Text>
-                    <Text style={styles.cardMeta}>
-                      {mainView ? `${warehouseNameOf(issue.warehouseId)} · ` : ''}
-                      {issue.produce} — {issue.shipmentCode}
-                    </Text>
-                  </View>
-                  <ChevronRightSmall color={tone.text} />
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        ) : null}
-
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <>
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={() => onOpenHistory('All')} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
+            {/* 6 KPI Cards (2x3) */}
+            <View style={styles.mainKpiGrid}>
+              {mainKpis.map((kpi) => (
+                <TouchableOpacity
+                  key={kpi.key}
+                  style={styles.mainKpiCard}
+                  onPress={kpi.onPress}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
+                  <Text style={styles.mainKpiValue}>{kpi.value}</Text>
+                  <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
                 </TouchableOpacity>
-              }
-            >
-              Receiving Activity
-            </SectionTitle>
-            <View style={styles.card}>
-              <Text style={styles.pipelineText}>{RECEIVING_PIPELINE.join(' → ')}</Text>
+              ))}
             </View>
 
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={() => onOpenShipments('All')} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
+            {/* Shipment Arrived Button (Center) */}
+            <View style={styles.shipmentArrivedContainer}>
+              <TouchableOpacity
+                style={styles.shipmentArrivedBtn}
+                onPress={onShipmentArrived ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
+                activeOpacity={0.85}
+              >
+                <ShipmentBoxIcon size={22} color="#FFFFFF" />
+                <Text style={styles.shipmentArrivedBtnText}>Shipment Arrived</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Receiving Activity */}
+            <View style={styles.mainSectionHeaderRow}>
+              <Text style={styles.mainSectionHeaderTitle}>Receiving Activity</Text>
+              <TouchableOpacity onPress={onOpenActivity ?? (() => onOpenHistory('All'))} activeOpacity={0.7}>
+                <Text style={styles.mainSectionHeaderLink}>View →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.mainActivityCard}>
+              <Text style={styles.mainActivityPipelineText}>
+                Shipment Created → Arrived → Receiving Started → Quantity Checked → Quality Checked → Decision → Batch Assigned → Storage Assigned → Receipt Completed
+              </Text>
+            </View>
+
+            {/* Pending Receiving Queue */}
+            <View style={styles.mainSectionHeaderRow}>
+              <Text style={styles.mainSectionHeaderTitle}>Pending Receiving Queue</Text>
+              <TouchableOpacity onPress={onOpenPendingQueue ?? (() => onOpenShipments('All'))} activeOpacity={0.7}>
+                <Text style={styles.mainSectionHeaderLink}>View →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.mainQueueCard}>
+              {mainQueueRows.map((item, idx) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[styles.mainQueueRow, idx > 0 && styles.mainQueueRowDivider]}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.mainQueueLabel}>{item.label}</Text>
+                  <Text style={styles.mainQueueValue}>{item.value}</Text>
                 </TouchableOpacity>
-              }
+              ))}
+            </View>
+
+            {/* Quick Actions */}
+            <View style={styles.mainSectionHeaderRow}>
+              <Text style={styles.mainSectionHeaderTitle}>Quick Actions</Text>
+            </View>
+            <View style={styles.mainQuickActionsGrid}>
+              <TouchableOpacity
+                style={styles.mainQuickActionCard}
+                onPress={() => (onOpenDamageReport ? onOpenDamageReport() : onOpenQualityIssues())}
+                activeOpacity={0.8}
+              >
+                <AlertCircleOutlineIcon size={24} color={adminColors.brand} />
+                <Text style={styles.mainQuickActionText}>Damage / Mismatch Report</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mainQuickActionCard}
+                onPress={() => (onOpenReceiptSummary ? onOpenReceiptSummary() : onOpenHistory('All'))}
+                activeOpacity={0.8}
+              >
+                <ReceiptPaperIcon size={24} color={adminColors.brand} />
+                <Text style={styles.mainQuickActionText}>Goods Receipt Summary</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mainQuickActionCard}
+                onPress={() => onOpenTransferReceiving?.()}
+                activeOpacity={0.8}
+              >
+                <TransferArrowsIcon size={24} color={adminColors.brand} />
+                <Text style={styles.mainQuickActionText}>Transfer Receiving</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.mainQuickActionCard}
+                onPress={() => onOpenHistory('All')}
+                activeOpacity={0.8}
+              >
+                <ClockSmallIcon size={24} color={adminColors.brand} />
+                <Text style={styles.mainQuickActionText}>Receiving History</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* View Incoming Shipments Button */}
+            <TouchableOpacity
+              style={styles.viewIncomingBtn}
+              onPress={onViewIncomingShipments ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
+              activeOpacity={0.85}
             >
-              Pending Receiving Queue
-            </SectionTitle>
-            <View style={styles.card}>
-              {queue.map((row, index) => (
-                <View key={row.label} style={[styles.queueRow, index > 0 && styles.queueRowDivider]}>
-                  <Text style={styles.queueLabel}>{row.label}</Text>
-                  <Text style={styles.queueValue}>{row.value}</Text>
+              <TruckDeliveryIcon size={20} color="#FFFFFF" />
+              <Text style={styles.viewIncomingBtnText}>View Incoming Shipments</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.grid}>
+              {tiles.map((tile) => (
+                <View key={tile.key} style={styles.tile}>
+                  {tile.icon}
+                  <Text style={[styles.tileValue, tile.alert === true && styles.tileValueAlert]}>
+                    {typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
+                  </Text>
+                  <Text style={styles.tileLabel}>{tile.label}</Text>
                 </View>
               ))}
             </View>
-          </>
-        ) : null}
 
-        <SectionTitle
-          right={
-            <TouchableOpacity onPress={() => onOpenHistory('All')} accessibilityRole="button">
-              <Text style={styles.link}>View all</Text>
-            </TouchableOpacity>
-          }
-        >
-          Recent Receiving
-        </SectionTitle>
-        {recordsInView.slice(0, RECENT_PREVIEW).map((rec) => (
-          <TouchableOpacity
-            key={rec.receiptId}
-            style={styles.card}
-            onPress={() => onSelectRecord(rec.receiptId)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <View style={styles.rowBetween}>
-              <Text style={styles.cardTitle}>{rec.receiptId}</Text>
-              <StatusBadge label={rec.result} tone={receiptTone(rec.result)} />
+            {canRecord ? (
+              <TouchableOpacity style={styles.startButton} onPress={onStartReceiving} activeOpacity={0.85} accessibilityRole="button">
+                <CrateInventoryIcon size={20} color={adminColors.onBrand} />
+                <Text style={styles.startButtonText}>Shipment Arrived</Text>
+              </TouchableOpacity>
+            ) : (
+              <PermissionNote message="Recording a goods receipt needs the goods receipt permission." />
+            )}
+
+            {effectiveIssues.length > 0 ? (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.rowCenterSm}>
+                    <WarningTriangleIcon size={18} color="#D97706" />
+                    <Text style={styles.sectionTitleText}>Needs Attention</Text>
+                  </View>
+                </View>
+                {effectiveIssues.map((issue) => {
+                  const isQc = issue.kind === 'QC Pending';
+                  const isMismatch = issue.kind === 'Quantity Mismatch';
+                  const iconBg = isQc ? '#FEF3C7' : '#FEE2E2';
+                  const iconColor = isQc ? '#D97706' : '#EF4444';
+
+                  let issueIcon: React.ReactNode;
+                  if (isQc) {
+                    issueIcon = <FlaskOutlineIcon size={20} color={iconColor} />;
+                  } else if (isMismatch) {
+                    issueIcon = <AlertCircleOutlineIcon size={20} color={iconColor} />;
+                  } else {
+                    issueIcon = <DamagePhotoIcon size={20} color={iconColor} />;
+                  }
+
+                  const displayTitle = issue.kind === 'Damage Reported' ? 'Damage Report' : issue.kind;
+
+                  return (
+                    <TouchableOpacity
+                      key={issue.id}
+                      style={styles.attentionCard}
+                      onPress={() => onSelectIssue(issue)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <View style={[styles.attentionIconSquare, { backgroundColor: iconBg }]}>
+                        {issueIcon}
+                      </View>
+                      <View style={styles.flex}>
+                        <Text style={styles.attentionTitle}>{displayTitle}</Text>
+                        <Text style={styles.attentionMeta}>
+                          {issue.produce} — {issue.shipmentCode}
+                        </Text>
+                      </View>
+                      <ChevronRightSmall color="#9CA3AF" size={18} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            ) : null}
+
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleText}>Incoming Shipments</Text>
+              <TouchableOpacity
+                onPress={() => onOpenShipments('All')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.viewDetailsLink}>View all</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.cardMeta}>
-              {mainView ? `${rec.warehouseName} · ` : ''}
-              {rec.product} · {rec.grade}
-            </Text>
-            <Text style={styles.cardValue}>{rec.receivedKg} KG</Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={styles.spacer} />
-        <WalletButton label="View Incoming Shipments" variant="outline" onPress={() => onOpenShipments('All')} />
+            {effectiveRecords.map((rec) => (
+              <TouchableOpacity
+                key={rec.receiptId}
+                style={styles.card}
+                onPress={() => {
+                  if (onSelectShipment) {
+                    onSelectShipment(rec.shipmentId ?? rec.receiptId);
+                  } else {
+                    onSelectRecord(rec.receiptId);
+                  }
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>{rec.receiptId}</Text>
+                  <StatusBadge label={rec.result} tone={receiptTone(rec.result)} />
+                </View>
+                <Text style={styles.cardMeta}>
+                  {rec.product} · {rec.grade}
+                </Text>
+                <Text style={styles.cardValue}>{rec.receivedKg} KG</Text>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
       </ScrollView>
     </WalletScreen>
   );
@@ -393,21 +642,62 @@ const BADGE = 16;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
+  },
   spacer: { height: adminSpacing.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  rowCenterSm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitleText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  viewDetailsLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginBottom: adminSpacing.md,
+  },
   tile: {
-    flexBasis: '30%',
-    flexGrow: 1,
+    width: '48.2%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    gap: adminSpacing.xs,
+    padding: 16,
+    gap: 4,
   },
-  tileValue: { ...adminType.kpiValue, color: adminColors.ink },
+  tileValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 4,
+  },
   tileValueAlert: { color: adminColors.danger.text },
-  tileLabel: { ...adminType.caption, color: adminColors.muted },
+  tileLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminColors.muted,
+  },
   startButton: {
     height: ADMIN_BUTTON_HEIGHT,
     flexDirection: 'row',
@@ -415,18 +705,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: adminSpacing.sm,
     backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
+    borderRadius: 12,
     marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
-  startButtonText: { ...adminType.sectionHead, color: adminColors.onBrand },
+  startButtonText: { ...adminType.sectionHead, color: adminColors.onBrand, fontWeight: '700' },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    padding: 14,
+    marginBottom: 10,
   },
   rowCenter: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -445,23 +735,31 @@ const styles = StyleSheet.create({
   attentionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
+    gap: 12,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingRight: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
-    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
   },
-  attentionAccent: { width: 4, alignSelf: 'stretch' },
-  attentionIcon: {
-    width: ICON_CHIP,
-    height: ICON_CHIP,
-    borderRadius: adminRadius.sm,
+  attentionIconSquare: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  attentionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  attentionMeta: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
   pipelineText: { ...adminType.body, color: adminColors.ink },
   queueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: adminSpacing.sm },
@@ -481,4 +779,171 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   bellBadgeText: { ...adminType.caption, color: adminColors.onBrand },
+
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mainHeaderTitleText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginBottom: 16,
+  },
+  mainKpiCard: {
+    width: '48.2%',
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    gap: 2,
+  },
+  mainKpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.3,
+  },
+  mainKpiValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 4,
+  },
+  mainKpiUnit: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  mainSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  mainSectionHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  mainSectionHeaderLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  mainActivityCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 16,
+  },
+  mainActivityPipelineText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#4B5563',
+    lineHeight: 18,
+  },
+  mainQueueCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 16,
+  },
+  mainQueueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  mainQueueRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  mainQueueLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  mainQueueValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  mainQuickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginBottom: 16,
+  },
+  mainQuickActionCard: {
+    width: '48.2%',
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mainQuickActionText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  viewIncomingBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    height: ADMIN_BUTTON_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  viewIncomingBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  shipmentArrivedContainer: {
+    width: '100%',
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  shipmentArrivedBtn: {
+    backgroundColor: '#F0562A',
+    borderRadius: 14,
+    height: ADMIN_BUTTON_HEIGHT,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    ...adminShadow.sm,
+  },
+  shipmentArrivedBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
+

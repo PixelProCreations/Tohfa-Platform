@@ -8,8 +8,9 @@
  * all, SUB none); 'Receive at Destination' (Track Receiving) needs
  * `transfer.inter_warehouse.receive` (all).
  */
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { formatTransferThreshold } from '../../../config/businessThresholds';
@@ -25,6 +26,7 @@ import {
   WalletScreen,
   walletLayout,
   CheckIcon,
+  BackArrowIcon,
 } from '../wallet-cashtopup/WalletParts';
 import { TRANSFERS, transferWarehouseLabel } from './fixtures';
 import {
@@ -36,6 +38,7 @@ import {
   transferRouteLabel,
 } from './TransferParts';
 import type { TransferItem, TransferStatus, WarehouseScreenBaseProps } from './types';
+import { useFlowBack } from '../useFlowBack';
 
 const STEPS = [
   'Transfer Requested',
@@ -54,6 +57,59 @@ const STEP_INDEX: Record<TransferStatus, number> = {
   Completed: 5,
 };
 
+function TrackingTrendIcon({ size = 24, color = '#D97706' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 17l6-6 4 4 8-8"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function DiscrepancyAlertIcon({ size = 24, color = '#D97706' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth="2" />
+      <Path d="M12 7.5v5.5M12 16v.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CompletedCheckIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Circle cx={10} cy={10} r={10} fill="#15803D" />
+      <Path d="M6 10.2l2.8 2.8 5.6-5.6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PendingCircleIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Circle cx={10} cy={10} r={9} stroke="#D1D5DB" strokeWidth="1.8" />
+      <Circle cx={10} cy={10} r={3} fill="#D1D5DB" />
+    </Svg>
+  );
+}
+
+const TRACKING_STEPS = [
+  { label: 'Transfer Created', completed: true },
+  { label: 'Dispatched', completed: true },
+  { label: 'In Transit', completed: true },
+  { label: 'Arrived', completed: false },
+  { label: 'Receiving', completed: false },
+  { label: 'Quantity Verification', completed: false },
+  { label: 'Quality Check', completed: false },
+  { label: 'Accept / Partial / Reject', completed: false },
+  { label: 'Completed', completed: false },
+];
+
 export interface TransferDetailScreenProps extends WarehouseScreenBaseProps {
   transferId?: string | undefined;
   transfers?: readonly TransferItem[] | undefined;
@@ -63,6 +119,8 @@ export interface TransferDetailScreenProps extends WarehouseScreenBaseProps {
   onCancelTransfer?: ((transferId: string) => void) | undefined;
   onBackToTransfers?: (() => void) | undefined;
 }
+
+type MainSubView = 'detail' | 'tracking' | 'discrepancy';
 
 export function TransferDetailScreen({
   scope,
@@ -74,7 +132,176 @@ export function TransferDetailScreen({
   onCancelTransfer,
   onBackToTransfers,
 }: TransferDetailScreenProps) {
-  const transfer = transfers.find((t) => t.id === transferId && transferInScope(scope, t));
+  const isMain = scope.warehouseId === undefined;
+  const [mainSubView, setMainSubView] = useState<MainSubView>('detail');
+
+  useFlowBack(() => {
+    if (isMain && mainSubView !== 'detail') {
+      setMainSubView('detail');
+      return true;
+    }
+    return false;
+  });
+
+  const transfer = transfers.find((t) => (t.id === transferId || t.code === transferId) && (isMain || transferInScope(scope, t))) ?? (isMain ? transfers.find((t) => t.code === 'TRF-00284' || t.id === '00284') : undefined);
+
+  if (isMain) {
+    if (mainSubView === 'tracking') {
+      return (
+        <SafeAreaView style={mainStyles.safeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <View style={mainStyles.container}>
+            {/* Header */}
+            <View style={mainStyles.header}>
+              <TouchableOpacity
+                onPress={() => setMainSubView('detail')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={mainStyles.backBtn}
+              >
+                <BackArrowIcon color="#FFFFFF" size={22} />
+              </TouchableOpacity>
+              <Text style={mainStyles.headerTitle}>Tracking</Text>
+            </View>
+
+            <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
+              <Text style={mainStyles.sectionHeading}>Transfer Tracking</Text>
+              <View style={mainStyles.trackingList}>
+                {TRACKING_STEPS.map((step) => (
+                  <View key={step.label} style={mainStyles.trackingRow}>
+                    {step.completed ? <CompletedCheckIcon size={20} /> : <PendingCircleIcon size={20} />}
+                    <Text style={[mainStyles.trackingText, step.completed ? mainStyles.trackingTextDone : mainStyles.trackingTextPending]}>
+                      {step.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (mainSubView === 'discrepancy') {
+      return (
+        <SafeAreaView style={mainStyles.safeArea}>
+          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <View style={mainStyles.container}>
+            {/* Header */}
+            <View style={mainStyles.header}>
+              <TouchableOpacity
+                onPress={() => setMainSubView('detail')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={mainStyles.backBtn}
+              >
+                <BackArrowIcon color="#FFFFFF" size={22} />
+              </TouchableOpacity>
+              <Text style={mainStyles.headerTitle}>Discrepancy</Text>
+            </View>
+
+            <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
+              <Text style={mainStyles.sectionHeading}>Transfer Discrepancy</Text>
+              <View style={mainStyles.infoCard}>
+                <View style={mainStyles.gridRow}>
+                  <View style={mainStyles.gridCol}>
+                    <Text style={mainStyles.gridLabel}>Sent</Text>
+                    <Text style={mainStyles.gridValBold}>200 KG</Text>
+                  </View>
+                  <View style={mainStyles.gridCol}>
+                    <Text style={mainStyles.gridLabel}>Received</Text>
+                    <Text style={mainStyles.gridValBold}>195 KG</Text>
+                  </View>
+                </View>
+                <View style={[mainStyles.gridRow, { marginBottom: 0, marginTop: 4 }]}>
+                  <View style={mainStyles.gridCol}>
+                    <Text style={mainStyles.gridLabel}>Variance</Text>
+                    <Text style={[mainStyles.gridValBold, { color: adminColors.danger.text }]}>-5 KG</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={mainStyles.discrepancyAlert}>
+                <Text style={mainStyles.discrepancyAlertText}>
+                  Possible mismatch types: Quantity, Quality, Grade, Product, Damage — none is auto-resolved from this screen.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    // Default: detail
+    return (
+      <SafeAreaView style={mainStyles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <View style={mainStyles.container}>
+          {/* Header */}
+          <View style={mainStyles.header}>
+            <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={mainStyles.backBtn}>
+              <BackArrowIcon color="#FFFFFF" size={22} />
+            </TouchableOpacity>
+            <Text style={mainStyles.headerTitle}>Transfer Detail</Text>
+          </View>
+
+          <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
+            <Text style={mainStyles.sectionHeading}>Transfer Detail — TRF-00284</Text>
+
+            <View style={mainStyles.infoCard}>
+              <View style={mainStyles.gridRow}>
+                <View style={mainStyles.gridCol}>
+                  <Text style={mainStyles.gridLabel}>Source</Text>
+                  <Text style={mainStyles.gridValBold}>Coonoor</Text>
+                </View>
+                <View style={mainStyles.gridCol}>
+                  <Text style={mainStyles.gridLabel}>Destination</Text>
+                  <Text style={mainStyles.gridValBold}>Ooty</Text>
+                </View>
+              </View>
+
+              <View style={mainStyles.gridRow}>
+                <View style={mainStyles.gridCol}>
+                  <Text style={mainStyles.gridLabel}>Product</Text>
+                  <Text style={mainStyles.gridValBold}>Carrot G1</Text>
+                </View>
+                <View style={mainStyles.gridCol}>
+                  <Text style={mainStyles.gridLabel}>Quantity</Text>
+                  <Text style={mainStyles.gridValBold}>200 KG</Text>
+                </View>
+              </View>
+
+              <View style={[mainStyles.gridRow, { marginBottom: 0 }]}>
+                <View style={mainStyles.gridCol}>
+                  <Text style={mainStyles.gridLabel}>Status</Text>
+                  <Text style={mainStyles.gridValBold}>In Transit</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Action cards row */}
+            <View style={mainStyles.actionCardsRow}>
+              <TouchableOpacity
+                style={mainStyles.actionCard}
+                activeOpacity={0.7}
+                onPress={() => setMainSubView('tracking')}
+              >
+                <TrackingTrendIcon size={24} color="#D97706" />
+                <Text style={mainStyles.actionCardText}>Tracking</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={mainStyles.actionCard}
+                activeOpacity={0.7}
+                onPress={() => setMainSubView('discrepancy')}
+              >
+                <DiscrepancyAlertIcon size={24} color="#D97706" />
+                <Text style={mainStyles.actionCardText}>Discrepancy</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (transfer === undefined) {
     return (
@@ -244,4 +471,140 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dangerButtonText: { ...adminType.sectionHead, color: adminColors.danger.text },
+});
+
+const mainStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F0562A',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF5EE',
+  },
+  header: {
+    backgroundColor: '#F0562A',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 12,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: '#FAF5EE',
+  },
+  scrollPad: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  sectionHeading: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#78350F',
+    marginBottom: 12,
+    letterSpacing: -0.1,
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    padding: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  gridLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  gridValBold: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#1C1917',
+  },
+  actionCardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  actionCardText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#1C1917',
+    marginTop: 8,
+  },
+  trackingList: {
+    paddingTop: 4,
+  },
+  trackingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  trackingText: {
+    fontSize: 13.5,
+  },
+  trackingTextDone: {
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  trackingTextPending: {
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  discrepancyAlert: {
+    marginTop: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  discrepancyAlertText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#EF4444',
+    lineHeight: 18,
+  },
 });

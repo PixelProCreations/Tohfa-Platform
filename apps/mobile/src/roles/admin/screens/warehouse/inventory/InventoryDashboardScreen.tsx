@@ -2,12 +2,15 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
+import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
 import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 
-export type InventoryDashboardScreenProps = InventoryScreenBaseProps;
+export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps {
+  onInitiateTransfer?: (() => void) | undefined;
+}
 
 // ─── Pixel-Perfect Custom SVGs matching Design Mockup ─────────────────────────
 
@@ -136,6 +139,126 @@ function StatStockLedgerIcon({ size = 22, color = adminColors.brandDeep }: { siz
   );
 }
 
+function InfoCircleIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ArrowUpSmallIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function Grid4SquaresIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="14" y="3" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="14" y="12" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="16" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ConsolidatedStockIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L2 7l10 5 10-5-10-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 17l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 12l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function WarehouseStockIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 21V8l8-4 8 4v13" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 10.5h.01M15 10.5h.01M9 14.5h.01M15 14.5h.01M9 18.5h.01M15 18.5h.01" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function StockVerificationQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M9 13.5l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function AllocationQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 3v9h9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 12l-6.36 6.36" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LowStockQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 7l6 6 4-4 8 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12v5h-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CreateTransferQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h14M15 5l3 3-3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 16H6M9 13l-3 3 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+const MAIN_KPIS = [
+  { key: 'total_stock', label: 'TOTAL STOCK', value: '12,840 KG', unit: 'KG', screen: 'M3S02' },
+  { key: 'available_stock', label: 'AVAILABLE STOCK', value: '9,240 KG', unit: 'KG', screen: 'M3S02' },
+  { key: 'allocated', label: 'ALLOCATED', value: '2,100 KG', unit: 'KG', screen: 'M3S07' },
+  { key: 'reserved', label: 'RESERVED', value: '1,500 KG', unit: 'KG', screen: 'M3S02' },
+  { key: 'low_stock', label: 'LOW STOCK', value: '14', unit: 'products', screen: 'M3S09' },
+  { key: 'pending_verification', label: 'PENDING VERIFICATION', value: '6', unit: 'items', screen: 'M3S10' },
+  { key: 'variance_detected', label: 'VARIANCE DETECTED', value: '2', unit: 'items', screen: 'M3S12' },
+  { key: 'pending_adjustments', label: 'PENDING ADJUSTMENTS', value: '3', unit: 'requests', screen: 'M3S14' },
+];
+
+const WAREHOUSE_OVERVIEW_ROWS = [
+  { name: 'Ooty', stock: '3,420 KG', warehouseId: 'WH-OOTY' },
+  { name: 'Coonoor', stock: '3,180 KG', warehouseId: 'WH-COON' },
+  { name: 'Kotagiri', stock: '2,940 KG', warehouseId: 'WH-KOTA' },
+  { name: 'Gudalur Market', stock: '3,300 KG', warehouseId: 'WH-GUDA' },
+];
+
+const PENDING_ACTION_ROWS = [
+  { label: 'Verification', count: 6, screen: 'M3S10' },
+  { label: 'Adjustment', count: 3, screen: 'M3S14' },
+  { label: 'Transfer Receiving', count: 2, screen: 'transfers' },
+  { label: 'Stock Exception', count: 1, screen: 'M3S12' },
+];
+
+const RECENT_MOVEMENT = {
+  id: 'MV-000928',
+  type: 'RECEIPT',
+  warehouse: 'Ooty',
+  produce: 'Tomato',
+  batch: 'BT-000128',
+  qty: '+100 KG',
+};
+
 export function InventoryDashboardScreen({
   scope,
   can,
@@ -143,18 +266,233 @@ export function InventoryDashboardScreen({
   onNavigate,
   onTabChange,
   warehouseOptions,
+  onInitiateTransfer,
 }: InventoryDashboardScreenProps) {
   // Main (no warehouseId) gets the all-warehouses selector; Sub is locked to its own.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
   // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
+  const isSub = scope.warehouseId !== undefined;
+
+  const renderStatCard = (
+    key: string,
+    icon: React.ReactNode,
+    value: string,
+    label: string,
+    screenKey: string,
+    isAlert?: boolean,
+  ) => {
+    const cardContent = (
+      <>
+        {icon}
+        <Text style={isAlert ? styles.lowStockValue : styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </>
+    );
+
+    if (isSub) {
+      return (
+        <View key={key} style={styles.statCard}>
+          {cardContent}
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={key}
+        style={styles.statCard}
+        onPress={() => onNavigate?.(screenKey)}
+        activeOpacity={0.7}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  };
+
+  const quickActions = [
+    { key: 'consolidated', label: 'Consolidated Stock', icon: <ConsolidatedStockIcon size={24} color="#F0562A" />, screen: 'M3S02' },
+    { key: 'warehouse', label: 'Warehouse Stock', icon: <WarehouseStockIcon size={24} color="#F0562A" />, screen: 'M3S02' },
+    { key: 'verification', label: 'Stock Verification', icon: <StockVerificationQuickIcon size={24} color="#F0562A" />, screen: 'M3S10' },
+    { key: 'allocation', label: 'Allocation', icon: <AllocationQuickIcon size={24} color="#F0562A" />, screen: 'M3S07' },
+    { key: 'low_stock', label: 'Low Stock', icon: <LowStockQuickIcon size={24} color="#F0562A" />, screen: 'M3S09' },
+    { key: 'transfer', label: 'Create Transfer', icon: <CreateTransferQuickIcon size={24} color="#F0562A" />, isTransfer: true },
+  ];
+
+  if (isSub) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Custom Header matching Design Mockup Exactly */}
+          <View style={styles.headerBand}>
+            <View style={styles.header}>
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerTitleGroup}>
+                  {onBack && (
+                    <TouchableOpacity
+                      style={styles.backButton}
+                      onPress={onBack}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessibilityLabel="Back to Dashboard"
+                    >
+                      <BackArrowIcon size={22} color={adminColors.onBrand} />
+                    </TouchableOpacity>
+                  )}
+                  <HeaderBoxIcon size={24} color={adminColors.onBrand} />
+                  <Text style={styles.headerTitle}>Inventory & Stock</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.notificationButton} 
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <BellIcon size={19} color={adminColors.onBrand} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.warehousePill}>
+                <LockBadgeIcon size={12} color={adminColors.onBrand} />
+                <Text style={styles.warehouseText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+              </View>
+            </View>
+          </View>
+          
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Total Available Stock - White Card with Brown Text */}
+            <View style={styles.totalStockCard}>
+              <Text style={styles.totalStockValue}>1,245 KG</Text>
+              <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
+            </View>
+
+            {/* 6 Stats Grid - 2 columns x 3 rows */}
+            <View style={styles.statsGrid}>
+              {renderStatCard('available', <StatAvailableIcon size={22} color={adminColors.brandDeep} />, '1,245 KG', 'Available', 'M3S02')}
+              {renderStatCard('reserved', <StatReservedIcon size={22} color={adminColors.brandDeep} />, '320 KG', 'Reserved', 'M3S02')}
+              {renderStatCard('allocated', <StatAllocatedIcon size={22} color={adminColors.brandDeep} />, '580 KG', 'Allocated', 'M3S07')}
+              {renderStatCard('low_stock', <StatLowStockIcon size={22} color={adminColors.brandDeep} />, '05', 'Low Stock', 'M3S09', true)}
+              {renderStatCard('verification_pending', <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />, '02', 'Verification Pending', 'M3S10')}
+              {canViewLedger || isSub ? (
+                renderStatCard('stock_ledger', <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />, 'View', 'Stock Ledger', 'M3S06')
+              ) : null}
+            </View>
+
+            {/* Top Stock Products Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Top Stock Products</Text>
+                <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
+                  <Text style={styles.viewAllLink}>View All Stock</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tomato - Available */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S03')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Tomato</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.availableBadge}>
+                    <Text style={styles.availableBadgeText}>Available</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>245 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>50 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>120 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Carrot - Available */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S03')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Carrot</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.availableBadge}>
+                    <Text style={styles.availableBadgeText}>Available</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>180 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>20 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>80 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Beans - Low Stock */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S09')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Beans</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.lowStockBadge}>
+                    <Text style={styles.lowStockBadgeText}>Low Stock</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>95 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>10 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>30 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Main Warehouse View (All Warehouses) matching Reference Exactly ──────────
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Custom Header matching Design Mockup Exactly */}
         <View style={styles.headerBand}>
           <View style={styles.header}>
-            {/* Top Row: Back Button + Box Icon + "Inventory & Stock" (Left) and Notification Bell (Right) */}
             <View style={styles.headerTopRow}>
               <View style={styles.headerTitleGroup}>
                 {onBack && (
@@ -168,214 +506,161 @@ export function InventoryDashboardScreen({
                     <BackArrowIcon size={22} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 )}
-                <HeaderBoxIcon size={24} color={adminColors.onBrand} />
-                <Text style={styles.headerTitle}>Inventory & Stock</Text>
+                <Grid4SquaresIcon size={22} color="#FFFFFF" />
+                <Text style={styles.mainHeaderTitle}>Inventory & Stock</Text>
               </View>
-              <TouchableOpacity 
-                style={styles.notificationButton} 
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <BellIcon size={19} color={adminColors.onBrand} />
-              </TouchableOpacity>
             </View>
 
-            {/* Bottom Row: locked warehouse pill (Sub) or all-warehouses selector (Main) */}
-            {scope.warehouseId !== undefined ? (
-              <View style={styles.warehousePill}>
-                <LockBadgeIcon size={12} color={adminColors.onBrand} />
-                <Text style={styles.warehouseText}>{scope.warehouseName ?? scope.warehouseId}</Text>
-              </View>
-            ) : (
-              <WarehouseSelector
-                scope={scope}
-                options={warehouseOptions}
-                selectedId={selectedWarehouseId}
-                onSelect={setSelectedWarehouseId}
-              />
-            )}
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions ?? WALLET_WAREHOUSES}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
           </View>
         </View>
-        
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Total Available Stock - White Card with Brown Text */}
-          <View style={styles.totalStockCard}>
-            <Text style={styles.totalStockValue}>1,245 KG</Text>
-            <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
+
+        <ScrollView style={styles.mainContent} contentContainerStyle={styles.mainScrollPad} showsVerticalScrollIndicator={false}>
+          {/* 8 KPI Cards Grid (2x4) */}
+          <View style={styles.mainKpiGrid}>
+            {MAIN_KPIS.map((kpi) => (
+              <TouchableOpacity
+                key={kpi.key}
+                style={styles.mainKpiCard}
+                onPress={() => onNavigate?.(kpi.screen)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
+                <Text style={styles.mainKpiValue}>{kpi.value}</Text>
+                <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          {/* 6 Stats Grid - 2 columns x 3 rows (matching reference mockup exactly) */}
-          <View style={styles.statsGrid}>
-            {/* Row 1 Left: Available */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
-              <StatAvailableIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>1,245 KG</Text>
-              <Text style={styles.statLabel}>Available</Text>
-            </TouchableOpacity>
+          {/* Info Banner */}
+          <View style={styles.mainInfoBanner}>
+            <InfoCircleIcon size={18} color="#92400E" />
+            <Text style={styles.mainInfoBannerText}>
+              Low-stock thresholds always come from backend configuration — never hard-coded percentages.
+            </Text>
+          </View>
 
-            {/* Row 1 Right: Reserved */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
-              <StatReservedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>320 KG</Text>
-              <Text style={styles.statLabel}>Reserved</Text>
-            </TouchableOpacity>
-
-            {/* Row 2 Left: Allocated */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S07')}
-              activeOpacity={0.7}
-            >
-              <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>580 KG</Text>
-              <Text style={styles.statLabel}>Allocated</Text>
-            </TouchableOpacity>
-
-            {/* Row 2 Right: Low Stock */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S09')}
-              activeOpacity={0.7}
-            >
-              <StatLowStockIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.lowStockValue}>05</Text>
-              <Text style={styles.statLabel}>Low Stock</Text>
-            </TouchableOpacity>
-
-            {/* Row 3 Left: Verification Pending */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S10')}
-              activeOpacity={0.7}
-            >
-              <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>02</Text>
-              <Text style={styles.statLabel}>Verification Pending</Text>
-            </TouchableOpacity>
-
-            {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
-            {canViewLedger ? (
+          {/* Warehouse Overview */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Warehouse Overview</Text>
+          </View>
+          <View style={styles.mainListCard}>
+            {WAREHOUSE_OVERVIEW_ROWS.map((item, idx) => (
               <TouchableOpacity
-                style={styles.statCard}
-                onPress={() => onNavigate?.('M3S06')}
+                key={item.name}
+                style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
+                onPress={() => onNavigate?.('M3S02', { warehouseId: item.warehouseId })}
                 activeOpacity={0.7}
               >
-                <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />
-                <Text style={styles.statValue}>View</Text>
-                <Text style={styles.statLabel}>Stock Ledger</Text>
+                <Text style={styles.mainListItemLabel}>{item.name}</Text>
+                <Text style={styles.mainListItemValue}>{item.stock}</Text>
               </TouchableOpacity>
-            ) : null}
+            ))}
           </View>
 
-          {/* Top Stock Products Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Top Stock Products</Text>
-              <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
-                <Text style={styles.viewAllLink}>View All Stock</Text>
-              </TouchableOpacity>
+          {/* Inventory Health */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Inventory Health</Text>
+          </View>
+          <View style={styles.healthCard}>
+            <View style={styles.healthGrid}>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Normal</Text>
+                <Text style={[styles.healthCellValue, { color: '#059669' }]}>62 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Low</Text>
+                <Text style={[styles.healthCellValue, { color: '#D97706' }]}>14 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Critical</Text>
+                <Text style={[styles.healthCellValue, { color: '#DC2626' }]}>3 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Verification Pending</Text>
+                <Text style={[styles.healthCellValue, { color: '#1F2937' }]}>6</Text>
+              </View>
             </View>
+          </View>
 
-            {/* Tomato - Available */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S03')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Tomato</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
-                </View>
-                <View style={styles.availableBadge}>
-                  <Text style={styles.availableBadgeText}>Available</Text>
-                </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>245 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>50 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>120 KG</Text>
-                </View>
-              </View>
+          {/* Recent Stock Movements */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Recent Stock Movements</Text>
+            <TouchableOpacity onPress={() => onNavigate?.('M3S06')} activeOpacity={0.7}>
+              <Text style={styles.mainSectionLink}>View →</Text>
             </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.recentMovementCard}
+            onPress={() => onNavigate?.('M3S15', { movementId: RECENT_MOVEMENT.id })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.recentMovementBadge}>
+              <ArrowUpSmallIcon size={18} color="#92400E" />
+            </View>
+            <View style={styles.recentMovementInfo}>
+              <Text style={styles.recentMovementTitle}>{`${RECENT_MOVEMENT.id} · ${RECENT_MOVEMENT.type}`}</Text>
+              <Text style={styles.recentMovementSub}>{`${RECENT_MOVEMENT.warehouse} · ${RECENT_MOVEMENT.produce} · ${RECENT_MOVEMENT.batch}`}</Text>
+            </View>
+            <Text style={styles.recentMovementQty}>{RECENT_MOVEMENT.qty}</Text>
+          </TouchableOpacity>
 
-            {/* Carrot - Available */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S03')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Carrot</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
-                </View>
-                <View style={styles.availableBadge}>
-                  <Text style={styles.availableBadgeText}>Available</Text>
-                </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>180 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>20 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>80 KG</Text>
-                </View>
-              </View>
+          {/* Pending Actions */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Pending Actions</Text>
+            <TouchableOpacity onPress={() => onNavigate?.('M3S10')} activeOpacity={0.7}>
+              <Text style={styles.mainSectionLink}>View →</Text>
             </TouchableOpacity>
+          </View>
+          <View style={styles.mainListCard}>
+            {PENDING_ACTION_ROWS.map((item, idx) => (
+              <TouchableOpacity
+                key={item.label}
+                style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
+                onPress={() => {
+                  if (item.screen === 'transfers') {
+                    if (onInitiateTransfer) onInitiateTransfer();
+                    else onNavigate?.('M3S02');
+                  } else {
+                    onNavigate?.(item.screen);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.mainListItemLabel}>{item.label}</Text>
+                <Text style={styles.mainListItemValue}>{item.count}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-            {/* Beans - Low Stock */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S09')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Beans</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
-                </View>
-                <View style={styles.lowStockBadge}>
-                  <Text style={styles.lowStockBadgeText}>Low Stock</Text>
-                </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>95 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>10 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>30 KG</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+          {/* Quick Actions */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Quick Actions</Text>
+          </View>
+          <View style={styles.mainQuickActionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.key}
+                style={styles.mainQuickActionCard}
+                onPress={() => {
+                  if (action.isTransfer) {
+                    if (onInitiateTransfer) onInitiateTransfer();
+                    else onNavigate?.('M3S09');
+                  } else if (action.screen) {
+                    onNavigate?.(action.screen);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                {action.icon}
+                <Text style={styles.mainQuickActionLabel}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </ScrollView>
 
@@ -589,5 +874,203 @@ const styles = StyleSheet.create({
   productStatValue: {
     ...adminType.sectionHead,
     color: adminColors.ink,
+  },
+  // Main Warehouse Styles (Matching Mockup Exactly)
+  mainContent: {
+    flex: 1,
+    backgroundColor: '#FAF5EE',
+  },
+  mainScrollPad: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 24,
+  },
+  mainHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  mainKpiCard: {
+    width: '48.2%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    gap: 2,
+  },
+  mainKpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.3,
+  },
+  mainKpiValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 4,
+  },
+  mainKpiUnit: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  mainInfoBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mainInfoBannerText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 18,
+  },
+  mainSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  mainSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  mainSectionLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  mainListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
+  mainListItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  mainListItemDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  mainListItemLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  mainListItemValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  healthCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+  },
+  healthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+  },
+  healthCell: {
+    width: '48%',
+  },
+  healthCellLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  healthCellValue: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  recentMovementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  recentMovementBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentMovementInfo: {
+    flex: 1,
+  },
+  recentMovementTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  recentMovementSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  recentMovementQty: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  mainQuickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginBottom: 16,
+  },
+  mainQuickActionCard: {
+    width: '48.2%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mainQuickActionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1F2937',
+    textAlign: 'center',
   },
 });

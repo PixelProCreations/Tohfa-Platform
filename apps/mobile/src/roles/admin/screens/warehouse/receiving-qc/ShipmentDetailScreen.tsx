@@ -16,7 +16,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import {
   InfoCard,
@@ -32,6 +32,16 @@ import { RECEIVING_PIPELINE, findShipment, isMainScope, pipelineStagesDone } fro
 import { PermissionNote, RECEIVING_CODES, RightArrowIcon, StepperCheckIcon, canViewReceiving } from './ReceivingParts';
 import type { IncomingShipment, WarehouseScreenBaseProps } from './types';
 
+const SUB_PROGRESS_STAGES = [
+  'Shipment Arrived',
+  'Receiving Started',
+  'Quantity Verification',
+  'Quality Check',
+  'Decision',
+  'Storage Assignment',
+  'Receipt Completion',
+] as const;
+
 export interface ShipmentDetailScreenProps extends WarehouseScreenBaseProps {
   shipmentId: string | undefined;
   shipments?: IncomingShipment[] | undefined;
@@ -41,6 +51,8 @@ export interface ShipmentDetailScreenProps extends WarehouseScreenBaseProps {
   onViewProductDetail?: ((shipment: IncomingShipment) => void) | undefined;
   /** Main: Receiving Progress "Timeline" (wizard receipt summary). */
   onViewTimeline?: ((shipment: IncomingShipment) => void) | undefined;
+  /** When a receiving progress stage is pressed. */
+  onSelectStage?: ((stage: string, shipment: IncomingShipment) => void) | undefined;
 }
 
 export function ShipmentDetailScreen({
@@ -52,6 +64,7 @@ export function ShipmentDetailScreen({
   onStartReceiving,
   onViewProductDetail,
   onViewTimeline,
+  onSelectStage,
 }: ShipmentDetailScreenProps) {
   const mainView = isMainScope(scope);
   const canView = canViewReceiving(can);
@@ -73,21 +86,31 @@ export function ShipmentDetailScreen({
   const closed = s.status === 'Completed' || s.status === 'Rejected';
   const done = pipelineStagesDone(s.status);
 
+  const headerTitle = 'Shipment Detail';
+  const headerSubtitle = `${s.code} · ${s.status} · ${s.from} → ${s.to}`;
+
+  const isMain = mainView || can(RECEIVING_CODES.batchAssign) || can('inventory.batch.create');
+  const stagesList = isMain ? RECEIVING_PIPELINE : SUB_PROGRESS_STAGES;
+
   return (
     <WalletScreen
-      title={s.code}
-      subtitle={`${s.status} · ${s.from} → ${s.to}`}
+      title={headerTitle}
+      subtitle={headerSubtitle}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={warehouseLabel} />}
       footer={
         closed ? undefined : (
           <WalletFooter>
             {canRecord ? (
-              <WalletButton
-                label={resume ? 'Receiving in Progress' : 'Start Receiving'}
-                icon={<RightArrowIcon size={18} />}
-                onPress={() => onStartReceiving(s, resume)}
-              />
+              <TouchableOpacity
+                style={styles.startReceivingBtn}
+                activeOpacity={0.85}
+                onPress={() => onStartReceiving(s, false)}
+              >
+                <View style={styles.playCircleIcon}>
+                  <RightArrowIcon size={14} color={adminColors.brand} />
+                </View>
+                <Text style={styles.startReceivingBtnText}>Start Receiving</Text>
+              </TouchableOpacity>
             ) : (
               <PermissionNote message="Recording a goods receipt needs the goods receipt permission." />
             )}
@@ -96,96 +119,71 @@ export function ShipmentDetailScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.routeCard}>
-          <View style={styles.flex}>
-            <Text style={styles.routeTag}>SOURCE</Text>
-            <Text style={styles.routeName}>{s.from}</Text>
-          </View>
-          <RightArrowIcon size={18} color={adminColors.muted} />
-          <View style={[styles.flex, styles.alignEnd]}>
-            <Text style={styles.routeTag}>DESTINATION</Text>
-            <Text style={styles.routeName}>{warehouseNameOf(s.warehouseId)}</Text>
-          </View>
-        </View>
-
         <SectionTitle>Shipment Information</SectionTitle>
         <InfoCard
           rows={[
             [
               { label: 'Shipment ID', value: s.code },
-              { label: 'Reference', value: s.reference },
+              { label: 'Type', value: s.type === 'Farmer/Admin' ? 'Farmer/Admin Consolidated' : s.type },
             ],
             [
-              { label: 'Type', value: s.type },
-              { label: 'Batch / Source', value: s.batchSource },
+              { label: 'Source', value: s.from },
+              { label: 'Destination', value: s.to },
             ],
             [
-              { label: 'Dispatch Date', value: s.dispatchDate },
-              { label: 'Expected Arrival', value: s.expectedArrival },
+              { label: 'Created Date', value: s.dispatchDate },
+              { label: 'Actual Arrival', value: s.actualArrival ?? '25 Sep · 09:15 AM' },
             ],
-            [{ label: 'Actual Arrival', value: s.actualArrival ?? 'Pending' }],
           ]}
         />
 
+        <SectionTitle>Product Summary</SectionTitle>
+        <View style={styles.productSummaryCard}>
+          <Text style={styles.productNameText}>{s.produce}</Text>
+          <Text style={styles.productDetailsText}>
+            {s.expectedQty} KG · {s.grade}{s.crates !== undefined ? ` · ${s.crates} crates` : ''}
+          </Text>
+        </View>
+
         <SectionTitle
           right={
-            mainView && canRecord && onViewProductDetail ? (
-              <TouchableOpacity onPress={() => onViewProductDetail(s)} accessibilityRole="button">
-                <Text style={styles.link}>Detail →</Text>
+            mainView && canRecord && onViewTimeline ? (
+              <TouchableOpacity onPress={() => onViewTimeline(s)} accessibilityRole="button">
+                <Text style={styles.link}>Timeline →</Text>
               </TouchableOpacity>
             ) : undefined
           }
         >
-          Items
+          Receiving Progress
         </SectionTitle>
-        <View style={styles.itemCard}>
-          <View style={styles.flex}>
-            <Text style={styles.itemTitle}>{s.produce}</Text>
-            <Text style={styles.meta}>
-              {s.grade}
-              {s.crates !== undefined ? ` · ${s.crates} crates` : ''}
-            </Text>
-          </View>
-          <Text style={styles.itemQty}>{s.expectedQty} KG</Text>
+        <View style={styles.progressCard}>
+          {stagesList.map((stage, index) => {
+            const complete = !isMain ? index === 0 : index < done;
+            return (
+              <TouchableOpacity
+                key={stage}
+                style={styles.progressRow}
+                onPress={() => onSelectStage?.(stage, s)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.stepCircle, complete && styles.stepCircleDone]}>
+                  {complete ? (
+                    <StepperCheckIcon size={11} color={adminColors.onBrand} />
+                  ) : (
+                    <View style={styles.stepDash} />
+                  )}
+                </View>
+                <Text style={complete ? styles.stepTextDone : styles.stepText}>{stage}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-
-        {mainView ? (
-          <>
-            <SectionTitle
-              right={
-                canRecord && onViewTimeline ? (
-                  <TouchableOpacity onPress={() => onViewTimeline(s)} accessibilityRole="button">
-                    <Text style={styles.link}>Timeline →</Text>
-                  </TouchableOpacity>
-                ) : undefined
-              }
-            >
-              Receiving Progress
-            </SectionTitle>
-            <View style={styles.progressCard}>
-              {RECEIVING_PIPELINE.map((stage, index) => {
-                const complete = index < done;
-                return (
-                  <View key={stage} style={styles.progressRow}>
-                    <View style={[styles.stepCircle, complete && styles.stepCircleDone]}>
-                      {complete ? <StepperCheckIcon size={11} /> : <View style={styles.stepDash} />}
-                    </View>
-                    <Text style={complete ? styles.stepTextDone : styles.stepText}>{stage}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            <InfoNote tone="brandSoft">
-              Shipment Documents only appears when the system actually supplies documents — none are invented as mandatory.
-            </InfoNote>
-          </>
-        ) : null}
       </ScrollView>
     </WalletScreen>
   );
 }
 
-const STEP = 20;
+const STEP = 22;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -204,6 +202,24 @@ const styles = StyleSheet.create({
   routeTag: { ...adminType.caption, color: adminColors.muted },
   routeName: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
   link: { ...adminType.caption, color: adminColors.brand },
+  productSummaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    gap: 4,
+  },
+  productNameText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  productDetailsText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -218,26 +234,55 @@ const styles = StyleSheet.create({
   itemQty: { ...adminType.kpiValue, color: adminColors.ink },
   progressCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    gap: adminSpacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 14,
     marginBottom: adminSpacing.md,
   },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepCircle: {
     width: STEP,
     height: STEP,
     borderRadius: adminRadius.full,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.canvas,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepCircleDone: { backgroundColor: adminColors.success.text, borderColor: adminColors.success.text },
-  stepDash: { width: 8, height: 2, backgroundColor: adminColors.muted },
-  stepText: { ...adminType.body, color: adminColors.muted },
-  stepTextDone: { ...adminType.sectionHead, color: adminColors.ink },
+  stepCircleDone: {
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
+  },
+  stepDash: { width: 6, height: 2, backgroundColor: '#9CA3AF' },
+  stepText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  stepTextDone: { fontSize: 14, fontWeight: '700', color: '#1F2937' },
+  startReceivingBtn: {
+    height: ADMIN_BUTTON_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    ...adminShadow.sm,
+  },
+  playCircleIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: adminColors.onBrand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
+  },
+  startReceivingBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
 });
+

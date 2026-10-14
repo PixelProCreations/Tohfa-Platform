@@ -89,10 +89,10 @@ export const WAREHOUSE_PROFILES: readonly WarehouseProfileInfo[] = [
 
 /** Storage locations: the Sub design's five (Coonoor) plus a few for the other warehouses. */
 export const STORAGE_LOCATIONS: readonly StorageLocationItem[] = [
-  { id: 'CS-A01', warehouseId: 'WH-COON', name: 'Cold Storage A', code: 'CS-A01', type: 'Cold Storage', status: 'Active', capacityKg: 2000, currentKg: 1650 },
+  { id: 'CS-A01', warehouseId: 'WH-COON', name: 'Cold Storage A', code: 'CS-A01', type: 'Cold Storage', status: 'Active', capacityKg: 2000, currentKg: 1850 },
   { id: 'DS-B01', warehouseId: 'WH-COON', name: 'Dry Storage B', code: 'DS-B01', type: 'Dry Storage', status: 'Active', capacityKg: 3000, currentKg: 2200 },
   { id: 'CS-C01', warehouseId: 'WH-COON', name: 'Cold Storage C', code: 'CS-C01', type: 'Cold Storage', status: 'Active', capacityKg: 1500, currentKg: 1120 },
-  { id: 'BS-D01', warehouseId: 'WH-COON', name: 'Bulk Storage D', code: 'BS-D01', type: 'Bulk Storage', status: 'Active', capacityKg: 2500, currentKg: 1850 },
+  { id: 'BS-D01', warehouseId: 'WH-COON', name: 'Bulk Storage D', code: 'BS-D01', type: 'Bulk Storage', status: 'Active', capacityKg: 2500, currentKg: 1650 },
   { id: 'SA-E01', warehouseId: 'WH-COON', name: 'Staging Area E', code: 'SA-E01', type: 'Staging Area', status: 'Inactive', capacityKg: 1000, currentKg: 600 },
   { id: 'OCS-A01', warehouseId: 'WH-OOTY', name: 'Cold Storage A', code: 'OCS-A01', type: 'Cold Storage', status: 'Active', capacityKg: 4000, currentKg: 3100 },
   { id: 'ODS-B01', warehouseId: 'WH-OOTY', name: 'Dry Storage B', code: 'ODS-B01', type: 'Dry Storage', status: 'Active', capacityKg: 6000, currentKg: 4400 },

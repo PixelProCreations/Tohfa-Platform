@@ -6,9 +6,117 @@ import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
+import { useFlowBack } from '../useFlowBack';
 
 export interface StockListScreenProps extends InventoryScreenBaseProps {
   initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
+}
+
+// ─── Main Warehouse Consolidated Stock Icons ────────────────────────────────
+
+function MainBackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function MainFilterSlidersIcon({ color = '#FFFFFF' }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 4v4M16 10v4M10 16v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function DistributionIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 20v-6M12 20V5M18 20v-9" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function AvailabilityIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 9V7.5z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path
+        d="M5 10.5v7A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-7"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M10 13h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ComparisonIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4v16M8 20h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M5 8l7-3 7 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 8l-2.5 5h5L5 8zM19 8l-2.5 5h5L19 8z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ProductDetailIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20.5c-4.5 0-7.5-3.5-7.5-8a7.5 7.5 0 0 1 15 0c0 4.5-3 8-7.5 8z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path
+        d="M12 5V2.5M10.5 3.5c1.2-1 3.2-1 4 0"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function ViewBatchesIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 18.5v-13z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M8 8.5h1.5M8 12h1.5M8 15.5h1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M12 8.5h4M12 12h4M12 15.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ViewLedgerIcon({ color = '#F0562A' }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 3.5h12a1 1 0 0 1 1 1v15.5l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-1 1V4.5a1 1 0 0 1 1-1z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 8h6M9 11.5h6M9 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 // ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
@@ -114,6 +222,8 @@ function SearchIcon({ color = adminColors.muted }: { color?: string }) {
   );
 }
 
+export type MainStockView = 'consolidated_list' | 'consolidated_detail' | 'distribution' | 'availability' | 'comparison';
+
 export function StockListScreen({
   scope,
   can,
@@ -122,6 +232,27 @@ export function StockListScreen({
   initialTab = 'Stock',
   warehouseOptions,
 }: StockListScreenProps) {
+  const isSub = scope.warehouseId !== undefined;
+  const [mainView, setMainView] = useState<MainStockView>('consolidated_list');
+
+  const handleMainBack = () => {
+    if (mainView === 'distribution' || mainView === 'availability' || mainView === 'comparison') {
+      setMainView('consolidated_detail');
+    } else if (mainView === 'consolidated_detail') {
+      setMainView('consolidated_list');
+    } else {
+      onBack?.();
+    }
+  };
+
+  useFlowBack(() => {
+    if (!isSub && mainView !== 'consolidated_list') {
+      handleMainBack();
+      return true;
+    }
+    return false;
+  });
+
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   // Main (no warehouseId) may pick a warehouse; Sub is locked to its own.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
@@ -168,6 +299,219 @@ export function StockListScreen({
       allocated: '0 KG',
     },
   ];
+
+  if (!isSub) {
+    const getHeaderTitle = () => {
+      switch (mainView) {
+        case 'consolidated_list':
+          return 'Consolidated Stock';
+        case 'consolidated_detail':
+          return 'Consolidated Detail';
+        case 'distribution':
+          return 'Distribution';
+        case 'availability':
+          return 'Availability';
+        case 'comparison':
+          return 'Comparison';
+      }
+    };
+
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.mainContainer}>
+          {/* Header */}
+          <View style={styles.mainHeader}>
+            <View style={styles.mainHeaderTopRow}>
+              <TouchableOpacity
+                style={styles.mainBackBtn}
+                onPress={handleMainBack}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <MainBackArrowIcon color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.mainHeaderTitle}>{getHeaderTitle()}</Text>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity
+                style={styles.mainFilterBtn}
+                onPress={() => onNavigate?.('M3S16')}
+                activeOpacity={0.7}
+              >
+                <MainFilterSlidersIcon color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.mainHeaderSubtitle}>Same product across all four warehouses</Text>
+          </View>
+
+          {/* Content */}
+          <ScrollView style={styles.mainScroll} contentContainerStyle={styles.mainContentContainer} showsVerticalScrollIndicator={false}>
+            {mainView === 'consolidated_list' && (
+              <View style={styles.tableCard}>
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.tableColHeader, { flex: 1.4 }]}>PRODUCT</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>OOTY/COO</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>KOT/GUD</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'right' }]}>TOTAL</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tableDataRow}
+                  activeOpacity={0.7}
+                  onPress={() => setMainView('consolidated_detail')}
+                >
+                  <Text style={[styles.tableCell, { flex: 1.4 }]}>Tomato G1</Text>
+                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>120/80</Text>
+                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>50/40</Text>
+                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>290 KG</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {mainView === 'consolidated_detail' && (
+              <View>
+                <Text style={styles.mainSectionTitle}>Consolidated Stock Detail — Tomato Grade 1</Text>
+                <View style={styles.detailGrid}>
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => setMainView('distribution')}
+                  >
+                    <DistributionIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>Distribution</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => setMainView('availability')}
+                  >
+                    <AvailabilityIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>Availability</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => setMainView('comparison')}
+                  >
+                    <ComparisonIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>Comparison</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => onNavigate?.('M3S03', { product: 'Tomato G1' })}
+                  >
+                    <ProductDetailIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>Product Detail</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => onNavigate?.('M3S04')}
+                  >
+                    <ViewBatchesIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>View Batches</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detailCard}
+                    activeOpacity={0.7}
+                    onPress={() => onNavigate?.('M3S06')}
+                  >
+                    <ViewLedgerIcon color="#F0562A" />
+                    <Text style={styles.detailCardLabel}>View Ledger</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {mainView === 'distribution' && (
+              <View>
+                <Text style={styles.mainSectionTitle}>Warehouse Distribution — Tomato Grade 1</Text>
+                <View style={styles.distListCard}>
+                  <View style={styles.distRow}>
+                    <Text style={styles.distWarehouseName}>Ooty</Text>
+                    <Text style={styles.distWarehouseQty}>120 KG</Text>
+                  </View>
+                  <View style={styles.distRow}>
+                    <Text style={styles.distWarehouseName}>Coonoor</Text>
+                    <Text style={styles.distWarehouseQty}>80 KG</Text>
+                  </View>
+                  <View style={styles.distRow}>
+                    <Text style={styles.distWarehouseName}>Kotagiri</Text>
+                    <Text style={styles.distWarehouseQty}>50 KG</Text>
+                  </View>
+                  <View style={styles.distRow}>
+                    <Text style={styles.distWarehouseName}>Gudalur Market</Text>
+                    <Text style={styles.distWarehouseQty}>40 KG</Text>
+                  </View>
+                  <View style={[styles.distRow, styles.distRowLast]}>
+                    <Text style={styles.distTotalLabel}>Total</Text>
+                    <Text style={styles.distTotalQty}>290 KG</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {mainView === 'availability' && (
+              <View>
+                <Text style={styles.mainSectionTitle}>Stock Availability Detail</Text>
+                <View style={styles.availCard}>
+                  <View style={styles.availRow}>
+                    <View style={styles.availCol}>
+                      <Text style={styles.availLabel}>Total</Text>
+                      <Text style={styles.availValue}>290 KG</Text>
+                    </View>
+                    <View style={styles.availCol}>
+                      <Text style={styles.availLabel}>Available</Text>
+                      <Text style={styles.availValue}>210 KG</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.availRow}>
+                    <View style={styles.availCol}>
+                      <Text style={styles.availLabel}>Reserved</Text>
+                      <Text style={styles.availValue}>40 KG</Text>
+                    </View>
+                    <View style={styles.availCol}>
+                      <Text style={styles.availLabel}>Allocated</Text>
+                      <Text style={styles.availValue}>30 KG</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.availRow, { marginBottom: 0 }]}>
+                    <View style={styles.availCol}>
+                      <Text style={styles.availLabel}>Consumed</Text>
+                      <Text style={styles.availValue}>10 KG</Text>
+                    </View>
+                    <View style={styles.availCol} />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {mainView === 'comparison' && (
+              <View>
+                <Text style={styles.mainSectionTitle}>Warehouse Comparison — Tomato Grade 1</Text>
+                <View style={styles.compListCard}>
+                  <View style={styles.compRow}>
+                    <Text style={styles.compWarehouseName}>Ooty</Text>
+                    <Text style={styles.compWarehouseStat}>120 KG · 82% cap</Text>
+                  </View>
+                  <View style={[styles.compRow, styles.compRowLast]}>
+                    <Text style={styles.compWarehouseName}>Coonoor</Text>
+                    <Text style={styles.compWarehouseStat}>80 KG · 68% cap</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Rows without a product-detail fixture (detailProduct) are not tappable, so
   // M3S03 never opens on a product it would have to render as someone else's.
@@ -467,6 +811,234 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
     color: adminColors.brand,
     marginTop: -1,
+  },
+  // Main Warehouse Consolidated Stock styles
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#FAF5EE',
+  },
+  mainHeader: {
+    backgroundColor: '#F0562A',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  mainHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  mainBackBtn: {
+    marginRight: 10,
+    padding: 2,
+  },
+  mainHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  mainFilterBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainHeaderSubtitle: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    opacity: 0.92,
+    fontWeight: '500',
+    paddingLeft: 2,
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  mainContentContainer: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  mainSectionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#78350F',
+    marginBottom: 16,
+  },
+  tableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F5EFE6',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  tableColHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78716C',
+    letterSpacing: 0.5,
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  tableCell: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  detailCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    paddingVertical: 22,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  detailCardLabel: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C1917',
+    textAlign: 'center',
+  },
+  distListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  distRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
+  },
+  distRowLast: {
+    borderBottomWidth: 0,
+  },
+  distWarehouseName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  distWarehouseQty: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  distTotalLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  distTotalQty: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  availCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  availRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  availCol: {
+    flex: 1,
+  },
+  availLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#78716C',
+    marginBottom: 4,
+  },
+  availValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1C1917',
+  },
+  compListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  compRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
+  },
+  compRowLast: {
+    borderBottomWidth: 0,
+  },
+  compWarehouseName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  compWarehouseStat: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1C1917',
   },
 });
 

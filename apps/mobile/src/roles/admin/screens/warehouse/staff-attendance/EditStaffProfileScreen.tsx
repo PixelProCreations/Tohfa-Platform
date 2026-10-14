@@ -186,11 +186,13 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
 
         {isDriver ? field('Vehicle Details', vehicleDetails, setVehicleDetails, true, 'e.g. TN 43 AB 1234') : null}
 
-        <InfoNote>
-          {isDriver
-            ? "Vehicle/license/document fields are shown here as illustrative — they're confirmed against the final driver data model before being made mandatory."
-            : "Role and permission fields are shown here as illustrative — they're confirmed against the final staff data model before being made mandatory."}
-        </InfoNote>
+        {isMain ? (
+          <InfoNote>
+            {isDriver
+              ? "Vehicle/license/document fields are shown here as illustrative — they're confirmed against the final driver data model before being made mandatory."
+              : "Role and permission fields are shown here as illustrative — they're confirmed against the final staff data model before being made mandatory."}
+          </InfoNote>
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );

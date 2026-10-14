@@ -37,7 +37,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { capacityAlertPercentOf, locationsInScope, STORAGE_LOCATIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { CheckCircleIcon, formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
+import { formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
 import type { CapacityFilter, CapacityState, StorageLocationItem, WarehouseScreenBaseProps } from './types';
 
 const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Occupied', 'Unavailable'];
@@ -269,12 +269,12 @@ export function WarehouseCapacityScreen({
 
             {canManageCapacity ? (
               <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
-            ) : (
+            ) : allWarehouses ? (
               <InfoNote tone="warning" icon={<LockIcon size={16} color={adminColors.warning.text} />}>
                 View only. Locations are scoped to your assigned warehouse — No capacity editing, storage configuration, or
                 quantity allocation here.
               </InfoNote>
-            )}
+            ) : null}
             {onViewHistory ? (
               <View style={styles.historyButton}>
                 <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />

@@ -2428,204 +2428,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           )
         )}
 
-        {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
+        {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && whSubView === 'overview' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollPad}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.headerBanner}>
-              {/* Header Title Row */}
-              <View style={styles.headerTopRow}>
-                <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                  <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
-                </View>
-              </View>
-
-              {/* Warehouse Dropdown Filter Pill */}
-              <WarehouseSelector
-                scope={MAIN_WAREHOUSE_SCOPE}
-                options={HOME_WAREHOUSE_OPTIONS}
-                selectedId={selectedWHId}
-                onSelect={handleSelectWarehouseScope}
-              />
-            </View>
-
-            {/* Content Container */}
-            <View style={styles.contentBody}>
-              {/* 1. KPI 2x2 Grid */}
-              <View style={styles.kpiGrid}>
-                {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Incoming Today */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Allocated */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Low Stock SKUs */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
-                  <Text style={styles.kpiSub}>SKUs</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 2. Warehouse Summary */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Ooty</Text>
-                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Coonoor Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Coonoor</Text>
-                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 3. Inventory Activity */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Inventory Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.summaryListCard}
-                onPress={() => navigateWh('stock_ledger')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.inventoryActivityText}>
-                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
-                </Text>
-              </TouchableOpacity>
-
-              {/* 4. Pending Actions */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Pending Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <Text style={styles.summaryItemValue}>2</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
-              <View style={styles.quickActionsDualRow}>
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('verify_stock')}
-                  activeOpacity={0.8}
-                >
-                  <StockVerificationIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.8}
-                >
-                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ height: 20 }} />
-            </View>
-          </ScrollView>
+          <InventoryFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="M3S01"
+            warehouseOptions={HOME_WAREHOUSE_OPTIONS}
+            onBack={() => {
+              setActiveTab('Home');
+              setWhSubView('overview');
+            }}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
+          />
         )}
 
         {/* ─── More Tab ─── */}
@@ -3155,8 +2975,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'transfer_tracking' ||
             whSubView === 'quick_actions_overview' ||
             whSubView === 'sales')) ||
-        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff'))) ||
-        (activeTab === 'Inventory')) && (
+        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff')))) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}
             <TouchableOpacity
@@ -3206,8 +3025,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <InventoryTabNavIcon active={activeTab === 'Inventory'} />
-              <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+              <InventoryTabNavIcon active={false} />
+              <Text style={styles.tabLabel}>Inventory</Text>
             </TouchableOpacity>
 
             {/* More */}

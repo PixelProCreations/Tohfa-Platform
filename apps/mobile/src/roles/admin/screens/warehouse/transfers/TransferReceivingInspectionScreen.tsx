@@ -17,6 +17,7 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
+  isAllWarehouses,
   PermissionNote,
   ScopeHeader,
   SectionTitle,
@@ -117,9 +118,11 @@ export function TransferReceivingInspectionScreen({
             as a quantity mismatch.
           </InfoNote>
         ) : null}
-        <InfoNote tone="brandSoft">
-          Inter-warehouse receipts update the destination stock ledger and close the transit manifest.
-        </InfoNote>
+        {isAllWarehouses(scope) ? (
+          <InfoNote tone="brandSoft">
+            Inter-warehouse receipts update the destination stock ledger and close the transit manifest.
+          </InfoNote>
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );

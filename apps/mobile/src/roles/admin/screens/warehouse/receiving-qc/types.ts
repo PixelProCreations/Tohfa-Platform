@@ -249,11 +249,18 @@ export type ReceivingRoute =
   | 'HistoryDetail'
   | 'QualityIssues'
   | 'Wizard'
-  | 'StorageAssignment';
+  | 'StorageAssignment'
+  | 'Batches'
+  | 'ActivityTimeline'
+  | 'PendingQueue'
+  | 'TransferReceiving'
+  | 'TransferDetail';
 
 export interface ReceivingRouteParams {
   shipmentId?: string | undefined;
   receiptId?: string | undefined;
+  transferId?: string | undefined;
+  batchId?: string | undefined;
   statusTab?: ShipmentFilterTab | undefined;
   historyFilter?: HistoryFilter | undefined;
   wizardStep?: ReceivingWizardStep | undefined;

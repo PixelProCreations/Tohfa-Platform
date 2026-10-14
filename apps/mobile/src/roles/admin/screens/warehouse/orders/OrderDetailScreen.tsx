@@ -14,7 +14,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { OrderScreenBaseProps } from './types';
 
 export interface OrderDetailScreenProps extends OrderScreenBaseProps {
@@ -337,23 +337,21 @@ export function OrderDetailScreen({
             <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
           </TouchableOpacity>
 
-          <View style={styles.secondaryBtnRow}>
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S16', { orderId })}
-            >
-              <Text style={styles.outlineActionBtnText}>Report Issue</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.outlineActionBtn}
+            activeOpacity={0.8}
+            onPress={() => onNavigate?.('M5S16', { orderId })}
+          >
+            <Text style={styles.outlineActionBtnText}>Report Issue</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S17', { orderId })}
-            >
-              <Text style={styles.outlineActionBtnText}>Order Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.cancelOrderBtn}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('M5S17', { orderId })}
+          >
+            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
+          </TouchableOpacity>
         </View>
 
         <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
@@ -506,14 +504,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  secondaryBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
   outlineActionBtn: {
-    flex: 1,
-    height: 48,
+    height: SECONDARY_BUTTON_HEIGHT,
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
@@ -525,6 +517,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#8A421D',
+  },
+  cancelOrderBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+  },
+  cancelOrderBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D9381E',
   },
   menuOverlay: { flex: 1, justifyContent: 'flex-end' },
   menuSheet: {

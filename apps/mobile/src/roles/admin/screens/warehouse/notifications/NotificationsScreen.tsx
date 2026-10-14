@@ -43,6 +43,8 @@ export interface NotificationsScreenProps extends WarehouseScreenBaseProps {
   initialFilter?: NotificationFilter | undefined;
   /** Profile circle in the header; non-interactive (cosmetic) without it. */
   onOpenProfile?: (() => void) | undefined;
+  /** Gear icon / settings entry. */
+  onOpenSettings?: (() => void) | undefined;
 }
 
 export function NotificationsScreen({

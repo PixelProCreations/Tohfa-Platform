@@ -21,7 +21,6 @@ import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures
 import {
   ChipGroup,
   InfoNote,
-  LockIcon,
   ScopeHeader,
   SearchBar,
   SectionTitle,
@@ -138,16 +137,6 @@ export function ReceivingSearchFiltersScreen({
         />
 
         <View style={styles.spacer} />
-        {mainView ? (
-          <InfoNote tone="brandSoft">
-            Save Filter is not built here — added only if the product requirement eventually supports saved filters.
-          </InfoNote>
-        ) : (
-          <InfoNote tone="brandSoft" icon={<LockIcon size={14} color={adminColors.brandDeep} />}>
-            {`No warehouse selector — results always scoped to ${scope.warehouseName ?? scope.warehouseId ?? ''}.`}
-          </InfoNote>
-        )}
-        <Text style={styles.hint}>The date facet is applied by the server once shipments are served from the API.</Text>
       </ScrollView>
     </WalletScreen>
   );

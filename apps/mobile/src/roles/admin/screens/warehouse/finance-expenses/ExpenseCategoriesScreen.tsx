@@ -25,6 +25,7 @@ import {
   InfoNote,
   isAllWarehouses,
   SearchBar,
+  WarehouseTabBar,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
@@ -38,7 +39,12 @@ export interface ExpenseCategoriesScreenProps extends WarehouseScreenBaseProps {
   categories?: readonly ExpenseCategoryItem[] | undefined;
 }
 
-export function ExpenseCategoriesScreen({ scope, onBack, categories = EXPENSE_CATEGORIES }: ExpenseCategoriesScreenProps) {
+export function ExpenseCategoriesScreen({
+  scope,
+  onBack,
+  onTabChange,
+  categories = EXPENSE_CATEGORIES,
+}: ExpenseCategoriesScreenProps) {
   const [filter, setFilter] = useState<StatusFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -48,7 +54,11 @@ export function ExpenseCategoriesScreen({ scope, onBack, categories = EXPENSE_CA
   );
 
   return (
-    <WalletScreen title="Expense Categories" onBack={onBack}>
+    <WalletScreen
+      title="Expense Categories"
+      onBack={onBack}
+      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab={undefined} hideMoreTab /> : undefined}
+    >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search categories..." />
         <View style={styles.filters}>
@@ -74,15 +84,17 @@ export function ExpenseCategoriesScreen({ scope, onBack, categories = EXPENSE_CA
         )}
 
         {isAllWarehouses(scope) ? (
-          <InfoNote tone="brandSoft">
-            Expense Entry (S04) and Finance Reports (S10) both use exactly this category list; nothing is maintained
-            separately.
-          </InfoNote>
+          <>
+            <InfoNote tone="brandSoft">
+              Expense Entry (S04) and Finance Reports (S10) both use exactly this category list; nothing is maintained
+              separately.
+            </InfoNote>
+            <InfoNote tone="warning">
+              Adding, editing, activating or deactivating categories is configured by Top Admin / System Admin; no
+              permission for it is granted here.
+            </InfoNote>
+          </>
         ) : null}
-        <InfoNote tone="warning">
-          Adding, editing, activating or deactivating categories is configured by Top Admin / System Admin; no
-          permission for it is granted here.
-        </InfoNote>
       </ScrollView>
     </WalletScreen>
   );

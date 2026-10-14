@@ -17,7 +17,7 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
-import { InfoCard, InfoNote, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { InfoCard, InfoNote, isAllWarehouses, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { ATTENDANCE_DATE_TEXT, DEFAULT_ATTENDANCE_RECORD } from './fixtures';
 import { ProhibitedIcon, RingTimeline } from './StaffParts';
 import type { AttendanceRecord, WarehouseScreenBaseProps } from './types';
@@ -27,7 +27,7 @@ export interface AttendanceDetailScreenProps extends WarehouseScreenBaseProps {
   record?: AttendanceRecord | undefined;
 }
 
-export function AttendanceDetailScreen({ onBack, record }: AttendanceDetailScreenProps) {
+export function AttendanceDetailScreen({ scope, onBack, record }: AttendanceDetailScreenProps) {
   const rec = record ?? DEFAULT_ATTENDANCE_RECORD;
   const dateText = rec.dateText ?? ATTENDANCE_DATE_TEXT;
 
@@ -67,9 +67,11 @@ export function AttendanceDetailScreen({ onBack, record }: AttendanceDetailScree
           ]}
         />
 
-        <InfoNote tone="danger" icon={<ProhibitedIcon />}>
-          View-only — no Mark Attendance, Edit Attendance, Approve Leave, or manual check-in/out here.
-        </InfoNote>
+        {isAllWarehouses(scope) ? (
+          <InfoNote tone="danger" icon={<ProhibitedIcon />}>
+            View-only — no Mark Attendance, Edit Attendance, Approve Leave, or manual check-in/out here.
+          </InfoNote>
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );

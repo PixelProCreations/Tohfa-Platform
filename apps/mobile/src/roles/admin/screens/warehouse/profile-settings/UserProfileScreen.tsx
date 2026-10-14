@@ -174,9 +174,11 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
               autoCapitalize="none"
             />
           </Card>
-          <InfoNote tone="brandSoft">
-            Mobile Number, Admin ID, Role and Warehouse Scope are read-only here.
-          </InfoNote>
+          {isMain ? (
+            <InfoNote tone="brandSoft">
+              Mobile Number, Admin ID, Role and Warehouse Scope are read-only here.
+            </InfoNote>
+          ) : null}
         </ScrollView>
         <ConfirmDialog
           visible={confirmSave}

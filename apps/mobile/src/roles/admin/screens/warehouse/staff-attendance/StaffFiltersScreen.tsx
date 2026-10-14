@@ -61,15 +61,7 @@ function FlagIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-function LockIcon({ size = 18, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="12" cy="16" r="1.2" fill={color} />
-    </Svg>
-  );
-}
+
 
 function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -105,7 +97,7 @@ const STATUS_OPTIONS = ['All', 'Active', 'Inactive'] as const;
 
 export function StaffFiltersScreen({
   initialFilters,
-  warehouseName = 'Coonoor Warehouse',
+  warehouseName: _warehouseName = 'Coonoor Warehouse',
   onBack,
   onApply,
 }: StaffFiltersScreenProps) {
@@ -240,13 +232,7 @@ export function StaffFiltersScreen({
           })}
         </View>
 
-        {/* Scoped Warehouse Lock Note (Orange) */}
-        <View style={styles.orangeNote}>
-          <LockIcon size={18} color="#9A3412" />
-          <Text style={styles.orangeNoteText}>
-            No warehouse selector — results always scoped to {warehouseName}.
-          </Text>
-        </View>
+
       </ScrollView>
 
       {/* Footer Apply Button */}
@@ -355,24 +341,7 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#F0562A',
   },
-  orangeNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FDBA74',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 24,
-  },
-  orangeNoteText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#9A3412',
-    lineHeight: 18,
-  },
+
   footer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,

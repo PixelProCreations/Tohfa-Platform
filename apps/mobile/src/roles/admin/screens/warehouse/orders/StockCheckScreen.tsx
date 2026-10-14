@@ -16,6 +16,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Sta
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
 import type { OrderScreenBaseProps, StockCheckStep, WarehouseNavigate } from './types';
 
 export interface StockCheckScreenProps extends OrderScreenBaseProps {
@@ -166,9 +167,10 @@ interface CheckStepViewProps {
   onBack: () => void;
   onReviewShortage: () => void;
   onNavigate?: WarehouseNavigate | undefined;
+  isMain?: boolean | undefined;
 }
 
-function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNavigate }: CheckStepViewProps) {
+function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNavigate, isMain }: CheckStepViewProps) {
   const stockItems = mockStockItems(orderId);
   const hasShortage = stockItems.some((it) => it.status === 'Insufficient');
 
@@ -220,17 +222,19 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
             );
           })}
 
-          {hasShortage ? (
-            <View style={styles.statusBox}>
-              <WarningTriangleIcon />
-              <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
-            </View>
-          ) : (
-            <View style={[styles.statusBox, styles.statusBoxSuccess]}>
-              <CheckCircleIcon />
-              <Text style={[styles.statusText, styles.statusTextSuccess]}>All items in stock — ready for packing</Text>
-            </View>
-          )}
+          {isMain ? (
+            hasShortage ? (
+              <View style={styles.statusBox}>
+                <WarningTriangleIcon />
+                <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBox, styles.statusBoxSuccess]}>
+                <CheckCircleIcon />
+                <Text style={[styles.statusText, styles.statusTextSuccess]}>All items in stock — ready for packing</Text>
+              </View>
+            )
+          ) : null}
 
           <View style={styles.scrollSpacer} />
         </ScrollView>
@@ -352,6 +356,7 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function StockCheckScreen({
+  scope,
   can,
   onBack,
   onNavigate,
@@ -372,6 +377,7 @@ export function StockCheckScreen({
       onBack={onBack}
       onReviewShortage={() => setStep('shortage')}
       onNavigate={onNavigate}
+      isMain={isAllWarehouses(scope)}
     />
   );
 }

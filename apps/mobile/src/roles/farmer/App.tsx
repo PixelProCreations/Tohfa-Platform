@@ -1030,6 +1030,26 @@ export default function App(): React.JSX.Element {
     };
   }, [params]);
 
+const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
+  'SubWarehouseProfile',
+  'WarehouseWalletOperations',
+  'SubWarehouseReturnsIssues',
+  'SubWarehouseReturnHistory',
+  'SubWarehouseCustomerList',
+  'SubWarehouseBillingHub',
+  'SubWarehouseStaff',
+  'SubWarehouseTodayAttendance',
+  'SubWarehouseFinance',
+  'SubWarehouseSettings',
+  'WarehouseMore',
+  'SubWarehouseReports',
+  'SubWarehouseWarehouseOperations',
+  'SubWarehouseStorageInfo',
+  'SubWarehouseCustomerOrders',
+  'SubWarehouseSales',
+  'SubWarehouseContactSettings',
+];
+
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {
       if (nextScreen === screen) {
@@ -1042,7 +1062,13 @@ export default function App(): React.JSX.Element {
       if (resetsHistoryOn(nextScreen)) {
         setHistory([]);
       } else {
-        setHistory((prev) => [...prev, { screen, params, tab: currentTab }]);
+        const historyParams =
+          screen === 'SubWarehouseAdminDashboard' &&
+          !params['initialTab'] &&
+          SUB_WAREHOUSE_MORE_SCREENS.includes(nextScreen)
+            ? { ...params, initialTab: 'More' }
+            : params;
+        setHistory((prev) => [...prev, { screen, params: historyParams, tab: currentTab }]);
       }
 
       setParams(nextParams);
@@ -1050,6 +1076,10 @@ export default function App(): React.JSX.Element {
     },
     [screen, params, currentTab],
   );
+
+  const handleSubWHTabChange = useCallback((tab: string) => {
+    setParams((prev) => (prev?.['initialTab'] === tab ? prev : { ...prev, initialTab: tab }));
+  }, []);
 
   /**
    * Sub warehouse modules outside storage-ops that own an activity record or a
@@ -1276,6 +1306,7 @@ export default function App(): React.JSX.Element {
               initialShowOrders={!!params['showOrders']}
               initialOrdersScreen={params['ordersInitialScreen'] as any}
               initialOrdersParams={params['ordersInitialParams'] as any}
+              onTabChange={handleSubWHTabChange}
             />
           ) : (
             <SuperAdminDashboardScreen
@@ -1324,6 +1355,7 @@ export default function App(): React.JSX.Element {
               onSignOut={() => navigate('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
+              onTabChange={handleSubWHTabChange}
             />
           )
         ) : screen === 'SubWarehouseOverview' ? (
@@ -1690,9 +1722,7 @@ export default function App(): React.JSX.Element {
             can={warehouseCan}
             initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
             initialParams={storageParams}
-            onBack={() =>
-              navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations', STORAGE_ROUTE_ENTRY[screen]?.backParams)
-            }
+            onBack={() => goBack(STORAGE_ROUTE_ENTRY[screen]?.back)}
             onOpenNotifications={() => navigate('SubWarehouseNotifications')}
             onSupportRequestDone={() => navigate('SubWarehouseSettings')}
             onOpenModule={openSubWarehouseModule}

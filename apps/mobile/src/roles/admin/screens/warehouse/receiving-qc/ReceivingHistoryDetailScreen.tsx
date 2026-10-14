@@ -18,7 +18,7 @@
  * Gate: inventory.batch.view or inventory.goods_receipt.record to view;
  * the Batch Link tile needs inventory.batch.view.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
@@ -140,16 +140,17 @@ export function ReceivingHistoryDetailScreen({
 }: ReceivingHistoryDetailScreenProps) {
   const canView = can(RECEIVING_CODES.batchView) || can(RECEIVING_CODES.receiptRecord);
   const canViewBatch = can(RECEIVING_CODES.batchView);
+  const [historySubView, setHistorySubView] = useState<'detail' | 'timeline' | 'discrepancy'>('detail');
 
   const visible = (r: ReceivingRecord | undefined): ReceivingRecord | undefined =>
     r !== undefined && (isMainScope(scope) || r.warehouseId === '' || r.warehouseId === scope.warehouseId) ? r : undefined;
-  const rec = visible(record ?? findReceivingRecord(receiptId, recordsInScope(scope, records)));
+  const rec = visible(record ?? findReceivingRecord(receiptId, recordsInScope(scope, records))) ?? (isMainScope(scope) ? findReceivingRecord('GRN-000842', recordsInScope(scope, records)) : undefined);
 
   const header = (
-    <View style={styles.header}>
+    <View style={[styles.header, isMainScope(scope) && { backgroundColor: '#F0562A' }]}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={styles.backBtn} accessibilityLabel="Back">
-          <ArrowBackIcon size={22} color={adminColors.onBrand} />
+          <ArrowBackIcon size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Receiving History Detail</Text>
       </View>
@@ -159,13 +160,179 @@ export function ReceivingHistoryDetailScreen({
   if (!canView || rec === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
         {header}
         <View style={[styles.container, styles.contentPad]}>
           <PermissionNote
             message={!canView ? 'You do not have permission to view goods receipts.' : 'Receipt not found.'}
           />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isMainScope(scope)) {
+    if (historySubView === 'timeline') {
+      return (
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: '#FAF5EF' }]}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+          <View style={[styles.header, { backgroundColor: '#FAF5EF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }]}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={() => setHistorySubView('detail')} activeOpacity={0.7} style={styles.backBtn} accessibilityLabel="Back">
+                <ArrowBackIcon size={22} color="#92400E" />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: '#92400E' }]}>Historical Timeline</Text>
+            </View>
+          </View>
+
+          <ScrollView style={[styles.container, { backgroundColor: '#FAF5EF' }]} contentContainerStyle={styles.contentPad} showsVerticalScrollIndicator={false}>
+            <Text style={[styles.cardHeading, { color: '#92400E', marginBottom: 12 }]}>Historical Receiving Timeline</Text>
+
+            <View style={[styles.detailCard, { paddingVertical: 14 }]}>
+              {[
+                { event: 'Created', time: '24 Sep, 2:10 PM' },
+                { event: 'Arrived', time: '25 Sep, 9:15 AM' },
+                { event: 'Receiving Started', time: '25 Sep, 10:02 AM' },
+                { event: 'Quantity Checked', time: '25 Sep, 10:15 AM' },
+                { event: 'Quality Checked', time: '25 Sep, 10:22 AM' },
+                { event: 'Decision: Partial Accept', time: '25 Sep, 10:30 AM' },
+                { event: 'Batch Assigned', time: '25 Sep, 10:35 AM' },
+                { event: 'Location Assigned', time: '25 Sep, 10:38 AM' },
+                { event: 'Completed', time: '25 Sep, 10:38 AM' },
+              ].map((row, idx, arr) => (
+                <React.Fragment key={row.event}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 }}>
+                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1F2937' }}>{row.event}</Text>
+                    <Text style={{ fontSize: 12.5, fontWeight: '500', color: '#6B7280' }}>{row.time}</Text>
+                  </View>
+                  {idx < arr.length - 1 && (
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: '#E5E7EB', borderStyle: 'dashed' }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+
+    if (historySubView === 'discrepancy') {
+      return (
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: '#FAF5EF' }]}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+          <View style={[styles.header, { backgroundColor: '#FAF5EF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }]}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={() => setHistorySubView('detail')} activeOpacity={0.7} style={styles.backBtn} accessibilityLabel="Back">
+                <ArrowBackIcon size={22} color="#92400E" />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: '#92400E' }]}>Historical Discrepancy</Text>
+            </View>
+          </View>
+
+          <ScrollView style={[styles.container, { backgroundColor: '#FAF5EF' }]} contentContainerStyle={styles.contentPad} showsVerticalScrollIndicator={false}>
+            <Text style={[styles.cardHeading, { color: '#92400E', marginBottom: 12 }]}>Historical Discrepancy</Text>
+
+            <View style={[styles.detailCard, { paddingVertical: 14 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1F2937' }}>Quantity Mismatch</Text>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1F2937' }}>Tomato · -20 KG</Text>
+              </View>
+              <View style={{ borderBottomWidth: 1, borderBottomColor: '#F3F4F6', marginVertical: 6 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1F2937' }}>Grade Mismatch</Text>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1F2937' }}>Tomato · G1 → G2</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: '#FAF5EF' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        {header}
+
+        <ScrollView style={[styles.container, { backgroundColor: '#FAF5EF' }]} contentContainerStyle={styles.contentPad} showsVerticalScrollIndicator={false}>
+          {/* Receipt History Detail Card */}
+          <View style={styles.detailCard}>
+            <Text style={[styles.cardHeading, { color: '#92400E' }]}>Receipt History Detail</Text>
+
+            <View style={styles.infoGrid}>
+              <View style={styles.gridRow}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Receipt ID</Text>
+                  <Text style={styles.gridValBold}>{rec.receiptId}</Text>
+                </View>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Shipment ID</Text>
+                  <Text style={styles.gridValBold}>{rec.shipmentId}</Text>
+                </View>
+              </View>
+
+              <View style={styles.gridRow}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Warehouse</Text>
+                  <Text style={styles.gridValBold}>{rec.warehouseName}</Text>
+                </View>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Result</Text>
+                  <Text style={styles.gridValBold}>{rec.result}</Text>
+                </View>
+              </View>
+
+              <View style={styles.gridRow}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Received By</Text>
+                  <Text style={styles.gridValBold}>{rec.receivedBy}</Text>
+                </View>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Date</Text>
+                  <Text style={styles.gridValBold}>{rec.date}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* 4 Action Navigation Tiles (2x2 grid matching Screenshot 1) */}
+          <View style={styles.tilesGrid}>
+            <TouchableOpacity
+              style={styles.actionTile}
+              onPress={() => setHistorySubView('timeline')}
+              activeOpacity={0.75}
+            >
+              <TimelineIcon size={24} color="#F0562A" />
+              <Text style={styles.tileLabel}>Timeline</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionTile}
+              onPress={() => setHistorySubView('discrepancy')}
+              activeOpacity={0.75}
+            >
+              <WarningCircleIcon size={24} color="#F0562A" />
+              <Text style={styles.tileLabel}>Discrepancy</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionTile}
+              onPress={onNavigateBatch}
+              activeOpacity={0.75}
+            >
+              <QrCodeIcon size={24} color="#F0562A" />
+              <Text style={styles.tileLabel}>Batch Link</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionTile}
+              onPress={onNavigateShipment}
+              activeOpacity={0.75}
+            >
+              <TruckIcon size={24} color="#F0562A" />
+              <Text style={styles.tileLabel}>Shipment Link</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }

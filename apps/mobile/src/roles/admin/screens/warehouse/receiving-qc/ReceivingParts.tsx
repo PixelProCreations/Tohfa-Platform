@@ -7,7 +7,7 @@
  * (CLAUDE.md 2.1).
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
@@ -72,10 +72,12 @@ export interface StepperHeaderProps {
   labels: string[];
   /** Index (0-based) of the current stage in `labels`. */
   current: number;
+  /** Optional callback when a step is pressed. */
+  onStepPress?: ((index: number, label: string) => void) | undefined;
 }
 
 /** The wizard's progress stepper. Stages a user may not perform are not passed in. */
-export function StepperHeader({ labels, current }: StepperHeaderProps) {
+export function StepperHeader({ labels, current, onStepPress }: StepperHeaderProps) {
   const n = labels.length;
   const progressPercent = n > 1 ? Math.min(100, Math.max(0, (current / (n - 1)) * 100)) : 0;
   const inset = `${50 / Math.max(n, 1)}%` as const;
@@ -90,7 +92,13 @@ export function StepperHeader({ labels, current }: StepperHeaderProps) {
           const isDone = idx < current;
           const isCurrent = idx === current;
           return (
-            <View key={label} style={partStyles.stepItem}>
+            <TouchableOpacity
+              key={label}
+              style={partStyles.stepItem}
+              onPress={() => onStepPress?.(idx, label)}
+              disabled={!onStepPress}
+              activeOpacity={0.7}
+            >
               <View
                 style={[
                   partStyles.stepCircle,
@@ -108,11 +116,11 @@ export function StepperHeader({ labels, current }: StepperHeaderProps) {
               </View>
               <Text
                 style={[partStyles.stepLabel, isDone && partStyles.stepLabelDone, isCurrent && partStyles.stepLabelCurrent]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {label}
               </Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -157,12 +165,12 @@ export function QcCriterionIcon({ icon }: { icon: QcCriterion['icon'] }) {
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-export function BackArrowIcon() {
+export function BackArrowIcon({ color = adminColors.onBrand }: { color?: string } = {}) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 12H5M12 19l-7-7 7-7"
-        stroke={adminColors.onBrand}
+        stroke={color}
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -224,9 +232,9 @@ export function AlertCircleOutlineIcon({ color = adminColors.brand, size = 20 }:
   );
 }
 
-export function EyeIcon({ color = adminColors.warning.text }: { color?: string }) {
+export function EyeIcon({ color = adminColors.warning.text, size = 18 }: { color?: string; size?: number }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
         stroke={color}
@@ -528,6 +536,26 @@ export function CrateInventoryIcon({ color = adminColors.warning.text, size = 22
   );
 }
 
+export function ShipmentBoxIcon({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="6"
+        width="18"
+        height="13"
+        rx="2.5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M3 11h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 11v-3h4v3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function RefreshRetryIcon({ color = adminColors.onBrand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -589,6 +617,120 @@ export function StepperCheckIcon({ size = 15, color = adminColors.onBrand }: { s
     </Svg>
   );
 }
+
+export function CalendarOutlineIcon({ color = adminColors.brandDeep, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="2" />
+      <Path d="M16 2v4M8 2v4M3 9h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function CircleEllipsisIcon({ color = adminColors.brandDeep, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+      <Circle cx="8" cy="12" r="1.2" fill={color} />
+      <Circle cx="12" cy="12" r="1.2" fill={color} />
+      <Circle cx="16" cy="12" r="1.2" fill={color} />
+    </Svg>
+  );
+}
+
+export function FlaskOutlineIcon({ color = adminColors.brandDeep, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10 2v5.5L5.5 16.5A2 2 0 0 0 7.3 19.5h9.4a2 2 0 0 0 1.8-3L14 7.5V2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 2h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function DamagePhotoIcon({ color = adminColors.danger.text, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M7 16l3-4 3 3 4-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function TrayDownloadIcon({ color = adminColors.onBrand, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="3" stroke={color} strokeWidth="2" />
+      <Path d="M12 8v5M9.5 10.5L12 13l2.5-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 14h4.5l1.5 2h6l1.5-2H21" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ScaleIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3v18M6 8l6-5 6 5M6 8l-3 7h6L6 8zM18 8l-3 7h6l-3-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function StarIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function PartialAcceptIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8l2.5 2.5 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 8h6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M15 15l4 4M19 15l-4 4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function RejectCircleIcon({ size = 24, color = '#EF4444' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+      <Path d="M9 9l6 6M15 9l-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function FileTextIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function HistoryIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 8v4l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3.05 11a9 9 0 11.5 4m-.5 5v-5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 
 
 const partStyles = StyleSheet.create({
@@ -659,9 +801,11 @@ const partStyles = StyleSheet.create({
   },
   stepLabel: {
     ...adminType.rowMeta,
+    fontSize: 10,
     fontWeight: '500',
     color: adminColors.muted,
     textAlign: 'center',
+    minHeight: 16,
   },
   stepLabelDone: {
     color: adminColors.muted,

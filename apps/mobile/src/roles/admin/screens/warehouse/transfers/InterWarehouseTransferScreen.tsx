@@ -10,7 +10,8 @@
  * SUB none, BR-26).
  */
 import React, { useMemo, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { formatTransferThreshold } from '../../../config/businessThresholds';
 import {
@@ -42,6 +43,20 @@ const FILTER_LABEL: Record<FilterKey, string> = {
   Completed: 'Completed',
 };
 
+function BackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export interface InterWarehouseTransferScreenProps extends WarehouseScreenBaseProps {
   transfers?: readonly TransferItem[] | undefined;
   onNewTransfer?: (() => void) | undefined;
@@ -56,13 +71,87 @@ export function InterWarehouseTransferScreen({
   onNewTransfer,
   onSelectTransfer,
 }: InterWarehouseTransferScreenProps) {
+  const isSub = scope.warehouseId !== undefined;
   const [filter, setFilter] = useState<FilterKey>('All');
+  const [mainFilter, setMainFilter] = useState<'All' | 'In Transit' | 'Discrepancy'>('All');
   // Hidden without the code (BR-26); a host that passes no handler hides it too.
   const newTransfer = can(TRANSFER_CODES.initiate) ? onNewTransfer : undefined;
 
   const visible = useMemo(() => transfers.filter((t) => transferInScope(scope, t)), [transfers, scope]);
   const filtered = filter === 'All' ? visible : visible.filter((t) => t.status === filter);
   const count = (status: TransferStatus) => visible.filter((t) => t.status === status).length;
+
+  if (!isSub) {
+    return (
+      <SafeAreaView style={mainStyles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <View style={mainStyles.container}>
+          {/* Header */}
+          <View style={mainStyles.header}>
+            <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={mainStyles.backBtn}>
+              <BackArrowIcon color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={mainStyles.headerTitle}>Inter-Warehouse Transfer</Text>
+          </View>
+
+          {/* Chips */}
+          <View style={mainStyles.chipsRow}>
+            {(['All', 'In Transit', 'Discrepancy'] as const).map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[mainStyles.chip, mainFilter === tab && mainStyles.activeChip]}
+                onPress={() => setMainFilter(tab)}
+                activeOpacity={0.7}
+              >
+                <Text style={[mainStyles.chipText, mainFilter === tab && mainStyles.activeChipText]}>{tab}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Content */}
+          <ScrollView style={mainStyles.content} contentContainerStyle={mainStyles.scrollContent} showsVerticalScrollIndicator={false}>
+            {mainFilter !== 'Discrepancy' && (
+              <TouchableOpacity
+                style={mainStyles.transferCard}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const item = visible.find((t) => t.code === 'TRF-00284') ?? visible[0] ?? {
+                    id: '00284',
+                    code: 'TRF-00284',
+                    sourceWarehouseId: 'WH-COON',
+                    destinationWarehouseId: 'WH-OOTY',
+                    produce: 'Carrot G1',
+                    quantityKg: 200,
+                    status: 'In Transit',
+                  };
+                  if (onSelectTransfer) onSelectTransfer(item);
+                }}
+              >
+                <View style={mainStyles.cardTopRow}>
+                  <Text style={mainStyles.transferCode}>TRF-00284</Text>
+                  <View style={mainStyles.statusBadge}>
+                    <Text style={mainStyles.statusBadgeText}>In Transit</Text>
+                  </View>
+                </View>
+                <Text style={mainStyles.transferRoute}>Coonoor → Ooty · 200 KG</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={mainStyles.footer}>
+            <TouchableOpacity
+              style={mainStyles.createBtn}
+              activeOpacity={0.8}
+              onPress={onNewTransfer}
+            >
+              <Text style={mainStyles.createBtnText}>+ Create Transfer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <WalletScreen
@@ -116,3 +205,130 @@ export function InterWarehouseTransferScreen({
     </WalletScreen>
   );
 }
+
+const mainStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F0562A',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF5EE',
+  },
+  header: {
+    backgroundColor: '#F0562A',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  activeChip: {
+    backgroundColor: '#E48932',
+    borderColor: '#E48932',
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  activeChipText: {
+    color: '#FFFFFF',
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  transferCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  transferCode: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1C1917',
+  },
+  statusBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    color: '#2563EB',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  transferRoute: {
+    color: '#78716C',
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    backgroundColor: '#FAF5EE',
+  },
+  createBtn: {
+    backgroundColor: '#E48932',
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  createBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+});
+

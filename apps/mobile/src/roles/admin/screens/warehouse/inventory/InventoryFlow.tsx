@@ -37,6 +37,8 @@ import { StockVerificationScreen } from './StockVerificationScreen';
 import { VarianceReviewScreen } from './VarianceReviewScreen';
 // File import, not the profile-settings barrel: the barrel pulls in ProfileFlow, which this flow never needs.
 import { StorageInfoScreen } from '../profile-settings/StorageInfoScreen';
+import { StorageLocationDetailScreen } from '../storage-ops/StorageLocationDetailScreen';
+import { TransfersFlow } from '../transfers/TransfersFlow';
 import type { InventoryRouteParams, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
 
 /** Navigation handle given to `renderExternalScreen`. */
@@ -122,7 +124,10 @@ export function InventoryFlow({
   const renderScreen = (): React.ReactNode => {
     switch (current.screen) {
       case 'M3S01':
-        return <InventoryDashboardScreen {...common} />;
+        return <InventoryDashboardScreen {...common} onInitiateTransfer={onInitiateTransfer ?? (() => navigate('Transfers'))} />;
+      case 'Transfers':
+      case 'inter_warehouse_transfer':
+        return <TransfersFlow scope={scope} can={can} initialScreen="Transfers" onBack={back} />;
       case 'M3S02':
         return <StockListScreen {...common} initialTab={params?.initialTab} />;
       case 'M3S03':
@@ -136,7 +141,27 @@ export function InventoryFlow({
       case 'M3S07':
         return <StockAllocationDashboardScreen {...common} />;
       case 'M3S08':
-        return <StorageInfoScreen scope={scope} can={can} onBack={back} onTabChange={onTabChange} warehouseOptions={warehouseOptions} />;
+        return (
+          <StorageInfoScreen
+            scope={scope}
+            can={can}
+            onBack={back}
+            onTabChange={onTabChange}
+            warehouseOptions={warehouseOptions}
+            onSelectLocation={(locId) => navigate('StorageLocationDetail', { locationId: locId })}
+          />
+        );
+      case 'StorageLocationDetail':
+      case 'StorageLocation':
+        return (
+          <StorageLocationDetailScreen
+            scope={scope}
+            can={can}
+            locationId={(params?.['locationId'] as string) ?? 'CS-A01'}
+            onBack={back}
+            onViewStock={back}
+          />
+        );
       case 'M3S09':
         return <LowStockScreen {...common} onInitiateTransfer={onInitiateTransfer} />;
       case 'M3S10':

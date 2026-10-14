@@ -22,6 +22,7 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
+  isAllWarehouses,
   PermissionNote,
   ScopeHeader,
   WalletButton,
@@ -75,20 +76,22 @@ export function StorageLocationAssignmentScreen({
       subtitle={`Batch ${batchId}`}
       onBack={onBack}
       headerExtra={
-        <ScopeHeader
-          scope={scope}
-          warehouseOptions={STORAGE_WAREHOUSES}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={
-            warehouseId === undefined
-              ? (id) => {
-                  setSelectedWarehouseId(id);
-                  setSelectedLocationId(undefined);
-                }
-              : undefined
-          }
-          label={scope.warehouseId === undefined && warehouseId !== undefined ? warehouseLabel : undefined}
-        />
+        isAllWarehouses(scope) ? (
+          <ScopeHeader
+            scope={scope}
+            warehouseOptions={STORAGE_WAREHOUSES}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={
+              warehouseId === undefined
+                ? (id) => {
+                    setSelectedWarehouseId(id);
+                    setSelectedLocationId(undefined);
+                  }
+                : undefined
+            }
+            label={warehouseLabel}
+          />
+        ) : undefined
       }
       footer={
         selected && canAssign && onConfirmAssignment ? (

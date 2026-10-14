@@ -179,7 +179,12 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
           {/* Batches & Storage - Single Card Container */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Batches & Storage</Text>
-            <View style={styles.batchesCard}>
+            <TouchableOpacity
+              style={styles.batchesCard}
+              onPress={() => onNavigate?.('StorageLocationDetail', { locationId: 'CS-A01' })}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Active Batches</Text>
@@ -194,7 +199,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
                 <Text style={styles.infoLabel}>Primary Storage</Text>
                 <Text style={styles.primaryStorageValue}>Cold Storage · Section A · Rack 03</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Actions - White Cards with Orange Border and Centered Brown Text */}
@@ -221,7 +226,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParam
 
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate?.('M3S08')}
+              onPress={() => onNavigate?.('StorageLocationDetail', { locationId: 'CS-A01' })}
               activeOpacity={0.7}
             >
               <ActionPinIcon color={adminColors.brandDeep} />
