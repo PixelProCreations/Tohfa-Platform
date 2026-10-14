@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,42 +10,102 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { colors } from '../../../farmer/theme';
+import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
+import { adminColors, adminRadius, adminSpacing } from '../../theme';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
+import { FarmerProduceTabScreen } from './FarmerProduceTabScreen';
+import { ProduceListingsScreen } from './ProduceListingsScreen';
+import { ListingHistoryScreen } from './ListingHistoryScreen';
+import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
+import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
+import { HandoverHistoryScreen } from './HandoverHistoryScreen';
+import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
+import { HandoverDetailsScreen } from './HandoverDetailsScreen';
+import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
+import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
+import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
+import { FarmersDirectoryScreen } from './FarmersDirectoryScreen';
+import { FarmerPurchasesScreen } from './FarmerPurchasesScreen';
+import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
+import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
+import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
+import { ConfirmPurchaseTermsScreen } from './ConfirmPurchaseTermsScreen';
+import { FarmerHandoverScreen } from './FarmerHandoverScreen';
+import { CollectionConfirmationScreen } from './CollectionConfirmationScreen';
+import { InputsPestHomeScreen } from './InputsPestHomeScreen';
+import { ApprovedInputsScreen, type ApprovedInputItem } from './ApprovedInputsScreen';
+import { InputDetailScreen } from './InputDetailScreen';
+import { PestLibraryScreen } from './PestLibraryScreen';
+import { ApplicationGuideScreen } from './ApplicationGuideScreen';
+import { FarmerPestIncidentsScreen, type IncidentItem } from './FarmerPestIncidentsScreen';
+import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
+import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
+import { CategoriesGradesScreen } from './CategoriesGradesScreen';
+import { PriceHistoryScreen } from './PriceHistoryScreen';
+import { RetailPricingScreen, type RetailPriceItem } from './RetailPricingScreen';
+import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
+import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
+import { AuditScheduleScreen } from './AuditScheduleScreen';
+import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 
-// ─── Design Tokens (Matching Screen 11 Mockup) ────────────────────────────────
-const PALETTE = {
-  titleRust:     '#7E2E11',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#7D7571',
-  border:        '#EDE8E0',
-  peachBadge:    '#FDEEE9',
-  peachText:     '#943818',
-  peachIconBg:   '#FDEEE9',
-  blueIconBg:    '#EBF3FA',
-  blueText:      '#2563EB',
-  greenBadge:    '#EAF5EA',
-  greenText:     '#0D8253',
-  tabInactive:   '#7D7571',
-  tabBorder:     '#EDE8E0',
-  alertBorder:   '#F0ECE4',
+// ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
+// References:
+// - apps/mobile/src/roles/admin/theme/index.ts
+// - packages/design-tokens/src/tokens.json (admin palette)
+const THEME = {
+  // Brand & Header
+  brand: adminColors.brand, // #F0562A — Theme Primary Brand Orange
+  brandHeader: adminColors.brand, // Matches Purchases screen & theme primary
+  brandDeep: adminColors.brandDeep, // #7A2E14 — Headings & section titles
+  brandTint: adminColors.brandTint, // #FDF3F0 — Soft peach accent
+  headerPillBg: 'rgba(255, 255, 255, 0.22)',
+  white: '#FFFFFF',
+
+  // Canvas & Surfaces
+  canvas: adminColors.canvas, // #F3EFE9 — App canvas soft cream
+  card: adminColors.card, // #FFFFFF — Crisp card background
+  border: adminColors.border, // #EEDCD3 — Card & input borders
+  borderLight: '#F3ECE4',
+
+  // Neutrals (Typography)
+  ink: adminColors.ink, // #1A1A1A / #1F2937 — Primary text
+  muted: adminColors.muted, // #5F5E5A / #6B7280 — Secondary text & subtitles
+  labelMuted: '#78716C', // Caption & timestamp gray
+
+  // Active Role Card
+  roleCardBg: '#FFF6F1',
+  roleCardBorder: '#F9DCD1',
+  roleBtnBorder: adminColors.brand,
+
+  // Semantic Status Tokens
+  amberText: '#B45309', // Warning text
+  amberIcon: '#D97706', // Warning icon
+  redText: '#DC2626', // Danger text
+  redIcon: '#E11D48', // Dispute red
+  blueText: '#2563EB', // Info / link blue
+  greenText: '#15803D', // Success green
+  greenBg: '#EAF7EE', // Success badge background
+
+  // Tab Bar
+  tabInactive: adminColors.muted, // #5F5E5A
+  tabActive: adminColors.brand, // Active brand primary orange (#F0562A)
+  tabBorder: adminColors.border, // #EEDCD3
 };
 
-type FarmerAdminTab = 'Dashboard' | 'Listings' | 'Community' | 'Profile';
+export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
 
-// ─── SVG Icons Matching Screen 11 ─────────────────────────────────────────────
-function SproutIcon() {
+// ─── SVG Icons Matching Exact Design Mockup ──────────────────────────────────
+
+function ShieldHeaderIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M7 20h10M12 20v-8M12 12a5 5 0 015-5h2v2a5 5 0 01-5 5h-2zM12 12a5 5 0 00-5-5H5v2a5 5 0 005 5h2z"
-        stroke={PALETTE.peachText}
-        strokeWidth="2"
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -53,107 +113,22 @@ function SproutIcon() {
   );
 }
 
-function PersonAvatarIcon() {
+function ShieldBoxIcon({ size = 18, color = THEME.white }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        fill={color}
       />
     </Svg>
   );
 }
 
-function HexagonReviewIcon() {
+function BellHeaderIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CalendarScheduleIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={PALETTE.blueText} strokeWidth="2" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={PALETTE.blueText} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function LeafIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M11 20A7 7 0 019.8 6.1C15.5 5 17 4.5 21 2c-.5 4-1 5.5-2.1 11.2A7 7 0 0111 20z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M2 21c0-4 3.5-7.5 7.5-7.5" stroke={PALETTE.orange} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BlockIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={PALETTE.labelMuted} strokeWidth="2" />
-      <Path d="M4.93 4.93l14.14 14.14" stroke={PALETTE.labelMuted} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ScaleDisputeIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 3v18M6 8l6-5 6 5M6 8l-3 7h6L6 8zM18 8l-3 7h6l-3-7z"
-        stroke={PALETTE.titleRust}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke="#9A928D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function DashboardTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
-      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
-      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
-      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function ListingsTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -163,12 +138,35 @@ function ListingsTabIcon({ active }: { active: boolean }) {
   );
 }
 
-function CommunityTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.orange : PALETTE.tabInactive;
+function ProfileHeaderIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" />
       <Path
-        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+        d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.85"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function SwitchArrowsIcon({ size = 14, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Top arrow points RIGHT */}
+      <Path
+        d="M4 7h16M16 3l4 4-4 4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Bottom arrow points LEFT */}
+      <Path
+        d="M20 17H4M8 13l-4 4 4 4"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -178,32 +176,335 @@ function CommunityTabIcon({ active }: { active: boolean }) {
   );
 }
 
-function ProfileTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.orange : PALETTE.tabInactive;
+function TomatoProduceIcon({
+  size = 22,
+  color = THEME.brandHeader,
+  leafColor,
+}: {
+  size?: number;
+  color?: string;
+  leafColor?: string;
+}) {
+  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Exact Circular Fruit Outline Body */}
+      <Circle cx="12" cy="14" r="5.8" stroke={color} strokeWidth="2.2" />
+      {/* Small Stem */}
       <Path
-        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
+        d="M12 8.2c.3-1.8 1.1-3 2.3-3.6"
+        stroke={resolvedLeafColor}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {/* Solid Leaf tilted to top-left matching screenshot */}
+      <Path
+        d="M11.8 8.2C11.6 5.8 9.6 4.2 7.8 4.8c-.3 2.1 1.5 3.6 4 3.4z"
+        fill={resolvedLeafColor}
+      />
+    </Svg>
+  );
+}
+
+function OpposingArrowsIcon({ size = 18, color = THEME.blueText }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Top arrow points RIGHT */}
+      <Path
+        d="M4 7h16M16 3l4 4-4 4"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Bottom arrow points LEFT */}
+      <Path
+        d="M20 17H4M8 13l-4 4 4 4"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </Svg>
   );
 }
+
+// Calendar Icon with 2x3 Grid of Date Dots (Image 1 Left Exact)
+function CalendarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
+      <Line x1="8" y1="2" x2="8" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="16" y1="2" x2="16" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      {/* 2x3 Grid of calendar date dots matching Image 1 Left */}
+      <Circle cx="7.5" cy="12.5" r="1.1" fill={color} />
+      <Circle cx="12" cy="12.5" r="1.1" fill={color} />
+      <Circle cx="16.5" cy="12.5" r="1.1" fill={color} />
+      <Circle cx="7.5" cy="16.5" r="1.1" fill={color} />
+      <Circle cx="12" cy="16.5" r="1.1" fill={color} />
+      <Circle cx="16.5" cy="16.5" r="1.1" fill={color} />
+    </Svg>
+  );
+}
+
+// Legal Balance Scale (Image 1 Left Exact)
+function ExactScalesIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Center column & base */}
+      <Path d="M12 3v17M8 20h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Top beam */}
+      <Path d="M4 7h16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      {/* Left pan strings and dish */}
+      <Path d="M4 7l-2.5 5.5h5L4 7z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+      {/* Right pan strings and dish */}
+      <Path d="M20 7l-2.5 5.5h5L20 7z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckmarkCircleIcon({ size = 22, color = THEME.greenText }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+      <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronDown({ size = 18, color = THEME.labelMuted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronUp({ size = 18, color = THEME.labelMuted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ─── Quick Actions SVG Icons (Image 1 Left Exact) ─────────────────────────────
+
+function ClipboardChecklistIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Board with rounded corners */}
+      <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.8" />
+      {/* Clip top tab */}
+      <Path
+        d="M9 2.5h6a1 1 0 0 1 1 1V5H8V3.5a1 1 0 0 1 1-1z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      {/* 3 Checklist Lines (Image 1 Left) */}
+      <Line x1="8.5" y1="10" x2="15.5" y2="10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8.5" y1="14" x2="15.5" y2="14" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8.5" y1="18" x2="12.5" y2="18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function PeopleGroupIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Center Person: Head & Shoulders (Image 1 Left) */}
+      <Circle cx="12" cy="7" r="2.2" stroke={color} strokeWidth="1.8" />
+      <Path
+        d="M8.5 17.5c0-2.2 1.55-3.8 3.5-3.8s3.5 1.6 3.5 3.8"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {/* Left Person: Head & Left Shoulder */}
+      <Circle cx="6" cy="9" r="1.8" stroke={color} strokeWidth="1.8" />
+      <Path
+        d="M3 17.5c0-1.8 1.4-3.2 3.2-3.2"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {/* Right Person: Head & Right Shoulder */}
+      <Circle cx="18" cy="9" r="1.8" stroke={color} strokeWidth="1.8" />
+      <Path
+        d="M21 17.5c0-1.8-1.4-3.2-3.2-3.2"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function SpeechBubbleIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Front speech bubble */}
+      <Path
+        d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-4 3.5V7z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Back speech bubble (Image 1 Left Exact) */}
+      <Path
+        d="M16 6h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v2.5l-3-2.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function StarRatingsIcon({ size = 24, color = THEME.brandHeader }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polygon
+        points="12,2 15.1,8.3 22,9.3 17,14.1 18.2,21 12,17.8 5.8,21 7,14.1 2,9.3 8.9,8.3"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ─── Bottom Tab Icons ────────────────────────────────────────────────────────
+
+function TabHomeIcon({ active }: { active: boolean }) {
+  const color = active ? THEME.tabActive : THEME.tabInactive;
+  return (
+    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function TabFarmersIcon({ active }: { active: boolean }) {
+  const color = active ? THEME.tabActive : THEME.tabInactive;
+  return <PeopleGroupIcon size={21} color={color} />;
+}
+
+function TabProduceIcon({ active }: { active: boolean }) {
+  const color = active ? THEME.tabActive : '#E0623B';
+  const leafColor = active ? '#5C6B63' : '#6B7972';
+  return <TomatoProduceIcon size={21} color={color} leafColor={leafColor} />;
+}
+
+function TabAuditsIcon({ active }: { active: boolean }) {
+  const color = active ? THEME.tabActive : THEME.tabInactive;
+  return <CalendarOutlineIcon size={21} color={color} />;
+}
+
+function TabMoreIcon({ active }: { active: boolean }) {
+  const color = active ? THEME.tabActive : THEME.tabInactive;
+  return (
+    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+      {/* Exact 3x3 Grid of 9 Dots (Image 1 Left) */}
+      <Rect x="4" y="4" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="10.2" y="4" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="16.4" y="4" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="4" y="10.2" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="10.2" y="10.2" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="16.4" y="10.2" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="4" y="16.4" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="10.2" y="16.4" width="3.6" height="3.6" rx="1" fill={color} />
+      <Rect x="16.4" y="16.4" width="3.6" height="3.6" rx="1" fill={color} />
+    </Svg>
+  );
+}
+
+// ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface FarmerAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string) => void;
+  onNavigate?: (screen: string, params?: any) => void;
+  initialTab?: FarmerAdminTab;
 }
 
 export function FarmerAdminDashboardScreen({
   onSignOut,
   onNavigate,
+  initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<FarmerAdminTab>('Dashboard');
+  const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
   const [user, setUser] = useState<UserMe | null>(null);
+
+  // Accordion state: both collapsed by default as in left design mockup
+  const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
+
+  // SubView state for full screen flows
+  const [subView, setSubView] = useState<
+    | 'none'
+    | 'product_listings'
+    | 'produce_listings'
+    | 'produce_history'
+    | 'verification_approval'
+    | 'farmer_profile'
+    | 'handover_history'
+    | 'handover_confirmation'
+    | 'handover_details'
+    | 'admin_activity'
+    | 'notifications'
+    | 'profile'
+    | 'purchases'
+    | 'purchase_orders'
+    | 'purchase_order_detail'
+    | 'purchase_history'
+    | 'confirm_purchase_terms'
+    | 'farmer_handover'
+    | 'collection_confirmation'
+    | 'inputs_pest'
+    | 'approved_inputs'
+    | 'input_detail'
+    | 'pest_library'
+    | 'application_guide'
+    | 'farmer_pest_incidents'
+    | 'pest_incident_detail'
+    | 'market_pricing'
+    | 'fair_price'
+    | 'categories_grades'
+    | 'price_history'
+    | 'retail_pricing'
+    | 'markup_breakdown'
+    | 'audit_schedule'
+    | 'farmer_ratings'
+  >('none');
+  const [activeHandoverId, setActiveHandoverId] = useState<string>('HO-2026-0002');
+  const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
+  const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
+  const [activeIncidentItem, setActiveIncidentItem] = useState<IncidentItem | undefined>(undefined);
+  const [selectedRetailItem, setSelectedRetailItem] = useState<RetailPriceItem | undefined>(undefined);
+  const [breakdownReturnSubView, setBreakdownReturnSubView] = useState<'retail_pricing' | 'fair_price'>('retail_pricing');
+  const [incidentReturnSubView, setIncidentReturnSubView] = useState<'inputs_pest' | 'farmer_pest_incidents'>('inputs_pest');
+  const [listingInitialFilter, setListingInitialFilter] = useState<'all' | 'pending' | 'counter'>('all');
+  const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders'>('none');
+  const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
+  const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report'>('calendar');
+  const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
+  const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
+  const [farmerProfileReturnSubView, setFarmerProfileReturnSubView] = useState<'none' | 'audit_schedule' | 'verification_approval'>('none');
+
+  // Modal State for details
+  const [modalItem, setModalItem] = useState<{ title: string; content: string } | null>(null);
 
   useEffect(() => {
     fetchMe()
@@ -211,522 +512,1684 @@ export function FarmerAdminDashboardScreen({
       .catch(() => {});
   }, []);
 
-  const displayName = user?.fullName ?? 'Selvam Murugan';
+  const displayName = 'Suresh';
+
+  // If currently in S-02 Farmer Product Listings subview, render it with back navigation
+  if (subView === 'product_listings') {
+    return (
+      <FarmerProductListingsScreen
+        onBack={() => setSubView('none')}
+      />
+    );
+  }
+
+  // If currently in Produce Listings subview (Module 3 Produce screen)
+  if (subView === 'produce_listings') {
+    return (
+      <ProduceListingsScreen
+        initialFilter={listingInitialFilter}
+        onBack={() => {
+          if (produceReturnSubView === 'purchase_orders') {
+            setProduceReturnSubView('none');
+            setSubView('purchase_orders');
+          } else if (produceReturnSubView === 'purchases') {
+            setProduceReturnSubView('none');
+            setSubView('purchases');
+          } else {
+            setSubView('none');
+          }
+        }}
+      />
+    );
+  }
+
+  // If currently in Produce Listing History subview (Module 3 Produce screen)
+  if (subView === 'produce_history') {
+    return (
+      <ListingHistoryScreen
+        listingId="PL-001245"
+        cropName="Tomato"
+        grade="Grade 1"
+        onBack={() => setSubView('none')}
+      />
+    );
+  }
+
+  // If currently in S-03 Produce Verification & Approval subview, render it with back navigation
+  if (subView === 'verification_approval') {
+    return (
+      <ProduceVerificationApprovalScreen
+        listingId="PL-001245"
+        cropName="Tomato"
+        farmerName="Ramesh Kumar"
+        onBack={() => setSubView('none')}
+        onSubmitSuccess={() => setSubView('none')}
+        onViewListing={() => setSubView('product_listings')}
+        onViewFarmerProfile={() => setSubView('farmer_profile')}
+      />
+    );
+  }
+
+  // If currently in Farmer Profile subview (Module 2)
+  if (subView === 'farmer_profile') {
+    return (
+      <FarmerProfileDetailScreen
+        onBack={() => {
+          if (farmerProfileReturnSubView === 'audit_schedule') {
+            setFarmerProfileReturnSubView('none');
+            setSubView('audit_schedule');
+          } else {
+            setSubView('verification_approval');
+          }
+        }}
+      />
+    );
+  }
+
+  // If currently in Handover History subview, render it with back navigation
+  if (subView === 'handover_history') {
+    return (
+      <HandoverHistoryScreen
+        onBack={() => setSubView('none')}
+        onNavigateToHandover={(hId) => {
+          setActiveHandoverId(hId);
+          setSubView('handover_confirmation');
+        }}
+      />
+    );
+  }
+
+  // If currently in Handover Confirmation subview, render it with back navigation
+  if (subView === 'handover_confirmation') {
+    return (
+      <HandoverConfirmationScreen
+        handoverId={activeHandoverId}
+        status="Completed"
+        onBack={() => setSubView('handover_history')}
+        onViewHistory={() => setSubView('handover_history')}
+        onViewHandoverDetails={() => {
+          setSubView('handover_details');
+        }}
+      />
+    );
+  }
+
+  // If currently in Handover Details subview, render it with back navigation
+  if (subView === 'handover_details') {
+    return (
+      <HandoverDetailsScreen
+        handoverId={activeHandoverId}
+        status="Completed"
+        onBack={() => setSubView('handover_confirmation')}
+        onViewReceivingResult={() => setSubView('handover_confirmation')}
+        onViewHistory={() => setSubView('handover_history')}
+      />
+    );
+  }
+
+  // If currently in Farmer Admin Activity subview
+  if (subView === 'admin_activity') {
+    return (
+      <FarmerAdminActivityScreen
+        onBack={() => setSubView('none')}
+        onNavigateToListings={() => setSubView('product_listings')}
+      />
+    );
+  }
+
+  // If currently in Notifications subview
+  if (subView === 'notifications') {
+    return (
+      <FarmerAdminNotificationsScreen
+        onBack={() => setSubView('none')}
+        onViewListing={() => setSubView('product_listings')}
+        onViewAudit={() => {
+          setSubView('none');
+          setActiveTab('Audits');
+        }}
+        onViewDispute={() =>
+          setModalItem({
+            title: 'Dispute Mediation Desk',
+            content: 'Boundary irrigation runoff disagreement between Farm #FR-00214 and Farm #FR-00215 in Ooty North.',
+          })
+        }
+      />
+    );
+  }
+
+  // If currently in Profile subview
+  if (subView === 'profile') {
+    return (
+      <AdminProfileScreen
+        role="FARMER_ADMIN"
+        onSignOut={onSignOut}
+        onBack={() => setSubView('none')}
+      />
+    );
+  }
+
+  // If currently in Purchases subview (Image 1)
+  if (subView === 'purchases') {
+    return (
+      <FarmerPurchasesScreen
+        onBack={() => {
+          setSubView('none');
+          setActiveTab('More');
+        }}
+        onNavigatePurchaseOrders={() => setSubView('purchase_orders')}
+        onNavigateReadyForCollection={() => {
+          setActiveOrderId('PO-2026-00119');
+          setConfirmTermsReturnSubView('purchases');
+          setSubView('confirm_purchase_terms');
+        }}
+        onNavigatePurchaseHistory={() => setSubView('purchase_history')}
+        onNavigateProduceListings={() => {
+          setProduceReturnSubView('purchases');
+          setSubView('produce_listings');
+        }}
+        onViewPurchaseOrder={(orderId) => {
+          setActiveOrderId(orderId);
+          setSubView('purchase_order_detail');
+        }}
+        onProcessHandover={(orderId) => {
+          setActiveOrderId(orderId || 'PO-2026-00124');
+          setSubView('farmer_handover');
+        }}
+        onCollect={(orderId) => {
+          setActiveOrderId(orderId || 'PO-2026-00119');
+          setConfirmTermsReturnSubView('purchases');
+          setSubView('confirm_purchase_terms');
+        }}
+        onOpenNotifications={() => setSubView('notifications')}
+      />
+    );
+  }
+
+  // If currently in Purchase Orders subview (Image 2)
+  if (subView === 'purchase_orders') {
+    return (
+      <PurchaseOrdersScreen
+        onBack={() => setSubView('purchases')}
+        onViewOrder={(orderId) => {
+          setActiveOrderId(orderId);
+          setSubView('purchase_order_detail');
+        }}
+        onHandover={(orderId) => {
+          setActiveOrderId(orderId);
+          setSubView('farmer_handover');
+        }}
+        onCollect={(orderId) => {
+          setActiveOrderId(orderId);
+          setConfirmTermsReturnSubView('purchase_orders');
+          setSubView('confirm_purchase_terms');
+        }}
+        onViewHistory={() => setSubView('purchase_history')}
+      />
+    );
+  }
+
+  // If currently in Purchase Order Detail subview (Image 3 & 4)
+  if (subView === 'purchase_order_detail') {
+    return (
+      <PurchaseOrderDetailScreen
+        orderId={activeOrderId}
+        onBack={() => setSubView('purchase_orders')}
+        onViewOriginalListing={() => {
+          setProduceReturnSubView('purchase_orders');
+          setSubView('produce_listings');
+        }}
+        onProcessHandover={() => {
+          setSubView('farmer_handover');
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Handover subview (Screenshot 3)
+  if (subView === 'farmer_handover') {
+    return (
+      <FarmerHandoverScreen
+        orderId={activeOrderId}
+        farmerName="Ramesh Kumar"
+        farmerPhone="+91 XXXXX XXXXX"
+        expectedQty={30}
+        onBack={() => setSubView('purchase_orders')}
+        onConfirmHandover={() => {
+          setSubView('collection_confirmation');
+        }}
+        onReportIssue={() => {
+          setModalItem({
+            title: 'Report Handover Issue',
+            content: 'Handover issue flagged for PO ' + activeOrderId + '. Recorded for review.',
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Collection Confirmation subview (Screenshot 4)
+  if (subView === 'collection_confirmation') {
+    return (
+      <CollectionConfirmationScreen
+        orderId={activeOrderId || 'PO-2026-00119'}
+        farmerName={activeOrderId === 'PO-2026-00119' ? 'Selvi' : 'Ramesh Kumar'}
+        expectedQty="30 kg"
+        receivedQty="30 kg"
+        totalValue="₹1,350"
+        collectionDate="30 Sep 2026"
+        collectedBy="Farmer Admin"
+        qualityResult="Accepted"
+        onBack={() => setSubView('confirm_purchase_terms')}
+        onConfirmCollection={() => {
+          setSubView('purchase_history');
+        }}
+      />
+    );
+  }
+
+  // If currently in Confirm Purchase Terms subview (Image 1)
+  if (subView === 'confirm_purchase_terms') {
+    return (
+      <ConfirmPurchaseTermsScreen
+        farmerName="Ramesh Kumar"
+        produceName="Organic Carrot — Grade 1"
+        requestedQty="50 kg"
+        agreedQty="30 kg"
+        requestedPrice="₹50/kg"
+        agreedPrice="₹45/kg"
+        totalAmount="₹1,350"
+        onBack={() => setSubView(confirmTermsReturnSubView)}
+        onConfirm={() => {
+          setSubView('collection_confirmation');
+        }}
+      />
+    );
+  }
+
+  // If currently in Purchase History subview (with Filter popup modal)
+  if (subView === 'purchase_history') {
+    return (
+      <PurchaseHistoryScreen
+        onBack={() => setSubView('purchases')}
+        onViewOrder={(orderId) => {
+          setActiveOrderId(orderId);
+          setSubView('purchase_order_detail');
+        }}
+      />
+    );
+  }
+
+  // Module 6: Inputs & Pest Management Home (Image 1)
+  if (subView === 'inputs_pest') {
+    return (
+      <InputsPestHomeScreen
+        onBack={() => {
+          setSubView('none');
+          setActiveTab('More');
+        }}
+        onNavigateApprovedInputs={() => setSubView('approved_inputs')}
+        onNavigatePestLibrary={() => setSubView('pest_library')}
+        onNavigateApplicationGuides={() => setSubView('application_guide')}
+        onNavigatePestIncidents={() => setSubView('farmer_pest_incidents')}
+        onViewRecentIncident={() => {
+          setIncidentReturnSubView('inputs_pest');
+          setSubView('pest_incident_detail');
+        }}
+        onOpenNotifications={() => setSubView('notifications')}
+      />
+    );
+  }
+
+  // Module 6: Approved Inputs (Image 2 & 3)
+  if (subView === 'approved_inputs') {
+    return (
+      <ApprovedInputsScreen
+        onBack={() => setSubView('inputs_pest')}
+        onSelectInput={(item) => {
+          setActiveInputItem(item);
+          setSubView('input_detail');
+        }}
+      />
+    );
+  }
+
+  // Module 6: Input Detail (Image 4)
+  if (subView === 'input_detail') {
+    return (
+      <InputDetailScreen
+        inputItem={activeInputItem}
+        onBack={() => setSubView('approved_inputs')}
+      />
+    );
+  }
+
+  // Module 6: Pest & Pesticide Library (Image 5)
+  if (subView === 'pest_library') {
+    return (
+      <PestLibraryScreen
+        onBack={() => setSubView('inputs_pest')}
+        onSelectPest={() => setSubView('application_guide')}
+      />
+    );
+  }
+
+  // Module 6: Application Guide (Screenshot 1)
+  if (subView === 'application_guide') {
+    return (
+      <ApplicationGuideScreen
+        onBack={() => setSubView('inputs_pest')}
+        onViewIncidents={() => setSubView('farmer_pest_incidents')}
+        onSelectRelatedInput={() => setSubView('approved_inputs')}
+      />
+    );
+  }
+
+  // Module 6: Farmer Pest Incidents (Screenshot 2 & 3)
+  if (subView === 'farmer_pest_incidents') {
+    return (
+      <FarmerPestIncidentsScreen
+        onBack={() => setSubView('inputs_pest')}
+        onSelectIncident={(incident) => {
+          setActiveIncidentItem(incident);
+          setIncidentReturnSubView('farmer_pest_incidents');
+          setSubView('pest_incident_detail');
+        }}
+      />
+    );
+  }
+
+  // Module 6: Pest Incident Detail (Screenshot 4 & 5)
+  if (subView === 'pest_incident_detail') {
+    return (
+      <PestIncidentDetailScreen
+        incident={activeIncidentItem}
+        onBack={() => setSubView(incidentReturnSubView)}
+        onViewPest={() => setSubView('pest_library')}
+        onViewApplicationGuide={() => setSubView('application_guide')}
+      />
+    );
+  }
+
+  // Module 7: Market & Pricing Home (Screenshot 1 & 2)
+  if (subView === 'market_pricing') {
+    return (
+      <MarketPricingHomeScreen
+        onBack={() => {
+          setSubView('none');
+          setActiveTab('More');
+        }}
+        onNavigateToFairPrice={() => setSubView('fair_price')}
+        onNavigateToCategories={() => setSubView('categories_grades')}
+        onNavigateToPriceHistory={() => setSubView('price_history')}
+        onNavigateToRetailPricing={() => setSubView('retail_pricing')}
+        onOpenNotifications={() => setSubView('notifications')}
+      />
+    );
+  }
+
+  // Module 7: Fair Price Ceilings & Filters (Screenshot 3 & 4)
+  if (subView === 'fair_price') {
+    return (
+      <FairPriceCeilingScreen
+        onBack={() => setSubView('market_pricing')}
+        onNavigateToBreakdown={(item) => {
+          setSelectedRetailItem({
+            id: item.id,
+            cropGrade: `${item.crop} · ${item.grade}`,
+            product: item.crop,
+            grade: item.grade,
+            purchasePrice: item.purchasePrice || '₹80.00/kg',
+            markup: item.markup || '10%',
+            expenses: '₹10.00',
+            expensesDetail: item.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+            retailPrice: item.retailPrice || '₹98.00/kg',
+            customerDiscount: item.customerDiscount || '₹5.00',
+            effectiveDate: item.effectiveFrom,
+            status: 'Active',
+            category: item.category === 'Fruits' ? 'Fruits' : 'Vegetables',
+          });
+          setBreakdownReturnSubView('fair_price');
+          setSubView('markup_breakdown');
+        }}
+      />
+    );
+  }
+
+  // Module 7: Categories & Grades (Mockup 1)
+  if (subView === 'categories_grades') {
+    return (
+      <CategoriesGradesScreen
+        onBack={() => setSubView('market_pricing')}
+      />
+    );
+  }
+
+  // Module 7: Price History & Filters (Mockup 2 & 3 Left)
+  if (subView === 'price_history') {
+    return (
+      <PriceHistoryScreen
+        onBack={() => setSubView('market_pricing')}
+      />
+    );
+  }
+
+  // Module 7: Retail Pricing & Filters (Mockup 3 Right & 4)
+  if (subView === 'retail_pricing') {
+    return (
+      <RetailPricingScreen
+        onBack={() => setSubView('market_pricing')}
+        onSelectBreakdown={(item) => {
+          setSelectedRetailItem(item);
+          setBreakdownReturnSubView('retail_pricing');
+          setSubView('markup_breakdown');
+        }}
+      />
+    );
+  }
+
+  // Module 7: Markup & Pricing Breakdown (Mockup 5)
+  if (subView === 'markup_breakdown') {
+    return (
+      <MarkupPricingBreakdownScreen
+        onBack={() => setSubView(breakdownReturnSubView)}
+        cropGradeTitle={
+          selectedRetailItem
+            ? `${selectedRetailItem.product} · ${selectedRetailItem.grade}`
+            : 'Carrot · Grade 1'
+        }
+        purchasePrice={
+          selectedRetailItem
+            ? (selectedRetailItem.purchasePrice.includes('/kg') ? selectedRetailItem.purchasePrice : `${selectedRetailItem.purchasePrice}/kg`)
+            : '₹80.00/kg'
+        }
+        markup={selectedRetailItem ? selectedRetailItem.markup : '10%'}
+        retailPrice={
+          selectedRetailItem
+            ? (selectedRetailItem.retailPrice.includes('/kg') ? selectedRetailItem.retailPrice : `${selectedRetailItem.retailPrice}/kg`)
+            : '₹98.00/kg'
+        }
+        customerDiscount={
+          selectedRetailItem
+            ? (selectedRetailItem.customerDiscount.includes('/kg') ? selectedRetailItem.customerDiscount : `${selectedRetailItem.customerDiscount}/kg`)
+            : '₹5.00/kg'
+        }
+      />
+    );
+  }
+
+  // Module 5: Audit Schedule & Field Visits (Screenshots 3 & 4)
+  if (subView === 'audit_schedule') {
+    return (
+      <AuditScheduleScreen
+        initialTypeFilter={auditInitialFilter}
+        initialAuditId={auditInitialId}
+        initialView={auditInitialView}
+        onBack={() => {
+          setAuditInitialId(undefined);
+          setAuditInitialView(undefined);
+          setSubView('none');
+        }}
+        onNavigateFarmerProfile={(farmerId) => {
+          setFarmerProfileReturnSubView('audit_schedule');
+          setSubView('farmer_profile');
+        }}
+        onOpenNotifications={() => setSubView('notifications')}
+      />
+    );
+  }
+
+  // Module 8: Farm Ratings & Adherence (Screenshots 1-5)
+  if (subView === 'farmer_ratings') {
+    return (
+      <FarmerRatingsScreen
+        onBack={() => setSubView('none')}
+        onOpenNotifications={() => setSubView('notifications')}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.brandHeader} />
 
+      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, Produce, & Audits pages) ─── */}
+      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Produce' && activeTab !== 'Audits' && (
+        <View style={styles.header}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <ShieldHeaderIcon size={22} color={THEME.white} />
+              <Text style={styles.headerTitle}>Farmer Admin</Text>
+            </View>
+
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => setSubView('notifications')}
+                activeOpacity={0.8}
+                accessibilityLabel="Notifications"
+              >
+                <BellHeaderIcon size={19} color={THEME.white} />
+                <View style={styles.headerNotificationDot} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => setSubView('profile')}
+                activeOpacity={0.8}
+                accessibilityLabel="Admin Profile"
+              >
+                <ProfileHeaderIcon size={20} color={THEME.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Text style={styles.headerSubtitle}>Farmer Community</Text>
+        </View>
+      )}
+
+      {/* ─── Main Content Tabs ─── */}
       <View style={{ flex: 1 }}>
-        {activeTab === 'Dashboard' && (
+        {activeTab === 'Home' && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollPad}
             showsVerticalScrollIndicator={false}
           >
-            {/* Header Greeting (Matching Screen 11) */}
-            <View style={styles.headerRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.greetSmall}>Vanakkam,</Text>
-                <Text style={styles.greetName}>{displayName}</Text>
-                <View style={styles.rolePill}>
-                  <SproutIcon />
-                  <Text style={styles.rolePillText}>Farmer Admin · Elected</Text>
+            {/* 1. Greeting Section */}
+            <View style={styles.greetingSection}>
+              <Text style={styles.greetTitle}>Good morning, {displayName}</Text>
+              <Text style={styles.greetSub}>Here&apos;s your Farmer Admin activity for today.</Text>
+            </View>
+
+            {/* 2. Active Role Card */}
+            <View style={styles.roleCard}>
+              <View style={styles.roleLeftCol}>
+                <View style={styles.roleIconBadge}>
+                  <ShieldHeaderIcon size={20} color={THEME.white} />
+                </View>
+                <View>
+                  <Text style={styles.roleLabel}>ACTIVE ROLE</Text>
+                  <Text style={styles.roleName}>Farmer Admin</Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                style={styles.avatarBtn}
-                onPress={() => setActiveTab('Profile')}
+                style={styles.switchRoleBtn}
+                onPress={() =>
+                  setModalItem({
+                    title: 'Switch Role',
+                    content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+                  })
+                }
                 activeOpacity={0.8}
               >
-                <PersonAvatarIcon />
+                <SwitchArrowsIcon size={14} color={THEME.brandHeader} />
+                <Text style={styles.switchRoleText}>Switch Role</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Section 1: Community queue */}
-            <Text style={styles.sectionTitle}>Community queue</Text>
-            <View style={styles.queueGrid}>
-              <TouchableOpacity
-                style={styles.queueCard}
-                onPress={() => setActiveTab('Listings')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.queueIconBox}>
-                  <HexagonReviewIcon />
-                </View>
-                <Text style={styles.queueNumber}>11</Text>
-                <Text style={styles.queueLabel}>Listings to Review</Text>
-              </TouchableOpacity>
+            {/* 3. 4 KPI Grid (2x2) — PURELY STATIC DISPLAY AS REQUESTED */}
+            <View style={styles.kpiGrid}>
+              {/* Tile 1: Pending Listings */}
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>PENDING LISTINGS</Text>
+                <Text style={styles.kpiValue}>24</Text>
+                <Text style={[styles.kpiSub, { color: THEME.amberText, fontWeight: '600' }]}>
+                  12 require review
+                </Text>
+              </View>
 
-              <TouchableOpacity
-                style={styles.queueCard}
-                onPress={() => Alert.alert('Field Visits', '3 Field verification audits are currently scheduled for Kotagiri and Coonoor.')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.queueIconBox}>
-                  <CalendarScheduleIcon />
-                </View>
-                <Text style={styles.queueNumber}>3</Text>
-                <Text style={styles.queueLabel}>Field Visits Scheduled</Text>
-              </TouchableOpacity>
-            </View>
+              {/* Tile 2: Today's Reviews */}
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>TODAY&apos;S REVIEWS</Text>
+                <Text style={styles.kpiValue}>18</Text>
+                <Text style={styles.kpiSub}>14 approved · 4 pending</Text>
+              </View>
 
-            {/* Section 2: Listings awaiting your approval */}
-            <Text style={styles.sectionTitle}>Listings awaiting your approval</Text>
-            <View style={styles.cardStack}>
-              {/* Item 1 */}
-              <TouchableOpacity
-                style={styles.listingApprovalCard}
-                onPress={() => Alert.alert('Review Batch', 'Carrots – Grade 1 (80kg) submitted by Farmer #TOHFA-F-00312. Fair price benchmark validated.')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.leafIconCircle}>
-                  <LeafIcon />
-                </View>
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={styles.listingCardTitle}>Carrots – Grade 1, 80kg</Text>
-                  <Text style={styles.listingCardSub}>Submitted by Farmer #TOHFA-F-00312</Text>
-                </View>
-                <ChevronRight />
-              </TouchableOpacity>
+              {/* Tile 3: Pending Audit Support */}
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>PENDING AUDIT SUPPORT</Text>
+                <Text style={styles.kpiValue}>6</Text>
+                <Text style={styles.kpiSub}>3 upcoming · 3 pending</Text>
+              </View>
 
-              {/* Item 2 */}
-              <View style={styles.listingApprovalCardDisabled}>
-                <View style={styles.blockIconCircle}>
-                  <BlockIcon />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listingCardTitle}>Beetroot – your own listing</Text>
-                  <Text style={styles.listingCardSub}>Auto-routed to TOHFA Admin — conflict of interest</Text>
-                </View>
+              {/* Tile 4: Open Disputes */}
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>OPEN DISPUTES</Text>
+                <Text style={[styles.kpiValue, { color: THEME.redText }]}>4</Text>
+                <Text style={[styles.kpiSub, { color: THEME.redText, fontWeight: '700' }]}>
+                  2 need attention
+                </Text>
               </View>
             </View>
 
-            {/* Section 3: Dispute mediation */}
-            <Text style={styles.sectionTitle}>Dispute mediation</Text>
-            <View style={styles.disputeCard}>
-              <View style={styles.disputeHeader}>
-                <ScaleDisputeIcon />
-                <Text style={styles.disputeTitle}>1 active dispute — pricing disagreement</Text>
-              </View>
-              <Text style={styles.disputeBody}>
-                Between Farmer #TOHFA-F-00289 and Coonoor warehouse quality check.
-              </Text>
+            {/* 4. Handover History Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Handover History</Text>
               <TouchableOpacity
-                onPress={() => Alert.alert('Dispute Mediation Desk', 'Opening dispute room between Farmer #TOHFA-F-00289 and WH-COON.')}
+                onPress={() => setSubView('handover_history')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.disputeLink}>Mediate now →</Text>
+                <Text style={styles.viewLink}>View →</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Section 4: Quick actions */}
-            <Text style={styles.sectionTitle}>Quick actions</Text>
-            <View style={styles.quickRow}>
-              <TouchableOpacity
-                style={styles.quickBtn}
-                onPress={() => Alert.alert('Schedule Visit', 'Schedule a new field visit or farm survey inspection.')}
-                activeOpacity={0.75}
-              >
-                <CalendarScheduleIcon />
-                <Text style={styles.quickBtnLabel}>Schedule Visit</Text>
-              </TouchableOpacity>
+            {/* Handover Card 1 */}
+            <View style={styles.historyCard}>
+              <Text style={styles.historyCardTitle}>HO-2026-0002 · Handover</Text>
+              <Text style={styles.historyMeta}>6 Oct 2026 · 1 collection</Text>
+              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
+              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
+
+              <View style={styles.statusPillCompleted}>
+                <Text style={styles.statusPillCompletedText}>Completed</Text>
+              </View>
 
               <TouchableOpacity
-                style={styles.quickBtn}
-                onPress={() => setActiveTab('Community')}
-                activeOpacity={0.75}
+                onPress={() => {
+                  setActiveHandoverId('HO-2026-0002');
+                  setSubView('handover_confirmation');
+                }}
+                activeOpacity={0.7}
               >
-                <CommunityTabIcon active={false} />
-                <Text style={styles.quickBtnLabel}>Community</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickBtn}
-                onPress={() => Alert.alert('Farmer Ratings', 'View smallholder ratings & organic adherence scorecards.')}
-                activeOpacity={0.75}
-              >
-                <ListingsTabIcon active={false} />
-                <Text style={styles.quickBtnLabel}>Ratings</Text>
+                <Text style={styles.cardActionLink}>View Details</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={{ height: 28 }} />
-          </ScrollView>
-        )}
+            {/* Handover Card 2 */}
+            <View style={styles.historyCard}>
+              <Text style={styles.historyCardTitle}>COL-0006 · Collection</Text>
+              <Text style={styles.historyMeta}>5 Oct 2026 · Selvi - FR-00242</Text>
+              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
+              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
+              <Text style={styles.historySubBold}>In HO-2026-0002</Text>
 
-        {/* Listings Queue Tab */}
-        {activeTab === 'Listings' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionTitle}>Farmer Community Listings (11)</Text>
-            <Text style={styles.subHint}>Review batches submitted by farmers in your local taluk</Text>
-            
-            <View style={[styles.cardStack, { marginTop: 14 }]}>
               <TouchableOpacity
-                style={styles.listingApprovalCard}
-                onPress={() => Alert.alert('Approve Listing', 'Carrots – Grade 1 (80kg) approved for Coonoor hub receipt.')}
-                activeOpacity={0.75}
+                onPress={() => {
+                  setActiveHandoverId('HO-2026-0002');
+                  setSubView('handover_history');
+                }}
+                activeOpacity={0.7}
               >
-                <View style={styles.leafIconCircle}><LeafIcon /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listingCardTitle}>Carrots – Grade 1, 80kg</Text>
-                  <Text style={styles.listingCardSub}>Farmer #TOHFA-F-00312 • Asking ₹38/kg</Text>
+                <Text style={styles.cardActionLink}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 5. Needs Your Attention Section */}
+            <Text style={styles.sectionTitle}>Needs Your Attention</Text>
+
+            {/* Attention Item 1: Tomato Grade 1 */}
+            <View style={styles.attentionCard}>
+              <View style={styles.accentStripe} />
+              <View style={styles.attentionHeaderRow}>
+                <View style={styles.attentionIconCircle}>
+                  <TomatoProduceIcon size={20} color={THEME.brandHeader} />
                 </View>
-                <ChevronRight />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attentionCardTitle}>Tomato — Grade 1</Text>
+                  <Text style={styles.attentionCardMeta}>
+                    Farmer: Ramesh · Quantity: 50 KG · Listed Price: ₹100/KG
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
+                <Text style={styles.attentionActionLink}>Review Listing →</Text>
+              </View>
+            </View>
+
+            {/* Attention Item 2: Counter Offer Response */}
+            <View style={styles.attentionCard}>
+              <View style={styles.accentStripe} />
+              <View style={styles.attentionHeaderRow}>
+                <View style={styles.attentionIconCircle}>
+                  <OpposingArrowsIcon size={18} color={THEME.blueText} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attentionCardTitle}>Counter Offer Response</Text>
+                  <Text style={styles.attentionCardMeta}>
+                    Farmer: Kumar · Crop: Beans · Quantity: 75 KG · Requires response
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
+                <Text style={styles.attentionActionLink}>View →</Text>
+              </View>
+            </View>
+
+            {/* Attention Item 3: Upcoming Farm Audit */}
+            <View style={styles.attentionCard}>
+              <View style={styles.accentStripe} />
+              <View style={styles.attentionHeaderRow}>
+                <View style={styles.attentionIconCircle}>
+                  <CalendarOutlineIcon size={20} color={THEME.amberIcon} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attentionCardTitle}>Upcoming Farm Audit</Text>
+                  <Text style={styles.attentionCardMeta}>
+                    Farmer: Selvi · Zone: Coonoor · Date: 04 Oct 2026
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
+                <Text style={styles.attentionActionLink}>View Audit →</Text>
+              </View>
+            </View>
+
+            {/* Attention Item 4: Farmer Dispute */}
+            <View style={styles.attentionCard}>
+              <View style={styles.accentStripe} />
+              <View style={styles.attentionHeaderRow}>
+                <View style={styles.attentionIconCircle}>
+                  <ExactScalesIcon size={20} color={THEME.redIcon} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attentionCardTitle}>Farmer Dispute — DSP-00128</Text>
+                  <Text style={styles.attentionCardMeta}>Farmer vs Farmer · Status: Open</Text>
+                </View>
+              </View>
+
+              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
+                <Text style={styles.attentionActionLink}>View Dispute →</Text>
+              </View>
+            </View>
+
+            {/* 6. Farmer Product Listings Section */}
+            <TouchableOpacity
+              style={{ marginTop: 18 }}
+              onPress={() => setSubView('product_listings')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.sectionTitle}>Farmer Product Listings</Text>
+              <Text style={styles.sectionSubMuted}>24 pending · 8 farmers</Text>
+            </TouchableOpacity>
+
+            {/* Accordion 1: Ramesh */}
+            <View style={styles.accordionCard}>
+              <TouchableOpacity
+                style={styles.accordionHeader}
+                onPress={() => setExpandedFarmer(expandedFarmer === 'Ramesh' ? null : 'Ramesh')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.initialsCircle}>
+                  <Text style={styles.initialsText}>R</Text>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.farmerName}>Ramesh</Text>
+                  <Text style={styles.farmerSub}>3 pending listings</Text>
+                </View>
+
+                {expandedFarmer === 'Ramesh' ? <ChevronUp /> : <ChevronDown />}
               </TouchableOpacity>
 
+              {expandedFarmer === 'Ramesh' && (
+                <View style={styles.accordionContent}>
+                  <TouchableOpacity
+                    style={styles.accordionItemRow}
+                    onPress={() => setSubView('product_listings')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accordionCropName}>• Tomato — Grade 1 (50 KG)</Text>
+                    <Text style={styles.accordionCropPrice}>₹100/KG</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.accordionItemRow}
+                    onPress={() => setSubView('product_listings')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accordionCropName}>• Potato — Grade 2 (120 KG)</Text>
+                    <Text style={styles.accordionCropPrice}>₹28/KG</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.accordionItemRow}
+                    onPress={() => setSubView('product_listings')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accordionCropName}>• Cabbage — Grade 1 (40 KG)</Text>
+                    <Text style={styles.accordionCropPrice}>₹22/KG</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Accordion 2: Kumar */}
+            <View style={styles.accordionCard}>
               <TouchableOpacity
-                style={styles.listingApprovalCard}
-                onPress={() => Alert.alert('Approve Listing', 'Nilgiris Special CTC Tea (200kg) approved.')}
+                style={styles.accordionHeader}
+                onPress={() => setExpandedFarmer(expandedFarmer === 'Kumar' ? null : 'Kumar')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.initialsCircle}>
+                  <Text style={styles.initialsText}>K</Text>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.farmerName}>Kumar</Text>
+                  <Text style={styles.farmerSub}>2 pending listings</Text>
+                </View>
+
+                {expandedFarmer === 'Kumar' ? <ChevronUp /> : <ChevronDown />}
+              </TouchableOpacity>
+
+              {expandedFarmer === 'Kumar' && (
+                <View style={styles.accordionContent}>
+                  <TouchableOpacity
+                    style={styles.accordionItemRow}
+                    onPress={() => setSubView('product_listings')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accordionCropName}>• Green Beans — Grade 1 (75 KG)</Text>
+                    <Text style={styles.accordionCropPrice}>₹45/KG</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.accordionItemRow}
+                    onPress={() => setSubView('product_listings')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.accordionCropName}>• Beetroot — Grade 1 (60 KG)</Text>
+                    <Text style={styles.accordionCropPrice}>₹36/KG</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Big Action Button: View All Listings */}
+            <TouchableOpacity
+              style={styles.bigOutlineBtn}
+              onPress={() => setSubView('product_listings')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.bigOutlineBtnText}>View All Listings</Text>
+            </TouchableOpacity>
+
+            {/* 7. Recent Farmer Admin Activity */}
+            <View style={{ marginTop: 22 }}>
+              <Text style={styles.sectionTitle}>Recent Farmer Admin Activity</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.activityCard}
+              onPress={() => setSubView('product_listings')}
+              activeOpacity={0.8}
+            >
+              <CheckmarkCircleIcon size={22} color={THEME.greenText} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activityTitle}>Listing approved</Text>
+                <Text style={styles.activityMeta}>Tomato — Grade 1 · 10 min ago</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.bigOutlineBtn}
+              onPress={() => setSubView('admin_activity')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.bigOutlineBtnText}>View Activity</Text>
+            </TouchableOpacity>
+
+            {/* 8. Quick Actions (Exact 6-Tile Grid from Image 4 Request) */}
+            <View style={{ marginTop: 24 }}>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+            </View>
+
+            <View style={styles.quickGrid}>
+              {/* Row 1, Col 1: Review Listings */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => setSubView('product_listings')}
                 activeOpacity={0.75}
               >
-                <View style={styles.leafIconCircle}><LeafIcon /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listingCardTitle}>Nilgiris CTC Tea – 200kg</Text>
-                  <Text style={styles.listingCardSub}>Farmer #TOHFA-F-00194 • Asking ₹242/kg</Text>
-                </View>
-                <ChevronRight />
+                <ClipboardChecklistIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>Review Listings</Text>
+              </TouchableOpacity>
+
+              {/* Row 1, Col 2: View Farmers */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => setActiveTab('Farmers')}
+                activeOpacity={0.75}
+              >
+                <PeopleGroupIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>View Farmers</Text>
+              </TouchableOpacity>
+
+              {/* Row 1, Col 3: Audit Calendar */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => {
+                  setAuditInitialFilter('calendar');
+                  setAuditInitialView('calendar');
+                  setSubView('audit_schedule');
+                }}
+                activeOpacity={0.75}
+              >
+                <CalendarOutlineIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>Audit Calendar</Text>
+              </TouchableOpacity>
+
+              {/* Row 2, Col 1: Review Disputes */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() =>
+                  setModalItem({
+                    title: 'Review Disputes',
+                    content: '4 active farmer mediation cases open in Nilgiris cooperative zone.',
+                  })
+                }
+                activeOpacity={0.75}
+              >
+                <ExactScalesIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>Review Disputes</Text>
+              </TouchableOpacity>
+
+              {/* Row 2, Col 2: Community */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() =>
+                  setModalItem({
+                    title: 'Farmer Community Forum',
+                    content: 'Nilgiris Smallholder Association noticeboard: Next cooperative assembly on Saturday.',
+                  })
+                }
+                activeOpacity={0.75}
+              >
+                <SpeechBubbleIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>Community</Text>
+              </TouchableOpacity>
+
+              {/* Row 2, Col 3: Ratings */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => setSubView('farmer_ratings')}
+                activeOpacity={0.85}
+              >
+                <StarRatingsIcon size={24} color={THEME.brandHeader} />
+                <Text style={styles.quickCardLabel}>Ratings</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={{ height: 32 }} />
           </ScrollView>
         )}
 
-        {/* Community Tab */}
-        {activeTab === 'Community' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionTitle}>Farmer Community Desk</Text>
-            <Text style={styles.subHint}>Nilgiris Smallholder Association • 1,284 Registered</Text>
-            <View style={[styles.disputeCard, { marginTop: 14 }]}>
-              <Text style={styles.disputeTitle}>Community Announcement</Text>
-              <Text style={styles.disputeBody}>
-                Next cooperative fair pricing committee meeting is scheduled for Saturday 10:00 AM at Ooty Central Hub.
-              </Text>
-            </View>
-          </ScrollView>
+        {/* ─── Farmers Tab (Matching Screenshot 1) ─── */}
+        {activeTab === 'Farmers' && (
+          <FarmersDirectoryScreen onBack={() => setActiveTab('Home')} />
         )}
 
-        {/* Profile Tab */}
-        {activeTab === 'Profile' && (
-          <AdminProfileScreen
-            role="FARMER_ADMIN"
-            onSignOut={onSignOut}
-            onBack={() => setActiveTab('Dashboard')}
+        {/* ─── Produce Tab (Image 1 Mockup) ─── */}
+        {activeTab === 'Produce' && (
+          <FarmerProduceTabScreen
+            onBack={() => setActiveTab('Home')}
+            onNavigateToListings={(filter) => {
+              setListingInitialFilter(filter || 'all');
+              setSubView('produce_listings');
+            }}
+            onNavigateToHistory={() => setSubView('produce_history')}
+            onOpenNotifications={() => setSubView('notifications')}
+          />
+        )}
+
+        {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
+        {activeTab === 'Audits' && (
+          <FarmerAuditsTabScreen
+            onBack={() => setActiveTab('Home')}
+            onNavigateSchedule={(preFilter, auditId) => {
+              setAuditInitialFilter(
+                preFilter === 'calendar'
+                  ? 'calendar'
+                  : preFilter === 'field_visit'
+                  ? 'field_visit'
+                  : preFilter === 'history'
+                  ? 'history'
+                  : preFilter === 'report'
+                  ? 'report'
+                  : 'calendar'
+              );
+              setAuditInitialId(auditId);
+              setAuditInitialView(
+                preFilter === 'field_visit'
+                  ? 'calendar'
+                  : preFilter === 'report'
+                  ? 'audit_report'
+                  : preFilter === 'calendar'
+                  ? 'calendar'
+                  : auditId
+                  ? 'audit_details_m5'
+                  : preFilter === 'history'
+                  ? 'history'
+                  : undefined
+              );
+              setSubView('audit_schedule');
+            }}
+            onOpenNotifications={() => setSubView('notifications')}
+          />
+        )}
+
+        {/* ─── More Tab (Screenshot 5) ─── */}
+        {activeTab === 'More' && (
+          <FarmerAdminMoreScreen
+            onBack={() => setActiveTab('Home')}
+            onNavigatePurchases={() => setSubView('purchases')}
+            onNavigateInputsPest={() => setSubView('inputs_pest')}
+            onNavigateMarketPricing={() => setSubView('market_pricing')}
+            onNavigateProduceListings={() => setSubView('produce_listings')}
+            onNavigateProfile={() => setSubView('profile')}
+            onNavigateNotifications={() => setSubView('notifications')}
+            onSwitchRole={() =>
+              setModalItem({
+                title: 'Switch Role',
+                content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+              })
+            }
+            onItemSelect={(title) => {
+              if (title === 'Inputs & Pest Management') {
+                setSubView('inputs_pest');
+              } else if (title === 'Market & Pricing') {
+                setSubView('market_pricing');
+              } else if (title === 'Ratings') {
+                setSubView('farmer_ratings');
+              } else if (title === 'Disputes') {
+                setModalItem({
+                  title: 'Disputes Mediation',
+                  content: '4 active farmer mediation cases open in Nilgiris cooperative zone.',
+                });
+              } else if (title === 'Community') {
+                setModalItem({
+                  title: 'Community Forum',
+                  content: 'Nilgiris Smallholder Association noticeboard: Next cooperative assembly on Saturday.',
+                });
+              } else {
+                setModalItem({
+                  title,
+                  content: `Detailed management and parameters for ${title}.`,
+                });
+              }
+            }}
           />
         )}
       </View>
 
-      {/* ─── Bottom Navigation Tab Bar (Matching Screen 11) ─── */}
+      {/* ─── Detail Modal ─── */}
+      <Modal
+        visible={modalItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalItem(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setModalItem(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{modalItem?.title}</Text>
+            <Text style={styles.modalContent}>{modalItem?.content}</Text>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setModalItem(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCloseText}>Done</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ─── Bottom Tab Bar (5 Tabs) ─── */}
       <View style={styles.tabBar}>
         <Pressable
           style={styles.tabItem}
-          onPress={() => setActiveTab('Dashboard')}
+          onPress={() => setActiveTab('Home')}
           accessibilityRole="tab"
+          accessibilityLabel="Home"
         >
-          <DashboardTabIcon active={activeTab === 'Dashboard'} />
-          <Text style={[styles.tabLabel, activeTab === 'Dashboard' && styles.tabLabelActive]}>Dashboard</Text>
+          <TabHomeIcon active={activeTab === 'Home'} />
+          <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
         </Pressable>
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => setActiveTab('Listings')}
+          onPress={() => setActiveTab('Farmers')}
           accessibilityRole="tab"
+          accessibilityLabel="Farmers"
         >
-          <ListingsTabIcon active={activeTab === 'Listings'} />
-          <Text style={[styles.tabLabel, activeTab === 'Listings' && styles.tabLabelActive]}>Listings</Text>
+          <TabFarmersIcon active={activeTab === 'Farmers'} />
+          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
         </Pressable>
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => setActiveTab('Community')}
+          onPress={() => setActiveTab('Produce')}
           accessibilityRole="tab"
+          accessibilityLabel="Produce"
         >
-          <CommunityTabIcon active={activeTab === 'Community'} />
-          <Text style={[styles.tabLabel, activeTab === 'Community' && styles.tabLabelActive]}>Community</Text>
+          <TabProduceIcon active={activeTab === 'Produce'} />
+          <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
         </Pressable>
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => setActiveTab('Profile')}
+          onPress={() => setActiveTab('Audits')}
           accessibilityRole="tab"
+          accessibilityLabel="Audits"
         >
-          <ProfileTabIcon active={activeTab === 'Profile'} />
-          <Text style={[styles.tabLabel, activeTab === 'Profile' && styles.tabLabelActive]}>Profile</Text>
+          <TabAuditsIcon active={activeTab === 'Audits'} />
+          <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.tabItem}
+          onPress={() => setActiveTab('More')}
+          accessibilityRole="tab"
+          accessibilityLabel="More"
+        >
+          <TabMoreIcon active={activeTab === 'More'} />
+          <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: THEME.canvas,
   },
+
+  // ─── Header ───
+  header: {
+    backgroundColor: THEME.brandHeader,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: THEME.white,
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.88)',
+    marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: THEME.headerPillBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  headerNotificationDot: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+  },
+
+  // ─── Body Scroll ───
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+
+  // ─── 1. Greeting ───
+  greetingSection: {
+    marginBottom: 14,
   },
-  greetSmall: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
-    marginBottom: 2,
-  },
-  greetName: {
-    fontSize: 22,
+  greetTitle: {
+    fontSize: 19,
     fontWeight: '800',
-    color: PALETTE.ink,
+    color: THEME.brandDeep,
     letterSpacing: -0.3,
-    marginBottom: 6,
   },
-  rolePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: PALETTE.peachBadge,
-    borderRadius: 14,
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-  },
-  rolePillText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: PALETTE.peachText,
-  },
-  avatarBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PALETTE.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  sectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.titleRust,
-    marginTop: 18,
-    marginBottom: 10,
-    letterSpacing: -0.2,
-  },
-  subHint: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: -6,
-    marginBottom: 8,
-  },
-  queueGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  queueCard: {
-    flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  queueIconBox: {
-    marginBottom: 10,
-  },
-  queueNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: PALETTE.ink,
-    letterSpacing: -0.5,
-  },
-  queueLabel: {
-    fontSize: 11.5,
-    color: PALETTE.labelMuted,
-    fontWeight: '500',
+  greetSub: {
+    fontSize: 13,
+    color: THEME.muted,
     marginTop: 2,
+    fontWeight: '400',
   },
-  cardStack: {
-    gap: 10,
-  },
-  listingApprovalCard: {
+
+  // ─── 2. Active Role Card ───
+  roleCard: {
+    backgroundColor: THEME.roleCardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.roleCardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  listingApprovalCardDisabled: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FAF7F2',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EFEAE1',
-    opacity: 0.85,
-  },
-  leafIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: PALETTE.peachIconBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  blockIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#EDE8E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  listingCardTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.ink,
-  },
-  listingCardSub: {
-    fontSize: 11.5,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  disputeCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  disputeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  disputeTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: PALETTE.ink,
-    flex: 1,
-  },
-  disputeBody: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    lineHeight: 17,
-    marginBottom: 8,
-  },
-  disputeLink: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: PALETTE.orange,
-  },
-  quickRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  quickBtn: {
-    flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    gap: 6,
-  },
-  quickBtnLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.ink,
-  },
-  profileBox: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
-  bigAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: PALETTE.peachIconBg,
+  roleLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  roleIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: THEME.brandHeader,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  roleLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#8C5A47',
+    letterSpacing: 0.5,
+  },
+  roleName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: THEME.ink,
+    letterSpacing: -0.2,
+    marginTop: 1,
+  },
+  switchRoleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: THEME.white,
+    borderWidth: 1,
+    borderColor: THEME.roleBtnBorder,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  switchRoleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.brandHeader,
+  },
+
+  // ─── 3. 2x2 Static KPI Grid (No navigation redirects) ───
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: 20,
+  },
+  kpiCard: {
+    width: '48.5%',
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: THEME.muted,
+    letterSpacing: 0.3,
+  },
+  kpiValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: THEME.ink,
+    letterSpacing: -0.5,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  kpiSub: {
+    fontSize: 11.5,
+    color: THEME.muted,
+    fontWeight: '500',
+  },
+
+  // ─── Section Header ───
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
     marginBottom: 10,
   },
-  profName: {
-    fontSize: 17,
+  sectionTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    color: PALETTE.ink,
+    color: THEME.brandDeep,
+    letterSpacing: -0.2,
   },
-  profRole: {
+  sectionSubMuted: {
     fontSize: 12,
-    color: PALETTE.labelMuted,
+    color: THEME.muted,
     marginTop: 2,
-    textAlign: 'center',
+    marginBottom: 10,
   },
-  profEmail: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.titleRust,
-    marginTop: 3,
-  },
-  signOutBtn: {
-    backgroundColor: '#FDEEE9',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F8D8CE',
-  },
-  signOutText: {
+  viewLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#943818',
+    color: THEME.brandHeader,
   },
+
+  // ─── Handover History Cards ───
+  historyCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 14,
+    marginBottom: 10,
+  },
+  historyCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.ink,
+    letterSpacing: -0.2,
+  },
+  historyMeta: {
+    fontSize: 11.5,
+    color: THEME.muted,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  historySubBold: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: THEME.ink,
+    marginTop: 4,
+  },
+  statusPillCompleted: {
+    alignSelf: 'flex-start',
+    backgroundColor: THEME.greenBg,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  statusPillCompletedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.greenText,
+  },
+  cardActionLink: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: THEME.brandDeep,
+    marginTop: 4,
+  },
+
+  // ─── Needs Attention Cards with Curved Left Accent Stripe ───
+  attentionCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 14,
+    marginBottom: 10,
+    position: 'relative',
+    overflow: 'hidden', // Ensures the accent stripe curves cleanly with the card
+  },
+  accentStripe: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 4.5,
+    backgroundColor: THEME.brandHeader,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  attentionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingLeft: 4,
+  },
+  attentionIconCircle: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attentionCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: THEME.ink,
+    letterSpacing: -0.2,
+  },
+  attentionCardMeta: {
+    fontSize: 11.5,
+    color: THEME.muted,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  attentionActionLink: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: THEME.brandDeep,
+  },
+
+  // ─── Accordion Farmer Cards ───
+  accordionCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 12,
+    marginBottom: 8,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  initialsCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F5ECE3', // Warm cream circle
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initialsText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#78350F', // Dark warm brown initials
+  },
+  farmerName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.ink,
+  },
+  farmerSub: {
+    fontSize: 11.5,
+    color: THEME.muted,
+    marginTop: 1,
+  },
+  accordionContent: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3ECE4',
+    gap: 6,
+  },
+  accordionItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  accordionCropName: {
+    fontSize: 12,
+    color: THEME.muted,
+    fontWeight: '500',
+  },
+  accordionCropPrice: {
+    fontSize: 12,
+    color: THEME.ink,
+    fontWeight: '700',
+  },
+
+  // ─── Big Outline Buttons ───
+  bigOutlineBtn: {
+    backgroundColor: THEME.white,
+    borderWidth: 1,
+    borderColor: THEME.brandHeader,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  bigOutlineBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: THEME.brandDeep,
+  },
+
+  // ─── Activity Card ───
+  activityCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  activityTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: THEME.ink,
+  },
+  activityMeta: {
+    fontSize: 11.5,
+    color: THEME.muted,
+    marginTop: 2,
+  },
+
+  // ─── Quick Actions (Image 4 Exact 6-Tile Grid) ───
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginTop: 8,
+  },
+  quickCard: {
+    width: '31.5%', // 3 columns
+    backgroundColor: THEME.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    paddingVertical: 16,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickCardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.ink,
+    textAlign: 'center',
+  },
+
+  // ─── Modal ───
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: THEME.card,
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: THEME.brandDeep,
+    marginBottom: 8,
+  },
+  modalContent: {
+    fontSize: 13,
+    color: THEME.ink,
+    lineHeight: 19,
+    marginBottom: 18,
+  },
+  modalCloseBtn: {
+    backgroundColor: THEME.brandHeader,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: THEME.white,
+  },
+
+  // ─── Bottom Tab Bar (5 Tabs) ───
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: THEME.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    borderTopColor: THEME.tabBorder,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     justifyContent: 'space-around',
   },
   tabItem: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: PALETTE.tabInactive,
-    marginTop: 3,
+    color: THEME.tabInactive,
+    marginTop: 2.5,
   },
   tabLabelActive: {
-    color: PALETTE.orange,
+    color: THEME.tabActive,
     fontWeight: '800',
   },
 });

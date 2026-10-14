@@ -2771,390 +2771,390 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           ) : whSubView === 'dashboard_operations' ||
             whSubView === 'todays_operations' ||
             whSubView === 'todays_operations_overview' ? (
-              // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
-              // shared Warehouse Activity as its Today preset: the six-tile strip and the
-              // monitoring card show for the all-warehouses scope.
-              renderActivityFlow(ACTIVITY_TODAY_PARAMS)
-            ) : whSubView === 'warehouse_operations' ? (
-              // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
-              // selector (replaces the shell's filter modal here); per-warehouse cards,
-              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-              // capacity, issues and activity open inside the flow.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Operations"
-                onBack={goBackWh}
-                onOpenModule={openMainModule}
-                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
-                onOpenNotifications={() => navigateWh('warehouse_notifications')}
-                onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
-                onManageCapacity={() => navigateWh('warehouse_settings')}
-              />
-            ) : whSubView === 'warehouse_overview' ? (
-              renderWarehouseOverviewScreen()
-            ) : whSubView === 'warehouse_comparison' ? (
-              renderWarehouseComparisonScreen()
-            ) : whSubView === 'manage_warehouses' ? (
-              renderManageWarehousesScreen()
-            ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
-              // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
-              // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
-              <WarehouseAdminFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
-                onBack={goBackWh}
-                onNavigateComparison={() => navigateWh('warehouse_comparison')}
-                onViewOperationsHistory={() => navigateWh('operations_history')}
-                onViewStaffAttendance={() => navigateWh('staff_attendance')}
-              />
-            ) : whSubView === 'warehouse_notifications' ? (
-              renderNotificationsFlow('Notifications')
-            ) : whSubView === 'storage_locations' ? (
-              // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
-              // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageInfo"
-                onBack={() => navigateWh('warehouse_operations')}
-                onSelectStorageLocation={(locId) => {
-                  setSelectedLocationId(locId);
-                  navigateWh('location_detail');
-                }}
-              />
-            ) : whSubView === 'location_detail' ? (
-              // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
-              // card and occupancy bar were ported. View Stock needs inventory.batch.view.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageLocationDetail"
-                initialParams={{ locationId: selectedLocationId }}
-                onBack={() => navigateWh('storage_locations')}
-                onViewStock={() => {
-                  setActiveTab('Inventory');
-                  setWhSubView('overview');
-                }}
-              />
-            ) : whSubView === 'material_handling' ? (
-              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-              // actions were ported into the shared screens (inventory.material_handling.manage).
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialHandling"
-                onBack={() => navigateWh('warehouse_operations')}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'material_detail' ? (
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialDetail"
-                initialParams={{ materialId: selectedMaterialId }}
-                onBack={goBackWh}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'warehouse_capacity' ? (
-              renderWarehouseCapacityScreen()
-            ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
-              // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
-              // shared activity log (All preset): search, warehouse selector, rows with
-              // warehouse + operator, detail, and CSV export with report.export.file.
-              renderActivityFlow(ACTIVITY_ALL_PARAMS)
-            ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
-              // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
-              // warehouse's issues with the selector and opens their detail. The
-              // report form (operational mode, with Main's warehouse / rack /
-              // severity fields) needs support.ticket.create_own, which MAIN does
-              // not hold today, so the Report button is replaced by a note.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
-                initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
-                onBack={() => navigateWh('warehouse_operations')}
-              />
-            ) : whSubView === 'staff_attendance' ? (
-              // The dropped Staff & Attendance hub was Main's only attendance entry
-              // (Manage SWAs card, operations hub); it opens the shared Attendance
-              // overview now (W4, M14). Attendance has no rbac code (ungated).
-              <StaffFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Attendance"
-                initialParams={ATTENDANCE_ALL_PARAMS}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'needs_attention' ? (
-              // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="NeedsAttention"
-                initialParams={{ category: attentionCategory }}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'stock_and_transfer' ? (
-              renderStockAndTransferScreen()
-            ) : whSubView === 'consolidated_stock' ? (
-              renderConsolidatedStockScreen()
-            ) : whSubView === 'low_stock_surplus' ? (
-              renderLowStockSurplusScreen()
-            ) : whSubView === 'transfer_tracking' ? (
-              renderTransferTrackingScreen()
-            ) : whSubView === 'quick_actions_overview' ? (
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QuickActions"
-                onBack={goBackWh}
-                onOpenTarget={openHomeTarget}
-              />
-            ) : whSubView === 'alerts_action_center' ? (
-              renderAlertsActionCenterScreen()
-            ) : whSubView === 'alert_detail' ? (
-              renderAlertDetailScreen()
-            ) : whSubView === 'stock_ledger' ||
-              whSubView === 'verify_stock' ||
-              whSubView === 'stock_adjustment_approval' ||
-              whSubView === 'low_stock_alerts' ? (
-              // The four Main-only inventory screens were folded into the shared
-              // inventory area (W4); each old sub-view opens the flow on its survivor.
-              <InventoryFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
-                onBack={goBackWh}
-                onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
-              // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
-              // list -> initiate. The flow owns the (mock) transfer list; Initiate
-              // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
-              <TransfersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={TRANSFER_ENTRY[whSubView]}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_settings' ? (
-              // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
-              // on warehouse.capacity.set; opens on the warehouse the overview showed.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="WarehouseSettings"
-                initialWarehouseId={warehouseIdForName(selectedWHName)}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_performance' ? (
-              renderWarehousePerformanceScreen()
-            ) : whSubView === 'incoming_goods_ops' ? (
-              // Incoming Goods was the receiving summary again: it is the shared
-              // receiving dashboard now (W4), opened from the operations hub.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Dashboard"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenTransferReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('transfer_receiving');
-                }}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'order_fulfilment_ops' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={ordersInitialScreen}
-                onBack={goBackWh}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'quality_issues_ops' ? (
-              // Shared receiving Quality Issues (W4, read-only list); issues open the
-              // wizard step / shipment inside the flow, damage reports Operational Issues.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QualityIssues"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'customers_list' ? (
-              // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
-              // customers with the all-warehouses selector. Wallet, cash top-up (the
-              // wallet operations hub), order detail and RMA open inside the flow;
-              // New Sale goes to the Main direct-sale flow.
-              <CustomersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
-                onOpenExternal={(target) => {
-                  if (target === 'NewSale') navigateWh('direct_sale_new');
-                }}
-                renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
-                  if (target === 'CustomerWallet' || target === 'CashTopUp') {
-                    // The shared wallet flow opened on this customer's wallet or
-                    // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
-                    return (
-                      <WalletFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen={target}
-                        initialParams={walletParamsForCustomer(p.customer)}
-                        onBack={nav.back}
-                      />
-                    );
-                  }
-                  if (target === 'OrderDetail') {
-                    return (
-                      <OrdersFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen="M5S04"
-                        initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
-                        onBack={nav.back}
-                        onViewIssue={() => navigateWh('operational_issues')}
-                      />
-                    );
-                  }
-                  if (target === 'RmaDetail') {
-                    return (
-                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
-                    );
-                  }
-                  return null;
-                }}
-              />
-            ) : whSubView === 'customer_orders' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={ordersInitialScreen}
-                initialParams={ordersInitialParams}
-                onBack={() => {
-                  setOrdersInitialScreen('M5S01');
-                  setOrdersInitialParams(null);
-                  if (returnToMoreSubScreen) {
-                    const target = returnToMoreSubScreen;
-                    setReturnToMoreSubScreen(null);
-                    setWhSubView('overview');
-                    setMoreSubScreen(target);
-                  } else {
-                    goBackWh();
-                  }
-                }}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setOrdersInitialScreen('M5S01');
-                  setOrdersInitialParams(null);
+            // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
+            // shared Warehouse Activity as its Today preset: the six-tile strip and the
+            // monitoring card show for the all-warehouses scope.
+            renderActivityFlow(ACTIVITY_TODAY_PARAMS)
+          ) : whSubView === 'warehouse_operations' ? (
+            // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
+            // selector (replaces the shell's filter modal here); per-warehouse cards,
+            // Open Issues / Operations History tiles need warehouse.all.view. Materials,
+            // capacity, issues and activity open inside the flow.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Operations"
+              onBack={goBackWh}
+              onOpenModule={openMainModule}
+              onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
+              onOpenNotifications={() => navigateWh('warehouse_notifications')}
+              onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
+              onSelectWarehouse={(whName) => {
+                setSelectedWHName(whName);
+                navigateWh('warehouse_city_detail');
+              }}
+              onManageCapacity={() => navigateWh('warehouse_settings')}
+            />
+          ) : whSubView === 'warehouse_overview' ? (
+            renderWarehouseOverviewScreen()
+          ) : whSubView === 'warehouse_comparison' ? (
+            renderWarehouseComparisonScreen()
+          ) : whSubView === 'manage_warehouses' ? (
+            renderManageWarehousesScreen()
+          ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
+            // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
+            // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
+            <WarehouseAdminFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
+              initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
+              onBack={goBackWh}
+              onNavigateComparison={() => navigateWh('warehouse_comparison')}
+              onViewOperationsHistory={() => navigateWh('operations_history')}
+              onViewStaffAttendance={() => navigateWh('staff_attendance')}
+            />
+          ) : whSubView === 'warehouse_notifications' ? (
+            renderNotificationsFlow('Notifications')
+          ) : whSubView === 'storage_locations' ? (
+            // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
+            // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="StorageInfo"
+              onBack={() => navigateWh('warehouse_operations')}
+              onSelectStorageLocation={(locId) => {
+                setSelectedLocationId(locId);
+                navigateWh('location_detail');
+              }}
+            />
+          ) : whSubView === 'location_detail' ? (
+            // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
+            // card and occupancy bar were ported. View Stock needs inventory.batch.view.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="StorageLocationDetail"
+              initialParams={{ locationId: selectedLocationId }}
+              onBack={() => navigateWh('storage_locations')}
+              onViewStock={() => {
+                setActiveTab('Inventory');
+                setWhSubView('overview');
+              }}
+            />
+          ) : whSubView === 'material_handling' ? (
+            // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
+            // actions were ported into the shared screens (inventory.material_handling.manage).
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="MaterialHandling"
+              onBack={() => navigateWh('warehouse_operations')}
+              onViewActivity={() => navigateWh('warehouse_activity')}
+            />
+          ) : whSubView === 'material_detail' ? (
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="MaterialDetail"
+              initialParams={{ materialId: selectedMaterialId }}
+              onBack={goBackWh}
+              onViewActivity={() => navigateWh('warehouse_activity')}
+            />
+          ) : whSubView === 'warehouse_capacity' ? (
+            renderWarehouseCapacityScreen()
+          ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
+            // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
+            // shared activity log (All preset): search, warehouse selector, rows with
+            // warehouse + operator, detail, and CSV export with report.export.file.
+            renderActivityFlow(ACTIVITY_ALL_PARAMS)
+          ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
+            // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
+            // warehouse's issues with the selector and opens their detail. The
+            // report form (operational mode, with Main's warehouse / rack /
+            // severity fields) needs support.ticket.create_own, which MAIN does
+            // not hold today, so the Report button is replaced by a note.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
+              initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
+              onBack={() => navigateWh('warehouse_operations')}
+            />
+          ) : whSubView === 'staff_attendance' ? (
+            // The dropped Staff & Attendance hub was Main's only attendance entry
+            // (Manage SWAs card, operations hub); it opens the shared Attendance
+            // overview now (W4, M14). Attendance has no rbac code (ungated).
+            <StaffFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Attendance"
+              initialParams={ATTENDANCE_ALL_PARAMS}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'needs_attention' ? (
+            // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
+            <HomeFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="NeedsAttention"
+              initialParams={{ category: attentionCategory }}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'stock_and_transfer' ? (
+            renderStockAndTransferScreen()
+          ) : whSubView === 'consolidated_stock' ? (
+            renderConsolidatedStockScreen()
+          ) : whSubView === 'low_stock_surplus' ? (
+            renderLowStockSurplusScreen()
+          ) : whSubView === 'transfer_tracking' ? (
+            renderTransferTrackingScreen()
+          ) : whSubView === 'quick_actions_overview' ? (
+            <HomeFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="QuickActions"
+              onBack={goBackWh}
+              onOpenTarget={openHomeTarget}
+            />
+          ) : whSubView === 'alerts_action_center' ? (
+            renderAlertsActionCenterScreen()
+          ) : whSubView === 'alert_detail' ? (
+            renderAlertDetailScreen()
+          ) : whSubView === 'stock_ledger' ||
+            whSubView === 'verify_stock' ||
+            whSubView === 'stock_adjustment_approval' ||
+            whSubView === 'low_stock_alerts' ? (
+            // The four Main-only inventory screens were folded into the shared
+            // inventory area (W4); each old sub-view opens the flow on its survivor.
+            <InventoryFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={INVENTORY_ENTRY[whSubView]}
+              initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+              onBack={goBackWh}
+              onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
+            // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
+            // list -> initiate. The flow owns the (mock) transfer list; Initiate
+            // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
+            <TransfersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={TRANSFER_ENTRY[whSubView]}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'warehouse_settings' ? (
+            // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
+            // on warehouse.capacity.set; opens on the warehouse the overview showed.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="WarehouseSettings"
+              initialWarehouseId={warehouseIdForName(selectedWHName)}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'warehouse_performance' ? (
+            renderWarehousePerformanceScreen()
+          ) : whSubView === 'incoming_goods_ops' ? (
+            // Incoming Goods was the receiving summary again: it is the shared
+            // receiving dashboard now (W4), opened from the operations hub.
+            <ReceivingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Dashboard"
+              receiverName={user?.fullName}
+              finishTo="History"
+              onBack={goBackWh}
+              onOpenTransferReceiving={() => {
+                setActiveTab('Receiving');
+                setReceivingSubView('transfer_receiving');
+              }}
+              onOpenOperationalIssues={() => navigateWh('operational_issues')}
+              onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+            />
+          ) : whSubView === 'order_fulfilment_ops' ? (
+            <OrdersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={ordersInitialScreen}
+              onBack={goBackWh}
+              onViewIssue={() => navigateWh('operational_issues')}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : whSubView === 'quality_issues_ops' ? (
+            // Shared receiving Quality Issues (W4, read-only list); issues open the
+            // wizard step / shipment inside the flow, damage reports Operational Issues.
+            <ReceivingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="QualityIssues"
+              receiverName={user?.fullName}
+              finishTo="History"
+              onBack={goBackWh}
+              onOpenOperationalIssues={() => navigateWh('operational_issues')}
+              onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+            />
+          ) : whSubView === 'customers_list' ? (
+            // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
+            // customers with the all-warehouses selector. Wallet, cash top-up (the
+            // wallet operations hub), order detail and RMA open inside the flow;
+            // New Sale goes to the Main direct-sale flow.
+            <CustomersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+              onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+              inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
+              onOpenExternal={(target) => {
+                if (target === 'NewSale') navigateWh('direct_sale_new');
+              }}
+              renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
+                if (target === 'CustomerWallet' || target === 'CashTopUp') {
+                  // The shared wallet flow opened on this customer's wallet or
+                  // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
+                  return (
+                    <WalletFlow
+                      scope={MAIN_WAREHOUSE_SCOPE}
+                      can={can}
+                      initialScreen={target}
+                      initialParams={walletParamsForCustomer(p.customer)}
+                      onBack={nav.back}
+                    />
+                  );
+                }
+                if (target === 'OrderDetail') {
+                  return (
+                    <OrdersFlow
+                      scope={MAIN_WAREHOUSE_SCOPE}
+                      can={can}
+                      initialScreen="M5S04"
+                      initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
+                      onBack={nav.back}
+                      onViewIssue={() => navigateWh('operational_issues')}
+                    />
+                  );
+                }
+                if (target === 'RmaDetail') {
+                  return (
+                    <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
+                  );
+                }
+                return null;
+              }}
+            />
+          ) : whSubView === 'customer_orders' ? (
+            <OrdersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={ordersInitialScreen}
+              initialParams={ordersInitialParams}
+              onBack={() => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams(null);
+                if (returnToMoreSubScreen) {
+                  const target = returnToMoreSubScreen;
                   setReturnToMoreSubScreen(null);
-                  setActiveTab(tab);
                   setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'billing_invoices' ? (
-              // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
-              <BillingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
-              // Shared direct sales flow (warehouse/sales-direct), all warehouses.
-              <SalesFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
-                initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                onNavigateToNeedsAttention={(category) => {
-                  setAttentionCategory(category ?? 'all');
-                  navigateWh('needs_attention');
-                }}
-              />
-            ) : null
-          )}
+                  setMoreSubScreen(target);
+                } else {
+                  goBackWh();
+                }
+              }}
+              onViewIssue={() => navigateWh('operational_issues')}
+              onTabChange={(tab) => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams(null);
+                setReturnToMoreSubScreen(null);
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : whSubView === 'billing_invoices' ? (
+            // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+            <BillingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
+            // Shared direct sales flow (warehouse/sales-direct), all warehouses.
+            <SalesFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
+              initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+              onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+              onNavigateToNeedsAttention={(category) => {
+                setAttentionCategory(category ?? 'all');
+                navigateWh('needs_attention');
+              }}
+            />
+          ) : null
+        )}
       </View>
 
       {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
       {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */}
       {((activeTab === 'Home' &&
-          (whSubView === 'overview' ||
-            whSubView === 'warehouse_operations' ||
-            whSubView === 'warehouse_overview' ||
-            whSubView === 'warehouse_city_detail' ||
-            whSubView === 'dashboard_operations' ||
-            whSubView === 'todays_operations' ||
-            whSubView === 'todays_operations_overview' ||
-            whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
-            whSubView === 'warehouse_capacity' ||
-            whSubView === 'warehouse_activity' ||
-            whSubView === 'operational_issues' ||
-            whSubView === 'report_operational_issue' ||
-            whSubView === 'staff_attendance' ||
-            whSubView === 'operations_history' ||
-            whSubView === 'incoming_goods_ops' ||
-            whSubView === 'order_fulfilment_ops' ||
-            whSubView === 'quality_issues_ops' ||
-            whSubView === 'activity_timeline_ops' ||
-            whSubView === 'warehouse_performance' ||
-            whSubView === 'manage_warehouses' ||
-            whSubView === 'warehouse_settings' ||
-            whSubView === 'alerts_action_center' ||
-            whSubView === 'alert_detail' ||
-            whSubView === 'stock_and_transfer' ||
-            whSubView === 'consolidated_stock' ||
-            whSubView === 'low_stock_surplus' ||
-            whSubView === 'transfer_tracking' ||
-            whSubView === 'quick_actions_overview' ||
-            whSubView === 'sales')) ||
+        (whSubView === 'overview' ||
+          whSubView === 'warehouse_operations' ||
+          whSubView === 'warehouse_overview' ||
+          whSubView === 'warehouse_city_detail' ||
+          whSubView === 'dashboard_operations' ||
+          whSubView === 'todays_operations' ||
+          whSubView === 'todays_operations_overview' ||
+          whSubView === 'storage_locations' ||
+          whSubView === 'material_handling' ||
+          whSubView === 'warehouse_capacity' ||
+          whSubView === 'warehouse_activity' ||
+          whSubView === 'operational_issues' ||
+          whSubView === 'report_operational_issue' ||
+          whSubView === 'staff_attendance' ||
+          whSubView === 'operations_history' ||
+          whSubView === 'incoming_goods_ops' ||
+          whSubView === 'order_fulfilment_ops' ||
+          whSubView === 'quality_issues_ops' ||
+          whSubView === 'activity_timeline_ops' ||
+          whSubView === 'warehouse_performance' ||
+          whSubView === 'manage_warehouses' ||
+          whSubView === 'warehouse_settings' ||
+          whSubView === 'alerts_action_center' ||
+          whSubView === 'alert_detail' ||
+          whSubView === 'stock_and_transfer' ||
+          whSubView === 'consolidated_stock' ||
+          whSubView === 'low_stock_surplus' ||
+          whSubView === 'transfer_tracking' ||
+          whSubView === 'quick_actions_overview' ||
+          whSubView === 'sales')) ||
         (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff'))) ||
         (activeTab === 'Inventory')) && (
           <View style={styles.bottomTabBar}>
