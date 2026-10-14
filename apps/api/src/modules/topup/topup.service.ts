@@ -15,10 +15,13 @@ import {
 } from './topup.repo.js';
 import type {
   CashTopupCreateInput,
+  CashTopupCustomerLookupQuery,
+  CashTopupCustomerLookupResponse,
   CreateTopupInput,
   TopupIntentResponse,
   WebhookResponse,
 } from './topup.schema.js';
+import { maskMobile } from '../sales/sales.math.js';
 import type { WalletTransactionResponse } from '../wallet/wallet.schema.js';
 
 export interface TopupService {
@@ -44,6 +47,18 @@ export interface TopupService {
   ): Promise<WebhookResponse>;
 
   reconcilePendingTopups(olderThanMinutes?: number): Promise<{ reconciledCount: number }>;
+
+  /**
+   * BR-91i: find the customer standing at the counter for a cash top-up, by exact mobile or code.
+   *
+   * WHY no BR-91 visibility predicate here: BR-91 makes a customer visible to a Sub admin once
+   * they have a SUCCESS top-up at the warehouse. Gating THIS lookup on that predicate meant a
+   * customer's first top-up at a warehouse could never be started, because the action that grants
+   * visibility was blocked by the visibility check. The exposure stays narrow: exact match only
+   * (no browsing), the mobile is masked, and the shape is the sales counter's allow-list.
+   * Customer list/detail and the sales counter lookup keep BR-91 unchanged.
+   */
+  lookupCashTopupCustomers(scope: ResolvedScope, query: CashTopupCustomerLookupQuery): Promise<CashTopupCustomerLookupResponse>;
 }
 
 const systemScope: ResolvedScope = {
@@ -387,6 +402,27 @@ export function createTopupService(opts: {
       }
 
       return { reconciledCount };
+    },
+
+    async lookupCashTopupCustomers(_scope, query) {
+      // The scope is deliberately unused for filtering (BR-91i, see the interface comment); the
+      // route's wallet.cash_topup.process gate is what decides who may ask.
+      const rows = await repo.lookupCashTopupCustomers(
+        db,
+        query.mobile !== undefined
+          ? { kind: 'mobile', digits: query.mobile.replace(/[^0-9]/g, '') }
+          : { kind: 'code', code: (query.code ?? '').trim() },
+      );
+      return {
+        // BR-92g: always masked, for every scope; the caller already typed the number.
+        items: rows.map((row) => ({
+          customerId: row.customerId,
+          customerCode: row.customerCode,
+          name: row.name,
+          mobileMasked: maskMobile(row.mobile),
+          walletBalance: row.walletBalance,
+        })),
+      };
     },
   };
 }

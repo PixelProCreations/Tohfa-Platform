@@ -10824,6 +10824,43 @@ paths:
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K9
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/wallets/cash-topup/customers/lookup:
+    get:
+      tags: [Wallet]
+      operationId: lookupCashTopupCustomer
+      summary: Find the customer at the counter for a cash top-up
+      description: |
+        Spec gap (2026-10-14, BR-91i). Exactly one of `mobile` or `code` (422 otherwise, and for any
+        other parameter such as `q`). `mobile` matches on the last 10 digits; `code` is
+        case-insensitive exact. There is no name or partial search.
+
+        Unlike `GET /admin/sales/customers/lookup`, the BR-91 warehouse-history predicate is NOT
+        applied: a customer making their first top-up at this warehouse has no order, top-up or
+        preferred warehouse here yet, and the successful top-up is what makes them BR-91-visible
+        afterwards. The customer list, detail and the sales counter lookup keep BR-91 unchanged.
+        Gated by `wallet.cash_topup.process` (Main and Sub Warehouse Admin both hold it), not by
+        `sales.sale.create`. The response is the same allow-list as the sales counter lookup: the
+        mobile is always masked (BR-92g), no e-mail or address. No match is an empty `items`.
+      x-permission: wallet.cash_topup.process
+      x-business-rules: [BR-91, BR-92, BR-18]
+      parameters:
+        - { name: mobile, in: query, required: false, schema: { type: string, pattern: '^\+?[0-9]{10,15}$' } }
+        - { name: code, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 40 } }
+      responses:
+        '200':
+          description: Matching customers (zero or more).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SaleCustomerMatch' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/payout-dues:
     get:
       tags: [Payouts & Invoices]
