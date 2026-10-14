@@ -3,24 +3,35 @@
  * Cash Top-Up: amount entry for a customer's wallet, step 1 of the cash
  * top-up wizard (-> Fiscal Cash Tag -> Confirm). Shared by Main and Sub.
  *
+ * Live (plan phase 9): the customer is a live one (uuid, code, masked mobile,
+ * BR-92), picked from Customer Details or the counter lookup; the flow never
+ * opens this screen without one. The amount is typed rupees turned into
+ * integer paise at once (mappers.parseTopUpAmount, never a float).
+ *
  * Gate: the whole flow is hidden unless can('wallet.cash_topup.process')
- * (FINAL_LIST #147). The warehouse the cash is collected at is the admin's own
- * warehouse when scope.warehouseId is set; Main (all warehouses) picks it.
+ * (FINAL_LIST #147); the server checks the code again.
  *
  * BR-19: the per-transaction cap comes from config/businessThresholds (which
- * mirrors system_config.cash_topup_cap), never a literal here. This is UX only;
- * the server enforces the cap and returns CASH_LIMIT_EXCEEDED.
+ * mirrors system_config.cash_topup_cap), never a literal here. UX only; the
+ * server enforces the cap and returns CASH_LIMIT_EXCEEDED.
  *
- * Absorbs dashboard/MainWarehouseCashTopUpScreen (its "Maximum cash top-up"
- * hint is shown here for both roles).
+ * BR-30: a Sub scope collects at its own warehouse. The all-warehouses (Main)
+ * scope picks one, and only a warehouse uuid can be sent: with no uuid option
+ * (the Main hosts still pass sample codes) Continue stays off and says why.
+ * The current balance is the live wallet read, for the preview only; the
+ * new balance shown after the top-up is the server's.
  */
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { fromPaise, type Paise } from '@tohfa/shared-types';
 
-import { CASH_TOPUP_CAP_PAISE, formatCashTopUpCap, validateTopUpAmount } from '../../../config/businessThresholds';
+import { formatCashTopUpCap } from '../../../config/businessThresholds';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_WALLET_CUSTOMER, TOP_UP_PRESETS, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
-import type { CashTopUpDraft, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { uuidParam } from '../customers/mappers';
+import { TOP_UP_PRESETS_PAISE, parseTopUpAmount, topUpWarehouseId, type TopUpCustomer } from './mappers';
+import type { CashTopUpDraft, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
   ArrowForwardIcon,
@@ -28,26 +39,30 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
-  SectionHint,
   SectionTitle,
   WalletButton,
   WalletFooter,
   WalletScreen,
-  formatRupees,
   isAllWarehouses,
-  rupeesOf,
   walletLayout,
 } from './WalletParts';
 
 export interface CashTopUpScreenProps extends WarehouseScreenBaseProps {
-  /** Customer being topped up (demo customer when omitted). */
-  customer?: WalletCustomer | undefined;
-  /** Display name of the admin processing the top-up. */
-  processedBy?: string | undefined;
-  /** Warehouses Main may collect at (ignored for a Sub scope). */
+  /** The live customer being topped up. */
+  customer: TopUpCustomer;
+  /** The wallet balance before the top-up (live read); null while unknown. */
+  currentBalancePaise: Paise | null;
+  /** The draft this step produced before (back from Fiscal Tag): its amount and warehouse are kept. */
+  draft?: CashTopUpDraft | undefined;
+  /** Warehouses Main may collect at (ignored for a Sub scope); only uuids can be sent. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Continue to the fiscal cash tag step. */
   onContinue: (draft: CashTopUpDraft) => void;
+}
+
+/** Whole-rupee text for an amount the screen fills in (presets, a kept draft). */
+function rupeesText(paise: Paise): string {
+  return fromPaise(paise).replace(/\.00$/, '');
 }
 
 export function CashTopUpScreen({
@@ -55,169 +70,142 @@ export function CashTopUpScreen({
   can,
   onBack,
   customer,
-  processedBy,
-  warehouseOptions = WALLET_WAREHOUSES,
+  currentBalancePaise,
+  draft,
+  warehouseOptions = [],
   onContinue,
 }: CashTopUpScreenProps) {
-  const custName = customer?.name ?? SAMPLE_WALLET_CUSTOMER.name;
-  const custCode = customer?.id ?? SAMPLE_WALLET_CUSTOMER.id;
-  const baseBalance = rupeesOf(customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
-
-  const [amount, setAmount] = useState<number>(2000);
-  const [customInputVisible, setCustomInputVisible] = useState(false);
-  const [customInputValue, setCustomInputValue] = useState('2000');
+  const uuidOptions = warehouseOptions.filter((w) => uuidParam(w.warehouseId) !== undefined);
+  const [amountText, setAmountText] = useState(draft === undefined ? '' : rupeesText(draft.amountPaise));
+  const [showError, setShowError] = useState(false);
   // Main picks the collecting warehouse; Sub is locked to its own.
-  const [collectedAt, setCollectedAt] = useState<string | undefined>(
-    scope.warehouseId ?? warehouseOptions[0]?.warehouseId,
-  );
+  const [collectedAt, setCollectedAt] = useState<string | undefined>(draft?.warehouseId ?? uuidOptions[0]?.warehouseId);
 
   if (!can('wallet.cash_topup.process')) {
     // Hiding the flow is presentation only; the server re-checks the code.
     return (
-      <WalletScreen title="Cash Top-Up" onBack={onBack}>
-        <EmptyState title="Cash top-up is not available" subtitle="Your role does not include wallet cash top-ups." />
+      <WalletScreen title={t('wallet.topup.title')} onBack={onBack}>
+        <EmptyState title={t('wallet.topup.notAvailable.title')} subtitle={t('wallet.topup.notAvailable.subtitle')} />
       </WalletScreen>
     );
   }
 
-  const warehouseId = scope.warehouseId ?? collectedAt;
-  const warehouseName = isAllWarehouses(scope) ? warehouseNameOf(warehouseId) : (scope.warehouseName ?? '');
-  const processor = processedBy ?? sampleProcessedBy(scope);
-  const newBalance = baseBalance + (amount || 0);
-
-  const handleSelectPreset = (value: number) => {
-    setAmount(value);
-    setCustomInputValue(value.toString());
-    setCustomInputVisible(false);
-  };
-
-  const handleCustomInput = (text: string) => {
-    setCustomInputValue(text);
-    const parsed = parseInt(text.replace(/[^0-9]/g, ''), 10);
-    if (!isNaN(parsed) && parsed > 0) setAmount(parsed);
-    else if (text === '') setAmount(0);
-  };
+  const noValue = t('customers.noValue');
+  const amount = parseTopUpAmount(amountText);
+  const amountPaise = amount.ok ? amount.paise : null;
+  const warehouseId = topUpWarehouseId(scope, collectedAt);
+  const warehouseName = isAllWarehouses(scope)
+    ? (uuidOptions.find((w) => w.warehouseId === warehouseId)?.warehouseName ?? noValue)
+    : (scope.warehouseName ?? scope.warehouseCode ?? noValue);
+  const newBalance = amountPaise !== null && currentBalancePaise !== null ? currentBalancePaise + amountPaise : null;
+  const errorText = amount.ok ? null : t(amount.errorKey, { cap: formatCashTopUpCap() });
 
   const handleProceed = () => {
-    // `amount` is whole rupees (the input strips non-digits), so * 100 is exact
-    // integer paise. The cap is BR-19's, from the config module, never a literal.
-    const check = validateTopUpAmount(amount * 100, CASH_TOPUP_CAP_PAISE);
-    if (!check.ok && check.reason === 'INVALID_AMOUNT') {
-      Alert.alert('Invalid Amount', 'Please enter a valid cash top-up amount.');
-      return;
-    }
-    if (!check.ok) {
-      Alert.alert('Amount Limit', `A single cash top-up cannot exceed ${formatCashTopUpCap()}.`);
+    if (!amount.ok || warehouseId === null) {
+      setShowError(true);
       return;
     }
     onContinue({
-      customerName: custName,
-      customerCode: custCode,
-      currentBalance: baseBalance,
-      topUpAmount: amount,
+      customer,
+      amountPaise: amount.paise,
       warehouseId,
       warehouseName,
-      processedBy: processor,
-      channel: 'Cash',
+      currentBalancePaise,
+      fiscalCashTag: draft?.fiscalCashTag,
     });
   };
 
   return (
     <WalletScreen
-      title="Cash Top-Up"
+      title={t('wallet.topup.title')}
       onBack={onBack}
       footer={
         <WalletFooter>
           <WalletButton
-            label="Continue"
+            label={t('wallet.topup.continue')}
             icon={<ArrowForwardIcon />}
             onPress={handleProceed}
-            disabled={!amount || amount <= 0}
+            disabled={amountText.trim() === '' || warehouseId === null}
           />
         </WalletFooter>
       }
     >
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Card>
             <Text style={styles.customerLine}>
-              {custName} <Text style={styles.customerLineBold}>{custCode}</Text>
+              {customer.name} <Text style={styles.customerLineBold}>{customer.code}</Text>
             </Text>
+            <Text style={styles.customerMeta}>{customer.mobileMasked}</Text>
             <Text style={[styles.customerLine, styles.customerLineSpaced]}>
-              Current Wallet Balance <Text style={styles.customerLineBold}>{formatRupees(baseBalance)}</Text>
+              {t('wallet.topup.currentBalance')}{' '}
+              <Text style={styles.customerLineBold}>{currentBalancePaise === null ? noValue : formatPaise(currentBalancePaise)}</Text>
             </Text>
           </Card>
 
-          <SectionTitle>Cash Amount</SectionTitle>
-          <View style={styles.amountCard}>
-            <Text style={styles.currencySymbol}>₹</Text>
-            {customInputVisible ? (
-              <TextInput
-                style={styles.amountInput}
-                keyboardType="numeric"
-                value={customInputValue}
-                onChangeText={handleCustomInput}
-                autoFocus
-                selectTextOnFocus
-                placeholder="0"
-                placeholderTextColor={adminColors.placeholder}
-              />
-            ) : (
-              <TouchableOpacity onPress={() => setCustomInputVisible(true)} activeOpacity={0.8}>
-                <Text style={styles.amountText}>{amount ? amount.toString() : '0'}</Text>
-              </TouchableOpacity>
-            )}
+          <SectionTitle>{t('wallet.topup.cashAmount')}</SectionTitle>
+          <View style={[styles.amountCard, showError && errorText !== null && styles.amountCardError]}>
+            <TextInput
+              style={styles.amountInput}
+              keyboardType="decimal-pad"
+              value={amountText}
+              onChangeText={(text) => {
+                setAmountText(text);
+                setShowError(false);
+              }}
+              placeholder={rupeesText(0)}
+              placeholderTextColor={adminColors.placeholder}
+              accessibilityLabel={t('wallet.topup.cashAmount')}
+            />
           </View>
+          {showError && errorText !== null ? <Text style={styles.errorText}>{errorText}</Text> : null}
 
-          <SectionTitle right={<SectionHint>Config-driven</SectionHint>}>Preset Amounts</SectionTitle>
+          <SectionTitle>{t('wallet.topup.presets')}</SectionTitle>
           <View style={styles.presetGrid}>
-            {TOP_UP_PRESETS.map((preset) => {
-              const selected = amount === preset && !customInputVisible;
+            {TOP_UP_PRESETS_PAISE.map((preset) => {
+              const selected = amountPaise === preset;
               return (
                 <TouchableOpacity
                   key={preset}
                   style={[styles.presetButton, selected && styles.presetButtonActive]}
-                  onPress={() => handleSelectPreset(preset)}
+                  onPress={() => {
+                    setAmountText(rupeesText(preset));
+                    setShowError(false);
+                  }}
                   activeOpacity={0.75}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                 >
-                  <Text style={[styles.presetText, selected && styles.presetTextActive]}>{formatRupees(preset)}</Text>
+                  <Text style={[styles.presetText, selected && styles.presetTextActive]}>{formatPaise(preset)}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-          <TouchableOpacity
-            style={[styles.customButton, customInputVisible && styles.customButtonActive]}
-            onPress={() => setCustomInputVisible(true)}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-          >
-            <Text style={styles.customButtonText}>Custom</Text>
-          </TouchableOpacity>
 
-          {/* Main twin's hint; the cap is BR-19's, from businessThresholds. */}
-          <InfoNote tone="brandSoft">Maximum cash top-up: {formatCashTopUpCap()} per transaction</InfoNote>
+          {/* The cap is BR-19's, from businessThresholds. */}
+          <InfoNote tone="brandSoft">{t('wallet.topup.capNote', { cap: formatCashTopUpCap() })}</InfoNote>
 
-          <SectionTitle>Balance Preview</SectionTitle>
+          <SectionTitle>{t('wallet.topup.balancePreview')}</SectionTitle>
           <Card>
-            <AmountRow label="Current Balance" value={formatRupees(baseBalance)} />
-            <AmountRow divider label="Cash Top-Up" value={`+${formatRupees(amount)}`} emphasis="credit" />
-            <AmountRow divider label="New Balance" value={formatRupees(newBalance)} emphasis="total" />
+            <AmountRow label={t('wallet.topup.previewCurrent')} value={currentBalancePaise === null ? noValue : formatPaise(currentBalancePaise)} />
+            <AmountRow
+              divider
+              label={t('wallet.topup.previewTopUp')}
+              value={amountPaise === null ? noValue : `+${formatPaise(amountPaise)}`}
+              emphasis="credit"
+            />
+            <AmountRow divider label={t('wallet.topup.previewNew')} value={newBalance === null ? noValue : formatPaise(newBalance)} emphasis="total" />
           </Card>
 
           {isAllWarehouses(scope) ? (
             <>
-              <SectionTitle>Collected At</SectionTitle>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.warehouseChipsRow}
-              >
-                {warehouseOptions
-                  .filter((w) => w.warehouseId !== undefined)
-                  .map((w) => {
-                    const active = (collectedAt ?? warehouseOptions[0]?.warehouseId) === w.warehouseId;
+              <SectionTitle>{t('wallet.topup.collectedAt')}</SectionTitle>
+              {uuidOptions.length === 0 ? (
+                <InfoNote tone="warning">{t('wallet.topup.noWarehouse')}</InfoNote>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.warehouseChipsRow}>
+                  {uuidOptions.map((w) => {
+                    const active = warehouseId === w.warehouseId;
                     return (
                       <TouchableOpacity
                         key={w.warehouseId}
@@ -228,23 +216,23 @@ export function CashTopUpScreen({
                         accessibilityState={{ selected: active }}
                       >
                         <Text style={[styles.warehouseChipText, active && styles.warehouseChipTextActive]}>
-                          {w.warehouseName ?? w.warehouseId}
+                          {w.warehouseName ?? w.warehouseCode ?? w.warehouseId}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
-              </ScrollView>
+                </ScrollView>
+              )}
             </>
           ) : null}
 
-          <SectionTitle>Transaction Information</SectionTitle>
+          <SectionTitle>{t('wallet.topup.transactionInfo')}</SectionTitle>
           <InfoCard
             rows={[
               [
-                { label: 'Warehouse', value: warehouseName },
-                { label: 'Processed By', value: processor },
+                { label: t('wallet.topup.warehouse'), value: warehouseName },
+                { label: t('wallet.topup.channel'), value: t('wallet.topup.channelCash') },
               ],
-              [{ label: 'Channel', value: 'Cash' }],
             ]}
           />
         </ScrollView>
@@ -259,6 +247,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   customerLine: { ...adminType.body, color: adminColors.ink },
   customerLineBold: { ...adminType.rowTitle, color: adminColors.ink },
+  customerMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   customerLineSpaced: { marginTop: adminSpacing.sm },
   amountCard: {
     backgroundColor: adminColors.card,
@@ -270,9 +259,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: adminColors.brand,
   },
-  currencySymbol: { ...adminType.sectionHead, color: adminColors.muted, marginBottom: 2 },
+  amountCardError: { borderColor: adminColors.danger.border },
   // Was a 38px figure; the admin scale tops out at kpiValue (19).
-  amountText: { ...adminType.kpiValue, color: adminColors.ink },
   amountInput: {
     ...adminType.kpiValue,
     color: adminColors.ink,
@@ -280,6 +268,7 @@ const styles = StyleSheet.create({
     minWidth: AMOUNT_INPUT_MIN_WIDTH,
     paddingVertical: 0,
   },
+  errorText: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
   presetGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: adminSpacing.sm, marginBottom: adminSpacing.sm },
   presetButton: {
     flex: 1,
@@ -293,17 +282,6 @@ const styles = StyleSheet.create({
   presetButtonActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
   presetText: { ...adminType.rowTitle, color: adminColors.ink },
   presetTextActive: { color: adminColors.onBrand },
-  customButton: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    paddingVertical: adminSpacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderStyle: 'dashed',
-  },
-  customButtonActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  customButtonText: { ...adminType.rowTitle, color: adminColors.ink },
   warehouseChipsRow: {
     flexDirection: 'row',
     gap: adminSpacing.sm,

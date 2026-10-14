@@ -2,191 +2,138 @@
 /**
  * Confirm Cash Top-Up: step 3 of the cash top-up wizard. Shows the draft and
  * submits it; Top-Up Successful (TopUpSuccessScreen) is a separate route the
- * flow opens on success (it used to be nested here, with Top-Up Details).
+ * flow opens only after the server confirmed.
+ *
+ * Live (plan phase 9): Confirm calls `onConfirm`, which the flow turns into
+ * POST /admin/wallets/{id}/cash-topup with an Idempotency-Key held by the
+ * flow (useWalletData.useCashTopupSubmit): a retry of the same draft reuses
+ * the key, an edited draft gets a new one (root CLAUDE.md 2.4). This screen
+ * draws the pending state and the failure the flow maps (cashTopupErrorKey).
+ * When the outcome is unknown (a timeout, or the server's 409 on a replay) it
+ * offers "Check Wallet Balance" next to the retry, because the money may
+ * already have moved.
  *
  * Gate: Confirm only when can('wallet.cash_topup.process') AND
  * can('wallet.cash_topup.fiscal_tag') (BR-18: no top-up completes without the
  * fiscal tag). The server enforces both codes again (CLAUDE.md 2.1).
- *
- * WHEN THIS IS WIRED TO THE API: the confirm request moves money, so it MUST
- * send an `Idempotency-Key` header (CLAUDE.md 2.4), generated once per draft
- * and reused on every retry, so a double tap or a network replay credits the
- * wallet once. Success is only shown after the server confirms; the balance is
- * never simulated by editing the display.
- *
- * Absorbs dashboard/MainWarehouseConfirmCashTopUpScreen (its "never shown
- * before the server confirms" note) and MainWarehouseFinalConfirmScreen (the
- * "Confirm Cash Top-Up?" step, now an inline confirmation panel). Both apply to
- * every role, so they are not scope-conditional.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { t, type TranslationKey } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_DATE, SAMPLE_FISCAL_TAG, SAMPLE_TIME, SAMPLE_WALLET_CUSTOMER, sampleProcessedBy } from './fixtures';
 import type { CashTopUpDraft, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
   Card,
   CheckIcon,
   InfoCard,
+  InfoNote,
   PermissionNote,
   SectionTitle,
   WalletButton,
   WalletFooter,
   WalletScreen,
-  formatRupees,
   walletLayout,
 } from './WalletParts';
 
 export interface ConfirmCashTopUpScreenProps extends WarehouseScreenBaseProps {
-  draft?: Partial<CashTopUpDraft> | undefined;
-  /** The server confirmed the top-up (mock: after a short delay). */
-  onConfirmed: (draft: CashTopUpDraft) => void;
+  /** The full draft, with its fiscal cash tag. */
+  draft: CashTopUpDraft & { fiscalCashTag: string };
+  /** Send the top-up (the flow holds the key and the request). */
+  onConfirm: () => void;
+  isSubmitting: boolean;
+  /** The last failure's message key; null when there is none. */
+  errorKey: TranslationKey | null;
+  /** The failure may still have credited the wallet: offer a balance check. */
+  outcomeUnknown: boolean;
+  /** Open the customer's live wallet (shown with an unknown outcome). */
+  onCheckWallet?: (() => void) | undefined;
 }
 
-/** Mock round-trip until the top-up API is wired. */
-const MOCK_SUBMIT_MS = 500;
-
-export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfirmed }: ConfirmCashTopUpScreenProps) {
-  const customerName = draft.customerName ?? SAMPLE_WALLET_CUSTOMER.name;
-  const customerCode = draft.customerCode ?? SAMPLE_WALLET_CUSTOMER.id;
-  const [currentBalance, setCurrentBalance] = useState<number>(draft.currentBalance ?? 4500);
-  const topUpAmount = draft.topUpAmount ?? 2000;
-  const warehouseName = draft.warehouseName ?? scope.warehouseName ?? '';
-  const processedBy = draft.processedBy ?? sampleProcessedBy(scope);
-  const fiscalCashTag = draft.fiscalCashTag ?? SAMPLE_FISCAL_TAG;
-  const dateStr = draft.dateStr ?? SAMPLE_DATE;
-  const timeStr = draft.timeStr ?? SAMPLE_TIME;
-
+export function ConfirmCashTopUpScreen({
+  can,
+  onBack,
+  draft,
+  onConfirm,
+  isSubmitting,
+  errorKey,
+  outcomeUnknown,
+  onCheckWallet,
+}: ConfirmCashTopUpScreenProps) {
   const [askFinalConfirm, setAskFinalConfirm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [demoNotice, setDemoNotice] = useState<string | null>(null);
-  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (submitTimer.current !== null) clearTimeout(submitTimer.current);
-    },
-    [],
-  );
-
   const canConfirm = can('wallet.cash_topup.process') && can('wallet.cash_topup.fiscal_tag');
-  const newBalance = currentBalance + topUpAmount;
-
-  const handleSimulateBalanceChanged = () => {
-    const updated = 5200;
-    setCurrentBalance(updated);
-    setDemoNotice('Wallet balance changed to ₹5,200 by concurrent order! Preview updated.');
-    Alert.alert(
-      'Demo: Mid-flow Balance Update',
-      `Another terminal updated customer wallet to ₹5,200.00.\n\nNew Balance recalculated to ${formatRupees(updated + topUpAmount, true)}.`,
-    );
-  };
-
-  const handleSimulateFailedTopUp = () => {
-    Alert.alert(
-      'Demo: Top-Up Failed (Simulated)',
-      'Transaction rejected by banking switch (ERR_AUTH_REJECTED).\n\nCash tag tagged for manual reconciliation.',
-      [{ text: 'Dismiss' }],
-    );
-  };
+  const noValue = t('customers.noValue');
+  const newBalance = draft.currentBalancePaise === null ? null : draft.currentBalancePaise + draft.amountPaise;
+  const amountLabel = formatPaise(draft.amountPaise);
 
   const handleConfirmTopUp = () => {
     if (!canConfirm || isSubmitting) return;
     setAskFinalConfirm(false);
-    setIsSubmitting(true);
-    // Real call: POST the draft with an Idempotency-Key (see the file header).
-    submitTimer.current = setTimeout(() => {
-      setIsSubmitting(false);
-      onConfirmed({
-        customerName,
-        customerCode,
-        currentBalance,
-        topUpAmount,
-        warehouseId: draft.warehouseId ?? scope.warehouseId,
-        warehouseName,
-        processedBy,
-        channel: 'Cash',
-        fiscalCashTag,
-        dateStr,
-        timeStr,
-      });
-    }, MOCK_SUBMIT_MS);
+    onConfirm();
   };
 
   return (
     <WalletScreen
-      title="Confirm Cash Top-Up"
+      title={t('wallet.topup.confirm.title')}
       onBack={onBack}
       footer={
         <WalletFooter>
           {canConfirm ? (
             <WalletButton
-              label={isSubmitting ? 'Confirming…' : 'Confirm Top-Up'}
+              label={isSubmitting ? t('wallet.topup.confirm.sending') : errorKey === null ? t('wallet.topup.confirm.button') : t('wallet.topup.confirm.retry')}
               icon={isSubmitting ? <ActivityIndicator size="small" color={adminColors.onBrand} /> : <CheckIcon />}
               onPress={() => setAskFinalConfirm(true)}
               disabled={isSubmitting || askFinalConfirm}
             />
           ) : (
-            <PermissionNote>
-              Confirming a cash top-up needs wallet.cash_topup.process and wallet.cash_topup.fiscal_tag.
-            </PermissionNote>
+            <PermissionNote>{t('wallet.topup.confirm.permission')}</PermissionNote>
           )}
-          <WalletButton label="Back" variant="outline" onPress={onBack} disabled={isSubmitting} />
+          {outcomeUnknown && onCheckWallet !== undefined ? (
+            <WalletButton label={t('wallet.topup.confirm.checkWallet')} variant="outline" onPress={onCheckWallet} disabled={isSubmitting} />
+          ) : null}
+          <WalletButton label={t('wallet.topup.confirm.back')} variant="outline" onPress={onBack} disabled={isSubmitting} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {demoNotice ? (
-          <View style={styles.demoNotice}>
-            <Text style={styles.demoNoticeText}>{demoNotice}</Text>
+        {errorKey !== null && !isSubmitting ? (
+          <View style={styles.errorPanel}>
+            <InfoNote tone={outcomeUnknown ? 'warning' : 'danger'}>{t(errorKey)}</InfoNote>
           </View>
         ) : null}
 
         {askFinalConfirm && canConfirm ? (
           // Former MainWarehouseFinalConfirmScreen, inline.
           <View style={styles.finalConfirm}>
-            <Text style={styles.finalConfirmTitle}>Confirm Cash Top-Up?</Text>
-            <Text style={styles.finalConfirmText}>
-              {formatRupees(topUpAmount)} will be credited to {customerName}'s wallet.
-            </Text>
+            <Text style={styles.finalConfirmTitle}>{t('wallet.topup.confirm.question')}</Text>
+            <Text style={styles.finalConfirmText}>{t('wallet.topup.confirm.body', { amount: amountLabel, name: draft.customer.name })}</Text>
             <View style={styles.finalConfirmActions}>
-              <WalletButton label="Cancel" variant="neutral" flex onPress={() => setAskFinalConfirm(false)} />
-              <WalletButton label="Confirm Top-Up" flex onPress={handleConfirmTopUp} />
+              <WalletButton label={t('wallet.topup.confirm.cancel')} variant="neutral" flex onPress={() => setAskFinalConfirm(false)} />
+              <WalletButton label={t('wallet.topup.confirm.button')} flex onPress={handleConfirmTopUp} />
             </View>
           </View>
         ) : null}
 
-        <SectionTitle>Customer</SectionTitle>
-        <InfoCard rows={[[{ label: customerName, value: customerCode }]]} />
+        <SectionTitle>{t('wallet.topup.customer')}</SectionTitle>
+        <InfoCard rows={[[{ label: draft.customer.name, value: `${draft.customer.code} · ${draft.customer.mobileMasked}` }]]} />
 
-        <SectionTitle>Wallet</SectionTitle>
+        <SectionTitle>{t('wallet.topup.confirm.wallet')}</SectionTitle>
         <Card>
-          <AmountRow label="Current Balance" value={formatRupees(currentBalance, true)} />
-          <AmountRow divider label="Top-Up Amount" value={formatRupees(topUpAmount, true)} emphasis="credit" />
-          <AmountRow divider label="New Balance" value={formatRupees(newBalance, true)} emphasis="total" />
+          <AmountRow label={t('wallet.topup.previewCurrent')} value={draft.currentBalancePaise === null ? noValue : formatPaise(draft.currentBalancePaise)} />
+          <AmountRow divider label={t('wallet.topup.amount')} value={amountLabel} emphasis="credit" />
+          <AmountRow divider label={t('wallet.topup.previewNew')} value={newBalance === null ? noValue : formatPaise(newBalance)} emphasis="total" />
         </Card>
 
-        <SectionTitle>Cash Information</SectionTitle>
+        <SectionTitle>{t('wallet.topup.confirm.cashInfo')}</SectionTitle>
         <InfoCard
           rows={[
             [
-              { label: 'Payment Method', value: 'Cash' },
-              { label: 'Fiscal Cash Tag', value: fiscalCashTag },
+              { label: t('wallet.topup.confirm.paymentMethod'), value: t('wallet.topup.channelCash') },
+              { label: t('wallet.topup.fiscal.title'), value: draft.fiscalCashTag },
             ],
-            [{ label: 'Warehouse', value: warehouseName }],
-          ]}
-        />
-
-        <SectionTitle>Admin Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Processed By', value: processedBy },
-              { label: 'Date', value: dateStr },
-            ],
-            [{ label: 'Time', value: timeStr }],
+            [{ label: t('wallet.topup.warehouse'), value: draft.warehouseName }],
           ]}
         />
       </ScrollView>
@@ -195,15 +142,7 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
 }
 
 const styles = StyleSheet.create({
-  demoNotice: {
-    backgroundColor: adminColors.warning.bg,
-    borderColor: adminColors.warning.border,
-    borderWidth: 1,
-    padding: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-    marginTop: adminSpacing.sm,
-  },
-  demoNoticeText: { ...adminType.caption, color: adminColors.warning.text, textAlign: 'center' },
+  errorPanel: { marginTop: adminSpacing.sm },
   finalConfirm: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -223,14 +162,4 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.md,
   },
   finalConfirmActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
-  demoButton: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: adminSpacing.md,
-    alignItems: 'center',
-    marginTop: adminSpacing.md,
-  },
-  demoButtonText: { ...adminType.rowTitle, color: adminColors.brandDeep },
 });
