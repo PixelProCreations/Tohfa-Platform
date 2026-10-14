@@ -8,38 +8,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  divider: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Badges & Actions
-  activeBadgeBg: adminColors.success.bg,
-  activeBadgeText: adminColors.success.text,
-  orangeIcon: adminColors.brand,
-  orangeBtn: adminColors.brand,
-};
-
-// ─── Exact Google Material Symbols ───────────────────────────────────────────
-
-// 1. Storefront Icon (Header Left) — Exact Material Symbols storefront / store
-function StorefrontIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function StorefrontIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -50,8 +26,7 @@ function StorefrontIcon({ size = 22, color = THEME.white }: { size?: number; col
   );
 }
 
-// 2. Bell Notification Icon (Header Right)
-function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
+function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -65,8 +40,7 @@ function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: s
   );
 }
 
-// 3. Back Arrow Icon
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -80,8 +54,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// 4. Price Check Icon (Fair Prices) — Exact Material Symbols price_check ($ Currency + Attached Checkmark)
-function PriceCheckIcon({ size = 26, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function PriceCheckIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -92,8 +65,7 @@ function PriceCheckIcon({ size = 26, color = THEME.orangeIcon }: { size?: number
   );
 }
 
-// 5. Category Icon (Categories & Grades) — Exact Material Symbols category (Triangle, Circle, Square)
-function CategoryShapesIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function CategoryShapesIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -104,8 +76,7 @@ function CategoryShapesIcon({ size = 24, color = THEME.orangeIcon }: { size?: nu
   );
 }
 
-// 6. History Clock Icon (Price History) — Exact Material Symbols history
-function HistoryClockIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -116,8 +87,7 @@ function HistoryClockIcon({ size = 24, color = THEME.orangeIcon }: { size?: numb
   );
 }
 
-// 7. Price Tag Icon (Retail Pricing) — Exact Material Symbols sell / label
-function PriceTagIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; color?: string }) {
+function PriceTagIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -128,8 +98,7 @@ function PriceTagIcon({ size = 24, color = THEME.orangeIcon }: { size?: number; 
   );
 }
 
-// 8. Read-only Warning Circle Slash Icon (Exact Material Symbols block)
-function BlockCircleIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -143,12 +112,12 @@ function BlockCircleIcon({ size = 18, color = '#6B7280' }: { size?: number; colo
 export interface MarketPricingHomeScreenProps {
   onBack: () => void;
   onNavigateToFairPrice: () => void;
-  onNavigateToCategories?: () => void;
-  onNavigateToPriceHistory?: () => void;
-  onNavigateToRetailPricing?: () => void;
-  onOpenNotifications?: () => void;
-  onNavigateToMarketDay?: () => void;
-  onNavigateToListingApproval?: () => void;
+  onNavigateToCategories?: (() => void) | undefined;
+  onNavigateToPriceHistory?: (() => void) | undefined;
+  onNavigateToRetailPricing?: (() => void) | undefined;
+  onOpenNotifications?: (() => void) | undefined;
+  onNavigateToMarketDay?: (() => void) | undefined;
+  onNavigateToListingApproval?: (() => void) | undefined;
 }
 
 export function MarketPricingHomeScreen({
@@ -163,9 +132,9 @@ export function MarketPricingHomeScreen({
 }: MarketPricingHomeScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 1 Exactly ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -173,26 +142,26 @@ export function MarketPricingHomeScreen({
               style={styles.backBtn}
               onPress={onBack}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('marketPricingHome.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
 
-            <StorefrontIcon size={22} color={THEME.white} />
-            <Text style={styles.headerTitle}>Market & Pricing</Text>
+            <StorefrontIcon size={22} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('marketPricingHome.title')}</Text>
           </View>
 
           <TouchableOpacity
             style={styles.notificationBtn}
             onPress={onOpenNotifications}
             activeOpacity={0.8}
-            accessibilityLabel="Notifications"
+            accessibilityLabel={t('marketPricingHome.notifications')}
           >
-            <BellIcon size={19} color={THEME.white} />
+            <BellIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.headerSubtitle, { paddingLeft: 34 }]}>Market & Pricing Dashboard</Text>
+        <Text style={styles.headerSubtitle}>{t('marketPricingHome.subtitle')}</Text>
       </View>
 
       {/* ─── Scroll Container ─── */}
@@ -201,83 +170,37 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Metric KPI Grid (Screenshot 1) ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Row 1 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>ACTIVE FAIR PRICES</Text>
-              <Text style={styles.kpiValueDark}>124</Text>
-            </View>
+        {/* Section 1: Current Market Snapshot */}
+        <Text style={styles.sectionHeading}>{t('marketPricingHome.section.snapshot')}</Text>
 
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRODUCT CATEGORIES</Text>
-              <Text style={styles.kpiValueDark}>12</Text>
-            </View>
-          </View>
-
-          {/* Row 2 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRICE UPDATES</Text>
-              <Text style={styles.kpiValueDark}>18</Text>
-            </View>
-
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>RETAIL PRICE RECORDS</Text>
-              <Text style={styles.kpiValueDark}>124</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Section: Current Market Snapshot (Screenshot 1) ─── */}
-        <Text style={styles.sectionHeading}>Current Market Snapshot</Text>
         <View style={styles.snapshotCard}>
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Crop</Text>
-            <Text style={styles.snapshotValue}>Carrot</Text>
+            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.activeListings')}</Text>
+            <Text style={styles.snapshotValue}>124</Text>
           </View>
-
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Grade</Text>
-            <Text style={styles.snapshotValue}>Grade 1</Text>
+            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.pendingReview')}</Text>
+            <Text style={styles.snapshotValue}>18</Text>
           </View>
-
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Fair Price Ceiling</Text>
-            <Text style={styles.snapshotValue}>₹100/kg</Text>
+            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.fairPriceCeilings')}</Text>
+            <Text style={styles.snapshotValue}>32 active</Text>
           </View>
-
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Retail Price</Text>
-            <Text style={styles.snapshotValue}>₹120/kg</Text>
-          </View>
-
-          <View style={styles.snapshotDivider} />
-
-          <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Effective Date</Text>
-            <Text style={styles.snapshotValue}>30 Sep 2026</Text>
-          </View>
-
-          <View style={styles.snapshotDivider} />
-
-          <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Price Status</Text>
-            <Text style={[styles.snapshotValue, { color: THEME.activeBadgeText }]}>Active</Text>
+            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.retailPricesActive')}</Text>
+            <Text style={styles.snapshotValue}>28 active</Text>
           </View>
         </View>
 
-        {/* ─── Section: Recently Updated Prices (Screenshot 1 & 2) ─── */}
-        <Text style={styles.sectionHeading}>Recently Updated Prices</Text>
+        {/* Section 2: Recently Updated Prices */}
+        <Text style={styles.sectionHeading}>{t('marketPricingHome.section.recentPrices')}</Text>
 
-        {/* Price Card 1: Carrot · Grade 1 */}
         <View style={styles.recentPriceCard}>
           <View style={styles.recentCardHeader}>
             <Text style={styles.recentCropTitle}>Carrot · Grade 1</Text>
@@ -288,107 +211,83 @@ export function MarketPricingHomeScreen({
 
           <View style={styles.priceColsRow}>
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Fair Price</Text>
-              <Text style={styles.priceColValue}>₹100/kg</Text>
+              <Text style={styles.priceColLabel}>Fair Price Ceiling</Text>
+              <Text style={styles.priceColValue}>₹100.00/kg</Text>
             </View>
-
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Retail Price</Text>
-              <Text style={styles.priceColValue}>₹120/kg</Text>
+              <Text style={styles.priceColLabel}>Effective Date</Text>
+              <Text style={styles.priceColValue}>30 Sep 2026</Text>
             </View>
-
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Effective</Text>
-              <Text style={styles.priceColValue}>30 Sep</Text>
+              <Text style={styles.priceColLabel}>Frequency</Text>
+              <Text style={styles.priceColValue}>Weekly</Text>
             </View>
           </View>
         </View>
 
-        {/* Price Card 2: Cabbage · Grade 2 */}
-        <View style={[styles.recentPriceCard, { marginTop: 10 }]}>
-          <View style={styles.recentCardHeader}>
-            <Text style={styles.recentCropTitle}>Cabbage · Grade 2</Text>
-            <View style={styles.activePill}>
-              <Text style={styles.activePillText}>Active</Text>
-            </View>
-          </View>
-
-          <View style={styles.priceColsRow}>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Fair Price</Text>
-              <Text style={styles.priceColValue}>₹60/kg</Text>
-            </View>
-
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Retail Price</Text>
-              <Text style={styles.priceColValue}>₹75/kg</Text>
-            </View>
-
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Effective</Text>
-              <Text style={styles.priceColValue}>29 Sep</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Button: View History (Screenshot 2) */}
+        {/* View History Button */}
         <TouchableOpacity
           style={styles.viewHistoryBtn}
-          onPress={onNavigateToPriceHistory ?? onNavigateToFairPrice}
-          activeOpacity={0.85}
+          onPress={onNavigateToPriceHistory}
+          activeOpacity={0.8}
         >
-          <Text style={styles.viewHistoryBtnText}>View History</Text>
+          <Text style={styles.viewHistoryBtnText}>{t('marketPricingHome.action.viewHistory')}</Text>
         </TouchableOpacity>
 
-        {/* ─── Section: Quick Actions (Screenshot 2) ─── */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        {/* Section 3: Quick Actions 2x2 Grid */}
+        <Text style={styles.sectionHeading}>{t('marketPricingHome.section.quickActions')}</Text>
 
         <View style={styles.quickGrid}>
-          {/* Row 1 */}
           <View style={styles.quickRow}>
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigateToFairPrice}
               activeOpacity={0.8}
             >
-              <PriceCheckIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Fair Prices</Text>
+              <PriceCheckIcon size={28} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.fairPrices')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickCard}
-              onPress={onNavigateToCategories ?? onNavigateToFairPrice}
+              onPress={onNavigateToCategories}
               activeOpacity={0.8}
             >
-              <CategoryShapesIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Categories & Grades</Text>
+              <CategoryShapesIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.categories')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Row 2 */}
           <View style={styles.quickRow}>
             <TouchableOpacity
               style={styles.quickCard}
-              onPress={onNavigateToPriceHistory ?? onNavigateToFairPrice}
+              onPress={onNavigateToPriceHistory}
               activeOpacity={0.8}
             >
-              <HistoryClockIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Price History</Text>
+              <HistoryClockIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.priceHistory')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickCard}
-              onPress={onNavigateToRetailPricing ?? onNavigateToFairPrice}
+              onPress={onNavigateToRetailPricing}
               activeOpacity={0.8}
             >
-              <PriceTagIcon size={26} color={THEME.orangeIcon} />
-              <Text style={styles.quickCardLabel}>Retail Pricing</Text>
+              <PriceTagIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.retailPricing')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Section 4: Read-Only Disclaimer Banner */}
+        <View style={styles.disclaimerCard}>
+          <BlockCircleIcon size={18} color={adminColors.muted} />
+          <Text style={styles.disclaimerText}>
+            {t('marketPricingHome.disclaimer')}
+          </Text>
+        </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -399,15 +298,13 @@ export function MarketPricingHomeScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Header
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -420,93 +317,48 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    paddingRight: 4,
-    paddingVertical: 4,
-    justifyContent: 'center',
+    width: 36,
+    height: 36,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 6,
-    fontWeight: '500',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   notificationBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Scroll Container
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    marginTop: adminSpacing.xs,
+    paddingLeft: 34,
+  },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xl,
+    paddingBottom: adminSpacing.xxl,
   },
-
-  // 2x2 Metric KPI Grid
-  kpiGrid: {
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.lg,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-  },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 14,
-    justifyContent: 'center',
-    ...adminShadow.sm,
-  },
-  kpiLabel: {
-    ...adminType.caption,
-    fontSize: 11,
-    color: THEME.muted,
-    letterSpacing: 0.2,
-    marginBottom: 4,
-  },
-  kpiValueDark: {
-    ...adminType.kpiValue,
-    fontSize: 24,
-    color: THEME.ink,
-    letterSpacing: -0.5,
-  },
-
-  // Section Heading
   sectionHeading: {
-    ...adminType.sectionHead,
-    fontSize: 15,
-    color: THEME.titleRustDark,
-    marginBottom: adminSpacing.md,
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
   },
-
-  // Current Market Snapshot Table Card
   snapshotCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 4,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
   },
@@ -514,53 +366,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: adminSpacing.md,
   },
   snapshotLabel: {
     ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   snapshotValue: {
     ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   snapshotDivider: {
     height: 1,
-    backgroundColor: THEME.divider,
+    backgroundColor: adminColors.border,
   },
-
-  // Recently Updated Prices
   recentPriceCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     ...adminShadow.sm,
   },
   recentCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   recentCropTitle: {
-    ...adminType.title,
-    fontSize: 15,
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activePill: {
-    backgroundColor: THEME.activeBadgeBg,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
   },
   activePillText: {
     ...adminType.caption,
-    fontSize: 11,
-    color: THEME.activeBadgeText,
+    fontWeight: '700',
+    color: adminColors.success.text,
   },
   priceColsRow: {
     flexDirection: 'row',
@@ -571,22 +420,18 @@ const styles = StyleSheet.create({
   },
   priceColLabel: {
     ...adminType.caption,
-    fontSize: 11,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   priceColValue: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.ink,
+    color: adminColors.ink,
   },
-
-  // View History Button
   viewHistoryBtn: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -595,11 +440,8 @@ const styles = StyleSheet.create({
   },
   viewHistoryBtnText: {
     ...adminType.rowTitle,
-    fontSize: 15,
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
   },
-
-  // Quick Actions 2x2 Grid
   quickGrid: {
     gap: adminSpacing.sm,
     marginBottom: adminSpacing.lg,
@@ -610,10 +452,10 @@ const styles = StyleSheet.create({
   },
   quickCard: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 20,
     paddingHorizontal: adminSpacing.md,
     alignItems: 'center',
@@ -623,28 +465,27 @@ const styles = StyleSheet.create({
   },
   quickCardLabel: {
     ...adminType.rowTitle,
-    fontSize: 13,
-    color: THEME.ink,
+    color: adminColors.ink,
     textAlign: 'center',
   },
-
-  // Read-only Disclaimer Banner
   disclaimerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 10,
   },
   disclaimerText: {
     flex: 1,
-    ...adminType.rowMeta,
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 16,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

@@ -10,25 +10,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  brandOrange: adminColors.brand,
-  btnBg: '#FAF7F2',
-};
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -42,7 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -53,14 +40,14 @@ function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: s
 
 export interface SearchFarmersScreenProps {
   onBack: () => void;
-  onApplyFilters?: (filters: {
+  onApplyFilters?: ((filters: {
     zone: string;
     method: string;
     certification: string;
     rating: string;
     status: string;
     keyword: string;
-  }) => void;
+  }) => void) | undefined;
 }
 
 export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScreenProps) {
@@ -100,20 +87,20 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header Matching Screenshot 2 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('searchFarmers.backLabel')}
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Search Farmers</Text>
+          <Text style={styles.headerTitle}>{t('searchFarmers.title')}</Text>
         </View>
       </View>
 
@@ -124,22 +111,22 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
       >
         {/* Search Input Box */}
         <View style={styles.searchBox}>
-          <SearchIcon size={18} color="#6B7280" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Farmer ID / Name / Zone"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('searchFarmers.searchPlaceholder')}
+            placeholderTextColor={adminColors.muted}
             value={keyword}
             onChangeText={setKeyword}
           />
         </View>
 
         {/* Section Heading: Filters */}
-        <Text style={styles.filtersHeading}>Filters</Text>
+        <Text style={styles.filtersHeading}>{t('searchFarmers.section.filters')}</Text>
 
         {/* Group 1: Zone */}
         <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Zone</Text>
+          <Text style={styles.filterGroupLabel}>{t('searchFarmers.filter.zone')}</Text>
           <View style={styles.chipsRow}>
             {zoneOptions.map((zone) => {
               const active = selectedZone === zone;
@@ -161,7 +148,7 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
 
         {/* Group 2: Farming Method */}
         <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Farming Method</Text>
+          <Text style={styles.filterGroupLabel}>{t('searchFarmers.filter.method')}</Text>
           <View style={styles.chipsRow}>
             {methodOptions.map((method) => {
               const active = selectedMethod === method;
@@ -183,7 +170,7 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
 
         {/* Group 3: Certification */}
         <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Certification</Text>
+          <Text style={styles.filterGroupLabel}>{t('searchFarmers.filter.certification')}</Text>
           <View style={styles.chipsRow}>
             {certificationOptions.map((cert) => {
               const active = selectedCertification === cert;
@@ -205,19 +192,19 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
 
         {/* Group 4: Rating */}
         <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Rating</Text>
+          <Text style={styles.filterGroupLabel}>{t('searchFarmers.filter.rating')}</Text>
           <View style={styles.chipsRow}>
-            {ratingOptions.map((rate) => {
-              const active = selectedRating === rate;
+            {ratingOptions.map((rating) => {
+              const active = selectedRating === rating;
               return (
                 <TouchableOpacity
-                  key={rate}
+                  key={rating}
                   style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
-                  onPress={() => setSelectedRating(rate)}
+                  onPress={() => setSelectedRating(rating)}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
-                    {rate}
+                    {rating}
                   </Text>
                 </TouchableOpacity>
               );
@@ -225,21 +212,21 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
           </View>
         </View>
 
-        {/* Group 5: Status */}
+        {/* Group 5: Account Status */}
         <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Status</Text>
+          <Text style={styles.filterGroupLabel}>{t('searchFarmers.filter.status')}</Text>
           <View style={styles.chipsRow}>
-            {statusOptions.map((st) => {
-              const active = selectedStatus === st;
+            {statusOptions.map((status) => {
+              const active = selectedStatus === status;
               return (
                 <TouchableOpacity
-                  key={st}
+                  key={status}
                   style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
-                  onPress={() => setSelectedStatus(st)}
+                  onPress={() => setSelectedStatus(status)}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
-                    {st}
+                    {status}
                   </Text>
                 </TouchableOpacity>
               );
@@ -247,48 +234,46 @@ export function SearchFarmersScreen({ onBack, onApplyFilters }: SearchFarmersScr
           </View>
         </View>
 
-        {/* Action Buttons Row: Apply & Clear */}
+        {/* Action Buttons: Apply & Clear */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={handleApply}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.actionBtnText}>Apply</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
+            style={styles.clearBtn}
             onPress={handleClear}
             activeOpacity={0.8}
           >
-            <Text style={styles.actionBtnText}>Clear</Text>
+            <Text style={styles.clearBtnText}>{t('searchFarmers.action.clear')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.applyBtn}
+            onPress={handleApply}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.applyBtnText}>{t('searchFarmers.action.apply')}</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 2 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -297,102 +282,110 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.2,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     height: 48,
-    gap: 10,
-    marginBottom: 20,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   filtersHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
-    marginBottom: 14,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
   filterGroup: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   filterGroupLabel: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.ink,
-    marginBottom: 8,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm + 1,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     minWidth: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chipInactive: {
-    backgroundColor: THEME.card,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   chipTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xl,
   },
-  actionBtn: {
+  clearBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: THEME.btnBg,
-    borderRadius: 14,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.ink,
+  clearBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  applyBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

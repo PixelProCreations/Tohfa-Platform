@@ -12,32 +12,11 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: adminColors.muted,
-
-  // Badges & Actions
-  activeBadgeBg: adminColors.success.bg,
-  activeBadgeText: adminColors.success.text,
-  orangeBtn: adminColors.brand,
-};
+import { t } from '../../i18n';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,21 +30,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Sliders / Tune Filter Icon (Exact Material Symbols tune)
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#78716C' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -138,7 +116,6 @@ export function RetailPricingScreen({
   const [showFilters, setShowFilters] = useState(false);
   const [selectedItem, setSelectedItem] = useState<RetailPriceItem | null>(null);
 
-  // Filter States (Screenshot 4)
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Vegetables' | 'Fruits'>('All');
   const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2'>('All');
 
@@ -172,9 +149,9 @@ export function RetailPricingScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 3 Right, Screenshot 4 & Image 2/3 Detail ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -182,14 +159,13 @@ export function RetailPricingScreen({
               style={styles.backBtn}
               onPress={handleHeaderBack}
               activeOpacity={0.7}
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('retailPricing.backLabel')}
             >
-              <BackArrowIcon size={22} color={THEME.white} />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Retail Pricing</Text>
+            <Text style={styles.headerTitle}>{t('retailPricing.title')}</Text>
           </View>
 
-          {/* Top Right Circular Filter Button */}
           <TouchableOpacity
             style={[styles.filterIconCircle, showFilters && styles.filterIconCircleActive]}
             onPress={() => {
@@ -199,44 +175,49 @@ export function RetailPricingScreen({
               setShowFilters(!showFilters);
             }}
             activeOpacity={0.8}
-            accessibilityLabel="Toggle filters"
+            accessibilityLabel={t('retailPricing.filterLabel')}
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.headerSubtitle}>
-          View current retail prices by crop and grade
-        </Text>
+        {!selectedItem && !showFilters && (
+          <View style={styles.searchBarWrap}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('retailPricing.searchPlaceholder')}
+              placeholderTextColor={adminColors.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        )}
       </View>
 
       {/* ─── Main Content ─── */}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {showFilters ? (
-          /* ─── Filter Panel (Screenshot 4) ─── */
+        {/* VIEW 1: Filter Panel */}
+        {showFilters && (
           <View style={styles.filtersContainer}>
-            <View style={styles.filtersHeaderRow}>
-              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
-              <Text style={styles.filtersHeading}>Filters</Text>
-            </View>
+            <Text style={styles.filtersHeading}>{t('retailPricing.filters.title')}</Text>
 
-            {/* Sub-section: Category */}
-            <Text style={styles.filterGroupLabel}>Category</Text>
+            <Text style={styles.filterGroupLabel}>{t('retailPricing.filters.category')}</Text>
             <View style={styles.chipsRow}>
               {(['All', 'Vegetables', 'Fruits'] as const).map((cat) => {
-                const isSelected = selectedCategory === cat;
+                const isActive = selectedCategory === cat;
                 return (
                   <TouchableOpacity
                     key={cat}
-                    style={[styles.chip, isSelected && styles.chipActive]}
+                    style={[styles.chip, isActive && styles.chipActive]}
                     onPress={() => setSelectedCategory(cat)}
-                    activeOpacity={0.8}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
                       {cat}
                     </Text>
                   </TouchableOpacity>
@@ -244,182 +225,164 @@ export function RetailPricingScreen({
               })}
             </View>
 
-            {/* Sub-section: Grade */}
-            <Text style={[styles.filterGroupLabel, { marginTop: adminSpacing.md }]}>
-              Grade
+            <Text style={[styles.filterGroupLabel, styles.filterGroupSpacing]}>
+              {t('retailPricing.filters.grade')}
             </Text>
             <View style={styles.chipsRow}>
-              {(['All', 'Grade 1', 'Grade 2'] as const).map((grd) => {
-                const isSelected = selectedGrade === grd;
+              {(['All', 'Grade 1', 'Grade 2'] as const).map((gr) => {
+                const isActive = selectedGrade === gr;
                 return (
                   <TouchableOpacity
-                    key={grd}
-                    style={[styles.chip, isSelected && styles.chipActive]}
-                    onPress={() => setSelectedGrade(grd)}
-                    activeOpacity={0.8}
+                    key={gr}
+                    style={[styles.chip, isActive && styles.chipActive]}
+                    onPress={() => setSelectedGrade(gr)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                      {grd}
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {gr}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Buttons: Apply & Clear */}
             <View style={styles.filterButtonsRow}>
               <TouchableOpacity
                 style={styles.applyBtn}
-                onPress={() => {
-                  setSelectedItem(null);
-                  setShowFilters(false);
-                }}
+                onPress={() => setShowFilters(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.applyBtnText}>Apply</Text>
+                <Text style={styles.applyBtnText}>{t('retailPricing.filters.apply')}</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.clearBtn}
                 onPress={() => {
                   setSelectedCategory('All');
                   setSelectedGrade('All');
-                  setSelectedItem(null);
-                  setShowFilters(false);
+                  setSearchQuery('');
                 }}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.clearBtnText}>{t('retailPricing.filters.clearAll')}</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : selectedItem ? (
-          /* ─── Retail Pricing Detail View (Image 2 & 3 Request) ─── */
-          <>
+        )}
+
+        {/* VIEW 2: Detail Breakdown View */}
+        {!showFilters && selectedItem && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('retailPricing.section.detail')}</Text>
+
             <View style={styles.detailCard}>
-              {/* Row 1: Product & Grade */}
-              <View style={styles.detailGridRow}>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Product</Text>
-                  <Text style={styles.detailValue}>{selectedItem.product}</Text>
-                </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Grade</Text>
-                  <Text style={styles.detailValue}>{selectedItem.grade}</Text>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cropTitleText}>{selectedItem.cropGrade}</Text>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>{selectedItem.status}</Text>
                 </View>
               </View>
 
-              {/* Row 2: Purchase Price & Markup */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={styles.detailGridRow}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Purchase Price</Text>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.purchasePrice')}</Text>
                   <Text style={styles.detailValue}>{selectedItem.purchasePrice}</Text>
                 </View>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Markup</Text>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.markup')}</Text>
                   <Text style={styles.detailValue}>{selectedItem.markup}</Text>
                 </View>
               </View>
 
-              {/* Row 3: Expenses */}
-              <View style={{ marginTop: adminSpacing.lg }}>
-                <Text style={styles.detailLabel}>Expenses</Text>
-                <Text style={[styles.detailExpensesValue, { marginTop: 4 }]}>
-                  {selectedItem.expensesDetail}
-                </Text>
-              </View>
-
-              {/* Row 4: Retail Price & Customer Discount */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Retail Price</Text>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.expenses')}</Text>
+                  <Text style={styles.detailValue}>{selectedItem.expenses}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.retailPrice')}</Text>
                   <Text style={styles.detailValue}>{selectedItem.retailPrice}</Text>
                 </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>Customer Discount</Text>
-                  <Text style={styles.detailValue}>{selectedItem.customerDiscount}</Text>
-                </View>
+              </View>
+
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>Expenses Detail</Text>
+                <Text style={styles.detailExpensesValue}>{selectedItem.expensesDetail}</Text>
+              </View>
+
+              <View style={styles.gridRowSpacing}>
+                <Text style={styles.detailLabel}>{t('retailPricing.label.discount')}</Text>
+                <Text style={styles.detailValue}>{selectedItem.customerDiscount}</Text>
               </View>
             </View>
 
-            {/* Button 1: View Markup & Pricing Breakdown */}
             <TouchableOpacity
               style={styles.viewBreakdownBtn}
-              onPress={() => onSelectBreakdown && onSelectBreakdown(selectedItem)}
+              onPress={() => onSelectBreakdown?.(selectedItem)}
               activeOpacity={0.8}
             >
-              <Text style={styles.viewBreakdownBtnText}>
-                View Markup & Pricing Breakdown
-              </Text>
+              <Text style={styles.viewBreakdownBtnText}>{t('retailPricing.action.viewBreakdown')}</Text>
             </TouchableOpacity>
 
-            {/* Button 2: Back to Retail Pricing */}
             <TouchableOpacity
               style={styles.backToRetailBtn}
               onPress={() => setSelectedItem(null)}
               activeOpacity={0.8}
             >
-              <Text style={styles.backToRetailBtnText}>Back to Retail Pricing</Text>
+              <Text style={styles.backToRetailBtnText}>{t('retailPricing.action.backToRetail')}</Text>
             </TouchableOpacity>
-          </>
-        ) : (
-          /* ─── Normal View with Search & Retail Pricing Cards (Screenshot 3 Right) ─── */
-          <>
-            {/* Search Bar */}
-            <View style={styles.searchBar}>
-              <SearchIcon size={18} color={THEME.labelMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Crop, product, category"
-                placeholderTextColor={THEME.labelMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-
-            {/* Retail Pricing Cards (Clicking opens Detail View Image 2/3) */}
-            {filteredItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.retailCard}
-                onPress={() => setSelectedItem(item)}
-                activeOpacity={0.85}
-              >
-                {/* Header Row */}
-                <View style={styles.retailCardHeader}>
-                  <Text style={styles.retailCropTitle}>{item.cropGrade}</Text>
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>{item.status}</Text>
-                  </View>
-                </View>
-
-                {/* 3 Columns Row */}
-                <View style={styles.retailColsRow}>
-                  <View style={styles.retailCol}>
-                    <Text style={styles.colLabel}>Purchase Price</Text>
-                    <Text style={styles.colValue}>{item.purchasePrice.replace('/kg', '')}</Text>
-                  </View>
-                  <View style={styles.retailCol}>
-                    <Text style={styles.colLabel}>Markup</Text>
-                    <Text style={styles.colValue}>{item.markup}</Text>
-                  </View>
-                  <View style={styles.retailCol}>
-                    <Text style={styles.colLabel}>Expenses</Text>
-                    <Text style={styles.colValue}>{item.expenses}</Text>
-                  </View>
-                </View>
-
-                {/* Retail Price Subline */}
-                <View style={styles.retailPriceSubRow}>
-                  <Text style={styles.retailPriceLabel}>Retail Price</Text>
-                  <Text style={styles.retailPriceValue}>{item.retailPrice.replace('/kg', '')}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </>
+          </View>
         )}
 
-        <View style={{ height: 40 }} />
+        {/* VIEW 3: List View */}
+        {!showFilters && !selectedItem && (
+          <View>
+            <Text style={styles.sectionHeading}>{t('retailPricing.section.retailPrices')}</Text>
+
+            {filteredItems.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>{t('retailPricing.empty')}</Text>
+              </View>
+            ) : (
+              filteredItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.retailCard}
+                  onPress={() => setSelectedItem(item)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cropTitleText}>{item.cropGrade}</Text>
+                    <View style={styles.activeBadge}>
+                      <Text style={styles.activeBadgeText}>{item.status}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.retailColsRow}>
+                    <View style={styles.retailCol}>
+                      <Text style={styles.colLabel}>{t('retailPricing.label.purchasePrice')}</Text>
+                      <Text style={styles.colValue}>{item.purchasePrice}</Text>
+                    </View>
+                    <View style={styles.retailCol}>
+                      <Text style={styles.colLabel}>{t('retailPricing.label.markup')}</Text>
+                      <Text style={styles.colValue}>{item.markup}</Text>
+                    </View>
+                    <View style={styles.retailCol}>
+                      <Text style={styles.colLabel}>{t('retailPricing.label.expenses')}</Text>
+                      <Text style={styles.colValue}>{item.expenses}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.retailPriceSubRow}>
+                    <Text style={styles.retailPriceLabel}>{t('retailPricing.label.retailPrice')}</Text>
+                    <Text style={styles.retailPriceValue}>{item.retailPrice}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -430,15 +393,13 @@ export function RetailPricingScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Header (Screenshot 3 Right & 4)
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -448,142 +409,128 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
+    gap: adminSpacing.xs,
   },
   backBtn: {
-    paddingVertical: 4,
-    paddingRight: 4,
-    justifyContent: 'center',
+    width: 36,
+    height: 36,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: THEME.white,
-    letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.92)',
-    marginTop: 4,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   filterIconCircle: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterIconCircleActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.38)',
+    backgroundColor: adminColors.brandDeep,
   },
-
-  // Scroll Body
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.lg,
-    paddingBottom: adminSpacing.xl,
-  },
-
-  // Search Bar (Screenshot 3 Right)
-  searchBar: {
+  searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     paddingHorizontal: adminSpacing.md,
-    height: 48,
-    marginBottom: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
     gap: adminSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
-    paddingVertical: 0,
+    ...adminType.body,
+    color: adminColors.ink,
+    padding: 0,
   },
-
-  // Retail Pricing Card (Screenshot 3 Right)
+  scroll: {
+    flex: 1,
+  },
+  scrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
+  },
+  sectionHeading: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  emptyContainer: {
+    paddingVertical: 50,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
   retailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: adminSpacing.md,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
-  retailCardHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
   },
-  retailCropTitle: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
+  cropTitleText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activeBadge: {
-    backgroundColor: THEME.activeBadgeBg,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
   activeBadgeText: {
     ...adminType.caption,
-    fontSize: 11,
-    color: THEME.activeBadgeText,
+    fontWeight: '700',
+    color: adminColors.success.text,
   },
-
-  // 3 Columns Row
   retailColsRow: {
     flexDirection: 'row',
-    marginTop: adminSpacing.md,
-    gap: adminSpacing.md,
+    justifyContent: 'space-between',
   },
   retailCol: {
     flex: 1,
   },
   colLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
   },
   colValue: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.ink,
-    marginTop: 4,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // Retail Price Subline
   retailPriceSubRow: {
     marginTop: adminSpacing.md,
   },
   retailPriceLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
   },
   retailPriceValue: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.ink,
-    marginTop: 2,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // Retail Pricing Detail Card (Image 2/3)
   detailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
@@ -592,30 +539,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  gridRowSpacing: {
+    marginTop: adminSpacing.md,
+  },
   detailCol: {
     flex: 1,
   },
   detailLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
   },
   detailValue: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
   detailExpensesValue: {
-    ...adminType.rowTitle,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
-
-  // Buttons in Retail Detail Screen (Image 2/3)
   viewBreakdownBtn: {
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
@@ -624,13 +571,12 @@ const styles = StyleSheet.create({
   },
   viewBreakdownBtnText: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
   backToRetailBtn: {
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.canvas,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     height: 44,
     alignItems: 'center',
@@ -639,30 +585,25 @@ const styles = StyleSheet.create({
   },
   backToRetailBtnText: {
     ...adminType.caption,
-    fontSize: 14,
-    color: THEME.titleRustDark,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
   },
-
-  // Filters Panel (Screenshot 4)
   filtersContainer: {
     paddingTop: adminSpacing.xs,
   },
-  filtersHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    marginBottom: adminSpacing.md,
-  },
   filtersHeading: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   filterGroupLabel: {
     ...adminType.caption,
-    fontSize: 13,
-    color: THEME.ink,
+    fontWeight: '700',
+    color: adminColors.ink,
     marginBottom: adminSpacing.xs,
+  },
+  filterGroupSpacing: {
+    marginTop: adminSpacing.md,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -670,29 +611,25 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   chip: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     borderRadius: adminRadius.sm,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   chipActive: {
-    backgroundColor: THEME.headerBg,
-    borderColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chipText: {
     ...adminType.body,
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
-
-  // Apply & Clear Buttons
   filterButtonsRow: {
     flexDirection: 'row',
     gap: adminSpacing.md,
@@ -701,7 +638,7 @@ const styles = StyleSheet.create({
   applyBtn: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
@@ -710,14 +647,13 @@ const styles = StyleSheet.create({
   },
   applyBtnText: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.orangeBtn,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.canvas,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     height: 44,
     alignItems: 'center',
@@ -725,7 +661,10 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     ...adminType.caption,
-    fontSize: 14,
-    color: THEME.labelMuted,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

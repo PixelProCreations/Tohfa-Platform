@@ -9,34 +9,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
-
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-
-  // Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  sectionTitle: '#5C240E',
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-
-  // Accent
-  brandOrange: adminColors.brand,
-  greenSuccess: adminColors.success.text,
-  greenCircleBg: '#DCFCE7',
-};
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,8 +28,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-/** Exact green checkmark inside green circle */
-function CheckCircleIcon({ size = 20, color = THEME.greenSuccess }: { size?: number; color?: string }) {
+function CheckCircleIcon({ size = 20, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -63,53 +40,56 @@ function CheckCircleIcon({ size = 20, color = THEME.greenSuccess }: { size?: num
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ReviewProduceListingScreenProps {
-  listingId?: string;
-  cropName?: string;
-  grade?: string;
+  listingId?: string | undefined;
+  cropName?: string | undefined;
+  grade?: string | undefined;
   onBack: () => void;
   onViewFullListingDetail: () => void;
-  onCompleteReview?: () => void;
+  onCompleteReview?: (() => void) | undefined;
 }
 
 export function ReviewProduceListingScreen({
-  listingId = 'PL-001245',
-  cropName = 'Tomato',
-  grade = 'Grade 1',
+  listingId,
+  cropName,
+  grade,
   onBack,
   onViewFullListingDetail,
   onCompleteReview,
 }: ReviewProduceListingScreenProps) {
   const checklistItems = [
-    'Farmer information',
-    'Produce & Grade',
-    'Quantity & Quality',
-    'Pricing & Fair-price compliance',
-    'Certification',
-    'TOHFA requirement',
+    t('reviewProduceListing.item.farmerInfo'),
+    t('reviewProduceListing.item.produceGrade'),
+    t('reviewProduceListing.item.qtyQuality'),
+    t('reviewProduceListing.item.pricingCompliance'),
+    t('reviewProduceListing.item.certification'),
+    t('reviewProduceListing.item.tohfaReq'),
   ];
+
+  const cropGradeText = cropName ? `${cropName}${grade ? ` — ${grade}` : ''}` : grade;
+  const subtitle = [listingId, cropGradeText].filter(Boolean).join(' · ');
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Review Produce Listing (Image 4) ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('reviewProduceListing.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Review Produce Listing</Text>
+          <Text style={styles.headerTitle}>{t('reviewProduceListing.title')}</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>
-          {listingId} · {cropName} — {grade}
-        </Text>
+        {subtitle.length > 0 && (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        )}
       </View>
 
       {/* ─── Body ─── */}
@@ -121,12 +101,12 @@ export function ReviewProduceListingScreen({
         {/* Badge: Normal */}
         <View style={styles.badgeWrap}>
           <View style={styles.normalBadge}>
-            <Text style={styles.normalBadgeText}>Normal</Text>
+            <Text style={styles.normalBadgeText}>{t('reviewProduceListing.badge.normal')}</Text>
           </View>
         </View>
 
         {/* Section: Review Checklist */}
-        <Text style={styles.sectionTitle}>Review Checklist</Text>
+        <Text style={styles.sectionTitle}>{t('reviewProduceListing.section.checklist')}</Text>
 
         <View style={styles.card}>
           {checklistItems.map((item, index) => (
@@ -137,22 +117,22 @@ export function ReviewProduceListingScreen({
                 index < checklistItems.length - 1 && styles.checklistItemBorder,
               ]}
             >
-              <CheckCircleIcon size={20} color={THEME.greenSuccess} />
+              <CheckCircleIcon size={20} color={adminColors.success.text} />
               <Text style={styles.checklistText}>{item}</Text>
             </View>
           ))}
         </View>
 
-        {/* Button: View Full Listing Detail (Image 4) */}
+        {/* Button: View Full Listing Detail */}
         <TouchableOpacity
           style={styles.outlineActionBtn}
           onPress={onViewFullListingDetail}
           activeOpacity={0.8}
         >
-          <Text style={styles.outlineActionBtnText}>View Full Listing Detail</Text>
+          <Text style={styles.outlineActionBtnText}>{t('reviewProduceListing.action.viewFullDetail')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -163,20 +143,18 @@ export function ReviewProduceListingScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // ─── Header ───
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -186,94 +164,80 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.3,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    ...adminType.caption,
+    color: adminColors.onBrand,
     marginLeft: 42,
   },
-
-  // ─── Scroll Area ───
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
     paddingBottom: 30,
   },
-
-  // ─── Badge ───
   badgeWrap: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   normalBadge: {
-    backgroundColor: THEME.brandOrange,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   normalBadgeText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
-
-  // ─── Section Title ───
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
-    letterSpacing: -0.2,
-    marginBottom: 12,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
-
-  // ─── Checklist Card ───
   card: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 6,
-    marginBottom: 20,
+    marginBottom: adminSpacing.xl,
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
+    gap: adminSpacing.md,
+    paddingVertical: adminSpacing.lg,
   },
   checklistItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: THEME.borderLight,
+    borderBottomColor: adminColors.border,
   },
   checklistText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
-    letterSpacing: -0.1,
+    color: adminColors.ink,
   },
-
-  // ─── Outline Action Button ───
   outlineActionBtn: {
-    backgroundColor: THEME.white,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: THEME.brandOrange,
-    borderRadius: 16,
-    paddingVertical: 13,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.xl,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.brandOrange,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

@@ -11,33 +11,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-
-// ─── Design Tokens ───────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-
-  // Typography
-  titleRustDark: adminColors.brandDeep,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#78716C',
-
-  // Badges & Actions
-  activeBadgeBg: '#DCFCE7',
-  activeBadgeText: '#15803D',
-  orangeBtn: adminColors.brand,
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,21 +30,20 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Sliders / Tune Filter Icon (Exact Material Symbols tune)
-function FilterSlidersIcon({ size = 20, color = THEME.white }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={THEME.headerBg} stroke={color} strokeWidth="2" />
+      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -85,11 +63,11 @@ export interface FairPriceItem {
   frequency: string;
   effectiveFrom: string;
   status: 'Active';
-  purchasePrice?: string;
-  markup?: string;
-  expensesDetail?: string;
-  retailPrice?: string;
-  customerDiscount?: string;
+  purchasePrice?: string | undefined;
+  markup?: string | undefined;
+  expensesDetail?: string | undefined;
+  retailPrice?: string | undefined;
+  customerDiscount?: string | undefined;
 }
 
 export const SAMPLE_FAIR_PRICES: FairPriceItem[] = [
@@ -144,11 +122,11 @@ export const SAMPLE_FAIR_PRICES: FairPriceItem[] = [
 
 export interface FairPriceCeilingScreenProps {
   onBack: () => void;
-  onSelectPriceItem?: (item: FairPriceItem) => void;
-  onNavigateToBreakdown?: (item: FairPriceItem) => void;
-  onUpdatePrice?: (item: any) => void;
-  onBulkUpdate?: () => void;
-  onViewHistory?: (item: any) => void;
+  onSelectPriceItem?: ((item: FairPriceItem) => void) | undefined;
+  onNavigateToBreakdown?: ((item: FairPriceItem) => void) | undefined;
+  onUpdatePrice?: ((item: any) => void) | undefined;
+  onBulkUpdate?: (() => void) | undefined;
+  onViewHistory?: ((item: any) => void) | undefined;
 }
 
 export function FairPriceCeilingScreen({
@@ -160,12 +138,10 @@ export function FairPriceCeilingScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Filter States (Screenshot 4)
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Fruits' | 'Vegetables'>('All');
   const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2' | 'Reject'>('All');
   const [selectedEffectiveDate, setSelectedEffectiveDate] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
 
-  // Filtered List
   const filteredPrices = SAMPLE_FAIR_PRICES.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -198,39 +174,41 @@ export function FairPriceCeilingScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Matching Screenshot 3 & 4 ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={handleHeaderBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('fairPriceCeiling.backLabel')}
           >
-            <BackArrowIcon size={22} color={THEME.white} />
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Fair Price</Text>
+          <Text style={styles.headerTitle}>{t('fairPriceCeiling.title')}</Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
             onPress={() => {
-              if (!showFilters && selectedItem) {
-                setSelectedItem(null);
-              }
+              if (selectedItem) setSelectedItem(null);
               setShowFilters(!showFilters);
             }}
             activeOpacity={0.8}
-            accessibilityLabel="Filter fair prices"
+            accessibilityLabel="Filter"
           >
-            <FilterSlidersIcon size={20} color={THEME.white} />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.headerSubtitle}>
-          View current TOHFA fair-price ceilings used for produce listing and purchase decisions
+          {showFilters
+            ? t('fairPriceCeiling.filters.title')
+            : selectedItem
+            ? `${selectedItem.crop} · ${selectedItem.grade}`
+            : t('fairPriceCeiling.section.fairPrices')}
         </Text>
       </View>
 
@@ -241,31 +219,25 @@ export function FairPriceCeilingScreen({
         showsVerticalScrollIndicator={false}
       >
         {showFilters ? (
-          /* ─── Filters Section (Screenshot 4) ─── */
+          /* Filter View */
           <View style={styles.filtersContainer}>
             <View style={styles.filtersHeaderRow}>
-              <FilterSlidersIcon size={18} color={THEME.titleRustDark} />
-              <Text style={styles.filtersHeaderTitle}>Filters</Text>
+              <FilterSlidersIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.filtersHeaderTitle}>{t('fairPriceCeiling.filters.title')}</Text>
             </View>
 
-            {/* 1. Category */}
-            <Text style={styles.filterGroupLabel}>Category</Text>
+            <Text style={styles.filterGroupLabel}>{t('fairPriceCeiling.filters.category')}</Text>
             <View style={styles.chipRow}>
-              {(['All', 'Fruits', 'Vegetables'] as const).map((cat) => {
-                const isActive = selectedCategory === cat;
+              {(['All', 'Vegetables', 'Fruits'] as const).map((cat) => {
+                const isSelected = selectedCategory === cat;
                 return (
                   <TouchableOpacity
                     key={cat}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    style={[styles.filterChip, isSelected && styles.filterChipActive]}
                     onPress={() => setSelectedCategory(cat)}
-                    activeOpacity={0.75}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        isActive && styles.filterChipTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
                       {cat}
                     </Text>
                   </TouchableOpacity>
@@ -273,24 +245,18 @@ export function FairPriceCeilingScreen({
               })}
             </View>
 
-            {/* 2. Grade */}
-            <Text style={styles.filterGroupLabel}>Grade</Text>
+            <Text style={styles.filterGroupLabel}>{t('fairPriceCeiling.filters.grade')}</Text>
             <View style={styles.chipRow}>
               {(['All', 'Grade 1', 'Grade 2', 'Reject'] as const).map((grade) => {
-                const isActive = selectedGrade === grade;
+                const isSelected = selectedGrade === grade;
                 return (
                   <TouchableOpacity
                     key={grade}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    style={[styles.filterChip, isSelected && styles.filterChipActive]}
                     onPress={() => setSelectedGrade(grade)}
-                    activeOpacity={0.75}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        isActive && styles.filterChipTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
                       {grade}
                     </Text>
                   </TouchableOpacity>
@@ -298,24 +264,18 @@ export function FairPriceCeilingScreen({
               })}
             </View>
 
-            {/* 3. Effective Date */}
-            <Text style={styles.filterGroupLabel}>Effective Date</Text>
+            <Text style={styles.filterGroupLabel}>{t('fairPriceCeiling.filters.effectiveDate')}</Text>
             <View style={styles.chipRow}>
               {(['Today', 'This Week', 'This Month', 'Custom'] as const).map((date) => {
-                const isActive = selectedEffectiveDate === date;
+                const isSelected = selectedEffectiveDate === date;
                 return (
                   <TouchableOpacity
                     key={date}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
+                    style={[styles.filterChip, isSelected && styles.filterChipActive]}
                     onPress={() => setSelectedEffectiveDate(date)}
-                    activeOpacity={0.75}
+                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        isActive && styles.filterChipTextActive,
-                      ]}
-                    >
+                    <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
                       {date}
                     </Text>
                   </TouchableOpacity>
@@ -323,37 +283,27 @@ export function FairPriceCeilingScreen({
               })}
             </View>
 
-            {/* Buttons: Apply & Clear */}
             <View style={styles.filterActionRow}>
               <TouchableOpacity
-                style={styles.applyBtn}
-                onPress={() => {
-                  setSelectedItem(null);
-                  setShowFilters(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.applyBtnText}>Apply</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={styles.clearBtn}
-                onPress={() => {
-                  handleClearFilters();
-                  setSelectedItem(null);
-                  setShowFilters(false);
-                }}
+                onPress={handleClearFilters}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearBtnText}>{t('fairPriceCeiling.filters.clearAll')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => setShowFilters(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.applyBtnText}>{t('fairPriceCeiling.filters.apply')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : selectedItem ? (
-          /* ─── Fair Price Detail View (Image 1 Request) ─── */
+          /* Fair Price Detail View */
           <>
             <View style={styles.detailCard}>
-              {/* Row 1: Product & Grade */}
               <View style={styles.detailGridRow}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>Product</Text>
@@ -365,8 +315,7 @@ export function FairPriceCeilingScreen({
                 </View>
               </View>
 
-              {/* Row 2: Purchase Price & Markup */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>Purchase Price</Text>
                   <Text style={styles.detailValue}>{selectedItem.purchasePrice || '₹80.00/kg'}</Text>
@@ -377,16 +326,14 @@ export function FairPriceCeilingScreen({
                 </View>
               </View>
 
-              {/* Row 3: Expenses */}
-              <View style={{ marginTop: adminSpacing.lg }}>
+              <View style={styles.gridRowSpacing}>
                 <Text style={styles.detailLabel}>Expenses</Text>
-                <Text style={[styles.detailExpensesValue, { marginTop: 4 }]}>
+                <Text style={[styles.detailExpensesValue, styles.detailExpensesSpacing]}>
                   {selectedItem.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00'}
                 </Text>
               </View>
 
-              {/* Row 4: Retail Price & Customer Discount */}
-              <View style={[styles.detailGridRow, { marginTop: adminSpacing.lg }]}>
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>Retail Price</Text>
                   <Text style={styles.detailValue}>{selectedItem.retailPrice || '₹98.00/kg'}</Text>
@@ -398,7 +345,6 @@ export function FairPriceCeilingScreen({
               </View>
             </View>
 
-            {/* Button 1: View Markup & Pricing Breakdown */}
             <TouchableOpacity
               style={styles.viewBreakdownBtn}
               onPress={() => onNavigateToBreakdown?.(selectedItem)}
@@ -409,7 +355,6 @@ export function FairPriceCeilingScreen({
               </Text>
             </TouchableOpacity>
 
-            {/* Button 2: Back to Retail Pricing */}
             <TouchableOpacity
               style={styles.backToRetailBtn}
               onPress={() => setSelectedItem(null)}
@@ -419,65 +364,70 @@ export function FairPriceCeilingScreen({
             </TouchableOpacity>
           </>
         ) : (
-          /* ─── Search Bar & Price Cards List (Screenshot 3) ─── */
+          /* Search Bar & Price Cards List */
           <>
             <View style={styles.searchBar}>
-              <SearchIcon size={18} color="#9CA3AF" />
+              <SearchIcon size={18} color={adminColors.muted} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Crop, product, crop code, category"
-                placeholderTextColor="#9CA3AF"
+                placeholder={t('fairPriceCeiling.searchPlaceholder')}
+                placeholderTextColor={adminColors.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
             </View>
 
             <View style={styles.listContainer}>
-              {filteredPrices.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.priceCard}
-                  onPress={() => {
-                    setSelectedItem(item);
-                    onSelectPriceItem?.(item);
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.cropTitle}>{item.crop}</Text>
-                    <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>{item.status}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.cropSubline}>
-                    {item.category} · {item.grade}
-                  </Text>
-
-                  {/* 3 Detail Columns */}
-                  <View style={styles.detailColsRow}>
-                    <View style={styles.col}>
-                      <Text style={styles.colLabel}>Fair Price Ceiling</Text>
-                      <Text style={styles.colValue}>{item.fairPriceCeiling}</Text>
+              {filteredPrices.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>{t('fairPriceCeiling.empty')}</Text>
+                </View>
+              ) : (
+                filteredPrices.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.priceCard}
+                    onPress={() => {
+                      setSelectedItem(item);
+                      onSelectPriceItem?.(item);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.cropTitle}>{item.crop}</Text>
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText}>{item.status}</Text>
+                      </View>
                     </View>
 
-                    <View style={styles.col}>
-                      <Text style={styles.colLabel}>Frequency</Text>
-                      <Text style={styles.colValue}>{item.frequency}</Text>
-                    </View>
+                    <Text style={styles.cropSubline}>
+                      {item.category} · {item.grade}
+                    </Text>
 
-                    <View style={styles.col}>
-                      <Text style={styles.colLabel}>Effective From</Text>
-                      <Text style={styles.colValue}>{item.effectiveFrom}</Text>
+                    <View style={styles.detailColsRow}>
+                      <View style={styles.col}>
+                        <Text style={styles.colLabel}>{t('fairPriceCeiling.label.ceiling')}</Text>
+                        <Text style={styles.colValue}>{item.fairPriceCeiling}</Text>
+                      </View>
+
+                      <View style={styles.col}>
+                        <Text style={styles.colLabel}>{t('fairPriceCeiling.label.frequency')}</Text>
+                        <Text style={styles.colValue}>{item.frequency}</Text>
+                      </View>
+
+                      <View style={styles.col}>
+                        <Text style={styles.colLabel}>{t('fairPriceCeiling.label.effectiveFrom')}</Text>
+                        <Text style={styles.colValue}>{item.effectiveFrom}</Text>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -488,12 +438,10 @@ export function FairPriceCeilingScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
-
-  // Header
   header: {
-    backgroundColor: THEME.headerBg,
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
@@ -512,28 +460,23 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
-    color: THEME.white,
-    letterSpacing: -0.3,
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
     marginLeft: 6,
   },
   filterBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
+    ...adminType.caption,
+    color: adminColors.onBrand,
     marginTop: 4,
-    fontWeight: '500',
   },
-
-  // Scroll Container
   scroll: {
     flex: 1,
   },
@@ -542,15 +485,13 @@ const styles = StyleSheet.create({
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xl,
   },
-
-  // Search Bar
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.md, // 12px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: adminSpacing.md,
@@ -558,26 +499,28 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
   },
-
-  // List of Price Cards
   listContainer: {
     gap: adminSpacing.md,
   },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
   priceCard: {
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -586,25 +529,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cropTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activePill: {
-    backgroundColor: THEME.activeBadgeBg,
+    backgroundColor: adminColors.success.bg,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   activePillText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.activeBadgeText,
+    color: adminColors.success.text,
   },
   cropSubline: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 12,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.md,
   },
   detailColsRow: {
     flexDirection: 'row',
@@ -614,18 +556,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    color: THEME.labelMuted,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
-    fontWeight: '500',
   },
   colValue: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
-
-  // Filters Section (Screenshot 4)
   filtersContainer: {
     paddingTop: 4,
     marginBottom: 20,
@@ -637,14 +576,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   filtersHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   filterGroupLabel: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.ink,
+    color: adminColors.ink,
     marginTop: 8,
     marginBottom: 8,
   },
@@ -655,24 +593,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   filterChip: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   filterChipActive: {
-    backgroundColor: THEME.orangeBtn,
-    borderColor: THEME.orangeBtn,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   filterChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.ink,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   filterChipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   filterActionRow: {
@@ -682,41 +619,38 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   applyBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.orangeBtn,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   clearBtn: {
     flex: 1,
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearBtnText: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
   },
-
-  // ─── Detail View Styles (Image 1 Request) ──────────────────────────────────
   detailCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
     padding: adminSpacing.lg,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
@@ -725,28 +659,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  gridRowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
   detailCol: {
     flex: 1,
   },
   detailLabel: {
     ...adminType.caption,
-    fontSize: 12,
-    color: THEME.labelMuted,
+    color: adminColors.muted,
   },
   detailValue: {
-    ...adminType.title,
-    fontSize: 16,
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginTop: 4,
   },
   detailExpensesValue: {
-    ...adminType.rowTitle,
-    fontSize: 13,
-    color: THEME.ink,
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  detailExpensesSpacing: {
+    marginTop: 4,
   },
   viewBreakdownBtn: {
     borderWidth: 1.5,
-    borderColor: THEME.orangeBtn,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     height: 44,
@@ -755,13 +693,12 @@ const styles = StyleSheet.create({
   },
   viewBreakdownBtnText: {
     ...adminType.rowTitle,
-    fontSize: 14,
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
   },
   backToRetailBtn: {
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: THEME.canvas,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     height: 44,
     alignItems: 'center',
@@ -770,7 +707,9 @@ const styles = StyleSheet.create({
   },
   backToRetailBtnText: {
     ...adminType.caption,
-    fontSize: 14,
-    color: THEME.titleRustDark,
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
