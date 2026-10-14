@@ -9,24 +9,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  brandOrange: adminColors.brand,
-  orangeLink: adminColors.brandDeep,
-};
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
-// ─── SVG Icons Matching Exact Mockup ─────────────────────────────────────────
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -40,8 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Produce / Tomato Icon
-function ProduceOutlineIcon({ size = 22, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function ProduceOutlineIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="14" r="6.8" stroke={color} strokeWidth="2" />
@@ -55,8 +43,7 @@ function ProduceOutlineIcon({ size = 22, color = THEME.brandOrange }: { size?: n
   );
 }
 
-// Calendar Icon
-function CalendarOutlineIcon({ size = 22, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function CalendarOutlineIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3.5" y="4.5" width="17" height="16" rx="3" stroke={color} strokeWidth="2" />
@@ -65,8 +52,7 @@ function CalendarOutlineIcon({ size = 22, color = THEME.brandOrange }: { size?: 
   );
 }
 
-// Scales of Justice Icon
-function ScalesOutlineIcon({ size = 22, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function ScalesOutlineIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -95,9 +81,8 @@ export function FarmerAdminNotificationsScreen({
 }: FarmerAdminNotificationsScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Notifications with Back Arrow ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -106,9 +91,9 @@ export function FarmerAdminNotificationsScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerTitle}>{t('farmerAdminNotifications.title')}</Text>
         </View>
       </View>
 
@@ -123,9 +108,9 @@ export function FarmerAdminNotificationsScreen({
           <View style={styles.cardContent}>
             <View style={styles.headerFlexRow}>
               <View style={styles.iconBox}>
-                <ProduceOutlineIcon size={22} color="#C85A32" />
+                <ProduceOutlineIcon size={22} color={adminColors.brand} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.textWrap}>
                 <Text style={styles.cardTitle}>New produce listing requires review</Text>
                 <Text style={styles.cardMeta}>Tomato — Grade 1 · Farmer: Ramesh · 10 minutes ago</Text>
               </View>
@@ -136,7 +121,7 @@ export function FarmerAdminNotificationsScreen({
               onPress={onViewListing}
               activeOpacity={0.7}
             >
-              <Text style={styles.linkText}>View Listing →</Text>
+              <Text style={styles.linkText}>{t('farmerAdminNotifications.viewListing')} →</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -147,9 +132,9 @@ export function FarmerAdminNotificationsScreen({
           <View style={styles.cardContent}>
             <View style={styles.headerFlexRow}>
               <View style={styles.iconBox}>
-                <CalendarOutlineIcon size={22} color="#C85A32" />
+                <CalendarOutlineIcon size={22} color={adminColors.brand} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.textWrap}>
                 <Text style={styles.cardTitle}>Farm audit support required</Text>
                 <Text style={styles.cardMeta}>Farmer: Selvi · 04 Oct 2026</Text>
               </View>
@@ -160,7 +145,7 @@ export function FarmerAdminNotificationsScreen({
               onPress={onViewAudit}
               activeOpacity={0.7}
             >
-              <Text style={styles.linkText}>View Audit →</Text>
+              <Text style={styles.linkText}>{t('farmerAdminNotifications.viewAudit')} →</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -171,9 +156,9 @@ export function FarmerAdminNotificationsScreen({
           <View style={styles.cardContent}>
             <View style={styles.headerFlexRow}>
               <View style={styles.iconBox}>
-                <ScalesOutlineIcon size={22} color="#C85A32" />
+                <ScalesOutlineIcon size={22} color={adminColors.brand} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.textWrap}>
                 <Text style={styles.cardTitle}>Farmer dispute requires attention</Text>
                 <Text style={styles.cardMeta}>DSP-00128 · 1 hour ago</Text>
               </View>
@@ -184,34 +169,34 @@ export function FarmerAdminNotificationsScreen({
               onPress={onViewDispute}
               activeOpacity={0.7}
             >
-              <Text style={styles.linkText}>View Dispute →</Text>
+              <Text style={styles.linkText}>{t('farmerAdminNotifications.viewDispute')} →</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 4 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -220,27 +205,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   notificationCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    marginBottom: 14,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
     overflow: 'hidden',
     position: 'relative',
+    ...adminShadow.sm,
   },
   leftAccentStripe: {
     position: 'absolute',
@@ -248,43 +233,47 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
   },
   cardContent: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
-    paddingLeft: 18,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.md,
+    paddingLeft: adminSpacing.lg + 2,
   },
   headerFlexRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   iconBox: {
     width: 28,
     alignItems: 'flex-start',
     paddingTop: 2,
   },
+  textWrap: {
+    flex: 1,
+  },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.ink,
-    lineHeight: 18,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   cardMeta: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
   linkTouch: {
     alignSelf: 'flex-start',
-    marginTop: 8,
+    marginTop: adminSpacing.sm,
     marginLeft: 40,
   },
   linkText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '800',
-    color: THEME.orangeLink,
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

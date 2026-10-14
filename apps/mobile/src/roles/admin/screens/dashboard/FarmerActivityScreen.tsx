@@ -14,27 +14,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  muted: adminColors.muted,
-  labelMuted: '#6B7280',
-  brandOrange: adminColors.brand,
-  titleRustDark: adminColors.brandDeep,
-  greenIcon: adminColors.success.text,
-  amberIcon: adminColors.warning.text,
-};
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,15 +37,15 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 // 1. Tomato Produce Outline Icon (Today card 1)
 function TomatoProduceIcon({
   size = 22,
-  color = THEME.amberIcon,
+  color = adminColors.warning.text,
   leafColor,
 }: {
   size?: number;
   color?: string;
   leafColor?: string;
 }) {
-  const isWhite = color?.toLowerCase() === '#ffffff' || color?.toLowerCase() === '#fff';
-  const resolvedLeafColor = leafColor ?? (isWhite ? color : '#5C6B63');
+  const isWhite = color?.toLowerCase() === adminColors.onBrand.toLowerCase();
+  const resolvedLeafColor = leafColor ?? (isWhite ? color : adminColors.muted);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -79,7 +65,7 @@ function TomatoProduceIcon({
 }
 
 // 2. Eye Icon (Today card 2: Farmer Profile Viewed)
-function EyeViewIcon({ size = 22, color = '#4A5568' }: { size?: number; color?: string }) {
+function EyeViewIcon({ size = 22, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -95,7 +81,7 @@ function EyeViewIcon({ size = 22, color = '#4A5568' }: { size?: number; color?: 
 }
 
 // 3. Serrated Badge Checkmark Icon (Yesterday: Audit Completed)
-function BadgeCheckIcon({ size = 22, color = THEME.greenIcon }: { size?: number; color?: string }) {
+function BadgeCheckIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -115,7 +101,7 @@ function BadgeCheckIcon({ size = 22, color = THEME.greenIcon }: { size?: number;
 }
 
 // 4. Star Outline Icon (25 Sep: Rating Updated)
-function StarOutlineIcon({ size = 22, color = THEME.amberIcon }: { size?: number; color?: string }) {
+function StarOutlineIcon({ size = 22, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -150,8 +136,8 @@ export interface FarmerActivityScreenProps {
 }
 
 export function FarmerActivityScreen({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00124',
+  farmerName,
+  farmerId,
   onBack,
   onNavigateProduceListing,
 }: FarmerActivityScreenProps) {
@@ -178,8 +164,8 @@ export function FarmerActivityScreen({
       subtitle: 'Tomato — Grade 1 · 10:24 AM',
       dateGroup: 'TODAY',
       status: 'Pending Review',
-      actor: 'Farmer (Ramesh Kumar)',
-      isSimpleDetail: true, // Image 3: Only Activity Type & Reference ID, no header subtitle, only Back button
+      actor: farmerName ? `Farmer (${farmerName})` : 'Farmer',
+      isSimpleDetail: true,
     },
     {
       id: 'act-2',
@@ -191,7 +177,7 @@ export function FarmerActivityScreen({
       dateGroup: 'TODAY',
       status: 'Pending Review',
       actor: 'System',
-      isSimpleDetail: false, // Image 5: Full 6 fields, header subtitle Ramesh Kumar · FR-00124, 2 buttons
+      isSimpleDetail: false,
     },
     {
       id: 'act-3',
@@ -215,7 +201,7 @@ export function FarmerActivityScreen({
       dateGroup: '25 SEP',
       status: 'Pending Review',
       actor: 'System',
-      isSimpleDetail: false, // Image 4: Full 6 fields, header subtitle Ramesh Kumar · FR-00124, 2 buttons
+      isSimpleDetail: false,
     },
   ];
 
@@ -241,7 +227,6 @@ export function FarmerActivityScreen({
   const maxThumbTranslate = Math.max(0, trackWidth - thumbWidth);
   const thumbLeft = scrollProgress * maxThumbTranslate;
 
-  // Pan responder to allow touching and moving category scrollbar directly
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -272,15 +257,14 @@ export function FarmerActivityScreen({
     })
   ).current;
 
-  // ─── IF AN ACTIVITY IS SELECTED: SHOW ACTIVITY DETAIL (Images 3, 4, 5) ───
+  // Detail view
   if (selectedActivity) {
     const isSimple = selectedActivity.isSimpleDetail;
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* Terracotta Header for Activity Detail */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -289,14 +273,15 @@ export function FarmerActivityScreen({
               activeOpacity={0.7}
               accessibilityLabel="Back to Activity"
             >
-              <BackArrowIcon size={24} color={THEME.white} />
+              <BackArrowIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>Activity Detail</Text>
-              {/* Only show farmerName · farmerId subtitle for full detail (Images 4 & 5) */}
-              {!isSimple && (
-                <Text style={styles.headerSubDetail}>{farmerName} · {farmerId}</Text>
-              )}
+              <Text style={styles.headerTitle}>{t('farmerActivity.detail.title')}</Text>
+              {!isSimple && (farmerName || farmerId) ? (
+                <Text style={styles.headerSubDetail}>
+                  {farmerName ?? ''}{farmerName && farmerId ? ' · ' : ''}{farmerId ?? ''}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -306,7 +291,6 @@ export function FarmerActivityScreen({
           contentContainerStyle={styles.scrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Detail Card Matching Image 3 (simple) or Images 4 & 5 (full) */}
           <View style={styles.detailsCard}>
             <View style={styles.rowTwoCol}>
               <View style={styles.colHalf}>
@@ -319,21 +303,20 @@ export function FarmerActivityScreen({
               </View>
             </View>
 
-            {/* Additional 4 fields for full views (Image 4 & Image 5) */}
             {!isSimple && (
               <>
-                <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
+                <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                   <View style={styles.colHalf}>
                     <Text style={styles.labelMuted}>Date/Time</Text>
                     <Text style={styles.valBold}>{selectedActivity.dateTime}</Text>
                   </View>
                   <View style={styles.colHalf}>
                     <Text style={styles.labelMuted}>Related Farmer</Text>
-                    <Text style={styles.valBold}>{farmerName}</Text>
+                    <Text style={styles.valBold}>{farmerName || '—'}</Text>
                   </View>
                 </View>
 
-                <View style={[styles.rowTwoCol, { marginTop: 18 }]}>
+                <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                   <View style={styles.colHalf}>
                     <Text style={styles.labelMuted}>Status</Text>
                     <Text style={styles.valBold}>{selectedActivity.status}</Text>
@@ -347,7 +330,6 @@ export function FarmerActivityScreen({
             )}
           </View>
 
-          {/* Action Button 1: View Related Record (Only in Image 4 & 5) */}
           {!isSimple && (
             <TouchableOpacity
               style={styles.outlineActionBtn}
@@ -364,27 +346,25 @@ export function FarmerActivityScreen({
             </TouchableOpacity>
           )}
 
-          {/* Action Button 2: Back to Activity (Images 3, 4, 5) */}
           <TouchableOpacity
-            style={[styles.outlineActionBtn, !isSimple && { marginTop: 14 }]}
+            style={[styles.outlineActionBtn, !isSimple && styles.rowSpacing]}
             onPress={() => setSelectedActivity(null)}
             activeOpacity={0.8}
           >
             <Text style={styles.outlineActionBtnText}>Back to Activity</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─── MAIN ACTIVITY TIMELINE VIEW (Images 1 & 2) ───
+  // Main timeline view
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header Matching Images 1 & 2 */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -393,9 +373,9 @@ export function FarmerActivityScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer Activity</Text>
+          <Text style={styles.headerTitle}>{t('farmerActivity.title')}</Text>
         </View>
       </View>
 
@@ -404,8 +384,8 @@ export function FarmerActivityScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Row 1: Category Chips (Scrollable with dynamic slider) */}
-        <View style={{ marginBottom: 6 }}>
+        {/* Row 1: Category Chips */}
+        <View style={styles.categoryRowWrap}>
           <ScrollView
             ref={categoryScrollRef}
             horizontal
@@ -471,7 +451,7 @@ export function FarmerActivityScreen({
           </View>
         </View>
 
-        {/* Row 2: Time Filter Pills (Today, This Week, This Month, Custom) */}
+        {/* Row 2: Time Filter Pills */}
         <View style={styles.timePillsRow}>
           {timeFilters.map((tf) => {
             const active = selectedTimeFilter === tf;
@@ -490,7 +470,7 @@ export function FarmerActivityScreen({
           })}
         </View>
 
-        {/* Grouped Activity Cards (Exact Match to Images 1 & 2) */}
+        {/* Grouped Activity Cards */}
         {(['TODAY', 'YESTERDAY', '25 SEP'] as const).map((group) => {
           const groupItems = filteredActivities.filter((a) => a.dateGroup === group);
           if (groupItems.length === 0) return null;
@@ -499,13 +479,13 @@ export function FarmerActivityScreen({
             <React.Fragment key={group}>
               <Text style={styles.dateGroupHeader}>{group}</Text>
               {groupItems.map((act) => {
-                let icon = <TomatoProduceIcon size={22} color={THEME.amberIcon} />;
+                let icon = <TomatoProduceIcon size={22} color={adminColors.warning.text} />;
                 if (act.type === 'Farmer Profile Viewed') {
-                  icon = <EyeViewIcon size={22} color="#4A5568" />;
+                  icon = <EyeViewIcon size={22} color={adminColors.muted} />;
                 } else if (act.type === 'Audit Completed') {
-                  icon = <BadgeCheckIcon size={22} color={THEME.greenIcon} />;
+                  icon = <BadgeCheckIcon size={22} color={adminColors.success.text} />;
                 } else if (act.type === 'Rating Updated') {
-                  icon = <StarOutlineIcon size={22} color={THEME.amberIcon} />;
+                  icon = <StarOutlineIcon size={22} color={adminColors.warning.text} />;
                 }
 
                 return (
@@ -528,36 +508,36 @@ export function FarmerActivityScreen({
         })}
 
         {filteredActivities.length === 0 && (
-          <View style={[styles.activityCard, { justifyContent: 'center', paddingVertical: 24 }]}>
-            <Text style={[styles.activitySubtitle, { textAlign: 'center' }]}>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
               No {selectedCategory.toLowerCase()} activities recorded for this period.
             </Text>
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Images 1 to 5 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -566,130 +546,131 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubDetail: {
-    fontSize: 12.5,
-    color: 'rgba(255, 255, 255, 0.88)',
+    ...adminType.rowMeta,
+    color: adminColors.brandTint,
     marginTop: 2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
 
   // Category chips
+  categoryRowWrap: {
+    marginBottom: adminSpacing.xs,
+  },
   chipsScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
     paddingVertical: 2,
   },
   categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
   },
   categoryChipActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   categoryChipInactive: {
-    backgroundColor: THEME.card,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   categoryChipText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   chipTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // Slider track
   sliderBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   sliderArrowTouch: {
     paddingHorizontal: 3,
   },
   sliderArrowText: {
-    fontSize: 11,
-    color: '#8A8580',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   sliderTrack: {
     flex: 1,
     height: 5,
-    backgroundColor: '#E5DFD7',
-    borderRadius: 3,
+    backgroundColor: adminColors.border,
+    borderRadius: adminRadius.xs,
     position: 'relative',
     justifyContent: 'center',
   },
   sliderThumb: {
     height: 5,
-    backgroundColor: '#8A8580',
-    borderRadius: 3,
+    backgroundColor: adminColors.muted,
+    borderRadius: adminRadius.xs,
   },
 
   // Time filter pills
   timePillsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   timePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
   },
   timePillActive: {
-    backgroundColor: THEME.brandOrange,
-    borderColor: THEME.brandOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   timePillInactive: {
-    backgroundColor: THEME.card,
-    borderColor: THEME.border,
+    backgroundColor: adminColors.card,
+    borderColor: adminColors.border,
   },
   timePillText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
   },
 
   // Date groups
   dateGroupHeader: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   activityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
   activityIconCol: {
     width: 32,
@@ -698,58 +679,76 @@ const styles = StyleSheet.create({
   },
   activityTextCol: {
     flex: 1,
-    paddingLeft: 4,
+    paddingLeft: adminSpacing.xs,
   },
   activityTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activitySubtitle: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
 
-  // Activity Detail (Images 4 & 5)
+  // Activity Detail
   detailsCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    marginBottom: 18,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
   },
   rowTwoCol: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  rowSpacing: {
+    marginTop: adminSpacing.lg,
+  },
   colHalf: {
     width: '48%',
   },
   labelMuted: {
-    fontSize: 12,
-    color: THEME.labelMuted,
-    marginBottom: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   valBold: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   outlineActionBtn: {
     height: 48,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  emptyCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

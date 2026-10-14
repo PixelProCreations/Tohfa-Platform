@@ -9,23 +9,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand,
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
-  ink: adminColors.ink,
-  iconColor: adminColors.brand,
-  chevronColor: adminColors.muted,
-};
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 
-// ─── SVG Icons Matching Exact Design Mockup ──────────────────────────────────
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -39,7 +29,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-function ChevronRightIcon({ size = 18, color = THEME.chevronColor }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -47,8 +37,7 @@ function ChevronRightIcon({ size = 18, color = THEME.chevronColor }: { size?: nu
   );
 }
 
-// 1. Receipt Icon (Purchases) — Google Material Symbols receipt_long with curled bottom
-function ReceiptIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function ReceiptIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960" fill={color}>
       <Path d="M240-80q-50 0-85-35t-35-85v-120h120v-560l60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60v680q0 50-35 85t-85 35H240Zm480-80q17 0 28.5-11.5T760-200v-560H320v440h360v120q0 17 11.5 28.5T720-160ZM360-600v-80h240v80H360Zm0 120v-80h240v80H360Zm320-120q-17 0-28.5-11.5T640-640q0-17 11.5-28.5T680-680q17 0 28.5 11.5T720-640q0 17-11.5 28.5T680-600Zm0 120q-17 0-28.5-11.5T640-520q0-17 11.5-28.5T680-560q17 0 28.5 11.5T720-520q0 17-11.5 28.5T680-480ZM240-160h360v-80H200v40q0 17 11.5 28.5T240-160Zm-40 0v-80 80Z" />
@@ -56,8 +45,7 @@ function ReceiptIcon({ size = 20, color = THEME.iconColor }: { size?: number; co
   );
 }
 
-// 2. Leaf Icon (Inputs & Pest Management)
-function LeafIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function LeafIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -72,8 +60,7 @@ function LeafIcon({ size = 20, color = THEME.iconColor }: { size?: number; color
   );
 }
 
-// 3. Store Icon (Market & Pricing)
-function StoreIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function StoreIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -87,8 +74,7 @@ function StoreIcon({ size = 20, color = THEME.iconColor }: { size?: number; colo
   );
 }
 
-// 4. Star Icon (Ratings)
-function StarIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function StarIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -102,53 +88,34 @@ function StarIcon({ size = 20, color = THEME.iconColor }: { size?: number; color
   );
 }
 
-// 5. Gavel Icon (Disputes) — Clean wooden mallet & strike block
-function GavelIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function GavelIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M13.5 4.5l6 6-2 2-6-6 2-2z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M14.5 9.5l-8.5 8.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M3 21h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M14 13l5 5M6 6l4-4 5 5-4 4-5-5zM2 22l6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-// 6. Community Icon (Community) — Solid filled figures matching design
-function CommunityIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function CommunityIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="8.5" cy="8.5" r="2.8" fill={color} />
-      <Path d="M3 18c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5" fill={color} />
-      <Circle cx="15.5" cy="9.5" r="2.4" fill={color} />
-      <Path d="M13 18c.4-2.2 2-3.8 4-3.8 2.3 0 4.2 1.7 4.5 3.8" fill={color} />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="1.8" />
+      <Path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.85" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-// 7. Profile Icon (Profile) — Outer avatar circle with user silhouette inside
-function ProfileIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function ProfileIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Circle cx="12" cy="9.5" r="2.8" stroke={color} strokeWidth="1.8" />
-      <Path
-        d="M7 17.5a5 5 0 0110 0"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="1.8" />
+      <Path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-// 8. Bell Icon (Notifications)
-function BellIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function BellIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -162,11 +129,9 @@ function BellIcon({ size = 20, color = THEME.iconColor }: { size?: number; color
   );
 }
 
-// 9. Switch Arrows Icon (Switch Role) — Top points right, bottom points left
-function SwitchArrowsIcon({ size = 20, color = THEME.iconColor }: { size?: number; color?: string }) {
+function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top arrow pointing RIGHT */}
       <Path
         d="M4 7h16M16 3l4 4-4 4"
         stroke={color}
@@ -174,7 +139,6 @@ function SwitchArrowsIcon({ size = 20, color = THEME.iconColor }: { size?: numbe
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Bottom arrow pointing LEFT */}
       <Path
         d="M20 17H4M8 13l-4 4 4 4"
         stroke={color}
@@ -212,7 +176,7 @@ export function FarmerAdminMoreScreen({
   const menuItems = [
     {
       id: 'purchases',
-      title: 'Purchases',
+      title: t('farmerAdminMore.menu.purchases'),
       icon: <ReceiptIcon size={20} />,
       onPress: () => {
         if (onNavigatePurchases) {
@@ -224,7 +188,7 @@ export function FarmerAdminMoreScreen({
     },
     {
       id: 'inputs',
-      title: 'Inputs & Pest Management',
+      title: t('farmerAdminMore.menu.inputsPests'),
       icon: <LeafIcon size={20} />,
       onPress: () => {
         if (onNavigateInputsPest) {
@@ -236,7 +200,7 @@ export function FarmerAdminMoreScreen({
     },
     {
       id: 'market',
-      title: 'Market & Pricing',
+      title: t('farmerAdminMore.menu.marketPricing'),
       icon: <StoreIcon size={20} />,
       onPress: () => {
         if (onNavigateMarketPricing) {
@@ -248,7 +212,7 @@ export function FarmerAdminMoreScreen({
     },
     {
       id: 'ratings',
-      title: 'Ratings',
+      title: t('farmerAdminMore.menu.ratings'),
       icon: <StarIcon size={20} />,
       onPress: () => onItemSelect?.('Ratings'),
     },
@@ -266,13 +230,13 @@ export function FarmerAdminMoreScreen({
     },
     {
       id: 'profile',
-      title: 'Profile', // Replaced Settings with Profile with avatar circle!
+      title: 'Profile',
       icon: <ProfileIcon size={20} />,
       onPress: onNavigateProfile,
     },
     {
       id: 'notifications',
-      title: 'Notifications',
+      title: t('farmerAdminNotifications.title'),
       icon: <BellIcon size={20} />,
       onPress: onNavigateNotifications,
     },
@@ -286,9 +250,8 @@ export function FarmerAdminMoreScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header: Exactly Matching Screenshot 5 ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -297,9 +260,9 @@ export function FarmerAdminMoreScreen({
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>More</Text>
+          <Text style={styles.headerTitle}>{t('farmerAdminMore.title')}</Text>
         </View>
       </View>
 
@@ -325,29 +288,29 @@ export function FarmerAdminMoreScreen({
           </TouchableOpacity>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 5 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -356,35 +319,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: THEME.card,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
   leftCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: adminSpacing.md,
   },
   iconBox: {
     width: 26,
@@ -392,8 +354,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

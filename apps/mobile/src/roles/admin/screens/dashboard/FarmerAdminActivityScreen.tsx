@@ -9,34 +9,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors } from '../../theme';
 
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // Matches Purchases screen & theme primary (#F0562A)
-  white: adminColors.onBrand,
-  canvas: adminColors.canvas,
-  card: adminColors.card,
-  border: adminColors.border,
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 
-  // Typography
-  ink: adminColors.ink,
-  muted: adminColors.muted,
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-  // Tabs
-  tabActiveBg: adminColors.brand,
-  tabInactiveBg: 'transparent',
-  tabInactiveBorder: adminColors.border,
-
-  // Status Colors
-  greenText: '#15803D',
-  redText: '#DC2626',
-  blueText: '#2563EB',
-};
-
-// ─── SVG Icons Matching Exact UI ─────────────────────────────────────────────
-
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,14 +29,13 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
   );
 }
 
-// Green Checkmark in Circle
 function CircleCheckGreenIcon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#15803D" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="9" stroke={adminColors.success.text} strokeWidth="2" />
       <Path
         d="M8.5 12.5l2.5 2.5 4.5-4.5"
-        stroke="#15803D"
+        stroke={adminColors.success.text}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -66,14 +44,13 @@ function CircleCheckGreenIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-// Red Cross / X in Circle
 function CircleCloseRedIcon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#DC2626" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="9" stroke={adminColors.danger.text} strokeWidth="2" />
       <Path
         d="M15 9l-6 6M9 9l6 6"
-        stroke="#DC2626"
+        stroke={adminColors.danger.text}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -82,22 +59,19 @@ function CircleCloseRedIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-// Blue Swap Horizontal Arrows — Top points right, bottom points left
 function SwapHorizontalBlueIcon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top arrow pointing RIGHT */}
       <Path
         d="M4 7h16M16 3l4 4-4 4"
-        stroke="#2563EB"
+        stroke={adminColors.info.text}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Bottom arrow pointing LEFT */}
       <Path
         d="M20 17H4M8 13l-4 4 4 4"
-        stroke="#2563EB"
+        stroke={adminColors.info.text}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -155,9 +129,8 @@ export function FarmerAdminActivityScreen({ onBack, onNavigateToListings }: Farm
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header Matching Screenshot 3 ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -166,9 +139,9 @@ export function FarmerAdminActivityScreen({ onBack, onNavigateToListings }: Farm
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowIcon size={24} color={THEME.white} />
+            <BackArrowIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer Admin Activity</Text>
+          <Text style={styles.headerTitle}>{t('farmerAdminActivity.title')}</Text>
         </View>
       </View>
 
@@ -193,7 +166,7 @@ export function FarmerAdminActivityScreen({ onBack, onNavigateToListings }: Farm
                 selectedFilter === 'today' ? styles.pillTextActive : styles.pillTextInactive,
               ]}
             >
-              Today
+              {t('farmerActivity.today')}
             </Text>
           </TouchableOpacity>
 
@@ -211,12 +184,12 @@ export function FarmerAdminActivityScreen({ onBack, onNavigateToListings }: Farm
                 selectedFilter === 'week' ? styles.pillTextActive : styles.pillTextInactive,
               ]}
             >
-              This Week
+              {t('farmerActivity.thisWeek')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Activity Cards List matching Screenshot 3 */}
+        {/* Activity Cards List */}
         {list.map((act) => (
           <TouchableOpacity
             key={act.id}
@@ -237,29 +210,29 @@ export function FarmerAdminActivityScreen({ onBack, onNavigateToListings }: Farm
           </TouchableOpacity>
         ))}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet Matching Screenshot 3 Exact UI ───────────────────────────────
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     width: 36,
@@ -268,60 +241,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.white,
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   pillBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    borderRadius: 14,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.lg,
   },
   pillBtnActive: {
-    backgroundColor: THEME.tabActiveBg,
+    backgroundColor: adminColors.brand,
   },
   pillBtnInactive: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: THEME.tabInactiveBorder,
+    borderColor: adminColors.border,
   },
   pillText: {
-    fontSize: 13.5,
+    ...adminType.body,
     fontWeight: '700',
   },
   pillTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   pillTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // Activity Cards
   activityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   iconContainer: {
     width: 34,
@@ -330,17 +302,18 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    paddingLeft: 4,
+    paddingLeft: adminSpacing.xs,
   },
   activityTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: THEME.ink,
-    lineHeight: 18,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activitySubtitle: {
-    fontSize: 12,
-    color: THEME.muted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });

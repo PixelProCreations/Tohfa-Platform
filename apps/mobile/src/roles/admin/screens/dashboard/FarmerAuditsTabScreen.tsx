@@ -11,40 +11,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminRadius, adminSpacing } from '../../theme';
-
-// ─── Theme Colors ────────────────────────────────────────────────────────────
-const THEME = {
-  headerBg: adminColors.brand, // #F0562A Terracotta primary
-  white: adminColors.onBrand,
-
-  // Canvas & Surfaces
-  canvas: adminColors.canvas, // #F3EFE9 Soft cream
-  card: adminColors.card, // #FFFFFF Card surface
-  border: adminColors.border, // #EEDCD3 Border stroke
-  borderLight: '#F3ECE4',
-
-  // Typography
-  titleRustDark: adminColors.brandDeep, // #7A2E14
-  sectionTitle: adminColors.brandDeep, // #7A2E14
-  ink: adminColors.ink, // #1A1A1A
-  muted: adminColors.muted, // #5F5E5A
-  labelMuted: '#78716C',
-
-  // Accent Colors — Unified Admin Theme Orange (#F0562A)
-  brandOrange: adminColors.brand,
-  brandOrangeActive: adminColors.brand,
-  orangeBadgeText: adminColors.brand,
-  orangeBadgeBg: adminColors.brandTint, // #FDF3F0
-  blueText: '#0369A1',
-  blueBg: '#E0F2FE',
-  greenText: '#15803D',
-  greenBg: '#DCFCE7',
-};
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,7 +31,7 @@ function BackArrowIcon({ size = 22, color = THEME.white }: { size?: number; colo
 }
 
 /** Lucide calendar-days icon */
-function CalendarHeaderIcon({ size = 22, color = THEME.white }: { size?: number; color?: string }) {
+function CalendarHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M8 2v4M16 2v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -76,7 +48,7 @@ function CalendarHeaderIcon({ size = 22, color = THEME.white }: { size?: number;
 }
 
 /** Translucent circular bell button icon */
-function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: string }) {
+function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -91,17 +63,16 @@ function BellIcon({ size = 19, color = THEME.white }: { size?: number; color?: s
 }
 
 /**
- * 1. Audit Calendar Icon (Image 2 Top-Left):
+ * 1. Audit Calendar Icon:
  * Calendar outline with 2 top hanging loops, dividing line, and 2x3 grid of date dots
  */
-function ActionCalendarIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function ActionCalendarIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
       <Line x1="8" y1="2" x2="8" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="16" y1="2" x2="16" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" />
-      {/* 2x3 Grid of calendar date dots matching Image 2 */}
       <Circle cx="7.5" cy="12.5" r="1.1" fill={color} />
       <Circle cx="12" cy="12.5" r="1.1" fill={color} />
       <Circle cx="16.5" cy="12.5" r="1.1" fill={color} />
@@ -113,17 +84,16 @@ function ActionCalendarIcon({ size = 26, color = THEME.brandOrange }: { size?: n
 }
 
 /**
- * 2. Field Visits Icon (Image 2 Top-Right):
+ * 2. Field Visits Icon:
  * Calendar outline with 2 top hanging loops, dividing line, and 2 horizontal text bars inside
  */
-function FieldVisitChecklistIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function FieldVisitChecklistIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
       <Line x1="8" y1="2" x2="8" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="16" y1="2" x2="16" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" />
-      {/* Two horizontal event/note lines matching exact screenshot */}
       <Line x1="7.5" y1="13.5" x2="16.5" y2="13.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="7.5" y1="17" x2="13" y2="17" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
@@ -131,10 +101,10 @@ function FieldVisitChecklistIcon({ size = 26, color = THEME.brandOrange }: { siz
 }
 
 /**
- * 3. Audit History Icon (Image 2 Bottom-Left):
+ * 3. Audit History Icon:
  * Counter-clockwise circular arrow with clock hands at 12 and ~2:15
  */
-function HistoryClockIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -151,10 +121,10 @@ function HistoryClockIcon({ size = 26, color = THEME.brandOrange }: { size?: num
 }
 
 /**
- * 4. Reports Icon (Image 2 Bottom-Right):
+ * 4. Reports Icon:
  * Document sheet with folded top-right corner, and 3 vertical bullet dots on the left
  */
-function DocumentReportIcon({ size = 26, color = THEME.brandOrange }: { size?: number; color?: string }) {
+function DocumentReportIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -165,7 +135,6 @@ function DocumentReportIcon({ size = 26, color = THEME.brandOrange }: { size?: n
         strokeLinejoin="round"
       />
       <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      {/* 3 vertical bullet dots aligned on left matching exact screenshot */}
       <Circle cx="8" cy="11.5" r="1.1" fill={color} />
       <Circle cx="8" cy="15" r="1.1" fill={color} />
       <Circle cx="8" cy="18.5" r="1.1" fill={color} />
@@ -173,7 +142,7 @@ function DocumentReportIcon({ size = 26, color = THEME.brandOrange }: { size?: n
   );
 }
 
-function CloseIcon({ size = 20, color = THEME.ink }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -248,11 +217,24 @@ export function FarmerAuditsTabScreen({
     return INITIAL_AUDITS.filter((item) => item.type === typeFilter);
   }, [typeFilter]);
 
+  const viewModes: { key: CalendarViewMode; label: string }[] = [
+    { key: 'Month', label: t('farmerAuditsTab.toggle.month') },
+    { key: 'Week', label: t('farmerAuditsTab.toggle.week') },
+    { key: 'List', label: t('farmerAuditsTab.toggle.list') },
+  ];
+
+  const filterOptions: { key: AuditTypeFilter; label: string }[] = [
+    { key: 'All Types', label: t('farmerAuditsTab.filter.all') },
+    { key: 'Internal', label: t('farmerAuditsTab.filter.internal') },
+    { key: 'External', label: t('farmerAuditsTab.filter.external') },
+    { key: 'Field Visit', label: t('farmerAuditsTab.filter.fieldVisit') },
+  ];
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={THEME.headerBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header (Screenshot 1) ─── */}
+      {/* ─── Terracotta Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -263,11 +245,11 @@ export function FarmerAuditsTabScreen({
                 activeOpacity={0.7}
                 accessibilityLabel="Go back"
               >
-                <BackArrowIcon size={22} color={THEME.white} />
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
             )}
-            <CalendarHeaderIcon size={22} color={THEME.white} />
-            <Text style={styles.headerTitle}>Audits</Text>
+            <CalendarHeaderIcon size={22} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('farmerAuditsTab.title')}</Text>
           </View>
 
           <TouchableOpacity
@@ -276,12 +258,12 @@ export function FarmerAuditsTabScreen({
             activeOpacity={0.8}
             accessibilityLabel="Notifications"
           >
-            <BellIcon size={19} color={THEME.white} />
+            <BellIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? 34 : 0 }]}>
-          Audit Dashboard / Calendar
+        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? adminSpacing.xl : 0 }]}>
+          {t('farmerAuditsTab.subtitle')}
         </Text>
       </View>
 
@@ -291,11 +273,11 @@ export function FarmerAuditsTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Static KPI Cards Grid (Screenshot 1) ─── */}
+        {/* ─── 2x2 Static KPI Cards Grid ─── */}
         <View style={styles.kpiGrid}>
           {/* Tile 1: Upcoming Audits */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>UPCOMING AUDITS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.upcoming')}</Text>
             <Text style={styles.kpiValue}>8</Text>
           </View>
 
@@ -305,38 +287,38 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('field_visit')}
             activeOpacity={0.8}
           >
-            <Text style={styles.kpiLabel}>FIELD VISITS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.fieldVisits')}</Text>
             <Text style={styles.kpiValue}>3</Text>
           </TouchableOpacity>
 
           {/* Tile 3: Pending Audit Support */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PENDING AUDIT SUPPORT</Text>
+            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.pendingSupport')}</Text>
             <Text style={[styles.kpiValue, styles.kpiValueOrange]}>4</Text>
           </View>
 
           {/* Tile 4: Completed Audits */}
           <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>COMPLETED AUDITS</Text>
+            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.completedAudits')}</Text>
             <Text style={[styles.kpiValue, styles.kpiValueGreen]}>24</Text>
           </View>
         </View>
 
-        {/* ─── Section: Audit Calendar (Screenshot 1) ─── */}
-        <Text style={styles.sectionHeader}>Audit Calendar</Text>
+        {/* ─── Section: Audit Calendar ─── */}
+        <Text style={styles.sectionHeader}>{t('farmerAuditsTab.section.calendar')}</Text>
 
         {/* Segmented View Toggle Buttons: Month | Week | List */}
         <View style={styles.segmentedToggleRow}>
-          {(['Month', 'Week', 'List'] as const).map((view) => {
-            const isActive = calendarView === view;
+          {viewModes.map(({ key, label }) => {
+            const isActive = calendarView === key;
             return (
               <TouchableOpacity
-                key={view}
+                key={key}
                 style={[
                   styles.toggleBtn,
                   isActive ? styles.toggleBtnActive : styles.toggleBtnInactive,
                 ]}
-                onPress={() => setCalendarView(view)}
+                onPress={() => setCalendarView(key)}
                 activeOpacity={0.8}
               >
                 <Text
@@ -345,7 +327,7 @@ export function FarmerAuditsTabScreen({
                     isActive ? styles.toggleBtnTextActive : styles.toggleBtnTextInactive,
                   ]}
                 >
-                  {view}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -358,16 +340,16 @@ export function FarmerAuditsTabScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterPillsRow}
         >
-          {(['All Types', 'Internal', 'External', 'Field Visit'] as const).map((filter) => {
-            const isActive = typeFilter === filter;
+          {filterOptions.map(({ key, label }) => {
+            const isActive = typeFilter === key;
             return (
               <TouchableOpacity
-                key={filter}
+                key={key}
                 style={[
                   styles.filterPill,
                   isActive ? styles.filterPillActive : styles.filterPillInactive,
                 ]}
-                onPress={() => setTypeFilter(filter)}
+                onPress={() => setTypeFilter(key)}
                 activeOpacity={0.8}
               >
                 <Text
@@ -376,14 +358,14 @@ export function FarmerAuditsTabScreen({
                     isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
                   ]}
                 >
-                  {filter}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* ─── Audit Item Cards (Screenshot 1) ─── */}
+        {/* ─── Audit Item Cards ─── */}
         <View style={styles.auditsList}>
           {displayedAudits.map((audit) => {
             const isOrange = audit.badge === 'Scheduled';
@@ -415,7 +397,9 @@ export function FarmerAuditsTabScreen({
                         isOrange ? styles.badgeTextOrange : styles.badgeTextBlue,
                       ]}
                     >
-                      {audit.badge}
+                      {audit.badge === 'Scheduled'
+                        ? t('farmerAuditsTab.badge.scheduled')
+                        : t('farmerAuditsTab.badge.upcoming')}
                     </Text>
                   </View>
                 </View>
@@ -427,8 +411,10 @@ export function FarmerAuditsTabScreen({
           })}
         </View>
 
-        {/* ─── Section: Quick Actions (Screenshot 2) ─── */}
-        <Text style={[styles.sectionHeader, { marginTop: 24 }]}>Quick Actions</Text>
+        {/* ─── Section: Quick Actions ─── */}
+        <Text style={[styles.sectionHeader, styles.quickActionsHeading]}>
+          {t('farmerAuditsTab.section.quickActions')}
+        </Text>
 
         <View style={styles.quickActionsGrid}>
           {/* Card 1: Audit Calendar */}
@@ -437,8 +423,8 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('calendar')}
             activeOpacity={0.8}
           >
-            <ActionCalendarIcon size={26} color={THEME.brandOrangeActive} />
-            <Text style={styles.quickActionLabel}>Audit Calendar</Text>
+            <ActionCalendarIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.calendar')}</Text>
           </TouchableOpacity>
 
           {/* Card 2: Field Visits */}
@@ -447,8 +433,8 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('field_visit')}
             activeOpacity={0.8}
           >
-            <FieldVisitChecklistIcon size={26} color={THEME.brandOrangeActive} />
-            <Text style={styles.quickActionLabel}>Field Visits</Text>
+            <FieldVisitChecklistIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.fieldVisits')}</Text>
           </TouchableOpacity>
 
           {/* Card 3: Audit History */}
@@ -457,8 +443,8 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('history')}
             activeOpacity={0.8}
           >
-            <HistoryClockIcon size={26} color={THEME.brandOrangeActive} />
-            <Text style={styles.quickActionLabel}>Audit History</Text>
+            <HistoryClockIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.auditHistory')}</Text>
           </TouchableOpacity>
 
           {/* Card 4: Reports */}
@@ -467,12 +453,12 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('report')}
             activeOpacity={0.8}
           >
-            <DocumentReportIcon size={26} color={THEME.brandOrangeActive} />
-            <Text style={styles.quickActionLabel}>Reports</Text>
+            <DocumentReportIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.reports')}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* ─── Reports Modal ─── */}
@@ -487,17 +473,17 @@ export function FarmerAuditsTabScreen({
             <TouchableWithoutFeedback>
               <View style={styles.modalCard}>
                 <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Audit & Compliance Reports</Text>
+                  <Text style={styles.modalTitle}>{t('farmerAuditsTab.modal.reportsTitle')}</Text>
                   <TouchableOpacity
                     onPress={() => setShowReportsModal(false)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <CloseIcon size={20} color={THEME.ink} />
+                    <CloseIcon size={20} color={adminColors.ink} />
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.modalBodyText}>
-                  Generate or export official field verification logs and smallholder adherence summaries.
+                  {t('farmerAuditsTab.modal.reportsDesc')}
                 </Text>
 
                 <View style={styles.reportList}>
@@ -520,7 +506,7 @@ export function FarmerAuditsTabScreen({
                   onPress={() => setShowReportsModal(false)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.modalCloseBtnText}>Done</Text>
+                  <Text style={styles.modalCloseBtnText}>{t('farmerAuditsTab.modal.done')}</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -536,13 +522,13 @@ export function FarmerAuditsTabScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: THEME.canvas,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: THEME.headerBg,
-    paddingTop: 10,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -552,304 +538,301 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   backBtn: {
-    padding: 4,
+    padding: adminSpacing.xs,
     marginRight: 2,
   },
   headerTitle: {
-    color: THEME.white,
-    fontSize: 22,
-    fontWeight: '800',
+    color: adminColors.onBrand,
+    ...adminType.title,
     letterSpacing: -0.3,
   },
   notificationBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 13,
+    color: adminColors.brandTint,
+    ...adminType.caption,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
   // 2x2 Static KPI Grid
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     width: '48%',
-    backgroundColor: THEME.card,
-    borderRadius: adminRadius.xl, // 16px as per admin token scale
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    ...adminShadow.sm,
   },
   kpiLabel: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: THEME.labelMuted,
+    color: adminColors.muted,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   kpiValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.5,
   },
   kpiValueOrange: {
-    color: THEME.brandOrange,
+    color: adminColors.brand,
   },
   kpiValueGreen: {
-    color: THEME.greenText,
+    color: adminColors.success.text,
   },
 
   // Section Headers
   sectionHeader: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.sectionTitle,
-    marginTop: 20,
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.xl,
+    marginBottom: adminSpacing.sm,
+  },
+  quickActionsHeading: {
+    marginTop: adminSpacing.xl,
   },
 
   // Segmented View Toggle
   segmentedToggleRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
   toggleBtn: {
     flex: 1,
     height: 40,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
   },
   toggleBtnInactive: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   toggleBtnText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
   },
   toggleBtnTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   toggleBtnTextInactive: {
-    color: THEME.muted,
+    color: adminColors.muted,
   },
 
   // Horizontal Filter Pills
   filterPillsRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 6,
-    marginBottom: 12,
+    gap: adminSpacing.sm,
+    paddingBottom: adminSpacing.xs,
+    marginBottom: adminSpacing.md,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterPillActive: {
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
   },
   filterPillInactive: {
-    backgroundColor: THEME.card,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   filterPillText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
   },
   filterPillTextActive: {
-    color: THEME.white,
+    color: adminColors.onBrand,
   },
   filterPillTextInactive: {
-    color: THEME.ink,
+    color: adminColors.ink,
   },
 
   // Audits List & Cards
   auditsList: {
-    gap: 12,
+    gap: adminSpacing.md,
   },
   auditCard: {
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
   },
   auditCardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: adminSpacing.xs,
   },
   auditTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: THEME.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   auditBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeOrange: {
-    backgroundColor: THEME.orangeBadgeBg,
+    backgroundColor: adminColors.brandTint,
   },
   badgeBlue: {
-    backgroundColor: THEME.blueBg,
+    backgroundColor: adminColors.info.bg,
   },
   auditBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgeTextOrange: {
-    color: THEME.orangeBadgeText,
+    color: adminColors.brand,
   },
   badgeTextBlue: {
-    color: THEME.blueText,
+    color: adminColors.info.text,
   },
   auditSubtitle: {
-    fontSize: 12.5,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: THEME.muted,
-    marginBottom: 4,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   auditDate: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     fontWeight: '500',
-    color: THEME.muted,
+    color: adminColors.muted,
   },
 
-  // Quick Actions Grid (Screenshot 2)
+  // Quick Actions Grid
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   quickActionCard: {
     flexBasis: '47%',
     flexGrow: 1,
-    backgroundColor: THEME.card,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
-    paddingVertical: 20,
-    paddingHorizontal: 12,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: adminSpacing.sm,
   },
   quickActionLabel: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
   // Modal Styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.xl,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: THEME.card,
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.titleRustDark,
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   modalBodyText: {
-    fontSize: 13,
-    color: THEME.muted,
+    ...adminType.body,
+    color: adminColors.muted,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   reportList: {
-    gap: 10,
-    marginBottom: 20,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
   },
   reportRow: {
-    backgroundColor: THEME.canvas,
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: adminColors.border,
   },
   reportName: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
-    color: THEME.ink,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   reportStatus: {
-    fontSize: 11,
-    color: THEME.muted,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   modalCloseBtn: {
-    backgroundColor: THEME.brandOrangeActive,
+    backgroundColor: adminColors.brand,
     height: 44,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    color: THEME.white,
-    fontSize: 14,
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
     fontWeight: '700',
+  },
+  bottomSpacer: {
+    height: adminSpacing.xxl,
   },
 });
