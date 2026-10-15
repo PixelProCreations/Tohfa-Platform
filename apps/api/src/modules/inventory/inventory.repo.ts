@@ -218,14 +218,9 @@ export const inventoryRepo: InventoryRepo = {
           input.remarks ?? null,
           input.performedBy ?? null,
         ]);
-        const ledgerRow = res.rows[0]!;
-        // Update the batch's available quantity to match the new balance
-        await db.query(`
-          UPDATE inventory_batches
-          SET qty_available = $1
-          WHERE id = $2
-        `, [ledgerRow.balance_after, input.batchId]);
-        return ledgerRow;
+        // qty_available is maintained by trg_stock_ledger_apply from this INSERT (CLAUDE.md 2.3);
+        // nothing here writes the balance column.
+        return res.rows[0]!;
     } catch (err: unknown) {
       const errorObj = err as { code?: string; message?: string; hint?: string };
       if (

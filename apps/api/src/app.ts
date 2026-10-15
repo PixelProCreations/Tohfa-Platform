@@ -25,6 +25,8 @@ import { healthRouter } from './modules/health/health.routes.js';
 import { warehousesRouter } from './modules/warehouses/warehouses.routes.js';
 import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/routes.js';
 import { warehouseTransfersRouter } from './modules/warehouse-transfers/warehouse-transfers.routes.js';
+import { stockAdjustmentsRouter } from './modules/stock-adjustments/stock-adjustments.routes.js';
+import { stockVerificationsRouter } from './modules/stock-verifications/stock-verifications.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
@@ -166,6 +168,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/goods-receipts', router: goodsReceiptsRouter },
   { prefix: '/v1/admin/batches', router: adminBatchesRouter },
   { prefix: '/v1/admin/stock-ledger', router: adminStockLedgerRouter },
+  { prefix: '/v1/admin/stock-adjustments', router: stockAdjustmentsRouter },
+  { prefix: '/v1/admin/stock-verifications', router: stockVerificationsRouter },
   { prefix: '/v1/admin/allocations', router: adminAllocationsRouter },
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
