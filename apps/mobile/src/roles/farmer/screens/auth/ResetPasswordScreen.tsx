@@ -12,7 +12,7 @@ import { Icon, ErrorState } from '@tohfa/mobile-ui';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { resetPassword } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 interface ResetPasswordScreenProps {
   challengeId: string;
@@ -153,21 +153,21 @@ const styles = StyleSheet.create({
     marginTop: 36,
   },
   title: {
-    fontSize: 23,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     textAlign: 'center',
     marginTop: 24,
   },
   subtitle: {
-    fontSize: 12.8,
+    fontSize: typography.bodySmall,
     lineHeight: 19,
     color: P.muted,
     textAlign: 'center',
     marginTop: 8,
   },
   fieldLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.ink,
     marginTop: 24,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.ink,
     paddingVertical: 0,
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   ctaText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

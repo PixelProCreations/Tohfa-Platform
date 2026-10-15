@@ -1,5 +1,7 @@
+import { writeAuditLog, type AuditEntry } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { scopedWhere, type ResolvedScope } from '../../rbac/requirePermission.js';
+import { counterOffersRepo } from '../listings/counter-offers.repo.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import type {
   CreateGoodsReceiptBody,
@@ -10,7 +12,21 @@ import type {
   QualityCheckCreateBody,
   QualityCheckItemResponse,
   QualityCheckResponse,
+  QualityCounterOfferResponse,
 } from './goods-receipts.schema.js';
+
+/**
+ * timestamptz -> ISO-8601 UTC ("2026-10-05T07:42:36.490Z"), the `format: date-time`
+ * docs/openapi.yaml promises. node-postgres parses timestamptz into a Date, so the
+ * columns are selected raw and serialized here (as listings.repo.ts does). Never
+ * `::text` a timestamptz for the wire: Postgres's own form
+ * ("2026-10-05 07:42:36.490266+00") is not RFC 3339 and Hermes parses it as NaN.
+ *
+ * A JS Date stops at milliseconds, so the list cursor is built in SQL
+ * (`cursorReceivedAt`, to_char ... US) to keep microseconds: a truncated cursor
+ * would skip receipts created within the same millisecond as the last row of a page.
+ */
+const CURSOR_TS = `'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`;
 
 export interface GoodsReceiptRow {
   id: string;
@@ -62,13 +78,44 @@ export interface PurchaseOrderForReceipt {
   status: string;
 }
 
+/**
+ * A quality counter-offer is a round of the negotiation on the listing behind the receipt's
+ * purchase order (goods_receipts.purchase_order_id -> purchase_orders.listing_id), written to
+ * counter_offers with the receipt recorded in goods_receipt_id (db/migrations/0058).
+ */
 export interface InsertCounterOfferData {
+  listingId: string;
   goodsReceiptId: string;
+  round: number;
   pricePerKg: string;
   quantityKg: string;
   message?: string | null | undefined;
   offeredByUserId: string;
+  /** Computed by the SERVICE from system_config.counter_offer_window_hours (BR-10). */
   expiresAt: Date;
+}
+
+/** The listing a receipt's quality counter-offer negotiates on, locked for the transaction. */
+export interface QualityNegotiationTarget {
+  listingId: string;
+  listingStatus: string;
+  listingVersion: number;
+  /** users.id of the farmer who owns the listing: the notification recipient. */
+  ownerUserId: string;
+  /** The price on the receipt's purchase order, the one the farmer agreed to. */
+  agreedPricePerKg: string;
+}
+
+/** Where the listing's negotiation stands: the last round used and the offer still open, if any. */
+export interface NegotiationState {
+  maxRound: number;
+  pendingOfferId: string | null;
+}
+
+/** system_config values the listing counter-offers also use (BR-10 window, BR-11 rounds). */
+export interface CounterOfferConfig {
+  windowHours: number;
+  roundLimit: number;
 }
 
 export interface GoodsReceiptsRepo {
@@ -82,7 +129,12 @@ export interface GoodsReceiptsRepo {
     id: string,
     scope: ResolvedScope,
   ): Promise<GoodsReceiptResponse | null>;
-  findPurchaseOrderForReceipt(tx: Executor, poId: string): Promise<PurchaseOrderForReceipt | null>;
+  /** Only a purchase order destined for a warehouse `scope` reaches; any other is `null` (BR-30). */
+  findPurchaseOrderForReceipt(
+    tx: Executor,
+    poId: string,
+    scope: ResolvedScope,
+  ): Promise<PurchaseOrderForReceipt | null>;
   insertQualityCheckWithItems(
     tx: Executor,
     data: QualityCheckCreateBody & {
@@ -104,7 +156,15 @@ export interface GoodsReceiptsRepo {
     rejectedQtyKg: string,
     rejectionReason?: string | null,
   ): Promise<void>;
-  insertQualityCounterOffer(tx: Executor, data: InsertCounterOfferData): Promise<unknown>;
+  findQualityNegotiationTarget(tx: Executor, goodsReceiptId: string): Promise<QualityNegotiationTarget | null>;
+  findNegotiationState(tx: Executor, listingId: string): Promise<NegotiationState>;
+  getCounterOfferConfig(tx: Executor): Promise<CounterOfferConfig>;
+  insertQualityCounterOffer(tx: Executor, data: InsertCounterOfferData): Promise<QualityCounterOfferResponse>;
+  /** ACCEPTED -> COUNTER_OFFERED under the listing's optimistic lock; the new version, or null on a lost race. */
+  markListingCounterOffered(tx: Executor, listingId: string, expectedVersion: number): Promise<number | null>;
+  /** Sets only the status: the QC quantities and rejection reason stay as recorded. */
+  markGoodsReceiptCounterOffered(tx: Executor, goodsReceiptId: string): Promise<void>;
+  recordAudit(tx: Executor, entry: AuditEntry): Promise<string>;
   listGoodsReceipts(
     tx: Executor,
     scope: ResolvedScope,
@@ -177,7 +237,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
   async findPurchaseOrderForReceipt(
     tx: Executor,
     poId: string,
+    scope: ResolvedScope,
   ): Promise<PurchaseOrderForReceipt | null> {
+    const scopeFilter = scopedWhere(scope, {
+      warehouseColumn: 'po.warehouse_id',
+      startIndex: 2,
+    });
     const sql = `
       SELECT
         po.id,
@@ -192,9 +257,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         po.status
       FROM purchase_orders po
       JOIN crop_master c ON c.id = po.crop_id
-      WHERE po.id = $1
+      WHERE po.id = $1 AND ${scopeFilter.sql}
     `;
-    const result = await tx.query<PurchaseOrderForReceipt>(sql, [poId]);
+    const result = await tx.query<PurchaseOrderForReceipt>(sql, [poId, ...scopeFilter.params]);
     return result.rows[0] ?? null;
   },
 
@@ -223,7 +288,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
-        gr.received_at::text AS "receivedAt",
+        gr.received_at AS "receivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
         po.grade
@@ -233,8 +298,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       WHERE gr.id = $1 AND ${scopeFilter.sql}
     `;
 
-    const result = await tx.query<GoodsReceiptResponse>(sql, [id, ...scopeFilter.params]);
-    return result.rows[0] ?? null;
+    const result = await tx.query<Omit<GoodsReceiptResponse, 'receivedAt'> & { receivedAt: Date }>(
+      sql,
+      [id, ...scopeFilter.params],
+    );
+    const row = result.rows[0];
+    return row ? { ...row, receivedAt: row.receivedAt.toISOString() } : null;
   },
 
   async insertQualityCheckWithItems(
@@ -274,7 +343,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         defect_notes AS "defectNotes",
         COALESCE(photo_keys, '{}') AS "photos",
         checked_by AS "checkedBy",
-        checked_at::text AS "checkedAt"
+        checked_at AS "checkedAt"
     `;
 
     const qcValues = [
@@ -291,8 +360,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.checkedBy,
     ];
 
-    const qcResult = await tx.query<QualityCheckResponse>(qcSql, qcValues);
-    const qcRow = qcResult.rows[0]!;
+    const qcResult = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
+      qcSql,
+      qcValues,
+    );
+    const qcRaw = qcResult.rows[0]!;
+    const qcRow = { ...qcRaw, checkedAt: qcRaw.checkedAt.toISOString() };
 
     const itemResponses: QualityCheckItemResponse[] = [];
     for (const item of data.items) {
@@ -356,13 +429,17 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         qc.defect_notes AS "defectNotes",
         COALESCE(qc.photo_keys, '{}') AS "photos",
         qc.checked_by AS "checkedBy",
-        qc.checked_at::text AS "checkedAt"
+        qc.checked_at AS "checkedAt"
       FROM quality_checks qc
       WHERE qc.goods_receipt_id = $1
     `;
-    const result = await tx.query<QualityCheckResponse>(sql, [goodsReceiptId]);
-    const qc = result.rows[0];
-    if (!qc) return null;
+    const result = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
+      sql,
+      [goodsReceiptId],
+    );
+    const qcRaw = result.rows[0];
+    if (!qcRaw) return null;
+    const qc = { ...qcRaw, checkedAt: qcRaw.checkedAt.toISOString() };
 
     const itemsSql = `
       SELECT
@@ -411,46 +488,119 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     ]);
   },
 
+  /**
+   * receipt -> purchase order -> listing. `FOR UPDATE OF l` holds the listing row for the rest of
+   * the transaction, so two quality counter-offers on the same lot (or one racing a farmer's
+   * response) queue up here and the second one sees the first one's PENDING offer, instead of
+   * both computing the same round. UNIQUE(listing_id, round) remains the backstop.
+   */
+  async findQualityNegotiationTarget(
+    tx: Executor,
+    goodsReceiptId: string,
+  ): Promise<QualityNegotiationTarget | null> {
+    const result = await tx.query<QualityNegotiationTarget>(
+      `SELECT l.id AS "listingId",
+              l.status AS "listingStatus",
+              l.version AS "listingVersion",
+              f.user_id AS "ownerUserId",
+              po.price_per_kg::text AS "agreedPricePerKg"
+         FROM goods_receipts gr
+         JOIN purchase_orders po ON po.id = gr.purchase_order_id
+         JOIN produce_listings l ON l.id = po.listing_id AND l.deleted_at IS NULL
+         JOIN farmers f ON f.id = l.farmer_id
+        WHERE gr.id = $1
+          FOR UPDATE OF l`,
+      [goodsReceiptId],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  /** The listing counter-offer helpers, so both surfaces count rounds the same way (BR-11). */
+  async findNegotiationState(tx: Executor, listingId: string): Promise<NegotiationState> {
+    const maxRound = await counterOffersRepo.getMaxRound(tx, listingId);
+    const pending = await counterOffersRepo.findLatestPendingOffer(tx, listingId);
+    return { maxRound, pendingOfferId: pending?.id ?? null };
+  },
+
+  /** The SAME system_config readers the listing counter-offers use (BR-10, BR-11); NaN when unset. */
+  async getCounterOfferConfig(tx: Executor): Promise<CounterOfferConfig> {
+    const windowHours = await counterOffersRepo.getCounterOfferWindowHours(tx);
+    const roundLimit = await counterOffersRepo.getCounterOfferRoundLimit(tx);
+    return { windowHours, roundLimit };
+  },
+
+  /**
+   * counter_offers has no offered_by / offered_by_user_id columns: the actor is `actor` and
+   * `actor_user_id`, aliased here to the `offeredBy` / `offeredByUserId` names of the documented
+   * CounterOffer response.
+   */
   async insertQualityCounterOffer(
     tx: Executor,
     data: InsertCounterOfferData,
-  ): Promise<unknown> {
-    const sql = `
-      INSERT INTO counter_offers (
-        goods_receipt_id,
-        round,
-        offered_by,
-        offered_by_user_id,
-        price_per_kg,
-        quantity_kg,
-        message,
-        status,
-        expires_at
-      )
-      VALUES ($1, 1, 'ADMIN', $2, $3, $4, $5, 'PENDING', $6)
-      RETURNING
-        id,
-        goods_receipt_id AS "goodsReceiptId",
-        round,
-        offered_by AS "offeredBy",
-        price_per_kg::text AS "pricePerKg",
-        quantity_kg::text AS "quantityKg",
-        message,
-        status,
-        expires_at::text AS "expiresAt"
-    `;
+  ): Promise<QualityCounterOfferResponse> {
+    const result = await tx.query<
+      Omit<QualityCounterOfferResponse, 'expiresAt' | 'respondedAt'> & { expiresAt: Date; respondedAt: Date | null }
+    >(
+      `INSERT INTO counter_offers
+         (listing_id, goods_receipt_id, round, actor, actor_user_id, price_per_kg, quantity_kg, message, status, expires_at)
+       VALUES ($1, $2, $3, 'ADMIN', $4, $5, $6, $7, 'PENDING', $8)
+       RETURNING
+         id,
+         listing_id AS "listingId",
+         goods_receipt_id AS "goodsReceiptId",
+         round,
+         actor AS "offeredBy",
+         actor_user_id AS "offeredByUserId",
+         price_per_kg::text AS "pricePerKg",
+         quantity_kg::text AS "quantityKg",
+         message,
+         status,
+         expires_at AS "expiresAt",
+         responded_at AS "respondedAt"`,
+      [
+        data.listingId,
+        data.goodsReceiptId,
+        data.round,
+        data.offeredByUserId,
+        data.pricePerKg,
+        data.quantityKg,
+        data.message ?? null,
+        data.expiresAt,
+      ],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('counter_offers insert returned no row');
+    return {
+      ...row,
+      expiresAt: row.expiresAt.toISOString(),
+      respondedAt: row.respondedAt === null ? null : row.respondedAt.toISOString(),
+    };
+  },
 
-    const values = [
-      data.goodsReceiptId,
-      data.offeredByUserId,
-      data.pricePerKg,
-      data.quantityKg,
-      data.message ?? null,
-      data.expiresAt,
-    ];
+  async markListingCounterOffered(
+    tx: Executor,
+    listingId: string,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    const updated = await counterOffersRepo.transitionListingStatus(
+      tx,
+      listingId,
+      'COUNTER_OFFERED',
+      ['ACCEPTED'],
+      expectedVersion,
+    );
+    return updated === null ? null : updated.version;
+  },
 
-    const result = await tx.query(sql, values);
-    return result.rows[0];
+  async markGoodsReceiptCounterOffered(tx: Executor, goodsReceiptId: string): Promise<void> {
+    await tx.query(
+      `UPDATE goods_receipts SET status = 'COUNTER_OFFERED', updated_at = now() WHERE id = $1`,
+      [goodsReceiptId],
+    );
+  },
+
+  async recordAudit(tx: Executor, entry: AuditEntry): Promise<string> {
+    return writeAuditLog(tx, entry);
   },
 
   async listGoodsReceipts(
@@ -515,7 +665,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
-        gr.received_at::text AS "receivedAt",
+        gr.received_at AS "receivedAt",
+        to_char(gr.received_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorReceivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
         po.grade
@@ -527,10 +678,17 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       ${limitClause}
     `;
 
-    const result = await tx.query<GoodsReceiptResponse>(sql, params);
+    const result = await tx.query<
+      Omit<GoodsReceiptResponse, 'receivedAt'> & { receivedAt: Date; cursorReceivedAt: string }
+    >(sql, params);
     const hasMore = result.rows.length > limit;
-    const items = hasMore ? result.rows.slice(0, limit) : result.rows;
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.receivedAt : null;
+    const rawItems = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const nextCursor =
+      hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursorReceivedAt : null;
+    const items: GoodsReceiptResponse[] = rawItems.map(({ cursorReceivedAt: _cursor, ...row }) => ({
+      ...row,
+      receivedAt: row.receivedAt.toISOString(),
+    }));
 
     return { items, nextCursor, hasMore };
   },

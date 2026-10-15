@@ -398,14 +398,17 @@ export interface TohfaAdminDashboardScreenProps {
   onSignOut?: () => void;
   onNavigate?: (screen: string) => void;
   onSwitchRole?: (role: string) => void;
+  /** Tab to open on mount (the All Farmers screen's Profile tab opens 'Profile'). */
+  initialTab?: TohfaAdminTab | undefined;
 }
 
 export function TohfaAdminDashboardScreen({
   onSignOut,
   onNavigate,
   onSwitchRole,
+  initialTab,
 }: TohfaAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<TohfaAdminTab>('Dashboard');
+  const [activeTab, setActiveTab] = useState<TohfaAdminTab>(initialTab ?? 'Dashboard');
   const [user, setUser] = useState<UserMe | null>(null);
 
   // Modal / Interaction states

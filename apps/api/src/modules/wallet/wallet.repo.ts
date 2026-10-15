@@ -81,6 +81,50 @@ export interface InsertTransactionData {
   createdBy?: string | null;
 }
 
+/**
+ * Keyset position for `listTransactions`. The list is ordered by `(created_at DESC, id DESC)`, so
+ * the cursor must carry BOTH columns: uuids are not ordered by time, and a cursor on `id` alone
+ * skipped or repeated rows. `ts` is the microsecond UTC text of `created_at` (a millisecond `Date`
+ * would round and skip rows that share a millisecond).
+ */
+export interface WalletTxnCursorKey {
+  ts: string;
+  id: string;
+}
+
+/** The repo's filters: the validated query with its opaque cursor already decoded by the service. */
+export type WalletTxnListFilters = Omit<ListMyTransactionsQuery, 'cursor'> & { after?: WalletTxnCursorKey };
+
+const CURSOR_TAG = 'wt';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MICRO_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+
+/** Opaque base64url cursor (openapi `PageMeta`: clients never parse or build one). */
+export function encodeTxnCursor(key: WalletTxnCursorKey): string {
+  return Buffer.from(JSON.stringify([CURSOR_TAG, key.ts, key.id]), 'utf8').toString('base64url');
+}
+
+/** null for anything `encodeTxnCursor` did not produce; the service turns that into a 422. */
+export function decodeTxnCursor(raw: string): WalletTxnCursorKey | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      parsed[0] === CURSOR_TAG &&
+      typeof parsed[1] === 'string' &&
+      typeof parsed[2] === 'string' &&
+      MICRO_TS_RE.test(parsed[1]) &&
+      UUID_RE.test(parsed[2])
+    ) {
+      return { ts: parsed[1], id: parsed[2] };
+    }
+  } catch {
+    // not base64url JSON: fall through
+  }
+  return null;
+}
+
 export interface ListTransactionsResult {
   items: WalletTransactionResponse[];
   nextCursor: string | null;
@@ -113,7 +157,7 @@ export interface WalletRepo {
   listTransactions(
     db: Executor,
     walletId: string,
-    filters: ListMyTransactionsQuery,
+    filters: WalletTxnListFilters,
   ): Promise<ListTransactionsResult>;
 }
 
@@ -207,9 +251,10 @@ export const walletRepo: WalletRepo = {
       conditions.push(`t.type = 'ORDER_REFUND'`);
     }
 
-    if (filters.cursor !== undefined && filters.cursor.length > 0) {
-      params.push(filters.cursor);
-      conditions.push(`t.id < $${params.length}`);
+    if (filters.after !== undefined) {
+      // Row-value comparison matches the ORDER BY exactly, so no row is skipped or repeated.
+      params.push(filters.after.ts, filters.after.id);
+      conditions.push(`(t.created_at, t.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
     }
 
     const where = conditions.join(' AND ');
@@ -217,7 +262,8 @@ export const walletRepo: WalletRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT t.*, tu.fiscal_cash_tag, tu.warehouse_id
+      SELECT t.*, tu.fiscal_cash_tag, tu.warehouse_id,
+             to_char(t.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_ts
         FROM wallet_transactions t
         LEFT JOIN topups tu ON tu.wallet_txn_id = t.id
        WHERE ${where}
@@ -225,14 +271,12 @@ export const walletRepo: WalletRepo = {
        LIMIT $${params.length}
     `;
 
-    const result = await db.query<WalletTransactionRow>(querySql, params);
+    const result = await db.query<WalletTransactionRow & { cursor_ts: string }>(querySql, params);
     const rows = result.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor =
-      hasMore && itemsToReturn.length > 0
-        ? itemsToReturn[itemsToReturn.length - 1]!.id
-        : null;
+    const last = itemsToReturn[itemsToReturn.length - 1];
+    const nextCursor = hasMore && last !== undefined ? encodeTxnCursor({ ts: last.cursor_ts, id: last.id }) : null;
 
     return {
       items: itemsToReturn.map(toWalletTransactionResponse),

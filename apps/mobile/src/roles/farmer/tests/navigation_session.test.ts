@@ -8,6 +8,12 @@
  * path, and App.tsx's auth-failure handler bounced every screen except the five
  * admin dashboards to 'Welcome' (the Login / Create account page). These tests
  * pin the pure decisions App.tsx now delegates to ../utils/navigationSession.
+ *
+ * That 401 only happened because the demo sign-in opened the shell before any
+ * token existed. The demo sign-in is gone (every admin login is awaited), so a
+ * failed refresh on these routes now means the session really is dead and the
+ * admin goes to Login, not the Welcome / Create account page. The render-branch
+ * check below still guards the original "no fall-through" half of the bug.
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
@@ -15,7 +21,7 @@ import * as path from 'node:path';
 import {
   emptyHistoryBackTarget,
   isWarehouseAdminScreen,
-  keepsScreenOnAuthFailure,
+  authFailureTarget,
   resetsHistoryOn,
 } from '../utils/navigationSession';
 
@@ -42,12 +48,12 @@ function moreMenuKeys(): string[] {
   return [...new Set([...keys, ...shellKeys])];
 }
 
-describe('Sub warehouse More menu never lands on the login page', () => {
-  it('a 401 / failed /auth/me on any More destination keeps the admin on that screen', () => {
+describe('Sub warehouse More menu and a dead session', () => {
+  it('a failed token refresh on any More destination sends the admin to Login, not Welcome', () => {
     const keys = moreMenuKeys().filter((k) => k !== 'Login');
     expect(keys.length).toBeGreaterThan(10);
     for (const key of keys) {
-      expect({ key, kept: keepsScreenOnAuthFailure(key) }).toEqual({ key, kept: true });
+      expect({ key, target: authFailureTarget(key) }).toEqual({ key, target: 'Login' });
     }
   });
 
@@ -60,17 +66,17 @@ describe('Sub warehouse More menu never lands on the login page', () => {
   });
 
   it('App.tsx delegates its auth-failure and back decisions to the tested helpers', () => {
-    expect(APP_SOURCE).toContain('keepsScreenOnAuthFailure(prev)');
+    expect(APP_SOURCE).toContain('authFailureTarget(prev)');
     expect(APP_SOURCE).toContain('resetsHistoryOn(nextScreen)');
     expect(APP_SOURCE).toContain('emptyHistoryBackTarget(screen)');
   });
 
-  it('the old admin dashboards are still kept; farmer and customer screens still go to Welcome', () => {
+  it('the admin dashboards go to Login; farmer and customer screens still go to Welcome', () => {
     for (const s of ['AdminMain', 'SuperAdminDashboard', 'SubWarehouseAdminDashboard', 'MainWarehouseAdminDashboard']) {
-      expect(keepsScreenOnAuthFailure(s)).toBe(true);
+      expect(authFailureTarget(s)).toBe('Login');
     }
     for (const s of ['MainTabs', 'Notifications', 'CreateListing', 'CustomerMain']) {
-      expect(keepsScreenOnAuthFailure(s)).toBe(false);
+      expect(authFailureTarget(s)).toBe('Welcome');
     }
   });
 

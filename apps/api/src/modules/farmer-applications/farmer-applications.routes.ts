@@ -1,13 +1,15 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { optionalAuth, requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission } from '../../rbac/requirePermission.js';
+import { signUploadBody } from '../uploads/uploads.schema.js';
 import {
   approveApplicationBody,
   createFarmerApplicationBody,
   farmerApplicationIdParams,
   listAdminApplicationsQuery,
+  registrationStepBodySchemas,
   rejectApplicationBody,
   requestInfoApplicationBody,
   updateFarmerProfileBody,
@@ -29,15 +31,42 @@ farmerApplicationsRouter.post(
   }),
 );
 
+// BR-69: the body schema depends on the `:step` path parameter, so it is picked from the
+// already-validated params and handed to the ordinary `validate` middleware (same 422
+// VALIDATION_FAILED shape, same field paths as every other route). Runs after the params check,
+// so an out-of-range step is still rejected as a bad path before any body is looked at.
+const validateStepBody: RequestHandler = (req, res, next) => {
+  const { step } = getValidated(req, 'params', updateStepParams);
+  validate({ body: registrationStepBodySchemas[step as 1 | 2 | 3 | 4 | 5] })(req, res, next);
+};
+
 // Save individual step (1..5)
 farmerApplicationsRouter.patch(
   '/applications/:id/steps/:step',
   optionalAuth,
   validate({ params: updateStepParams }),
+  validateStepBody,
   asyncHandler(async (req, res) => {
     const { id, step } = getValidated(req, 'params', updateStepParams);
+    // `req.body` is the PARSED body: strict, trimmed, with a full Aadhaar number already dropped.
     const result = await farmerApplicationsService.updateStep(req.actor, id, step, req.body);
     res.json(result);
+  }),
+);
+
+// Registration-scoped signed upload URL (public -- no account exists yet; see
+// uploads.routes.ts's authenticated POST /uploads/sign for the normal, logged-in
+// path). Mirrors steps/:step's wiring exactly: optionalAuth, no requirePermission,
+// ownership/liveness checked inside the service instead of via RBAC scope.
+farmerApplicationsRouter.post(
+  '/applications/:id/uploads/sign',
+  optionalAuth,
+  validate({ params: farmerApplicationIdParams, body: signUploadBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const body = getValidated(req, 'body', signUploadBody);
+    const result = await farmerApplicationsService.requestDocumentUploadUrl(id, body);
+    res.status(201).json(result);
   }),
 );
 
@@ -61,6 +90,23 @@ farmerApplicationsRouter.get(
   asyncHandler(async (req, res) => {
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
     const result = await farmerApplicationsService.getStatusTimeline(req.actor, id);
+    res.json(result);
+  }),
+);
+
+// Full draft (steps 1-4 field values) -- distinct from the lightweight /status
+// timeline above. Same optionalAuth + possession-of-UUID pattern as /status and
+// /uploads/sign: a pre-approval applicant has no account yet, so the id itself is
+// the credential. Lets a farmer who lost their local draft (reinstalled app,
+// cleared storage, new device) recover it using the `applicationId` now returned
+// in createDraft's 409 CONFLICT meta.
+farmerApplicationsRouter.get(
+  '/applications/:id',
+  optionalAuth,
+  validate({ params: farmerApplicationIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const result = await farmerApplicationsService.getFullDraft(req.actor, id);
     res.json(result);
   }),
 );

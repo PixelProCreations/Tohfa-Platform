@@ -33,3 +33,10 @@ export const MIGRATIONS_DIR = join(DB_DIR, 'migrations');
 export const SEED_DIR = join(DB_DIR, 'seed');
 export const RBAC_JSON_PATH = join(DOCS_DIR, 'rbac.json');
 export const OPENAPI_PATH = join(DOCS_DIR, 'openapi.yaml');
+export const API_ROOT = join(REPO_ROOT, 'apps', 'api');
+// Disk-backed stand-in for blob storage in local dev, where
+// AZURE_STORAGE_CONNECTION_STRING is unset (see storage/blobStorage.ts's
+// LocalDiskBlobStorage). Lives inside the api package, not the repo root,
+// because it is this app's runtime data, not a monorepo-wide artifact --
+// gitignored, never read by any other package.
+export const LOCAL_UPLOADS_DIR = join(API_ROOT, '.local-uploads');

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { useTheme, authPalette as P } from '../../theme';
-import { fetchApplicationStatus, logout, type ApplicationStatusResponse } from '../../api/auth';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useTheme, authPalette as P, typography } from '../../theme';
+import { fetchApplicationStatus, type ApplicationStatusResponse } from '../../api/auth';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 interface ApplicationStatusScreenProps {
   applicationId: string;
@@ -25,7 +27,7 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
   const { colors } = theme;
   const [data, setData] = useState<ApplicationStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -34,13 +36,13 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
       const res = await fetchApplicationStatus(applicationId);
       setData(res);
     } catch (err: unknown) {
-      // Graceful fallback if testing with local mock ID
-      setData({
-        id: applicationId,
-        status: 'DOCS_REVIEW',
-        step: 2,
-        submittedAt: new Date().toISOString(),
-      });
+      // A failed GET /farmers/applications/:id/status must surface as a real
+      // error, not a fabricated "Documents Under Review" status -- a farmer
+      // acting on a status TOHFA never actually confirmed is worse than a
+      // farmer seeing a retry screen (root CLAUDE.md §2.5 neighbourhood: never
+      // show state the server didn't actually report). Formatted the same way
+      // LoginScreen/ForgotPasswordScreen/PersonalDetailsScreen already do.
+      setError(formatErrorMessage(err, t('error.generic')));
     } finally {
       setLoading(false);
     }
@@ -62,23 +64,23 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
         <Skeleton width="100%" height={200} borderRadius={16} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
-        <ErrorState error={error} onRetry={loadStatus} />
-      </View>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
+        <ErrorState message={error} onRetry={loadStatus} />
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
-      
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight }]}>
+
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Top Check Icon */}
@@ -168,23 +170,23 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
         </TouchableOpacity>
       </View>
 
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  safeArea: { flex: 1 },
   scrollArea: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40, alignItems: 'center' },
   topIconContainer: { marginBottom: 20 },
   iconOuterCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   iconInnerCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 26, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 32 },
-  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  title: { fontSize: typography.title, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 28 },
+  subtitle: { fontSize: typography.body, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   idCard: { width: '100%', borderWidth: 1, borderRadius: 12, paddingVertical: 20, alignItems: 'center', marginBottom: 32 },
-  idLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  idValue: { fontSize: 22, fontWeight: '800', marginBottom: 8 },
-  idExpected: { fontSize: 13 },
+  idLabel: { fontSize: typography.caption, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+  idValue: { fontSize: typography.bodyLarge, fontWeight: '800', marginBottom: 8 },
+  idExpected: { fontSize: typography.body },
   timeline: { width: '100%', paddingLeft: 10, marginBottom: 24 },
   timelineItem: { flexDirection: 'row', minHeight: 64 },
   timelineIconCol: { width: 36, alignItems: 'center' },
@@ -194,12 +196,12 @@ const styles = StyleSheet.create({
   stepPendingCircle: { width: 20, height: 20, borderRadius: 10, marginTop: 6 },
   timelineLine: { width: 2, flex: 1, marginVertical: 4 },
   timelineTextCol: { flex: 1, paddingLeft: 16, paddingTop: 6 },
-  stepTitle: { fontSize: 15, marginBottom: 2 },
-  stepSub: { fontSize: 13 },
+  stepTitle: { fontSize: typography.bodyLarge, marginBottom: 2 },
+  stepSub: { fontSize: typography.body },
   infoBox: { backgroundColor: P.noticeBg, borderWidth: 1, borderColor: P.noticeBorder, borderRadius: 8, padding: 16, width: '100%', marginBottom: 16 },
-  infoBoxText: { fontSize: 13, color: P.noticeText, lineHeight: 20 },
+  infoBoxText: { fontSize: typography.body, color: P.noticeText, lineHeight: 20 },
   footer: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, borderTopWidth: 1, gap: 12 },
   footerBtn: { width: '100%', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footerBtnOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },
-  footerBtnText: { fontSize: 16, fontWeight: '700' }
+  footerBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' }
 });

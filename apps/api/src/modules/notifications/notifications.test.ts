@@ -1,4 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Replace only the queue's enqueue so the BR-52 tests can assert which
+// dispatch jobs were (not) queued. Every other test is indifferent to it —
+// handleDomainEvent already treats a failed enqueue as non-fatal.
+vi.mock('../../jobs/queue.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof QueueModule>()),
+  enqueue: vi.fn(async () => undefined),
+}));
+import type * as QueueModule from '../../jobs/queue.js';
+import { enqueue } from '../../jobs/queue.js';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { eventBus } from '../../events/bus.js';
@@ -20,7 +30,6 @@ import type {
 import {
   MockSmsTransport,
   Msg91SmsTransport,
-  TwilioSmsTransport,
   maskMobile,
 } from './sms/index.js';
 import {
@@ -91,6 +100,18 @@ function mockNotificationsRepo(): NotificationsRepo & {
       found.read_at = found.read_at ?? new Date();
       found.status = 'READ';
       return found;
+    },
+    findOwnById: async (_db, id, userId) =>
+      notifications.find((n) => n.id === id && n.user_id === userId && n.channel === 'IN_APP') ?? null,
+    markAllAsRead: async (_db, userId) => {
+      const unread = notifications.filter(
+        (n) => n.user_id === userId && n.channel === 'IN_APP' && n.read_at === null,
+      );
+      for (const n of unread) {
+        n.read_at = new Date();
+        n.status = 'READ';
+      }
+      return unread.length;
     },
     createNotification: async (_db, params: CreateNotificationParams) => {
       if (params.dedupeKey) {
@@ -301,16 +322,6 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(result.error).toBeDefined();
     });
 
-    it('Twilio transport fails gracefully when credentials are unconfigured', async () => {
-      const twilio = new TwilioSmsTransport();
-      const result = await twilio.sendSms({
-        to: '+919876543210',
-        message: 'Test twilio',
-      });
-
-      expect(result.status).toBe('FAILED');
-      expect(result.error).toBeDefined();
-    });
   });
 
   describe('S-50: Push Transports & Deep Link Registry', () => {
@@ -498,6 +509,228 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
 
       // Customer attempts to mark farmer's notification as read
       await expect(service.markAsRead(customerActor, foreignId)).rejects.toThrow();
+    });
+  });
+
+  describe('BR-65: own notifications (service, mocked repo)', () => {
+    async function seed(service: ReturnType<typeof createNotificationsService>) {
+      await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-01',
+        tohfaFarmerId: 'TOHFA-01',
+      });
+      await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-02',
+        tohfaFarmerId: 'TOHFA-02',
+      });
+      await service.handleDomainEvent('order.confirmed', {
+        userId: IDS.customer,
+        orderId: 'ORD-01',
+        orderNumber: 'ORD-01',
+        totalAmount: '100',
+      });
+    }
+
+    it('BR-65a: getMyNotification returns the caller own row in the list item shape', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const row = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!;
+
+      const item = await service.getMyNotification(anActor({ userId: IDS.userFarmer }), row.id);
+
+      expect(item).toEqual({
+        id: row.id,
+        channel: 'IN_APP',
+        title: row.title,
+        body: row.body,
+        locale: row.locale,
+        data: row.data,
+        readAt: null,
+        createdAt: row.created_at.toISOString(),
+      });
+    });
+
+    it('BR-65a: getMyNotification is 404 NOT_FOUND for another user and for an unknown id', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const farmersId = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.id;
+      const customer = anActor({ userId: IDS.customer });
+
+      await expect(service.getMyNotification(customer, farmersId)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+      await expect(service.getMyNotification(customer, '99999999-9999-4999-8999-999999999999')).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+    });
+
+    it('BR-65b: markAllAsRead only touches the caller rows and reports how many it changed', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+
+      const result = await service.markAllAsRead(anActor({ userId: IDS.userFarmer }));
+
+      expect(result).toEqual({ updated: 2 });
+      const customersRow = repo.notifications.find((n) => n.user_id === IDS.customer && n.channel === 'IN_APP')!;
+      expect(customersRow.read_at).toBeNull();
+    });
+
+    it('BR-65b: markAllAsRead is idempotent: a replay changes nothing and reports 0', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const farmer = anActor({ userId: IDS.userFarmer });
+
+      await service.markAllAsRead(farmer);
+      const firstReadAt = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.read_at;
+      const replay = await service.markAllAsRead(farmer);
+
+      expect(replay).toEqual({ updated: 0 });
+      expect(
+        repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.read_at,
+      ).toBe(firstReadAt);
+    });
+  });
+
+  describe('BR-52: notification-preference categories gate delivery', () => {
+    /** In-memory stand-in for notification-preferences.repo's isCategoryEnabled. */
+    function preferences(disabled: Array<{ userId: string; category: string }>) {
+      return {
+        isCategoryEnabled: async (_db: Executor, userId: string, category: string) =>
+          !disabled.some((d) => d.userId === userId && d.category === category),
+      };
+    }
+
+    function repoWithCategoryTemplates() {
+      const repo = mockNotificationsRepo();
+      repo.templates.push(
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          code: 'COUNTER_OFFER_RECEIVED',
+          channel: 'IN_APP',
+          locale: 'en',
+          subject: 'Counter-offer received',
+          body_template: 'TOHFA offered ₹{{offerPrice}} for listing {{listingId}}.',
+          is_active: true,
+        },
+        {
+          id: '55555555-5555-5555-5555-555555555555',
+          code: 'PAYOUT_RELEASED',
+          channel: 'IN_APP',
+          locale: 'en',
+          subject: 'Payout released',
+          body_template: '₹{{amount}} released, ref {{reference}}.',
+          is_active: true,
+        },
+        {
+          id: '66666666-6666-6666-6666-666666666666',
+          code: 'COUNTER_OFFER_RECEIVED',
+          channel: 'SMS',
+          locale: 'en',
+          subject: null,
+          body_template: 'TOHFA counter-offer: ₹{{offerPrice}} for {{listingId}}.',
+          is_active: true,
+        },
+        {
+          id: '77777777-7777-7777-7777-777777777777',
+          code: 'PAYOUT_RELEASED',
+          channel: 'SMS',
+          locale: 'en',
+          subject: null,
+          body_template: 'TOHFA payout ₹{{amount}} released, ref {{reference}}.',
+          is_active: true,
+        },
+      );
+      return repo;
+    }
+
+    const channels = (repo: { notifications: NotificationRow[] }) =>
+      repo.notifications.map((n) => n.channel).sort();
+    const enqueuedChannels = () =>
+      vi
+        .mocked(enqueue)
+        .mock.calls.map(([, payload]) => (payload as { channel: string }).channel)
+        .sort();
+
+    beforeEach(() => {
+      vi.mocked(enqueue).mockClear();
+    });
+
+    const counterOffer = {
+      userId: IDS.userFarmer,
+      listingId: 'LIST-1',
+      offerPrice: '40.00',
+      originalPrice: '45.00',
+    };
+    const payout = { userId: IDS.userFarmer, payoutId: 'PAY-1', amount: '900.00', reference: 'UTR-1' };
+
+    it('BR-52: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        preferences([{ userId: IDS.userFarmer, category: 'MARKETING' }]),
+      );
+
+      const res = await service.handleDomainEvent('counter_offer.received', counterOffer);
+
+      expect(res?.channel).toBe('IN_APP');
+      expect(channels(repo)).toEqual(['IN_APP', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['SMS']);
+    });
+
+    it('BR-52: a disabled PAYROLL category skips only the PUSH row and dispatch for payout.released; IN_APP and SMS are still created', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        preferences([{ userId: IDS.userFarmer, category: 'PAYROLL' }]),
+      );
+
+      const res = await service.handleDomainEvent('payout.released', payout);
+
+      expect(res?.channel).toBe('IN_APP');
+      expect(channels(repo)).toEqual(['IN_APP', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['SMS']);
+    });
+
+    it('BR-52: an enabled category still delivers, and a disabled one only affects its own user and events', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        // MARKETING off for a DIFFERENT user; PAYROLL off for this user.
+        preferences([
+          { userId: IDS.customer, category: 'MARKETING' },
+          { userId: IDS.userFarmer, category: 'PAYROLL' },
+        ]),
+      );
+
+      const res = await service.handleDomainEvent('counter_offer.received', counterOffer);
+
+      expect(res).not.toBeNull();
+      expect(channels(repo)).toEqual(['IN_APP', 'PUSH', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['PUSH', 'SMS']);
+    });
+
+    it('BR-52: events with no category mapping stay always-on even when every category is disabled', async () => {
+      const repo = repoWithCategoryTemplates();
+      const allOff = ['WEATHER', 'FARM', 'MARKETING', 'PAYROLL', 'COMMUNITY'].map((category) => ({
+        userId: IDS.userFarmer,
+        category,
+      }));
+      const service = createNotificationsService(repo, preferences(allOff));
+
+      const res = await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-1001',
+        tohfaFarmerId: 'TOHFA-F-2026-0001',
+      });
+
+      expect(res).not.toBeNull();
     });
   });
 

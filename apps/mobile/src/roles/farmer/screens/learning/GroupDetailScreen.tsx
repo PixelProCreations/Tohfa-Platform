@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { GroupItem } from './GroupsScreen';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     letterSpacing: -0.2,
@@ -458,18 +458,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupName: {
-    fontSize: 16.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 2,
   },
   groupMembers: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
   groupDescription: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 19,
     marginBottom: 14,
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   leaveGroupButtonText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray600,
   },
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     borderColor: P.green100,
   },
   joinGroupButtonText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.greenDeep1,
   },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.tanTint1,
     borderRadius: 14,
     paddingHorizontal: 14,
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: colors.textDark,
   },
   sendButton: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
 
   // Section Header
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greyMid1,
     letterSpacing: 0.8,
@@ -574,24 +574,24 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: P.weatherCloudWhite,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
   },
   postAuthorTextWrap: {
     flex: 1,
   },
   postAuthorName: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 1,
   },
   postDate: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
   },
   postBodyText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray700,
     lineHeight: 19,
     marginBottom: 10,
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   postCommentsCount: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.greyMid1,
   },

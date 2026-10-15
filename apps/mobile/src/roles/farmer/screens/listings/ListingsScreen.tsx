@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
-import Svg, { Path, Circle, Rect, Line, G } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import Svg, { Path } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { t } from '../../../../i18n/farmer';
+import { authPalette as P, colors, typography } from '../../theme';
+import { formatMoneyAmount } from '../../api/wallet';
+import {
+  deriveListingsOverview,
+  effectivePricePerKg,
+  effectiveQuantityKg,
+  formatKg,
+  listAllMyListings,
+  listingStatusTone,
+  respondableOffer,
+  type Listing,
+  type ListingStatusTone,
+} from '../../api/listings';
+import { listingPhotoSource } from './cropImages';
+import { statusLabel, timeLeftLabel } from './listingFormat';
 
 // Simple SVG Icons to match design exactly
 const ChevronLeft = () => (
@@ -10,11 +26,6 @@ const ChevronLeft = () => (
   </Svg>
 );
 
-const Beaker = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M19 21H5C4.4 21 4 20.6 4 20C4 19.8 4.1 19.6 4.2 19.4L9 12V5H8C7.4 5 7 4.6 7 4C7 3.4 7.4 3 8 3H16C16.6 3 17 3.4 17 4C17 4.6 16.6 5 16 5H15V12L19.8 19.4C20.1 19.8 20 20.4 19.6 20.8C19.4 20.9 19.2 21 19 21ZM10 13L6.1 19H17.9L14 13V5H10V13Z" fill={P.grey500} />
-  </Svg>
-);
 
 const BellAlert = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -35,27 +46,6 @@ const StoreIcon = () => (
   </Svg>
 );
 
-const CropTomato = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C16.4183 22 20 18.4183 20 14C20 9.58172 16.4183 6 12 6C7.58172 6 4 9.58172 4 14C4 18.4183 7.58172 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V6M12 6L9 9M12 6L15 9" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
-const CropCarrot = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
-const CropBeans = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
 const Plus = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path d="M12 5V19M5 12H19" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -64,152 +54,241 @@ const Plus = () => (
 
 interface ListingsScreenProps {
   onNavigateToCreateListing?: () => void;
-  onNavigateToCounterOffer?: (listing: any) => void;
+  /** Opened for a listing whose admin counter-offer is still answerable. */
+  onNavigateToCounterOffer?: (listing: Listing) => void;
+  onNavigateToListingDetail?: (listing: Listing) => void;
+  onNavigateToMyListings?: () => void;
   onNavigateBack?: () => void;
 }
+
+// ─────────────────────────────────────────────
+// Data: the caller's own listings from GET /listings (`listAllMyListings`),
+// walked to the end of the cursor so the metric counts are real.
+//
+// Left out of the approved design because nothing backs them (not faked):
+//   - the "MARKET DAY IS OPEN" chip and "Today is a market day" title: there is
+//     no market-day schedule (docs/rules.md "Rules NOT enforced in Track 1" #17);
+//   - "Earned this month": no endpoint or wallet entry records listing payouts
+//     (nothing writes SALE_CREDIT yet), so the figure is a neutral dash.
+// ─────────────────────────────────────────────
+
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'error'; error: unknown }
+  | { kind: 'ready'; items: Listing[] };
+
+/** Rows the design shows under RECENT LISTINGS; "View all" opens the full list. */
+const RECENT_LIMIT = 3;
+
+const BADGE_TONE: Record<ListingStatusTone, { backgroundColor: string; color: string }> = {
+  approved: { backgroundColor: colors.brandGreenLight, color: colors.brandGreen },
+  counter: { backgroundColor: P.purple50, color: P.purple600 },
+  waiting: { backgroundColor: P.orange50, color: P.orange900 },
+  rejected: { backgroundColor: P.twRed100, color: P.twRed700 },
+  neutral: { backgroundColor: P.twGray100, color: P.twGray600 },
+};
 
 export function ListingsScreen({
   onNavigateToCreateListing,
   onNavigateToCounterOffer,
-  onNavigateBack
+  onNavigateToListingDetail,
+  onNavigateToMyListings,
+  onNavigateBack,
 }: ListingsScreenProps): React.JSX.Element {
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  // One controller per load (initial or retry), aborted on unmount, so no
+  // response ever lands in state after the screen is gone.
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const load = useCallback(async () => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setState({ kind: 'loading' });
+    try {
+      const { items } = await listAllMyListings(undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      setNowMs(Date.now());
+      setState({ kind: 'ready', items });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setState({ kind: 'error', error });
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    return () => controllerRef.current?.abort();
+  }, [load]);
+
+  const overview = useMemo(
+    () => (state.kind === 'ready' ? deriveListingsOverview(state.items, nowMs, RECENT_LIMIT) : null),
+    [state, nowMs],
+  );
+  const urgent = overview?.needsReply[0] ?? null;
+  const urgentOffer = urgent?.activeCounterOffer ?? null;
+
+  const openListing = (listing: Listing) => {
+    if (respondableOffer(listing, nowMs) !== null && onNavigateToCounterOffer) {
+      onNavigateToCounterOffer(listing);
+    } else {
+      onNavigateToListingDetail?.(listing);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
+          <TouchableOpacity
+            style={styles.backBtn}
             onPress={onNavigateBack}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('farmer.common.back')}
           >
             <ChevronLeft />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Marketing</Text>
-            <Text style={styles.headerSub}>List your harvest & get paid</Text>
+            <Text style={styles.headerTitle}>{t('farmer.listings.market.title')}</Text>
+            <Text style={styles.headerSub}>{t('farmer.listings.market.subtitle')}</Text>
           </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Prototype Banner */}
-        <View style={styles.prototypeBanner}>
-          <View style={styles.protoRow}>
-            <Beaker />
-            <Text style={styles.protoText}>Prototype only · market-day state</Text>
-          </View>
-          <View style={styles.protoToggle}>
-            <View style={styles.protoToggleActive}>
-              <Text style={styles.protoToggleActiveText}>Open</Text>
-            </View>
-            <View style={styles.protoToggleInactive}>
-              <Text style={styles.protoToggleInactiveText}>Closed</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Alert Banner */}
-        <TouchableOpacity style={styles.alertBanner} onPress={() => onNavigateToCounterOffer?.({})}>
-          <View style={styles.alertIconBox}>
-            <BellAlert />
-          </View>
-          <View style={styles.alertTextCol}>
-            <Text style={styles.alertTitle}>1 listing needs your response</Text>
-            <Text style={styles.alertSub}>Carrot · counter-offer expires in 22h 30m</Text>
-          </View>
-          <View style={styles.alertChevron}>
-            <ChevronRight />
-          </View>
-        </TouchableOpacity>
-
-        {/* Market Day Hero */}
+        {/* Market Day Hero (chip + title removed: no market-day schedule exists) */}
         <View style={styles.heroCard}>
           <View style={{position:'absolute', right: -20, bottom: -10}}>
              <StoreIcon />
           </View>
-          <View style={styles.heroChip}>
-            <View style={styles.heroChipDot} />
-            <Text style={styles.heroChipText}>MARKET DAY IS OPEN</Text>
-          </View>
-          <Text style={styles.heroTitle}>Today is a market day</Text>
-          <Text style={styles.heroSub}>Listings are being accepted now. Add a harvest-ready crop to start selling.</Text>
+          <Text style={styles.heroSub}>{t('farmer.listings.market.heroBody')}</Text>
         </View>
 
-        {/* Metrics */}
-        <View style={styles.metricsContainer}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValueBlack}>3</Text>
-            <Text style={styles.metricLabel}>Active{'\n'}listings</Text>
+        {state.kind === 'loading' ? (
+          <View>
+            <Skeleton width="100%" height={88} borderRadius={16} />
+            <View style={styles.skeletonGap} />
+            <Skeleton width="100%" height={80} borderRadius={16} />
+            <View style={styles.skeletonGap} />
+            <Skeleton width="100%" height={80} borderRadius={16} />
           </View>
-          <View style={[styles.metricCard, { flex: 1.2 }]}>
-            <Text style={styles.metricValueGreen}>₹13,440</Text>
-            <Text style={styles.metricLabel}>Earned this{'\n'}month</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValueRed}>1</Text>
-            <Text style={styles.metricLabel}>Need{'\n'}reply</Text>
-          </View>
-        </View>
+        ) : state.kind === 'error' ? (
+          <ErrorState
+            error={state.error}
+            message={t('farmer.listings.market.loadError')}
+            retryTitle={t('farmer.common.retry')}
+            offlineMessage={t('farmer.common.offline')}
+            onRetry={() => void load()}
+          />
+        ) : overview !== null ? (
+          <>
+            {/* Metrics */}
+            <View style={styles.metricsContainer}>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricValueBlack}>{overview.activeCount}</Text>
+                <Text style={styles.metricLabel}>{t('farmer.listings.market.metric.active')}</Text>
+              </View>
+              <View style={[styles.metricCard, { flex: 1.2 }]}>
+                <Text style={styles.metricValueGreen}>{t('farmer.listings.common.dash')}</Text>
+                <Text style={styles.metricLabel}>{t('farmer.listings.market.metric.earned')}</Text>
+              </View>
+              <View style={styles.metricCard}>
+                <Text style={styles.metricValueRed}>{overview.needsReply.length}</Text>
+                <Text style={styles.metricLabel}>{t('farmer.listings.market.metric.needReply')}</Text>
+              </View>
+            </View>
 
-        {/* Recent Listings */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>RECENT LISTINGS</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewAllBtn}>View all</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Alert Banner: the answerable counter-offer that expires soonest */}
+            {urgent !== null && urgentOffer !== null ? (
+              <TouchableOpacity
+                style={styles.alertBanner}
+                onPress={() => openListing(urgent)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.listings.button.reviewOffer')}
+              >
+                <View style={styles.alertIconBox}>
+                  <BellAlert />
+                </View>
+                <View style={styles.alertTextCol}>
+                  <Text style={styles.alertTitle}>
+                    {overview.needsReply.length === 1
+                      ? t('farmer.listings.market.alert.titleOne')
+                      : t('farmer.listings.market.alert.titleMany', { count: overview.needsReply.length })}
+                  </Text>
+                  <Text style={styles.alertSub}>
+                    {t('farmer.listings.market.alert.body', {
+                      crop: urgent.cropName,
+                      time: timeLeftLabel(urgentOffer.expiresAt, nowMs),
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.alertChevron}>
+                  <ChevronRight />
+                </View>
+              </TouchableOpacity>
+            ) : null}
 
-        {/* List items */}
-        <View style={styles.listItem}>
-          <View style={[styles.listIconBox, { backgroundColor: colors.brandGreenLight }]}>
-            <Image source={require('../../../../assets/images/real_tomato.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.listTextCol}>
-            <Text style={styles.listTitle}>Tomato · Hybrid</Text>
-            <Text style={styles.listSub}>200 kg · ₹38/kg</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-            <Text style={[styles.badgeText, { color: colors.brandGreen }]}>Approved</Text>
-          </View>
-        </View>
+            {/* Recent Listings */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('farmer.listings.market.recentTitle')}</Text>
+              <TouchableOpacity onPress={onNavigateToMyListings} accessibilityRole="button">
+                <Text style={styles.viewAllBtn}>{t('farmer.listings.market.viewAll')}</Text>
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity style={styles.listItem} onPress={() => onNavigateToCounterOffer?.({})}>
-          <View style={[styles.listIconBox, { backgroundColor: P.orange50 }]}>
-            <Image source={require('../../../../assets/images/real_carrot.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.listTextCol}>
-            <Text style={styles.listTitle}>Carrot · Ooty</Text>
-            <Text style={styles.listSub}>150 kg · ₹40/kg</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: P.purple50 }]}>
-            <Text style={[styles.badgeText, { color: P.purple600 }]}>Counter-offer</Text>
-          </View>
-        </TouchableOpacity>
+            {/* List items */}
+            {overview.isEmpty ? (
+              <Text style={styles.emptyText}>{t('farmer.listings.market.empty')}</Text>
+            ) : (
+              overview.recent.map((item) => {
+                const tone = BADGE_TONE[listingStatusTone(item.status)];
+                const photo = listingPhotoSource(item);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.listItem}
+                    onPress={() => openListing(item)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <View style={[styles.listIconBox, { backgroundColor: colors.brandGreenLight }]}>
+                      {photo !== null ? <Image source={photo} style={styles.realCropImg} /> : null}
+                    </View>
+                    <View style={styles.listTextCol}>
+                      <Text style={styles.listTitle}>{item.cropName}</Text>
+                      <Text style={styles.listSub}>
+                        {t('farmer.listings.market.itemSub', {
+                          qty: formatKg(effectiveQuantityKg(item)),
+                          price: formatMoneyAmount(effectivePricePerKg(item)),
+                        })}
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: tone.backgroundColor }]}>
+                      <Text style={[styles.badgeText, { color: tone.color }]}>{statusLabel(item.status)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
+        ) : null}
 
-        <View style={styles.listItem}>
-          <View style={[styles.listIconBox, { backgroundColor: colors.brandGreenLight }]}>
-            <Image source={require('../../../../assets/images/real_french_beans.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.listTextCol}>
-            <Text style={styles.listTitle}>French Beans</Text>
-            <Text style={styles.listSub}>80 kg · ₹55/kg</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: P.orange50 }]}>
-            <Text style={[styles.badgeText, { color: P.orange900 }]}>Waiting</Text>
-          </View>
-        </View>
-        
         <View style={{height: 100}} />
       </ScrollView>
 
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
-        <TouchableOpacity style={styles.fab} onPress={onNavigateToCreateListing}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={onNavigateToCreateListing}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.listings.market.createListing')}
+        >
           <Plus />
-          <Text style={styles.fabText}>Create listing</Text>
+          <Text style={styles.fabText}>{t('farmer.listings.market.createListing')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -246,71 +325,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.teal900,
   },
   headerSub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.blueGrey400,
     marginTop: 2,
   },
   scrollContent: {
     padding: 20,
   },
-  prototypeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: P.creamTint4,
-    borderWidth: 1,
-    borderColor: P.grey300,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  protoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  protoText: {
-    fontSize: 12,
-    color: P.grey600,
-    fontWeight: '600',
-  },
-  protoToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
-    borderRadius: 16,
-    padding: 2,
-    borderWidth: 1,
-    borderColor: P.grey300,
-  },
-  protoToggleActive: {
-    backgroundColor: colors.brandGreen,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 14,
-  },
-  protoToggleActiveText: {
-    color: P.weatherCloudWhite,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  protoToggleInactive: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  protoToggleInactiveText: {
-    color: P.grey500,
-    fontSize: 10,
-    fontWeight: '700',
-  },
+
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -328,13 +355,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.brown700,
     marginBottom: 4,
   },
   alertSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.deepOrange800,
   },
   alertChevron: {
@@ -366,19 +393,19 @@ const styles = StyleSheet.create({
   },
   heroChipText: {
     color: P.weatherCloudWhite,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   heroTitle: {
     color: P.weatherCloudWhite,
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     marginBottom: 8,
   },
   heroSub: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+    fontSize: typography.body,
     lineHeight: 20,
     paddingRight: 40,
   },
@@ -386,7 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 16,
   },
   metricCard: {
     flex: 1,
@@ -400,25 +427,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   metricValueBlack: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.grey900,
     marginBottom: 4,
   },
   metricValueGreen: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.brandGreen,
     marginBottom: 4,
   },
   metricValueRed: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepOrange800,
     marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.grey500,
     fontWeight: '500',
     lineHeight: 16,
@@ -430,13 +457,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.grey500,
     letterSpacing: 0.5,
   },
   viewAllBtn: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -471,13 +498,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
     marginBottom: 4,
   },
   listSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey500,
   },
   badge: {
@@ -486,7 +513,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   fabContainer: {
@@ -515,8 +542,17 @@ const styles = StyleSheet.create({
   },
   fabText: {
     color: P.weatherCloudWhite,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginLeft: 8,
+  },
+  skeletonGap: {
+    height: 12,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.grey500,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
 });

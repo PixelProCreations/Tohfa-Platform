@@ -3,6 +3,8 @@ import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
+import { uploadsService, type UploadsService } from '../uploads/uploads.service.js';
+import type { SignUploadBody, SignUploadResponse } from '../uploads/uploads.schema.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
   farmerApplicationsRepo,
@@ -10,6 +12,7 @@ import {
   type FarmerApplicationRow,
   type FarmerApplicationsRepo,
 } from './farmer-applications.repo.js';
+import { locationHasPosition, step3LocationSchema } from './farmer-applications.schema.js';
 import type {
   ApproveApplicationBody,
   CreateFarmerApplicationBody,
@@ -18,6 +21,72 @@ import type {
   RequestInfoApplicationBody,
   UpdateFarmerProfileBody,
 } from './farmer-applications.schema.js';
+
+const VALID_GENDERS = new Set(['MALE', 'FEMALE', 'OTHER', 'UNDISCLOSED']);
+
+/**
+ * Step1Personal.tsx's gender picker sends 'Male' | 'Female' | 'Other', but
+ * `farmers.gender`'s CHECK constraint (and step1PersonalSchema's own enum) only
+ * accepts the uppercase set (db/migrations/0003_farmers_and_farms.sql). Normalises
+ * case and falls back to null for anything unrecognised rather than letting a bad
+ * value reach the INSERT and trip the CHECK constraint -- approval must degrade
+ * quietly here, the same posture the rest of this function already takes for
+ * missing/malformed step data.
+ */
+function normalizeGenderForInsert(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const upper = raw.trim().toUpperCase();
+  return VALID_GENDERS.has(upper) ? upper : null;
+}
+
+const PINCODE_REGEX = /^[1-9][0-9]{5}$/;
+
+/**
+ * `farmers.pincode`'s CHECK constraint requires `^[1-9][0-9]{5}$` -- no leading
+ * zero, matching how real Indian PIN codes are structured. Defensive guard on the
+ * INSERT itself: mobile-side validation (Step1Personal.tsx / validation.ts) is
+ * tightened to the same regex, but an in-flight draft saved before that fix could
+ * still carry a leading-zero value, and this must not throw and block approval.
+ */
+function normalizePincodeForInsert(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return PINCODE_REGEX.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * Step 1's DatePicker (and the free-text field beside it) stores dob as
+ * "DD / MM / YYYY" (Step1Personal.tsx, `format="DD / MM / YYYY"`), not the ISO
+ * `YYYY-MM-DD` step1PersonalSchema.dob expects -- but that schema is never actually
+ * enforced on this write path (see updateStep's step===1 branch). Parses the
+ * farmer-facing format defensively, tolerating stray whitespace around the
+ * slashes, and rejects calendar-invalid dates (e.g. 31/02/2000) rather than
+ * letting them silently roll into the next month. Also accepts an already-ISO
+ * value, since that is what the documented contract promises. Returns null for
+ * anything missing or unparseable -- never throws, so a malformed legacy value
+ * degrades quietly instead of blocking approval.
+ */
+function parseDobForInsert(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const match = trimmed.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
+  if (match === null) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isRealCalendarDate =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!isRealCalendarDate) return null;
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
 
 const VALID_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
   SUBMITTED: ['DOCS_REVIEW', 'REJECTED'],
@@ -54,8 +123,10 @@ function mapApplicationResponse(row: FarmerApplicationRow) {
 export interface FarmerApplicationsService {
   createDraft(input: CreateFarmerApplicationBody, actor?: Actor | undefined): Promise<unknown>;
   updateStep(actor: Actor | undefined, id: string, step: number, payload: unknown): Promise<unknown>;
+  requestDocumentUploadUrl(id: string, body: SignUploadBody): Promise<SignUploadResponse>;
   submitApplication(actor: Actor | undefined, id: string): Promise<unknown>;
   getStatusTimeline(actor: Actor | undefined, id: string): Promise<unknown>;
+  getFullDraft(actor: Actor | undefined, id: string): Promise<unknown>;
   transitionStatus(
     actor: Actor,
     id: string,
@@ -73,14 +144,29 @@ export interface FarmerApplicationsService {
 
 export function createFarmerApplicationsService(
   repo: FarmerApplicationsRepo = farmerApplicationsRepo,
+  // Injectable so unit tests can substitute a mocked uploads service instead of hitting the
+  // real blob storage + `uploads` table (see orders.service.ts's `walletSvc` for the same
+  // cross-module DI pattern). Only the one method this service actually calls is required.
+  uploadsSvc: Pick<UploadsService, 'signUploadForOwner'> = uploadsService,
 ): FarmerApplicationsService {
   return {
     async createDraft(input, actor) {
       const existing = await repo.findLiveByMobile(pool, input.mobile);
       if (existing !== null) {
+        // A farmer who lost their local draft (reinstalled app, cleared storage, new
+        // device) has no way back to it once this 409 fires -- creating a second
+        // application is blocked, and until now the response gave them nothing to
+        // recover the first one with. `applicationId` lets the client route straight
+        // to `GET /farmers/applications/:id`; `status`/`currentStep` let it decide
+        // whether to resume the draft or just show "already submitted".
         throw new AppError('CONFLICT', {
           status: 409,
           detail: 'An active non-terminal application already exists for this mobile number.',
+          meta: {
+            applicationId: existing.id,
+            status: existing.status,
+            currentStep: existing.current_step,
+          },
         });
       }
 
@@ -120,32 +206,67 @@ export function createFarmerApplicationsService(
       let stepData: Record<string, unknown> = {};
       if (step === 1) {
         stepData = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...(payload as Record<string, unknown>) } : {};
+        // BR-33b / Decision 8 (db/migrations/0003_farmers_and_farms.sql column
+        // comments): "THE FULL AADHAAR NUMBER IS NEVER STORED IN THIS DATABASE --
+        // not in this column, not in aadhaar_token, not in any document row, not in
+        // any log" and "no API response may contain an unmasked Aadhaar". This
+        // branch spreads the client payload verbatim into step1_personal JSONB with
+        // no schema enforcement (see this function's module docs for why steps are
+        // not Zod-`.parse()`d here), so a client that sends the full 12-digit
+        // `aadhaarNumber` -- current or future, by accident or by regression -- must
+        // be stripped explicitly rather than trusted to have already dropped it.
+        // step1PersonalSchema (farmer-applications.schema.ts) already declares the
+        // correct shape (aadhaarLast4/aadhaarToken only); this is the enforcement of
+        // that shape on the one field that matters for compliance. Do not remove
+        // this without moving the guarantee somewhere else first.
+        delete stepData['aadhaarNumber'];
       } else if (step === 2) {
+        // One farming operation per farmer: step 2 is a plain singular object
+        // (farmName / typeOfFarming / experienceYears / totalAreaAcres /
+        // numberOfFarms / waterSource / primaryCrops), like steps 1 and 5. Spread
+        // verbatim — in particular `totalAreaAcres` and `numberOfFarms` are the
+        // farmer's stated claims and are never reconciled against the step-3
+        // parcels here.
+        stepData = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...(payload as Record<string, unknown>) } : {};
+      } else if (step === 3) {
+        // Step 3 holds the land LOCATIONS — each a self-contained parcel with its
+        // own acreage and boundary. The route validates the body (BR-69), so through
+        // HTTP only `{ locations: [>=1 valid entries] }` gets here; this still
+        // normalises whatever a direct caller passes into one canonical shape: the
+        // invariant the pass below depends on is that `stepData['locations']` is
+        // always an array. An unrecognised payload becomes an empty list rather
+        // than being wrapped into a location — a single flat object is no longer a
+        // step-3 shape any client sends (that was the pre-reshape one-boundary-per-
+        // application model), and wrapping one would manufacture a parcel with no
+        // id, label or acreage that approval would then turn into a farms row.
         if (Array.isArray(payload)) {
-          stepData = { farms: payload };
+          stepData = { locations: payload };
         } else if (payload && typeof payload === 'object') {
           const p = payload as Record<string, unknown>;
-          if (Array.isArray(p['farms'])) {
-            stepData = { ...p };
-          } else {
-            stepData = { farms: [p] };
-          }
+          stepData = Array.isArray(p['locations']) ? { ...p } : { locations: [] };
         } else {
-          stepData = { farms: [] };
+          stepData = { locations: [] };
         }
-      } else if (step === 3) {
-        stepData = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...(payload as Record<string, unknown>) } : {};
+
         // Server recomputes area from the surveyed boundary rather than trusting
-        // whatever the client's own (device-side) estimate was.
-        const fmbPolygon = stepData['fmbPolygon'] as
-          | { type: 'Polygon'; coordinates: number[][][] }
-          | undefined;
-        const exteriorRing = fmbPolygon?.coordinates?.[0];
-        if (exteriorRing !== undefined) {
-          const metrics = calculatePolygonMetrics(exteriorRing);
-          stepData['calculatedAreaAcres'] = metrics.areaAcres;
-          stepData['calculatedAreaHectares'] = metrics.areaHectares;
-        }
+        // whatever the client's own (device-side) estimate was — once per location,
+        // because each location carries its own boundary.
+        stepData['locations'] = (stepData['locations'] as unknown[]).map((entry) => {
+          if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+            return entry;
+          }
+          const location = { ...(entry as Record<string, unknown>) };
+          const fmbPolygon = location['fmbPolygon'] as
+            | { type: 'Polygon'; coordinates: number[][][] }
+            | undefined;
+          const exteriorRing = fmbPolygon?.coordinates?.[0];
+          if (exteriorRing !== undefined) {
+            const metrics = calculatePolygonMetrics(exteriorRing);
+            location['calculatedAreaAcres'] = metrics.areaAcres;
+            location['calculatedAreaHectares'] = metrics.areaHectares;
+          }
+          return location;
+        });
       } else if (step === 4) {
         if (Array.isArray(payload)) {
           stepData = { documents: payload };
@@ -175,6 +296,33 @@ export function createFarmerApplicationsService(
       return mapApplicationResponse(updated);
     },
 
+    async requestDocumentUploadUrl(id, body) {
+      const app = await repo.findById(pool, id);
+      if (app === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      // Same enumeration-prevention shape as updateStep's BR-36 check: a terminal
+      // application must be indistinguishable from a nonexistent one to an outside
+      // caller, so this throws the identical NOT_FOUND rather than e.g. a 409 that
+      // would confirm the id is real. Once APPROVED or REJECTED a real farmer
+      // account exists (or never will), and uploads move to the authenticated
+      // POST /uploads/sign path -- mirrors the "live application" concept
+      // findLiveByMobile already uses (`status NOT IN ('APPROVED', 'REJECTED')`).
+      if (app.status === 'APPROVED' || app.status === 'REJECTED') {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      // This route is deliberately unauthenticated (see farmer-applications.routes.ts):
+      // a brand-new applicant has no account yet, so possession of the application's
+      // own unguessable UUID is the credential, not a Bearer token. The upload is
+      // therefore recorded against the application row, not a user.
+      return uploadsSvc.signUploadForOwner(
+        { entityType: 'farmer_application', entityId: id, isPublic: false },
+        body,
+      );
+    },
+
     async submitApplication(actor, id) {
       const app = await repo.findById(pool, id);
       if (app === null) {
@@ -191,7 +339,44 @@ export function createFarmerApplicationsService(
         throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
       }
 
-      // Cross-step validation
+      // Idempotent by design. `is_draft` flips from true to false exactly once, at
+      // the first successful submit, and never reverts -- so it is `false` for
+      // EVERY post-submit status (DOCS_REVIEW, FARM_VERIFICATION, AUDIT, APPROVED,
+      // REJECTED) and `true` only pre-submission. A repeat call here -- e.g. a
+      // client retry after the original response was lost to a dropped connection
+      // or a server restart mid-request -- must succeed harmlessly and return the
+      // current state, not fail with INVALID_STATE_TRANSITION (DOCS_REVIEW is never
+      // a valid transition target from DOCS_REVIEW, so a naive retry would hit that
+      // error forever, with the mobile client's local draft never getting cleared
+      // and no recovery path). Checking `is_draft` once here is simpler and more
+      // robust than special-casing every individual post-submit status. Returning
+      // the current (possibly REJECTED) state as a "success" here is intentional,
+      // not a bug: the mobile client's existing success handler just navigates to
+      // the status screen with whatever state comes back, so a farmer whose
+      // application was actually rejected correctly lands on a screen showing
+      // that, instead of a confusing generic submit error.
+      if (!app.is_draft) {
+        return mapApplicationResponse(app);
+      }
+
+      // Cross-step validation (BR-69). Every problem is collected and reported together, each
+      // naming its step, so the applicant can fix the whole application in one round trip.
+      const problems: Array<{ step: number; message: string }> = [];
+
+      // Step 3: at least one land location that says where the land is. Re-validated against the
+      // STORED data with the same strict schema the route applies on save, so a row written
+      // before BR-69 (or by any other path) cannot reach review with nothing to verify.
+      const storedLocations = step3LocationSchema.safeParse(app.step3_location);
+      const hasLocatedLand =
+        storedLocations.success && storedLocations.data.locations.some(locationHasPosition);
+      if (!hasLocatedLand) {
+        problems.push({
+          step: 3,
+          message:
+            'Step 3 (Location) is incomplete: at least one farm location with a boundary or GPS position is required.',
+        });
+      }
+
       const docs = (app.step4_documents as { documents?: Array<{ docType: string }> })?.documents ?? [];
       const docTypes = docs.map((d) => d.docType);
 
@@ -199,14 +384,27 @@ export function createFarmerApplicationsService(
       const hasFarmDoc = docTypes.includes('FARM_DOC');
 
       if (!hasIdProof || !hasFarmDoc) {
+        problems.push({
+          step: 4,
+          message: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
+        });
+      }
+
+      if (problems.length > 0) {
         throw new AppError('VALIDATION_FAILED', {
           status: 422,
-          detail: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
+          detail: problems.map((p) => p.message).join(' '),
+          errors: Object.fromEntries(problems.map((p) => [`step${p.step}`, [p.message]])),
           meta: {
-            missingDocuments: [
-              ...(!hasIdProof ? ['ID_PROOF'] : []),
-              ...(!hasFarmDoc ? ['FARM_DOC'] : []),
-            ],
+            missingSteps: problems.map((p) => p.step),
+            ...(!hasIdProof || !hasFarmDoc
+              ? {
+                  missingDocuments: [
+                    ...(!hasIdProof ? ['ID_PROOF'] : []),
+                    ...(!hasFarmDoc ? ['FARM_DOC'] : []),
+                  ],
+                }
+              : {}),
           },
         });
       }
@@ -264,6 +462,27 @@ export function createFarmerApplicationsService(
       };
     },
 
+    async getFullDraft(actor, id) {
+      const app = await repo.findById(pool, id);
+      if (app === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      // BR-36: Own-data scoping (identical to getStatusTimeline's check above) --
+      // an outside caller must not be able to tell "belongs to someone else" apart
+      // from "does not exist", so both throw the same NOT_FOUND.
+      if (
+        actor !== undefined &&
+        app.user_id !== null &&
+        app.user_id !== actor.userId &&
+        !actor.roles.some((r) => r.code === 'SUPER_ADMIN' || r.code === 'TOHFA_ADMIN')
+      ) {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      return mapApplicationResponse(app);
+    },
+
     async transitionStatus(actor, id, toStatus, note) {
       const app = await repo.findById(pool, id);
       if (app === null) {
@@ -309,6 +528,9 @@ export function createFarmerApplicationsService(
         ratingTier: profile.rating_tier_code,
         isMarketBlocked: profile.is_market_blocked,
         marketBlockReason: profile.market_block_reason,
+        // Already YYYY-MM-DD from the repo (dob::text); null for farmers who never supplied it.
+        dob: profile.dob,
+        gender: profile.gender,
         createdAt: profile.created_at.toISOString(),
       };
     },
@@ -359,6 +581,8 @@ export function createFarmerApplicationsService(
         ratingTier: updated.rating_tier_code,
         isMarketBlocked: updated.is_market_blocked,
         marketBlockReason: updated.market_block_reason,
+        dob: updated.dob,
+        gender: updated.gender,
         createdAt: updated.created_at.toISOString(),
       };
     },
@@ -392,6 +616,27 @@ export function createFarmerApplicationsService(
         });
       }
 
+      // BR-69: refuse BEFORE anything is written. A farmer with zero farms is VERIFIED but can
+      // list nothing and has no land for FARM_VERIFICATION to have looked at; the QA run that
+      // found this had approval succeed on `{"locations":[]}`. The count is of the entries that
+      // will actually become `farms` rows below, so the two can never disagree.
+      const rawLocationsToApprove =
+        ((app.step3_location as Record<string, unknown> | null) ?? {})['locations'];
+      const locationsToApprove: unknown[] = Array.isArray(rawLocationsToApprove)
+        ? rawLocationsToApprove.filter(
+            (l) => l !== null && typeof l === 'object' && !Array.isArray(l),
+          )
+        : [];
+      if (locationsToApprove.length === 0) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail:
+            'Application has no farm locations (step 3). A farmer cannot be approved with zero farms; request the applicant to complete step 3 or reject the application.',
+          errors: { step3: ['At least one farm location is required to approve an application.'] },
+          meta: { missingSteps: [3] },
+        });
+      }
+
       const result = await withTransaction(async (tx) => {
         const year = new Date().getFullYear();
         const tohfaFarmerId = await repo.allocateNextTohfaFarmerId(tx, year);
@@ -416,13 +661,41 @@ export function createFarmerApplicationsService(
         );
 
         const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+        const farmDetails = (app.step2_farm_details as Record<string, unknown>) ?? {};
+
+        // Experience is collected in step 2 (the farming operation), which is the only
+        // screen that actually asks for it. The step-1 read is a fallback for
+        // applications that were already in flight when it moved, where the value may
+        // still sit in `step1_personal.farmingExperienceYears`.
+        const experienceYears =
+          farmDetails['experienceYears'] ?? personal['farmingExperienceYears'] ?? 0;
+
+        // dob/gender/pincode are genuinely collected in step 1 (real inputs on
+        // Step1Personal.tsx) but were previously read nowhere on approval, silently
+        // dropping data the farmer actually provided even though `farmers` has real
+        // columns for all three. Each is normalised/validated defensively here
+        // (never thrown on) because none of this JSONB was ever schema-validated on
+        // the write path -- see updateStep's step===1 branch.
+        const dob = parseDobForInsert(personal['dob']);
+        const gender = normalizeGenderForInsert(personal['gender']);
+        const pincode = normalizePincodeForInsert(personal['pincode']);
+
+        // NOTE: `step2FarmDetails.totalAreaAcres` is deliberately NOT persisted onto a
+        // farmer or farm column. It is the farmer's stated total holding and stays in
+        // the step-2 JSONB as a claim; `farms.area_acres` below keeps coming from each
+        // location's own measured `areaAcres`. Collapsing the two would erase the
+        // claim-vs-ground discrepancy that FARM_VERIFICATION exists to look at.
         const farmerRes = await tx.query<{ id: string }>(
           `INSERT INTO farmers (
              user_id, tohfa_farmer_id, zone_id, farming_experience_years,
              address_line1, village, taluk, district, aadhaar_last4,
+             dob, gender, pincode,
              kyc_status, application_status, is_market_blocked, market_block_reason
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'VERIFIED', 'APPROVED', true, 'No organic certifications uploaded (BR-01, BR-02)')
+           VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, $12,
+             'VERIFIED', 'APPROVED', true, 'No organic certifications uploaded (BR-01, BR-02)'
+           )
            ON CONFLICT (user_id) DO UPDATE SET
              application_status = 'APPROVED',
              kyc_status = 'VERIFIED',
@@ -432,32 +705,82 @@ export function createFarmerApplicationsService(
             userId,
             tohfaFarmerId,
             body.zoneId ?? null,
-            personal['farmingExperienceYears'] ?? 0,
+            experienceYears,
             personal['addressLine1'] ?? null,
             personal['village'] ?? null,
             personal['taluk'] ?? null,
             personal['district'] ?? 'The Nilgiris',
             personal['aadhaarLast4'] ?? null,
+            dob,
+            gender,
+            pincode,
           ],
         );
         const farmerId = farmerRes.rows[0]!.id;
 
-        // Auto-create farm from step 2 if present
-        const farmDetails = (app.step2_farm_details as Record<string, unknown>) ?? {};
-        const farmList = (farmDetails['farms'] as Array<Record<string, unknown>>) ?? [];
-        for (let i = 0; i < farmList.length; i++) {
-          const farm = farmList[i]!;
+        // One farms row per land location captured in step 3. There is a single
+        // farming operation per farmer (its type of farming and years of experience
+        // live in step 2) — what varies per row is the parcel, so each location is
+        // self-contained and nothing is correlated across steps.
+        // BR-69: the guard above guarantees at least one location here, so approval can never
+        // produce a VERIFIED farmer with zero farms.
+        const locationData = (app.step3_location as Record<string, unknown>) ?? {};
+        const rawLocations = locationData['locations'];
+        const locationList: Array<Record<string, unknown>> = Array.isArray(rawLocations)
+          ? (rawLocations.filter(
+              (l): l is Record<string, unknown> =>
+                l !== null && typeof l === 'object' && !Array.isArray(l),
+            ))
+          : [];
+
+        for (let i = 0; i < locationList.length; i++) {
+          const location = locationList[i]!;
+          const fmbPolygon = location['fmbPolygon'] as
+            | { type: 'Polygon'; coordinates: number[][][] }
+            | undefined;
+          const hasBoundary =
+            fmbPolygon !== undefined &&
+            fmbPolygon !== null &&
+            Array.isArray(fmbPolygon.coordinates) &&
+            fmbPolygon.coordinates.length > 0;
+
+          // centroid_lat/centroid_lng are gated independently of hasBoundary:
+          // farmLocationItemSchema allows latitude/longitude without an fmbPolygon
+          // (manual entry, gpsCaptured: false) and allows either coordinate alone.
+          // `farms_centroid_pair_chk` (db/migrations/0003_farmers_and_farms.sql)
+          // rejects a row where exactly one of the pair is set, so both must be
+          // present together or neither is written.
+          const rawLatitude = location['latitude'];
+          const rawLongitude = location['longitude'];
+          const hasCentroid = typeof rawLatitude === 'number' && typeof rawLongitude === 'number';
+
           await tx.query(
-            `INSERT INTO farms (farmer_id, name, area_acres, village, district, is_primary)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO farms (
+               farmer_id, name, area_acres, village, district, is_primary,
+               boundary, boundary_area_acres, boundary_drawn_by, boundary_drawn_at,
+               centroid_lat, centroid_lng
+             )
+             VALUES (
+               $1, $2, $3, $4, $5, $6,
+               CASE WHEN $7::json IS NULL THEN NULL
+                    ELSE ST_SetSRID(ST_GeomFromGeoJSON($7::json), 4326)::geography END,
+               $8, $9,
+               CASE WHEN $7::json IS NULL THEN NULL ELSE now() END,
+               $10, $11
+             )
              ON CONFLICT DO NOTHING`,
             [
               farmerId,
-              farm['name'] ?? `${app.full_name}'s Farm`,
-              farm['totalAreaAcres'] ?? 1.0,
+              location['label'] ?? `${app.full_name}'s Farm`,
+              location['areaAcres'] ?? 1.0,
               personal['village'] ?? 'Kodanad',
               personal['district'] ?? 'The Nilgiris',
               i === 0,
+              hasBoundary ? JSON.stringify(fmbPolygon) : null,
+              hasBoundary ? (location['calculatedAreaAcres'] ?? null) : null,
+              hasBoundary ? userId : null,
+              hasCentroid ? rawLatitude : null,
+              hasCentroid ? rawLongitude : null,
             ],
           );
         }

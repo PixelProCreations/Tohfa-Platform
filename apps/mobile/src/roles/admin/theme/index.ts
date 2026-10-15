@@ -93,6 +93,11 @@ export const adminColors = {
     text: neutral('white'),
     icon: hex('adminSuccessOnDark'),
   },
+
+  /** Very light warm orange card/surface tint. */
+  brandTintWarm: hex('adminWarmTint'),
+  /** Deep rust colour for section titles. */
+  rustDeep: hex('adminRustDeep'),
 } as const;
 
 export type AdminColors = typeof adminColors;
@@ -189,8 +194,19 @@ export const adminShadow = {
 /** Full-width primary action height (PDF "Buttons & Inputs": 48px tall). */
 export const ADMIN_BUTTON_HEIGHT = tokens.size.adminButtonHeight;
 
+/** Translucent overlays on brand surfaces (e.g. orange header pills and buttons). */
+export const adminOverlay = {
+  /** 22% white pill overlay for search and filter buttons on brand orange headers. */
+  whitePill: hex('adminWhitePillOverlay'),
+  /** 38% white pill overlay active/pressed state on brand orange headers. */
+  whitePillActive: hex('adminWhitePillOverlayActive'),
+  /** 45% dark scrim for modal backdrops. */
+  scrim: hex('adminScrim'),
+} as const;
+
 export const adminTheme = {
   colors: adminColors,
+  overlay: adminOverlay,
   type: adminType,
   radius: adminRadius,
   spacing: adminSpacing,

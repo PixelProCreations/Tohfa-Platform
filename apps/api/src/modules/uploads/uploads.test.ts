@@ -1,13 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import sharp from 'sharp';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { InMemoryBlobStorage } from '../../storage/blobStorage.js';
+import { InMemoryBlobStorage, defaultBlobStorage } from '../../storage/blobStorage.js';
 import { sniffMimeType, stripExifAndGps, type AllowedMimeType } from '../../storage/imageProcessor.js';
-import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
+import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
+import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { createUploadsService } from './uploads.service.js';
-import type { UploadsRepo } from './uploads.repo.js';
+import type { CreateUploadParams, UploadsRepo } from './uploads.repo.js';
 
 function mockUploadsRepo(): UploadsRepo {
   return {
@@ -26,6 +27,25 @@ function mockUploadsRepo(): UploadsRepo {
     }),
     findByKey: async () => null,
     findById: async () => null,
+  };
+}
+
+/** Same shape as `mockUploadsRepo`, but also records every `createUpload` call so a test can
+ * assert on exactly what was persisted -- `signUpload`/`signUploadForOwner` return the created
+ * row's `id` alongside the signed target, but not the rest of the row (bucket, checksum, etc),
+ * so this is still how a test inspects the full params a call was made with. */
+function recordingUploadsRepo(): { repo: UploadsRepo; calls: CreateUploadParams[] } {
+  const calls: CreateUploadParams[] = [];
+  const base = mockUploadsRepo();
+  return {
+    calls,
+    repo: {
+      ...base,
+      createUpload: async (db, params) => {
+        calls.push(params);
+        return base.createUpload(db, params);
+      },
+    },
   };
 }
 
@@ -105,6 +125,10 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       expect(target.uploadUrl).not.toContain('..');
       expect(target.uploadUrl).toContain('certificate/');
       expect(target.fileUrl).toContain('.pdf');
+      // Regression: the created `uploads` row's id must be surfaced so callers that
+      // upload a file before the parent record exists (pest detections, soil test
+      // reports, workforce id proof/photos) can link the two. Previously discarded.
+      expect(target.id).toBe('00000000-0000-0000-0000-000000000001');
     });
 
     it('rejects disallowed MIME type with 422', async () => {
@@ -119,6 +143,44 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
           contentType: 'text/html' as unknown as AllowedMimeType,
           sizeBytes: 1000,
         }),
+      ).rejects.toThrow(expect.objectContaining({ status: 422 }));
+    });
+  });
+
+  describe('signUploadForOwner (registration-scoped uploads with no Actor)', () => {
+    it('records a null uploaded_by and the given entity_type/entity_id, never a user id', async () => {
+      const storage = new InMemoryBlobStorage();
+      const { repo, calls } = recordingUploadsRepo();
+      const service = createUploadsService(storage, repo);
+      const applicationId = '11111111-1111-1111-1111-111111111111';
+
+      const target = await service.signUploadForOwner(
+        { entityType: 'farmer_application', entityId: applicationId, isPublic: false },
+        { purpose: 'FARMER_DOCUMENT', contentType: 'application/pdf', sizeBytes: 500000 },
+      );
+
+      expect(target.method).toBe('PUT');
+      expect(target.resumable).toBe(false);
+      expect(target.id).toBe('00000000-0000-0000-0000-000000000001');
+      expect(calls).toHaveLength(1);
+      // No Actor was ever involved -- uploaded_by must land as null (the column is
+      // nullable precisely for this case), never coerced to some placeholder id.
+      expect(calls[0]!.uploadedBy).toBeUndefined();
+      expect(calls[0]!.entityType).toBe('farmer_application');
+      expect(calls[0]!.entityId).toBe(applicationId);
+      expect(calls[0]!.isPublic).toBe(false);
+    });
+
+    it('still validates MIME type the same way signUpload does', async () => {
+      const storage = new InMemoryBlobStorage();
+      const { repo } = recordingUploadsRepo();
+      const service = createUploadsService(storage, repo);
+
+      await expect(
+        service.signUploadForOwner(
+          { entityType: 'farmer_application', entityId: '11111111-1111-1111-1111-111111111111', isPublic: false },
+          { purpose: 'FARMER_DOCUMENT', contentType: 'text/html' as unknown as AllowedMimeType, sizeBytes: 1000 },
+        ),
       ).rejects.toThrow(expect.objectContaining({ status: 422 }));
     });
   });
@@ -159,6 +221,95 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
     });
   });
 
+  describe('PUT /uploads/mock/* (BR-16 stripping on the actually-running upload path)', () => {
+    const app = createApp();
+
+    it('BR-16: an image PUT through the mock upload route is stored with EXIF/GPS stripped', async () => {
+      const rawImageWithExif = await sharp({
+        create: {
+          width: 40,
+          height: 40,
+          channels: 3,
+          background: { r: 60, g: 150, b: 40 },
+        },
+      })
+        .withMetadata({
+          orientation: 1,
+          exif: {
+            IFD0: {
+              Make: 'FarmCameraPhone',
+              Model: 'Model-X',
+              ImageDescription: 'Coonoor Organic Tea Plantation GPS: 11.3530, 76.7959',
+            },
+          },
+        })
+        .jpeg()
+        .toBuffer();
+
+      // Sanity check the fixture actually carries EXIF before we assert it's gone.
+      const rawMeta = await sharp(rawImageWithExif).metadata();
+      expect(rawMeta.exif).toBeDefined();
+
+      const storageKey = `listing_photo/br16-route-${Date.now()}.jpg`;
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'image/jpeg')
+        .send(rawImageWithExif);
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('fileUrl');
+      expect(res.body.fileUrl).toContain(storageKey);
+
+      try {
+        const stored = await defaultBlobStorage.download(storageKey);
+        expect(stored).not.toBeNull();
+        // Bytes must actually have changed (re-encoded), not just be a copy of the raw upload.
+        expect(stored!.equals(rawImageWithExif)).toBe(false);
+
+        const storedMeta = await sharp(stored!).metadata();
+        expect(storedMeta.exif).toBeUndefined();
+        expect(storedMeta.width).toBe(40);
+        expect(storedMeta.height).toBe(40);
+      } finally {
+        await defaultBlobStorage.delete(storageKey);
+      }
+    });
+
+    it('stores a non-image upload byte-for-byte unchanged (BR-16 stripping does not apply)', async () => {
+      const pdfLikeBuffer = Buffer.from('%PDF-1.4\nnot a real pdf, just bytes to store as-is\n');
+      const storageKey = `farmer_document/br16-route-${Date.now()}.pdf`;
+
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'application/pdf')
+        .send(pdfLikeBuffer);
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('fileUrl');
+
+      try {
+        const stored = await defaultBlobStorage.download(storageKey);
+        expect(stored).not.toBeNull();
+        expect(stored!.equals(pdfLikeBuffer)).toBe(true);
+      } finally {
+        await defaultBlobStorage.delete(storageKey);
+      }
+    });
+
+    it('rejects an image PUT whose bytes are not actually an image, even with an image/* content-type', async () => {
+      const storageKey = `listing_photo/br16-route-invalid-${Date.now()}.jpg`;
+      const notReallyAnImage = Buffer.from('this is not image bytes at all');
+
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'image/jpeg')
+        .send(notReallyAnImage);
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+    });
+  });
+
   describeIfDatabase('Integration against PostgreSQL', () => {
     const app = createApp();
     const token = signAccessToken({
@@ -168,8 +319,22 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       customerId: null,
     });
 
-    it('returns 201 with signed target for valid payload', async () => {
-      if (!(await databaseReady('uploads'))) return;
+    beforeAll(async () => {
+      // POST /uploads/sign writes uploads.uploaded_by = the caller, an FK to users. The
+      // caller used to exist only because golden-thread.e2e had committed it.
+      if (await requireDatabaseTables('uploads', 'users')) {
+        const { pool } = await import('../../db/pool.js');
+        await ensureStandardUsers(pool, 'userSuperAdmin');
+      }
+    });
+
+    afterAll(async () => {
+      const { closePool } = await import('../../db/pool.js');
+      await closePool();
+    });
+
+    it('returns 201 with signed target for valid payload', async (ctx) => {
+      if (!(await requireDatabaseTables('uploads', 'users'))) return ctx.skip();
 
       const res = await request(app)
         .post('/v1/uploads/sign')
@@ -187,6 +352,9 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       expect(res.body).toHaveProperty('method', 'PUT');
       expect(res.body).toHaveProperty('expiresAt');
       expect(res.body).toHaveProperty('resumable', false);
+      // Regression: the uploads-table row id must round-trip to the caller.
+      expect(res.body).toHaveProperty('id');
+      expect(typeof res.body.id).toBe('string');
     });
   });
 });

@@ -7,6 +7,7 @@
  * switch on. All three point at OTHER ground-truth files:
  *
  *   x-permission      -> a permission code in `docs/rbac.json`
+ *   x-additional-permissions -> each a permission code in `docs/rbac.json`
  *   x-business-rules  -> a rule id (`BR-nn`) defined in `docs/rules.md`
  *   Problem codes     -> `ErrorCode` / `GenericProblemCode` in
  *                        `packages/shared-types/src/errors.ts`
@@ -73,7 +74,7 @@ function readPermissionCodes(): Set<string> {
 /** Rule ids come from the `### BR-nn — title` headings, nothing else. */
 function readRuleIds(): Set<string> {
   const ids = new Set<string>();
-  for (const match of readFileSync(RULES_PATH, 'utf8').matchAll(/^### (BR-\d{2}) /gm)) {
+  for (const match of readFileSync(RULES_PATH, 'utf8').matchAll(/^### (BR-\d{2,}) /gm)) {
     if (match[1] !== undefined) ids.add(match[1]);
   }
   if (ids.size === 0) throw new Error(`${RULES_PATH} declares no BR-nn headings`);
@@ -132,6 +133,16 @@ function readSpec(): SpecAnnotations {
     const permission = /^\s+x-permission: (\S+)\s*$/.exec(line)?.[1];
     if (permission !== undefined) {
       permissions.push({ where: `${operation} (openapi.yaml:${lineNo})`, value: permission });
+      return;
+    }
+
+    // A route that requires more than one code (e.g. the BR-97d double gate) lists the extra
+    // codes here; each must exist in rbac.json exactly like `x-permission`.
+    const additional = /^\s+x-additional-permissions: \[(.*)\]\s*$/.exec(line)?.[1];
+    if (additional !== undefined) {
+      for (const code of additional.split(',').map((part) => part.trim()).filter(Boolean)) {
+        permissions.push({ where: `${operation} (openapi.yaml:${lineNo}, x-additional-permissions)`, value: code });
+      }
       return;
     }
 

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
@@ -530,24 +530,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
   appVersion: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid3,
     marginTop: 2,
     fontWeight: '500',
   },
   appOrg: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid3,
     marginTop: 2,
     fontWeight: '500',
   },
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greyMid1,
     letterSpacing: 0.8,
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   },
   legalRowText: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlackDark2,
     marginLeft: 12,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   },
   faqQuestionText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlackDark2,
     paddingRight: 8,
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   faqAnswerText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.greenDeep3,
   },
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   faqLinkText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greenDeep2,
   },
@@ -645,12 +645,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contactTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlackDark2,
   },
   contactSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     marginTop: 2,
   },
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   officesTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlackDark2,
   },
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   officeChipText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.greenDeep3,
   },
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     elevation: 1.5,
   },
   feedbackTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlackDark2,
     marginBottom: 14,
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
     borderColor: P.tanTint7,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.nearBlackDark2,
     minHeight: 70,
     textAlignVertical: 'top',
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitFeedbackBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.weatherCloudWhite,
   },

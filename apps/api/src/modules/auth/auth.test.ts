@@ -4,14 +4,39 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../../app.js';
 import { signOAuthLinkToken, signRefreshToken, verifyOAuthLinkToken } from '../../auth/jwt.js';
+import { isAccessTokenInvalidated } from '../../auth/tokenInvalidation.js';
 import { AppError } from '../../http/problem.js';
+import { pingRedis } from '../../redis.js';
 import { createAuthService } from './auth.service.js';
+import { changePasswordBody } from './auth.schema.js';
 import type { AuthRepo, OAuthIdentityRow, OtpVerificationRow, RefreshTokenRow } from './auth.repo.js';
 import type { OAuthProviderClient } from './oauth.providers.js';
 import { anActor, databaseReady, describeIfDatabase } from '../../test/factories.js';
 
+/**
+ * The password tests hash and compare with real cost-12 bcrypt (bcryptjs, pure JS) several times;
+ * on a loaded machine that alone passes vitest's default 5s timeout. A longer timeout, not a
+ * cheaper hash, so the tests still exercise the production cost.
+ */
+const BCRYPT_TEST_TIMEOUT_MS = 30_000;
+
 function hashValue(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+/**
+ * `resetPassword`/`changePassword` now stamp a Redis invalidation marker
+ * (see auth/tokenInvalidation.ts) after their DB transaction commits. Those
+ * assertions need real Redis, same as the DB-gated tests around them need
+ * real Postgres; soft-skip rather than fail the whole file when Redis isn't
+ * reachable, mirroring `databaseReady` in test/factories.ts.
+ */
+async function redisAvailableForTest(): Promise<boolean> {
+  try {
+    return await pingRedis();
+  } catch {
+    return false;
+  }
 }
 
 function mockRepo(overrides: Partial<AuthRepo> = {}): AuthRepo {
@@ -53,6 +78,7 @@ function mockRepo(overrides: Partial<AuthRepo> = {}): AuthRepo {
       revoke_reason: null,
     }),
     findSessionById: async () => null,
+    listLiveSessionsForUser: async () => [],
     revokeSession: async () => {},
     revokeAllUserSessions: async () => {},
     createRefreshToken: async (_db, params) => ({
@@ -899,6 +925,8 @@ describe('Auth Module & BR-32 Test Contract', () => {
         });
         const service = createAuthService(repo);
 
+        // Taken BEFORE the call, for the same reason as in the changePassword test below.
+        const secondsBeforeReset = Math.floor(Date.now() / 1000);
         await service.resetPassword({ challengeId, code: correctCode, newPassword });
 
         expect(consumeOtpCalledWith).toBe(challengeId);
@@ -912,7 +940,179 @@ describe('Auth Module & BR-32 Test Contract', () => {
           revokedBy: userId,
           reason: 'PASSWORD_RESET_ALL_SESSIONS',
         });
+
+        // The other half of the fix (auth/tokenInvalidation.ts): revoking
+        // refresh tokens/sessions is not enough on its own -- an access token
+        // already issued must ALSO stop working immediately, not ride out its
+        // remaining TTL. Before this fix, `isAccessTokenInvalidated` did not
+        // exist and this old token would have kept passing `requireAuth`.
+        if (await redisAvailableForTest()) {
+          const iatBeforeReset = secondsBeforeReset - 5;
+          await expect(isAccessTokenInvalidated(userId, iatBeforeReset)).resolves.toBe(true);
+
+          // A token minted AFTER the reset must be unaffected.
+          const iatAfterReset = Math.floor(Date.now() / 1000) + 5;
+          await expect(isAccessTokenInvalidated(userId, iatAfterReset)).resolves.toBe(false);
+        }
+        // Several cost-12 bcrypt hashes in pure JS take ~5s on a loaded machine: the default 5s
+        // timeout made this flaky in full runs. The assertions are unchanged.
+      }, BCRYPT_TEST_TIMEOUT_MS);
+    });
+  });
+
+  describe('changePassword()', () => {
+    it('BR-schema: newPassword shorter than 10 characters is rejected by the schema', () => {
+      const result = changePasswordBody.safeParse({
+        currentPassword: 'CorrectHorse99!',
+        newPassword: 'short1234',
       });
+
+      expect(result.success).toBe(false);
+    });
+
+    it('wrong current password is rejected with UNAUTHENTICATED and never touches the password or sessions', async () => {
+      const actor = anActor({ userId: '99999999-1111-2222-3333-444444444444' });
+      const correctPasswordHash = await bcrypt.hash('ActualPassword123', 12);
+
+      let updateUserPasswordCalls = 0;
+      let revokeAllUserSessionsCalls = 0;
+
+      const repo = mockRepo({
+        findUserById: async () => ({
+          id: actor.userId,
+          mobile: '+919000000090',
+          email: null,
+          password_hash: correctPasswordHash,
+          full_name: 'Change Password User',
+          preferred_locale: 'en',
+          user_type: 'CUSTOMER',
+          status: 'ACTIVE',
+          mfa_enabled: false,
+          last_login_at: null,
+          created_at: new Date(),
+        }),
+        updateUserPassword: async () => {
+          updateUserPasswordCalls += 1;
+        },
+        revokeAllUserSessions: async () => {
+          revokeAllUserSessionsCalls += 1;
+        },
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.changePassword(actor, { currentPassword: 'WrongPassword123', newPassword: 'BrandNewPassword1' }),
+      ).rejects.toThrow(expect.objectContaining({ code: 'UNAUTHENTICATED' }));
+
+      expect(updateUserPasswordCalls).toBe(0);
+      expect(revokeAllUserSessionsCalls).toBe(0);
+    }, BCRYPT_TEST_TIMEOUT_MS);
+
+    it('an account with no password set (OAuth-only) is rejected with UNAUTHENTICATED', async () => {
+      const actor = anActor({ userId: '99999999-5555-6666-7777-888888888888' });
+
+      const repo = mockRepo({
+        findUserById: async () => ({
+          id: actor.userId,
+          mobile: '+919000000091',
+          email: 'oauth-only@example.com',
+          password_hash: null,
+          full_name: 'OAuth Only User',
+          preferred_locale: 'en',
+          user_type: 'CUSTOMER',
+          status: 'ACTIVE',
+          mfa_enabled: false,
+          last_login_at: null,
+          created_at: new Date(),
+        }),
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.changePassword(actor, { currentPassword: 'Whatever123', newPassword: 'BrandNewPassword1' }),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          code: 'UNAUTHENTICATED',
+          detail: "This account doesn't have a password set yet. Use 'Forgot password' instead.",
+        }),
+      );
+    });
+
+    // Same shape as resetPassword's real-database test above: `repo` here is
+    // still mocked, but `changePassword` opens a REAL pool.connect() +
+    // BEGIN/COMMIT via withTransaction, so this is gated the same way.
+    describeIfDatabase('success path (real database transaction)', () => {
+      it('hashes the new password with bcrypt and revokes every session for that user', async () => {
+        if (!(await databaseReady('users'))) return;
+
+        const userId = '00000000-0000-4000-8000-000000000103';
+        const oldPassword = 'OldPassword123';
+        const oldPasswordHash = await bcrypt.hash(oldPassword, 12);
+        const newPassword = 'BrandNewPassword3';
+        const actor = anActor({ userId });
+
+        let capturedPasswordHash: string | null = null;
+        let revokeAllUserSessionsCalledWith:
+          | { userId: string; revokedBy: string | undefined; reason: string | undefined }
+          | null = null;
+
+        const repo = mockRepo({
+          findUserById: async () => ({
+            id: userId,
+            mobile: '+919000000058',
+            email: null,
+            password_hash: oldPasswordHash,
+            full_name: 'Change Password User',
+            preferred_locale: 'en',
+            user_type: 'CUSTOMER',
+            status: 'ACTIVE',
+            mfa_enabled: false,
+            last_login_at: null,
+            created_at: new Date(),
+          }),
+          updateUserPassword: async (_db, uid, passwordHash) => {
+            capturedPasswordHash = passwordHash;
+            expect(uid).toBe(userId);
+          },
+          revokeAllUserSessions: async (_db, uid, revokedBy, reason) => {
+            revokeAllUserSessionsCalledWith = { userId: uid, revokedBy, reason };
+          },
+        });
+        const service = createAuthService(repo);
+
+        // Taken BEFORE the call: "a token issued before the change" must not drift past the stamp
+        // while the slow bcrypt checks below run (they took > 5s on a loaded machine).
+        const secondsBeforeChange = Math.floor(Date.now() / 1000);
+        await service.changePassword(actor, { currentPassword: oldPassword, newPassword });
+
+        expect(capturedPasswordHash).toBeTypeOf('string');
+        expect(capturedPasswordHash).not.toBe(oldPasswordHash);
+        // (a) the new password hash actually works for a subsequent login attempt
+        expect(await bcrypt.compare(newPassword, capturedPasswordHash as unknown as string)).toBe(true);
+        // (b) the old password no longer works against the new hash
+        expect(await bcrypt.compare(oldPassword, capturedPasswordHash as unknown as string)).toBe(false);
+
+        // (c) sessions were revoked -- same call shape resetPassword's test checks.
+        expect(revokeAllUserSessionsCalledWith).toEqual({
+          userId,
+          revokedBy: userId,
+          reason: 'PASSWORD_CHANGED_ALL_SESSIONS',
+        });
+
+        // (d) the other half of the fix -- an access token issued before
+        // this changePassword() call must now be rejected by
+        // isAccessTokenInvalidated (and therefore by requireAuth), not just
+        // have its refresh token/session revoked. This is the live bug
+        // reproduced: change-password succeeded but the OLD access token
+        // kept passing GET /auth/me until it naturally expired.
+        if (await redisAvailableForTest()) {
+          const iatBeforeChange = secondsBeforeChange - 5;
+          await expect(isAccessTokenInvalidated(userId, iatBeforeChange)).resolves.toBe(true);
+
+          const iatAfterChange = Math.floor(Date.now() / 1000) + 5;
+          await expect(isAccessTokenInvalidated(userId, iatAfterChange)).resolves.toBe(false);
+        }
+      }, BCRYPT_TEST_TIMEOUT_MS);
     });
   });
 });

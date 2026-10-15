@@ -13,7 +13,7 @@ service   all business logic   takes ResolvedScope, throws AppError, never sees 
 repo      SQL only             takes an Executor so it can join a caller's transaction
 ```
 
-`apps/api/src/modules/_example/` is the canonical implementation of all four. Read it before
+`apps/api/src/modules/warehouses/` is the canonical implementation of all four. Read it before
 writing a new module; copy it rather than inventing a variant.
 
 ## Authorization

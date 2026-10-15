@@ -43,6 +43,25 @@ export function isDemoWarehouseRole(role: unknown): role is DemoWarehouseRole {
   return role === 'SUB_WH_ADMIN' || role === 'MAIN_WH_ADMIN';
 }
 
+/** A fetched permission list, tagged with the session (App's sign-out counter) it was fetched in. */
+export interface SessionPermissions {
+  sessionKey: unknown;
+  list: readonly string[];
+}
+
+/**
+ * The fetched list only while the session that fetched it is still current.
+ * App.tsx's hook instance outlives a sign-out (App never unmounts), so without
+ * this the next admin to sign in on the device would render with the previous
+ * admin's permissions until a refetch landed.
+ */
+export function permissionsForSession(
+  fetched: SessionPermissions | undefined,
+  sessionKey: unknown,
+): readonly string[] | undefined {
+  return fetched !== undefined && fetched.sessionKey === sessionKey ? fetched.list : undefined;
+}
+
 export interface ResolveWarehousePermissionsInput {
   /** The list /auth/me returned, or undefined while none has arrived. */
   fetched: readonly string[] | undefined;

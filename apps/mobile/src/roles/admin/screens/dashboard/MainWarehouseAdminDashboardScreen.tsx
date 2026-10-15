@@ -795,16 +795,37 @@ export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   /** Kept for hosts (App.tsx passes it); the shell no longer leaves to an App key (Create SWA is in-shell, W4). */
   onNavigate?: (screen: string) => void;
+  initialTab?: MainWHTab;
+  initialMoreSubScreen?: MainMoreSubScreen | null;
+  initialWhSubView?: WarehouseSubView;
 }
 
-export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<MainWHTab>('Home');
+export function MainWarehouseAdminDashboardScreen({
+  onSignOut,
+  onNavigate,
+  initialTab,
+  initialMoreSubScreen,
+  initialWhSubView,
+}: MainWarehouseAdminDashboardScreenProps) {
+  const [activeTab, setActiveTab] = useState<MainWHTab>(initialTab || 'Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
-  const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
+  const [whSubView, setWhSubView] = useState<WarehouseSubView>(initialWhSubView || 'overview');
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
   const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
-  const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
+  const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(initialMoreSubScreen || null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+    if (initialMoreSubScreen !== undefined) {
+      setMoreSubScreen(initialMoreSubScreen);
+    }
+    if (initialWhSubView) {
+      setWhSubView(initialWhSubView);
+    }
+  }, [initialTab, initialMoreSubScreen, initialWhSubView]);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');

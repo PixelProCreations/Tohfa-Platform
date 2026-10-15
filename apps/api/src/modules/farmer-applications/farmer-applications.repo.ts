@@ -59,6 +59,14 @@ export interface FarmerProfileRow {
   rating_tier_code: string | null;
   is_market_blocked: boolean;
   market_block_reason: string | null;
+  /**
+   * `farmers.dob` is a DATE. It is selected as `dob::text` (YYYY-MM-DD) rather than
+   * left to the pg driver, which would parse it into a local-midnight JS Date -- and
+   * `.toISOString()` of that under IST is the previous calendar day.
+   */
+  dob: string | null;
+  /** Mirrors the `farmers.gender` CHECK constraint (0003_farmers_and_farms.sql). */
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | 'UNDISCLOSED' | null;
   created_at: Date;
 }
 
@@ -283,7 +291,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
               f.farming_experience_years, f.address_line1, f.village,
               f.taluk, f.district, f.aadhaar_last4, f.kyc_status,
               f.application_status, f.overall_rating, f.rating_tier_code, f.is_market_blocked,
-              f.market_block_reason, f.created_at
+              f.market_block_reason, f.dob::text AS dob, f.gender, f.created_at
          FROM farmers f
          JOIN users u ON u.id = f.user_id
     LEFT JOIN zones z ON z.id = f.zone_id
@@ -301,7 +309,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
               f.farming_experience_years, f.address_line1, f.village,
               f.taluk, f.district, f.aadhaar_last4, f.kyc_status,
               f.application_status, f.overall_rating, f.rating_tier_code, f.is_market_blocked,
-              f.market_block_reason, f.created_at
+              f.market_block_reason, f.dob::text AS dob, f.gender, f.created_at
          FROM farmers f
          JOIN users u ON u.id = f.user_id
     LEFT JOIN zones z ON z.id = f.zone_id

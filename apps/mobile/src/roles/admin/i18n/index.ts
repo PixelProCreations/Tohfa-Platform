@@ -1,17 +1,41 @@
 /**
- * Minimal, role-scoped i18n catalog for the admin flavor's placeholder screen.
+ * The admin's i18n entry point: the admin's own strings plus the shared
+ * `error.<ErrorCode>` bucket, on the shared engine in src/i18n/runtime.ts
+ * (the same one src/i18n/farmer.ts uses). That engine gives `{{param}}`
+ * interpolation and a ta -> en fallback, so a key with no Tamil string still
+ * renders in English instead of as its key.
  *
- * This is deliberately NOT the merged shell i18n runtime described in the
- * consolidation plan §5 (src/shell/i18n/) — that runtime (namespaced
- * "shell", "farmer", "customer", "admin" catalogs, locale switching, the
- * ta -> en fallback chain) lands when real screens migrate in Steps 3/4.
- * Per root CLAUDE.md §2.7, a placeholder screen still may not hard-code a
- * user-facing string, so it gets this trivial stand-in instead of a literal.
+ * Why the catalogue stays here and not in src/i18n/: runtime.ts keeps each
+ * role's strings in its own JSON so one role's import graph never pulls in
+ * another role's catalogue. Admin screens import this file, never
+ * src/i18n/farmer.ts or customer.ts.
+ *
+ * Admin screens show admin-facing errors through `admin.error.*` keys (see
+ * ../api/errors.ts), worded for warehouse staff; the shared `error.*` bucket is
+ * merged in only so a shared message key also resolves here.
  */
-import en from './en.json';
+import errorsEn from '../../../i18n/errors.en.json';
+import errorsTa from '../../../i18n/errors.ta.json';
+import { createI18n, LOCALES, type Locale } from '../../../i18n/runtime';
+import adminEn from './en.json';
+import adminTa from './ta.json';
+
+export const en = { ...errorsEn, ...adminEn };
+const ta: Record<string, string> = { ...errorsTa, ...adminTa };
 
 export type TranslationKey = keyof typeof en;
 
-export function t(key: TranslationKey): string {
-  return en[key];
+export { LOCALES };
+export type { Locale };
+
+const instance = createI18n<TranslationKey>({ en, ta });
+
+export const setLocale = instance.setLocale;
+export const getLocale = instance.getLocale;
+export const t = instance.t;
+export const missingKeys = instance.missingKeys;
+
+/** True when `key` has an English string, for keys built at runtime (error codes). */
+export function hasKey(key: string): key is TranslationKey {
+  return Object.prototype.hasOwnProperty.call(en, key);
 }

@@ -1,6 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest';
 import { pool } from '../../db/pool.js';
-import { databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { insertUser } from '../../test/dbFixtures.js';
 import { invoicesService } from './invoices.service.js';
 import { fromPaise, equals, add, ZERO, RoleCode } from '@tohfa/shared-types';
 
@@ -114,8 +115,18 @@ describeIfDatabase('Invoices Module (S-38)', () => {
       const distinctVillageName = 'HiddenMistyValleyVillage88';
       const distinctFarmerName = 'Shanmugam Subramanian Unique';
 
+      // The PDF is rendered for the customer who owns the invoice (BR-36: getPdf checks it).
+      const customerUserId = await insertUser(client, 'CUSTOMER', 'BR-16b Customer');
+      const customerId = newId();
+      await client.query(`INSERT INTO customers (id, user_id, customer_code) VALUES ($1, $2, $3)`, [
+        customerId,
+        customerUserId,
+        `BR16B-${customerId.slice(0, 8)}`,
+      ]);
+
       const invoice = await invoicesService.issue(client, {
         invoiceType: 'SALE_RETAIL',
+        customerId,
         fiscalYear: '2026-27',
         placeOfSupply: '33-Tamil Nadu',
         totalAmount: fromPaise(15000),
@@ -128,7 +139,7 @@ describeIfDatabase('Invoices Module (S-38)', () => {
 
       // Generate PDF buffer
       const pdfBuffer = await invoicesService.getPdf(
-        { userId: '00000000-0000-0000-0000-000000000001', customerId: 'cust-1', farmerId: null, roles: [{ code: RoleCode.CUSTOMER }] },
+        { userId: customerUserId, customerId, farmerId: null, roles: [{ code: RoleCode.CUSTOMER }] },
         invoice.id,
       );
 
@@ -148,6 +159,8 @@ describeIfDatabase('Invoices Module (S-38)', () => {
 
       await pool.query('DELETE FROM invoice_lines WHERE invoice_id = $1', [invoice.id]);
       await pool.query('DELETE FROM invoices WHERE id = $1', [invoice.id]);
+      await pool.query('DELETE FROM customers WHERE id = $1', [customerId]);
+      await pool.query('DELETE FROM users WHERE id = $1', [customerUserId]);
     } finally {
       client.release();
     }
@@ -174,5 +187,112 @@ describeIfDatabase('Invoices Module (S-38)', () => {
     // 3. Expired timestamp
     const expiredTimestamp = Date.now() - 1000;
     expect(invoicesService.verifyDownloadSignature(invoiceId, token, expiredTimestamp)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SWA Module 6: gap-free invoice numbers (migration 0062) and per-invoice GST (BR-98).
+// Each test uses its own fiscal year in 1900-1989, so it never shares a counter with real data.
+// ---------------------------------------------------------------------------
+describeIfDatabase('Invoices: gap-free counter and per-invoice GST (BR-87h, BR-98)', () => {
+  let ready = false;
+  const usedYears: string[] = [];
+
+  function freshFiscalYear(): string {
+    const start = 1900 + Math.floor(Math.random() * 90);
+    const fy = `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+    usedYears.push(fy);
+    return fy;
+  }
+
+  const oneLine = (total: string) => [
+    { lineNo: 1, description: 'Carrot - GRADE_1', qty: 1, unitPrice: total as never, gstRate: 0, total: total as never },
+  ];
+
+  beforeAll(async () => {
+    ready = await databaseReady('invoice_number_counters');
+  });
+
+  afterAll(async () => {
+    if (!ready || usedYears.length === 0) return;
+    await pool.query(`DELETE FROM invoice_lines WHERE invoice_id IN (SELECT id FROM invoices WHERE fiscal_year = ANY($1))`, [usedYears]);
+    await pool.query(`DELETE FROM invoices WHERE fiscal_year = ANY($1)`, [usedYears]);
+    await pool.query(`DELETE FROM invoice_number_counters WHERE fiscal_year = ANY($1)`, [usedYears]);
+  });
+
+  it('BR-98g: two concurrent issues in one fiscal year get consecutive numbers, never the same one', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const fiscalYear = freshFiscalYear();
+    const a = await pool.connect();
+    const b = await pool.connect();
+    try {
+      await a.query('BEGIN');
+      await b.query('BEGIN');
+      const first = await invoicesService.issue(a, { invoiceType: 'SALE_RETAIL', fiscalYear, totalAmount: '10.00' as never, lines: oneLine('10.00') });
+      // B must wait for A (row lock on the counter), not compute the same number and collide.
+      const secondPromise = invoicesService.issue(b, { invoiceType: 'SALE_RETAIL', fiscalYear, totalAmount: '20.00' as never, lines: oneLine('20.00') });
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await a.query('COMMIT');
+      const second = await secondPromise;
+      await b.query('COMMIT');
+
+      expect(first.invoiceNumber).toBe(`TOH/${fiscalYear}/R/000001`);
+      expect(second.invoiceNumber).toBe(`TOH/${fiscalYear}/R/000002`);
+    } finally {
+      await a.query('ROLLBACK').catch(() => undefined);
+      await b.query('ROLLBACK').catch(() => undefined);
+      a.release();
+      b.release();
+    }
+  });
+
+  it('BR-87h: a rolled-back issue does not consume a number (no gap), and each series counts on its own', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const fiscalYear = freshFiscalYear();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rolledBack = await invoicesService.issue(client, { invoiceType: 'SALE_RETAIL', fiscalYear, totalAmount: '5.00' as never, lines: oneLine('5.00') });
+      expect(rolledBack.invoiceNumber).toBe(`TOH/${fiscalYear}/R/000001`);
+      await client.query('ROLLBACK');
+
+      await client.query('BEGIN');
+      const kept = await invoicesService.issue(client, { invoiceType: 'SALE_RETAIL', fiscalYear, totalAmount: '5.00' as never, lines: oneLine('5.00') });
+      const b2b = await invoicesService.issue(client, { invoiceType: 'SALE_B2B', fiscalYear, totalAmount: '5.00' as never, lines: oneLine('5.00') });
+      await client.query('COMMIT');
+      expect(kept.invoiceNumber).toBe(`TOH/${fiscalYear}/R/000001`);
+      expect(b2b.invoiceNumber).toBe(`TOH/${fiscalYear}/B/000001`);
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+    }
+  });
+
+  it('BR-98c: invoiceGst is applied once per invoice: two 10.10 lines at 5% carry 1.01 GST on the invoice, total 21.21', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const invoice = await invoicesService.issue(client, {
+        invoiceType: 'SALE_RETAIL',
+        fiscalYear: freshFiscalYear(),
+        totalAmount: '21.21' as never,
+        gstInclusive: false,
+        invoiceGst: '1.01' as never,
+        lines: [
+          { lineNo: 1, description: 'Carrot - GRADE_1', qty: 1, unitPrice: '10.10' as never, gstRate: 5, total: '10.10' as never },
+          { lineNo: 2, description: 'Beans - GRADE_1', qty: 1, unitPrice: '10.10' as never, gstRate: 5, total: '10.10' as never },
+        ],
+      });
+      expect(invoice.taxableAmount).toBe('20.20');
+      expect(add(invoice.cgst, invoice.sgst)).toBe('1.01');
+      expect(invoice.igst).toBe('0.00');
+      expect(invoice.totalAmount).toBe('21.21');
+      expect(invoice.gstInclusive).toBe(false);
+      expect(invoice.lines.map((l) => l.total)).toEqual(['10.10', '10.10']);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 });

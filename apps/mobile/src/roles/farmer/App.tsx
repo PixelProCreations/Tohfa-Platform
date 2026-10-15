@@ -2,17 +2,21 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
+import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
+import { deleteFarmAsset } from './api/farmAssets';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
 import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
 import {
+  authFailureTarget,
   emptyHistoryBackTarget,
-  keepsScreenOnAuthFailure,
   resetsHistoryOn,
   shouldLoadWarehousePermissions,
 } from './utils/navigationSession';
+import { adminShellForRole } from './utils/adminShell';
+import { endSession } from './utils/signOut';
 import { Icon } from '@tohfa/mobile-ui';
-import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
+import { t } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
 import { ForgotPasswordScreen } from './screens/auth/ForgotPasswordScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
@@ -32,66 +36,69 @@ import { ActiveCropsScreen } from './screens/dashboard/ActiveCropsScreen';
 import { TohfaCalendarScreen } from './screens/dashboard/TohfaCalendarScreen';
 import { CropPlanningInsightScreen } from './screens/dashboard/CropPlanningInsightScreen';
 import { FarmManagementScreen } from './screens/farm/FarmManagementScreen';
-import { CropManagementScreen } from './screens/farm/CropManagementScreen';
-import { LivestockScreen } from './screens/farm/LivestockScreen';
-import { RegisterAnimalScreen } from './screens/farm/RegisterAnimalScreen';
-import { EditAnimalScreen } from './screens/farm/EditAnimalScreen';
-import { AnimalDetailScreen } from './screens/farm/AnimalDetailScreen';
-import { SaleTransferCullScreen } from './screens/farm/SaleTransferCullScreen';
-import { WorkforceScreen } from './screens/farm/WorkforceScreen';
-import { AddWorkerScreen } from './screens/farm/AddWorkerScreen';
-import { WorkerDetailScreen } from './screens/farm/WorkerDetailScreen';
-import { PayrollScreen } from './screens/farm/PayrollScreen';
-import {
-  ProduceCalendarScreen,
-  addProduceCropLocally,
-  localProduceCropsCache,
-  type CropItem,
-} from './screens/farm/ProduceCalendarScreen';
-import { NewCropScreen } from './screens/farm/NewCropScreen';
-import { CropDetailScreen } from './screens/farm/CropDetailScreen';
-import { CropDiaryEntriesScreen } from './screens/farm/CropDiaryEntriesScreen';
-import { CropInputsAppliedScreen } from './screens/farm/CropInputsAppliedScreen';
-import { InputManagementScreen } from './screens/farm/InputManagementScreen';
-import { LogFertigationScreen } from './screens/farm/LogFertigationScreen';
-import { LogPestTreatmentScreen } from './screens/farm/LogPestTreatmentScreen';
-import { AddInputAppliedScreen } from './screens/farm/AddInputAppliedScreen';
-import { SoilManagementScreen } from './screens/farm/SoilManagementScreen';
-import { SoilTestRecordsScreen } from './screens/farm/SoilTestRecordsScreen';
-import { SoilHealthTrackerScreen } from './screens/farm/SoilHealthTrackerScreen';
-import { SoilTypeClassificationScreen } from './screens/farm/SoilTypeClassificationScreen';
-import { SoilAmendmentsLogScreen } from './screens/farm/SoilAmendmentsLogScreen';
-import { CropRotationScreen } from './screens/farm/CropRotationScreen';
-import { SoilMoistureTrackingScreen } from './screens/farm/SoilMoistureTrackingScreen';
-import { ErosionConservationScreen } from './screens/farm/ErosionConservationScreen';
-import { ExportSoilReportsScreen } from './screens/farm/ExportSoilReportsScreen';
-import { UploadNewSoilTestScreen } from './screens/farm/UploadNewSoilTestScreen';
-import { CropWorkforceHoursScreen } from './screens/farm/CropWorkforceHoursScreen';
-import { CropNPKContributionScreen } from './screens/farm/CropNPKContributionScreen';
-import { FarmDiaryScreen } from './screens/farm/FarmDiaryScreen';
-import { DiaryCalendarScreen } from './screens/farm/DiaryCalendarScreen';
-import { DailyAttendanceScreen } from './screens/farm/DailyAttendanceScreen';
+import { DairyProduceScreen } from './screens/farm/livestock/DairyProduceScreen';
+import { CropManagementScreen } from './screens/farm/crops/CropManagementScreen';
+import { LivestockScreen } from './screens/farm/livestock/LivestockScreen';
+import { RegisterAnimalScreen } from './screens/farm/livestock/RegisterAnimalScreen';
+import { EditAnimalScreen } from './screens/farm/livestock/EditAnimalScreen';
+import { AnimalDetailScreen } from './screens/farm/livestock/AnimalDetailScreen';
+import { SaleTransferCullScreen } from './screens/farm/livestock/SaleTransferCullScreen';
+import { WorkforceScreen } from './screens/farm/workforce/WorkforceScreen';
+import { AddWorkerScreen } from './screens/farm/workforce/AddWorkerScreen';
+import { WorkerDetailScreen } from './screens/farm/workforce/WorkerDetailScreen';
+import { PayrollScreen } from './screens/farm/workforce/PayrollScreen';
+import { ProduceCalendarScreen, type CropItem } from './screens/farm/crops/ProduceCalendarScreen';
+import { NewCropScreen } from './screens/farm/crops/NewCropScreen';
+import { CropDetailScreen } from './screens/farm/crops/CropDetailScreen';
+import { CropMilestonesScreen } from './screens/farm/crops/CropMilestonesScreen';
+import { CropDiaryEntriesScreen } from './screens/farm/diary/CropDiaryEntriesScreen';
+import { CropInputsAppliedScreen } from './screens/farm/crops/CropInputsAppliedScreen';
+import { InputManagementScreen } from './screens/farm/crops/InputManagementScreen';
+import { LogFertigationScreen } from './screens/farm/crops/LogFertigationScreen';
+import { LogPestTreatmentScreen } from './screens/farm/pest/LogPestTreatmentScreen';
+import { AddInputAppliedScreen } from './screens/farm/crops/AddInputAppliedScreen';
+import { SoilManagementScreen } from './screens/farm/soil/SoilManagementScreen';
+import { SoilTestRecordsScreen } from './screens/farm/soil/SoilTestRecordsScreen';
+import { SoilHealthTrackerScreen } from './screens/farm/soil/SoilHealthTrackerScreen';
+import { SoilTypeClassificationScreen } from './screens/farm/soil/SoilTypeClassificationScreen';
+import { SoilAmendmentsLogScreen } from './screens/farm/soil/SoilAmendmentsLogScreen';
+import { CreateSoilAmendmentScreen } from './screens/farm/CreateSoilAmendmentScreen';
+import { CropRotationScreen } from './screens/farm/crops/CropRotationScreen';
+import { SoilMoistureTrackingScreen } from './screens/farm/soil/SoilMoistureTrackingScreen';
+import { ErosionConservationScreen } from './screens/farm/soil/ErosionConservationScreen';
+import { CreateErosionNoteScreen } from './screens/farm/CreateErosionNoteScreen';
+import { ExportSoilReportsScreen } from './screens/farm/soil/ExportSoilReportsScreen';
+import { UploadNewSoilTestScreen } from './screens/farm/soil/UploadNewSoilTestScreen';
+import { PestManagementScreen } from './screens/farm/pest/PestManagementScreen';
+import { PestLibraryScreen } from './screens/farm/pest/PestLibraryScreen';
+import { TreatmentScheduleScreen } from './screens/farm/pest/TreatmentScheduleScreen';
+import { WeatherRiskAnalyticsScreen } from './screens/farm/pest/WeatherRiskAnalyticsScreen';
+import { CropWorkforceHoursScreen } from './screens/farm/crops/CropWorkforceHoursScreen';
+import { CropNPKContributionScreen } from './screens/farm/crops/CropNPKContributionScreen';
+import { FarmDiaryScreen } from './screens/farm/diary/FarmDiaryScreen';
+import { DiaryCalendarScreen } from './screens/farm/diary/DiaryCalendarScreen';
+import { DailyAttendanceScreen } from './screens/farm/workforce/DailyAttendanceScreen';
 import { FarmInventoryScreen } from './screens/farm/FarmInventoryScreen';
-import { ToolsListScreen, type ToolItem } from './screens/farm/ToolsListScreen';
-import { AddToolScreen } from './screens/farm/AddToolScreen';
-import { EditToolScreen } from './screens/farm/EditToolScreen';
-import { EquipmentListScreen, type EquipmentItem } from './screens/farm/EquipmentListScreen';
-import { AddEquipmentScreen } from './screens/farm/AddEquipmentScreen';
-import { EditEquipmentScreen } from './screens/farm/EditEquipmentScreen';
-import { TreesListScreen, type TreePlantingItem } from './screens/farm/TreesListScreen';
-import { AddPlantingScreen } from './screens/farm/AddPlantingScreen';
-import { EditPlantingScreen } from './screens/farm/EditPlantingScreen';
-import { MachineryListScreen, type MachineryItem } from './screens/farm/MachineryListScreen';
-import { AddMachineryScreen } from './screens/farm/AddMachineryScreen';
-import { EditMachineryScreen } from './screens/farm/EditMachineryScreen';
-import { RemoveItemScreen, type RemoveItemData } from './screens/farm/RemoveItemScreen';
+import { ToolsListScreen, type ToolItem } from './screens/farm/assets/ToolsListScreen';
+import { AddToolScreen } from './screens/farm/assets/AddToolScreen';
+import { EditToolScreen } from './screens/farm/assets/EditToolScreen';
+import { EquipmentListScreen, type EquipmentItem } from './screens/farm/assets/EquipmentListScreen';
+import { AddEquipmentScreen } from './screens/farm/assets/AddEquipmentScreen';
+import { EditEquipmentScreen } from './screens/farm/assets/EditEquipmentScreen';
+import { TreesListScreen, type TreePlantingItem } from './screens/farm/assets/TreesListScreen';
+import { AddPlantingScreen } from './screens/farm/crops/AddPlantingScreen';
+import { EditPlantingScreen } from './screens/farm/crops/EditPlantingScreen';
+import { MachineryListScreen, type MachineryItem } from './screens/farm/assets/MachineryListScreen';
+import { AddMachineryScreen } from './screens/farm/assets/AddMachineryScreen';
+import { EditMachineryScreen } from './screens/farm/assets/EditMachineryScreen';
+import { RemoveItemScreen, canDeleteAsset, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
 import { LearningHubScreen } from './screens/learning/LearningHubScreen';
 import { ContentDetailScreen, type ContentDetailItem } from './screens/learning/ContentDetailScreen';
 import { GroupsScreen, type GroupItem } from './screens/learning/GroupsScreen';
 import { GroupDetailScreen } from './screens/learning/GroupDetailScreen';
-import { NewFarmDiaryEntryScreen } from './screens/farm/NewFarmDiaryEntryScreen';
-import { NewFarmDiaryEntryStep2Screen } from './screens/farm/NewFarmDiaryEntryStep2Screen';
-import { NewFarmDiaryEntryStep3Screen } from './screens/farm/NewFarmDiaryEntryStep3Screen';
+import { NewFarmDiaryEntryScreen } from './screens/farm/diary/NewFarmDiaryEntryScreen';
+import { NewFarmDiaryEntryStep2Screen } from './screens/farm/diary/NewFarmDiaryEntryStep2Screen';
+import { NewFarmDiaryEntryStep3Screen } from './screens/farm/diary/NewFarmDiaryEntryStep3Screen';
 import { CounterOfferScreen } from './screens/listings/CounterOfferScreen';
 import { CreateListingScreen } from './screens/listings/CreateListingScreen';
 import { CreateListingStep2Screen } from './screens/listings/CreateListingStep2Screen';
@@ -104,24 +111,26 @@ import { AuditResultScreen } from './screens/audits/AuditResultScreen';
 import { ProfileScreen } from './screens/profile/ProfileScreen';
 import { SettingsScreen } from './screens/profile/SettingsScreen';
 import { ChangePasswordScreen } from './screens/profile/ChangePasswordScreen';
-import { ChangeMobileScreen } from './screens/profile/ChangeMobileScreen';
 import { AboutSupportScreen } from './screens/profile/AboutSupportScreen';
 import { FMBSketchScreen } from './screens/profile/FMBSketchScreen';
 import { FieldContextScreen } from './screens/profile/FieldContextScreen';
 import { ZonesScreen } from './screens/profile/ZonesScreen';
-import { AddZoneScreen } from './screens/profile/AddZoneScreen';
 import { PersonalDetailsScreen } from './screens/profile/PersonalDetailsScreen';
 import { FarmRatingsScreen } from './screens/profile/FarmRatingsScreen';
 import { SoilTestScreen } from './screens/profile/SoilTestScreen';
-import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
+import { BankPaymentScreen } from './screens/payment/BankPaymentScreen';
+import { BankAccountScreen } from './screens/payment/BankAccountScreen';
+import { UpiIdScreen } from './screens/payment/UpiIdScreen';
+import { PayoutHistoryScreen } from './screens/payment/PayoutHistoryScreen';
+import { PayoutDetailScreen } from './screens/payment/PayoutDetailScreen';
+import { WithdrawFundsScreen } from './screens/payment/WithdrawFundsScreen';
+import { WalletTransactionDetailScreen } from './screens/payment/WalletTransactionDetailScreen';
+import { AddMoneyScreen } from './screens/payment/AddMoneyScreen';
+import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
-import { type Listing } from './api/listings';
-import {
-  type Certification,
-  updateCertificationLocally,
-  deleteCertificationLocally,
-} from './api/farmer';
+import { type Listing, type ListingCropChoice } from './api/listings';
+import { type Certification } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
 import {
@@ -142,10 +151,7 @@ import {
   HomeFlow,
   type AttentionFilter,
   MoreScreen,
-  GoodsReceivingWizardScreen,
-  ReceivingHistoryDetailScreen,
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
+  ReceivingFlow,
   StaffFlow,
   type AttendanceFilter,
   type StaffRoute,
@@ -155,6 +161,10 @@ import {
   type StorageRoute,
   type StorageRouteParams,
   type WarehouseScope,
+  GoodsReceivingWizardScreen,
+  ReceivingHistoryDetailScreen,
+  ALERT_RECEIPT_ID,
+  DEMO_SHIPMENT,
   FinanceFlow,
   type FinanceRoute,
   NotificationsFlow,
@@ -247,6 +257,7 @@ import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScree
 import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, type ToastData } from '../admin/components/TohfaToast';
 import { makeCan } from '../admin/permissions/can';
+import { adminColors } from '../admin/theme';
 import { OrderStatusHistoryScreen } from '../admin/screens/warehouse/orders';
 import type { WarehouseTab } from '../admin/screens/warehouse/finance-expenses';
 
@@ -328,6 +339,20 @@ export type ScreenName =
   | 'SubWarehouseAttendance'
   | 'SubWarehouseTodayAttendance'
   | 'SubWarehouseAttendanceHistory'
+  | 'WarehouseStaff'
+  | 'WarehouseStaffDetail'
+  | 'WarehouseEditStaffProfile'
+  | 'WarehouseAttendance'
+  | 'WarehouseTodayAttendance'
+  | 'WarehouseAttendanceDetail'
+  | 'WarehouseAttendanceHistory'
+  | 'MainWarehouseStaff'
+  | 'MainWarehouseStaffDetail'
+  | 'MainWarehouseEditStaffProfile'
+  | 'MainWarehouseAttendance'
+  | 'MainWarehouseTodayAttendance'
+  | 'MainWarehouseAttendanceDetail'
+  | 'MainWarehouseAttendanceHistory'
   | 'WarehouseMore'
   | 'SubWarehouseCustomerDetail'
   | 'SubWarehouseCustomerPurchases'
@@ -445,19 +470,20 @@ export type ScreenName =
   | 'FMBSketch'
   | 'FieldContext'
   | 'Zones'
-  | 'AddZone'
   | 'EditCertification'
   | 'Notifications'
   | 'PersonalDetails'
   | 'Audits'
   | 'AuditResult'
   | 'FarmManagement'
+  | 'DairyProduce'
   | 'CropManagement'
   | 'Livestock'
   | 'Workforce'
   | 'ProduceCalendar'
   | 'NewCrop'
   | 'CropDetail'
+  | 'CropMilestones'
   | 'FarmRatings'
   | 'SoilTest'
   | 'NewSoilTest'
@@ -499,7 +525,6 @@ export type ScreenName =
   | 'GroupDetail'
   | 'Settings'
   | 'ChangePassword'
-  | 'ChangeMobile'
   | 'AboutSupport'
   | 'InputManagement'
   | 'LogFertigation'
@@ -514,9 +539,13 @@ export type ScreenName =
   | 'SoilHealthTracker'
   | 'SoilTypeClassification'
   | 'SoilAmendmentsLog'
+  | 'CreateSoilAmendment'
+  | 'LogSoilAmendment'
   | 'CropRotation'
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
+  | 'CreateErosionNote'
+  | 'LogErosionNote'
   | 'ExportSoilReports'
   | 'UploadNewSoilTest'
   | 'MarketPricingHome'
@@ -531,7 +560,21 @@ export type ScreenName =
   | 'SubWarehouseVoucherDetail'
   | 'SubWarehouseTodayOperations'
   | 'SubWarehouseActivityDetail'
-  | 'SubWarehouseAddMaterial';
+  | 'SubWarehouseAddMaterial'
+  | 'PestManagement'
+  | 'PestLibrary'
+  | 'TreatmentSchedule'
+  | 'WeatherRiskAnalytics'
+  | 'BankPayment'
+  | 'BankAccount'
+  | 'UpiId'
+  | 'PayoutHistory'
+  | 'PayoutDetail'
+  | 'Wallet'
+  | 'WithdrawFunds'
+  | 'WalletTransactionDetail'
+  | 'AddMoney'
+  | 'CashTopUp';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -552,23 +595,20 @@ function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color
   );
 }
 
-/**
- * Warehouse scope for the Sub Warehouse admin screens. SPEC GAP: GET
- * /v1/auth/me carries no warehouse assignment, so the app cannot know which
- * warehouse a SUB_WH_ADMIN runs. Until it does, this is the seeded Coonoor
- * warehouse (db/seed/001_reference.sql code WH-COON) in ONE place instead of
- * a 'Coonoor Warehouse' literal inside every screen. See SPEC_GAPS.md.
- */
 /** Sales channel shown by a B2B / HORECA route (the merged ChannelSales / ChannelOrderDetail screens). */
 function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail' | 'SubWarehouseHorecaSales' | 'SubWarehouseHorecaDetail'): SalesChannel {
   return route === 'SubWarehouseB2BSales' || route === 'SubWarehouseB2BDetail' ? 'B2B' : 'HORECA';
 }
 
-const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
-/** Main Warehouse view: no warehouseId = all warehouses. */
+/**
+ * Main Warehouse view: no warehouseId = all warehouses. The Sub Warehouse
+ * scope is not a constant: it is the SUB_WH_ADMIN assignment from GET
+ * /auth/me (BR-30), rendered through WarehouseScopeGate (renderWithSubScope).
+ */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
 /** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
-/** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST #106). */
+/** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST No. 106). */
 const RETURNS_ROUTE_ENTRY: Partial<Record<ScreenName, ReturnsRoute>> = {
   SubWarehouseReturnsIssues: 'ReturnsIssues',
   SubWarehouseRmaDetail: 'RmaDetail',
@@ -632,6 +672,20 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
   SubWarehouseTodayAttendance: { route: 'Attendance', filter: 'All' },
   SubWarehouseAttendanceDetail: { route: 'AttendanceDetail' },
   SubWarehouseAttendanceHistory: { route: 'AttendanceHistory' },
+  WarehouseStaff: { route: 'Staff' },
+  WarehouseStaffDetail: { route: 'StaffDetail' },
+  WarehouseEditStaffProfile: { route: 'EditStaffProfile' },
+  WarehouseAttendance: { route: 'Attendance' },
+  WarehouseTodayAttendance: { route: 'Attendance', filter: 'All' },
+  WarehouseAttendanceDetail: { route: 'AttendanceDetail' },
+  WarehouseAttendanceHistory: { route: 'AttendanceHistory' },
+  MainWarehouseStaff: { route: 'Staff' },
+  MainWarehouseStaffDetail: { route: 'StaffDetail' },
+  MainWarehouseEditStaffProfile: { route: 'EditStaffProfile' },
+  MainWarehouseAttendance: { route: 'Attendance' },
+  MainWarehouseTodayAttendance: { route: 'Attendance', filter: 'All' },
+  MainWarehouseAttendanceDetail: { route: 'AttendanceDetail' },
+  MainWarehouseAttendanceHistory: { route: 'AttendanceHistory' },
 };
 /**
  * Legacy Sub storage-ops route keys -> shared StorageFlow routes (W4, M4 part
@@ -792,6 +846,17 @@ interface StackEntry {
   tab?: TabName;
 }
 
+const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
+  'SubWarehouseDailyCashSummary',
+  'SubWarehouseCashTopUpHistory',
+  'SubWarehouseCapacity',
+  'SubWarehouseVarianceReview',
+  'SubWarehouseStaff',
+  'SubWarehouseReports',
+  'SubWarehouseSales',
+  'SubWarehouseContactSettings',
+];
+
 export default function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenName>('Splash');
   // Navigation history stack: keeps true chronological breadcrumbs so back buttons
@@ -799,6 +864,8 @@ export default function App(): React.JSX.Element {
   const [history, setHistory] = useState<StackEntry[]>([]);
   const [currentTab, setCurrentTab] = useState<TabName>('Home');
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  // Crop picked on create-listing step 1, carried to step 2.
+  const [listingDraftCrop, setListingDraftCrop] = useState<ListingCropChoice | null>(null);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentDetailItem | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupItem | null>(null);
@@ -822,12 +889,16 @@ export default function App(): React.JSX.Element {
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
-  const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
   // The admin role the last admin sign-in opened (params.adminRole). Warehouse
   // routes reached from the Sub shell do not all carry it, so remember it for
   // the dev-only demo fallback in useWarehousePermissions.
   const [lastAdminRole, setLastAdminRole] = useState<string | undefined>(undefined);
+  // Bumped on every sign-out and every dead session (failed refresh). App never
+  // unmounts, so state keyed to the signed-in account (the warehouse permission
+  // list below, lastAdminRole) must be dropped explicitly or the next admin to
+  // sign in on this device would render with the previous one's.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   useEffect(() => {
     const role = params['adminRole'];
     if (typeof role === 'string') setLastAdminRole(role);
@@ -841,12 +912,15 @@ export default function App(): React.JSX.Element {
   // after the retries, the role's docs/rbac.json grants stand in (see
   // roles/admin/permissions/warehousePermissions.ts). The server re-checks
   // every action anyway (CLAUDE.md 2.1).
+  // The same /auth/me also yields the Sub admin's own warehouse (roles[] ->
+  // SUB_WH_ADMIN warehouseId/warehouseName, BR-30); see renderWithSubScope.
   const warehousePermissions = useWarehousePermissions({
     enabled: shouldLoadWarehousePermissions(screen, params),
     adminRole: lastAdminRole,
     isDev: __DEV__,
     loadPermissions: async () => (await fetchMe()).permissions ?? [],
     hasCredentials: hasSessionCredentials,
+    sessionKey: sessionEpoch,
   }).permissions;
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
   // Params for a BillingFlow entry, memoised so the flow does not restart its
@@ -912,48 +986,18 @@ export default function App(): React.JSX.Element {
     [params, screen],
   );
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
-  // stack on every App render. Deep links carry flat customer / issue / ticket
-  // fields (customerName, issueNo, ticketNo, ...); the flow wants records.
+  // stack on every App render. Deep links carry a flat customer name and id;
+  // the customer screens look a customer up by its uuid only (a CUS- code
+  // shows "not found"). Issue and ticket detail open from their live lists,
+  // so flat issueNo / ticketNo deep-link fields are no longer turned into
+  // sample records.
   const customersParams = useMemo<CustomersRouteParams>(() => {
     const customerName = stringParam(params['customerName']) ?? stringParam(params['name']);
     const customerId = stringParam(params['customerId']) ?? stringParam(params['id']);
-    const issueNo = stringParam(params['issueNo']);
-    const ticketNo = stringParam(params['ticketNo']);
     return {
       customer:
         customerName !== undefined || customerId !== undefined
-          ? {
-            name: customerName,
-            id: customerId,
-            code: customerId,
-            phone: stringParam(params['customerPhone']),
-            ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : undefined,
-            lastPurchase: stringParam(params['customerPurchases']),
-          }
-          : undefined,
-      issue:
-        issueNo !== undefined
-          ? ({
-            issueNo,
-            orderNo: stringParam(params['orderNo']),
-            category: stringParam(params['category']),
-            status: stringParam(params['status']),
-            dateText: stringParam(params['dateText']),
-            product: stringParam(params['product']),
-            quantity: stringParam(params['quantity']),
-            description: stringParam(params['description']),
-          } as CustomersRouteParams['issue'])
-          : undefined,
-      ticket:
-        ticketNo !== undefined
-          ? ({
-            ticketNo,
-            orderRef: stringParam(params['orderRef']),
-            subject: stringParam(params['subject']),
-            status: stringParam(params['status']),
-            dateText: stringParam(params['dateText']),
-            resolvedBy: stringParam(params['resolvedBy']),
-          } as CustomersRouteParams['ticket'])
+          ? { name: customerName, id: customerId, code: stringParam(params['customerCode']) ?? customerId }
           : undefined,
       defaultFilter: stringParam(params['defaultFilter']),
     };
@@ -1021,7 +1065,13 @@ export default function App(): React.JSX.Element {
     return {
       customer:
         customerName !== undefined || customerId !== undefined
-          ? { name: customerName, id: customerId, mobile: stringParam(params['mobile']), balance }
+          ? {
+            name: customerName,
+            id: customerId,
+            mobile: stringParam(params['mobile']),
+            balance,
+            customerUuid: stringParam(params['customerUuid']),
+          }
           : undefined,
       category:
         category === 'pending' || category === 'failed' || category === 'fiscal' || category === 'reconciliation'
@@ -1029,26 +1079,6 @@ export default function App(): React.JSX.Element {
           : undefined,
     };
   }, [params]);
-
-const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
-  'SubWarehouseProfile',
-  'WarehouseWalletOperations',
-  'SubWarehouseReturnsIssues',
-  'SubWarehouseReturnHistory',
-  'SubWarehouseCustomerList',
-  'SubWarehouseBillingHub',
-  'SubWarehouseStaff',
-  'SubWarehouseTodayAttendance',
-  'SubWarehouseFinance',
-  'SubWarehouseSettings',
-  'WarehouseMore',
-  'SubWarehouseReports',
-  'SubWarehouseWarehouseOperations',
-  'SubWarehouseStorageInfo',
-  'SubWarehouseCustomerOrders',
-  'SubWarehouseSales',
-  'SubWarehouseContactSettings',
-];
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {
@@ -1078,8 +1108,38 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
   );
 
   const handleSubWHTabChange = useCallback((tab: string) => {
-    setParams((prev) => (prev?.['initialTab'] === tab ? prev : { ...prev, initialTab: tab }));
+    setParams((prev) => ({ ...prev, initialTab: tab }));
   }, []);
+
+  /**
+   * Every admin and warehouse sign-out. Revokes the server session and clears
+   * the Keychain tokens (api/auth `logout`), drops the account's cached state,
+   * then leaves for `target`. If the server call fails (offline) the tokens are
+   * still cleared and the user still leaves; see utils/signOut.ts. Navigating
+   * alone, as these used to, kept the session alive and a cold start
+   * (SplashScreen) restored the previous admin.
+   */
+  const signOutTo = useCallback(
+    (target: 'Login' | 'Welcome') => {
+      void endSession({
+        revoke: logout,
+        forget: () => {
+          setLastAdminRole(undefined);
+          setSessionEpoch((n) => n + 1);
+        },
+        leave: () => navigate(target),
+      });
+    },
+    [navigate],
+  );
+
+  /**
+   * Every Sub warehouse render site goes through here (BR-30): the screens
+   * get the admin's own warehouse from GET /auth/me, and render only once it
+   * is known. Loading and "no warehouse" states belong to WarehouseScopeGate;
+   * there is no fallback warehouse.
+   */
+
 
   /**
    * Sub warehouse modules outside storage-ops that own an activity record or a
@@ -1089,7 +1149,8 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
   const openSubWarehouseModule = useCallback(
     (module: ActivityModule) => {
       if (module === 'receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-      else if (module === 'verification') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' });
+      else if (module === 'verification')
+        navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' });
       else if (module === 'storage') navigate('SubWarehouseStorageInfo');
       else if (module === 'orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
       else if (module === 'cash') navigate('SubWarehouseCashTopUp');
@@ -1192,16 +1253,15 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
     // used to hardcode internally (it imported ./storage/tokenStorage directly).
     configureTokenStorage(tokenStorage);
     setOnAuthFailure(() => {
+      // The client has already cleared the tokens; drop the account's cached
+      // state too. Admin and warehouse routes go to Login, everything else to
+      // Welcome (utils/navigationSession.ts).
+      setLastAdminRole(undefined);
+      setSessionEpoch((n) => n + 1);
+      setParams({});
       setScreen((prev) => {
-        // Admin dashboards and every warehouse-admin route stay put: a 401 on
-        // the /auth/me permission fetch a Sub More destination fires on mount
-        // used to bounce the admin to Welcome (the Login page). See
-        // utils/navigationSession.ts.
-        if (keepsScreenOnAuthFailure(prev)) {
-          return prev;
-        }
         setHistory([]);
-        return 'Welcome';
+        return authFailureTarget(prev);
       });
     });
     return () => {
@@ -1209,24 +1269,29 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
     };
   }, []);
 
-  const switchLocale = (next: Locale): void => {
-    setLocale(next);
-    setLocaleState(next);
-  };
-
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
+
+  // The admin shell AdminMain renders, from the role the server returned at
+  // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
+  // through to the 'Unsupported' branch below instead of the Super Admin one.
+  const adminShell = adminShellForRole(params['adminRole']);
 
   const isSubWarehouse =
     screen.startsWith('SubWarehouse') ||
     screen.startsWith('MainWarehouse') ||
     Boolean(params && (params['adminRole'] === 'SUB_WH_ADMIN' || params['adminRole'] === 'MAIN_WH_ADMIN'));
 
+  // One TanStack Query cache per session: sessionEpoch changes on every
+  // sign-out, and the provider then drops the previous account's cache.
+  // CustomerMainApp mounts its own provider below; the nearest one wins.
+  // (Children left at their old indentation to keep this diff reviewable.)
   return (
+    <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isAuthLanding ? SPLASH_DARK : isSubWarehouse ? '#F0562A' : colors.primaryPressed}
+        backgroundColor={isAuthLanding ? SPLASH_DARK : isSubWarehouse ? adminColors.brand : colors.primaryPressed}
       />
 
       <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
@@ -1277,68 +1342,79 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
             onNavigate={(s) => navigate(s)}
           />
-        ) : screen === 'AdminMain' ? (
-          params['adminRole'] === 'TOHFA_ADMIN' ? (
+        ) : screen === 'AdminMain' && adminShell !== null ? (
+          adminShell === 'TOHFA_ADMIN' ? (
             <TohfaAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'FARMER_ADMIN' ? (
+          ) : adminShell === 'FARMER_ADMIN' ? (
             <FarmerAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'MAIN_WH_ADMIN' ? (
+          ) : adminShell === 'MAIN_WH_ADMIN' ? (
             <MainWarehouseAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              initialTab={params['initialTab'] as any}
+              initialMoreSubScreen={params['initialMoreSubScreen'] ?? (params['moreSubScreen'] as any)}
+              initialWhSubView={params['initialWhSubView'] ?? (params['whSubView'] as any)}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'SUB_WH_ADMIN' ? (
+          ) : adminShell === 'SUB_WH_ADMIN' ? (
             <SubWarehouseAdminDashboardScreen
               scope={SUB_WAREHOUSE_SCOPE}
               can={warehouseCan}
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
+              onTabChange={handleSubWHTabChange}
               initialTab={params['initialTab'] as any}
               initialReceivingSubView={params['initialReceivingSubView'] as any}
               initialInventoryScreen={params['initialInventoryScreen'] as any}
               initialShowOrders={!!params['showOrders']}
               initialOrdersScreen={params['ordersInitialScreen'] as any}
               initialOrdersParams={params['ordersInitialParams'] as any}
-              onTabChange={handleSubWHTabChange}
             />
           ) : (
+            // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
             <SuperAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           )
         ) : screen === 'SuperAdminDashboard' ? (
           <SuperAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'TohfaAdminDashboard' ? (
           <TohfaAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            initialTab={params['initialTab'] === 'Profile' ? 'Profile' : undefined}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'FarmerAdminDashboard' ? (
           <FarmerAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'MainWarehouseAdminDashboard' ? (
           <MainWarehouseAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            initialTab={params?.['initialTab'] as any}
+            initialMoreSubScreen={params?.['initialMoreSubScreen'] ?? (params?.['moreSubScreen'] as any)}
+            initialWhSubView={params?.['initialWhSubView'] ?? (params?.['whSubView'] as any)}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
           // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
           params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN' ? (
             <MainWarehouseAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              initialTab={params?.['initialTab'] as any}
+              initialMoreSubScreen={params?.['initialMoreSubScreen'] ?? (params?.['moreSubScreen'] as any)}
+              initialWhSubView={params?.['initialWhSubView'] ?? (params?.['whSubView'] as any)}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           ) : (
@@ -1352,7 +1428,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
               initialOrdersScreen={params?.ordersInitialScreen as any}
             initialOrdersParams={params?.ordersInitialParams as any}
             initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
               onTabChange={handleSubWHTabChange}
@@ -1493,7 +1569,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             can={warehouseCan}
             initialScreen={PROFILE_ROUTE_ENTRY[screen]}
             onBack={goBack}
-            onLogout={() => navigate('Login')}
+            onLogout={() => signOutTo('Login')}
             onReportIssue={() => navigate('SubWarehouseReportIssue')}
             onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
             onTabChange={openWarehouseTab}
@@ -1523,7 +1599,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
             onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
             onNavigateToSettings={() => navigate('SubWarehouseSettings')}
-            onLogout={() => navigate('Login')}
+            onLogout={() => signOutTo('Login')}
           />
         ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
           // The customer screens live in the shared warehouse/customers area (W4);
@@ -1699,17 +1775,29 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           // The staff & attendance screens live in the shared warehouse/staff-attendance
           // area (W4); each old key opens StaffFlow on the matching route.
           <StaffFlow
-            scope={SUB_WAREHOUSE_SCOPE}
+            scope={
+              params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
+              lastAdminRole === 'MAIN_WH_ADMIN' ||
+              adminShell === 'MAIN_WH_ADMIN' ||
+              screen.startsWith('MainWarehouse')
+                ? MAIN_WAREHOUSE_SCOPE
+                : SUB_WAREHOUSE_SCOPE
+            }
             can={warehouseCan}
             initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
             initialParams={staffParams}
             onBack={goBack}
             onTabChange={openWarehouseTab}
             onAssignDelivery={() => {
-              navigate('SubWarehouseAdminDashboard', {
+              const isMain =
+                params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
+                lastAdminRole === 'MAIN_WH_ADMIN' ||
+                adminShell === 'MAIN_WH_ADMIN' ||
+                screen.startsWith('MainWarehouse');
+              navigate(isMain ? 'MainWarehouseAdminDashboard' : 'SubWarehouseAdminDashboard', {
                 showOrders: true,
                 initialTab: 'Home',
-                ordersInitialScreen: 'M5S02',
+                ordersInitialScreen: isMain ? 'M5S01' : 'M5S02',
                 ordersInitialParams: { fulfillment: 'Delivery' },
               });
             }}
@@ -1996,7 +2084,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
               } else if (tab === 'Reports') {
                 navigate('ReportBuilder');
               } else if (tab === 'Profile') {
-                navigate('Welcome');
+                navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
               }
             }}
             onSelectFarmer={(f) => {
@@ -2211,8 +2299,11 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             }}
           />
         ) : screen === 'CustomerMain' ? (
-          <CustomerMainApp onSignOut={() => navigate('Welcome')} />
-        ) : screen === 'Unsupported' ? (
+          <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
+        ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
+          // 'AdminMain' reaches here only when adminShell is null (an unknown or
+          // missing role): fail closed with the unsupported-account message and
+          // its sign-out, never an admin shell.
           <View style={styles.unsupportedContainer}>
             <Icon name="block" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
             <Text style={styles.unsupportedText}>{t('farmer.app.unsupportedRole')}</Text>
@@ -2229,12 +2320,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                   elevation: 2,
                 },
               ]}
-              onPress={() => {
-                void (async () => {
-                  await logout();
-                  navigate('Welcome');
-                })();
-              }}
+              onPress={() => signOutTo('Welcome')}
             >
               <Text style={{ color: colors.white, fontWeight: '700', fontSize: typography.body }}>
                 Sign Out & Return to Login
@@ -2259,71 +2345,70 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           <EditCertificationScreen
             certification={selectedCertification}
             onCancel={() => navigate('Certifications')}
-            onSave={(updated) => {
-              if (updated) updateCertificationLocally(updated);
-              navigate('Certifications');
-            }}
-            onDelete={(id) => {
-              if (id) deleteCertificationLocally(id);
-              navigate('Certifications');
-            }}
+            // The screen has already saved / deleted through the API; the list reloads on mount.
+            onSaved={() => navigate('Certifications')}
+            onDeleted={() => navigate('Certifications')}
           />
         ) : screen === 'CreateListing' ? (
           <CreateListingScreen
-            onSuccess={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
+            onCancel={goBack}
+            onNext={(crop) => {
+              setListingDraftCrop(crop);
+              navigate('CreateListingStep2');
             }}
-            onCancel={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
-            onNext={() => navigate('CreateListingStep2')}
           />
         ) : screen === 'CreateListingStep2' ? (
           <CreateListingStep2Screen
+            crop={listingDraftCrop}
             onCancel={goBack}
             onBack={goBack}
             onSuccess={() => {
-              navigate('MyListings');
+              // Land on My Listings (it fetches on mount, so the new listing is
+              // on it) with the create flow dropped from history: Back goes to
+              // the Marketing tab, not to an emptied step 2. The draft crop is
+              // cleared last so step 2 never re-renders without it.
+              setHistory([{ screen: 'MainTabs', params: {}, tab: 'Listings' }]);
+              setCurrentTab('Listings');
+              setParams({});
+              setScreen('MyListings');
+              setListingDraftCrop(null);
             }}
           />
         ) : screen === 'CounterOffer' ? (
           <CounterOfferScreen
             listing={selectedListing}
-            listingId={selectedListing?.id}
-            cropName={selectedListing?.cropName}
-            offer={selectedListing?.activeCounterOffer}
-            onAccept={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
-            onReject={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
+            listingId={
+              typeof params['listingId'] === 'string' ? params['listingId'] : selectedListing?.id
+            }
+            // The screen we return to re-fetches on mount, so it shows the new
+            // status. selectedListing is left as-is (the next open overwrites it):
+            // clearing it here would re-render this screen as "no longer open"
+            // for a frame before the back navigation lands.
+            onSuccess={() => goBack()}
             onCancel={goBack}
           />
         ) : screen === 'ListingDetail' ? (
-          <ListingDetailScreen onBack={goBack} />
+          <ListingDetailScreen listing={selectedListing} onBack={goBack} />
         ) : screen === 'FMBSketch' ? (
           <FMBSketchScreen
             onNavigateBack={goBack}
-            onNavigateToFieldContext={() => navigate('FieldContext')}
+            onNavigateToFieldContext={(farmId) => navigate('FieldContext', { farmId })}
           />
         ) : screen === 'FieldContext' ? (
           <FieldContextScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToZones={() => navigate('Zones')}
+            onNavigateToZones={(farmId) => {
+              if (params['returnTo'] === 'UploadNewSoilTest' || params['returnTo'] === 'NewSoilTest') {
+                goBack();
+              } else {
+                navigate('Zones', { farmId });
+              }
+            }}
           />
         ) : screen === 'Zones' ? (
           <ZonesScreen
-            onNavigateBack={goBack}
-            onNavigateToAddZone={() => navigate('AddZone')}
-            onSave={goBack}
-          />
-        ) : screen === 'AddZone' ? (
-          <AddZoneScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
             onSave={goBack}
           />
@@ -2333,29 +2418,15 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           <NotificationsScreen
             onBack={goBack}
             onNavigateToCounterOffer={(listingId) => {
-              setSelectedListing({
-                id: listingId || 'dummy-listing',
-                listingNumber: 'L-9821',
-                cropName: 'Carrot - Ooty - Grade 1',
-                quantityKg: '150',
-                askingPricePerKg: '40',
-                ceilingPricePerKg: '45',
-                status: 'COUNTER_OFFER',
-                grade: 'Grade 1',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                activeCounterOffer: {
-                  id: 'dummy-offer',
-                  pricePerKg: '34',
-                  quantityKg: '150',
-                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                  round: 1,
-                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-              } as any);
-              navigate('CounterOffer');
+              // Only the id is known here; CounterOfferScreen resolves the real
+              // listing from the farmer's own listings (no GET /listings/{id}).
+              setSelectedListing(null);
+              if (listingId) {
+                navigate('CounterOffer', { listingId });
+              } else {
+                setCurrentTab('Listings');
+                navigate('MainTabs');
+              }
             }}
           />
         ) : screen === 'AuditResult' ? (
@@ -2373,7 +2444,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             onBack={goBack}
             onNavigateToInputManagement={() => navigate('InputManagement')}
             onNavigateToSoilManagement={() => navigate('SoilManagement')}
-            onNavigateToPestManagement={() => navigate('LogPestTreatment')}
+            onNavigateToPestManagement={() => navigate('PestManagement')}
           />
         ) : screen === 'InputManagement' ? (
           <InputManagementScreen
@@ -2410,6 +2481,32 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             onBack={goBack}
             onSave={() => goBack('InputManagement')}
           />
+        ) : screen === 'PestManagement' ? (
+          <PestManagementScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+            onNavigateToSchedule={(farmId) => navigate('TreatmentSchedule', { farmId })}
+            onNavigateToPestLibrary={(farmId) => navigate('PestLibrary', { farmId })}
+            onNavigateToWeatherRisk={(farmId) => navigate('WeatherRiskAnalytics', { farmId })}
+          />
+        ) : screen === 'PestLibrary' ? (
+          <PestLibraryScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+            onNavigateToSchedule={() => {
+              navigate('TreatmentSchedule', { farmId: params['farmId'] });
+            }}
+          />
+        ) : screen === 'TreatmentSchedule' ? (
+          <TreatmentScheduleScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+          />
+        ) : screen === 'WeatherRiskAnalytics' ? (
+          <WeatherRiskAnalyticsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+          />
         ) : screen === 'FarmManagement' ? (
           <FarmManagementScreen
             onBack={() => goBack('MainTabs')}
@@ -2424,9 +2521,12 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             onNavigateToAttendance={() => navigate('DailyAttendance')}
             onNavigateToWorkforce={() => navigate('Workforce')}
             onNavigateToLivestock={() => navigate('Livestock')}
+            onNavigateToDairyProduce={() => navigate('DairyProduce')}
             onNavigateToLearningHub={() => navigate('LearningHub')}
             onNavigateToSoilManagement={() => navigate('SoilManagement')}
           />
+        ) : screen === 'DairyProduce' ? (
+          <DairyProduceScreen onBack={goBack} />
         ) : screen === 'ProduceCalendar' ? (
           <ProduceCalendarScreen
             onBack={() => goBack('FarmManagement')}
@@ -2441,10 +2541,16 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             crop={selectedCrop}
             onBack={() => goBack('ProduceCalendar')}
             onEdit={() => navigate('NewCrop')}
-            onNavigateToDiary={() => navigate('CropDiaryEntries')}
+            onNavigateToMilestones={() => navigate('CropMilestones')}
+            onNavigateToDiary={() => navigate('FarmDiary')}
             onNavigateToInputs={() => navigate('CropInputsApplied')}
             onNavigateToWorkforce={() => navigate('CropWorkforceHours')}
             onNavigateToNPK={() => navigate('CropNPKContribution')}
+          />
+        ) : screen === 'CropMilestones' ? (
+          <CropMilestonesScreen
+            crop={selectedCrop}
+            onBack={() => goBack('CropDetail')}
           />
         ) : screen === 'CropDiaryEntries' ? (
           <CropDiaryEntriesScreen
@@ -2479,8 +2585,9 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           <NewCropScreen
             onBack={() => goBack('ProduceCalendar')}
             onCancel={() => goBack('ProduceCalendar')}
-            onSaveCrop={(newCrop) => {
-              addProduceCropLocally(newCrop);
+            onSaveCrop={() => {
+              // NewCropScreen already persisted the crop via createFarmCrop();
+              // ProduceCalendarScreen re-fetches from the API when it remounts.
               goBack('ProduceCalendar');
             }}
           />
@@ -2508,7 +2615,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
             animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
             species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
             breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
-            gender={typeof params['gender'] === 'string' ? params['gender'] : 'F'}
+            gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
             age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
             statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
             onBack={goBack}
@@ -2546,7 +2653,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
         ) : screen === 'Workforce' ? (
           <WorkforceScreen
             onBack={goBack}
-            onNavigateToAddWorker={() => navigate('AddWorker')}
+            onNavigateToAddWorker={(fid) => navigate('AddWorker', { farmId: fid })}
             onNavigateToTimesheet={() => navigate('DailyAttendance')}
             onNavigateToPayroll={() => navigate('Payroll')}
             onNavigateToWorkerDetail={(id, name, role) =>
@@ -2574,6 +2681,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           />
         ) : screen === 'AddWorker' ? (
           <AddWorkerScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
             initialWorker={params as any}
             onBack={goBack}
             onCancel={goBack}
@@ -2593,29 +2701,52 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           <NewFarmDiaryEntryScreen
             crop={selectedCrop}
             onBack={goBack}
-            onNext={(cat) => {
-              setParams((prev) => ({ ...prev, diaryCategory: cat }));
-              if (cat.toLowerCase() === 'nutrients') {
-                navigate('AddInputApplied', { initialInputType: 'Fertigation', fromDiary: '1' });
-              } else if (cat.toLowerCase() === 'crop care') {
-                navigate('AddInputApplied', { initialInputType: 'Pest Treatment', fromDiary: '1' });
-              } else {
-                navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat });
-              }
+            onCancel={() => navigate('FarmDiary')}
+            onNext={(data) => {
+              // `navigate` replaces `params` with its second argument, so the
+              // accumulated entry state must be passed forward explicitly.
+              navigate('NewFarmDiaryEntryStep2', {
+                ...params,
+                plotId: data.plotId,
+                plotName: data.plotName,
+                farmCropId: data.farmCropId, // undefined clears a stale pick
+                cropName: data.cropName,
+                date: data.date,
+              });
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep2' ? (
           <NewFarmDiaryEntryStep2Screen
             crop={selectedCrop}
-            category={typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Crop Care'}
+            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
             onChangeCategory={goBack}
             onBack={goBack}
-            onNext={() => navigate('NewFarmDiaryEntryStep3')}
+            onCancel={() => navigate('FarmDiary')}
+            onNext={(entryData) => {
+              navigate('NewFarmDiaryEntryStep3', {
+                ...params,
+                categoryKey: entryData.categoryKey,
+                categoryName: entryData.categoryName,
+                subActivityKey: entryData.subActivityKey,
+                subActivityName: entryData.subActivityName,
+              });
+            }}
           />
         ) : screen === 'NewFarmDiaryEntryStep3' ? (
+          // Ids are passed through without fallbacks: a missing plotId/categoryKey/
+          // subActivityKey is a navigation bug that Step 3 surfaces, not something to mock.
           <NewFarmDiaryEntryStep3Screen
             crop={selectedCrop}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            farmCropId={typeof params['farmCropId'] === 'string' ? params['farmCropId'] : undefined}
+            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
+            subActivityKey={typeof params['subActivityKey'] === 'string' ? params['subActivityKey'] : undefined}
+            entryCategory={typeof params['categoryName'] === 'string' ? params['categoryName'] : undefined}
+            entrySubActivity={typeof params['subActivityName'] === 'string' ? params['subActivityName'] : undefined}
+            fieldZone={typeof params['plotName'] === 'string' ? params['plotName'] : undefined}
+            cropName={typeof params['cropName'] === 'string' ? params['cropName'] : undefined}
             onBack={goBack}
+            onCancel={() => navigate('FarmDiary')}
             onDone={() => {
               if (selectedCrop) {
                 navigate('CropDiaryEntries');
@@ -2636,61 +2767,144 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
         ) : screen === 'SoilManagement' ? (
           <SoilManagementScreen
             onBack={goBack}
-            onNavigateToSoilTestRecords={() => navigate('SoilTestRecords')}
-            onNavigateToSoilHealthTracker={() => navigate('SoilHealthTracker')}
-            onNavigateToSoilTypeClassification={() => navigate('SoilTypeClassification')}
-            onNavigateToAmendments={() => navigate('SoilAmendmentsLog')}
-            onNavigateToCropRotation={() => navigate('CropRotation')}
-            onNavigateToMoistureTracking={() => navigate('SoilMoistureTracking')}
-            onNavigateToErosionConservation={() => navigate('ErosionConservation')}
-            onNavigateToExportReports={() => navigate('ExportSoilReports')}
-            onNavigateToSoilTest={() => navigate('SoilTest')}
-            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToSoilTestRecords={(farmId) => navigate('SoilTestRecords', { farmId })}
+            onNavigateToSoilHealthTracker={(farmId) => navigate('SoilHealthTracker', { farmId })}
+            onNavigateToSoilTypeClassification={(farmId) => navigate('SoilTypeClassification', { farmId })}
+            onNavigateToAmendments={(farmId) => navigate('SoilAmendmentsLog', { farmId })}
+            onNavigateToCropRotation={(farmId) => navigate('CropRotation', { farmId })}
+            onNavigateToMoistureTracking={(farmId) => navigate('SoilMoistureTracking', { farmId })}
+            onNavigateToErosionConservation={(farmId) => navigate('ErosionConservation', { farmId })}
+            onNavigateToExportReports={(farmId) => navigate('ExportSoilReports', { farmId })}
+            onNavigateToNewSoilTest={(farmId) => navigate('UploadNewSoilTest', { farmId })}
           />
         ) : screen === 'SoilTestRecords' ? (
           <SoilTestRecordsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
-            onNavigateToRecordDetail={() => navigate('SoilTest')}
-            onUploadNewTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToRecordDetail={() => navigate('SoilTest', { farmId: params['farmId'] })}
+            onUploadNewTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
           />
         ) : screen === 'SoilHealthTracker' ? (
           <SoilHealthTrackerScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilTypeClassification' ? (
           <SoilTypeClassificationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilAmendmentsLog' ? (
           <SoilAmendmentsLogScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
-            onLogAmendment={() => navigate('UploadNewSoilTest')}
+            onLogAmendment={() => navigate('CreateSoilAmendment', { farmId: params['farmId'] })}
+          />
+        ) : screen === 'CreateSoilAmendment' || screen === 'LogSoilAmendment' ? (
+          <CreateSoilAmendmentScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            onBack={goBack}
+            onSave={goBack}
           />
         ) : screen === 'CropRotation' ? (
           <CropRotationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilMoistureTracking' ? (
           <SoilMoistureTrackingScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'ErosionConservation' ? (
           <ErosionConservationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
+            onLogErosionNote={() => navigate('CreateErosionNote', { farmId: params['farmId'] })}
+          />
+        ) : screen === 'CreateErosionNote' || screen === 'LogErosionNote' ? (
+          <CreateErosionNoteScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            onBack={goBack}
+            onSave={goBack}
           />
         ) : screen === 'ExportSoilReports' ? (
           <ExportSoilReportsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'UploadNewSoilTest' || screen === 'NewSoilTest' ? (
           <UploadNewSoilTestScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
             onSave={goBack}
+            onNavigateToFieldContext={() => navigate('FieldContext', { farmId: params['farmId'], returnTo: screen })}
           />
         ) : screen === 'SoilTest' ? (
           <SoilTestScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
+          />
+        ) : screen === 'BankPayment' ? (
+          <BankPaymentScreen
+            onBack={goBack}
+            onNavigateToBankAccount={() => navigate('BankAccount')}
+            onNavigateToUpiId={() => navigate('UpiId')}
+            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+            onNavigateToWallet={() => navigate('Wallet')}
+          />
+        ) : screen === 'BankAccount' ? (
+          <BankAccountScreen
+            onBack={goBack}
+          />
+        ) : screen === 'UpiId' ? (
+          <UpiIdScreen
+            onBack={goBack}
+            onSaveSuccess={goBack}
+          />
+        ) : screen === 'PayoutHistory' ? (
+          <PayoutHistoryScreen
+            onBack={goBack}
+            onNavigateToDetail={(payout) => navigate('PayoutDetail', payout as any)}
+          />
+        ) : screen === 'PayoutDetail' ? (
+          <PayoutDetailScreen
+            payout={params as any}
+            onBack={goBack}
+          />
+        ) : screen === 'WithdrawFunds' ? (
+          <WithdrawFundsScreen
+            onClose={goBack}
+            onRequestSuccess={goBack}
+          />
+        ) : screen === 'WalletTransactionDetail' ? (
+          <WalletTransactionDetailScreen
+            transaction={params as any}
+            onBack={goBack}
+          />
+        ) : screen === 'AddMoney' ? (
+          <AddMoneyScreen
+            onClose={goBack}
+            onSuccess={goBack}
+            onNavigateToCashTopUp={(data) => navigate('CashTopUp', data)}
+          />
+        ) : screen === 'CashTopUp' ? (
+          <CashTopUpScreen
+            amount={typeof params['amount'] === 'string' ? params['amount'] : '2,000'}
+            referenceCode={typeof params['referenceCode'] === 'string' ? params['referenceCode'] : 'CASH-TU-7734'}
+            onBack={goBack}
+            onDone={goBack}
+          />
+        ) : screen === 'Wallet' ? (
+          <WalletScreen
+            onBack={goBack}
+            onNavigateToAddMoney={() => navigate('AddMoney')}
+            onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+            onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
           />
         ) : screen === 'Weather' ? (
           <WeatherScreen
@@ -2699,11 +2913,23 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
         ) : screen === 'ActiveCrops' ? (
           <ActiveCropsScreen
             onNavigateBack={goBack}
+            onNavigateToCropDetail={(crop) => {
+              setSelectedCrop(crop);
+              navigate('CropDetail');
+            }}
+            onNavigateToNewCrop={() => navigate('NewCrop')}
           />
         ) : screen === 'MyListings' ? (
           <MyListingsScreen
             onNavigateBack={goBack}
-            onNavigateToListingDetail={() => navigate('ListingDetail')}
+            onNavigateToListingDetail={(listing) => {
+              setSelectedListing(listing);
+              navigate('ListingDetail');
+            }}
+            onNavigateToCounterOffer={(listing) => {
+              setSelectedListing(listing);
+              navigate('CounterOffer');
+            }}
           />
         ) : screen === 'TohfaCalendar' ? (
           <TohfaCalendarScreen
@@ -2753,8 +2979,6 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                 name: selectedToolForEdit?.name || 'Knapsack Sprayer',
                 category: 'Tools',
                 dateInfo: `Tools · ${selectedToolForEdit?.purchaseDate || 'Purchased 04 Jan 2025'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -2791,8 +3015,6 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                 name: selectedEquipmentForEdit?.name || 'Drip Irrigation Kit',
                 category: 'Equipment',
                 dateInfo: `Equipment · ${selectedEquipmentForEdit?.purchaseDate || 'Purchased 22 Feb 2024'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -2830,8 +3052,6 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                 name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
                 category: 'Trees',
                 dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -2869,8 +3089,6 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                 name: selectedMachineryForEdit?.name || 'Power Tiller',
                 category: 'Machinery',
                 dateInfo: `Machinery · ${selectedMachineryForEdit?.purchaseDate || 'Purchased 08 Feb 2023'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -2879,13 +3097,25 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           <RemoveItemScreen
             item={selectedItemForRemove ?? undefined}
             onNavigateBack={goBack}
-            onConfirmRemove={() => {
+            onConfirmRemove={async () => {
+              // canDeleteAsset is the single source of truth for which categories have no
+              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
+              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
+              // not the gate itself.
+              if (
+                selectedItemForRemove?.id &&
+                canDeleteAsset(selectedItemForRemove.category)
+              ) {
+                try {
+                  await deleteFarmAsset(selectedItemForRemove.id);
+                } catch {
+                  // Ignore error and navigate back to list which refreshes
+                }
+              }
               if (selectedItemForRemove?.category === 'Tools') {
                 navigate('ToolsList');
               } else if (selectedItemForRemove?.category === 'Equipment') {
                 navigate('EquipmentList');
-              } else if (selectedItemForRemove?.category === 'Trees') {
-                navigate('TreesList');
               } else {
                 navigate('MachineryList');
               }
@@ -2926,21 +3156,15 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
           />
         ) : screen === 'AboutSupport' ? (
           <AboutSupportScreen onBack={goBack} />
-        ) : screen === 'ChangeMobile' ? (
-          <ChangeMobileScreen
-            onBack={goBack}
-            onNavigateToPassword={() => navigate('ChangePassword')}
-          />
         ) : screen === 'ChangePassword' ? (
-          <ChangePasswordScreen onBack={goBack} />
+          <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
         ) : screen === 'Settings' ? (
           <SettingsScreen
             onBack={goBack}
             onNavigateToProfile={() => navigate('PersonalDetails')}
             onNavigateToChangePassword={() => navigate('ChangePassword')}
-            onNavigateToChangeMobile={() => navigate('ChangeMobile')}
             onNavigateToAboutSupport={() => navigate('AboutSupport')}
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
           />
         ) : (
           /* MainTabs layout */
@@ -2955,34 +3179,15 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                   onNavigateToProfile={() => setCurrentTab('Profile')}
                   onNavigateToNotifications={() => navigate('Notifications')}
                   onNavigateToCounterOffer={(item) => {
+                    // Only a real listing from DashboardScreen's GET /listings opens the
+                    // counter-offer screen; with none, there is nothing to respond to.
                     if (item && item.id) {
                       setSelectedListing(item);
+                      navigate('CounterOffer');
                     } else {
-                      setSelectedListing({
-                        id: 'dummy-listing',
-                        listingNumber: 'L-9821',
-                        cropName: 'Carrot - Ooty - Grade 1',
-                        quantityKg: '150',
-                        askingPricePerKg: '40',
-                        ceilingPricePerKg: '45',
-                        status: 'COUNTER_OFFERED',
-                        grade: 'GRADE_1',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        activeCounterOffer: {
-                          id: 'dummy-offer',
-                          listingId: 'dummy-listing',
-                          round: 1,
-                          offeredBy: 'ADMIN',
-                          pricePerKg: '34',
-                          quantityKg: '150',
-                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                          status: 'PENDING',
-                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                        },
-                      } as any);
+                      // No specific offer: the Marketing tab lists every one that needs a reply.
+                      setCurrentTab('Listings');
                     }
-                    navigate('CounterOffer');
                   }}
                   onNavigateToFarmManagement={() => navigate('CropManagement')}
                   onNavigateToCropManagement={() => navigate('CropManagement')}
@@ -2994,49 +3199,36 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                   onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
                   onNavigateToLearningHub={() => navigate('LearningHub')}
                   onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
-                  onNavigateToCropDetail={(cropName: string) => {
-                    const found = localProduceCropsCache.find(
-                      (c: CropItem) => c.name.toLowerCase() === cropName.toLowerCase(),
-                    ) ?? localProduceCropsCache[0];
-                    setSelectedCrop(found ?? null);
+                  onNavigateToInventory={() => navigate('FarmInventory')}
+                  // The dashboard's crop preview is built from real farm_crops rows
+                  // (listAllActiveFarmCrops + toActiveCropData), so each card carries
+                  // the same CropItem payload ActiveCropsScreen hands CropDetailScreen.
+                  onNavigateToCropDetail={(crop) => {
+                    setSelectedCrop(crop);
                     navigate('CropDetail');
                   }}
+                  onNavigateToAudits={() => navigate('Audits')}
                 />
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen
                   onNavigateToCreateListing={() => navigate('CreateListing')}
-                  onNavigateToCounterOffer={(item) => {
-                    if (item && item.id) {
-                      setSelectedListing(item);
-                    } else {
-                      setSelectedListing({
-                        id: 'dummy-listing',
-                        listingNumber: 'L-9821',
-                        cropName: 'Carrot - Ooty - Grade 1',
-                        quantityKg: '150',
-                        askingPricePerKg: '40',
-                        ceilingPricePerKg: '45',
-                        status: 'COUNTER_OFFER',
-                        grade: 'Grade 1',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        activeCounterOffer: {
-                          id: 'dummy-offer',
-                          pricePerKg: '34',
-                          quantityKg: '150',
-                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                          round: 1,
-                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString(),
-                        },
-                      } as any);
-                    }
+                  onNavigateToCounterOffer={(listing) => {
+                    setSelectedListing(listing);
                     navigate('CounterOffer');
                   }}
+                  onNavigateToListingDetail={(listing) => {
+                    setSelectedListing(listing);
+                    navigate('ListingDetail');
+                  }}
+                  onNavigateToMyListings={() => navigate('MyListings')}
                 />
               ) : currentTab === 'Wallet' ? (
-                <WalletScreen />
+                <WalletScreen
+                  onNavigateToAddMoney={() => navigate('AddMoney')}
+                  onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+                  onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+                  onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
+                />
               ) : (
                 <ProfileScreen
                   onNavigateToHome={() => setCurrentTab('Home')}
@@ -3049,12 +3241,14 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
                   onNavigateToSoilTest={() => navigate('SoilTest')}
                   onNavigateToSettings={() => navigate('Settings')}
                   onNavigateToAboutSupport={() => navigate('AboutSupport')}
+                  onNavigateToBankPayment={() => navigate('BankPayment')}
+                  onSignOut={() => signOutTo('Welcome')}
                 />
               )}
             </View>
 
             {/* Bottom Tab Bar */}
-            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 70 }]}>
+            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 58 }]}>
               <Pressable
                 style={styles.tabItem}
                 onPress={() => setCurrentTab('Home')}
@@ -3133,6 +3327,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
         )}
       </View>
     </SafeAreaView>
+    </SessionQueryProvider>
   );
 }
 
@@ -3200,18 +3395,18 @@ const styles = StyleSheet.create({
   },
   centerAddButton: {
     backgroundColor: authPalette.deepGreen,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
+    marginTop: -20,
     shadowColor: authPalette.deepGreen,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 6,
-    borderWidth: 3.5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+    borderWidth: 3,
     borderColor: colors.white,
   },
   unsupportedContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },

@@ -33,6 +33,8 @@ export interface UseWarehousePermissionsOptions {
   loadPermissions: () => Promise<readonly string[]>;
   /** True when a token exists to authenticate /auth/me with. */
   hasCredentials: () => Promise<boolean>;
+  /** Optional session key to key permissions to a session. */
+  sessionKey?: unknown;
 }
 
 export interface UseWarehousePermissionsResult extends ResolvedWarehousePermissions {

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  BackHandler,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -8,7 +9,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { authPalette as P, colors, typography } from '../../theme';
+import { listFarmAssets } from '../../api/farmAssets';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -96,36 +99,19 @@ interface CategoryData {
   iconBg: string;
 }
 
-const CATEGORIES: CategoryData[] = [
-  {
-    name: 'Tools',
-    count: '3 items',
-    dueCount: 2,
-    icon: <ToolsIcon />,
-    iconBg: P.twGreen100,
-  },
-  {
-    name: 'Equipment',
-    count: '3 items',
-    dueCount: 2,
-    icon: <EquipmentIcon />,
-    iconBg: P.lightGreen,
-  },
-  {
-    name: 'Trees',
-    count: '3 plantings',
-    dueCount: 2,
-    icon: <TreesIcon />,
-    iconBg: P.paleMintBg,
-  },
-  {
-    name: 'Machinery',
-    count: '3 items',
-    dueCount: 2,
-    icon: <MachineryIcon />,
-    iconBg: P.sageTintBg,
-  },
-];
+/**
+ * Real farm_assets-backed counts for Tools/Equipment/Machinery (fetched
+ * below). "Trees" has no backend (TreesListScreen.tsx is a separate
+ * plantings concept — see farm-assets migration's header comment) so it
+ * stays exactly the hardcoded row the mock always showed.
+ */
+const TREES_CATEGORY: CategoryData = {
+  name: 'Trees',
+  count: '3 plantings',
+  dueCount: 2,
+  icon: <TreesIcon />,
+  iconBg: P.paleMintBg,
+};
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -135,6 +121,111 @@ interface FarmInventoryScreenProps {
 }
 
 export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: FarmInventoryScreenProps): React.JSX.Element {
+  const [toolsCategory, setToolsCategory] = useState<CategoryData | null>(null);
+  const [equipmentCategory, setEquipmentCategory] = useState<CategoryData | null>(null);
+  const [machineryCategory, setMachineryCategory] = useState<CategoryData | null>(null);
+  const [servicingSummary, setServicingSummary] = useState<{
+    dueSoonCount: number;
+    overdueCount: number;
+    totalNeedService: number;
+  }>({ dueSoonCount: 0, overdueCount: 0, totalNeedService: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
+
+  const loadCounts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [tools, equipment, machinery] = await Promise.all([
+        listFarmAssets({ category: 'TOOL', limit: 100 }),
+        listFarmAssets({ category: 'EQUIPMENT', limit: 100 }),
+        listFarmAssets({ category: 'MACHINERY', limit: 100 }),
+      ]);
+
+      const allAssets = [...tools.items, ...equipment.items, ...machinery.items];
+      const overdue = allAssets.filter((item) => item.status === 'OVERDUE').length;
+      const dueSoon = allAssets.filter((item) => item.status === 'DUE_SOON').length;
+      setServicingSummary({
+        dueSoonCount: dueSoon,
+        overdueCount: overdue,
+        totalNeedService: overdue + dueSoon,
+      });
+
+      setToolsCategory({
+        name: 'Tools',
+        count: `${tools.items.length} items`,
+        dueCount: tools.items.filter((item) => item.status !== 'OK').length,
+        icon: <ToolsIcon />,
+        iconBg: P.twGreen100,
+      });
+      setEquipmentCategory({
+        name: 'Equipment',
+        count: `${equipment.items.length} items`,
+        dueCount: equipment.items.filter((item) => item.status !== 'OK').length,
+        icon: <EquipmentIcon />,
+        iconBg: P.lightGreen,
+      });
+      setMachineryCategory({
+        name: 'Machinery',
+        count: `${machinery.items.length} items`,
+        dueCount: machinery.items.filter((item) => item.status !== 'OK').length,
+        icon: <MachineryIcon />,
+        iconBg: P.sageTintBg,
+      });
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (onNavigateBack) {
+        onNavigateBack();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [onNavigateBack]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={72} borderRadius={14} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.errorContainer}>
+          <ErrorState error={error} onRetry={loadCounts} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Real Tools/Equipment/Machinery categories are guaranteed non-null once
+  // loading finishes without an error (loadCounts always sets all three
+  // together); Trees stays the hardcoded row.
+  const categories: CategoryData[] = [
+    toolsCategory ?? { name: 'Tools', count: '0 items', dueCount: 0, icon: <ToolsIcon />, iconBg: P.twGreen100 },
+    equipmentCategory ?? { name: 'Equipment', count: '0 items', dueCount: 0, icon: <EquipmentIcon />, iconBg: P.lightGreen },
+    TREES_CATEGORY,
+    machineryCategory ?? { name: 'Machinery', count: '0 items', dueCount: 0, icon: <MachineryIcon />, iconBg: P.sageTintBg },
+  ];
+
   return (
     <SafeAreaView style={styles.screen}>
       {/* Header */}
@@ -159,8 +250,16 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
             <WrenchAlertIcon />
           </View>
           <View style={styles.alertTextWrap}>
-            <Text style={styles.alertTitle}>8 items need servicing</Text>
-            <Text style={styles.alertSubtitle}>4 due soon · 4 overdue across all categories</Text>
+            <Text style={styles.alertTitle}>
+              {servicingSummary.totalNeedService > 0
+                ? `${servicingSummary.totalNeedService} ${servicingSummary.totalNeedService === 1 ? 'item needs' : 'items need'} servicing`
+                : 'All items up to date'}
+            </Text>
+            <Text style={styles.alertSubtitle}>
+              {servicingSummary.totalNeedService > 0
+                ? `${servicingSummary.dueSoonCount} due soon · ${servicingSummary.overdueCount} overdue across all categories`
+                : 'No servicing overdue or due soon'}
+            </Text>
           </View>
         </View>
 
@@ -169,7 +268,7 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
 
         {/* Category Cards Grid */}
         <View style={styles.grid}>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <TouchableOpacity key={cat.name} style={styles.categoryCard} activeOpacity={0.7} onPress={() => onNavigateToCategory?.(cat.name)}>
               {/* Due Badge */}
               {cat.dueCount > 0 && (
@@ -201,6 +300,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: P.bg,
   },
+  loadingContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
 
   // Header
   header: {
@@ -225,13 +333,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.ink,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.muted,
     marginTop: 1,
@@ -271,20 +379,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
     marginBottom: 2,
   },
   alertSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGreen700,
   },
 
   // Section Label
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.muted,
     letterSpacing: 0.8,
@@ -319,7 +427,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dueBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -332,13 +440,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   categoryName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
     marginBottom: 2,
   },
   categoryCount: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.muted,
   },

@@ -224,7 +224,13 @@ farmerCounterOffersRouter.post(
   requirePermission('listing.counter_offer.respond'),
   asyncHandler(async (req, res) => {
     const { id, offerId } = counterOfferParams.parse(req.params);
-    const result = await counterOffersService.respondAccept(req.actor!, req.scope!, id, offerId);
+    const result = await counterOffersService.respondAccept(
+      req.actor!,
+      req.scope!,
+      id,
+      offerId,
+      req.header('idempotency-key'),
+    );
     res.json(result);
   }),
 );
@@ -242,6 +248,7 @@ farmerCounterOffersRouter.post(
       id,
       offerId,
       message ?? null,
+      req.header('idempotency-key'),
     );
     res.json(result);
   }),
@@ -254,7 +261,14 @@ farmerCounterOffersRouter.post(
   asyncHandler(async (req, res) => {
     const { id, offerId } = counterOfferParams.parse(req.params);
     const body = counterOfferCreateBody.parse(req.body);
-    const result = await counterOffersService.respondCounter(req.actor!, req.scope!, id, offerId, body);
+    const result = await counterOffersService.respondCounter(
+      req.actor!,
+      req.scope!,
+      id,
+      offerId,
+      body,
+      req.header('idempotency-key'),
+    );
     res.status(201).json(result);
   }),
 );

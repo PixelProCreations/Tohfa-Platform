@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -13,11 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polygon } from 'react-native-svg';
-import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { ErrorState, FarmBoundaryMap, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
   evalCertificateWarning,
+  getCachedCertifications,
   getMyCertifications,
   getMyFarmerProfile,
   getMyFarmRating,
@@ -28,9 +30,34 @@ import {
   type Certification,
   type FarmRating,
 } from '../../api/farmer';
+import { certificationDisplayName } from '../certifications/certificationForm';
+import { getFarms, getPlots, updateFarm, type Farm } from '../../api/farms';
+import { listSoilTests, type SoilTestRecord } from '../../api/soil';
+import {
+  auditConductedBy,
+  auditDisplayDate,
+  auditScore,
+  deriveAuditsOverview,
+  listAllMyAudits,
+  QUARTERS_PER_FISCAL_YEAR,
+  shortMonthKey,
+  type AuditTier,
+  type AuditType,
+  type FarmerAuditSummary,
+} from '../../api/audits';
+import {
+  auditCountdown,
+  selectNextAudit,
+  type AuditCountdown,
+  type WidgetState,
+} from '../dashboard/dashboardWidgets';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, spacing, typography } from '../../theme';
+import { calculatePolygonMetrics } from '../../utils/geo';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
+
+/** The Farm & FMB preview map is `readOnly`, so it never emits a change; the prop is required. */
+const noopPolygonChange = (): void => {};
 
 interface ProfileScreenProps {
   onNavigateToHome?: () => void;
@@ -43,6 +70,22 @@ interface ProfileScreenProps {
   onNavigateToSoilTest?: () => void;
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToAboutSupport?: (() => void) | undefined;
+  onNavigateToBankPayment?: () => void;
+  onSignOut?: () => void;
+}
+
+function SignOutIcon({ size = 18, color = P.red600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 interface PersonalDetailsData {
@@ -104,10 +147,202 @@ const CERT_TONE: Record<
   },
 };
 
-function certTypeKey(certType: Certification['certType']): TranslationKey {
-  if (certType === 'PGS') return 'farmer.profile.cert.pgs';
-  if (certType === 'NPOP') return 'farmer.profile.cert.npop';
-  return 'farmer.certifications.add.type.OTHER';
+/** The 3 fixed farming-type codes this screen's chip picker offers. */
+const FARMING_TYPE_CODES = ['ORGANIC', 'NATURAL', 'BIODYNAMIC'] as const;
+type FarmingTypeCode = (typeof FARMING_TYPE_CODES)[number];
+
+function isFarmingTypeCode(value: string): value is FarmingTypeCode {
+  return (FARMING_TYPE_CODES as readonly string[]).includes(value);
+}
+
+/** Translated label for a farming-type code. An empty/unrecognised value (nothing picked
+ * yet -- this field has no backing API read, see `fetchProfile` below) renders as blank
+ * rather than a raw code or a missing-key fallback string. */
+function farmingTypeLabel(code: string): string {
+  return isFarmingTypeCode(code) ? t(`farmer.profile.farmingType.${code}` as TranslationKey) : '';
+}
+
+/** Translated label for a farm's `landBoundaryContext` tag code, falling back to the raw
+ * code (humanised) for anything outside the 7 known values -- see `loadFarms` below. */
+function farmTagLabel(code: string): string {
+  switch (code) {
+    case 'stand_alone':
+      return t('farmer.profile.farm.tag.standAlone');
+    case 'lower_hill':
+      return t('farmer.profile.farm.tag.lowerHill');
+    case 'forest_boundaries':
+      return t('farmer.profile.farm.tag.forest');
+    case 'upper_hill':
+      return t('farmer.profile.farm.tag.upperHill');
+    case 'forest_fire':
+      return t('farmer.profile.farm.tag.forestFire');
+    case 'wildlife_zone':
+      return t('farmer.profile.farm.tag.wildlife');
+    case 'chemical_sprayed':
+      return t('farmer.profile.farm.tag.chemicalSprayed');
+    default:
+      return code.replace(/_/g, ' ');
+  }
+}
+
+/** 'en-GB' short date (e.g. "20 Apr 2026") for a real server date -- never a
+ *  hardcoded sample date. Shared by the Audits and Soil Test cards below. */
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function auditTypeKey(auditType: AuditType): TranslationKey {
+  return auditType === 'EXTERNAL' ? 'farmer.profile.audits.external' : 'farmer.profile.audits.internal';
+}
+
+/** Dot/score colour from the audit's real tier (BR-04a) -- never a guessed pass/fail. */
+function auditToneColor(tier: AuditTier | null): string {
+  if (tier === 'POOR') return P.red800;
+  if (tier === 'MODERATE') return P.orange800;
+  if (tier === 'GOOD' || tier === 'EXCELLENT') return colors.brandGreen;
+  return P.slate400;
+}
+
+/**
+ * Same countdown wording DashboardScreen's mini audit card uses (its own
+ * `auditMiniValue`, not exported) -- reimplemented here against the same
+ * i18n keys so the two surfaces agree, rather than inventing new copy.
+ */
+function auditPillValue(countdown: AuditCountdown): string {
+  switch (countdown.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.auditNone');
+    case 'inProgress':
+      return t('farmer.audits.status.inProgress');
+    case 'today':
+      return t('farmer.dashboard.header.auditToday');
+    case 'tomorrow':
+      return t('farmer.dashboard.header.auditTomorrow');
+    case 'inDays':
+      return t('farmer.profile.daysShort', { days: countdown.days });
+    case 'past':
+      return t('farmer.dashboard.header.auditDate', {
+        day: countdown.day,
+        month: t(shortMonthKey(countdown.monthIndex) as TranslationKey),
+      });
+    case 'unknown':
+      return '—';
+  }
+}
+
+/** One real past-audit row -- score, auditor/findings and date all come from
+ *  FarmerAuditSummary; shared by the inline Audits card and its modal so
+ *  neither can drift back to a hardcoded sample. */
+function AuditHistoryRow({ audit, isLast }: { audit: FarmerAuditSummary; isLast: boolean }): React.JSX.Element {
+  const score = auditScore(audit);
+  const conductedBy = auditConductedBy(audit);
+  const tone = auditToneColor(audit.tier);
+  const counts = t('farmer.profile.audits.majorMinorCount', {
+    major: audit.findingCounts.major,
+    minor: audit.findingCounts.minor,
+  });
+  return (
+    <View style={[styles.auditItemRow, isLast ? { borderBottomWidth: 0 } : null]}>
+      <View style={[styles.statusDot, { backgroundColor: tone }]} />
+      <View style={styles.auditItemInfo}>
+        <Text style={styles.auditItemDate}>
+          {formatShortDate(auditDisplayDate(audit))} · {t(auditTypeKey(audit.auditType))}
+        </Text>
+        <Text style={styles.auditItemSubtext}>
+          {conductedBy ? `${t('farmer.profile.audits.auditor', { name: conductedBy })} · ${counts}` : counts}
+        </Text>
+      </View>
+      {score ? (
+        <Text style={[styles.auditScore, { color: tone }]}>
+          {t('farmer.profile.audits.scoreOutOf', { score: score.score, max: score.max })}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Real latest-soil-test summary -- shared by the Soil Test card and its modal.
+ *  `null` renders the same honest "no test yet" state SoilTestScreen uses;
+ *  every field left null by a real record shows a dash, never a sample value. */
+function SoilSummaryBody({ test }: { test: SoilTestRecord | null }): React.JSX.Element {
+  if (test === null) {
+    return (
+      <View>
+        <Text style={styles.soilDateValue}>{t('farmer.profile.soil.noTestYet')}</Text>
+        <Text style={[styles.soilDateLabel, { marginTop: 4 }]}>{t('farmer.profile.soil.noTestYetHint')}</Text>
+      </View>
+    );
+  }
+
+  const isAcidic = test.ph < 6.0;
+  const isAlkaline = test.ph > 7.5;
+
+  return (
+    <>
+      <View style={styles.soilDateStrip}>
+        <View>
+          <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.lastTested')}</Text>
+          <Text style={styles.soilDateValue}>{formatShortDate(test.testDate)}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.nextDue')}</Text>
+          <Text style={styles.soilDateValue}>{formatShortDate(test.nextDueDate)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.soilGridContainer}>
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.organicCarbon')}</Text>
+          <Text style={styles.soilTileValue}>{test.organicCarbonPct}%</Text>
+          <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>{test.organicCarbonLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ph')}</Text>
+          <Text style={styles.soilTileValue}>{test.ph}</Text>
+          <View style={[styles.soilBadge, { backgroundColor: isAcidic ? P.red50 : colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: isAcidic ? P.red800 : colors.brandGreen }]}>
+              {test.phLabel}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ec')}</Text>
+          <Text style={styles.soilTileValue}>{test.ecDsPerM}</Text>
+          <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>{test.ecLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.tds')}</Text>
+          <Text style={styles.soilTileValue}>{test.tdsPpm != null ? `${test.tdsPpm} ppm` : '—'}</Text>
+          {test.tdsLabel ? (
+            <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
+              <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>{test.tdsLabel}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.soilAdvisoryBox}>
+        <Icon name="warning" size={16} color={P.red800} />
+        <Text style={styles.soilAdvisoryText}>
+          {isAcidic
+            ? t('farmer.profile.soil.advisory')
+            : isAlkaline
+              ? t('farmer.profile.soil.advisoryAlkaline')
+              : t('farmer.profile.soil.advisoryOptimal')}
+        </Text>
+      </View>
+    </>
+  );
 }
 
 export function ProfileScreen({
@@ -120,6 +355,8 @@ export function ProfileScreen({
   onNavigateToSoilTest,
   onNavigateToSettings,
   onNavigateToAboutSupport,
+  onNavigateToBankPayment,
+  onSignOut,
 }: ProfileScreenProps): React.JSX.Element {
   // --- Profile State ---
   const [personalDetails, setPersonalDetails] = useState<PersonalDetailsData>({
@@ -142,22 +379,33 @@ export function ProfileScreen({
     tags: [],
   });
 
+  const [farmsList, setFarmsList] = useState<Farm[]>([]);
+  const [farmsLoading, setFarmsLoading] = useState<boolean>(true);
+
   // Real TOHFA farmer id from GET /v1/farmers/me; empty until first fetch.
   const [farmerId, setFarmerId] = useState<string>('');
 
   // Real certifications: GET /v1/farmers/me/certifications + the expiry-warning
   // threshold from system config. Loaded independently of the profile fetch so a
   // failure on one does not blank the other (same shape as WalletScreen).
-  const [certs, setCerts] = useState<Certification[]>([]);
+  // Starts from the last REAL server answer (empty on first open / after sign-out);
+  // the request below always runs and replaces it. A failure is its own state and
+  // never touches the rest of the screen.
+  const [certs, setCerts] = useState<Certification[]>(() => getCachedCertifications());
   const [certWarningDays, setCertWarningDays] = useState<number>(30);
-  const [certsLoading, setCertsLoading] = useState<boolean>(true);
-  const [certsError, setCertsError] = useState<string | null>(null);
+  const [certsLoading, setCertsLoading] = useState<boolean>(() => getCachedCertifications().length === 0);
+  const [certsError, setCertsError] = useState<{ error: unknown } | null>(null);
 
   // Real farm rating: GET /v1/farmers/me/rating (BR-06), loaded independently
   // of the profile/certs fetches (same shape as those) so a failure here
   // doesn't blank the rest of the screen.
   const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
   const [ratingLoading, setRatingLoading] = useState<boolean>(true);
+  const [latestSoilTest, setLatestSoilTest] = useState<SoilTestRecord | null>(null);
+  const [soilLoading, setSoilLoading] = useState<boolean>(true);
+
+  // Audits load independently of the other cards so a failure here never blanks the screen.
+  const [auditsState, setAuditsState] = useState<WidgetState<FarmerAuditSummary[]>>({ kind: 'loading' });
 
   // --- Modal States ---
   const [isEditPersonalModalVisible, setIsEditPersonalModalVisible] = useState(false);
@@ -185,6 +433,73 @@ export function ProfileScreen({
   const [saving, setSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
+  const loadFarms = useCallback(async () => {
+    setFarmsLoading(true);
+    try {
+      const list = await getFarms();
+      setFarmsList(list);
+      if (list.length > 0) {
+        const primary = list.find((f) => f.isPrimary) ?? list[0]!;
+
+        // Calculate total acres across all farms
+        const totalAcres = list.reduce((acc, f) => {
+          const a = f.areaAcres ?? f.boundaryAreaAcres ?? 0;
+          return acc + a;
+        }, 0);
+
+        // Calculate total zones across all farms
+        const totalZones = list.reduce((acc, f) => acc + (f.plotCount ?? 0), 0);
+
+        // Count FMB points on primary farm
+        const primaryRing = primary.boundary?.coordinates?.[0];
+        const fmbPointCount =
+          Array.isArray(primaryRing) && primaryRing.length > 0
+            ? primaryRing.length > 1 &&
+              primaryRing[0] &&
+              primaryRing[primaryRing.length - 1] &&
+              primaryRing[0][0] === primaryRing[primaryRing.length - 1]![0] &&
+              primaryRing[0][1] === primaryRing[primaryRing.length - 1]![1]
+              ? primaryRing.length - 1
+              : primaryRing.length
+            : 0;
+
+        // Extract unique water sources
+        const waterSources = Array.from(
+          new Set(list.flatMap((f) => f.waterSources || []).filter(Boolean))
+        );
+
+        // Context tags: keep the raw codes in state and translate at render time
+        // (farmTagLabel) rather than baking an English label in here -- a label
+        // computed once at load time would stay frozen in its original language
+        // across a later locale switch, since nothing re-runs this load on its own.
+        const rawTags = primary.landBoundaryContext || [];
+
+        setFarmDetails({
+          acres: totalAcres > 0 ? `${Number(totalAcres.toFixed(2))}` : primary.areaAcres ? `${primary.areaAcres}` : '—',
+          zones: `${totalZones}`,
+          farms: `${list.length}`,
+          fmbPts: fmbPointCount > 0 ? `${fmbPointCount}` : '—',
+          waterSource: waterSources.length > 0 ? waterSources.join(', ') : '—',
+          tags: rawTags,
+        });
+
+        if (primary.name) {
+          setPersonalDetails((prev) => ({
+            ...prev,
+            farmName: prev.farmName || primary.name,
+            location:
+              prev.location ||
+              (primary.village ? `${primary.village}, ${primary.district}` : primary.district),
+          }));
+        }
+      }
+    } catch {
+      // Fallback gracefully
+    } finally {
+      setFarmsLoading(false);
+    }
+  }, []);
+
   // Attempt to load from API in background, maintaining rich defaults if mock
   useEffect(() => {
     async function fetchProfile() {
@@ -199,8 +514,16 @@ export function ProfileScreen({
             fullName: res.fullName || prev.fullName,
             mobile: res.mobile ? maskMobile(res.mobile) : prev.mobile,
             aadhaar: res.aadhaarLast4 ? maskAadhaar(res.aadhaarLast4) : prev.aadhaar,
+            // `FarmerProfile.dob` was already part of the API response but was never read into
+            // this screen's state, so Date of Birth always showed blank regardless of what the
+            // backend actually had.
+            dob: res.dob
+              ? new Date(res.dob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : prev.dob,
+            // Stored as the bare number -- the "X years" phrasing is applied at render time
+            // (farmer.profile.yearsValue) so it re-renders in whichever locale is live.
             yearsInOrganic: res.farmingExperienceYears
-              ? `${res.farmingExperienceYears} years`
+              ? String(res.farmingExperienceYears)
               : prev.yearsInOrganic,
             location: res.address || prev.location,
           }));
@@ -212,25 +535,96 @@ export function ProfileScreen({
         // Fallback gracefully to default rich data
       }
     }
-    void fetchProfile();
-  }, []);
 
-  const loadCerts = useCallback(async () => {
+    async function fetchSoilTest() {
+      try {
+        const farms = await getFarms();
+        if (farms[0]?.id) {
+          const plots = await getPlots(farms[0].id);
+          if (plots.length > 0) {
+            const perPlot = await Promise.all(
+              plots.map((p) => listSoilTests(farms[0]!.id, p.id).catch(() => [])),
+            );
+            const allTests = perPlot.flat().sort((a, b) => (a.testDate < b.testDate ? 1 : -1));
+            if (allTests[0]) {
+              setLatestSoilTest(allTests[0]);
+            }
+          }
+        }
+      } catch {
+        // Fallback gracefully -- latestSoilTest stays null, which renders the
+        // same honest "no test yet" state as a farm with no real test on record.
+      } finally {
+        setSoilLoading(false);
+      }
+    }
+
+    void fetchProfile();
+    void loadFarms();
+    void fetchSoilTest();
+  }, [loadFarms]);
+
+  const loadCerts = useCallback(async (signal?: AbortSignal) => {
+    setCertsError(null);
     try {
-      setCertsError(null);
-      const [certsRes, configRes] = await Promise.all([getMyCertifications(), getSystemConfig()]);
+      const [certsRes, configRes] = await Promise.all([
+        getMyCertifications(undefined, 100, signal),
+        getSystemConfig(),
+      ]);
+      if (signal?.aborted) return;
       setCerts(certsRes.items);
       setCertWarningDays(configRes.certExpiryWarningDays);
-    } catch {
-      setCertsError(t('error.generic'));
+    } catch (error) {
+      if (signal?.aborted) return;
+      setCertsError({ error });
     } finally {
-      setCertsLoading(false);
+      if (!signal?.aborted) setCertsLoading(false);
     }
   }, []);
 
+  // Retry outlives the mount effect's controller; unmounting aborts whichever is in flight.
+  const certsController = useRef<AbortController | null>(null);
   useEffect(() => {
-    void loadCerts();
+    const controller = new AbortController();
+    certsController.current = controller;
+    void loadCerts(controller.signal);
+    return () => controller.abort();
   }, [loadCerts]);
+
+  const retryCerts = useCallback(() => {
+    certsController.current?.abort();
+    const controller = new AbortController();
+    certsController.current = controller;
+    setCertsLoading(true);
+    void loadCerts(controller.signal);
+  }, [loadCerts]);
+
+  const loadAudits = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const items = await listAllMyAudits(signal);
+      if (signal?.aborted) return;
+      setAuditsState({ kind: 'ready', data: items });
+    } catch (error) {
+      if (signal?.aborted) return;
+      setAuditsState({ kind: 'error', error });
+    }
+  }, []);
+
+  const auditsController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    auditsController.current = controller;
+    void loadAudits(controller.signal);
+    return () => controller.abort();
+  }, [loadAudits]);
+
+  const retryAudits = useCallback(() => {
+    auditsController.current?.abort();
+    const controller = new AbortController();
+    auditsController.current = controller;
+    setAuditsState({ kind: 'loading' });
+    void loadAudits(controller.signal);
+  }, [loadAudits]);
 
   const loadRating = useCallback(async () => {
     try {
@@ -251,6 +645,17 @@ export function ProfileScreen({
 
   const ratingView = deriveFarmRatingView(farmRating);
 
+  // Real derived audit values -- the fallback-to-empty-array keeps every
+  // expression below safe to evaluate during the loading/error states too.
+  const auditItems = auditsState.kind === 'ready' ? auditsState.data : [];
+  const nextAudit = auditsState.kind === 'ready' ? selectNextAudit(auditItems) : null;
+  const pastAudits = [...auditItems]
+    .filter((a) => a.status === 'COMPLETED')
+    .sort((a, b) => Date.parse(auditDisplayDate(b)) - Date.parse(auditDisplayDate(a)));
+  const auditsDoneThisYear = auditsState.kind === 'ready' ? deriveAuditsOverview(auditItems).doneThisYear : 0;
+  const auditQuickStatValue =
+    auditsState.kind === 'ready' ? auditPillValue(auditCountdown(nextAudit, new Date())) : '—';
+
   const certSummary = certs.map((cert) => ({
     cert,
     status: certDisplayStatus(cert, certWarningDays),
@@ -260,7 +665,9 @@ export function ProfileScreen({
     certSummary.find((c) => c.status === 'expiring') ??
     null;
   const certStatTone = worstCert ? CERT_TONE[worstCert.status] : CERT_TONE.active;
-  const certStatLabel = certsLoading
+  // While loading, or when the list could not be loaded, say nothing rather than
+  // claim "no certificate" for a list we never saw.
+  const certStatLabel = certsLoading || (certsError !== null && certs.length === 0)
     ? '—'
     : certSummary.length === 0
       ? t('farmer.dashboard.header.certNone')
@@ -279,7 +686,7 @@ export function ProfileScreen({
   const openPersonalEdit = () => {
     setTempFullName(personalDetails.fullName);
     setTempDob(personalDetails.dob);
-    setTempYearsInOrganic(personalDetails.yearsInOrganic.replace(/\D/g, '') || '');
+    setTempYearsInOrganic(personalDetails.yearsInOrganic);
     setTempFarmingType(personalDetails.farmingType);
     setTempFarmName(personalDetails.farmName);
     setTempLocation(personalDetails.location);
@@ -298,45 +705,112 @@ export function ProfileScreen({
         // Backend unavailable — local update only
       });
 
+      // farmingType is kept in local state only -- it is never sent in the
+      // updateMyFarmerProfile() call above and never read back from
+      // getMyFarmerProfile() either. Investigated: `farmers` has no
+      // farming_type (or equivalent) column (db/migrations/0003_farmers_and
+      // _farms.sql), updateFarmerProfileBody has no such field
+      // (apps/api/src/modules/farmer-applications/farmer-applications.schema.ts),
+      // and GET /farmers/me never returns one. The closest real field,
+      // `typeOfFarming` collected at registration Step 2, is a free-text crop
+      // description ("Mixed vegetables", "Tea") stored only in the
+      // application's step2_farm_details JSONB and deliberately never copied
+      // onto the farmers row (farmer-applications.service.ts's
+      // approveApplication) -- a different concept from this screen's fixed
+      // ORGANIC/NATURAL/BIODYNAMIC method chips, not just an unwired version
+      // of the same data. Wiring this for real needs a product decision
+      // (a new column, plus reconciling the enum against that free text) that
+      // is out of scope here, so the value is kept client-side and the UI
+      // says so explicitly (farmingType.notSavedNote below) instead of
+      // implying the save succeeded.
       setPersonalDetails({
         ...personalDetails,
         fullName: tempFullName.trim(),
         dob: tempDob.trim(),
-        yearsInOrganic: expNumber > 0 ? `${expNumber} years` : '',
+        yearsInOrganic: expNumber > 0 ? String(expNumber) : '',
         farmingType: tempFarmingType,
         farmName: tempFarmName.trim(),
         location: tempLocation.trim(),
       });
 
       setIsEditPersonalModalVisible(false);
-      setSaveSuccessMsg('Personal details updated successfully!');
+      setSaveSuccessMsg(t('farmer.profile.personal.saved'));
       setTimeout(() => setSaveSuccessMsg(null), 3000);
     } finally {
       setSaving(false);
     }
   };
 
+  const primaryFarm = farmsList.find((f) => f.isPrimary) ?? farmsList[0] ?? null;
+  const primaryRing = (primaryFarm?.boundary?.coordinates?.[0] as [number, number][] | undefined) ?? [];
+  const hasBoundary = Array.isArray(primaryRing) && primaryRing.length >= 3;
+
+  // Camera center + boundary for the Farm & FMB preview map, derived exactly as FMBSketchScreen's
+  // `mapInitialCenter`/`mapInitialPolygon` are: the saved ring's OWN centroid first (the stored
+  // centroidLat/Lng can drift from a boundary redrawn later), then the stored centroid, then nothing.
+  const previewRingMetrics = hasBoundary ? calculatePolygonMetrics(primaryRing) : null;
+  const previewCenter: [number, number] | null = previewRingMetrics
+    ? [previewRingMetrics.centroid.longitude, previewRingMetrics.centroid.latitude]
+    : primaryFarm?.centroidLng != null && primaryFarm?.centroidLat != null
+      ? [primaryFarm.centroidLng, primaryFarm.centroidLat]
+      : null;
+  const previewPolygon: [number, number][] | null = hasBoundary ? primaryRing : null;
+
+  // GPS badge text -- unchanged from the static-image preview this map replaced: the stored
+  // centroid, falling back to the boundary's bounding-box midpoint.
+  let gpsStatusLabel = t('farmer.profile.farm.gpsPending');
+  if (hasBoundary) {
+    const lngs = primaryRing.map((pt) => pt[0]);
+    const lats = primaryRing.map((pt) => pt[1]);
+    const cLat = primaryFarm?.centroidLat ?? (Math.min(...lats) + Math.max(...lats)) / 2;
+    const cLng = primaryFarm?.centroidLng ?? (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    gpsStatusLabel = `${cLat.toFixed(4)}° N, ${cLng.toFixed(4)}° E`;
+  } else if (primaryFarm?.centroidLat && primaryFarm?.centroidLng) {
+    gpsStatusLabel = `${primaryFarm.centroidLat.toFixed(4)}° N, ${primaryFarm.centroidLng.toFixed(4)}° E`;
+  }
+
   const openFarmEdit = () => {
     if (onNavigateToFMBSketch) {
       onNavigateToFMBSketch();
     } else {
-      setTempAcres(farmDetails.acres);
-      setTempZones(farmDetails.zones);
-      setTempWaterSource(farmDetails.waterSource);
+      setTempAcres(farmDetails.acres === '—' ? '' : farmDetails.acres);
+      setTempZones(farmDetails.zones === '—' ? '' : farmDetails.zones);
+      setTempWaterSource(farmDetails.waterSource === '—' ? '' : farmDetails.waterSource);
       setIsEditFarmModalVisible(true);
     }
   };
 
-  const handleSaveFarmDetails = () => {
-    setFarmDetails((prev) => ({
-      ...prev,
-      acres: tempAcres.trim() || '2.5',
-      zones: tempZones.trim() || '3',
-      waterSource: tempWaterSource.trim() || 'Borewell + Rainwater',
-    }));
-    setIsEditFarmModalVisible(false);
-    setSaveSuccessMsg('Farm & FMB details updated!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  const handleSaveFarmDetails = async () => {
+    setSaving(true);
+    try {
+      const acresNum = parseFloat(tempAcres);
+      const waterList = tempWaterSource
+        ? tempWaterSource
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+
+      if (primaryFarm?.id) {
+        await updateFarm(primaryFarm.id, {
+          areaAcres: isNaN(acresNum) ? undefined : acresNum,
+          waterSources: waterList,
+        }).catch(() => {});
+      }
+
+      setFarmDetails((prev) => ({
+        ...prev,
+        acres: tempAcres.trim() || prev.acres,
+        zones: tempZones.trim() || prev.zones,
+        waterSource: tempWaterSource.trim() || prev.waterSource,
+      }));
+      setIsEditFarmModalVisible(false);
+      setSaveSuccessMsg(t('farmer.profile.farm.saved'));
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+      void loadFarms();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -354,19 +828,19 @@ export function ProfileScreen({
             <TouchableOpacity
               style={styles.navCircleButton}
               onPress={onNavigateToHome}
-              accessibilityLabel="Back to home"
+              accessibilityLabel={t('farmer.profile.a11y.back')}
               activeOpacity={0.7}
             >
               <Icon name="arrow_back" size={26} color={colors.white} style={styles.navBackIcon} />
             </TouchableOpacity>
 
-            <Text style={styles.navTitle}>Profile</Text>
+            <Text style={styles.navTitle}>{t('farmer.profile.title')}</Text>
 
             <View style={styles.navRightActions}>
               <TouchableOpacity
                 style={styles.navCircleButton}
                 onPress={handleShareProfile}
-                accessibilityLabel="Share profile"
+                accessibilityLabel={t('farmer.profile.a11y.share')}
                 activeOpacity={0.7}
               >
                 <Icon name="share" size={16} color={colors.white} />
@@ -381,7 +855,7 @@ export function ProfileScreen({
                     setIsSettingsModalVisible(true);
                   }
                 }}
-                accessibilityLabel="Settings"
+                accessibilityLabel={t('farmer.profile.menu.settings')}
                 activeOpacity={0.7}
               >
                 <Icon name="settings" size={16} color={colors.white} />
@@ -401,7 +875,7 @@ export function ProfileScreen({
                 style={styles.avatarEditBadge}
                 onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())}
                 activeOpacity={0.8}
-                accessibilityLabel="Edit profile picture"
+                accessibilityLabel={t('farmer.profile.a11y.editPhoto')}
               >
                 <Icon name="edit" size={14} color={colors.brandGreen} />
               </TouchableOpacity>
@@ -454,8 +928,8 @@ export function ProfileScreen({
               activeOpacity={0.8}
             >
               <Icon name="calendar_today" size={18} color={P.orange900} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: P.orange900 }]}>12d</Text>
-              <Text style={styles.statLabel}>AUDIT</Text>
+              <Text style={[styles.statValue, { color: P.orange900 }]}>{auditQuickStatValue}</Text>
+              <Text style={styles.statLabel}>{t('farmer.profile.stats.audit')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -465,7 +939,7 @@ export function ProfileScreen({
             >
               <Icon name="eco" size={18} color={P.deepGreen} style={styles.statEmoji} />
               <Text style={[styles.statValue, { color: P.deepGreen }]}>{farmDetails.acres}</Text>
-              <Text style={styles.statLabel}>ACRES</Text>
+              <Text style={styles.statLabel}>{t('farmer.profile.stats.acres')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -485,51 +959,61 @@ export function ProfileScreen({
               <Icon name="person" size={18} color={P.violetAccent} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Personal Details</Text>
-              <Text style={styles.cardSubtitle}>Identity & contact info</Text>
+              <Text style={styles.cardTitle}>{t('farmer.profile.personal.title')}</Text>
+              <Text style={styles.cardSubtitle}>{t('farmer.profile.personal.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Edit</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.edit')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Full Name</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.fullName')}</Text>
             <Text style={styles.detailValue}>{personalDetails.fullName}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date of Birth</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.dob')}</Text>
             <Text style={styles.detailValue}>{personalDetails.dob}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Mobile</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.mobile')}</Text>
             <Text style={styles.detailValue}>{personalDetails.mobile}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Aadhaar</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.aadhaar')}</Text>
             <Text style={styles.detailValue}>{personalDetails.aadhaar}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Years in Organic</Text>
-            <Text style={styles.detailValue}>{personalDetails.yearsInOrganic}</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.yearsInOrganic')}</Text>
+            <Text style={styles.detailValue}>
+              {personalDetails.yearsInOrganic ? t('farmer.profile.yearsValue', { years: personalDetails.yearsInOrganic }) : ''}
+            </Text>
           </View>
 
           <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.detailLabel}>Farming Type</Text>
-            <View style={styles.iconTextRow}>
-              <Icon name="eco" size={13} color={colors.brandGreen} />
-              <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
-                {personalDetails.farmingType}
-              </Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.farmingType')}</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <View style={styles.iconTextRow}>
+                <Icon name="eco" size={13} color={colors.brandGreen} />
+                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
+                  {farmingTypeLabel(personalDetails.farmingType)}
+                </Text>
+              </View>
+              {/* No backend field persists this yet (see handleSavePersonalDetails) --
+                  say so rather than letting it look saved like the rest of the card. */}
+              {personalDetails.farmingType ? (
+                <Text style={{ fontSize: typography.caption, color: P.slate400, marginTop: 2 }}>
+                  {t('farmer.profile.farmingType.notSavedNote')}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
 
-        {/* MOCK: GET /v1/farmers/me returns no farm name, survey number, area/acres, zones, FMB point count, water source or boundary geometry. The farms/plots tables exist (db/migrations/0003) but have no farmer-facing read endpoint; farms.boundary is documented as deferred. */}
         {/* ================= CARD 2: FARM & FMB ================= */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
@@ -537,70 +1021,91 @@ export function ProfileScreen({
               <Icon name="shield" size={18} color={colors.brandGreen} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Farm & FMB</Text>
-              <Text style={styles.cardSubtitle}>Boundary & land context</Text>
+              <Text style={styles.cardTitle}>{t('farmer.profile.farm.title')}</Text>
+              <Text style={styles.cardSubtitle}>{t('farmer.profile.farm.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={() => (onNavigateToFMBSketch ? onNavigateToFMBSketch() : openFarmEdit())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Edit</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.edit')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* FMB Map Preview — ESRI World Imagery satellite tile */}
-          <View style={styles.fmbMapContainer}>
-            <Image
-              source={{
-                uri:
-                  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export' +
-                  '?bbox=76.6882,11.4034,76.7002,11.4114&bboxSR=4326&size=640,270&format=jpg&transparent=false&f=image',
-              }}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-            />
-            {/* FMB polygon overlay on satellite tile */}
-            <Svg width="100%" height="135" viewBox="0 0 320 135" style={StyleSheet.absoluteFillObject}>
-              <Polygon
-                points="45,40 270,30 250,110 65,115"
-                fill="rgba(165, 214, 167, 0.45)"
-                stroke={colors.brandGreen}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-              />
-              <Circle cx="158" cy="68" r="7" fill={P.orange600} stroke={colors.white} strokeWidth="2.5" />
-            </Svg>
+          {/* FMB Map Preview — the same Mapbox FarmBoundaryMap as FMB Sketch, read-only. The whole
+              preview is one tap target into FMB Sketch. The map's own gestures are off and its
+              wrapper is `pointerEvents="none"`, so a swipe that starts on it scrolls this page
+              and a tap lands on the TouchableOpacity rather than inside the native map. */}
+          <TouchableOpacity
+            style={styles.fmbMapContainer}
+            onPress={openFarmEdit}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.profile.farm.a11y.openMap')}
+            testID="profile-fmb-map-preview"
+          >
+            {farmsLoading ? (
+              <Skeleton borderRadius={0} style={styles.fmbMapSkeleton} />
+            ) : previewCenter ? (
+              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <FarmBoundaryMap
+                  // FarmBoundaryMap reads initialCenter/initialPolygon only at mount, so remount
+                  // whenever the farm or its saved boundary changes (e.g. after an FMB Sketch save).
+                  key={`${primaryFarm?.id ?? 'none'}:${primaryFarm?.boundaryVersion ?? 0}:${primaryFarm?.updatedAt ?? ''}`}
+                  initialCenter={previewCenter}
+                  initialPolygon={previewPolygon}
+                  // A farm with only a stored centroid has no shape to draw; pin the point instead.
+                  markerCoordinate={previewPolygon ? null : previewCenter}
+                  onPolygonChange={noopPolygonChange}
+                  readOnly
+                  gesturesEnabled={false}
+                  // Two levels below FarmBoundaryMap's own default (17, tuned for a full-screen
+                  // editor) -- this card is only ~135px tall, and at 17 a farm of a few acres runs
+                  // off the top/bottom edge instead of showing the whole shape with some margin.
+                  initialZoom={15}
+                  searchPlaceholder={t('farmer.map.searchPlaceholder')}
+                  testID="profile-fmb-map"
+                />
+              </View>
+            ) : (
+              <View style={styles.fmbMapEmpty}>
+                <Icon name="place" size={22} color={P.slate400} />
+                <Text style={styles.fmbMapEmptyText}>{t('farmer.profile.farm.mapEmpty')}</Text>
+              </View>
+            )}
 
             {/* GPS Tag */}
-            <View style={styles.gpsCoordinatesBadge}>
-              <Text style={styles.gpsCoordinatesText}>GPS boundary pending</Text>
-            </View>
-          </View>
+            {!farmsLoading ? (
+              <View style={styles.gpsCoordinatesBadge} pointerEvents="none">
+                <Text style={styles.gpsCoordinatesText}>{gpsStatusLabel}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
 
           {/* 4 Metrics Strip */}
           <View style={styles.fmbMetricsStrip}>
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.acres}</Text>
-              <Text style={styles.fmbMetricLabel}>ACRES</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.acres}</Text>
+              <Text style={styles.fmbMetricLabel}>{t('farmer.profile.stats.acres')}</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.zones}</Text>
-              <Text style={styles.fmbMetricLabel}>ZONES</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.zones}</Text>
+              <Text style={styles.fmbMetricLabel}>{t('farmer.profile.farm.metric.zones')}</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.farms}</Text>
-              <Text style={styles.fmbMetricLabel}>FARMS</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.farms}</Text>
+              <Text style={styles.fmbMetricLabel}>{t('farmer.profile.farm.metric.farms')}</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.fmbPts}</Text>
-              <Text style={styles.fmbMetricLabel}>FMB PTS</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.fmbPts}</Text>
+              <Text style={styles.fmbMetricLabel}>{t('farmer.profile.farm.metric.fmbPts')}</Text>
             </View>
           </View>
 
           {/* Water Source Row */}
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Water Source</Text>
-            <Text style={styles.detailValue}>{farmDetails.waterSource}</Text>
+            <Text style={styles.detailLabel}>{t('farmer.profile.farm.waterSource')}</Text>
+            <Text style={styles.detailValue}>{farmsLoading ? '—' : farmDetails.waterSource}</Text>
           </View>
 
           {/* Land Context Pills — only shown once tags are available */}
@@ -609,7 +1114,7 @@ export function ProfileScreen({
               {farmDetails.tags.map((tag, i) => (
                 <View key={i} style={[styles.tagPill, styles.iconTextRow, { backgroundColor: colors.brandGreenLight }]}>
                   <Icon name="park" size={11} color={colors.brandGreen} />
-                  <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>{tag}</Text>
+                  <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>{farmTagLabel(tag)}</Text>
                 </View>
               ))}
             </View>
@@ -623,14 +1128,14 @@ export function ProfileScreen({
               <Icon name="military_tech" size={18} color={P.blue700} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Certifications</Text>
-              <Text style={styles.cardSubtitle}>PGS & NPOP status</Text>
+              <Text style={styles.cardTitle}>{t('farmer.dashboard.search.certifications.title')}</Text>
+              <Text style={styles.cardSubtitle}>{t('farmer.profile.cert.subtitle')}</Text>
             </View>
             <TouchableOpacity
               onPress={() => onNavigateToCertifications?.()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.cardActionLink}>Manage</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.manage')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -643,16 +1148,13 @@ export function ProfileScreen({
               <Skeleton height={112} width="48%" style={styles.certSkeleton} />
             </View>
           ) : certsError ? (
-            <TouchableOpacity
-              onPress={() => {
-                setCertsLoading(true);
-                void loadCerts();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.certNoticeText}>{certsError}</Text>
-              <Text style={styles.cardActionLink}>{t('farmer.common.retry')}</Text>
-            </TouchableOpacity>
+            <ErrorState
+              error={certsError.error}
+              message={t('farmer.certifications.loadError')}
+              retryTitle={t('farmer.common.retry')}
+              offlineMessage={t('farmer.common.offline')}
+              onRetry={retryCerts}
+            />
           ) : certSummary.length === 0 ? (
             <Text style={styles.certNoticeText}>{t('farmer.certifications.empty')}</Text>
           ) : (
@@ -685,7 +1187,7 @@ export function ProfileScreen({
                         </View>
                       )}
                     </View>
-                    <Text style={styles.certTitle}>{t(certTypeKey(cert.certType))}</Text>
+                    <Text style={styles.certTitle}>{certificationDisplayName(cert, t)}</Text>
                     <Text style={[styles.certStatusText, { color: tone.fg }]}>
                       {t(tone.labelKey)}
                     </Text>
@@ -708,73 +1210,84 @@ export function ProfileScreen({
               <Icon name="warning" size={16} color={P.amberDeep} />
               <Text style={styles.warningNoticeText}>
                 {worstCert.status === 'expired'
-                  ? t('farmer.profile.cert.expiredNotice', { type: worstCert.cert.certType })
-                  : t('farmer.profile.cert.expiringNotice', { type: worstCert.cert.certType })}
+                  ? t('farmer.profile.cert.expiredNotice', { type: certificationDisplayName(worstCert.cert, t) })
+                  : t('farmer.profile.cert.expiringNotice', { type: certificationDisplayName(worstCert.cert, t) })}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* MOCK: no audits resource exists in apps/api or docs/openapi.yaml. */}
         {/* ================= CARD 4: AUDITS ================= */}
+        {/* Real data: GET /v1/farmers/me/audits via listAllMyAudits() -- see
+            auditsState above. Was previously 100% hardcoded (see git history);
+            DashboardScreen and AuditsScreen already call this same endpoint. */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardIconBox, { backgroundColor: P.lightBlue50 }]}>
               <Icon name="assignment" size={18} color={P.lightBlue700} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Audits</Text>
-              <Text style={styles.cardSubtitle}>Quarterly inspections</Text>
+              <Text style={styles.cardTitle}>{t('farmer.profile.audits.title')}</Text>
+              <Text style={styles.cardSubtitle}>{t('farmer.profile.audits.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={() => (onNavigateToAudits ? onNavigateToAudits() : setIsAuditsModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>View All</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.viewAll')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Next Audit Banner */}
-          <View style={styles.nextAuditBanner}>
-            <View style={styles.auditProgressSquare}>
-              <Text style={styles.auditProgressFraction}>3/4</Text>
-              <Text style={styles.auditProgressDone}>DONE</Text>
+          {auditsState.kind === 'loading' ? (
+            <View>
+              <Skeleton height={64} style={{ marginBottom: 12 }} />
+              <Skeleton height={44} style={{ marginBottom: 8 }} />
+              <Skeleton height={44} />
             </View>
-            <View style={styles.nextAuditDetails}>
-              <Text style={styles.nextAuditSubLabel}>Next audit</Text>
-              <Text style={styles.nextAuditDateText}>May 26, 2026 · External</Text>
-            </View>
-            <View style={styles.auditDueRedPill}>
-              <Text style={styles.auditDueRedText}>12d</Text>
-            </View>
-          </View>
-
-          {/* Past Audits List */}
-          <View style={styles.auditList}>
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Apr 20, 2026 · External</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 1 minor · Passed</Text>
+          ) : auditsState.kind === 'error' ? (
+            <ErrorState
+              error={auditsState.error}
+              message={t('farmer.audits.loadError')}
+              retryTitle={t('farmer.common.retry')}
+              offlineMessage={t('farmer.common.offline')}
+              onRetry={retryAudits}
+            />
+          ) : auditItems.length === 0 ? (
+            <Text style={styles.certNoticeText}>{t('farmer.audits.empty.title')}</Text>
+          ) : (
+            <>
+              {/* Next Audit Banner */}
+              <View style={styles.nextAuditBanner}>
+                <View style={styles.auditProgressSquare}>
+                  <Text style={styles.auditProgressFraction}>
+                    {t('farmer.profile.audits.scoreOutOf', { score: auditsDoneThisYear, max: QUARTERS_PER_FISCAL_YEAR })}
+                  </Text>
+                  <Text style={styles.auditProgressDone}>{t('farmer.profile.audits.done')}</Text>
+                </View>
+                <View style={styles.nextAuditDetails}>
+                  <Text style={styles.nextAuditSubLabel}>{t('farmer.profile.audits.nextAudit')}</Text>
+                  <Text style={styles.nextAuditDateText}>
+                    {nextAudit
+                      ? `${formatShortDate(nextAudit.scheduledFor)} · ${t(auditTypeKey(nextAudit.auditType))}`
+                      : t('farmer.dashboard.header.auditNone')}
+                  </Text>
+                </View>
+                <View style={styles.auditDueRedPill}>
+                  <Text style={styles.auditDueRedText}>{auditPillValue(auditCountdown(nextAudit, new Date()))}</Text>
+                </View>
               </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88</Text>
-            </View>
 
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 3 minor · Passed w/ issues</Text>
+              {/* Past Audits List -- real COMPLETED audits only, most recent first. */}
+              <View style={styles.auditList}>
+                {pastAudits.length === 0 ? (
+                  <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+                ) : (
+                  pastAudits
+                    .slice(0, 3)
+                    .map((audit, idx, arr) => (
+                      <AuditHistoryRow key={audit.id} audit={audit} isLast={idx === arr.length - 1} />
+                    ))
+                )}
               </View>
-              <Text style={[styles.auditScore, { color: P.orange800 }]}>74</Text>
-            </View>
-
-            <View style={[styles.auditItemRow, { borderBottomWidth: 0 }]}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Oct 12, 2025 · External</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 0 minor · Passed</Text>
-              </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91</Text>
-            </View>
-          </View>
+            </>
+          )}
         </View>
 
         {/* ================= CARD 5: FARM RATING ================= */}
@@ -789,11 +1302,11 @@ export function ProfileScreen({
               <Icon name="star" size={18} color={colors.brandGreen} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Farm Rating</Text>
+              <Text style={styles.cardTitle}>{t('farmer.profile.rating.title')}</Text>
               <Text style={styles.cardSubtitle}>{t('farmer.profile.rating.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={() => (onNavigateToFarmRatings ? onNavigateToFarmRatings() : setIsRatingModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Details</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.details')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -880,7 +1393,6 @@ export function ProfileScreen({
           </View>
         </View>
 
-        {/* MOCK: no soil-test resource exists in apps/api or docs/openapi.yaml. */}
         {/* ================= CARD 6: SOIL TEST ================= */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
@@ -888,126 +1400,43 @@ export function ProfileScreen({
               <Icon name="science" size={18} color={P.yellow900} />
             </View>
             <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Soil Test</Text>
-              <Text style={styles.cardSubtitle}>Annual analysis</Text>
+              <Text style={styles.cardTitle}>{t('farmer.profile.soil.title')}</Text>
+              <Text style={styles.cardSubtitle}>{t('farmer.profile.soil.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={() => (onNavigateToSoilTest ? onNavigateToSoilTest() : setIsSoilModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>History</Text>
+              <Text style={styles.cardActionLink}>{t('farmer.common.history')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Test Dates Strip */}
-          <View style={styles.soilDateStrip}>
-            <View>
-              <Text style={styles.soilDateLabel}>Last tested</Text>
-              <Text style={styles.soilDateValue}>08 Jan 2026</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.soilDateLabel}>Next due</Text>
-              <Text style={styles.soilDateValue}>Jan 2027</Text>
-            </View>
-          </View>
-
-          {/* 4 Soil Metric Tiles (2x2) */}
-          <View style={styles.soilGridContainer}>
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>Organic Carbon</Text>
-              <Text style={styles.soilTileValue}>0.68%</Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>pH Value</Text>
-              <Text style={styles.soilTileValue}>5.6</Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.red50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.red800 }]}>Acidic</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
-              <Text style={styles.soilTileValue}>0.42</Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>Water TDS (ppm)</Text>
-              <Text style={styles.soilTileValue}>610</Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>High</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Soil Advisory Recommendation */}
-          <View style={styles.soilAdvisoryBox}>
-            <Icon name="warning" size={16} color={P.red800} />
-            <Text style={styles.soilAdvisoryText}>
-              Soil pH is acidic. Consider lime application to bring pH between 6.0–7.5.
-            </Text>
-          </View>
+          {/* Real latest test, or the same honest "no test yet" state
+              SoilTestScreen/SoilManagementScreen use -- never a sample
+              reading (date, pH, EC, TDS all used to be hardcoded here). */}
+          {soilLoading ? (
+            <Skeleton height={140} />
+          ) : (
+            <SoilSummaryBody test={latestSoilTest} />
+          )}
         </View>
 
         {/* ================= CARD 7: MENU / ACTION LIST ================= */}
         <View style={[styles.cardContainer, { paddingVertical: 6 }]}>
           <TouchableOpacity
             style={styles.menuItemRow}
-            onPress={() => setIsDocumentsModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.violetTint }]}>
-              <Icon name="description" size={18} color={P.violetAccent} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>My Documents</Text>
-              <Text style={styles.menuSubtitle}>ID proof, farm docs, certificates</Text>
-            </View>
-            <View style={styles.menuRedBadge}>
-              <Text style={styles.menuRedBadgeText}>1</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => setIsBankModalVisible(true)}
+            onPress={() => {
+              if (onNavigateToBankPayment) {
+                onNavigateToBankPayment();
+              } else {
+                setIsBankModalVisible(true);
+              }
+            }}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIconBox, { backgroundColor: colors.brandGreenLight }]}>
               <Icon name="credit_card" size={18} color={colors.brandGreen} />
             </View>
             <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Bank & Payment</Text>
-              <Text style={styles.menuSubtitle}>Bank account · UPI ID · payout history</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => {
-              if (onNavigateToSettings) {
-                onNavigateToSettings();
-              } else {
-                setIsSettingsModalVisible(true);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.sky100 }]}>
-              <Icon name="settings" size={18} color={P.sky600} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Settings</Text>
-              <Text style={styles.menuSubtitle}>Language, notifications, privacy</Text>
+              <Text style={styles.menuTitle}>{t('farmer.profile.menu.bank')}</Text>
+              <Text style={styles.menuSubtitle}>{t('farmer.profile.menu.bankSubtitle')}</Text>
             </View>
             <Icon name="chevron_right" size={18} color={P.slate400} />
           </TouchableOpacity>
@@ -1021,9 +1450,9 @@ export function ProfileScreen({
                 onNavigateToAboutSupport();
               } else {
                 Alert.alert(
-                  'TOHFA Help & Support',
-                  'Toll-Free Support: 1800-425-8643\nWhatsApp: +91 94432 12345\nEmail: support@tohfa.in',
-                  [{ text: 'OK' }]
+                  t('farmer.profile.help.title'),
+                  t('farmer.profile.help.body'),
+                  [{ text: t('farmer.common.ok') }]
                 );
               }
             }}
@@ -1033,14 +1462,42 @@ export function ProfileScreen({
               <Icon name="help" size={18} color={P.twOrange600} />
             </View>
             <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Help & Support</Text>
-              <Text style={styles.menuSubtitle}>FAQs, contact TOHFA, feedback</Text>
+              <Text style={styles.menuTitle}>{t('farmer.profile.menu.help')}</Text>
+              <Text style={styles.menuSubtitle}>{t('farmer.profile.menu.helpSubtitle')}</Text>
             </View>
             <Icon name="chevron_right" size={18} color={P.slate400} />
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 36 }} />
+        {/* Standalone Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => {
+            Alert.alert(t('farmer.profile.logout.button'), t('farmer.profile.settings.signOutConfirmMessage'), [
+              { text: t('farmer.common.cancel'), style: 'cancel' },
+              {
+                text: t('farmer.profile.logout.button'),
+                style: 'destructive',
+                onPress: () => {
+                  void (async () => {
+                    await logout();
+                    onSignOut?.();
+                  })();
+                },
+              },
+            ]);
+          }}
+          activeOpacity={0.8}
+        >
+          <SignOutIcon size={18} color={P.red600} />
+          <Text style={styles.logoutButtonText}>{t('farmer.profile.logout.button')}</Text>
+        </TouchableOpacity>
+
+        {/* Footer Info */}
+        <View style={styles.footerVersionBox}>
+          <Text style={styles.footerVersionText}>{t('farmer.profile.footer.version')}</Text>
+          <Text style={styles.footerMemberText}>{t('farmer.profile.footer.memberSince', { date: 'March 2024' })}</Text>
+        </View>
       </ScrollView>
 
       {/* ================= MODAL: EDIT PERSONAL DETAILS ================= */}
@@ -1053,41 +1510,41 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Personal Details</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.personal.editTitle')}</Text>
               <TouchableOpacity onPress={() => setIsEditPersonalModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Full Name</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.fullName')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempFullName}
                 onChangeText={setTempFullName}
-                placeholder="Full Name"
+                placeholder={t('farmer.profile.fullName')}
               />
 
-              <Text style={styles.inputLabel}>Date of Birth</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.dob')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempDob}
                 onChangeText={setTempDob}
-                placeholder="DD Mon YYYY"
+                placeholder={t('farmer.profile.dobPlaceholder')}
               />
 
-              <Text style={styles.inputLabel}>Years in Organic Farming</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.yearsInOrganicLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempYearsInOrganic}
                 onChangeText={setTempYearsInOrganic}
                 keyboardType="numeric"
-                placeholder="e.g. 14"
+                placeholder={t('farmer.profile.yearsPlaceholder')}
               />
 
-              <Text style={styles.inputLabel}>Farming Type</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farmingType')}</Text>
               <View style={styles.chipsRow}>
-                {['Organic', 'Natural', 'Biodynamic'].map((type) => (
+                {FARMING_TYPE_CODES.map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[
@@ -1102,36 +1559,38 @@ export function ProfileScreen({
                         tempFarmingType === type && styles.choiceChipTextActive,
                       ]}
                     >
-                      {type}
+                      {farmingTypeLabel(type)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
+              <Text style={{ fontSize: typography.caption, color: P.slate400, marginTop: -8, marginBottom: 12 }}>
+                {t('farmer.profile.farmingType.notSavedNote')}
+              </Text>
 
-              <Text style={styles.inputLabel}>Farm Name</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farmName')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempFarmName}
                 onChangeText={setTempFarmName}
-                placeholder="Farm Name"
+                placeholder={t('farmer.profile.farmName')}
               />
 
-              <Text style={styles.inputLabel}>Farm Location / Village</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farmLocation')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempLocation}
                 onChangeText={setTempLocation}
-                placeholder="Village, Taluk, District"
+                placeholder={t('farmer.profile.farmLocationPlaceholder')}
               />
 
               <View style={styles.lockedSection}>
                 <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
                   <Icon name="lock" size={12} color={P.slate800} />
-                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Verified KYC Details (Protected)</Text>
+                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>{t('farmer.profile.kycLockedTitle')}</Text>
                 </View>
                 <Text style={styles.lockedSectionSubtitle}>
-                  Mobile ({personalDetails.mobile}) & Aadhaar ({personalDetails.aadhaar}) are locked by TOHFA verification.
-                  Contact field support to request updates.
+                  {t('farmer.profile.kycLockedNote', { mobile: personalDetails.mobile, aadhaar: personalDetails.aadhaar })}
                 </Text>
               </View>
             </ScrollView>
@@ -1141,14 +1600,16 @@ export function ProfileScreen({
                 style={styles.cancelBtn}
                 onPress={() => setIsEditPersonalModalVisible(false)}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveBtn}
                 onPress={handleSavePersonalDetails}
                 disabled={saving}
               >
-                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+                <Text style={styles.saveBtnText}>
+                  {saving ? t('farmer.farmDiary.newEntry.step3.saving') : t('farmer.profile.save')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1165,46 +1626,48 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Farm & Land Details</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.farm.editTitle')}</Text>
               <TouchableOpacity onPress={() => setIsEditFarmModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Total Land Area (Acres)</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farm.acresLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempAcres}
                 onChangeText={setTempAcres}
                 keyboardType="decimal-pad"
-                placeholder="e.g. 2.5"
+                placeholder={t('farmer.profile.farm.acresPlaceholder')}
               />
 
-              <Text style={styles.inputLabel}>Cultivation Zones Count</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farm.zonesLabel')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempZones}
                 onChangeText={setTempZones}
                 keyboardType="numeric"
-                placeholder="e.g. 3"
+                placeholder={t('farmer.profile.farm.zonesPlaceholder')}
               />
 
-              <Text style={styles.inputLabel}>Water Source</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.farm.waterSource')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={tempWaterSource}
                 onChangeText={setTempWaterSource}
-                placeholder="e.g. Borewell + Rainwater"
+                placeholder={t('farmer.profile.farm.waterSourcePlaceholder')}
               />
 
               <View style={styles.lockedSection}>
                 <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
                   <Icon name="place" size={12} color={P.slate800} />
-                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Cadastral Survey FMB</Text>
+                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>{t('farmer.profile.farm.fmbTitle')}</Text>
                 </View>
                 <Text style={styles.lockedSectionSubtitle}>
-                  FMB boundary points (8 points) verified by Department of Land Survey, Ooty. Coordinates: 11.4064° N, 76.6932° E.
+                  {hasBoundary
+                    ? t('farmer.profile.farm.fmbNote', { points: farmDetails.fmbPts, coordinates: gpsStatusLabel })
+                    : t('farmer.profile.farm.fmbPendingNote')}
                 </Text>
               </View>
             </ScrollView>
@@ -1214,10 +1677,10 @@ export function ProfileScreen({
                 style={styles.cancelBtn}
                 onPress={() => setIsEditFarmModalVisible(false)}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSaveFarmDetails}>
-                <Text style={styles.saveBtnText}>Save</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1235,7 +1698,7 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>My Documents</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.menu.documents')}</Text>
               <TouchableOpacity onPress={() => setIsDocumentsModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
@@ -1245,50 +1708,50 @@ export function ProfileScreen({
               <View style={styles.docItemCard}>
                 <Icon name="badge" size={24} color={P.slate600} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Aadhaar Card</Text>
+                  <Text style={styles.docTitle}>{t('farmer.profile.documents.aadhaar')}</Text>
                   <View style={[styles.iconTextRow, { marginTop: 2 }]}>
                     <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
+                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>{t('farmer.certifications.status.VERIFIED')}</Text>
                   </View>
                 </View>
-                <Text style={styles.docActionText}>View</Text>
+                <Text style={styles.docActionText}>{t('farmer.common.view')}</Text>
               </View>
 
               <View style={styles.docItemCard}>
                 <Icon name="description" size={24} color={P.slate600} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Land Patta / FMB Map</Text>
+                  <Text style={styles.docTitle}>{t('farmer.profile.documents.patta')}</Text>
                   <View style={[styles.iconTextRow, { marginTop: 2 }]}>
                     <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
+                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>{t('farmer.certifications.status.VERIFIED')}</Text>
                   </View>
                 </View>
-                <Text style={styles.docActionText}>View</Text>
+                <Text style={styles.docActionText}>{t('farmer.common.view')}</Text>
               </View>
 
               <View style={styles.docItemCard}>
                 <Icon name="military_tech" size={24} color={P.blue700} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>PGS Scope Certificate</Text>
+                  <Text style={styles.docTitle}>{t('farmer.profile.documents.pgsCert')}</Text>
                   <View style={[styles.iconTextRow, { marginTop: 2 }]}>
                     <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Valid</Text>
+                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>{t('farmer.profile.stats.certValid')}</Text>
                   </View>
                 </View>
-                <Text style={styles.docActionText}>Download</Text>
+                <Text style={styles.docActionText}>{t('farmer.common.download')}</Text>
               </View>
 
               <View style={[styles.docItemCard, { borderColor: P.orange400, backgroundColor: P.alertBgCream }]}>
                 <Icon name="water_drop" size={24} color={P.lightBlue700} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Annual Soil & Water Health Card</Text>
+                  <Text style={styles.docTitle}>{t('farmer.profile.documents.soilCard')}</Text>
                   <View style={[styles.iconTextRow, { marginTop: 2 }]}>
                     <Icon name="warning" size={11} color={P.orange900} />
-                    <Text style={[styles.docStatusGreen, { color: P.orange900, marginTop: 0 }]}>Action needed (Expiring)</Text>
+                    <Text style={[styles.docStatusGreen, { color: P.orange900, marginTop: 0 }]}>{t('farmer.profile.documents.actionNeeded')}</Text>
                   </View>
                 </View>
                 <TouchableOpacity style={styles.docUploadBtn}>
-                  <Text style={styles.docUploadBtnText}>Upload</Text>
+                  <Text style={styles.docUploadBtnText}>{t('farmer.common.upload')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1298,7 +1761,7 @@ export function ProfileScreen({
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setIsDocumentsModalVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Done</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.done')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1316,7 +1779,7 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bank & Payout Details</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.bank.title')}</Text>
               <TouchableOpacity onPress={() => setIsBankModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
@@ -1328,22 +1791,24 @@ export function ProfileScreen({
                 <Text style={styles.bankBranch}>Ooty Main Branch</Text>
                 <Text style={styles.bankAccountNum}>•••• •••• •••• 5821</Text>
                 <View style={styles.bankFooterRow}>
-                  <Text style={styles.bankIfsc}>IFSC: SBIN0000843</Text>
+                  <Text style={styles.bankIfsc}>{t('farmer.profile.bank.ifsc', { code: 'SBIN0000843' })}</Text>
                   <Text style={styles.bankHolder}>Kumar</Text>
                 </View>
               </View>
 
               <View style={[styles.detailRow, { marginTop: 16 }]}>
-                <Text style={styles.detailLabel}>Registered UPI ID</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.bank.upi')}</Text>
                 <Text style={styles.detailValue}>kumar.farmer@sbi</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Payout Schedule</Text>
-                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Instant Direct Credit (T+1)</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.bank.schedule')}</Text>
+                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>{t('farmer.profile.bank.scheduleValue')}</Text>
               </View>
               <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.detailLabel}>Last Payout</Text>
-                <Text style={styles.detailValue}>₹18,400 on 02 Sep 2026</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.bank.lastPayout')}</Text>
+                <Text style={styles.detailValue}>
+                  {t('farmer.profile.bank.lastPayoutValue', { amount: '₹18,400', date: '02 Sep 2026' })}
+                </Text>
               </View>
             </View>
 
@@ -1352,7 +1817,7 @@ export function ProfileScreen({
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setIsBankModalVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Close</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1369,14 +1834,14 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Settings</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.menu.settings')}</Text>
               <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>App Language</Text>
+              <Text style={styles.inputLabel}>{t('farmer.profile.settings.language')}</Text>
               <View style={styles.chipsRow}>
                 {LOCALES.map((code) => (
                   <TouchableOpacity
@@ -1396,28 +1861,28 @@ export function ProfileScreen({
                         selectedLocale === code && styles.choiceChipTextActive,
                       ]}
                     >
-                      {code === 'ta' ? 'தமிழ் (Tamil)' : 'English'}
+                      {code === 'ta' ? t('farmer.profile.settings.langTa') : t('farmer.profile.settings.langEn')}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
               <View style={[styles.detailRow, { marginTop: 20 }]}>
-                <Text style={styles.detailLabel}>SMS Market Notifications</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.settings.smsAlerts')}</Text>
                 <View style={styles.iconTextRow}>
-                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
+                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>{t('farmer.common.enabled')}</Text>
                   <Icon name="check_circle" size={13} color={colors.brandGreen} />
                 </View>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>FMB Boundary Geofence Alerts</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.settings.geofence')}</Text>
                 <View style={styles.iconTextRow}>
-                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
+                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>{t('farmer.common.enabled')}</Text>
                   <Icon name="check_circle" size={13} color={colors.brandGreen} />
                 </View>
               </View>
               <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.detailLabel}>App Version</Text>
+                <Text style={styles.detailLabel}>{t('farmer.profile.settings.appVersion')}</Text>
                 <Text style={styles.detailValue}>v0.1.0 (Production)</Text>
               </View>
             </View>
@@ -1427,7 +1892,7 @@ export function ProfileScreen({
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setIsSettingsModalVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Done</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.done')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1444,39 +1909,30 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Audit Inspection History</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.audits.modalTitle')}</Text>
               <TouchableOpacity onPress={() => setIsAuditsModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Apr 20, 2026 · External Certification</Text>
-                  <Text style={styles.auditItemSubtext}>Auditor: Dr. S. Ramanathan · 0 major · 1 minor</Text>
-                </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88/100</Text>
-              </View>
-
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal Peer Audit</Text>
-                  <Text style={styles.auditItemSubtext}>Auditor: Nilgiris Organic Local Group</Text>
-                </View>
-                <Text style={[styles.auditScore, { color: P.orange800 }]}>74/100</Text>
-              </View>
-
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Oct 12, 2025 · Annual NPOP Audit</Text>
-                  <Text style={styles.auditItemSubtext}>Indocert Inspection Agency · 0 findings</Text>
-                </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91/100</Text>
-              </View>
+              {auditsState.kind === 'loading' ? (
+                <Skeleton height={56} style={{ marginBottom: 8 }} />
+              ) : auditsState.kind === 'error' ? (
+                <ErrorState
+                  error={auditsState.error}
+                  message={t('farmer.audits.loadError')}
+                  retryTitle={t('farmer.common.retry')}
+                  offlineMessage={t('farmer.common.offline')}
+                  onRetry={retryAudits}
+                />
+              ) : pastAudits.length === 0 ? (
+                <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+              ) : (
+                pastAudits.map((audit, idx, arr) => (
+                  <AuditHistoryRow key={audit.id} audit={audit} isLast={idx === arr.length - 1} />
+                ))
+              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -1487,7 +1943,7 @@ export function ProfileScreen({
                   onNavigateToAudits?.();
                 }}
               >
-                <Text style={styles.saveBtnText}>View Details</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.profile.audits.viewDetails')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1511,7 +1967,7 @@ export function ProfileScreen({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={{ fontSize: 13, color: P.slate500, marginBottom: 14 }}>
+              <Text style={{ fontSize: typography.body, color: P.slate500, marginBottom: 14 }}>
                 {t('farmer.profile.rating.intro')}
               </Text>
 
@@ -1558,7 +2014,7 @@ export function ProfileScreen({
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setIsRatingModalVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Close</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1575,56 +2031,17 @@ export function ProfileScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Soil Health Card Analysis</Text>
+              <Text style={styles.modalTitle}>{t('farmer.profile.soil.modalTitle')}</Text>
               <TouchableOpacity onPress={() => setIsSoilModalVisible(false)}>
                 <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
               </TouchableOpacity>
             </View>
 
+            {/* Real latest test -- the fabricated Sample ID / Testing Lab row is
+                gone: SoilTestRecord has no such field anywhere in the API
+                (apps/api/src/modules/soil), so it was invented wholesale. */}
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.soilDateStrip}>
-                <View>
-                  <Text style={styles.soilDateLabel}>Sample ID</Text>
-                  <Text style={styles.soilDateValue}>SHC-2026-0814</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.soilDateLabel}>Testing Lab</Text>
-                  <Text style={styles.soilDateValue}>TNAU Ooty Research Lab</Text>
-                </View>
-              </View>
-
-              <View style={styles.soilGridContainer}>
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>Organic Carbon</Text>
-                  <Text style={styles.soilTileValue}>0.68%</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Ideal range: 0.5–0.75%</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>pH Value</Text>
-                  <Text style={styles.soilTileValue}>5.6</Text>
-                  <Text style={{ fontSize: 11, color: P.red800, marginTop: 4 }}>Acidic (Ideal: 6.0–7.5)</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
-                  <Text style={styles.soilTileValue}>0.42</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Normal electrical cond.</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>Water TDS</Text>
-                  <Text style={styles.soilTileValue}>610 ppm</Text>
-                  <Text style={{ fontSize: 11, color: P.orange900, marginTop: 4 }}>High mineral hardness</Text>
-                </View>
-              </View>
-
-              <View style={styles.soilAdvisoryBox}>
-                <Icon name="lightbulb" size={16} color={P.red800} />
-                <Text style={styles.soilAdvisoryText}>
-                  Recommendation: Apply 150 kg/acre agricultural dolomite or slaked lime prior to pre-monsoon planting to balance soil acidity.
-                </Text>
-              </View>
+              {soilLoading ? <Skeleton height={140} /> : <SoilSummaryBody test={latestSoilTest} />}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -1632,7 +2049,7 @@ export function ProfileScreen({
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setIsSoilModalVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Close</Text>
+                <Text style={styles.saveBtnText}>{t('farmer.common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1648,7 +2065,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.paleSurface,
   },
   scrollContainer: {
-    paddingBottom: 40,
+    paddingBottom: 12,
   },
 
   // --- HEADER SECTION ---
@@ -1679,7 +2096,7 @@ const styles = StyleSheet.create({
   },
   navTitle: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
   },
   navRightActions: {
@@ -1723,7 +2140,7 @@ const styles = StyleSheet.create({
   },
   farmerName: {
     color: colors.white,
-    fontSize: 23,
+    fontSize: typography.title,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -1736,19 +2153,19 @@ const styles = StyleSheet.create({
   },
   idBadgeText: {
     color: P.greenPaleBg,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
   },
   farmNameText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     marginBottom: 3,
   },
   locationText: {
     color: P.green100,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
   },
 
@@ -1783,12 +2200,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
     letterSpacing: 0.5,
@@ -1811,7 +2228,7 @@ const styles = StyleSheet.create({
   },
   toastSuccessText: {
     color: P.deepGreen,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -1848,17 +2265,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate800,
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 1,
   },
   cardActionLink: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -1873,11 +2290,11 @@ const styles = StyleSheet.create({
     borderBottomColor: P.slate100,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
   },
   detailValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
     textAlign: 'right',
@@ -1896,6 +2313,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  fmbMapSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+  },
+  fmbMapEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  fmbMapEmptyText: {
+    fontSize: typography.caption,
+    fontWeight: '600',
+    color: P.slate500,
+    textAlign: 'center',
+  },
   gpsCoordinatesBadge: {
     position: 'absolute',
     top: 8,
@@ -1907,7 +2340,7 @@ const styles = StyleSheet.create({
   },
   gpsCoordinatesText: {
     color: colors.white,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   fmbMetricsStrip: {
@@ -1924,12 +2357,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fmbMetricValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   fmbMetricLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
     marginTop: 2,
@@ -1951,7 +2384,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   tagPillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
 
@@ -1983,7 +2416,7 @@ const styles = StyleSheet.create({
   },
   greenCheckmarkText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   orangeExclamationCircle: {
@@ -1996,21 +2429,21 @@ const styles = StyleSheet.create({
   },
   orangeExclamationText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   certTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   certStatusText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     marginTop: 2,
   },
   certRenewText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 2,
   },
@@ -2018,7 +2451,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   certNoticeText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
     lineHeight: 19,
   },
@@ -2034,7 +2467,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   warningNoticeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.amberDeep,
     flex: 1,
     lineHeight: 16,
@@ -2058,12 +2491,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   auditProgressFraction: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.sky600,
   },
   auditProgressDone: {
-    fontSize: 8,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate500,
   },
@@ -2071,11 +2504,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nextAuditSubLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.slate500,
   },
   nextAuditDateText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
     marginTop: 1,
@@ -2088,7 +2521,7 @@ const styles = StyleSheet.create({
   },
   auditDueRedText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
   },
   auditList: {
@@ -2111,17 +2544,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   auditItemDate: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
   },
   auditItemSubtext: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 2,
   },
   auditScore: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 
@@ -2145,12 +2578,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ratingGaugeScore: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.slate800,
   },
   ratingGaugeMax: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
   },
@@ -2158,7 +2591,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ratingStatusTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -2172,7 +2605,7 @@ const styles = StyleSheet.create({
   },
   ratingDeltaText: {
     color: colors.brandGreen,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   ratingBarsList: {
@@ -2189,12 +2622,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   barTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.slate600,
   },
   barScore: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   barTrack: {
@@ -2218,11 +2651,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   soilDateLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.twAmber900,
   },
   soilDateValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
     marginTop: 1,
@@ -2239,12 +2672,12 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   soilTileLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate500,
     marginBottom: 2,
   },
   soilTileValue: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate800,
     marginBottom: 4,
@@ -2256,7 +2689,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   soilBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   soilAdvisoryBox: {
@@ -2271,7 +2704,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   soilAdvisoryText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.red800,
     flex: 1,
     lineHeight: 16,
@@ -2296,12 +2729,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
   },
   menuSubtitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 1,
   },
@@ -2316,13 +2749,55 @@ const styles = StyleSheet.create({
   },
   menuRedBadgeText: {
     color: colors.white,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: P.slate100,
     marginLeft: 54,
+  },
+
+  // --- STANDALONE LOGOUT & FOOTER ---
+  logoutButton: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: P.twRed100,
+    borderRadius: 16,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  logoutButtonText: {
+    color: P.twRed500,
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+  },
+  footerVersionBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  footerVersionText: {
+    fontSize: typography.bodySmall,
+    color: P.twGray400,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  footerMemberText: {
+    fontSize: typography.bodySmall,
+    color: P.twGray400,
+    fontWeight: '500',
   },
 
   // --- MODALS ---
@@ -2347,7 +2822,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.slate100,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.slate800,
   },
@@ -2358,7 +2833,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.slate600,
     marginBottom: 6,
@@ -2370,7 +2845,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     backgroundColor: P.slate50,
     marginBottom: 6,
@@ -2393,7 +2868,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   choiceChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate600,
     fontWeight: '500',
   },
@@ -2410,13 +2885,13 @@ const styles = StyleSheet.create({
     borderColor: P.slate200,
   },
   lockedSectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.slate800,
     marginBottom: 4,
   },
   lockedSectionSubtitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate500,
     lineHeight: 16,
   },
@@ -2437,7 +2912,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate500,
   },
@@ -2450,7 +2925,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.white,
   },
@@ -2468,18 +2943,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   docTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   docStatusGreen: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: colors.brandGreen,
     fontWeight: '600',
     marginTop: 2,
   },
   docActionText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.sky600,
   },
@@ -2491,7 +2966,7 @@ const styles = StyleSheet.create({
   },
   docUploadBtnText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
 
@@ -2508,17 +2983,17 @@ const styles = StyleSheet.create({
   },
   bankName: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   bankBranch: {
     color: P.green100,
-    fontSize: 11,
+    fontSize: typography.caption,
     marginTop: 2,
   },
   bankAccountNum: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     letterSpacing: 2,
     marginVertical: 16,
@@ -2529,11 +3004,11 @@ const styles = StyleSheet.create({
   },
   bankIfsc: {
     color: P.green100,
-    fontSize: 11,
+    fontSize: typography.caption,
   },
   bankHolder: {
     color: colors.white,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });

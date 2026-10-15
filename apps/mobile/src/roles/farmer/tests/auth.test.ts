@@ -10,6 +10,7 @@ import {
   loginWithPassword,
   logout,
   renderOtpState,
+  resolveAppRole,
   resolveRouteAfterAuth,
   verifyOtp,
 } from '../api/auth';
@@ -384,6 +385,25 @@ describe('User Story 42 (S-42) Auth Tests', () => {
 
       expect(getClientAccessToken()).toBeNull();
       expect(await getStoredAccessToken()).toBeNull();
+    });
+  });
+
+  describe('resolveAppRole: which app a signed-in account lands in', () => {
+    it('routes a FARMER-only account to the farmer app', () => {
+      expect(resolveAppRole([{ code: 'FARMER' }] as never)).toBe('FARMER');
+    });
+
+    it('routes a FARMER_ADMIN-only account to the admin app', () => {
+      expect(resolveAppRole([{ code: 'FARMER_ADMIN' }] as never)).toBe('ADMIN');
+    });
+
+    it('routes a CUSTOMER-only account to the customer app', () => {
+      expect(resolveAppRole([{ code: 'CUSTOMER' }] as never)).toBe('CUSTOMER');
+    });
+
+    it('marks roles with no screens in this app as UNSUPPORTED', () => {
+      expect(resolveAppRole([{ code: 'WAREHOUSE_STAFF' }] as never)).toBe('UNSUPPORTED');
+      expect(resolveAppRole([] as never)).toBe('UNSUPPORTED');
     });
   });
 });

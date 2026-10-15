@@ -378,6 +378,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const blockedRes = await request(app)
         .post('/v1/listings')
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           cropId: cropCarrotId,
           grade: 'GRADE_1',
@@ -427,6 +428,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const rejectRes = await request(app)
         .post('/v1/listings')
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           cropId: cropCarrotId,
           grade: 'GRADE_1',
@@ -488,6 +490,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const acceptRes = await request(app)
         .post(`/v1/listings/${createdListingId}/counter-offers/${counterOfferId}/accept`)
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({});
       expect(acceptRes.status).toBe(200);
 
@@ -607,6 +610,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const overCapRes = await request(app)
         .post(`/v1/admin/wallets/${customerId}/cash-topup`)
         .set('Authorization', `Bearer ${mainWhAdminToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           amount: '15000.00',
           warehouseId: warehouseOotyId,
@@ -619,6 +623,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const validCashRes = await request(app)
         .post(`/v1/admin/wallets/${customerId}/cash-topup`)
         .set('Authorization', `Bearer ${mainWhAdminToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           amount: '2500.00',
           warehouseId: warehouseOotyId,
@@ -767,6 +772,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const selfApprove = await request(app)
         .post(`/v1/admin/payouts/${createdPayoutId}/approve`)
         .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `gt-approve-${Date.now()}-superAdminToken`)
         .send({ note: 'Self approval attempt' });
       expect(selfApprove.status).toBe(403);
       expect(selfApprove.body.code).toBe('SAME_ACTOR_APPROVAL');
@@ -775,6 +781,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const dualApprove = await request(app)
         .post(`/v1/admin/payouts/${createdPayoutId}/approve`)
         .set('Authorization', `Bearer ${superAdmin2Token}`)
+        .set('Idempotency-Key', `gt-approve-${Date.now()}-superAdmin2Token`)
         .send({ note: 'Super Admin 2 signoff' });
       expect(dualApprove.status).toBe(200);
       expect(dualApprove.body.status).toBe('APPROVED');

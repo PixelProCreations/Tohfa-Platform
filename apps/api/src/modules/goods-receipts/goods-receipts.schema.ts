@@ -102,18 +102,47 @@ export const qualityCheckCreateBody = z
   .strict();
 export type QualityCheckCreateBody = z.infer<typeof qualityCheckCreateBody>;
 
+/*
+ * docs/openapi.yaml CounterOfferCreate: Money (at most 2 decimals) and Quantity (at most 3), as
+ * decimal strings. The regex runs first so `Number` only ever sees a plain decimal for the sign
+ * check; the value reaches SQL as the string the client sent, never through a JS float.
+ */
+const counterOfferMoney = /^[0-9]{1,10}(\.[0-9]{1,2})?$/;
+const counterOfferQuantity = /^[0-9]{1,9}(\.[0-9]{1,3})?$/;
+
 export const qualityCounterOfferBody = z
   .object({
-    pricePerKg: z.string().refine((val) => Number(val) > 0, {
-      message: 'pricePerKg must be greater than 0',
-    }),
-    quantityKg: z.string().refine((val) => Number(val) > 0, {
-      message: 'quantityKg must be greater than 0',
-    }),
+    pricePerKg: z
+      .string()
+      .regex(counterOfferMoney, 'pricePerKg must be a decimal string with at most 2 decimal places')
+      .refine((val) => Number(val) > 0, { message: 'pricePerKg must be greater than 0' }),
+    quantityKg: z
+      .string()
+      .regex(counterOfferQuantity, 'quantityKg must be a decimal string with at most 3 decimal places')
+      .refine((val) => Number(val) > 0, { message: 'quantityKg must be greater than 0' }),
     message: z.string().max(500).optional(),
   })
   .strict();
 export type QualityCounterOfferBody = z.infer<typeof qualityCounterOfferBody>;
+
+/** docs/openapi.yaml CounterOffer, as this endpoint fills it (the listing and receipt are always set). */
+export const qualityCounterOfferResponse = z
+  .object({
+    id: z.string().uuid(),
+    listingId: z.string().uuid(),
+    goodsReceiptId: z.string().uuid(),
+    round: z.number().int().min(1).max(4),
+    offeredBy: z.enum(['ADMIN', 'FARMER']),
+    offeredByUserId: z.string().uuid(),
+    pricePerKg: z.string(),
+    quantityKg: z.string(),
+    message: z.string().nullable(),
+    status: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'COUNTERED', 'LAPSED']),
+    expiresAt: z.string(),
+    respondedAt: z.string().nullable(),
+  })
+  .strict();
+export type QualityCounterOfferResponse = z.infer<typeof qualityCounterOfferResponse>;
 
 export const goodsReceiptResponse = z.object({
   id: z.string().uuid(),

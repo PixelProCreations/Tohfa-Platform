@@ -29,9 +29,21 @@ import {
   verifyOtp as apiVerifyOtp,
 } from '../../../shell/auth/api';
 import { saveTokens, clearTokens, getAccessToken as getStoredAccessToken } from '../storage/tokenStorage';
+import { ADMIN_SHELL_ROLES, adminShellForRoles, type AdminShellRole } from '../utils/adminShell';
+import { clearCertificationsCache } from './farmer';
 
+/**
+ * One role assignment. GET /auth/me also resolves the warehouse and zone the
+ * role is held at (@tohfa/shared-types `CurrentUserRoleAssignment`); the login
+ * responses carry only the ids. All optional, and null is accepted because
+ * the server sends null for a role with no warehouse or zone.
+ */
 export interface UserRole {
   code: RoleCodeWithColor;
+  warehouseId?: string | null | undefined;
+  warehouseName?: string | null | undefined;
+  zoneId?: string | null | undefined;
+  zoneName?: string | null | undefined;
 }
 
 /**
@@ -71,27 +83,18 @@ export interface UserMe {
  */
 export type ResolvedAppRole = 'FARMER' | 'CUSTOMER' | 'ADMIN' | 'UNSUPPORTED';
 
-/** Admin role codes that get their own admin dashboard on mobile. */
-export const ADMIN_ROLE_CODES = [
-  'SUPER_ADMIN',
-  'TOHFA_ADMIN',
-  'MAIN_WH_ADMIN',
-  'SUB_WH_ADMIN',
-  'FARMER_ADMIN',
-] as const;
+/** Admin role codes that get their own admin dashboard on mobile (docs/rbac.json). */
+export const ADMIN_ROLE_CODES = ADMIN_SHELL_ROLES;
 
-export type AdminRoleCode = (typeof ADMIN_ROLE_CODES)[number];
+export type AdminRoleCode = AdminShellRole;
 
+/**
+ * The first admin role in a server role list, by exact code only. It used to
+ * accept aliases ('SA', 'MW', 'MAIN_WAREHOUSE_ADMIN', ...) the server never
+ * sends; see ../utils/adminShell.ts for why it is fail-closed.
+ */
 export function getPrimaryAdminRole(roles: UserRole[]): AdminRoleCode | null {
-  for (const r of roles ?? []) {
-    const raw = String(r?.code ?? '').toUpperCase().replace(/[-\s]/g, '_');
-    if (raw === 'SUPER_ADMIN' || raw === 'SA' || raw === 'SUPERADMIN') return 'SUPER_ADMIN';
-    if (raw === 'TOHFA_ADMIN' || raw === 'TA' || raw === 'TOHFAADMIN') return 'TOHFA_ADMIN';
-    if (raw === 'FARMER_ADMIN' || raw === 'FA' || raw === 'FARMERADMIN') return 'FARMER_ADMIN';
-    if (raw === 'MAIN_WH_ADMIN' || raw === 'MAIN_WAREHOUSE_ADMIN' || raw === 'MW' || raw === 'MAINWH') return 'MAIN_WH_ADMIN';
-    if (raw === 'SUB_WH_ADMIN' || raw === 'SUB_WAREHOUSE_ADMIN' || raw === 'SW' || raw === 'SUBWH') return 'SUB_WH_ADMIN';
-  }
-  return null;
+  return adminShellForRoles(roles);
 }
 
 export function resolveAppRole(roles: UserRole[]): ResolvedAppRole {
@@ -258,11 +261,13 @@ export function resolveRouteAfterAuth(me: UserMe): {
   name: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
   params?: { applicationId?: string; adminRole?: AdminRoleCode };
 } {
-  const role = resolveAppRole(me.roles);
-  if (role === 'ADMIN') {
-    const adminRole = getPrimaryAdminRole(me.roles) ?? 'SUPER_ADMIN';
+  // No default admin role: a role this app does not recognise is
+  // 'Unsupported' below, never the Super Admin shell.
+  const adminRole = getPrimaryAdminRole(me.roles);
+  if (adminRole !== null) {
     return { name: 'AdminMain', params: { adminRole } };
   }
+  const role = resolveAppRole(me.roles);
   if (role === 'CUSTOMER') {
     return { name: 'CustomerMain' };
   }
@@ -278,6 +283,20 @@ export function resolveRouteAfterAuth(me: UserMe): {
     };
   }
   return { name: 'MainTabs' };
+}
+
+/**
+ * Where a completed login goes. Routes on the roles the LOGIN RESPONSE carried
+ * (the roles the token was signed for), not on `/auth/me`'s `roles`, which
+ * lists every role the account holds: after a role selection the session is
+ * one of them, and the shell must match the session or every call it makes is
+ * refused. `me` still supplies the farmer application fields.
+ */
+export function resolveRouteAfterLogin(
+  outcome: TokenResponse,
+  me: UserMe,
+): ReturnType<typeof resolveRouteAfterAuth> {
+  return resolveRouteAfterAuth({ ...me, roles: outcome.user.roles });
 }
 
 /**
@@ -388,6 +407,31 @@ export async function resetPassword(body: {
   return undefined as unknown as { message: string };
 }
 
+/**
+ * `POST /auth/me/change-password`. Requires the caller to already be authenticated -- the
+ * bearer token is attached automatically by `request()`, same as every other authenticated
+ * call in this file.
+ *
+ * Unlike `resetPassword` above, a successful call here does not just rotate the password: the
+ * server revokes every session belonging to this user, including the one making this very
+ * request. The access token this app is holding in memory is therefore already invalid the
+ * instant the request resolves, so clearing it locally isn't optional cleanup -- it's this
+ * client catching up with what the server already did. Mirrors `logout()`'s `finally` block
+ * (`setAccessToken(null)` + `clearTokens()`) exactly, minus the `apiLogout()` call: this request
+ * IS the action that ends the session, there is nothing left to notify the server of.
+ */
+export async function changePassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await request<void>('/auth/me/change-password', {
+    method: 'POST',
+    body,
+  });
+  setAccessToken(null);
+  await clearTokens();
+}
+
 export async function fetchMe(): Promise<UserMe> {
   // No fallback identity: a failed /me must surface as an error. A fabricated
   // SUPER_ADMIN with ['*'] here would hand every permission to an unauthenticated
@@ -396,10 +440,10 @@ export async function fetchMe(): Promise<UserMe> {
 }
 
 /**
- * True when a token exists to authenticate GET /auth/me: the API client's
- * in-memory access token, or a stored session the client can refresh from.
- * Used to hold the warehouse permission fetch until the (un-awaited) demo
- * login has stored a token; see roles/admin/permissions/useWarehousePermissions.
+ * True when a token exists to authenticate a call: the API client's in-memory
+ * access token, or a stored session the client can refresh from. Used to hold
+ * the warehouse permission fetch until a token exists (see
+ * roles/admin/permissions/useWarehousePermissions) and by `logout` below.
  */
 export async function hasSessionCredentials(): Promise<boolean> {
   if (getAccessToken() !== null) return true;
@@ -414,13 +458,20 @@ export async function fetchApplicationStatus(
 
 export async function logout(): Promise<void> {
   try {
-    await apiLogout();
+    // Nothing left to revoke (a second sign-out, or one after a failed
+    // refresh already cleared the session): a tokenless POST /auth/logout
+    // would only 401 into the refresh path and fire the auth-failure handler.
+    if (await hasSessionCredentials()) {
+      await apiLogout();
+    }
   } catch {
     // Ignore network error on logout — the user must always be able to log
     // out locally even if the server call fails (see customer role's logout
     // for the same pattern).
   } finally {
     setAccessToken(null);
+    // The next account on this device must not see this farmer's certificates.
+    clearCertificationsCache();
     await clearTokens();
   }
 }
