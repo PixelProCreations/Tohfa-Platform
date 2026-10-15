@@ -113,6 +113,8 @@ export interface ReceivingFlowProps {
   finishTo?: 'Dashboard' | 'History' | undefined;
   /** View Batch navigation handler */
   onViewBatch?: ((batchId: string) => void) | undefined;
+  /** Reports the currently active route in the receiving flow stack */
+  onScreenChange?: ((screen: ReceivingRoute) => void) | undefined;
 }
 
 export function ReceivingFlow({
@@ -130,6 +132,7 @@ export function ReceivingFlow({
   onOpenTimeline,
   finishTo = 'Dashboard',
   onViewBatch,
+  onScreenChange,
 }: ReceivingFlowProps) {
   const [stack, setStack] = useState<ReceivingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   const [filters, setFilters] = useState<ReceivingFilters>(EMPTY_RECEIVING_FILTERS);
@@ -150,6 +153,10 @@ export function ReceivingFlow({
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: ReceivingRouteParams = current.params ?? {};
+
+  useEffect(() => {
+    onScreenChange?.(current.screen);
+  }, [current.screen, onScreenChange]);
 
   const navigate = (screen: ReceivingRoute, nextParams?: ReceivingRouteParams) => {
     if (!canOpenReceivingRoute(screen, can)) return;
@@ -316,6 +323,7 @@ export function ReceivingFlow({
           key={params.historyFilter ?? 'All'}
           initialFilter={params.historyFilter}
           onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
+          onOpenFilters={() => navigate('SearchFilters')}
         />
       );
     case 'HistoryDetail': {

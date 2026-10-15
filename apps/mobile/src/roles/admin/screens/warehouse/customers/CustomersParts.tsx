@@ -257,12 +257,14 @@ export function SearchField({
   onChangeText,
   placeholder,
   onFocus,
+  onFilterPress,
   right,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
   onFocus?: (() => void) | undefined;
+  onFilterPress?: (() => void) | undefined;
   right?: React.ReactNode;
 }) {
   return (
@@ -278,7 +280,19 @@ export function SearchField({
         autoCorrect={false}
         clearButtonMode="while-editing"
       />
-      {right}
+      {right !== undefined ? (
+        right
+      ) : onFilterPress !== undefined ? (
+        <TouchableOpacity
+          onPress={onFilterPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Open Filters"
+        >
+          <FilterIcon color={adminColors.brand} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

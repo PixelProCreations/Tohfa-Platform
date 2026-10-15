@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 
 import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
 import { WarehouseSelector } from '../inventory';
@@ -439,48 +440,45 @@ export function SalesScreen({
              MAIN WAREHOUSE VIEW (M6-01 Sales Dashboard)
              ═══════════════════════════════════════════════════════════════════════ */
           <>
-            {/* 6 Top KPI Cards (Static, no redirection) */}
+            {/* 6 Top KPI Cards */}
             <View style={styles.mainKpiGrid}>
-              {/* Card 1: TODAY'S SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TODAY'S SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.todaySales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.todayTxns}</Text>
-              </View>
-
-              {/* Card 2: DIRECT SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>DIRECT SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.directSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.directTxns}</Text>
-              </View>
-
-              {/* Card 3: MARKET SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>MARKET SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.marketSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.marketTxns}</Text>
-              </View>
-
-              {/* Card 4: HORECA */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>HORECA</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.horecaSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.horecaOrders}</Text>
-              </View>
-
-              {/* Card 5: B2B */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>B2B</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.b2bSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.b2bOrders}</Text>
-              </View>
-
-              {/* Card 6: NEEDS ATTENTION */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>NEEDS ATTENTION</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.needsAttentionCount}</Text>
-              </View>
+              <OverviewDashboardCard
+                value={kpiData.todaySales}
+                title="Today's Sales"
+                subtitle={kpiData.todayTxns}
+                icon="sales"
+              />
+              <OverviewDashboardCard
+                value={kpiData.directSales}
+                title="Direct Sales"
+                subtitle={kpiData.directTxns}
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value={kpiData.marketSales}
+                title="Market Sales"
+                subtitle={kpiData.marketTxns}
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value={kpiData.horecaSales}
+                title="HORECA"
+                subtitle={kpiData.horecaOrders}
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value={kpiData.b2bSales}
+                title="B2B"
+                subtitle={kpiData.b2bOrders}
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value={kpiData.needsAttentionCount}
+                title="Needs Attention"
+                subtitle="Requires action"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* Warehouse Sales Summary */}
@@ -632,59 +630,43 @@ export function SalesScreen({
             <Text style={styles.sectionTitle}>Today's Sales by Channel</Text>
 
             <View style={styles.channelGrid}>
-              {/* Card 1: Today's Sales */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <MoneyCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹24,850</Text>
-                <Text style={styles.cardSubtitle}>Today's Sales · 42 txns</Text>
-              </View>
-
-              {/* Card 2: Direct */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹8,450</Text>
-                <Text style={styles.cardSubtitle}>Direct · 18 sales</Text>
-              </View>
-
-              {/* Card 3: Market */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹7,200</Text>
-                <Text style={styles.cardSubtitle}>Market · 15 sales</Text>
-              </View>
-
-              {/* Card 4: HORECA */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <CutleryCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹4,800</Text>
-                <Text style={styles.cardSubtitle}>HORECA · 5 orders</Text>
-              </View>
-
-              {/* Card 5: B2B */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <BuildingCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.cardAmount}>₹4,400</Text>
-                <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
-              </View>
-
-              {/* Card 6: Needs Attention */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <ExclamationCircleCardIcon color={adminColors.danger.text} />
-                </View>
-                <Text style={[styles.cardAmount, { color: adminColors.danger.text }]}>5</Text>
-                <Text style={styles.cardSubtitle}>Needs Attention</Text>
-              </View>
+              <OverviewDashboardCard
+                value="₹24,850"
+                title="Today's Sales"
+                subtitle="42 transactions"
+                icon="sales"
+              />
+              <OverviewDashboardCard
+                value="₹8,450"
+                title="Direct Sales"
+                subtitle="18 sales"
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value="₹7,200"
+                title="Market"
+                subtitle="15 sales"
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value="₹4,800"
+                title="HORECA"
+                subtitle="5 orders"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="₹4,400"
+                title="B2B"
+                subtitle="4 orders"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="5"
+                title="Needs Attention"
+                subtitle="Requires action"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* 2. Quick Actions */}
@@ -1058,7 +1040,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    rowGap: 10,
     marginBottom: 20,
   },
   mainKpiCard: {

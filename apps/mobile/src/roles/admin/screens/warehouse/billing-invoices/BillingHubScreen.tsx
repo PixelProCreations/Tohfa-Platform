@@ -24,6 +24,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { SWABottomNav } from '../../swa/components';
 import {
   BillingButton,
@@ -193,22 +194,32 @@ export function BillingHubScreen({
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
           <View style={styles.mainKpiGrid}>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>TODAY'S INVOICES</Text>
-              <Text style={styles.mainKpiValue}>42</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>GENERATED</Text>
-              <Text style={styles.mainKpiValue}>38</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>PENDING</Text>
-              <Text style={styles.mainKpiValue}>3</Text>
-            </View>
-            <View style={styles.mainKpiCard}>
-              <Text style={styles.mainKpiLabel}>FAILED</Text>
-              <Text style={styles.mainKpiValue}>1</Text>
-            </View>
+            <OverviewDashboardCard
+              value="42"
+              title="Today's Invoices"
+              subtitle="All invoices today"
+              icon="orders"
+            />
+            <OverviewDashboardCard
+              value="38"
+              title="Generated"
+              subtitle="Completed"
+              icon="pickup"
+            />
+            <OverviewDashboardCard
+              value="3"
+              title="Pending"
+              subtitle="Awaiting action"
+              icon="orders"
+              tone="warning"
+            />
+            <OverviewDashboardCard
+              value="1"
+              title="Failed"
+              subtitle="Needs attention"
+              icon="alert"
+              tone="danger"
+            />
           </View>
 
           {/* Quick Actions */}
@@ -294,13 +305,32 @@ export function BillingHubScreen({
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => (
-            <View key={kpi.key} style={styles.kpiCard}>
-              <TileIcon d={kpi.icon} color={kpi.alert ? adminColors.danger.text : adminColors.brand} />
-              <Text style={[styles.kpiValue, kpi.alert && styles.kpiValueAlert]}>{kpi.value}</Text>
-              <Text style={styles.kpiLabel}>{kpi.label}</Text>
-            </View>
-          ))}
+          <OverviewDashboardCard
+            value="42"
+            title="Today's Invoices"
+            subtitle="All invoices today"
+            icon="orders"
+          />
+          <OverviewDashboardCard
+            value="38"
+            title="Generated"
+            subtitle="Completed"
+            icon="pickup"
+          />
+          <OverviewDashboardCard
+            value="3"
+            title="Pending"
+            subtitle="Awaiting action"
+            icon="orders"
+            tone="warning"
+          />
+          <OverviewDashboardCard
+            value="1"
+            title="Failed"
+            subtitle="Needs attention"
+            icon="alert"
+            tone="danger"
+          />
         </View>
 
         <SectionTitle>Quick Actions</SectionTitle>

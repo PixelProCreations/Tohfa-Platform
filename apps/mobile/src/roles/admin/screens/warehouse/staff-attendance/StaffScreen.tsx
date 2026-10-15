@@ -23,6 +23,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import {
   CalendarIcon,
   EmptyState,
@@ -231,32 +232,33 @@ export function StaffScreen({
 
 
       <View style={styles.kpiGrid}>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
-            <Text style={styles.kpiValue}>{isMain ? '12' : scoped.length}</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.success.text }]}>
-              {isMain ? '9' : count((m) => m.attendance === 'Present')}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ABSENT</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>
-              {isMain ? '2' : count((m) => m.attendance === 'Absent')}
-            </Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ON LEAVE</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.warning.text }]}>
-              {isMain ? '1' : count((m) => m.attendance === 'On Leave')}
-            </Text>
-          </View>
-        </View>
+        <OverviewDashboardCard
+          value="12"
+          title="Total Staff"
+          subtitle="All rostered"
+          icon="orders"
+        />
+        <OverviewDashboardCard
+          value="9"
+          title="Present Today"
+          subtitle="On duty"
+          icon="pickup"
+          tone="success"
+        />
+        <OverviewDashboardCard
+          value="2"
+          title="Absent"
+          subtitle="Needs attention"
+          icon="alert"
+          tone="danger"
+        />
+        <OverviewDashboardCard
+          value="1"
+          title="On Leave"
+          subtitle="Approved leave"
+          icon="receiving"
+          tone="warning"
+        />
       </View>
 
       {isMain ? (
@@ -417,7 +419,10 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   kpiGrid: {
-    gap: adminSpacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: adminSpacing.md,
   },
   kpiRow: {
@@ -520,8 +525,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bannerTitle: { ...adminType.rowTitle, color: adminColors.brandDeep },
-  actionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.sm },
+  actionRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
   actionCard: {
     flex: 1,
     alignItems: 'center',

@@ -32,6 +32,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { WarehouseSelector } from '../inventory';
 import {
   BellRingIcon,
@@ -247,20 +248,18 @@ export function FinanceHubScreen({
     (selectedWarehouseId && WAREHOUSE_FINANCE_METRICS[selectedWarehouseId]) ||
     DEFAULT_METRICS;
 
-  const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; delta?: string }[] = isMain
+  const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; subtitle: string }[] = isMain
     ? [
-        { label: 'REVENUE', value: selectedMetrics.revenue, route: 'Revenue' },
-        { label: 'EXPENSES', value: selectedMetrics.expenses, route: 'Expenses' },
-        { label: 'NET MOVEMENT', value: selectedMetrics.net, tone: 'success' },
-        { label: 'CASH BALANCE', value: selectedMetrics.cashBalance },
+        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
+        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
+        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
+        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
       ]
     : [
-        { label: "TODAY'S REVENUE", value: '₹24,850', route: 'Revenue', delta: '↑ 8.4% vs yesterday' },
-        { label: "TODAY'S EXPENSES", value: '₹6,420', route: 'Expenses' },
-        { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
-        { label: 'PENDING EXPENSES', value: '8', route: 'Expenses' },
-        { label: 'CASH IN', value: '₹12,500' },
-        { label: 'CASH OUT', value: '₹6,420', route: 'Expenses' },
+        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
+        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
+        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
+        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
       ];
 
   const expenseRows = isMain
@@ -312,13 +311,25 @@ export function FinanceHubScreen({
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => (
-            <View key={kpi.label} style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{kpi.label}</Text>
-              <Text style={[styles.kpiValue, kpi.tone === 'success' && styles.kpiValueSuccess]}>{kpi.value}</Text>
-              {kpi.delta ? <Text style={styles.kpiDelta}>{kpi.delta}</Text> : null}
-            </View>
-          ))}
+          {kpis.map((kpi) => {
+            const getIcon = (label: string): 'sales' | 'cash' | 'orders' | 'inventory' => {
+              const lower = label.toLowerCase();
+              if (lower.includes('revenue') || lower.includes('sales')) return 'sales';
+              if (lower.includes('expense')) return 'cash';
+              if (lower.includes('net') || lower.includes('balance') || lower.includes('cash')) return 'cash';
+              return 'orders';
+            };
+            return (
+              <OverviewDashboardCard
+                key={kpi.label}
+                value={kpi.value}
+                title={kpi.label}
+                subtitle={kpi.subtitle}
+                icon={getIcon(kpi.label)}
+                tone={kpi.tone === 'success' ? 'success' : 'default'}
+              />
+            );
+          })}
         </View>
 
         {isMain && actions.length > 0 ? (
@@ -491,7 +502,7 @@ const CHART_HEIGHT = 108;
 const CHART_AXIS_WIDTH = 36;
 
 const styles = StyleSheet.create({
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: adminSpacing.xs },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.md },
   kpiCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,

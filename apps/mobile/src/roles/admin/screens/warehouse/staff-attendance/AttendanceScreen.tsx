@@ -207,7 +207,6 @@ export function AttendanceScreen({
           />
         </>
       }
-      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab="More" />}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <KpiRow

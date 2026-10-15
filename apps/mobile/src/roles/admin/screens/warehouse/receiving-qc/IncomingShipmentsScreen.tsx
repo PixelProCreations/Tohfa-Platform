@@ -28,6 +28,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import { WarehouseSelector } from '../inventory';
 import {
   EMPTY_RECEIVING_FILTERS,
   activeFilterCount,
@@ -318,6 +319,7 @@ export interface ReceivingActivityScreenProps {
 }
 
 export function ReceivingActivityScreen({ onBack, onSelectStep }: ReceivingActivityScreenProps) {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const steps = [
     { key: 'shipment_detail', label: 'Shipment Created', done: true },
     { key: 'shipment_detail', label: 'Shipment Arrived', done: true },
@@ -392,6 +394,7 @@ export interface PendingQueueScreenProps {
 }
 
 export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScreenProps) {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [selectedTab, setSelectedTab] = useState<'Arrived' | 'In Progress' | 'QC Pending' | 'Decision Pending'>('Arrived');
 
   const tabs: ('Arrived' | 'In Progress' | 'QC Pending' | 'Decision Pending')[] = [

@@ -5,7 +5,9 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -14,18 +16,23 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { Calendar } from 'react-native-calendars';
+import type { DateData } from 'react-native-calendars';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
 import { PROFILE_WAREHOUSES, WAREHOUSE_PROFILES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
+export type WarehouseFormMode = 'edit' | 'add';
 
 export interface WarehouseEditProfileScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   initialTab?: EditWarehouseTab;
   profiles?: readonly WarehouseProfileInfo[] | undefined;
+  mode?: WarehouseFormMode;
   onSaveSuccess?: () => void;
 }
 
@@ -149,84 +156,139 @@ export function WarehouseEditProfileScreen({
   warehouseOptions = PROFILE_WAREHOUSES,
   selectedWarehouseId,
   profiles = WAREHOUSE_PROFILES,
+  mode = 'edit',
   onSaveSuccess,
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
+  const isAdd = mode === 'add';
 
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
-  const profile = recordFor(profiles, warehouseId);
-  const contact = WAREHOUSE_CONTACTS.find((c) => c.warehouseId === warehouseId);
+  const profile = isAdd ? undefined : recordFor(profiles, warehouseId);
+  const contact = isAdd ? undefined : WAREHOUSE_CONTACTS.find((c) => c.warehouseId === warehouseId);
 
-  // Dynamic Screen Heading based on Active Tab
+  // Dynamic Screen Heading based on Active Tab & Mode
   const getHeaderTitle = () => {
+    const prefix = isAdd ? 'Add' : 'Edit';
     switch (activeTab) {
       case 'Details':
-        return 'Edit Warehouse Profile';
+        return `${prefix} Warehouse Profile`;
       case 'Contact':
-        return 'Edit Warehouse Contact';
+        return `${prefix} Warehouse Contact`;
       case 'Storage':
-        return 'Edit Warehouse Storage';
+        return `${prefix} Warehouse Storage`;
       case 'Operations':
-        return 'Edit Warehouse Operations';
+        return `${prefix} Warehouse Operations`;
     }
   };
 
   // Details Tab Form State
-  const [warehouseName, setWarehouseName] = useState(profile?.warehouseName ?? 'Coonoor Warehouse');
-  const [warehouseCode, setWarehouseCode] = useState('CNR');
+  const [warehouseName, setWarehouseName] = useState(isAdd ? '' : (profile?.warehouseName ?? 'Coonoor Warehouse'));
+  const [warehouseCode, setWarehouseCode] = useState(isAdd ? '' : 'CNR');
   const [warehouseType, setWarehouseType] = useState('Main Warehouse');
   const [status, setStatus] = useState('Active');
-  const [addressLine1, setAddressLine1] = useState('Near Vegetable Market');
-  const [addressLine2, setAddressLine2] = useState('Mettupalayam Road');
+  const [addressLine1, setAddressLine1] = useState(isAdd ? '' : 'Near Vegetable Market');
+  const [addressLine2, setAddressLine2] = useState(isAdd ? '' : 'Mettupalayam Road');
   const [stateName, setStateName] = useState('Tamil Nadu');
-  const [district, setDistrict] = useState('Nilgiris');
-  const [city, setCity] = useState('Coonoor');
-  const [pinCode, setPinCode] = useState('643101');
+  const [district, setDistrict] = useState(isAdd ? '' : 'Nilgiris');
+  const [city, setCity] = useState(isAdd ? '' : 'Coonoor');
+  const [pinCode, setPinCode] = useState(isAdd ? '' : '643101');
   const [description, setDescription] = useState(
-    'Main warehouse for collection, sorting and temporary storage of fresh produce from Nilgiris region.'
+    isAdd ? '' : 'Main warehouse for collection, sorting and temporary storage of fresh produce from Nilgiris region.'
   );
 
   // Contact Tab Form State
-  const [contactPersonName, setContactPersonName] = useState('Suresh Kumar');
-  const [designation, setDesignation] = useState('Warehouse Manager');
-  const [primaryPhone, setPrimaryPhone] = useState('98765 43210');
-  const [alternatePhone, setAlternatePhone] = useState('91234 56789');
-  const [officialEmail, setOfficialEmail] = useState('coonoor.warehouse@tohfa.org');
-  const [alternateEmail, setAlternateEmail] = useState('suresh.kumar@tohfa.org');
-  const [landline, setLandline] = useState('0423 223344');
-  const [emergencyPerson, setEmergencyPerson] = useState('Kannan R');
-  const [emergencyPhone, setEmergencyPhone] = useState('87654 32109');
+  const [contactPersonName, setContactPersonName] = useState(isAdd ? '' : 'Suresh Kumar');
+  const [designation, setDesignation] = useState(isAdd ? '' : 'Warehouse Manager');
+  const [primaryPhone, setPrimaryPhone] = useState(isAdd ? '' : '98765 43210');
+  const [alternatePhone, setAlternatePhone] = useState(isAdd ? '' : '91234 56789');
+  const [officialEmail, setOfficialEmail] = useState(isAdd ? '' : 'coonoor.warehouse@tohfa.org');
+  const [alternateEmail, setAlternateEmail] = useState(isAdd ? '' : 'suresh.kumar@tohfa.org');
+  const [landline, setLandline] = useState(isAdd ? '' : '0423 223344');
+  const [emergencyPerson, setEmergencyPerson] = useState(isAdd ? '' : 'Kannan R');
+  const [emergencyPhone, setEmergencyPhone] = useState(isAdd ? '' : '87654 32109');
   const [contactNotes, setContactNotes] = useState(
-    'Available for warehouse operations during working hours. For urgent support, contact emergency number.'
+    isAdd ? '' : 'Available for warehouse operations during working hours. For urgent support, contact emergency number.'
   );
 
   // Storage Tab Form State
   const [storageType, setStorageType] = useState('General + Cold Storage');
-  const [totalCapacityInput, setTotalCapacityInput] = useState('50,000');
-  const [storageLocationsCount, setStorageLocationsCount] = useState('3');
+  const [totalCapacityInput, setTotalCapacityInput] = useState(isAdd ? '' : '50,000');
+  const [storageLocationsCount, setStorageLocationsCount] = useState(isAdd ? '' : '3');
   const [tempControlledEnabled, setTempControlledEnabled] = useState(true);
-  const [tempMin, setTempMin] = useState('2');
-  const [tempMax, setTempMax] = useState('8');
-  const [tempCapacity, setTempCapacity] = useState('50,000');
+  const [tempMin, setTempMin] = useState(isAdd ? '' : '2');
+  const [tempMax, setTempMax] = useState(isAdd ? '' : '8');
+  const [tempCapacity, setTempCapacity] = useState(isAdd ? '' : '50,000');
   const [humidityEnabled, setHumidityEnabled] = useState(true);
-  const [humidityMin, setHumidityMin] = useState('60');
-  const [humidityMax, setHumidityMax] = useState('90');
-  const [humidityCapacity, setHumidityCapacity] = useState('50,000');
+  const [humidityMin, setHumidityMin] = useState(isAdd ? '' : '60');
+  const [humidityMax, setHumidityMax] = useState(isAdd ? '' : '90');
+  const [humidityCapacity, setHumidityCapacity] = useState(isAdd ? '' : '50,000');
   const [handlingReqs, setHandlingReqs] = useState(
-    'Keep temperature between 2°C – 8°C for perishable items. Separate area for organic produce.'
+    isAdd ? '' : 'Keep temperature between 2°C – 8°C for perishable items. Separate area for organic produce.'
   );
 
   // Operations Tab Form State
   const [operatingDays, setOperatingDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  const [openingTime, setOpeningTime] = useState('08:00 AM');
-  const [closingTime, setClosingTime] = useState('06:00 PM');
+  const [openingTime, setOpeningTime] = useState(isAdd ? '' : '08:00 AM');
+  const [closingTime, setClosingTime] = useState(isAdd ? '' : '06:00 PM');
   const [receivingEnabled, setReceivingEnabled] = useState(true);
-  const [receivingStartTime, setReceivingStartTime] = useState('08:00 AM');
-  const [receivingEndTime, setReceivingEndTime] = useState('04:00 PM');
+  const [receivingStartTime, setReceivingStartTime] = useState(isAdd ? '' : '08:00 AM');
+  const [receivingEndTime, setReceivingEndTime] = useState(isAdd ? '' : '04:00 PM');
   const [qcAreaAvailable, setQcAreaAvailable] = useState(true);
   const [operationNotes, setOperationNotes] = useState(
-    'Warehouse operates 6 days a week. Closed on Sundays and public holidays. Ensure cold storage temperature is monitored regularly.'
+    isAdd ? '' : 'Warehouse operates 6 days a week. Closed on Sundays and public holidays. Ensure cold storage temperature is monitored regularly.'
   );
+
+  interface WarehouseHolidayItem {
+    id: string;
+    date: string; // YYYY-MM-DD
+    name: string;
+  }
+
+  const [holidays, setHolidays] = useState<WarehouseHolidayItem[]>([]);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [selectedHolidayDate, setSelectedHolidayDate] = useState<string>('');
+  const [holidayNameInput, setHolidayNameInput] = useState('');
+
+  const openAddHolidayModal = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setSelectedHolidayDate(`${yyyy}-${mm}-${dd}`);
+    setHolidayNameInput('');
+    setShowHolidayModal(true);
+  };
+
+  const handleSelectHolidayDate = (dateString: string) => {
+    setSelectedHolidayDate(dateString);
+    const newHoliday: WarehouseHolidayItem = {
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      date: dateString,
+      name: 'Holiday / Closure',
+    };
+    setHolidays((prev) => [...prev, newHoliday].sort((a, b) => a.date.localeCompare(b.date)));
+    setShowHolidayModal(false);
+  };
+
+  const handleRemoveHoliday = (id: string) => {
+    setHolidays((prev) => prev.filter((h) => h.id !== id));
+  };
+
+  const formatHolidayDate = (dateStr: string) => {
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return d.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          weekday: 'short',
+        });
+      }
+    } catch {}
+    return dateStr;
+  };
 
   const toggleDay = (day: string) => {
     if (operatingDays.includes(day)) {
@@ -237,7 +299,7 @@ export function WarehouseEditProfileScreen({
   };
 
   const handleSave = () => {
-    Alert.alert('Changes Saved', `${getHeaderTitle()} updated successfully.`, [
+    Alert.alert(isAdd ? 'Warehouse Created' : 'Changes Saved', `${getHeaderTitle()} ${isAdd ? 'created' : 'updated'} successfully.`, [
       {
         text: 'OK',
         onPress: () => {
@@ -248,7 +310,27 @@ export function WarehouseEditProfileScreen({
     ]);
   };
 
-  const subHeaderLabel = `${profile?.warehouseName ?? 'Coonoor Warehouse'} (${profile?.code ?? 'WH-002'})`;
+  const handleNextOrSave = () => {
+    if (isAdd) {
+      if (activeTab === 'Details') {
+        setActiveTab('Contact');
+        return;
+      }
+      if (activeTab === 'Contact') {
+        setActiveTab('Storage');
+        return;
+      }
+      if (activeTab === 'Storage') {
+        setActiveTab('Operations');
+        return;
+      }
+    }
+    handleSave();
+  };
+
+  const subHeaderLabel = isAdd
+    ? 'New Warehouse Hub'
+    : `${profile?.warehouseName ?? 'Coonoor Warehouse'} (${profile?.code ?? 'WH-002'})`;
 
   return (
     <WalletScreen
@@ -299,21 +381,23 @@ export function WarehouseEditProfileScreen({
         {/* ─── 1. DETAILS TAB CONTENT ─── */}
         {activeTab === 'Details' && (
           <>
-            {/* Header Card */}
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryCardLeft}>
-                <View style={styles.thumbnailBox} />
-                <View style={styles.summaryCardInfo}>
-                  <Text style={styles.summaryCardTitle}>{warehouseName}</Text>
-                  <Text style={styles.summaryCardMeta}>Warehouse ID : {profile?.code ?? 'WH-002'}</Text>
-                  <Text style={styles.summaryCardMeta}>Warehouse Code : {warehouseCode}</Text>
-                  <Text style={styles.summaryCardMeta}>Type : {warehouseType}</Text>
+            {/* Header Card (Only in Edit mode) */}
+            {!isAdd && (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryCardLeft}>
+                  <View style={styles.thumbnailBox} />
+                  <View style={styles.summaryCardInfo}>
+                    <Text style={styles.summaryCardTitle}>{warehouseName}</Text>
+                    <Text style={styles.summaryCardMeta}>Warehouse ID : {profile?.code ?? 'WH-002'}</Text>
+                    <Text style={styles.summaryCardMeta}>Warehouse Code : {warehouseCode}</Text>
+                    <Text style={styles.summaryCardMeta}>Type : {warehouseType}</Text>
+                  </View>
+                </View>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>Active</Text>
                 </View>
               </View>
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>Active</Text>
-              </View>
-            </View>
+            )}
 
             <Text style={styles.sectionHeader}>Basic Information</Text>
             <View style={styles.rowTwoCols}>
@@ -589,37 +673,41 @@ export function WarehouseEditProfileScreen({
         {/* ─── 3. STORAGE TAB CONTENT ─── */}
         {activeTab === 'Storage' && (
           <>
-            {/* KPI Cards 2x2 */}
-            <View style={styles.rowTwoCols}>
-              <View style={styles.kpiCardHalf}>
-                <Text style={styles.kpiLabel}>Total Capacity</Text>
-                <Text style={styles.kpiValueDark}>50,000 KG</Text>
-              </View>
-              <View style={styles.kpiCardHalf}>
-                <Text style={styles.kpiLabel}>Used Capacity</Text>
-                <Text style={styles.kpiValueGreen}>32,450 KG</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '64.9%' }]} />
+            {/* KPI Cards 2x2 (Edit mode only) */}
+            {!isAdd && (
+              <>
+                <View style={styles.rowTwoCols}>
+                  <View style={styles.kpiCardHalf}>
+                    <Text style={styles.kpiLabel}>Total Capacity</Text>
+                    <Text style={styles.kpiValueDark}>50,000 KG</Text>
+                  </View>
+                  <View style={styles.kpiCardHalf}>
+                    <Text style={styles.kpiLabel}>Used Capacity</Text>
+                    <Text style={styles.kpiValueGreen}>32,450 KG</Text>
+                    <View style={styles.progressBarBg}>
+                      <View style={[styles.progressBarFill, { width: '64.9%' }]} />
+                    </View>
+                    <Text style={styles.kpiSubText}>64.9%</Text>
+                  </View>
                 </View>
-                <Text style={styles.kpiSubText}>64.9%</Text>
-              </View>
-            </View>
 
-            <View style={styles.rowTwoCols}>
-              <View style={styles.kpiCardHalf}>
-                <Text style={styles.kpiLabel}>Available Capacity</Text>
-                <Text style={styles.kpiValueGreen}>17,550 KG</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '35.1%' }]} />
+                <View style={styles.rowTwoCols}>
+                  <View style={styles.kpiCardHalf}>
+                    <Text style={styles.kpiLabel}>Available Capacity</Text>
+                    <Text style={styles.kpiValueGreen}>17,550 KG</Text>
+                    <View style={styles.progressBarBg}>
+                      <View style={[styles.progressBarFill, { width: '35.1%' }]} />
+                    </View>
+                    <Text style={styles.kpiSubText}>35.1%</Text>
+                  </View>
+                  <View style={styles.kpiCardHalf}>
+                    <Text style={styles.kpiLabel}>Storage Locations</Text>
+                    <Text style={styles.kpiValueDark}>3</Text>
+                    <Text style={styles.kpiSubTextMuted}>Active locations</Text>
+                  </View>
                 </View>
-                <Text style={styles.kpiSubText}>35.1%</Text>
-              </View>
-              <View style={styles.kpiCardHalf}>
-                <Text style={styles.kpiLabel}>Storage Locations</Text>
-                <Text style={styles.kpiValueDark}>3</Text>
-                <Text style={styles.kpiSubTextMuted}>Active locations</Text>
-              </View>
-            </View>
+              </>
+            )}
 
             <Text style={styles.sectionHeader}>Storage Configuration</Text>
             <View style={styles.rowTwoCols}>
@@ -688,9 +776,9 @@ export function WarehouseEditProfileScreen({
               </View>
             </View>
 
-            <View style={styles.fieldWrap}>
+            <View style={[styles.fieldWrap, { width: '48%' }]}>
               <Text style={styles.fieldLabel}>Total Storage Capacity *</Text>
-              <View style={[styles.unitInputRow, { maxWidth: '50%' }]}>
+              <View style={styles.unitInputRow}>
                 <TextInput
                   style={[styles.textInput, styles.unitInputFlex]}
                   value={tempCapacity}
@@ -735,9 +823,9 @@ export function WarehouseEditProfileScreen({
               </View>
             </View>
 
-            <View style={styles.fieldWrap}>
+            <View style={[styles.fieldWrap, { width: '48%' }]}>
               <Text style={styles.fieldLabel}>Total Storage Capacity *</Text>
-              <View style={[styles.unitInputRow, { maxWidth: '50%' }]}>
+              <View style={styles.unitInputRow}>
                 <TextInput
                   style={[styles.textInput, styles.unitInputFlex]}
                   value={humidityCapacity}
@@ -880,12 +968,42 @@ export function WarehouseEditProfileScreen({
               <Text style={styles.sectionHeaderWithIcon}>Holidays / Closure Schedule</Text>
             </View>
 
-            <Text style={styles.noHolidaysText}>No upcoming holidays</Text>
+            {holidays.length === 0 ? (
+              <Text style={styles.noHolidaysText}>No upcoming holidays</Text>
+            ) : null}
 
-            <TouchableOpacity style={styles.addClosureBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.addClosureBtn}
+              activeOpacity={0.8}
+              onPress={openAddHolidayModal}
+            >
               <CalendarEventIcon color={adminColors.brandDeep} />
               <Text style={styles.addClosureBtnText}>Add Holiday / Closure</Text>
             </TouchableOpacity>
+
+            {/* List of Scheduled Holidays */}
+            {holidays.length > 0 && (
+              <View style={styles.holidaysListWrap}>
+                {holidays.map((item) => (
+                  <View key={item.id} style={styles.holidayCard}>
+                    <View style={styles.holidayIconBox}>
+                      <CalendarEventIcon color={adminColors.brand} />
+                    </View>
+                    <View style={styles.holidayInfoFlex}>
+                      <Text style={styles.holidayTitleText}>{item.name}</Text>
+                      <Text style={styles.holidayDateText}>{formatHolidayDate(item.date)}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveHoliday(item.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.holidayDeleteBtn}
+                    >
+                      <TrashOutlineRedIcon color="#D32F2F" size={20} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={styles.fieldWrap}>
               <TextInput
@@ -905,13 +1023,76 @@ export function WarehouseEditProfileScreen({
           <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-            <Text style={styles.saveBtnText}>Save Changes</Text>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleNextOrSave} activeOpacity={0.8}>
+            <Text style={styles.saveBtnText}>
+              {isAdd ? (activeTab === 'Operations' ? 'Add Warehouse' : 'Next') : 'Save Changes'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
+
+      {/* ─── Add Holiday Calendar Modal ─── */}
+      <Modal
+        visible={showHolidayModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowHolidayModal(false)}
+      >
+        
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowHolidayModal(false)}
+          />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Holiday Date</Text>
+              <TouchableOpacity
+                onPress={() => setShowHolidayModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.calendarContainer}>
+              <Calendar
+                current={selectedHolidayDate || undefined}
+                onDayPress={(day: DateData) => {
+                  handleSelectHolidayDate(day.dateString);
+                }}
+                markedDates={
+                  selectedHolidayDate
+                    ? {
+                        [selectedHolidayDate]: {
+                          selected: true,
+                          selectedColor: adminColors.brand,
+                          selectedTextColor: '#FFFFFF',
+                        },
+                      }
+                    : {}
+                }
+                theme={{
+                  calendarBackground: '#FFFFFF',
+                  todayTextColor: adminColors.brand,
+                  arrowColor: adminColors.brand,
+                  monthTextColor: '#1A1816',
+                  textMonthFontWeight: '700',
+                  textMonthFontSize: 16,
+                  textDayHeaderFontWeight: '600',
+                  textDayFontSize: 14,
+                  selectedDayBackgroundColor: adminColors.brand,
+                  selectedDayTextColor: '#FFFFFF',
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </WalletScreen>
   );
 }
@@ -1358,5 +1539,95 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     fontWeight: '700',
     color: adminColors.onBrand,
+  },
+
+  /* Holidays / Closures List */
+  holidaysListWrap: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  holidayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  holidayIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: adminRadius.sm,
+    backgroundColor: 'rgba(235, 94, 40, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holidayInfoFlex: {
+    flex: 1,
+  },
+  holidayTitleText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+    marginBottom: 2,
+  },
+  holidayDateText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  holidayDeleteBtn: {
+    padding: 6,
+    borderRadius: adminRadius.sm,
+  },
+
+  /* Modal Popup Styles */
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: adminSpacing.lg,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  modalSheet: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: adminRadius.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E6D8',
+    backgroundColor: '#FFFFFF',
+  },
+  modalTitle: {
+    ...adminType.sectionHead,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1816',
+  },
+  modalCloseText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: '#6B7280',
+    padding: 4,
+  },
+  calendarContainer: {
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
 });

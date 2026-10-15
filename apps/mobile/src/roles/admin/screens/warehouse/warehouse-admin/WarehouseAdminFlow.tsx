@@ -25,6 +25,8 @@ import { ManageSubWarehouseAdminsScreen } from './ManageSubWarehouseAdminsScreen
 import { WarehouseCityDetailScreen } from './WarehouseCityDetailScreen';
 import { WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
 import { WarehouseOverviewScreen } from './WarehouseOverviewScreen';
+import { WarehousePerformanceScreen } from './WarehousePerformanceScreen';
+import { WarehouseCapacitySummaryScreen } from './WarehouseCapacitySummaryScreen';
 import type { PermissionCheck, WarehouseAdminRoute, WarehouseAdminRouteParams, WarehouseScope } from './types';
 
 interface WarehouseAdminStackEntry {
@@ -61,6 +63,7 @@ export interface WarehouseAdminFlowProps {
   onBack: () => void;
   /** Host screens the flow does not own. */
   onNavigateComparison?: (() => void) | undefined;
+  onManageWarehouses?: (() => void) | undefined;
   onViewOperationsHistory?: (() => void) | undefined;
   onViewStaffAttendance?: (() => void) | undefined;
 }
@@ -72,6 +75,7 @@ export function WarehouseAdminFlow({
   initialParams,
   onBack,
   onNavigateComparison,
+  onManageWarehouses,
   onViewOperationsHistory,
   onViewStaffAttendance,
 }: WarehouseAdminFlowProps) {
@@ -119,6 +123,7 @@ export function WarehouseAdminFlow({
           onNavigateComparison={onNavigateComparison}
           onNavigatePerformance={() => navigate('WarehousePerformance')}
           onNavigateCapacitySummary={openCapacity}
+          onManageWarehouses={onManageWarehouses ?? (() => navigate('ManageSubWarehouseAdmins'))}
           onManageSubWarehouseAdmins={() => navigate('ManageSubWarehouseAdmins')}
         />
       );
@@ -147,27 +152,18 @@ export function WarehouseAdminFlow({
       );
     case 'WarehouseCapacity':
       return (
-        <StorageFlow
+        <WarehouseCapacitySummaryScreen
           scope={scope}
           can={can}
-          initialScreen="Capacity"
           onBack={back}
-          onManageCapacity={() => navigate('WarehouseSettings')}
         />
       );
     case 'WarehousePerformance':
       return (
-        <StorageFlow
+        <WarehousePerformanceScreen
           scope={scope}
           can={can}
-          initialScreen="Performance"
           onBack={back}
-          onSelectWarehouse={(name) => {
-            const id = warehouseIdForName(name);
-            if (id !== undefined) openDetail(id);
-          }}
-          onViewOperationsHistory={onViewOperationsHistory}
-          onViewStaffAttendance={onViewStaffAttendance}
         />
       );
     default:

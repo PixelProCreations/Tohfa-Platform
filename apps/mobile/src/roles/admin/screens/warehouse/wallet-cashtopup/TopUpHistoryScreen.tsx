@@ -9,7 +9,7 @@
  * label and Success / Failed counters are the Main (all-warehouses) view here.
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { TOP_UP_HISTORY, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
@@ -63,6 +63,9 @@ export function toTopUpRecord(row: TopUpHistoryRow, scope: WarehouseScope): Wall
   };
 }
 
+const STATUS_FILTERS = ['All', 'Completed', 'Pending', 'Failed'] as const;
+type StatusFilterType = (typeof STATUS_FILTERS)[number];
+
 export function TopUpHistoryScreen({
   scope,
   onBack,
@@ -74,6 +77,10 @@ export function TopUpHistoryScreen({
   const [search, setSearch] = useState('');
   const [itemsCount, setItemsCount] = useState(PAGE);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('All');
+  const [tempStatusFilter, setTempStatusFilter] = useState<StatusFilterType>('All');
+  const [tempWarehouseId, setTempWarehouseId] = useState<string | undefined>(undefined);
   const allWarehouses = isAllWarehouses(scope);
 
   const scoped = useMemo(
@@ -82,6 +89,7 @@ export function TopUpHistoryScreen({
   );
   const query = search.trim().toLowerCase();
   const filtered = scoped
+    .filter((row) => (statusFilter === 'All' ? true : row.status === statusFilter))
     .slice(0, itemsCount)
     .filter(
       (row) =>
@@ -93,6 +101,30 @@ export function TopUpHistoryScreen({
   const completed = scoped.filter((row) => row.status === 'Completed').length;
   const failed = scoped.filter((row) => row.status === 'Failed').length;
 
+  const openFilter = () => {
+    setTempStatusFilter(statusFilter);
+    setTempWarehouseId(selectedWarehouseId);
+    setShowFilterModal(true);
+  };
+
+  const applyFilter = () => {
+    setStatusFilter(tempStatusFilter);
+    if (allWarehouses) {
+      setSelectedWarehouseId(tempWarehouseId);
+    }
+    setShowFilterModal(false);
+  };
+
+  const resetFilter = () => {
+    setTempStatusFilter('All');
+    setTempWarehouseId(undefined);
+    setStatusFilter('All');
+    if (allWarehouses) {
+      setSelectedWarehouseId(undefined);
+    }
+    setShowFilterModal(false);
+  };
+
   return (
     <WalletScreen
       title="Top-Up History"
@@ -100,7 +132,7 @@ export function TopUpHistoryScreen({
       headerRight={
         <HeaderIconButton
           accessibilityLabel="Filter top-ups"
-          onPress={() => Alert.alert('Filter', 'Filter by Date, Amount range or Status.')}
+          onPress={openFilter}
         >
           <SlidersIcon />
         </HeaderIconButton>
@@ -140,10 +172,20 @@ export function TopUpHistoryScreen({
           value={search}
           onChangeText={setSearch}
           placeholder="Search Customer ID / Transaction ID / Fiscal Tag"
+          onFilterPress={openFilter}
         />
 
+        {statusFilter !== 'All' ? (
+          <View style={styles.appliedFilterRow}>
+            <Text style={styles.appliedFilterText}>Filtered by Status: {statusFilter}</Text>
+            <TouchableOpacity onPress={() => setStatusFilter('All')} activeOpacity={0.7}>
+              <Text style={styles.clearFilterText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {filtered.length === 0 ? (
-          <EmptyState title="No top-ups found" subtitle="Try another search or warehouse." />
+          <EmptyState title="No top-ups found" subtitle="Try another search or filter." />
         ) : (
           filtered.map((row) => (
             <TouchableOpacity
@@ -185,11 +227,97 @@ export function TopUpHistoryScreen({
           </TouchableOpacity>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter Top-Ups</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} activeOpacity={0.7}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterSectionTitle}>Status</Text>
+            <View style={styles.chipRow}>
+              {STATUS_FILTERS.map((st) => {
+                const active = tempStatusFilter === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setTempStatusFilter(st)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{st}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {allWarehouses ? (
+              <>
+                <Text style={styles.filterSectionTitle}>Warehouse</Text>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={[styles.chip, tempWarehouseId === undefined && styles.chipActive]}
+                    onPress={() => setTempWarehouseId(undefined)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, tempWarehouseId === undefined && styles.chipTextActive]}>All</Text>
+                  </TouchableOpacity>
+                  {warehouseOptions.map((wh) => {
+                    const active = tempWarehouseId === wh.warehouseId;
+                    return (
+                      <TouchableOpacity
+                        key={wh.warehouseId}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => setTempWarehouseId(wh.warehouseId)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {wh.warehouseName?.replace(' Warehouse', '') ?? wh.warehouseId}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity style={styles.modalResetBtn} onPress={resetFilter} activeOpacity={0.8}>
+                <Text style={styles.modalResetText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalApplyBtn} onPress={applyFilter} activeOpacity={0.85}>
+                <Text style={styles.modalApplyText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  appliedFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  appliedFilterText: { ...adminType.caption, color: '#92400E', fontWeight: '600' },
+  clearFilterText: { ...adminType.caption, color: adminColors.brand, fontWeight: '700' },
   rowCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -207,4 +335,75 @@ const styles = StyleSheet.create({
   rowAmount: { ...adminType.sectionHead, color: adminColors.ink },
   loadMore: { alignItems: 'center', paddingVertical: adminSpacing.md },
   loadMoreText: { ...adminType.rowTitle, color: adminColors.brand },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.lg,
+  },
+  modalTitle: { ...adminType.title, color: adminColors.ink },
+  modalCloseText: { fontSize: 18, color: adminColors.muted, fontWeight: '700' },
+  filterSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  chip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  chipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  chipText: { ...adminType.caption, color: adminColors.ink },
+  chipTextActive: { ...adminType.caption, color: adminColors.onBrand, fontWeight: '700' },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+  },
+  modalResetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalResetText: { ...adminType.sectionHead, color: adminColors.muted },
+  modalApplyBtn: {
+    flex: 2,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalApplyText: { ...adminType.sectionHead, color: adminColors.onBrand, fontWeight: '700' },
 });

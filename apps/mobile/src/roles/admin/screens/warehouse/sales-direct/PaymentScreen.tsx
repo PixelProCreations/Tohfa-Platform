@@ -605,20 +605,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  simulateBtn: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  simulateBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-  },
   walletNoticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',

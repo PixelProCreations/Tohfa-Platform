@@ -39,6 +39,7 @@ export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps {
   records?: ReceivingRecord[] | undefined;
   initialFilter?: HistoryFilter | undefined;
   onSelectRecord: (receiptId: string) => void;
+  onOpenFilters?: (() => void) | undefined;
 }
 
 export function ReceivingHistoryScreen({
@@ -48,6 +49,7 @@ export function ReceivingHistoryScreen({
   records = RECEIVING_RECORDS,
   initialFilter = 'All',
   onSelectRecord,
+  onOpenFilters,
 }: ReceivingHistoryScreenProps) {
   const [filter, setFilter] = useState<HistoryFilter>(initialFilter);
   const [query, setQuery] = useState('');
@@ -89,7 +91,12 @@ export function ReceivingHistoryScreen({
   return (
     <WalletScreen {...header}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search GR number / product"
+          onFilterPress={onOpenFilters}
+        />
         <View style={styles.pills}>
           <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
         </View>

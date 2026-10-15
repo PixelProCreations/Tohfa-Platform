@@ -327,20 +327,24 @@ export function ScopeHeader({
   selectedWarehouseId?: string | undefined;
   onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
 }) {
+  const [internalSelectedId, setInternalSelectedId] = React.useState<string | undefined>(selectedWarehouseId);
+
   if (isAllWarehouses(scope)) {
-    if (onSelectWarehouse === undefined) {
-      return (
-        <View style={styles.warehousePill}>
-          <Text style={styles.warehousePillText}>{label ?? 'All Warehouses'}</Text>
-        </View>
-      );
-    }
+    const activeSelectedId = onSelectWarehouse !== undefined ? selectedWarehouseId : internalSelectedId;
+    const handleSelect = (id: string | undefined) => {
+      if (onSelectWarehouse !== undefined) {
+        onSelectWarehouse(id);
+      } else {
+        setInternalSelectedId(id);
+      }
+    };
+
     return (
       <WarehouseSelector
         scope={scope}
         options={warehouseOptions}
-        selectedId={selectedWarehouseId}
-        onSelect={(id) => onSelectWarehouse(id)}
+        selectedId={activeSelectedId}
+        onSelect={handleSelect}
       />
     );
   }

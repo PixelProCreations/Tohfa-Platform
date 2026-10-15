@@ -4,6 +4,7 @@ import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
@@ -335,25 +336,31 @@ export function WalletOperationsScreen({
           <View style={styles.mainContainer}>
             {/* 1. 4 KPI Cards (2x2 Grid) - Static */}
             <View style={styles.mainKpiGrid}>
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TODAY'S CASH TOP-UPS</Text>
-                <Text style={styles.mainKpiValue}>₹18,500</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TRANSACTIONS</Text>
-                <Text style={styles.mainKpiValue}>12</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>CUSTOMERS SERVED</Text>
-                <Text style={styles.mainKpiValue}>10</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>PENDING / ATTENTION</Text>
-                <Text style={styles.mainKpiValue}>2</Text>
-              </View>
+              <OverviewDashboardCard
+                value="₹18,500"
+                title="Today's Cash Top-Ups"
+                subtitle="12 transactions"
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value="12"
+                title="Transactions"
+                subtitle="Completed top-ups"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="10"
+                title="Customers Served"
+                subtitle="Distinct customers"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="2"
+                title="Pending / Attention"
+                subtitle="Needs attention"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* 2. Quick Actions */}
@@ -497,41 +504,38 @@ export function WalletOperationsScreen({
         <View style={styles.mainContainer}>
           {/* 1. KPI Overview Grid (2x2) */}
           <View style={styles.kpiGrid}>
-            {/* Today's Top-Ups */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <CalendarIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
-              <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
-            </View>
+            {/* Today's Cash Top-Ups */}
+            <OverviewDashboardCard
+              value="₹18,500"
+              title="Today's Cash Top-Ups"
+              subtitle="12 transactions"
+              icon="cash"
+            />
 
-            {/* Cash Collected */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <CashIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
-              <Text style={styles.kpiLabel}>Cash Collected</Text>
-            </View>
+            {/* Transactions */}
+            <OverviewDashboardCard
+              value="12"
+              title="Transactions"
+              subtitle="Completed top-ups"
+              icon="orders"
+            />
 
-            {/* Pending */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <EllipsisPendingIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>2</Text>
-              <Text style={styles.kpiLabel}>Pending</Text>
-            </View>
+            {/* Customers Served */}
+            <OverviewDashboardCard
+              value="10"
+              title="Customers Served"
+              subtitle="Distinct customers"
+              icon="pickup"
+            />
 
-            {/* Failed */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <ExclamationFailedIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>1</Text>
-              <Text style={styles.kpiLabel}>Failed</Text>
-            </View>
+            {/* Pending / Attention */}
+            <OverviewDashboardCard
+              value="2"
+              title="Pending / Attention"
+              subtitle="Needs attention"
+              icon="alert"
+              tone="danger"
+            />
           </View>
 
           {/* 2. Quick Actions Section */}
@@ -980,6 +984,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 16,
   },
   mainKpiCard: {

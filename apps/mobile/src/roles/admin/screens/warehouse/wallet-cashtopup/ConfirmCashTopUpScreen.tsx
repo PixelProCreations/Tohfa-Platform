@@ -74,24 +74,6 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
   const canConfirm = can('wallet.cash_topup.process') && can('wallet.cash_topup.fiscal_tag');
   const newBalance = currentBalance + topUpAmount;
 
-  const handleSimulateBalanceChanged = () => {
-    const updated = 5200;
-    setCurrentBalance(updated);
-    setDemoNotice('Wallet balance changed to ₹5,200 by concurrent order! Preview updated.');
-    Alert.alert(
-      'Demo: Mid-flow Balance Update',
-      `Another terminal updated customer wallet to ₹5,200.00.\n\nNew Balance recalculated to ${formatRupees(updated + topUpAmount, true)}.`,
-    );
-  };
-
-  const handleSimulateFailedTopUp = () => {
-    Alert.alert(
-      'Demo: Top-Up Failed (Simulated)',
-      'Transaction rejected by banking switch (ERR_AUTH_REJECTED).\n\nCash tag tagged for manual reconciliation.',
-      [{ text: 'Dismiss' }],
-    );
-  };
-
   const handleConfirmTopUp = () => {
     if (!canConfirm || isSubmitting) return;
     setAskFinalConfirm(false);
@@ -223,14 +205,4 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.md,
   },
   finalConfirmActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
-  demoButton: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: adminSpacing.md,
-    alignItems: 'center',
-    marginTop: adminSpacing.md,
-  },
-  demoButtonText: { ...adminType.rowTitle, color: adminColors.brandDeep },
 });

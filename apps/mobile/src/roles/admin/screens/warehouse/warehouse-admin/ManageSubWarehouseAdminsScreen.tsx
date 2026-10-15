@@ -270,10 +270,6 @@ export function ManageSubWarehouseAdminsScreen({
                 </View>
               ))}
             </View>
-            <InfoNote tone="warning">
-              This summarizes the SWA&apos;s existing warehouse scope, not new permissions granted from here.
-            </InfoNote>
-            <InfoNote tone="danger">No status-changing action here beyond what the permission matrix confirms.</InfoNote>
           </>
         ) : null}
       </ScrollView>

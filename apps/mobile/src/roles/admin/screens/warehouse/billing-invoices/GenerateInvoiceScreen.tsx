@@ -108,16 +108,6 @@ export function GenerateInvoiceScreen({
           );
         })}
         {filtered.length === 0 ? <Text style={styles.emptyText}>No eligible transactions.</Text> : null}
-
-        {isAllWarehouses(scope) ? (
-          <>
-            <InfoNote>Only completed/eligible transactions returned by the backend appear here.</InfoNote>
-            <InfoNote>
-              Invoice Generated is never shown until the server confirms generation — duplicate submission is
-              blocked while processing.
-            </InfoNote>
-          </>
-        ) : null}
       </ScrollView>
     </BillingScreen>
   );

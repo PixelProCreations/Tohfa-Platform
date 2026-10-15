@@ -19,6 +19,7 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { SWABottomNav } from '../../swa/components';
 import { WarehouseSelector } from '../inventory';
 import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS, RMA_STATUS_COUNTS } from './fixtures';
@@ -301,25 +302,34 @@ export function ReturnsIssuesScreen({
       >
         <ScrollView contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator={false}>
           {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
-          <View style={styles.mainKpiRow}>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>PENDING</Text>
-              <Text style={styles.mainKpiValue}>05</Text>
-            </View>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>UNDER REVIEW</Text>
-              <Text style={styles.mainKpiValue}>03</Text>
-            </View>
-          </View>
-          <View style={styles.mainKpiRow}>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>APPROVED</Text>
-              <Text style={styles.mainKpiValue}>12</Text>
-            </View>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>REFUND PENDING</Text>
-              <Text style={styles.mainKpiValue}>02</Text>
-            </View>
+          <View style={styles.mainKpiGrid}>
+            <OverviewDashboardCard
+              value="05"
+              title="Pending"
+              subtitle="Awaiting review"
+              icon="orders"
+              tone="warning"
+            />
+            <OverviewDashboardCard
+              value="03"
+              title="Under Review"
+              subtitle="Inspection in progress"
+              icon="pickup"
+            />
+            <OverviewDashboardCard
+              value="12"
+              title="Approved"
+              subtitle="Ready for resolution"
+              icon="receiving"
+              tone="success"
+            />
+            <OverviewDashboardCard
+              value="02"
+              title="Refund Pending"
+              subtitle="Needs refund action"
+              icon="alert"
+              tone="danger"
+            />
           </View>
 
           {/* Search Bar */}
@@ -414,18 +424,33 @@ export function ReturnsIssuesScreen({
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.metricsGrid}>
-          {METRICS.map((metric) => {
-            const iconColor = metric.alert ? adminColors.danger.text : adminColors.brandDeep;
-            return (
-              <View key={metric.key} style={styles.metricCard}>
-                <View style={styles.metricIconWrap}>
-                  {metric.icon === 'check' ? <CheckCircleIcon color={iconColor} /> : <PendingDotsIcon color={iconColor} />}
-                </View>
-                <Text style={[styles.metricValue, metric.alert && styles.metricValueAlert]}>{metric.value}</Text>
-                <Text style={styles.metricLabel}>{metric.label}</Text>
-              </View>
-            );
-          })}
+          <OverviewDashboardCard
+            value="05"
+            title="Pending"
+            subtitle="Awaiting review"
+            icon="orders"
+            tone="warning"
+          />
+          <OverviewDashboardCard
+            value="03"
+            title="Under Review"
+            subtitle="Inspection in progress"
+            icon="pickup"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Approved"
+            subtitle="Ready for resolution"
+            icon="receiving"
+            tone="success"
+          />
+          <OverviewDashboardCard
+            value="02"
+            title="Refund Pending"
+            subtitle="Needs refund action"
+            icon="alert"
+            tone="danger"
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Issue Category Summary</Text>
@@ -527,7 +552,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xxl },
 
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.lg },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.lg },
   metricCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,
@@ -628,6 +653,13 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: 16,
   },
   mainKpiRow: {
     flexDirection: 'row',
