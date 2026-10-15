@@ -202,17 +202,17 @@ export interface DailyCashSummaryMapped {
 }
 
 export function mapDailyCashSummary(dto: DailyCashSummaryDto): DailyCashSummaryMapped {
-  const openingCashPaise = parseSignedMoneyToPaise(dto.openingCash);
-  const cashSalesPaise = parseSignedMoneyToPaise(dto.cashSales);
-  const cashTopUpsPaise = parseSignedMoneyToPaise(dto.cashTopUps);
-  const cashExpensesPaise = parseSignedMoneyToPaise(dto.cashExpenses);
-  const expectedClosingPaise = parseSignedMoneyToPaise(dto.expectedClosing);
+  const openingCashPaise = parseSignedMoneyToPaise(dto.system.openingCash);
+  const cashSalesPaise = parseSignedMoneyToPaise(dto.system.cashSales);
+  const cashTopUpsPaise = parseSignedMoneyToPaise(dto.system.cashTopUps);
+  const cashExpensesPaise = parseSignedMoneyToPaise(dto.system.cashExpenses);
+  const expectedClosingPaise = parseSignedMoneyToPaise(dto.system.expectedClosing);
 
   return {
     date: dto.date,
     warehouseId: dto.warehouseId,
     openingCashPaise,
-    openingFrom: dto.openingFrom,
+    openingFrom: dto.system.openingFrom,
     cashSalesPaise,
     cashTopUpsPaise,
     cashExpensesPaise,

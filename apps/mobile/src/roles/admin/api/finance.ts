@@ -150,16 +150,21 @@ export interface FinanceRevenueDetailDto extends FinanceRevenueItemDto {
   invoiceStatus?: string | null | undefined;
 }
 
-/** docs/openapi.yaml `DailyCashSummary`. */
-export interface DailyCashSummaryDto {
-  date: string;
-  warehouseId: string;
+/** docs/openapi.yaml `SystemCashFigures`. */
+export interface SystemCashFiguresDto {
   openingCash: Money | string;
   openingFrom: string | null;
   cashSales: Money | string;
   cashTopUps: Money | string;
   cashExpenses: Money | string;
   expectedClosing: Money | string;
+}
+
+/** docs/openapi.yaml `DailyCashSummary`. */
+export interface DailyCashSummaryDto {
+  date: string;
+  warehouseId: string;
+  system: SystemCashFiguresDto;
   closed: CashCloseDto | null;
 }
 
