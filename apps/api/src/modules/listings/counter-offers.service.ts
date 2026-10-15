@@ -24,6 +24,7 @@ import { beginIdempotent, idempotencyStore, requireIdempotencyKey, type Idempote
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { goodsReceiptsService } from '../goods-receipts/goods-receipts.service.js';
 import {
   counterOffersRepo,
   type AdminListingView,
@@ -38,6 +39,17 @@ import type {
 } from './counter-offers.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
+
+/**
+ * BR-106: what accepting a QUALITY counter-offer (one sent at goods receipt) does to the warehouse
+ * stock. It runs on the accept's own transaction, so the stock and the acceptance commit or roll
+ * back together. Injected so the mocked-repo unit tests need no database; the default is the
+ * goods-receipts module, which owns receipts and the batches stocked from them.
+ */
+export type QualityOfferAcceptedHook = (tx: Executor, offerId: string) => Promise<unknown>;
+
+const stockAcceptedQualityOffer: QualityOfferAcceptedHook = (tx, offerId) =>
+  goodsReceiptsService.stockAcceptedQualityCounterOffer(tx, offerId);
 
 /** Statuses a listing must be in for the negotiation to act on it. */
 const PENDABLE_STATUSES = ['PENDING_APPROVAL', 'COUNTER_OFFERED'] as const;
@@ -124,6 +136,7 @@ export class CounterOffersService {
     private readonly runTx: TransactionRunner = withTransaction,
     private readonly dbPool: Executor = pool,
     private readonly idempotency: IdempotencyStore = idempotencyStore,
+    private readonly onQualityOfferAccepted: QualityOfferAcceptedHook = stockAcceptedQualityOffer,
   ) {}
 
   // ------------------------------------------------------------------ config
@@ -591,6 +604,14 @@ export class CounterOffersService {
         after: { status: 'ACCEPTED', listingStatus: updated.status },
         changedFields: ['status'],
       });
+
+      // BR-106 (owner decision 5): a quality counter-offer defers stocking the receipt until the
+      // farmer agrees, so the batch is created HERE, on this transaction, and only on accept (a
+      // reject or a lapse stocks nothing). A replayed key returned above and never reaches this.
+      // The response stays the farmer's Listing: the batch is warehouse data, read on the receipt.
+      if (offer.goodsReceiptId !== null && offer.goodsReceiptId !== undefined) {
+        await this.onQualityOfferAccepted(tx, offerId);
+      }
 
       await idem.complete(updated);
       return updated;

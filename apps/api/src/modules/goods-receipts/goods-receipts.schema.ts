@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 import { produceGrades } from '../purchase-orders/purchase-orders.schema.js';
 
 export const qcParameters = [
@@ -97,7 +98,12 @@ export const qualityCheckCreateBody = z
     photos: z.array(z.string()).max(5).default([]),
     priceAdjustment: z.string().default('0.00'),
     storageLocation: z.string().max(40).optional(),
-    expiryOn: z.string().optional(),
+    // docs/openapi.yaml `format: date`. A real calendar date, because it is copied to the batch
+    // (BR-106) and `2026-02-30` would otherwise reach Postgres as a 500 (as BR-58 found elsewhere).
+    expiryOn: z
+      .string()
+      .refine(isCalendarDate, { message: 'expiryOn must be a real calendar date in YYYY-MM-DD format' })
+      .optional(),
   })
   .strict();
 export type QualityCheckCreateBody = z.infer<typeof qualityCheckCreateBody>;
@@ -162,6 +168,9 @@ export const goodsReceiptResponse = z.object({
   poNumber: z.string().optional(),
   cropName: z.string().optional(),
   grade: z.string().optional(),
+  // BR-106: the batch this receipt was stocked as, once accepted goods have been stocked.
+  batchId: z.string().uuid().nullable().optional(),
+  batchCode: z.string().nullable().optional(),
 });
 export type GoodsReceiptResponse = z.infer<typeof goodsReceiptResponse>;
 
