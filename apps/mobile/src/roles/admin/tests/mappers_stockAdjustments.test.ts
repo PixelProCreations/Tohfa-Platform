@@ -1,6 +1,6 @@
 /**
  * screens/warehouse/inventory/adjustmentMappers.ts: the pure decisions behind
- * the stock count (BR-106) and stock adjustment (BR-37) screens.
+ * the stock count (BR-107) and stock adjustment (BR-37) screens.
  */
 import { describe, expect, it } from 'vitest';
 import { ApiError, NetworkError } from '../../../shell/api/client';
@@ -183,8 +183,8 @@ describe('rejectReasonOf', () => {
   });
 });
 
-describe('verifications (BR-106)', () => {
-  it('BR-106: shows the server snapshot and variance as integer grams, never recomputing them', () => {
+describe('verifications (BR-107)', () => {
+  it('BR-107: shows the server snapshot and variance as integer grams, never recomputing them', () => {
     // The server's variance wins even if it disagrees with counted - system.
     const view = toVerificationView(verification({ varianceKg: '-4.999' }), NOW);
     expect(view.systemGrams).toBe(100_000);
@@ -193,7 +193,7 @@ describe('verifications (BR-106)', () => {
     expect(view.statusTone).toBe('warning');
   });
 
-  it('BR-106: a recorded count with a variance can be raised, once, with the create grant', () => {
+  it('BR-107: a recorded count with a variance can be raised, once, with the create grant', () => {
     const view = toVerificationView(verification(), NOW);
     expect(canRaiseAdjustment(subCan, view)).toBe(true);
     expect(canRaiseAdjustment(mainCan, view)).toBe(true);
@@ -210,7 +210,7 @@ describe('verifications (BR-106)', () => {
     expect(view.varianceText).not.toMatch(/^[+-]/);
   });
 
-  it('BR-106: the record body carries only the counted kg (zero allowed) and trimmed notes', () => {
+  it('BR-107: the record body carries only the counted kg (zero allowed) and trimmed notes', () => {
     expect(buildCreateVerificationBody({ batchId: BATCH, countedText: '95', notes: '' })).toEqual({
       ok: true,
       body: { batchId: BATCH, countedQtyKg: '95.000' },

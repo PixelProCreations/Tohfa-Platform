@@ -4,7 +4,7 @@
  *
  * Nothing here writes a quantity. An approval's stock movement is a `stock_ledger` INSERT made by
  * the inventory service (BR-37b); this file only records the id of that ledger row. The decided
- * row is then frozen by trg_stock_adjustments_frozen_when_decided (0070).
+ * row is then frozen by trg_stock_adjustments_frozen_when_decided (0071).
  *
  * `inventory_batches.source_farmer_id` is never selected (BR-16).
  */

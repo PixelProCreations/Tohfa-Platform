@@ -71,7 +71,7 @@ export interface StockAdjustmentsService {
   ): Promise<{ adjustment: StockAdjustment; replayed: boolean }>;
   /**
    * Creates a PENDING adjustment inside the caller's transaction (no idempotency claim of its own).
-   * Used by `create` and by the BR-106 stock verification, which raises a COUNT_CORRECTION.
+   * Used by `create` and by the BR-107 stock verification, which raises a COUNT_CORRECTION.
    */
   createInTransaction(tx: Executor, scope: ResolvedScope, body: CreateAdjustmentBody): Promise<StockAdjustment>;
   approve(scope: ResolvedScope, id: string, rawKey: string | undefined): Promise<StockAdjustment>;

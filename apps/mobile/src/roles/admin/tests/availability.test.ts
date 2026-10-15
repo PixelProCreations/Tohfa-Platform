@@ -43,7 +43,7 @@ describe('AREAS_WITHOUT_API', () => {
         // operationalIssues (BR-103) and warehouseActivity (BR-104) are live:
         // gated on warehouse.issue.view / warehouse.activity.view below.
         // warehouseDocuments is live (BR-105): gated on warehouse.document.view below.
-        // stockAdjustments (BR-37) and stockCounts (BR-106) are live: gated on
+        // stockAdjustments (BR-37) and stockCounts (BR-107) are live: gated on
         // inventory.stock_adjustment.create / inventory.stock_verification.perform below.
         // Phase 5: there is no admin cancel route, no admin order-issue route, no
         // stock-check endpoint, delivery dispatch is not enabled in Track 1 (BR-21;
@@ -200,7 +200,7 @@ describe('inventoryRouteArea', () => {
     }
   });
 
-  it('BR-106: stock counts need inventory.stock_verification.perform, nothing else', () => {
+  it('BR-107: stock counts need inventory.stock_verification.perform, nothing else', () => {
     expect(STOCK_COUNTS_AREA_CODE).toBe('inventory.stock_verification.perform');
     expect(isAreaAvailable('stockCounts', (code) => code === STOCK_COUNTS_AREA_CODE)).toBe(true);
     expect(isAreaAvailable('stockCounts', (code) => code === STOCK_ADJUSTMENTS_AREA_CODE)).toBe(false);

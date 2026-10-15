@@ -1,6 +1,6 @@
 /**
  * Physical Count (design M3S11): record what is physically on the shelf for
- * one real batch (POST /admin/stock-verifications, BR-106).
+ * one real batch (POST /admin/stock-verifications, BR-107).
  *
  * The app sends only the counted quantity (and optional notes). The server
  * snapshots the batch's ledger balance as the system quantity and derives

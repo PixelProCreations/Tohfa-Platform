@@ -1,6 +1,6 @@
 -- =============================================================================
--- 0070_stock_adjustment_decisions.sql
--- Completes the stock_adjustments (BR-37) and stock_verifications (BR-106) models of 0005,
+-- 0071_stock_adjustment_decisions.sql
+-- Completes the stock_adjustments (BR-37) and stock_verifications (BR-107) models of 0005,
 -- which had tables but no endpoint until now.
 --
 --   * stock_adjustments: a REJECTED adjustment had nowhere to record who rejected it, when or
@@ -50,7 +50,7 @@ CREATE TRIGGER trg_stock_adjustments_frozen_when_decided
     BEFORE UPDATE ON stock_adjustments
     FOR EACH ROW EXECUTE FUNCTION app_stock_adjustments_frozen_when_decided();
 
--- BR-106: one verification raises at most one adjustment, and one adjustment answers at most one
+-- BR-107: one verification raises at most one adjustment, and one adjustment answers at most one
 -- verification.
 CREATE UNIQUE INDEX uq_stock_verifications_adjustment_id
     ON stock_verifications (adjustment_id) WHERE adjustment_id IS NOT NULL;
@@ -60,7 +60,7 @@ CREATE INDEX idx_stock_verifications_warehouse_verified
 COMMENT ON COLUMN stock_adjustments.rejected_by IS
     'BR-37a: who rejected a PENDING adjustment; never its creator (CHECK).';
 COMMENT ON COLUMN stock_verifications.adjustment_id IS
-    'BR-106: the COUNT_CORRECTION stock adjustment raised for this variance. The variance never '
+    'BR-107: the COUNT_CORRECTION stock adjustment raised for this variance. The variance never '
     'edits the ledger itself; the adjustment does, once someone else approves it (BR-37).';
 
 -- +migrate Down

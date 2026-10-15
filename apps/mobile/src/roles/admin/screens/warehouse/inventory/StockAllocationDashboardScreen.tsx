@@ -109,7 +109,7 @@ export function StockAllocationDashboardScreen({
   onRefresh,
   isRefreshing = false,
 }: StockAllocationDashboardScreenProps) {
-  // Stock counts (BR-106) are shown only with inventory.stock_verification.perform (availability.ts).
+  // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: rowCount });
   const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));

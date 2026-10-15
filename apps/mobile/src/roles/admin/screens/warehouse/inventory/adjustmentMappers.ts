@@ -1,5 +1,5 @@
 /**
- * Pure decisions behind the stock count (BR-106) and stock adjustment (BR-37)
+ * Pure decisions behind the stock count (BR-107) and stock adjustment (BR-37)
  * screens: DTO -> view mapping, request bodies, which actions to draw, and
  * which message an action error shows. No React, so plain-Node vitest covers
  * all of it (../../../tests/mappers_stockAdjustments.test.ts).
@@ -349,7 +349,7 @@ export function toVerificationView(
 }
 
 /**
- * BR-106: "Raise adjustment" is offered only for a RECORDED count with a
+ * BR-107: "Raise adjustment" is offered only for a RECORDED count with a
  * non-zero variance and no adjustment yet, and only with
  * inventory.stock_adjustment.create (what it creates is an adjustment).
  * Anything else the server answers 409 INVALID_STATE_TRANSITION.

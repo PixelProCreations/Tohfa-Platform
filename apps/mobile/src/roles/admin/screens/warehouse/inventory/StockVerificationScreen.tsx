@@ -1,6 +1,6 @@
 /**
  * Stock Verification (design M3S10): the stock count hub. Lists the scope's
- * recent physical counts (GET /admin/stock-verifications, BR-106) and opens
+ * recent physical counts (GET /admin/stock-verifications, BR-107) and opens
  * a new count, the variance review and the adjustment history.
  *
  * Gate: the flow opens this route only with inventory.stock_verification.perform

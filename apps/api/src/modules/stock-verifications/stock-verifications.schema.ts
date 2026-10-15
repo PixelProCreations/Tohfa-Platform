@@ -1,5 +1,5 @@
 /**
- * BR-106: physical stock verification (count vs system). Schemas must match docs/openapi.yaml
+ * BR-107: physical stock verification (count vs system). Schemas must match docs/openapi.yaml
  * (/admin/stock-verifications).
  *
  * Request bodies and the list query are `.strict()`. Quantities are decimal STRINGS

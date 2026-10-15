@@ -1,5 +1,5 @@
 /**
- * Variance Review (design M3S12), BR-106.
+ * Variance Review (design M3S12), BR-107.
  *
  * With a `verificationId` route param: one count as the server recorded it
  * (GET /admin/stock-verifications/{id}): the system quantity it snapshotted,

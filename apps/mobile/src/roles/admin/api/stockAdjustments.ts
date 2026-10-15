@@ -69,7 +69,7 @@ export interface StockAdjustmentDto {
   rejectionReason: string | null;
   /** The stock_ledger row the approval inserted (BR-37b); null until APPROVED. */
   ledgerEntryId: string | null;
-  /** The BR-106 stock count this adjustment was raised from, if any. */
+  /** The BR-107 stock count this adjustment was raised from, if any. */
   verificationId: string | null;
   updatedAt: string | null;
 }

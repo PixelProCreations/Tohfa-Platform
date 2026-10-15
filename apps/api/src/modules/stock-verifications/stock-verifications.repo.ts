@@ -1,5 +1,5 @@
 /**
- * BR-106: SQL for physical stock verifications. Every function takes an `Executor` so the service
+ * BR-107: SQL for physical stock verifications. Every function takes an `Executor` so the service
  * can run each state change as ONE transaction; no authorization decision lives here.
  *
  * A verification never writes stock: `system_qty` is a snapshot of the ledger-derived balance, and

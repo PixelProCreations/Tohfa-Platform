@@ -134,7 +134,7 @@ describe('App.tsx (Sub shell routes and links)', () => {
   });
 });
 
-describe('Inventory: stock counts and stock adjustments (permission-gated, BR-106 / BR-37)', () => {
+describe('Inventory: stock counts and stock adjustments (permission-gated, BR-107 / BR-37)', () => {
   const INVENTORY = 'roles/admin/screens/warehouse/inventory';
   const FLOW = read(`${INVENTORY}/InventoryFlow.tsx`);
   const LIVE_SCREENS = [

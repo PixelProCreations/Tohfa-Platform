@@ -753,7 +753,7 @@ See also BR-66.
 - `BR-37a` SUB_WH_ADMIN approves its own adjustment → 403, `code: SELF_APPROVAL_FORBIDDEN`; the adjustment stays `pending`.
 - `BR-37b` The adjustment changes available quantity only after approval, and does so by inserting a ledger row, not by mutating one.
 
-**Note (2026-10-14, stock adjustment endpoints).** Built in `apps/api/src/modules/stock-adjustments/` (migration `0070_stock_adjustment_decisions.sql`): `POST /admin/stock-adjustments` (create, `PENDING`, `Idempotency-Key`), `GET /admin/stock-adjustments` and `/{id}` (scoped reads; another warehouse is an empty page or the same 404 as an unknown id), `POST /admin/stock-adjustments/{id}/approve` (`Idempotency-Key`) and `/{id}/reject` (reason required). Reads reuse `inventory.stock_adjustment.create` because rbac.json has no view code. How BR-37a is enforced: a Sub Warehouse Admin holds `none` on `inventory.stock_adjustment.approve`, so it is stopped by the permission gate with 403 `FORBIDDEN` (not `SELF_APPROVAL_FORBIDDEN`, which the test contract above names); the `SELF_APPROVAL_FORBIDDEN` code is returned when ANY approver (Super, TOHFA, Main) tries to approve or reject an adjustment they raised themselves, and a DB CHECK backs both. Approval inserts one `ADJUSTMENT` ledger row (`ref_type` `stock_adjustment`) through `InventoryService.recordMovement` in the same transaction as the status change and the audit row; a decided adjustment is frozen by a trigger. UNCONFIRMED defaults: `DAMAGE`, `SHRINKAGE` and `EXPIRY` may only remove stock (only `COUNT_CORRECTION` may add); a removal larger than the current batch balance is refused at creation (409 `STOCK_UNAVAILABLE`); the creator may not reject their own adjustment either; approval does not check cart holds (BR-100), only the ledger's non-negative balance. Tests: `BR-37a`, `BR-37b`, `BR-37` in `apps/api/src/modules/stock-adjustments/stock-adjustments.test.ts`.
+**Note (2026-10-14, stock adjustment endpoints).** Built in `apps/api/src/modules/stock-adjustments/` (migration `0071_stock_adjustment_decisions.sql`): `POST /admin/stock-adjustments` (create, `PENDING`, `Idempotency-Key`), `GET /admin/stock-adjustments` and `/{id}` (scoped reads; another warehouse is an empty page or the same 404 as an unknown id), `POST /admin/stock-adjustments/{id}/approve` (`Idempotency-Key`) and `/{id}/reject` (reason required). Reads reuse `inventory.stock_adjustment.create` because rbac.json has no view code. How BR-37a is enforced: a Sub Warehouse Admin holds `none` on `inventory.stock_adjustment.approve`, so it is stopped by the permission gate with 403 `FORBIDDEN` (not `SELF_APPROVAL_FORBIDDEN`, which the test contract above names); the `SELF_APPROVAL_FORBIDDEN` code is returned when ANY approver (Super, TOHFA, Main) tries to approve or reject an adjustment they raised themselves, and a DB CHECK backs both. Approval inserts one `ADJUSTMENT` ledger row (`ref_type` `stock_adjustment`) through `InventoryService.recordMovement` in the same transaction as the status change and the audit row; a decided adjustment is frozen by a trigger. UNCONFIRMED defaults: `DAMAGE`, `SHRINKAGE` and `EXPIRY` may only remove stock (only `COUNT_CORRECTION` may add); a removal larger than the current batch balance is refused at creation (409 `STOCK_UNAVAILABLE`); the creator may not reject their own adjustment either; approval does not check cart holds (BR-100), only the ledger's non-negative balance. Tests: `BR-37a`, `BR-37b`, `BR-37` in `apps/api/src/modules/stock-adjustments/stock-adjustments.test.ts`.
 
 ---
 
@@ -2510,12 +2510,12 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
-### BR-106 — A physical stock count never edits the ledger; its variance becomes a stock adjustment that someone else approves
+### BR-107 — A physical stock count never edits the ledger; its variance becomes a stock adjustment that someone else approves
 | | |
 |---|---|
 | **Source** | Derived rule (not client-signed): Requirements v1.0 §6.2 ("physical stock verification, count vs system") and the `stock_verifications` model of `0005_warehouse_inventory.sql`; no screen or detailed requirement exists. Previously row 15 of "Rules NOT enforced in Track 1" |
 | **Status** | DERIVED |
-| **Layer** | Server-side, `apps/api/src/modules/stock-verifications/`; `stock_verifications` (0005, unique `adjustment_id` from 0070); hands off to BR-37 |
+| **Layer** | Server-side, `apps/api/src/modules/stock-verifications/`; `stock_verifications` (0005, unique `adjustment_id` from 0071); hands off to BR-37 |
 | **Scope** | Track 1 |
 
 **Rule.**
@@ -2529,12 +2529,12 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 **Failure mode if unenforced.** A counter "fixes" the ledger to match the shelf and the ledger stops being evidence (BR-37), a variance is silently written off by the person who found it, a Sub admin counts another warehouse, or a retried count is recorded twice.
 
 **Test contract.** (`apps/api/src/modules/stock-verifications/stock-verifications.test.ts`)
-- `BR-106a` Body and query validation: decimal-string non-negative counts, strict bodies, `hasVariance`, paging.
-- `BR-106b` Recording snapshots the ledger balance and derives the variance, writes no ledger row and no adjustment; a matching count is `RECONCILED`, any other `RECORDED`; `Idempotency-Key` required and a replay records once.
-- `BR-106c` Scope: a Sub admin counts and reads only its warehouse; another warehouse's batch or count is the same 404 as an unknown id; another warehouse filter is an empty page.
-- `BR-106d` Raising creates one `PENDING` `COUNT_CORRECTION` equal to the variance in the same transaction, links it and reconciles the count; a zero-variance, reconciled, disputed or already-linked count is 409 `INVALID_STATE_TRANSITION` and writes nothing.
-- `BR-106e` One masked audit row per record and raise (no notes); replaying a raise writes nothing twice.
-- `BR-106f` 401 without a token; 403 for farmer, customer and Farmer Admin on every route.
+- `BR-107a` Body and query validation: decimal-string non-negative counts, strict bodies, `hasVariance`, paging.
+- `BR-107b` Recording snapshots the ledger balance and derives the variance, writes no ledger row and no adjustment; a matching count is `RECONCILED`, any other `RECORDED`; `Idempotency-Key` required and a replay records once.
+- `BR-107c` Scope: a Sub admin counts and reads only its warehouse; another warehouse's batch or count is the same 404 as an unknown id; another warehouse filter is an empty page.
+- `BR-107d` Raising creates one `PENDING` `COUNT_CORRECTION` equal to the variance in the same transaction, links it and reconciles the count; a zero-variance, reconciled, disputed or already-linked count is 409 `INVALID_STATE_TRANSITION` and writes nothing.
+- `BR-107e` One masked audit row per record and raise (no notes); replaying a raise writes nothing twice.
+- `BR-107f` 401 without a token; 403 for farmer, customer and Farmer Admin on every route.
 
 ---
 
@@ -2591,7 +2591,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 12 | Main Warehouse Admin oversees all 4 warehouses | §2.4 | — | RBAC grants exist; the consolidated MW dashboard is Phase 3 |
 | 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26, BR-102 | Backend built 2026-10-12 as DERIVED rule BR-102 (create, high-value approval, dispatch, receive with shortfall, cancel, scoped reads); the high-value threshold and the shortfall handling are UNCONFIRMED defaults. No UI in this scope |
 | 14 | Warehouse capacity limits and quotas/targets | §6.2, FR-A04 | — | Contested authority (contradiction 5); no capacity model until resolved |
-| 15 | Stock verification (physical count vs system) | §6.2 | BR-106 | Moved into Track 1 on 2026-10-14 as DERIVED rule BR-106 (record a count, raise a COUNT_CORRECTION adjustment for the variance, scoped reads); a dispute workflow and a variance report are still not built. Row kept for history |
+| 15 | Stock verification (physical count vs system) | §6.2 | BR-107 | Moved into Track 1 on 2026-10-14 as DERIVED rule BR-107 (record a count, raise a COUNT_CORRECTION adjustment for the variance, scoped reads); a dispute workflow and a variance report are still not built. Row kept for history |
 | 16 | Quality counter-offer at goods receipt | matrix §7 | BR-10 | Repaired 2026-10-11 as an UNCONFIRMED default: it is a round of the listing negotiation (shares the 4-round limit and the one-PENDING-offer rule); what happens to the receipt, purchase order and payout after the farmer answers is not specified (see the BR-10 note) |
 | 17 | Market day scheduling per warehouse | matrix §5 | — | Belongs to the Market sales channel, which is Phase 3 |
 | 18 | GDPR data export and account deletion requests | matrix §15 | — | Absent from the Requirements document entirely; needs a retention policy first, which no document states |

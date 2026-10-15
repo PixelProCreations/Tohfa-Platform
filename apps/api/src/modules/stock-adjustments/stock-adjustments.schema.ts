@@ -100,7 +100,7 @@ export const stockAdjustmentResponse = z.object({
   rejectionReason: z.string().nullable(),
   /** The stock_ledger row an approval inserted (BR-37b); null until APPROVED. */
   ledgerEntryId: z.string().uuid().nullable(),
-  /** The BR-106 stock verification this adjustment was raised from, if any. */
+  /** The BR-107 stock verification this adjustment was raised from, if any. */
   verificationId: z.string().uuid().nullable(),
   updatedAt: z.string().nullable(),
 });

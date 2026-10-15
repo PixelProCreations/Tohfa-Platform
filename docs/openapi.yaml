@@ -9765,10 +9765,10 @@ paths:
       description: |
         Newest first (`verifiedAt` DESC, then id). Requires `inventory.stock_verification.perform`
         (no separate view code exists). A Sub Warehouse Admin sees only its warehouse; a `warehouseId`
-        of another warehouse is an empty page, never 403 (BR-30, BR-106). Filters: `status`,
+        of another warehouse is an empty page, never 403 (BR-30, BR-107). Filters: `status`,
         `warehouseId`, `batchId`, `hasVariance`. Strict query.
       x-permission: inventory.stock_verification.perform
-      x-business-rules: [BR-30, BR-106]
+      x-business-rules: [BR-30, BR-107]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/StockVerificationStatus' } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -9796,10 +9796,10 @@ paths:
         database derives `varianceKg` = counted - system. A count NEVER moves stock. A count equal to
         the system figure is `RECONCILED` at once; any other is `RECORDED`, and its variance can be
         handed to the adjustment workflow with `POST /admin/stock-verifications/{id}/adjustment`
-        (BR-106). A batch outside the caller's warehouse is the same 404 as an unknown batch. One
+        (BR-107). A batch outside the caller's warehouse is the same 404 as an unknown batch. One
         masked `inventory.stock_verification.perform` audit row (never the notes).
       x-permission: inventory.stock_verification.perform
-      x-business-rules: [BR-30, BR-35, BR-106]
+      x-business-rules: [BR-30, BR-35, BR-107]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -9832,7 +9832,7 @@ paths:
         Requires `inventory.stock_verification.perform`. A count of another warehouse (for a Sub
         Warehouse Admin) and an unknown id are the same 404.
       x-permission: inventory.stock_verification.perform
-      x-business-rules: [BR-30, BR-106]
+      x-business-rules: [BR-30, BR-107]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -9862,7 +9862,7 @@ paths:
         count is used. Audit rows: `inventory.stock_adjustment.create` and
         `inventory.stock_verification.reconcile`.
       x-permission: inventory.stock_adjustment.create
-      x-business-rules: [BR-30, BR-37, BR-106]
+      x-business-rules: [BR-30, BR-37, BR-107]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -18896,7 +18896,7 @@ components:
         rejectedAt: { type: [string, 'null'], format: date-time }
         rejectionReason: { type: [string, 'null'] }
         ledgerEntryId: { type: [string, 'null'], format: uuid, description: 'The stock_ledger row the approval inserted (BR-37b).' }
-        verificationId: { type: [string, 'null'], format: uuid, description: 'The BR-106 count this adjustment was raised from, if any.' }
+        verificationId: { type: [string, 'null'], format: uuid, description: 'The BR-107 count this adjustment was raised from, if any.' }
         updatedAt: { type: [string, 'null'], format: date-time }
 
     StockAdjustmentList:
@@ -18911,7 +18911,7 @@ components:
     StockVerificationStatus:
       type: string
       enum: [RECORDED, RECONCILED, DISPUTED]
-      description: DISPUTED is a legal stored value but nothing in the API writes it yet (BR-106).
+      description: DISPUTED is a legal stored value but nothing in the API writes it yet (BR-107).
 
     StockVerificationCreate:
       type: object
@@ -18933,7 +18933,7 @@ components:
 
     StockVerification:
       type: object
-      description: A physical count against the ledger figure (BR-106). Never moves stock.
+      description: A physical count against the ledger figure (BR-107). Never moves stock.
       required: [id, warehouseId, batchId, batchCode, cropId, grade, systemQtyKg, countedQtyKg, varianceKg, status, notes, verifiedBy, verifiedAt, adjustmentId, adjustmentStatus, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }

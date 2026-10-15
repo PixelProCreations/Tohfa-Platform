@@ -1,5 +1,5 @@
 /**
- * BR-106: physical stock verification (count vs system), and its hand-off to BR-37.
+ * BR-107: physical stock verification (count vs system), and its hand-off to BR-37.
  *
  * All business logic lives here; the service takes a `ResolvedScope`, never a Request.
  *

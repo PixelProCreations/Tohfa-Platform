@@ -1,6 +1,6 @@
 /**
  * roles/admin/api/stockAdjustments.ts (BR-37) and stockVerifications.ts
- * (BR-106). The shell client is mocked (same pattern as api_transfers.test.ts),
+ * (BR-107). The shell client is mocked (same pattern as api_transfers.test.ts),
  * so these tests pin exactly what goes on the wire: paths, query, bodies as kg
  * strings, and the Idempotency-Key on every write that needs one.
  */
@@ -90,7 +90,7 @@ describe('stock adjustments client (BR-37)', () => {
   });
 });
 
-describe('stock verifications client (BR-106)', () => {
+describe('stock verifications client (BR-107)', () => {
   it('lists counts with hasVariance sent as the string the server enum expects', async () => {
     await listStockVerifications({ warehouseId: WH, hasVariance: true, page: 1, pageSize: 20 });
     expect(lastCall().path).toBe(`/admin/stock-verifications?warehouseId=${WH}&hasVariance=true&page=1&pageSize=20`);
@@ -105,14 +105,14 @@ describe('stock verifications client (BR-106)', () => {
     expect(lastCall().path).toBe(`/admin/stock-verifications/${VER}`);
   });
 
-  it('BR-106: records only the counted kg (the server snapshots the system quantity), with an Idempotency-Key', async () => {
+  it('BR-107: records only the counted kg (the server snapshots the system quantity), with an Idempotency-Key', async () => {
     await createStockVerification({ batchId: BATCH, countedQtyKg: '95.000' }, 'key-3');
     expect(lastCall().path).toBe('/admin/stock-verifications');
     expect(lastCall().options).toMatchObject({ method: 'POST', body: { batchId: BATCH, countedQtyKg: '95.000' }, idempotencyKey: 'key-3' });
     expect(lastCall().options.body).not.toHaveProperty('systemQtyKg');
   });
 
-  it('BR-106: raises the adjustment for a count with an Idempotency-Key', async () => {
+  it('BR-107: raises the adjustment for a count with an Idempotency-Key', async () => {
     await raiseVerificationAdjustment(VER, {}, 'key-4');
     expect(lastCall().path).toBe(`/admin/stock-verifications/${VER}/adjustment`);
     expect(lastCall().options).toMatchObject({ method: 'POST', body: {}, idempotencyKey: 'key-4' });

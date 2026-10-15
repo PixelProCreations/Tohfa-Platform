@@ -21,7 +21,7 @@
  * uuid (BR-30), the Main view the warehouse picked in its selector (held here
  * so it survives moving between screens), or none for all warehouses.
  *
- * Stock counts (M3S10-M3S12, BR-106: /admin/stock-verifications) and stock
+ * Stock counts (M3S10-M3S12, BR-107: /admin/stock-verifications) and stock
  * adjustments (M3S13, M3S14, M3S17, BR-37: /admin/stock-adjustments) are live.
  * They are gated by permission (availability.ts): counts on
  * inventory.stock_verification.perform, adjustments on

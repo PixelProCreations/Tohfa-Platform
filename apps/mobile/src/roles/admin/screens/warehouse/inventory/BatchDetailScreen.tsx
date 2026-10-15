@@ -59,7 +59,7 @@ export function BatchDetailScreen({
 }: BatchDetailScreenProps) {
   // The batch carries only a warehouse uuid; the name is the viewer's own scope's.
   const warehouse = scope.warehouseName?.replace(' Warehouse', '') ?? t('inventory.noValue');
-  // Counting (BR-106) and adjusting (BR-37) this batch are shown only with their
+  // Counting (BR-107) and adjusting (BR-37) this batch are shown only with their
   // permission (availability.ts); the server checks each again.
   const canVerify = isAreaAvailable('stockCounts', can);
   const canAdjust = isAreaAvailable('stockAdjustments', can);

@@ -1,5 +1,5 @@
 /**
- * BR-106: physical stock verification. Wiring only: requireAuth -> requirePermission -> validate ->
+ * BR-107: physical stock verification. Wiring only: requireAuth -> requirePermission -> validate ->
  * handler. Mounted by app.ts at /v1/admin/stock-verifications.
  *
  *  - record, list, detail: `inventory.stock_verification.perform` (Sub admin `own`, the rest `all`).

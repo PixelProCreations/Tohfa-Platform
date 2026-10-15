@@ -22,7 +22,7 @@
  *     (owner decision 2026-10-11, superseding the withdrawn
  *     `warehouse.staff.list_view`).
  *
- *   - Stock counts are live (/admin/stock-verifications, BR-106) and shown
+ *   - Stock counts are live (/admin/stock-verifications, BR-107) and shown
  *     with `inventory.stock_verification.perform` (SA/TOHFA/MAIN all, SUB
  *     own). Stock adjustments are live (/admin/stock-adjustments, BR-37) and
  *     shown with `inventory.stock_adjustment.create` (SA/TOHFA/MAIN all, SUB
@@ -97,7 +97,7 @@ export const ISSUES_AREA_CODE = 'warehouse.issue.view';
 /** The docs/rbac.json code that reads a warehouse's activity feed (BR-104). */
 export const ACTIVITY_AREA_CODE = 'warehouse.activity.view';
 
-/** The docs/rbac.json code that records and reads physical stock counts (BR-106). */
+/** The docs/rbac.json code that records and reads physical stock counts (BR-107). */
 export const STOCK_COUNTS_AREA_CODE = 'inventory.stock_verification.perform';
 
 /** The docs/rbac.json code that raises and reads stock adjustments (BR-37). */

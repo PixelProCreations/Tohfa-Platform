@@ -1,5 +1,5 @@
 /**
- * Source scan of the live stock count (M3S10-M3S12, BR-106) and stock
+ * Source scan of the live stock count (M3S10-M3S12, BR-107) and stock
  * adjustment (M3S13, M3S14, M3S17, BR-37) screens. Hooks and JSX cannot render
  * in this plain-Node vitest, so the wiring is pinned by reading the sources,
  * as transfers_wiring.test.ts does; the decisions themselves are tested in
@@ -54,7 +54,7 @@ describe('stock count and adjustment screens are live', () => {
     expect(DETAIL).toMatch(/t\(stockActionErrorKey\(actionError\)\)/);
   });
 
-  it('BR-106: Raise adjustment is drawn only from canRaiseAdjustment and opens the raised adjustment', () => {
+  it('BR-107: Raise adjustment is drawn only from canRaiseAdjustment and opens the raised adjustment', () => {
     expect(REVIEW).toMatch(/const offerRaise = canRaiseAdjustment\(can, count\);/);
     expect(REVIEW).toMatch(/\{offerRaise \? \(/);
     expect(REVIEW).toMatch(/onNavigate\?\.\('M3S17', \{ adjustmentId: result\.adjustment\.id \}\)/);

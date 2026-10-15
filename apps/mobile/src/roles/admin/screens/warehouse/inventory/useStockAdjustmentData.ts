@@ -1,5 +1,5 @@
 /**
- * Live data for the stock count (BR-106) and stock adjustment (BR-37)
+ * Live data for the stock count (BR-107) and stock adjustment (BR-37)
  * screens. Thin TanStack Query wrappers over roles/admin/api/stockAdjustments.ts
  * and stockVerifications.ts; every decision lives in ./adjustmentMappers.ts,
  * which is tested.

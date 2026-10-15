@@ -1,5 +1,5 @@
 /**
- * BR-106 (physical stock verification: a count never edits the ledger; its variance becomes a
+ * BR-107 (physical stock verification: a count never edits the ledger; its variance becomes a
  * COUNT_CORRECTION stock adjustment that someone else approves, BR-37).
  *
  *  a  body and query validation (decimal-string counts, strict bodies, paging)
@@ -52,7 +52,7 @@ const toKg = (grams: number): string => {
 // 1. Schemas
 // ===========================================================================
 describe('stock verification schemas', () => {
-  it('BR-106a: the record body is strict and takes a non-negative decimal-string count; raise and list are strict', () => {
+  it('BR-107a: the record body is strict and takes a non-negative decimal-string count; raise and list are strict', () => {
     const batchId = newId();
     expect(createVerificationBody.safeParse({ batchId, countedQtyKg: '0' }).success).toBe(true);
     expect(createVerificationBody.safeParse({ batchId, countedQtyKg: '12.345', notes: 'Rack B3' }).success).toBe(true);
@@ -254,7 +254,7 @@ let keyN = 0;
 const key = (): string => `ver-k-${++keyN}`;
 
 describe('stock verifications service (in-memory repo)', () => {
-  it('BR-106b: recording snapshots the ledger balance, derives the variance, and writes no ledger row and no adjustment', async () => {
+  it('BR-107b: recording snapshots the ledger balance, derives the variance, and writes no ledger row and no adjustment', async () => {
     const w = makeWorld();
     const b = w.addBatch({ qtyAvailableKg: '40.000' });
     const { verification } = await w.service.create(subCounter(), key(), { batchId: b.id, countedQtyKg: '37.5', notes: 'Rack B3' });
@@ -272,7 +272,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect(w.batches.get(b.id)!.qtyAvailableKg).toBe('40.000');
   });
 
-  it('BR-106b: a count that matches the system is RECONCILED at once; a surplus is RECORDED with a positive variance', async () => {
+  it('BR-107b: a count that matches the system is RECONCILED at once; a surplus is RECORDED with a positive variance', async () => {
     const w = makeWorld();
     const b = w.addBatch({ qtyAvailableKg: '10.000' });
     const same = await w.service.create(subCounter(), key(), { batchId: b.id, countedQtyKg: '10' });
@@ -281,7 +281,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect(surplus.verification).toMatchObject({ varianceKg: '0.001', status: 'RECORDED' });
   });
 
-  it('BR-106b: a missing Idempotency-Key is 422 on record and raise and writes nothing; a replay records once', async () => {
+  it('BR-107b: a missing Idempotency-Key is 422 on record and raise and writes nothing; a replay records once', async () => {
     const w = makeWorld();
     const b = w.addBatch();
     for (const k of [undefined, '', '  ']) {
@@ -301,7 +301,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect((await failure(w.service.create(subCounter(), k, { batchId: b.id, countedQtyKg: '2' }))).code).toBe('IDEMPOTENCY_KEY_REUSED');
   });
 
-  it('BR-106c: a Sub admin counts only its own warehouse; another warehouse batch is the same 404 as an unknown batch', async () => {
+  it('BR-107c: a Sub admin counts only its own warehouse; another warehouse batch is the same 404 as an unknown batch', async () => {
     const w = makeWorld();
     const foreign = w.addBatch({ warehouseId: W2 });
     const hidden = await failure(w.service.create(subCounter(W1), key(), { batchId: foreign.id, countedQtyKg: '1' }));
@@ -313,7 +313,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect(w.verifications.size + w.audits.length).toBe(0);
   });
 
-  it('BR-106c: reads are scoped: own list only, another warehouse filter is an empty page, another row the same 404 as an unknown id', async () => {
+  it('BR-107c: reads are scoped: own list only, another warehouse filter is an empty page, another row the same 404 as an unknown id', async () => {
     const w = makeWorld();
     const mine = (await w.service.create(subCounter(W1), key(), { batchId: w.addBatch({ warehouseId: W1 }).id, countedQtyKg: '1' })).verification;
     const theirs = (await w.service.create(subCounter(W2), key(), { batchId: w.addBatch({ warehouseId: W2 }).id, countedQtyKg: '1' })).verification;
@@ -334,7 +334,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect((await failure(w.service.raiseAdjustment(subRaiser(W1), theirs.id, key(), {}))).status).toBe(404);
   });
 
-  it('BR-106d: raising an adjustment creates ONE PENDING COUNT_CORRECTION equal to the variance in the same transaction, links it and reconciles the count', async () => {
+  it('BR-107d: raising an adjustment creates ONE PENDING COUNT_CORRECTION equal to the variance in the same transaction, links it and reconciles the count', async () => {
     const w = makeWorld();
     const b = w.addBatch({ qtyAvailableKg: '40.000' });
     const { verification } = await w.service.create(subCounter(), key(), { batchId: b.id, countedQtyKg: '37.5' });
@@ -355,7 +355,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect(w.raised[1]!.body).toMatchObject({ qtyDeltaKg: '1.000', reason: 'Recount by two staff confirmed' });
   });
 
-  it('BR-106d: a reconciled, zero-variance or already-linked count is 409 INVALID_STATE_TRANSITION; an unknown id 404; nothing is written', async () => {
+  it('BR-107d: a reconciled, zero-variance or already-linked count is 409 INVALID_STATE_TRANSITION; an unknown id 404; nothing is written', async () => {
     const w = makeWorld();
     const b = w.addBatch({ qtyAvailableKg: '5.000' });
     const zero = (await w.service.create(subCounter(), key(), { batchId: b.id, countedQtyKg: '5' })).verification;
@@ -374,7 +374,7 @@ describe('stock verifications service (in-memory repo)', () => {
     expect(w.audits.length).toBe(auditsBefore);
   });
 
-  it('BR-106e: one masked audit row per record and raise, never the notes; replaying a raise writes nothing twice', async () => {
+  it('BR-107e: one masked audit row per record and raise, never the notes; replaying a raise writes nothing twice', async () => {
     const w = makeWorld();
     const b = w.addBatch({ qtyAvailableKg: '9.000' });
     const { verification } = await w.service.create(subCounter(), key(), { batchId: b.id, countedQtyKg: '8', notes: SECRET_NOTES });
@@ -431,7 +431,7 @@ describe('stock verifications routes (permission gates, stub service)', async ()
     { method: 'post', path: `/v1/admin/stock-verifications/${id}/adjustment`, body: {}, ok: 201 },
   ];
 
-  it('BR-106f: every route is 401 without a token and 403 for farmer, customer and Farmer Admin', async () => {
+  it('BR-107f: every route is 401 without a token and 403 for farmer, customer and Farmer Admin', async () => {
     for (const route of routes) {
       expect((await request(app)[route.method](route.path).send(route.body)).status, `${route.path} anonymous`).toBe(401);
       for (const auth of [token(RoleCode.FARMER), token(RoleCode.CUSTOMER), token(RoleCode.FARMER_ADMIN, { zoneId: newId() })]) {
@@ -441,7 +441,7 @@ describe('stock verifications routes (permission gates, stub service)', async ()
     }
   });
 
-  it('BR-106c: Super Admin, TOHFA Admin, Main and a Sub admin reach every route; a bad body is 422', async () => {
+  it('BR-107c: Super Admin, TOHFA Admin, Main and a Sub admin reach every route; a bad body is 422', async () => {
     for (const auth of [token(RoleCode.SUPER_ADMIN), token(RoleCode.TOHFA_ADMIN), token(RoleCode.MAIN_WH_ADMIN), token(RoleCode.SUB_WH_ADMIN, { warehouseId: W1 })]) {
       for (const route of routes) {
         expect((await request(app)[route.method](route.path).set('Authorization', auth).set('Idempotency-Key', newId()).send(route.body)).status, route.path).toBe(route.ok);
@@ -473,7 +473,7 @@ describeIfDatabase('stock verifications service (PostgreSQL)', () => {
       await fn();
     });
 
-  dbTest('BR-106b/d: the database snapshots and generates the variance; raising links a PENDING adjustment that a different admin approves through the ledger', async () => {
+  dbTest('BR-107b/d: the database snapshots and generates the variance; raising links a PENDING adjustment that a different admin approves through the ledger', async () => {
     await inRolledBackTx(async (tx) => {
       const counter = await insertUser(tx, 'ADMIN', 'CI counter');
       const approverId = await insertUser(tx, 'ADMIN', 'CI count approver');

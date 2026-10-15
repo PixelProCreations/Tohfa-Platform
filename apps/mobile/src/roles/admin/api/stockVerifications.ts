@@ -1,5 +1,5 @@
 /**
- * Physical stock verification (docs/openapi.yaml /admin/stock-verifications, BR-106):
+ * Physical stock verification (docs/openapi.yaml /admin/stock-verifications, BR-107):
  *   GET  /admin/stock-verifications                  inventory.stock_verification.perform (BR-30; Sub = own warehouse)
  *   GET  /admin/stock-verifications/{id}             inventory.stock_verification.perform (404 outside scope)
  *   POST /admin/stock-verifications                  inventory.stock_verification.perform (Idempotency-Key)

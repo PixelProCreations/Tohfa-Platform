@@ -157,7 +157,7 @@ export function StockListScreen({
 }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
-  // Stock counts (BR-106) are shown only with inventory.stock_verification.perform (availability.ts).
+  // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const [searchQuery, setSearchQuery] = useState('');
 

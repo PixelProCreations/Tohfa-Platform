@@ -9,7 +9,7 @@
  * most); the screens' mappers turn them into integer grams. Ids are uuids;
  * `batchCode` is the human code.
  *
- * No write lives here: stock adjustments (BR-37) and physical counts (BR-106)
+ * No write lives here: stock adjustments (BR-37) and physical counts (BR-107)
  * have their own clients, ./stockAdjustments.ts and ./stockVerifications.ts.
  *
  * The functions send a warehouseId only when the caller passes one. The server
