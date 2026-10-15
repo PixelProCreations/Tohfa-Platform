@@ -6,12 +6,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import type * as ShellClient from '../../../shell/api/client';
 
 const PRODUCT = '33333333-3333-4333-8333-333333333333';
 const SALE = '22222222-2222-4222-8222-222222222222';
 
 vi.mock('../../../shell/api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shell/api/client')>();
+  const actual = await importOriginal<typeof ShellClient>();
   return {
     ...actual,
     request: vi.fn(async (p: string) => {

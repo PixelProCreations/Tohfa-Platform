@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
@@ -252,7 +252,7 @@ import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeil
 import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
 import { BulkPriceUpdateScreen } from '../admin/screens/dashboard/BulkPriceUpdateScreen';
 import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScreen';
-import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
+import { MarketDayScheduleScreen, MOCK_DAYS } from '../admin/screens/dashboard/MarketDayScheduleScreen';
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
@@ -863,7 +863,6 @@ export default function App(): React.JSX.Element {
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
-  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
   // The admin role the last admin sign-in opened (params.adminRole). Warehouse
   // routes reached from the Sub shell do not all carry it, so remember it for
   // the dev-only demo fallback in useWarehousePermissions.
@@ -2199,14 +2198,14 @@ export default function App(): React.JSX.Element {
         ) : screen === 'FairPriceCeiling' ? (
           <FairPriceCeilingScreen
             onBack={goBack}
-            onUpdatePrice={(item) => navigate('UpdateFairPrice')}
+            onUpdatePrice={(_item) => navigate('UpdateFairPrice')}
             onBulkUpdate={() => navigate('BulkPriceUpdate')}
-            onViewHistory={(item) => navigate('PriceHistory')}
+            onViewHistory={(_item) => navigate('PriceHistory')}
           />
         ) : screen === 'UpdateFairPrice' ? (
           <UpdateFairPriceScreen
             onBack={goBack}
-            onSave={(newPrice) => {
+            onSave={(_newPrice) => {
               // Save logic here
               goBack();
             }}
@@ -2223,18 +2222,18 @@ export default function App(): React.JSX.Element {
           <MarketDayScheduleScreen
             onBack={goBack}
             onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={(id, value) => {
+            onToggle={(_id, _value) => {
               // Handle toggle
             }}
             days={MOCK_DAYS}
-            onDaysChange={(updatedDays) => {
+            onDaysChange={(_updatedDays) => {
               // Handle days change
             }}
           />
         ) : screen === 'AddMarketDay' ? (
           <AddMarketDayScreen
             onBack={goBack}
-            onSave={(marketDay) => {
+            onSave={(_marketDay) => {
               // Save market day logic here
               navigate('MarketDaySchedule');
             }}
@@ -2242,13 +2241,13 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ListingApprovalQueue' ? (
           <ListingApprovalQueueScreen
             onBack={goBack}
-            onApprove={(id) => {
+            onApprove={(_id) => {
               // Handle approve
             }}
-            onCounter={(id) => {
+            onCounter={(_id) => {
               // Handle counter
             }}
-            onReject={(id) => {
+            onReject={(_id) => {
               // Handle reject
             }}
           />
