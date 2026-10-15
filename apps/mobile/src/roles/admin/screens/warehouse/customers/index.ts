@@ -17,7 +17,7 @@ export {
   type CustomersFlowProps,
   type CustomersStackEntry,
 } from './CustomersFlow';
-export { CUSTOMER_WAREHOUSES, DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
+export { DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
 export type {
   CustomerIssueRow,
   CustomerOrderRow,

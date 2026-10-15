@@ -1,280 +1,188 @@
-// Design id: M3S12
-import React from 'react';
+/**
+ * Variance Review (design M3S12), BR-106.
+ *
+ * With a `verificationId` route param: one count as the server recorded it
+ * (GET /admin/stock-verifications/{id}): the system quantity it snapshotted,
+ * what was counted and the variance. "Raise adjustment" hands a RECORDED
+ * count's non-zero variance to the adjustment workflow
+ * (POST /admin/stock-verifications/{id}/adjustment, Idempotency-Key): the
+ * server creates one PENDING COUNT_CORRECTION of exactly the variance, and
+ * the stock moves only when another admin approves it (BR-37a/b). The
+ * action is drawn only when canRaiseAdjustment says so (status, variance,
+ * no adjustment yet, inventory.stock_adjustment.create).
+ *
+ * Without one: the review queue, the scope's counts that found a variance
+ * (GET /admin/stock-verifications?hasVariance=true).
+ */
+import React, { useState } from 'react';
+import { Alert, ScrollView } from 'react-native';
+import { ApiError } from '../../../../../shell/api/client';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { t } from '../../../i18n';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
+  EmptyState,
+  InfoCard,
+  InfoNote,
+  ScopeHeader,
+  SectionTitle,
+  StatusBadge,
+  WalletButton,
+  WalletFooter,
+  WalletScreen,
+  walletLayout,
+} from '../wallet-cashtopup/WalletParts';
+import { canRaiseAdjustment, stockActionErrorKey, type VerificationView } from './adjustmentMappers';
+import { StockListRow, VarianceTiles } from './StockParts';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { SWAHeader } from '../../swa/components';
+import { useRaiseAdjustmentMutation, useVerificationDetail, useVerificationList } from './useStockAdjustmentData';
 
-export type VarianceReviewScreenProps = InventoryScreenBaseProps;
+export interface VarianceReviewScreenProps extends InventoryScreenBaseProps {
+  /** The warehouse every request sends (InventoryFlow, BR-30). */
+  warehouseId: string | undefined;
+  /** The count to review; undefined shows the review queue. */
+  verificationId: string | undefined;
+}
 
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.problem.code === 'NOT_FOUND';
+}
 
-function DownArrowGreyIcon() {
+function VarianceQueue({ scope, onNavigate, onBack, warehouseId }: VarianceReviewScreenProps) {
+  const list = useVerificationList(warehouseId, true);
+  const state = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke={adminColors.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <WalletScreen title={t('stockCount.review.title')} onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <InfoNote tone="info">{t('stockCount.review.queueNote')}</InfoNote>
+        {state === 'loading' ? <AdminLoadingState /> : null}
+        {state === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
+        {state === 'empty' ? <EmptyState title={t('stockCount.review.empty')} /> : null}
+        {list.items.map((item) => (
+          <StockListRow
+            key={item.id}
+            title={item.batchCode}
+            meta={t('stockShared.pair', { first: item.productLabel, second: item.verifiedAt })}
+            detail={t('stockCount.row.variance', { variance: item.varianceText })}
+            badge={{ label: item.statusLabel, tone: item.statusTone }}
+            onPress={() => onNavigate?.('M3S12', { verificationId: item.id })}
+          />
+        ))}
+        {list.hasMore ? <WalletButton label={t('stockShared.loadMore')} variant="outline" onPress={list.loadMore} /> : null}
+      </ScrollView>
+    </WalletScreen>
   );
 }
 
-function WarningTriangleIcon() {
+function CountBody({ count }: { count: VerificationView }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke={adminColors.warning.text}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <>
+      <InfoCard
+        rows={[
+          [
+            { label: t('stockShared.field.batch'), value: count.batchCode },
+            { label: t('stockShared.field.product'), value: count.productLabel },
+          ],
+          [
+            { label: t('stockCount.review.countedAt'), value: count.verifiedAt },
+            { label: t('stockShared.field.reference'), value: count.ref },
+          ],
+        ]}
       />
-      <Path d="M12 9v4M12 17h.01" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
+      <SectionTitle right={<StatusBadge label={count.statusLabel} tone={count.statusTone} />}>
+        {t('stockCount.review.figures')}
+      </SectionTitle>
+      <VarianceTiles
+        systemText={count.systemText}
+        countedText={count.countedText}
+        varianceText={count.varianceText}
+        varianceGrams={count.varianceGrams}
+      />
+      {count.notes ? <InfoNote tone="info">{t('stockCount.review.notes', { text: count.notes })}</InfoNote> : null}
+      {count.varianceGrams === 0 ? <InfoNote tone="success">{t('stockCount.review.matched')}</InfoNote> : null}
+      {count.adjustmentId !== null && count.adjustmentStatusLabel !== null ? (
+        <InfoNote tone="brandSoft">{t('stockCount.review.raised', { status: count.adjustmentStatusLabel })}</InfoNote>
+      ) : null}
+      {count.varianceGrams !== 0 && count.adjustmentId === null ? (
+        <InfoNote tone="warning">{t('stockCount.review.ledgerNote')}</InfoNote>
+      ) : null}
+    </>
   );
 }
 
-function InfoCircleBlueIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
+export function VarianceReviewScreen(props: VarianceReviewScreenProps) {
+  const { scope, can, onNavigate, onBack, warehouseId, verificationId } = props;
+  const detail = useVerificationDetail(warehouseId, verificationId);
+  const raise = useRaiseAdjustmentMutation();
+  const idempotency = useIdempotencyKey();
+  const [actionError, setActionError] = useState<unknown>(null);
 
-function ListEditLinesIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 6h12M3 12h12M3 18h8M17 14l4 4M21 14l-4 4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+  if (verificationId === undefined) return <VarianceQueue {...props} />;
 
-export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: VarianceReviewScreenProps) {
-  // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own.
-  const canCreateAdjustment = can('inventory.stock_adjustment.create');
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader
-          title="Variance Review"
-          onBack={onBack}
-        />
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Product Information - 2x2 Grid */}
-          <View style={styles.productCard}>
-            <View style={styles.twoColRow}>
-              <View style={styles.col}>
-                <Text style={styles.colLabel}>Product</Text>
-                <Text style={styles.colValue}>Tomato</Text>
-              </View>
-              <View style={styles.col}>
-                <Text style={styles.colLabel}>Grade</Text>
-                <Text style={styles.colValue}>Grade 1</Text>
-              </View>
-            </View>
-
-            <View style={[styles.twoColRow, { marginTop: 12 }]}>
-              <View style={styles.col}>
-                <Text style={styles.colLabel}>Batch</Text>
-                <Text style={styles.colValue}>BAT-2026-00124</Text>
-              </View>
-              <View style={styles.col}>
-                <Text style={styles.colLabel}>Storage Location</Text>
-                <Text style={styles.colValue}>Cold Storage · A03</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Variance Flow Card */}
-          <View style={styles.flowCard}>
-            <Text style={styles.flowNumber}>100 KG</Text>
-            <Text style={styles.flowLabel}>SYSTEM</Text>
-
-            <View style={styles.arrowWrap}>
-              <DownArrowGreyIcon />
-            </View>
-
-            <Text style={styles.flowNumber}>95 KG</Text>
-            <Text style={styles.flowLabel}>PHYSICAL</Text>
-
-            <View style={styles.arrowWrap}>
-              <DownArrowGreyIcon />
-            </View>
-
-            <Text style={styles.flowVarianceNumber}>-5 KG</Text>
-            <Text style={styles.flowVarianceLabel}>VARIANCE</Text>
-          </View>
-
-          {/* Variance Warning Box */}
-          <View style={styles.varianceWarningBox}>
-            <WarningTriangleIcon />
-            <Text style={styles.varianceWarningText}>
-              Variance Detected — this quantity cannot be corrected by editing the balance directly.
-            </Text>
-          </View>
-
-          {/* Blue Info Notice Box */}
-          <View style={styles.blueNoticeBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.blueNoticeText}>
-              The physical count never overwrites system quantity. Continuing creates a Stock Adjustment Request, which goes through review before any ledger movement is posted.
-            </Text>
-          </View>
-
-          {/* Bottom Spacing */}
-          <View style={{ height: 28 }} />
-        </ScrollView>
-
-        {/* Fixed Continue Button at Bottom (only with stock_adjustment.create) */}
-        {canCreateAdjustment ? (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S13', routeParams ?? undefined)}
-          >
-            <ListEditLinesIcon />
-            <Text style={styles.continueBtnText}>Continue to Adjustment Request</Text>
-          </TouchableOpacity>
-        </View>
+  const count = detail.item;
+  if (count === undefined) {
+    return (
+      <WalletScreen title={t('stockCount.review.title')} onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
+        {detail.isLoading ? <AdminLoadingState /> : null}
+        {!detail.isLoading && isNotFound(detail.error) ? <EmptyState title={t('stockCount.review.notFound')} /> : null}
+        {!detail.isLoading && !isNotFound(detail.error) && detail.error ? (
+          <AdminErrorState error={detail.error} onRetry={detail.refresh} />
         ) : null}
-      </View>
-    </SafeAreaView>
+      </WalletScreen>
+    );
+  }
+
+  const offerRaise = canRaiseAdjustment(can, count);
+
+  const runRaise = () => {
+    setActionError(null);
+    raise.mutate(
+      { id: count.id, idempotencyKey: idempotency.keyFor({ action: 'raise', id: count.id }) },
+      {
+        onSuccess: (result) => {
+          idempotency.reset();
+          onNavigate?.('M3S17', { adjustmentId: result.adjustment.id });
+        },
+        onError: setActionError,
+      },
+    );
+  };
+
+  const confirmRaise = () => {
+    Alert.alert(t('stockCount.review.raiseConfirmTitle'), t('stockCount.review.raiseConfirmBody', { variance: count.varianceText }), [
+      { text: t('stockShared.keep'), style: 'cancel' },
+      { text: t('stockCount.review.raise'), onPress: runRaise },
+    ]);
+  };
+
+  return (
+    <WalletScreen
+      title={t('stockCount.review.title')}
+      subtitle={count.batchCode}
+      onBack={onBack}
+      headerExtra={<ScopeHeader scope={scope} />}
+      footer={
+        !offerRaise && count.adjustmentId === null ? undefined : (
+        <WalletFooter>
+          {offerRaise ? (
+            <WalletButton label={t('stockCount.review.raise')} disabled={raise.isPending} onPress={confirmRaise} />
+          ) : null}
+          {count.adjustmentId !== null ? (
+            <WalletButton
+              label={t('stockCount.review.viewAdjustment')}
+              variant="outline"
+              onPress={() => onNavigate?.('M3S17', { adjustmentId: count.adjustmentId })}
+            />
+          ) : null}
+        </WalletFooter>
+        )
+      }
+    >
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {actionError ? <InfoNote tone="danger">{t(stockActionErrorKey(actionError))}</InfoNote> : null}
+        <CountBody count={count} />
+      </ScrollView>
+    </WalletScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: adminColors.brand,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  productCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: 14,
-  },
-  twoColRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  col: {
-    flex: 1,
-  },
-  colLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginBottom: 2,
-  },
-  colValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-  },
-  flowCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 22,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  flowNumber: {
-    ...adminType.title,
-    color: adminColors.ink,
-  },
-  flowLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  arrowWrap: {
-    marginVertical: 10,
-  },
-  flowVarianceNumber: {
-    ...adminType.title,
-    color: adminColors.danger.text,
-  },
-  flowVarianceLabel: {
-    ...adminType.caption,
-    color: adminColors.danger.text,
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  varianceWarningBox: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  varianceWarningText: {
-    ...adminType.rowTitle,
-    flex: 1,
-    color: adminColors.brandDeep,
-    lineHeight: 18,
-  },
-  blueNoticeBox: {
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.info.bg,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 16,
-  },
-  blueNoticeText: {
-    ...adminType.body,
-    flex: 1,
-    color: adminColors.info.text,
-    lineHeight: 18,
-  },
-  bottomBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 8,
-    backgroundColor: adminColors.canvas,
-  },
-  continueBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: 14,
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    ...adminShadow.sm,
-  },
-  continueBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
-  },
-});

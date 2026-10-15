@@ -1,45 +1,19 @@
 /**
- * Shared types for the B2B / HORECA channel sales screens.
+ * Shared types of the direct / market / channel sales screens. The view models
+ * themselves live in ./mappers.ts (built from the API); this file holds the
+ * route params and the names other modules import.
  *
- * These screens used to exist twice (SubWarehouseB2B* and SubWarehouseHoreca*),
- * identical apart from mock data and labels. One screen per purpose now takes a
- * `channel` prop; the per-channel copy and mock data live in fixtures.ts.
+ * One set of screens serves both shells; the difference is carried by `scope`
+ * (warehouseId undefined = every warehouse in the caller's scope, the Main
+ * view) and `can`.
  */
-
-/** The direct-sales channel a screen is showing. */
-export type SalesChannel = 'B2B' | 'HORECA';
-
-/** One product line of a channel order. */
-export interface ChannelOrderLine {
-  name: string;
-  grade: string;
-  batch: string;
-  qtyText: string;
-  pricePerUnit: number;
-  lineTotal: number;
-}
-
-/** One B2B or HORECA order (mock data today; the real list returns the same shape). */
-export interface ChannelOrderItem {
-  id: string;
-  channel: SalesChannel;
-  businessName: string;
-  customerCode: string;
-  status: 'Processing' | 'Pending' | 'Completed' | 'Confirmed' | 'Paid';
-  itemCountText: string;
-  dateText: string;
-  amount: number;
-  /** Warehouse that fulfils the order. Falls back to the viewer's scope when absent. */
-  warehouseName?: string | undefined;
-  items?: ChannelOrderLine[] | undefined;
-}
-
-// ─── Direct (walk-in) sale flow ──────────────────────────────────────────────
-//
-// The direct-sale screens used to exist twice: the SubWarehouse* survivors and
-// Main's slices in admin/screens/warehouse/DirectSaleScreens.tsx. One set now
-// serves both shells; the difference is carried by `scope` (warehouseId
-// undefined = all four warehouses, the Main view) and `can`.
+import type { SalePaymentMethod as ApiSalePaymentMethod } from '../../../api/sales';
+import type {
+  ChannelOrderRow,
+  SaleCustomerView,
+  SaleLineView,
+  SaleProductView,
+} from './mappers';
 
 export type {
   PermissionCheck,
@@ -48,61 +22,33 @@ export type {
   WarehouseTab,
 } from '../finance-expenses';
 
-/** One product line of a completed sale (same shape as a channel order line). */
-export type SaleLine = ChannelOrderLine;
+/** The read-only channel a ChannelSales screen is showing. */
+export type SalesChannel = 'B2B' | 'HORECA';
 
-/** One completed sale: a Sales History row and the Sale Detail record. */
+/** One HORECA / B2B list row (GET /admin/sales/horeca | /b2b). */
+export type ChannelOrderItem = ChannelOrderRow;
+/** One product line of a sale or channel order. */
+export type ChannelOrderLine = SaleLineView;
+export type SaleLine = SaleLineView;
+export type SaleCustomer = SaleCustomerView;
+export type SaleProduct = SaleProductView;
+export type SalePaymentMethod = ApiSalePaymentMethod;
+
+/**
+ * A sale a host asks the flow to open. Only `id` (the sale uuid) is used: the
+ * detail is always fetched from GET /admin/sales/{saleId}. The other fields
+ * are accepted for hosts that still build the old deep-link shape and are
+ * ignored.
+ */
 export interface SaleRecord {
   id: string;
-  customerName: string;
-  customerCode?: string | undefined;
-  /** 'Direct Sale' | 'Market Sale' | ... (display label). */
-  channel: string;
-  dateText: string;
-  amount: number;
-  status: string;
-  itemCountText?: string | undefined;
-  invoiceNo?: string | undefined;
-  paymentMethod?: string | undefined;
-  /** Warehouse that made the sale; a Sub view only ever lists its own. */
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
-  /** Inventory ledger movement reference (Main's Sale Details slice, M6-S09). */
-  movementId?: string | undefined;
-  items?: SaleLine[] | undefined;
+  [legacyField: string]: unknown;
 }
-
-/** A customer picked for a direct sale. */
-export interface SaleCustomer {
-  id: string;
-  code: string;
-  name: string;
-  phone: string;
-  orderCount: number;
-  walletBalance: number;
-}
-
-/** A sellable stock batch of the sale's warehouse (Select Products). */
-export interface SaleProduct {
-  id: string;
-  name: string;
-  grade: string;
-  pricePerKg: number;
-  availableKg: number;
-  status: 'Available' | 'Low Stock';
-  batch?: string | undefined;
-  location?: string | undefined;
-  /** Warehouse holding the batch; Select Products lists only the sale warehouse's stock. */
-  warehouseId?: string | undefined;
-  selectedQty?: number | undefined;
-}
-
-export type SalePaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Wallet';
 
 /**
  * Routes of SalesFlow: the old App.tsx keys without the 'SubWarehouse' prefix,
- * plus ChannelSales (B2B / HORECA list, `channel` param) and Invoice (the shared
- * billing flow opened from a confirmation or a sale detail).
+ * plus ChannelSales / ChannelOrderDetail (B2B / HORECA, read-only) and Invoice
+ * (the shared invoice detail, opened only with a real invoice uuid).
  */
 export type SalesRoute =
   | 'Sales'
@@ -116,12 +62,20 @@ export type SalesRoute =
   | 'SaleDetail'
   | 'MarketDaySales'
   | 'ChannelSales'
+  | 'ChannelOrderDetail'
   | 'Invoice';
 
 export interface SalesRouteParams {
+  /** Sale to open on SaleDetail (its uuid). */
+  saleId?: string | undefined;
+  /** Legacy deep-link shape; `sale.id` is used as saleId. */
   sale?: SaleRecord | undefined;
   channel?: SalesChannel | undefined;
-  /** Customer preselected by the caller (e.g. a customer's "New Sale"). */
+  /** Channel order picked on ChannelSales. */
+  order?: ChannelOrderItem | undefined;
+  /** Invoice uuid for the Invoice route. */
+  invoiceId?: string | undefined;
+  /** Customer preselected by the caller (e.g. a customer's "New Sale"): shown, then looked up by code. */
   customerName?: string | undefined;
   customerCode?: string | undefined;
 }

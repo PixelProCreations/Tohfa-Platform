@@ -19,7 +19,9 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { BillingButton, BillingFooter, BillingScreen, ChipGroup, isAllWarehouses, SearchBar } from './BillingParts';
 import type { InvoiceFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
@@ -39,12 +41,13 @@ export const DEFAULT_INVOICE_FILTERS: InvoiceFilterState = {
   warehouseId: undefined,
 };
 
-const NO_WAREHOUSES: readonly WarehouseScope[] = [];
-
 export interface InvoiceFiltersScreenProps extends WarehouseScreenBaseProps {
   initialFilters?: InvoiceFilterState | undefined;
   onApplyFilters: (filters: InvoiceFilterState) => void;
-  /** Warehouses for the Main warehouse filter (ignored for a Sub scope). */
+  /**
+   * Warehouses for the Main warehouse filter (ignored for a Sub scope, BR-30).
+   * Omitted = the live GET /warehouses list (uuids, never sample ids).
+   */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
@@ -63,7 +66,6 @@ const SORT_OPTIONS: readonly InvoiceFilterState['sortBy'][] = [
   'Highest Amount',
   'Lowest Amount',
 ];
-const ALL_WAREHOUSES = 'All Warehouses';
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -104,13 +106,21 @@ function LabeledInput({
 
 export function InvoiceFiltersScreen({
   scope,
+  can,
   onBack,
   initialFilters = DEFAULT_INVOICE_FILTERS,
   onApplyFilters,
-  warehouseOptions = NO_WAREHOUSES,
+  warehouseOptions: warehouseOptionsProp,
 }: InvoiceFiltersScreenProps) {
   const [filters, setFilters] = useState<InvoiceFilterState>({ ...initialFilters });
   const allWarehouses = isAllWarehouses(scope);
+  const ALL_WAREHOUSES = t('filters.warehouse.all');
+  const live = useWarehouseOptions({
+    enabled: allWarehouses && can('warehouse.all.view') && warehouseOptionsProp === undefined,
+  });
+  const warehouseOptions: readonly WarehouseScope[] =
+    warehouseOptionsProp ??
+    live.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName, warehouseCode: o.warehouseCode }));
   const set = (patch: Partial<InvoiceFilterState>) => setFilters((prev) => ({ ...prev, ...patch }));
   const handleClearAll = () => setFilters({ ...DEFAULT_INVOICE_FILTERS });
   // A Sub scope never filters by another warehouse: drop any stale value on apply.

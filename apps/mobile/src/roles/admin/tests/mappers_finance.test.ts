@@ -1,253 +1,309 @@
 /**
- * roles/admin/screens/warehouse/finance-expenses/mappers.ts:
- * Turns the finance DTOs into UI types.
+ * roles/admin/screens/warehouse/finance-expenses/mappers.ts: finance DTOs
+ * (shaped exactly like apps/api/src/modules/finance/*.schema.ts) to UI types.
  *
- * Money rule (CLAUDE.md 2.2): Money is never a float. API decimal strings like
- * "1234.50" are converted immediately into integer paise via parseRupeesToPaise.
- *
- * BR-62: Expense mapping, status fallback.
- * BR-63: Revenue item and detail mapping.
- * BR-74: Daily cash summary and cash close integer paise math.
- * BR-75: Expense voucher mapping.
+ * Money rule (CLAUDE.md 2.2): API decimal strings become integer paise at once.
+ * BR-62: expense mapping and the strict ExpenseCreate body.
+ * BR-63: revenue item, detail and reports.
+ * BR-74: the daily summary is read from `system`; the cash close body.
+ * BR-75: expense voucher mapping.
  */
 import { describe, expect, it } from 'vitest';
 import type {
   CashCloseDto,
   DailyCashSummaryDto,
-  ExpenseCategoryDto,
   ExpenseDto,
   ExpenseVoucherDto,
+  FinanceExpenseReportDto,
   FinanceRevenueDetailDto,
   FinanceRevenueItemDto,
+  FinanceRevenueReportDto,
 } from '../api/finance';
 import {
+  buildCashCloseBody,
+  buildExpenseCreateBody,
+  cashDifferencePaise,
+  expenseStatusLabel,
   financeWarehouseFilter,
+  istToday,
   mapCashClose,
   mapDailyCashSummary,
   mapExpenseCategory,
   mapExpenseRecord,
-  mapExpenseStatus,
+  mapExpenseReport,
   mapExpenseVoucher,
   mapRevenueDetail,
   mapRevenueRecord,
+  mapRevenueReport,
+  mergeFinanceHistory,
+  paiseToMoneyString,
+  uuidOrUndefined,
 } from '../screens/warehouse/finance-expenses/mappers';
 
-describe('roles/admin/screens/warehouse/finance-expenses/mappers', () => {
-  describe('BR-62: Expense mappers', () => {
-    it('maps an ExpenseDto to UI ExpenseRecord with integer paise', () => {
-      const dto: ExpenseDto = {
-        id: '11111111-1111-4111-8111-111111111111',
-        expenseNumber: 'EXP-001245',
-        warehouseId: '22222222-2222-4222-8222-222222222222',
-        warehouseName: 'Coonoor Warehouse',
-        categoryId: '33333333-3333-4333-8333-333333333333',
-        categoryName: 'Transport',
-        amount: '2400.50',
-        expenseDate: '2026-10-13',
-        paymentMethod: 'CASH',
-        status: 'RECORDED',
-        description: 'Collection point freight',
-        recordedBy: '44444444-4444-4444-8444-444444444444',
-        recordedByName: 'Admin Staff',
-        createdAt: '2026-10-13T09:30:00.000Z',
-      };
+const WH = '22222222-2222-4222-8222-222222222222';
+const CAT = '33333333-3333-4333-8333-333333333333';
+const USER = '44444444-4444-4444-8444-444444444444';
+const SUB = { warehouseId: WH };
+const MAIN = {};
 
-      const record = mapExpenseRecord(dto);
-      expect(record.id).toBe('EXP-001245');
-      expect(record.amount).toBe(240050); // integer paise
-      expect(record.status).toBe('Recorded');
-      expect(record.categoryRef).toContain('Transport');
-      expect(record.categoryRef).toContain('Collection point freight');
+const EXPENSE: ExpenseDto = {
+  id: '11111111-1111-4111-8111-111111111111',
+  warehouseId: WH,
+  categoryId: CAT,
+  category: 'Transport',
+  amount: '2400.50',
+  expenseDate: '2026-10-13',
+  paymentMethod: 'CASH',
+  vendor: 'Nilgiri Freight',
+  description: 'Collection point freight',
+  status: 'RECORDED',
+  recordedBy: USER,
+  createdAt: '2026-10-13T09:30:00.000Z',
+};
+
+const REVENUE: FinanceRevenueItemDto = {
+  orderId: '66666666-6666-4666-8666-666666666666',
+  channel: 'MARKET',
+  paymentMethod: 'WALLET',
+  paymentStatus: 'PAID',
+  status: 'DELIVERED',
+  totalAmount: '3450.00',
+  gstAmount: '164.29',
+  placedAt: '2026-10-13T05:00:00.000Z',
+  completedAt: '2026-10-13T05:50:00.000Z',
+  warehouseId: WH,
+};
+
+const CLOSE: CashCloseDto = {
+  id: '77777777-7777-4777-8777-777777777777',
+  warehouseId: WH,
+  date: '2026-10-13',
+  openingCash: '10000.00',
+  openingFrom: '2026-10-12',
+  cashSales: '25000.00',
+  cashTopUps: '5000.00',
+  cashExpenses: '3000.00',
+  expectedClosing: '37000.00',
+  countedCash: '36500.00',
+  difference: '-500.00',
+  note: 'Drawer short',
+  closedBy: USER,
+  createdAt: '2026-10-13T16:00:00.000Z',
+};
+
+describe('finance-expenses/mappers', () => {
+  describe('BR-62: expenses', () => {
+    it('maps an Expense to integer paise, keeping the uuid as the id', () => {
+      const record = mapExpenseRecord(EXPENSE);
+      expect(record.id).toBe(EXPENSE.id);
+      expect(record.amountPaise).toBe(240050);
+      expect(record.categoryName).toBe('Transport');
+      expect(record.vendor).toBe('Nilgiri Freight');
+      expect(record.status).toBe('RECORDED');
+      expect(record.statusLabel).toBe('Recorded');
+      expect(record.paymentMethodLabel).toBe('Cash');
     });
 
-    it('handles decimal fractions with exact integer paise (no float drift)', () => {
-      const dtoA: ExpenseDto = {
-        id: '11111111-1111-4111-8111-111111111111',
-        expenseNumber: 'EXP-1',
-        warehouseId: '22222222-2222-4222-8222-222222222222',
-        categoryId: '33333333-3333-4333-8333-333333333333',
-        categoryName: 'General',
-        amount: '0.10',
-        expenseDate: '2026-10-13',
-        paymentMethod: 'CASH',
-        status: 'RECORDED',
-        recordedBy: '44444444-4444-4444-8444-444444444444',
-        createdAt: '2026-10-13T09:30:00.000Z',
-      };
-      const dtoB: ExpenseDto = {
-        ...dtoA,
-        expenseNumber: 'EXP-2',
-        amount: '0.20',
-      };
-
-      const recA = mapExpenseRecord(dtoA);
-      const recB = mapExpenseRecord(dtoB);
-      expect(recA.amount).toBe(10);
-      expect(recB.amount).toBe(20);
-      expect(recA.amount + recB.amount).toBe(30); // exact 30 paise
+    it('adds 0.10 + 0.20 to exactly 30 paise', () => {
+      const a = mapExpenseRecord({ ...EXPENSE, amount: '0.10' });
+      const b = mapExpenseRecord({ ...EXPENSE, amount: '0.20' });
+      expect(a.amountPaise + b.amountPaise).toBe(30);
     });
 
-    it('exhaustively maps known statuses and safely falls back for unknown', () => {
-      expect(mapExpenseStatus('RECORDED')).toBe('Recorded');
-      expect(mapExpenseStatus('APPROVED')).toBe('Approved');
-      expect(mapExpenseStatus('REJECTED')).toBe('Rejected');
-      // @ts-expect-error test unexpected status
-      expect(mapExpenseStatus('CANCELLED')).toBe('Recorded');
-      // @ts-expect-error test unknown status
-      expect(mapExpenseStatus('SOMETHING_NEW')).toBe('Recorded');
+    it('a legacy row with no payment method or category id still maps', () => {
+      const record = mapExpenseRecord({ ...EXPENSE, paymentMethod: null, categoryId: null, vendor: null });
+      expect(record.paymentMethodLabel).toBe('');
+      expect(record.categoryName).toBe('Transport');
     });
 
-    it('maps ExpenseCategoryDto to UI ExpenseCategoryItem', () => {
-      const catDto: ExpenseCategoryDto = {
-        id: 'cat-uuid-1',
-        name: 'Maintenance',
-        active: true,
-      };
-      const uiCat = mapExpenseCategory(catDto);
-      expect(uiCat.id).toBe('cat-uuid-1');
-      expect(uiCat.name).toBe('Maintenance');
-      expect(uiCat.status).toBe('Active');
-      expect(uiCat.usedCount).toBe(0);
+    it('an unknown status falls back to Recorded', () => {
+      // @ts-expect-error a value the client does not know yet
+      expect(expenseStatusLabel('SOMETHING_NEW')).toBe('Recorded');
+    });
+
+    it('maps a category', () => {
+      expect(mapExpenseCategory({ id: CAT, name: 'Maintenance' })).toEqual({ id: CAT, name: 'Maintenance' });
+    });
+
+    it('BR-62a: builds the strict ExpenseCreate body in decimal rupees, no float', () => {
+      const result = buildExpenseCreateBody(
+        {
+          categoryId: CAT,
+          amountText: '2,400.5',
+          expenseDate: '2026-10-13',
+          paymentMethod: 'UPI',
+          vendor: '  ',
+          description: ' Boxes ',
+          warehouseId: undefined,
+        },
+        SUB,
+      );
+      expect(result).toEqual({
+        ok: true,
+        body: { categoryId: CAT, amount: '2400.50', expenseDate: '2026-10-13', paymentMethod: 'UPI', description: 'Boxes', warehouseId: WH },
+      });
+    });
+
+    it('BR-62a: refuses a form with no category, a zero amount, no method, and (Main) no warehouse', () => {
+      const result = buildExpenseCreateBody(
+        { categoryId: undefined, amountText: '0', expenseDate: '2026-10-13', paymentMethod: undefined, vendor: '', description: '', warehouseId: 'WH-OOTY' },
+        MAIN,
+      );
+      expect(result).toEqual({ ok: false, errors: ['category', 'amount', 'paymentMethod', 'warehouse'] });
     });
   });
 
-  describe('BR-63: Revenue mappers', () => {
-    it('maps FinanceRevenueItemDto to UI RevenueRecord with integer paise', () => {
-      const dto: FinanceRevenueItemDto = {
-        id: 'ord-uuid-1',
-        orderNumber: 'ORD-10284',
-        warehouseId: 'wh-uuid-1',
-        warehouseName: 'Coonoor',
-        channel: 'DIRECT',
-        paymentMethod: 'WALLET',
-        amount: '3450.00',
-        completedAt: '2026-10-13T05:50:00.000Z',
-      };
-
-      const record = mapRevenueRecord(dto);
-      expect(record.id).toBe('ORD-10284');
-      expect(record.amount).toBe(345000); // 3450.00 in paise
-      expect(record.category).toBe('Direct Sales');
-      expect(record.paymentMethod).toBe('Wallet');
-      expect(record.status).toBe('Completed');
+  describe('BR-63: revenue', () => {
+    it('maps a FinanceRevenueItem (orderId, totalAmount) to integer paise', () => {
+      const record = mapRevenueRecord(REVENUE, new Date('2026-10-13T08:00:00.000Z'));
+      expect(record.id).toBe(REVENUE.orderId);
+      expect(record.amountPaise).toBe(345000);
+      expect(record.gstPaise).toBe(16429);
+      expect(record.channelLabel).toBe('Market Sale');
+      expect(record.paymentMethodLabel).toBe('Wallet');
     });
 
-    it('maps FinanceRevenueDetailDto to UI RevenueDetail with paise formatting', () => {
-      const dto: FinanceRevenueDetailDto = {
-        id: 'ord-uuid-1',
-        orderNumber: 'ORD-10284',
-        warehouseId: 'wh-uuid-1',
-        warehouseName: 'Coonoor',
-        channel: 'ONLINE',
-        paymentMethod: 'UPI',
-        amount: '1250.00',
-        completedAt: '2026-10-13T05:50:00.000Z',
-        invoiceNumber: 'INV-2026-000845',
-        invoiceStatus: 'ISSUED',
-      };
-
+    it('maps a FinanceRevenueDetail with its invoice', () => {
+      const dto: FinanceRevenueDetailDto = { ...REVENUE, invoiceNumber: 'INV-2026-000845', invoiceStatus: 'ISSUED' };
       const detail = mapRevenueDetail(dto);
-      expect(detail.orderId).toBe('ORD-10284');
-      expect(detail.invoiceId).toBe('INV-2026-000845');
-      expect(detail.finalAmount).toBe('1,250');
-      expect(detail.salesChannel).toBe('Online');
-      expect(detail.paymentMethod).toBe('UPI');
+      expect(detail.invoiceNumber).toBe('INV-2026-000845');
+      expect(detail.paymentStatus).toBe('PAID');
+      expect(detail.amountPaise).toBe(345000);
+    });
+
+    it('maps the revenue and expense reports from summary.total', () => {
+      const rev: FinanceRevenueReportDto = {
+        from: '2026-10-01',
+        to: '2026-10-13',
+        summary: { count: 2, total: '100.30' },
+        byDay: [{ date: '2026-10-13', count: 2, total: '100.30' }],
+        byChannel: [{ channel: 'ONLINE', count: 2, total: '100.30' }],
+        byPaymentMethod: [{ paymentMethod: 'UPI', count: 2, total: '100.30' }],
+      };
+      const exp: FinanceExpenseReportDto = {
+        from: '2026-10-01',
+        to: '2026-10-13',
+        summary: { count: 1, total: '50.00' },
+        byDay: [],
+        byCategory: [{ category: 'Transport', count: 1, total: '50.00' }],
+        byPaymentMethod: [{ paymentMethod: null, count: 1, total: '50.00' }],
+      };
+      const r = mapRevenueReport(rev);
+      expect(r.totalPaise).toBe(10030);
+      expect(r.byGroup[0]).toEqual({ label: 'Online', totalPaise: 10030, count: 2 });
+      const e = mapExpenseReport(exp);
+      expect(e.totalPaise).toBe(5000);
+      expect(e.byGroup[0]?.label).toBe('Transport');
+      expect(e.byPaymentMethod[0]?.label).toBe('Not recorded');
+    });
+
+    it('merges revenue and expense rows newest first, expenses negative', () => {
+      const rows = mergeFinanceHistory([mapRevenueRecord(REVENUE)], [mapExpenseRecord(EXPENSE)]);
+      expect(rows.map((r) => r.kind)).toEqual(['expense', 'revenue']);
+      expect(rows[0]?.signedPaise).toBe(-240050);
+      expect(rows[1]?.signedPaise).toBe(345000);
     });
   });
 
-  describe('BR-74: Daily Cash Summary and Cash Close mappers', () => {
-    it('maps DailyCashSummaryDto to integer paise figures', () => {
+  describe('BR-74: daily cash summary and close', () => {
+    it('BR-74: reads the figures from `system`, the server computation', () => {
       const dto: DailyCashSummaryDto = {
+        warehouseId: WH,
         date: '2026-10-13',
-        warehouseId: 'wh-uuid-1',
-        openingCash: '10000.00',
-        openingFrom: '2026-10-12',
-        cashSales: '25000.50',
-        cashTopUps: '5000.00',
-        cashExpenses: '3200.50',
-        expectedClosing: '36800.00',
+        system: {
+          openingCash: '10000.00',
+          openingFrom: '2026-10-12',
+          cashSales: '25000.50',
+          cashTopUps: '5000.00',
+          cashExpenses: '3200.50',
+          expectedClosing: '36800.00',
+        },
         closed: null,
       };
-
       const summary = mapDailyCashSummary(dto);
       expect(summary.openingCashPaise).toBe(1000000);
       expect(summary.cashSalesPaise).toBe(2500050);
       expect(summary.cashTopUpsPaise).toBe(500000);
       expect(summary.cashExpensesPaise).toBe(320050);
       expect(summary.expectedClosingPaise).toBe(3680000);
-      // Arithmetic check in integer paise:
-      expect(summary.expectedClosingPaise).toBe(
-        summary.openingCashPaise + summary.cashSalesPaise + summary.cashTopUpsPaise - summary.cashExpensesPaise,
-      );
+      expect(summary.openingFrom).toBe('2026-10-12');
+      expect(summary.closed).toBeNull();
     });
 
-    it('maps CashCloseDto with negative difference when short', () => {
-      const dto: CashCloseDto = {
-        id: 'close-uuid-1',
-        closeNumber: 'CLS-20261013-001',
-        warehouseId: 'wh-uuid-1',
-        date: '2026-10-13',
-        openingCash: '10000.00',
-        cashSales: '25000.00',
-        cashTopUps: '5000.00',
-        cashExpenses: '3000.00',
-        expectedClosing: '37000.00',
-        countedCash: '36500.00',
-        difference: '-500.00',
-        note: 'Cash drawer shortage 500',
-        closedBy: 'user-uuid-1',
-        closedByName: 'John Doe',
-        closedAt: '2026-10-13T16:00:00.000Z',
-      };
-
-      const mapped = mapCashClose(dto);
+    it('BR-74: a stored close maps with its signed difference', () => {
+      const mapped = mapCashClose(CLOSE);
       expect(mapped.countedCashPaise).toBe(3650000);
       expect(mapped.differencePaise).toBe(-50000);
-      expect(mapped.differencePaise).toBe(mapped.countedCashPaise - mapped.expectedClosingPaise);
+      expect(mapped.createdAt).toBe(CLOSE.createdAt);
+    });
+
+    it('BR-74: builds CashCloseCreate; zero is a valid count, a short count is still sent', () => {
+      expect(buildCashCloseBody({ date: '2026-10-13', countedText: '0', note: '', warehouseId: undefined }, SUB)).toEqual({
+        date: '2026-10-13',
+        warehouseId: WH,
+        countedCash: '0.00',
+      });
+      expect(buildCashCloseBody({ date: '2026-10-13', countedText: '36,500.5', note: ' short ', warehouseId: WH }, MAIN)).toEqual({
+        date: '2026-10-13',
+        warehouseId: WH,
+        countedCash: '36500.50',
+        note: 'short',
+      });
+    });
+
+    it('BR-74: no body without a parseable count or (Main) a real warehouse', () => {
+      expect(buildCashCloseBody({ date: '2026-10-13', countedText: 'abc', note: '', warehouseId: WH }, MAIN)).toBeNull();
+      expect(buildCashCloseBody({ date: '2026-10-13', countedText: '10', note: '', warehouseId: 'WH-OOTY' }, MAIN)).toBeNull();
+    });
+
+    it('BR-74: the preview difference is counted minus expected, in paise', () => {
+      expect(cashDifferencePaise('36,500', 3700000)).toBe(-50000);
+      expect(cashDifferencePaise('', 3700000)).toBeNull();
     });
   });
 
-  describe('BR-75: Expense Voucher mapper', () => {
-    it('maps ExpenseVoucherDto to UI VoucherRecord', () => {
+  describe('BR-75: expense voucher', () => {
+    it('maps an ExpenseVoucher', () => {
       const dto: ExpenseVoucherDto = {
-        voucherNumber: 'VCH-20261013-22222222',
-        expenseId: '22222222-2222-4222-8222-222222222222',
-        expenseNumber: 'EXP-001245',
-        warehouseId: 'wh-uuid-1',
-        warehouseName: 'Coonoor',
-        categoryId: 'cat-uuid-1',
-        categoryName: 'Transport',
+        voucherNumber: 'VCH-20261013-11111111',
+        voucherType: 'EXPENSE',
+        expenseId: EXPENSE.id,
+        warehouse: { id: WH, code: 'WH-COON', name: 'Coonoor' },
+        category: 'Transport',
         amount: '2400.00',
         expenseDate: '2026-10-13',
-        paymentMethod: 'CASH',
+        paymentMethod: 'BANK',
+        vendor: null,
+        description: 'Freight',
         status: 'RECORDED',
-        description: 'Transport freight',
-        recordedBy: 'user-uuid-1',
-        recordedByName: 'John Doe',
-        createdAt: '2026-10-13T09:30:00.000Z',
+        recordedBy: { id: USER, name: 'John Doe' },
       };
-
       const voucher = mapExpenseVoucher(dto);
-      expect(voucher.id).toBe('VCH-20261013-22222222');
-      expect(voucher.referenceId).toBe('EXP-001245');
-      expect(voucher.type).toBe('Expense');
-      expect(voucher.amount).toBe(240000); // paise
-      expect(voucher.createdBy).toBe('John Doe');
-      expect(voucher.status).toBe('Recorded');
+      expect(voucher.voucherNumber).toBe('VCH-20261013-11111111');
+      expect(voucher.amountPaise).toBe(240000);
+      expect(voucher.recordedByName).toBe('John Doe');
+      expect(voucher.warehouseName).toBe('Coonoor');
+      expect(voucher.paymentMethodLabel).toBe('Bank Transfer');
     });
   });
 
-  describe('BR-30: financeWarehouseFilter', () => {
-    it('locks Sub Warehouse Admin to their own warehouse id', () => {
-      const subScope = { warehouseId: 'wh-sub-1', warehouseCode: 'WH-COON' };
-      expect(financeWarehouseFilter(subScope, 'wh-other')).toBe('wh-sub-1');
-      expect(financeWarehouseFilter(subScope, undefined)).toBe('wh-sub-1');
+  describe('helpers', () => {
+    it('BR-30: a Sub admin is pinned; a Main admin may pick a uuid, never a fixture id', () => {
+      expect(financeWarehouseFilter(SUB, 'other')).toBe(WH);
+      expect(financeWarehouseFilter(MAIN, WH)).toBe(WH);
+      expect(financeWarehouseFilter(MAIN, 'WH-OOTY')).toBeUndefined();
+      expect(financeWarehouseFilter(MAIN, undefined)).toBeUndefined();
+      expect(uuidOrUndefined(null)).toBeUndefined();
     });
 
-    it('allows Main Warehouse Admin to filter or view all', () => {
-      const mainScope = {};
-      expect(financeWarehouseFilter(mainScope, 'wh-sub-1')).toBe('wh-sub-1');
-      expect(financeWarehouseFilter(mainScope, undefined)).toBeUndefined();
+    it('paise round-trip to the API decimal string', () => {
+      expect(paiseToMoneyString(240050)).toBe('2400.50');
+      expect(paiseToMoneyString(5)).toBe('0.05');
+    });
+
+    it('the IST day rolls over at 18:30 UTC', () => {
+      expect(istToday(new Date('2026-10-13T18:29:00.000Z'))).toBe('2026-10-13');
+      expect(istToday(new Date('2026-10-13T18:30:00.000Z'))).toBe('2026-10-14');
     });
   });
 });

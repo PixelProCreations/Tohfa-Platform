@@ -157,7 +157,7 @@ export function StockListScreen({
 }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
-  // Stock verification has no server API (availability.ts), so its tab is hidden.
+  // Stock counts (BR-106) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -222,7 +222,7 @@ export function StockListScreen({
             <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
-          {/* Verify Tab (no API: hidden, availability.ts) */}
+          {/* Verify Tab (gated on stock counts, availability.ts) */}
           {canVerify ? (
           <TouchableOpacity 
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}

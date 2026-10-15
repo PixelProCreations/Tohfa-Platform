@@ -167,6 +167,8 @@ export interface OrderDetailView {
   placedLabel: string;
   packedLabel: string | null;
   completedLabel: string | null;
+  /** The order's invoice uuid as the server named it (AdminOrderDetail.invoice.id), or null when it has none. */
+  invoiceId: string | null;
 }
 
 /** The order task counts the dashboard shows (GET /admin/tasks/summary). */

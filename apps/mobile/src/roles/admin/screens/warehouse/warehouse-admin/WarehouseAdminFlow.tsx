@@ -19,8 +19,10 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { ProfileFlow } from '../profile-settings';
+import { StaffFlow } from '../staff-attendance';
 import { StorageFlow } from '../storage-ops';
-import { ADMIN_WAREHOUSES } from './fixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { warehouseIdForName } from './mappers';
 import { ManageSubWarehouseAdminsScreen } from './ManageSubWarehouseAdminsScreen';
 import { WarehouseCityDetailScreen } from './WarehouseCityDetailScreen';
 import { WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
@@ -38,18 +40,14 @@ const ROUTE_CODE: Partial<Record<WarehouseAdminRoute, string>> = {
   WarehousePerformance: WAREHOUSE_ADMIN_CODES.allView,
   ManageSubWarehouseAdmins: WAREHOUSE_ADMIN_CODES.swaCreate,
   WarehouseSettings: WAREHOUSE_ADMIN_CODES.capacitySet,
+  Staff: WAREHOUSE_ADMIN_CODES.staffView,
+  Attendance: WAREHOUSE_ADMIN_CODES.attendanceView,
 };
 
 /** True when `can` allows opening `route`. */
 export function canOpenWarehouseAdminRoute(route: WarehouseAdminRoute, can: PermissionCheck): boolean {
   const code = ROUTE_CODE[route];
   return code === undefined || can(code);
-}
-
-/** Seeded warehouse id for a display name ('Ooty Warehouse' / 'Ooty'), as StorageFlow hands names back. */
-function warehouseIdForName(name: string): string | undefined {
-  const key = name.replace(/ Warehouse$/, '').toLowerCase();
-  return ADMIN_WAREHOUSES.find((w) => (w.warehouseName ?? '').toLowerCase().startsWith(key))?.warehouseId;
 }
 
 export interface WarehouseAdminFlowProps {
@@ -76,6 +74,8 @@ export function WarehouseAdminFlow({
   onViewStaffAttendance,
 }: WarehouseAdminFlowProps) {
   const [stack, setStack] = useState<WarehouseAdminStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
+  // Live warehouses (GET /warehouses), to turn a name the Performance screen hands back into a server uuid.
+  const warehouses = useWarehouseOptions({ enabled: can(WAREHOUSE_ADMIN_CODES.allView) });
 
   // A host that re-targets the open module restarts the stack (keyed on the value).
   const presetKey = initialParams?.warehouseId ?? '';
@@ -120,6 +120,7 @@ export function WarehouseAdminFlow({
           onNavigatePerformance={() => navigate('WarehousePerformance')}
           onNavigateCapacitySummary={openCapacity}
           onManageSubWarehouseAdmins={() => navigate('ManageSubWarehouseAdmins')}
+          onNavigateStaff={() => navigate('Staff')}
         />
       );
     case 'WarehouseCityDetail':
@@ -132,6 +133,7 @@ export function WarehouseAdminFlow({
           onOpenDocuments={(warehouseId) => navigate('WarehouseDocuments', { warehouseId })}
           onOpenSettings={openSettings}
           onOpenCapacity={openCapacity}
+          onOpenStaff={(warehouseId) => navigate('Staff', { warehouseId })}
         />
       );
     case 'ManageSubWarehouseAdmins':
@@ -163,11 +165,29 @@ export function WarehouseAdminFlow({
           initialScreen="Performance"
           onBack={back}
           onSelectWarehouse={(name) => {
-            const id = warehouseIdForName(name);
+            const id = warehouseIdForName(warehouses.options, name);
             if (id !== undefined) openDetail(id);
           }}
           onViewOperationsHistory={onViewOperationsHistory}
-          onViewStaffAttendance={onViewStaffAttendance}
+          onViewStaffAttendance={onViewStaffAttendance ?? (() => navigate('Attendance'))}
+        />
+      );
+    case 'Staff':
+      return (
+        <StaffFlow
+          scope={params.warehouseId ? { ...scope, warehouseId: params.warehouseId } : scope}
+          can={can}
+          initialScreen="Staff"
+          onBack={back}
+        />
+      );
+    case 'Attendance':
+      return (
+        <StaffFlow
+          scope={params.warehouseId ? { ...scope, warehouseId: params.warehouseId } : scope}
+          can={can}
+          initialScreen="Attendance"
+          onBack={back}
         />
       );
     default:

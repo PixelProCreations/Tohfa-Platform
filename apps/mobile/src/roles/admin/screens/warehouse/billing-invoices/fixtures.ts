@@ -8,21 +8,8 @@ import type {
   InvoiceDetailRecord,
   InvoiceRecord,
   InvoiceTransactionRecord,
-  WarehouseScope,
   WizardTransactionRecord,
 } from './types';
-
-/**
- * The four seeded warehouses. Main's invoice grants (`invoice.view_own` /
- * `invoice.generate` = all) cover every one of them (owner decision
- * 2026-10-09). There is no warehouse directory endpoint yet (SPEC_GAPS W4c-1).
- */
-export const BILLING_WAREHOUSES: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
 
 export const INITIAL_INVOICES: readonly InvoiceRecord[] = [
   {

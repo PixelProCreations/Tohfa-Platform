@@ -134,7 +134,7 @@ describe('App.tsx (Sub shell routes and links)', () => {
   });
 });
 
-describe('Inventory: stock counts and stock adjustments (no API, phase 3)', () => {
+describe('Inventory: stock counts and stock adjustments (permission-gated, BR-106 / BR-37)', () => {
   const INVENTORY = 'roles/admin/screens/warehouse/inventory';
   const FLOW = read(`${INVENTORY}/InventoryFlow.tsx`);
   const LIVE_SCREENS = [
@@ -155,11 +155,14 @@ describe('Inventory: stock counts and stock adjustments (no API, phase 3)', () =
     expect(FLOW).toMatch(/const screen = isRouteAvailable\(current\.screen\) \? current\.screen : HOME_SCREEN;/);
   });
 
-  it('every link from a live screen into verification or adjustments is behind canVerify', () => {
+  it('every link from a live screen into verification or adjustments is behind canVerify / canAdjust', () => {
     const unguarded = LIVE_SCREENS.flatMap(({ name, source }) => {
       if (!HIDDEN_ROUTE.test(source)) return [];
       expect(source).toMatch(/const canVerify = isAreaAvailable\('stockCounts', can\);/);
-      return guardedNear(source, HIDDEN_ROUTE, /canVerify \? \(/, 6).map((hit) => `${name} ${hit}`);
+      if (/'M3S1[34]'|'M3S17'/.test(source)) {
+        expect(source).toMatch(/const canAdjust = isAreaAvailable\('stockAdjustments', can\);/);
+      }
+      return guardedNear(source, HIDDEN_ROUTE, /can(Verify|Adjust) \? \(/, 6).map((hit) => `${name} ${hit}`);
     });
     expect(unguarded).toEqual([]);
   });
@@ -182,7 +185,7 @@ describe('Inventory: stock counts and stock adjustments (no API, phase 3)', () =
   });
 });
 
-describe('Orders: cancel, issues, stock check, delivery and invoice (no API, phase 5)', () => {
+describe('Orders: cancel, issues, stock check and delivery (no API, phase 5); the invoice gated', () => {
   const ORDERS = 'roles/admin/screens/warehouse/orders';
   const FLOW = read(`${ORDERS}/OrdersFlow.tsx`);
   const LIVE_SCREENS = [
@@ -194,8 +197,9 @@ describe('Orders: cancel, issues, stock check, delivery and invoice (no API, pha
     'PackingScreen',
     'PickupOtpScreen',
   ].map((name) => ({ name, source: read(`${ORDERS}/${name}.tsx`) }));
-  // M5S05 stock check, M5S13/M5S14 delivery, M5S16 issues, M5S17 cancel, M5S18 invoice.
-  const HIDDEN_ROUTE = /'M5S(05|13|14|16|17|18)'/;
+  // M5S05 stock check, M5S13/M5S14 delivery, M5S16 issues, M5S17 cancel. M5S18
+  // (order invoice) is live and gated; see the next-but-one test.
+  const HIDDEN_ROUTE = /'M5S(05|13|14|16|17)'/;
 
   it('OrdersFlow refuses a hidden route (navigate and initial screen) and opens the dashboard', () => {
     expect(FLOW).toMatch(/const area = ordersRouteArea\(screen\);\s*return area === undefined \|\| isAreaAvailable\(area, can\);/);
@@ -207,6 +211,15 @@ describe('Orders: cancel, issues, stock check, delivery and invoice (no API, pha
     for (const { name, source } of LIVE_SCREENS) {
       expect({ name, hidden: source.match(HIDDEN_ROUTE)?.[0] ?? null }).toEqual({ name, hidden: null });
       expect({ name, fixtures: /from '\.\/fixtures'/.test(source) }).toEqual({ name, fixtures: false });
+    }
+  });
+
+  it('BR-36: the order detail offers View Invoice (M5S18) only through orderInvoiceEntry (an invoice id and invoice.view_own)', () => {
+    const detail = read(`${ORDERS}/OrderDetailScreen.tsx`);
+    expect(detail).toMatch(/const invoiceEntry = orderInvoiceEntry\(order, can\);/);
+    expect(guardedNear(detail, /'M5S18'/, /invoiceEntry !== undefined \?/, 2)).toEqual([]);
+    for (const { name, source } of LIVE_SCREENS.filter((s) => s.name !== 'OrderDetailScreen')) {
+      expect({ name, invoice: /'M5S18'/.test(source) }).toEqual({ name, invoice: false });
     }
   });
 

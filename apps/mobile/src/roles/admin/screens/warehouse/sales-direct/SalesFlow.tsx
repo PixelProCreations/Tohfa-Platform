@@ -1,31 +1,22 @@
 /**
- * In-module navigator for the direct sales screens (design module M6).
+ * In-module navigator for the sales screens (design module M6). The screens
+ * are pure; this flow owns the stack and the sale being built, so every step
+ * gets the viewer's scope and `can`.
  *
- * The sale flow used to be stitched four times: `show*` state inside the
- * screens themselves (New Sale -> Select Products -> Summary -> Customer ->
- * Payment -> Confirmation, each rendering the next inline), ten App.tsx route
- * keys, the Sub shell, and Main's own slices in DirectSaleScreens.tsx. The
- * inline copies never received `scope` / `can`, so the shared billing screens
- * they opened hid View Invoice (W4 regression). The screens are now pure and
- * this flow owns the stack, so every step gets the viewer's scope and `can`.
+ *   Sales hub -> New Sale -> (Select Customer) -> Select Products -> Summary (POST /quote)
+ *             -> Select Customer (when none picked yet) -> Payment (POST /admin/sales,
+ *                UPI confirm / cancel) -> Confirmation -> Invoice (only with a real invoice uuid)
+ *   Sales hub / Market Day -> Sales History -> Sale Detail -> Invoice
+ *   Sales hub -> Channel Sales (HORECA / B2B, read-only) -> Channel Order Detail
  *
- *   Sales hub -> New Sale -> (Select Customer) -> Select Products -> Summary
- *             -> Select Customer (when none picked yet) -> Payment
- *             -> Confirmation -> Invoice (shared billing wizard)
- *   Sales hub / Market Day -> Sales History -> Sale Detail -> Invoice (detail)
- *   Sales hub -> Channel Sales (B2B / HORECA)
- *
- * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
+ * Who may do what is docs/rbac.json: MAIN_WH_ADMIN holds the sales *.view
+ * codes only (no sales.sale.create, no payment.record), so a Main admin never
+ * reaches New Sale; SUB_WH_ADMIN sells at its own warehouse (BR-85f).
  */
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
-import { adminErrorKey } from '../../../api/errors';
-import { useIdempotencyKey } from '../../../api/hooks';
-import type { Grade, SaleCreateDto, SaleDto, SalePaymentMethod as ApiPaymentMethod } from '../../../api/sales';
-import { t } from '../../../i18n';
+import React, { useEffect, useState } from 'react';
+import { LiveInvoiceDetail } from '../billing-invoices';
 import { useFlowBack } from '../useFlowBack';
-
-import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
+import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
 import { ChannelSalesScreen } from './ChannelSalesScreen';
 import { MarketDaySalesScreen } from './MarketDaySalesScreen';
 import { NewSaleScreen } from './NewSaleScreen';
@@ -35,27 +26,23 @@ import { SaleDetailScreen } from './SaleDetailScreen';
 import { SaleSummaryScreen } from './SaleSummaryScreen';
 import { SalesHistoryScreen } from './SalesHistoryScreen';
 import { SalesScreen } from './SalesScreen';
-import { SALE_WAREHOUSES } from './SalesParts';
 import { SelectCustomerScreen } from './SelectCustomerScreen';
 import { SelectProductsScreen } from './SelectProductsScreen';
+import type { CartLine, SaleBuyerInput, SaleDetailView, SaleQuoteView } from './mappers';
 import type {
   PermissionCheck,
-  SaleCustomer,
-  SalePaymentMethod,
-  SaleProduct,
   SalesRoute,
   SalesRouteParams,
   WarehouseScope,
   WarehouseTab,
 } from './types';
-import { useConfirmSaleUpiPaymentMutation, useCreateSaleMutation } from './useSalesData';
+import { useSalesWarehouseOptions } from './useSalesData';
 
 interface SalesStackEntry {
   screen: SalesRoute;
   params?: SalesRouteParams | undefined;
   /** Select Customer opened from New Sale only picks; from Summary it continues to Payment. */
   pickOnly?: boolean | undefined;
-  invoice?: { mode: 'wizard' | 'detail'; params: BillingRouteParams } | undefined;
 }
 
 export interface SalesFlowProps {
@@ -85,43 +72,28 @@ export function SalesFlow({
 }: SalesFlowProps) {
   const [stack, setStack] = useState<SalesStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
-  // The sale being built. A Main admin picks the warehouse on New Sale; a Sub
-  // admin's sale is always its own warehouse.
-  const [saleWarehouseId, setSaleWarehouseId] = useState<string | undefined>(
-    scope.warehouseCode ?? scope.warehouseId ?? SALE_WAREHOUSES[0]?.warehouseId,
-  );
-  const [cart, setCart] = useState<SaleProduct[]>([]);
-  const [customer, setCustomer] = useState<SaleCustomer | null>(null);
-  const [total, setTotal] = useState(0);
-  const [itemsCount, setItemsCount] = useState(2);
-  const [method, setMethod] = useState<SalePaymentMethod>('Cash');
-  const [createdSale, setCreatedSale] = useState<SaleDto | null>(null);
-
-  const createSaleMutation = useCreateSaleMutation();
-  const upiConfirmMutation = useConfirmSaleUpiPaymentMutation();
-  const saleIdempotency = useIdempotencyKey();
-  const upiIdempotency = useIdempotencyKey();
+  // The sale being built. A Sub admin always sells at its own warehouse; an
+  // all-scope actor holding sales.sale.create picks a real warehouse uuid.
+  const warehouses = useSalesWarehouseOptions(scope, can);
+  const [pickedWarehouseId, setPickedWarehouseId] = useState<string | undefined>(undefined);
+  const saleWarehouseId = scope.warehouseId ?? pickedWarehouseId;
+  const [channel, setChannel] = useState<'DIRECT' | 'MARKET'>('DIRECT');
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [quote, setQuote] = useState<SaleQuoteView | null>(null);
+  const [buyer, setBuyer] = useState<SaleBuyerInput | null>(null);
+  const [createdSale, setCreatedSale] = useState<SaleDetailView | null>(null);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
-  // builds the params inline (Sub shell customer "New Sale") does not reset it.
-  const presetKey = `${initialParams?.customerName ?? ''}|${initialParams?.customerCode ?? ''}|${initialParams?.sale?.id ?? ''}|${initialParams?.channel ?? ''}`;
+  // builds the params inline does not reset it.
+  const presetKey = `${initialParams?.customerCode ?? ''}|${initialParams?.saleId ?? initialParams?.sale?.id ?? ''}|${initialParams?.channel ?? ''}`;
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
     // initialParams is read through presetKey on purpose (see above).
   }, [initialScreen, presetKey]);
 
-  const saleWarehouse = useMemo<WarehouseScope>(
-    () =>
-      scope.warehouseId !== undefined
-        ? scope
-        : SALE_WAREHOUSES.find((w) => w.warehouseId === saleWarehouseId) ?? scope,
-    [scope, saleWarehouseId],
-  );
-
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: SalesRouteParams = current.params ?? {};
-  const presetCustomer = initialParams?.customerName;
 
   const push = (entry: SalesStackEntry) => setStack((prev) => [...prev, entry]);
   const navigate = (screen: SalesRoute, nextParams?: SalesRouteParams) => push({ screen, params: nextParams });
@@ -136,18 +108,21 @@ export function SalesFlow({
     back();
     return true;
   });
-  const startNewSale = () => {
+
+  const startNewSale = (nextChannel: 'DIRECT' | 'MARKET' = 'DIRECT') => {
+    setChannel(nextChannel);
     setCart([]);
-    setCustomer(null);
+    setQuote(null);
+    setBuyer(null);
     setCreatedSale(null);
-    saleIdempotency.reset();
-    upiIdempotency.reset();
     // Back from a fresh sale returns to the hub (or the host), not to the finished one.
     setStack((prev) => [...prev.filter((e) => e.screen === 'Sales').slice(0, 1), { screen: 'NewSale' }]);
   };
 
+  const canViewInvoice = can('invoice.view_own');
+  const openInvoice = (invoiceId: string) => navigate('Invoice', { invoiceId });
   const common = { scope, can, onBack: back, onTabChange };
-  const customerLabel = customer ? `${customer.name} (${customer.code})` : presetCustomer;
+  const presetCustomerCode = initialParams?.customerCode;
 
   switch (current.screen) {
     case 'Sales':
@@ -158,22 +133,34 @@ export function SalesFlow({
           onNavigateToNewSale={startNewSale}
           onNavigateToSalesHistory={() => navigate('SalesHistory')}
           onNavigateToMarketDaySales={() => navigate('MarketDaySales')}
-          onNavigateToChannelSales={(channel) => navigate('ChannelSales', { channel })}
+          onNavigateToChannelSales={(next) => navigate('ChannelSales', { channel: next })}
           onNavigateToNeedsAttention={onNavigateToNeedsAttention}
-          onNavigateToSaleDetail={() => navigate('SaleDetail')}
+          onSelectSale={(saleId) => navigate('SaleDetail', { saleId })}
         />
       );
     case 'NewSale':
       return (
         <NewSaleScreen
           {...common}
-          customerLabel={customerLabel}
-          saleWarehouseId={saleWarehouseId}
-          onSelectWarehouse={(id) => {
-            setSaleWarehouseId(id);
+          channel={channel}
+          onChangeChannel={(next) => {
+            setChannel(next);
             setCart([]);
+            setQuote(null);
           }}
-          cartItems={cart}
+          saleWarehouseId={saleWarehouseId}
+          warehouseOptions={warehouses.options}
+          warehousesLoading={warehouses.isLoading}
+          warehousesError={warehouses.error}
+          onRetryWarehouses={warehouses.refresh}
+          onSelectWarehouse={(id) => {
+            setPickedWarehouseId(id);
+            setCart([]);
+            setQuote(null);
+          }}
+          buyer={buyer}
+          presetCustomerName={initialParams?.customerName}
+          cart={cart}
           onSelectCustomer={() => push({ screen: 'SelectCustomer', pickOnly: true })}
           onSelectProducts={() => navigate('SelectProducts')}
         />
@@ -182,11 +169,12 @@ export function SalesFlow({
       return (
         <SelectProductsScreen
           {...common}
-          saleWarehouseId={saleWarehouse.warehouseId}
-          onContinue={(items) => {
-            setCart(items);
-            // Sale Summary computes the total from the cart (and lets the cashier edit
-            // quantities) and hands it on; Payment is reached from there.
+          channel={channel}
+          saleWarehouseId={saleWarehouseId}
+          cart={cart}
+          onContinue={(next) => {
+            setCart(next);
+            setQuote(null);
             navigate('SaleSummary');
           }}
         />
@@ -195,13 +183,17 @@ export function SalesFlow({
       return (
         <SaleSummaryScreen
           {...common}
-          items={cart}
-          saleWarehouse={saleWarehouse}
-          onContinueToCustomer={(nextTotal, count) => {
-            setTotal(nextTotal);
-            setItemsCount(count);
+          channel={channel}
+          saleWarehouseId={saleWarehouseId}
+          cart={cart}
+          onChangeCart={(next) => {
+            setCart(next);
+            setQuote(null);
+          }}
+          onContinue={(priced) => {
+            setQuote(priced);
             // Customer already picked on New Sale: straight to payment.
-            navigate(customer ? 'Payment' : 'SelectCustomer');
+            navigate(buyer ? 'Payment' : 'SelectCustomer');
           }}
         />
       );
@@ -209,9 +201,10 @@ export function SalesFlow({
       return (
         <SelectCustomerScreen
           {...common}
-          continueLabel={current.pickOnly ? 'Use Customer' : undefined}
-          onContinueToPayment={(picked) => {
-            setCustomer(picked);
+          pickOnly={current.pickOnly === true}
+          initialQuery={presetCustomerCode}
+          onPick={(picked) => {
+            setBuyer(picked);
             if (current.pickOnly) back();
             else navigate('Payment');
           }}
@@ -221,138 +214,71 @@ export function SalesFlow({
       return (
         <PaymentScreen
           {...common}
-          amountDue={total}
-          walletBalance={customer?.walletBalance}
-          onPaymentConfirmed={(paid) => {
-            const salePayload: SaleCreateDto = {
-              channel: 'DIRECT',
-              warehouseId: saleWarehouse.warehouseId,
-              customer: customer?.id && customer.id !== 'walk-in' ? { customerId: customer.id } : undefined,
-              walkIn: !customer?.id || customer.id === 'walk-in' ? { name: customer?.name || 'Walk-in Customer' } : undefined,
-              items: cart.length > 0
-                ? cart.map((p) => ({
-                    productId: p.id,
-                    grade: (p.grade as Grade) || 'Grade 1',
-                    qtyKg: (p.selectedQty ?? 1).toFixed(3),
-                  }))
-                : [{ productId: 'prod-1', grade: 'Grade 1', qtyKg: '1.000' }],
-              expectedTotal: total.toFixed(2),
-              payment: {
-                method: paid.toUpperCase() as ApiPaymentMethod,
-                amountReceived: paid === 'Cash' ? total.toFixed(2) : undefined,
-              },
-            };
-
-            createSaleMutation.mutate(
-              {
-                body: salePayload,
-                idempotencyKey: saleIdempotency.keyFor(salePayload),
-              },
-              {
-                onSuccess: (res) => {
-                  saleIdempotency.reset();
-                  setCreatedSale(res);
-                  setMethod(paid);
-                  if (paid === 'UPI' && res.status === 'PENDING_PAYMENT') {
-                    const upiBody = { upiTxnRef: `UPI-${Date.now()}` };
-                    upiConfirmMutation.mutate(
-                      {
-                        saleId: res.id,
-                        body: upiBody,
-                        idempotencyKey: upiIdempotency.keyFor(upiBody),
-                      },
-                      {
-                        onSuccess: (confirmed) => {
-                          upiIdempotency.reset();
-                          setCreatedSale(confirmed);
-                          navigate('SaleConfirmation');
-                        },
-                        onError: () => {
-                          navigate('SaleConfirmation');
-                        },
-                      },
-                    );
-                  } else {
-                    navigate('SaleConfirmation');
-                  }
-                },
-                onError: (err) => {
-                  Alert.alert(t('async.error.title'), t(adminErrorKey(err)));
-                },
-              },
-            );
+          channel={channel}
+          saleWarehouseId={saleWarehouseId}
+          cart={cart}
+          quote={quote}
+          buyer={buyer}
+          onChangeBuyer={() => push({ screen: 'SelectCustomer', pickOnly: true })}
+          onCompleted={(sale) => {
+            setCreatedSale(sale);
+            // The confirmation replaces the payment step: back from it goes to the hub.
+            setStack((prev) => [...prev.filter((e) => e.screen === 'Sales').slice(0, 1), { screen: 'SaleConfirmation' }]);
           }}
         />
       );
     case 'SaleConfirmation':
-      return (
+      return createdSale ? (
         <SaleConfirmationScreen
           {...common}
-          saleId={createdSale?.saleNumber ?? createdSale?.id ?? 'SALE-00251'}
-          customerName={createdSale?.buyer.name ?? customer?.name ?? presetCustomer ?? 'Walk-in Customer'}
-          customerCode={createdSale?.buyer.customerCode ?? customer?.code ?? initialParams?.customerCode ?? 'CUS-WALKIN'}
-          paymentMethod={method}
-          totalAmount={total}
-          itemsCount={itemsCount}
-          saleWarehouse={saleWarehouse}
-          onViewInvoice={() =>
-            push({
-              screen: 'Invoice',
-              invoice: {
-                mode: 'wizard',
-                params: {
-                  review: {
-                    invoiceType: 'Direct Sale',
-                    customerName: createdSale?.buyer.name ?? customer?.name ?? presetCustomer ?? 'Walk-in Customer',
-                    itemsCount,
-                    subtotal: `₹${total}`,
-                    gst: '₹0',
-                    total: `₹${total}`,
-                  },
-                },
-              },
-            })
-          }
-          onNewSale={startNewSale}
+          sale={createdSale}
+          warehouseName={warehouses.nameOf(createdSale.warehouseId)}
+          onViewInvoice={createdSale.invoiceId && canViewInvoice ? openInvoice : undefined}
+          onViewSale={(saleId) => navigate('SaleDetail', { saleId })}
+          onNewSale={() => startNewSale(channel)}
         />
+      ) : (
+        <SalesHistoryScreen {...common} onSelectSale={(saleId) => navigate('SaleDetail', { saleId })} />
       );
     case 'SalesHistory':
-      return <SalesHistoryScreen {...common} onSelectSale={(sale) => navigate('SaleDetail', { sale })} />;
+      return <SalesHistoryScreen {...common} onSelectSale={(saleId) => navigate('SaleDetail', { saleId })} />;
     case 'SaleDetail':
       return (
         <SaleDetailScreen
           {...common}
-          sale={params.sale}
-          onViewInvoice={() =>
-            push({
-              screen: 'Invoice',
-              invoice: { mode: 'detail', params: { invoiceId: params.sale?.invoiceNo ?? 'INV-00251' } },
-            })
-          }
+          saleId={params.saleId ?? params.sale?.id}
+          warehouseNameOf={warehouses.nameOf}
+          onViewInvoice={canViewInvoice ? openInvoice : undefined}
         />
       );
     case 'MarketDaySales':
       return (
         <MarketDaySalesScreen
           {...common}
-          onNavigateToNewMarketSale={startNewSale}
+          onNavigateToNewMarketSale={() => startNewSale('MARKET')}
           onNavigateToSalesHistory={() => navigate('SalesHistory')}
-          onSelectTransaction={(sale) => navigate('SaleDetail', { sale })}
+          onSelectSale={(saleId) => navigate('SaleDetail', { saleId })}
         />
       );
     case 'ChannelSales':
-      return <ChannelSalesScreen {...common} channel={params.channel ?? 'B2B'} />;
-    case 'Invoice':
       return (
-        <BillingFlow
-          scope={scope}
-          can={can}
-          initialScreen={current.invoice?.mode === 'detail' ? 'InvoiceDetail' : 'InvoiceWizard'}
-          initialParams={current.invoice?.params}
-          onBack={back}
-          onTabChange={onTabChange}
+        <ChannelSalesScreen
+          {...common}
+          channel={params.channel ?? 'B2B'}
+          onSelectOrder={(order) => navigate('ChannelOrderDetail', { channel: order.channel, order })}
         />
       );
+    case 'ChannelOrderDetail':
+      return (
+        <ChannelOrderDetailScreen
+          {...common}
+          channel={params.channel ?? params.order?.channel ?? 'B2B'}
+          order={params.order}
+          onViewInvoice={canViewInvoice ? openInvoice : undefined}
+        />
+      );
+    case 'Invoice':
+      return <LiveInvoiceDetail scope={scope} can={can} invoiceId={params.invoiceId} onBack={back} onTabChange={onTabChange} />;
     default:
       return null;
   }

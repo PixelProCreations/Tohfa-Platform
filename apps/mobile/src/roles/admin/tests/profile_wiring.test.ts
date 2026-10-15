@@ -30,7 +30,11 @@ const LIVE_PROFILE_FILES = [
   'StorageInfoScreen.tsx',
   'OperatingInfoScreen.tsx',
   'ContactScreen.tsx',
+  'DocumentsScreen.tsx',
+  'WarehouseSettingsScreen.tsx',
   'useProfileData.ts',
+  'useWarehouseDocuments.ts',
+  'useWarehouseSettings.ts',
 ];
 
 const FLOW = read(`${PROFILE}/ProfileFlow.tsx`);
@@ -156,5 +160,36 @@ describe('warehouse profile (BR-30, BR-66)', () => {
     const storageFlow = read('roles/admin/screens/warehouse/storage-ops/StorageFlow.tsx');
     expect(storageFlow).toMatch(/Performance: STORAGE_CODES\.allWarehousesView/);
     expect(read('roles/admin/screens/warehouse/storage-ops/StorageParts.tsx')).toMatch(/allWarehousesView: 'warehouse\.all\.view'/);
+  });
+});
+
+describe('warehouse documents (BR-105) and settings (BR-66, BR-80)', () => {
+  const DOCS = code(read(`${PROFILE}/DocumentsScreen.tsx`));
+  const SETTINGS_SCREEN = code(read(`${PROFILE}/WarehouseSettingsScreen.tsx`));
+  const DOC_DATA = code(read(`${PROFILE}/useWarehouseDocuments.ts`));
+
+  it('BR-105: the file opens through a fresh detail and its signed URL, never an Alert stub', () => {
+    expect(DOC_DATA).toMatch(/getWarehouseDocument\(warehouseId \?\? '', documentId\)/);
+    expect(DOC_DATA).toMatch(/Linking\.openURL\(url\)/);
+    expect(DOCS).not.toMatch(/Opening \$\{|Downloading \$\{/);
+  });
+
+  it('BR-105: edit and archive are gated on warehouse.document.manage (Sub none)', () => {
+    expect(grant('warehouse.document.manage', 'SUB_WH_ADMIN')).toBe('none');
+    expect(grant('warehouse.document.view', 'SUB_WH_ADMIN')).toBe('own');
+    expect(DOCS).toMatch(/manage: 'warehouse\.document\.manage'/);
+    expect(DOCS).toMatch(/canManageDocument\(detail, canManage\)/);
+  });
+
+  it('settings edit only server-stored fields, each gated on its own code; no local thresholds', () => {
+    expect(SETTINGS_SCREEN).toMatch(/capacitySet: 'warehouse\.capacity\.set'/);
+    expect(SETTINGS_SCREEN).toMatch(/profileEdit: 'warehouse\.profile\.edit'/);
+    expect(SETTINGS_SCREEN).not.toMatch(/lowStockThreshold|THRESHOLD_PRESETS|WAREHOUSE_SETTINGS\b|escalation|autoAssignment|assignedStaff/);
+  });
+
+  it('BR-30: both routes pick a real warehouse uuid (Sub its own), never a sample code', () => {
+    expect(FLOW).toMatch(/pickWarehouseId\(base\.scope, options, selection\.selectedWarehouseId\)/);
+    expect(FLOW).toMatch(/<LiveDocumentsRoute /);
+    expect(FLOW).toMatch(/<LiveWarehouseSettingsRoute /);
   });
 });

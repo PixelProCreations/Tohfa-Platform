@@ -180,7 +180,7 @@ export function InventoryDashboardScreen({
 }: InventoryDashboardScreenProps) {
   // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
-  // Stock verification has no server API (availability.ts), so its tile is hidden.
+  // Stock counts (BR-106) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const products = summary?.products ?? [];
   // An empty warehouse still shows its zero tiles; only loading and error replace them.
@@ -307,7 +307,7 @@ export function InventoryDashboardScreen({
               <Text style={styles.statLabel}>Low Stock</Text>
             </TouchableOpacity>
 
-            {/* Row 3 Left: Verification Pending (no API: hidden, availability.ts) */}
+            {/* Row 3 Left: Verification (gated on stock counts, availability.ts) */}
             {canVerify ? (
             <TouchableOpacity 
               style={styles.statCard}

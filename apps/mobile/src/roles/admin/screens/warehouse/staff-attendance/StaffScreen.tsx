@@ -1,61 +1,74 @@
 /**
- * Staff (warehouse workforce roster): drivers and warehouse staff.
+ * Staff (warehouse floor staff roster), live from GET /admin/warehouse-staff.
  *
- * Gate (FINAL_LIST 120, rbac 1.2.0): `warehouse.staff.list_view`, MAIN_WH_ADMIN
- * all, SUB_WH_ADMIN own. Without it the screen renders a not-available note;
- * the hosts also hide the entry. A Sub scope is locked to its own warehouse
- * (scope.warehouseName in the header pill); the Main scope (warehouseId
- * undefined) gets the All-warehouses selector.
+ * Gate: `admin.staff.list_view` (SA/TOHFA all, MAIN own, SUB none: a Sub
+ * Warehouse Admin cannot list staff, BR-83). Without it the screen renders a
+ * not-available note and sends no request. The Main scope (warehouseId
+ * undefined) gets the warehouse selector, fed by GET /warehouses; a confined
+ * scope gets its locked pill.
  *
- * The old Sub screen carried a red banner saying "No admin staff list ... SWA's
- * role matrix doesn't grant admin-staff visibility" while rendering the roster.
- * That contradicted itself (and is now wrong: SUB holds the roster code, the
- * admin-account list is admin.staff.list_view), so it is removed.
- *
- * Absorbs Main MainWarehouseStaffScreen (pair M14-S01): for the Main view the
- * roster is split into DRIVERS / WAREHOUSE STAFF sections with status badges
- * and a per-row warehouse label, and the "Attendance Dashboard" banner opens
- * the attendance overview. KPI tiles are counted from the visible rows instead
- * of fixed numbers.
+ * Server filters only: warehouse, status (ACTIVE / INACTIVE) and a search on
+ * name or staff code. The record has no driver / warehouse-staff type, so the
+ * old DRIVERS / WAREHOUSE STAFF split and the "Deliveries Today" figure are gone.
+ * Today's attendance badge and the KPI tiles come from today's roll call
+ * (admin.staff.attendance.view), never from fixed numbers.
  */
 // Design id: M14-S01
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   CalendarIcon,
-  EmptyState,
+  ChipGroup,
   HeaderIconButton,
-  inScope,
   isAllWarehouses,
+  KpiRow,
   ScopeHeader,
   SearchBar,
-  SectionTitle,
   StatusBadge,
+  WalletButton,
   WalletScreen,
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
-import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
-import { StaffFiltersScreen, type StaffFilterValues } from './StaffFiltersScreen';
-import type { StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import {
+  attendanceByStaff,
+  attendanceStatusLabel,
+  attendanceStatusTone,
+  canManageStaff,
+  canViewAttendance,
+  istToday,
+  STAFF_CODES,
+  staffStatusLabel,
+  staffStatusTone,
+  staffWarehouseFilter,
+} from './mappers';
+import { ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
+import { StaffFiltersScreen, type StaffFilterValues, type StaffStatusFilter } from './StaffFiltersScreen';
+import type { StaffMember, WarehouseScreenBaseProps } from './types';
+import { useRollCall, useStaffList, useStaffWarehouses } from './useStaffData';
 
-/** rbac code for the warehouse roster (not admin.staff.list_view, the admin-account list). */
-export const STAFF_ROSTER_CODE = 'warehouse.staff.list_view';
+/** The docs/rbac.json code that lists the roster (admin.staff.list_view). */
+export const STAFF_ROSTER_CODE = STAFF_CODES.listView;
 
-type RosterFilter = 'All' | 'Warehouse Staff' | 'Drivers';
-const FILTERS: readonly RosterFilter[] = ['All', 'Warehouse Staff', 'Drivers'];
+const STATUS_FILTERS: readonly StaffStatusFilter[] = ['All', 'ACTIVE', 'INACTIVE'];
+/** Wait this long after the last keystroke before searching (UI pacing, not a business rule). */
+const SEARCH_DEBOUNCE_MS = 350;
+
+function statusFilterLabel(value: StaffStatusFilter): string {
+  return value === 'All' ? t('staff.filter.all') : staffStatusLabel(value);
+}
 
 export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onSelectStaff?: ((staff: StaffMember) => void) | undefined;
+  /** "Add Staff": opens the form in create mode (admin.staff.manage). */
+  onAddStaff?: (() => void) | undefined;
   onNavigateToAttendance?: (() => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Roster rows; defaults to the mock set until a roster API exists. */
-  members?: readonly StaffMember[] | undefined;
 }
 
 export function StaffScreen({
@@ -64,404 +77,213 @@ export function StaffScreen({
   onBack,
   onTabChange,
   onSelectStaff,
+  onAddStaff,
   onNavigateToAttendance,
   onNavigateToHistory,
-  warehouseOptions = STAFF_WAREHOUSES,
-  members = STAFF_MEMBERS,
 }: StaffScreenProps) {
   const isMain = isAllWarehouses(scope);
-  const [filter, setFilter] = useState<RosterFilter>('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const allowed = can(STAFF_ROSTER_CODE);
+  const attendanceAllowed = allowed && canViewAttendance(can);
+  const [now] = useState(() => new Date());
+  const today = istToday(now);
+
+  const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('All');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [showFilterScreen, setShowFilterScreen] = useState(false);
-  const [roleFilter, setRoleFilter] = useState<'All' | 'Warehouse Staff' | 'Driver'>('All');
-  const [attendanceFilter, setAttendanceFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
-  const scoped = useMemo(
-    () => members.filter((m) => inScope(scope, m.warehouseId, selectedWarehouseId)),
-    [members, scope, selectedWarehouseId],
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const warehouses = useStaffWarehouses(scope, can);
+  const warehouseId = staffWarehouseFilter(scope, selectedWarehouseId);
+  const list = useStaffList(
+    scope,
+    { warehouseId, status: statusFilter === 'All' ? undefined : statusFilter, q: search },
+    warehouses.nameOf,
+    allowed,
   );
-  const visible = scoped.filter((m) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      !q || m.name.toLowerCase().includes(q) || m.staffId.toLowerCase().includes(q) || m.role.toLowerCase().includes(q);
-    const matchesFilter =
-      filter === 'All' || (filter === 'Warehouse Staff' && m.type === 'warehouse') || (filter === 'Drivers' && m.type === 'driver');
-    const matchesRole =
-      roleFilter === 'All' ||
-      (roleFilter === 'Warehouse Staff' && m.type === 'warehouse') ||
-      (roleFilter === 'Driver' && m.type === 'driver');
-    const matchesAttendance = attendanceFilter === 'All' || m.attendance === attendanceFilter;
-    const matchesStatus = statusFilter === 'All' || m.status === statusFilter;
-    return matchesSearch && matchesFilter && matchesRole && matchesAttendance && matchesStatus;
-  });
+  const rollCall = useRollCall(scope, today, warehouseId, warehouses.nameOf, now, attendanceAllowed);
+  const todayByStaff = useMemo(() => attendanceByStaff(rollCall.rows), [rollCall.rows]);
 
   if (showFilterScreen) {
     return (
       <StaffFiltersScreen
-        initialFilters={{
-          searchQuery,
-          role: roleFilter,
-          attendance: attendanceFilter,
-          status: statusFilter,
-        }}
-        warehouseName={isMain ? undefined : scope.warehouseName ?? scope.warehouseId}
+        scope={scope}
+        initialFilters={{ searchQuery: searchInput, status: statusFilter }}
         onBack={() => setShowFilterScreen(false)}
-        onApply={(newFilters) => {
-          setSearchQuery(newFilters.searchQuery);
-          setRoleFilter(newFilters.role);
-          setAttendanceFilter(newFilters.attendance);
-          setStatusFilter(newFilters.status);
-          if (newFilters.role === 'Warehouse Staff') setFilter('Warehouse Staff');
-          else if (newFilters.role === 'Driver') setFilter('Drivers');
-          else setFilter('All');
+        onApply={(next: StaffFilterValues) => {
+          setSearchInput(next.searchQuery);
+          setSearch(next.searchQuery.trim());
+          setStatusFilter(next.status);
           setShowFilterScreen(false);
         }}
       />
     );
   }
 
-  const frame = (children: React.ReactNode) => (
+  const frame = (children: React.ReactNode, footer?: React.ReactNode) => (
     <WalletScreen
       title={
         <View style={styles.headerTitleRow}>
-          <StaffGroupIcon size={22} color={adminColors.onBrand} />
-          <Text style={styles.headerTitleText}>Staff</Text>
+          <StaffGroupIcon color={adminColors.onBrand} />
+          <Text style={styles.headerTitleText}>{t('staff.list.title')}</Text>
         </View>
       }
       onBack={onBack}
       headerRight={
-        <HeaderIconButton accessibilityLabel="Filter staff" onPress={() => setShowFilterScreen(true)}>
-          <FilterSlidersIcon />
-        </HeaderIconButton>
+        allowed ? (
+          <HeaderIconButton accessibilityLabel={t('staff.list.filterA11y')} onPress={() => setShowFilterScreen(true)}>
+            <FilterSlidersIcon />
+          </HeaderIconButton>
+        ) : undefined
       }
       headerExtra={
         <ScopeHeader
           scope={scope}
-          label={isMain ? undefined : scope.warehouseName ?? scope.warehouseId}
-          warehouseOptions={warehouseOptions}
+          label={isMain ? t('staff.scope.all') : scope.warehouseName ?? scope.warehouseId}
+          warehouseOptions={warehouses.options}
           selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
+          onSelectWarehouse={isMain && can(STAFF_CODES.warehouseList) ? setSelectedWarehouseId : undefined}
         />
       }
-      footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
+      footer={footer ?? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />}
     >
       {children}
     </WalletScreen>
   );
 
-  if (!can(STAFF_ROSTER_CODE)) {
-    return frame(
-      <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />,
-    );
+  if (!allowed) {
+    return frame(<AdminEmptyState title={t('staff.denied.title')} subtitle={t('staff.denied.roster')} />);
   }
 
-  const count = (pred: (m: StaffMember) => boolean) => String(scoped.filter(pred).length);
-  const drivers = visible.filter((m) => m.type === 'driver');
-  const warehouseStaff = visible.filter((m) => m.type === 'warehouse');
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
+  const summary = rollCall.summary;
+  const kpi = (value: number | undefined) => (value === undefined ? t('staff.kpi.unknown') : String(value));
 
-  const renderCard = (staff: StaffMember) => (
-    <TouchableOpacity
-      key={staff.id}
-      style={styles.card}
-      onPress={onSelectStaff ? () => onSelectStaff(staff) : undefined}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-    >
-      <View style={styles.cardHeader}>
-        <StaffAvatar type={staff.type} />
-        <View style={styles.cardInfo}>
-          <Text style={styles.name}>{staff.name}</Text>
-          <Text style={styles.meta}>
-            {staff.type === 'driver' ? 'Driver ID: ' : 'Staff ID: '}
-            {staff.staffId}
-            {isMain && staff.warehouseId ? ` · ${staffWarehouseName(staff.warehouseId)}` : ''}
-          </Text>
-          {isMain ? (
+  const renderCard = (staff: StaffMember) => {
+    const mark = todayByStaff.get(staff.id);
+    return (
+      <TouchableOpacity
+        key={staff.id}
+        style={styles.card}
+        onPress={onSelectStaff ? () => onSelectStaff(staff) : undefined}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t('staff.list.rowA11y', { name: staff.name, code: staff.staffCode })}
+      >
+        <View style={styles.cardHeader}>
+          <StaffAvatar />
+          <View style={styles.cardInfo}>
+            <Text style={styles.name}>{staff.name}</Text>
+            <Text style={styles.meta}>
+              {isMain
+                ? t('staff.list.metaWithWarehouse', { code: staff.staffCode, designation: staff.designation, warehouse: staff.warehouseName })
+                : t('staff.list.meta', { code: staff.staffCode, designation: staff.designation })}
+            </Text>
             <View style={styles.badgeRow}>
-              <StatusBadge label={staff.status} tone={staff.status === 'Active' ? 'success' : 'danger'} />
-              <StatusBadge label={staff.attendance} tone={attendanceTone(staff.attendance)} />
+              <StatusBadge label={staffStatusLabel(staff.status)} tone={staffStatusTone(staff.status)} />
+              {attendanceAllowed && mark !== undefined ? (
+                <StatusBadge label={attendanceStatusLabel(mark)} tone={attendanceStatusTone(mark)} />
+              ) : null}
             </View>
-          ) : null}
-        </View>
-      </View>
-      {isMain ? (
-        staff.type === 'driver' ? (
-          <Text style={styles.footerText}>Deliveries Today: {staff.deliveriesToday ?? 0}</Text>
-        ) : null
-      ) : (
-        <>
-          <View style={styles.divider} />
-          <View style={styles.threeCol}>
-            {(staff.type === 'driver'
-              ? [
-                  ['Status', staff.status],
-                  ["Today's Attendance", staff.attendance],
-                  ['Deliveries Today', String(staff.deliveriesToday ?? 0)],
-                ]
-              : [
-                  ['Role', staff.role],
-                  ['Status', staff.status],
-                  ['Attendance', staff.attendance],
-                ]
-            ).map(([label, value]) => (
-              <View key={label} style={styles.col}>
-                <Text style={styles.colLabel}>{label}</Text>
-                <Text style={styles.colValue}>{value}</Text>
-              </View>
-            ))}
           </View>
-        </>
-      )}
-    </TouchableOpacity>
-  );
+          <ChevronRightIcon color={adminColors.muted} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const footer = canManageStaff(can) && onAddStaff ? (
+    <View>
+      <View style={styles.footerAction}>
+        <WalletButton label={t('staff.list.add')} onPress={onAddStaff} />
+      </View>
+      <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />
+    </View>
+  ) : undefined;
 
   return frame(
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-      {isMain && onNavigateToAttendance ? (
+      {attendanceAllowed && onNavigateToAttendance ? (
         <TouchableOpacity style={styles.banner} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
           <View style={styles.bannerIcon}>
             <CalendarIcon color={adminColors.brand} />
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.bannerTitle}>Attendance Dashboard</Text>
-            <Text style={styles.meta}>View today&apos;s attendance & history</Text>
+            <Text style={styles.bannerTitle}>{t('staff.list.attendanceBanner')}</Text>
+            <Text style={styles.meta}>{t('staff.list.attendanceBannerSub')}</Text>
           </View>
           <ChevronRightIcon color={adminColors.brand} />
         </TouchableOpacity>
       ) : null}
 
-      <View style={styles.kpiGrid}>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
-            <Text style={styles.kpiValue}>{scoped.length}</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.success.text }]}>
-              {count((m) => m.attendance === 'Present')}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ABSENT</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>
-              {count((m) => m.attendance === 'Absent')}
-            </Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ON LEAVE</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.warning.text }]}>
-              {count((m) => m.attendance === 'On Leave')}
-            </Text>
-          </View>
-        </View>
-      </View>
+      {attendanceAllowed ? (
+        <KpiRow
+          items={[
+            { value: kpi(summary?.total), label: t('staff.kpi.active') },
+            { value: kpi(summary?.present), label: t('staff.kpi.presentToday'), tone: 'success' },
+            { value: kpi(summary?.absent), label: t('staff.kpi.absent'), tone: 'danger' },
+            { value: kpi(summary?.leave), label: t('staff.kpi.leave'), tone: 'warning' },
+          ]}
+        />
+      ) : null}
 
-      {(attendanceFilter !== 'All' || statusFilter !== 'All') && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 }}>
-          {attendanceFilter !== 'All' && (
-            <TouchableOpacity
-              onPress={() => setAttendanceFilter('All')}
-              activeOpacity={0.7}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FFF1EB',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 14,
-                gap: 4,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
-                Attendance: {attendanceFilter} ✕
-              </Text>
-            </TouchableOpacity>
-          )}
-          {statusFilter !== 'All' && (
-            <TouchableOpacity
-              onPress={() => setStatusFilter('All')}
-              activeOpacity={0.7}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FFF1EB',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 14,
-                gap: 4,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
-                Status: {statusFilter} ✕
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+      <ChipGroup options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} labelOf={statusFilterLabel} />
+      <View style={styles.gap} />
+      <SearchBar value={searchInput} onChangeText={setSearchInput} placeholder={t('staff.list.searchPlaceholder')} />
 
-      <View style={styles.chipRow}>
-        {FILTERS.map((item) => {
-          const active = item === filter;
-          return (
-            <TouchableOpacity
-              key={item}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => {
-                setFilter(item);
-                if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
-                else if (item === 'Drivers') setRoleFilter('Driver');
-                else setRoleFilter('All');
-              }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {view === 'loading' ? <AdminLoadingState /> : null}
+      {view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
+      {view === 'empty' ? <AdminEmptyState title={t('staff.list.empty.title')} subtitle={t('staff.list.empty.subtitle')} /> : null}
+      {view === 'ready' ? list.items.map(renderCard) : null}
+      {view === 'ready' && list.hasMore ? (
+        <WalletButton label={t('staff.common.loadMore')} variant="outline" onPress={list.loadMore} />
+      ) : null}
 
-      <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Staff name, Staff ID, Driver ID, Role" />
-
-      {visible.length === 0 ? <EmptyState title="No staff found" subtitle="Try another name, ID or filter." /> : null}
-
-      {isMain ? (
-        <>
-          {drivers.length > 0 ? <SectionTitle>DRIVERS</SectionTitle> : null}
-          {drivers.map(renderCard)}
-          {warehouseStaff.length > 0 ? <SectionTitle>WAREHOUSE STAFF</SectionTitle> : null}
-          {warehouseStaff.map(renderCard)}
-        </>
-      ) : (
-        visible.map(renderCard)
-      )}
-
-      {!isMain ? (
+      {attendanceAllowed && !isMain ? (
         <View style={styles.actionRow}>
           {onNavigateToAttendance ? (
             <TouchableOpacity style={styles.actionCard} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
-              <CalendarIcon size={22} color="#F0562A" />
-              <Text style={styles.actionText}>Attendance</Text>
+              <CalendarIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.attendance.title')}</Text>
             </TouchableOpacity>
           ) : null}
           {onNavigateToHistory ? (
             <TouchableOpacity style={styles.actionCard} onPress={onNavigateToHistory} activeOpacity={0.8} accessibilityRole="button">
-              <HistoryIcon size={22} color="#F0562A" />
-              <Text style={styles.actionText}>Attendance History</Text>
+              <HistoryIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.history.title')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
       ) : null}
     </ScrollView>,
+    footer,
   );
 }
 
 const BANNER_ICON = 40;
 
 const styles = StyleSheet.create({
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-  },
-  headerTitleText: {
-    ...adminType.title,
-    color: adminColors.onBrand,
-  },
-  kpiGrid: {
-    gap: adminSpacing.md,
-    marginBottom: adminSpacing.md,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: adminSpacing.md,
-  },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  kpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  infoBox: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 14,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.md,
-  },
-  infoText: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: '#1D4ED8',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: adminColors.card,
-  },
-  chipActive: {
-    borderColor: '#F0562A',
-    backgroundColor: '#FFF7ED',
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  chipTextActive: {
-    color: '#F0562A',
-  },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  headerTitleText: { ...adminType.title, color: adminColors.onBrand },
+  gap: { height: adminSpacing.md },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   cardInfo: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  meta: { fontSize: 13, color: '#64748B', marginTop: 3 },
+  name: { ...adminType.rowTitle, color: adminColors.ink },
+  meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   badgeRow: { flexDirection: 'row', gap: adminSpacing.xs, marginTop: adminSpacing.xs },
-  footerText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: adminSpacing.md },
-  threeCol: { flexDirection: 'row', gap: adminSpacing.sm },
-  col: { flex: 1 },
-  colLabel: { fontSize: 11, color: '#64748B', marginBottom: 4 },
-  colValue: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,6 +304,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bannerTitle: { ...adminType.rowTitle, color: adminColors.brandDeep },
+  footerAction: { paddingHorizontal: adminSpacing.md, paddingTop: adminSpacing.sm, backgroundColor: adminColors.card },
   actionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.sm },
   actionCard: {
     flex: 1,

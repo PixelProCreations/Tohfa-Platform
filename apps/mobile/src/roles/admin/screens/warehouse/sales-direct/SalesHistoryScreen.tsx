@@ -1,8 +1,22 @@
-import React, { useState } from 'react';
+/**
+ * Sales history (design M6-S08): GET /admin/sales, newest first, page by page.
+ *
+ * Every filter is a real ListSalesParams query param (channel, status,
+ * paymentMethod, q, from / to); there is no client-side filtering of a page.
+ * The API defaults to today when neither a date range nor `q` is sent, so the
+ * date presets always send an explicit IST range, and a search drops the range
+ * so a sale number or invoice number is found whatever day it was made on.
+ *
+ * Main (all-warehouse scope) picks a warehouse with WarehouseChips; a Sub
+ * admin is pinned to scope.warehouseId (salesWarehouseFilter). The server
+ * applies the scope regardless (BR-30).
+ */
+import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   FlatList,
+  RefreshControl,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -11,125 +25,69 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors, adminType, adminShadow } from '../../../theme';
+import type { SalePaymentMethod, SaleStatus } from '../../../api/sales';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { formatAdminDate } from '../../../utils/datetime';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminStateButton } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { SALE_CHANNELS, SALE_PAYMENT_METHODS, salesWarehouseFilter, type SaleListRow } from './mappers';
+import { WarehouseChips } from './SalesParts';
+import {
+  PAYMENT_METHOD_KEY,
+  PAYMENT_STATUS_KEY,
+  SALE_CHANNEL_KEY,
+  SALE_STATUS_KEY,
+} from './salesLabels';
+import type { PermissionCheck, WarehouseScope, WarehouseTab } from './types';
+import { useSalesList, useSalesWarehouseOptions, type SaleListFilters } from './useSalesData';
 
-import { WarehouseChips, inWarehouse, isAllWarehouses } from './SalesParts';
-import type { SaleRecord, WarehouseScreenBaseProps } from './types';
+// ─── Date presets (IST) ──────────────────────────────────────────────────────
 
+export type SalesHistoryRange = 'today' | 'last7' | 'last30';
 
-export type SaleHistoryItem = SaleRecord;
+const RANGE_DAYS_BACK: Record<SalesHistoryRange, number> = { today: 0, last7: 6, last30: 29 };
+const RANGES: readonly SalesHistoryRange[] = ['today', 'last7', 'last30'];
+/** India has no DST: IST is a fixed UTC+05:30 (see roles/admin/utils/datetime.ts). */
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SEARCH_DEBOUNCE_MS = 300;
 
-const INITIAL_SALES_DATA: SaleHistoryItem[] = [
-  {
-    id: 'SALE-00251',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-    customerName: 'Rajesh Kumar',
-    customerCode: 'CUS-00291',
-    itemCountText: '2 Items',
-    channel: 'Direct Sale',
-    dateText: '24 Sep · 6:35 PM',
-    amount: 320,
-    status: 'Paid',
-    invoiceNo: 'INV-00251',
-    paymentMethod: 'UPI',
-    items: [
-      {
-        name: 'Tomato',
-        grade: 'Grade 1',
-        batch: 'BTH-00231',
-        qtyText: '2 KG @ ₹100',
-        pricePerUnit: 100,
-        lineTotal: 200,
-      },
-      {
-        name: 'Carrot',
-        grade: 'Grade 1',
-        batch: 'BTH-00189',
-        qtyText: '1 KG @ ₹120',
-        pricePerUnit: 120,
-        lineTotal: 120,
-      },
-    ],
-  },
-  {
-    id: 'SALE-00248',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-    customerName: 'Walk-in',
-    customerCode: 'CUS-00104',
-    itemCountText: '1 Item',
-    channel: 'Market Sale',
-    dateText: '24 Sep · 3:10 PM',
-    amount: 120,
-    status: 'Paid',
-    invoiceNo: 'INV-00248',
-    paymentMethod: 'Cash',
-    items: [
-      {
-        name: 'Carrot',
-        grade: 'Grade 1',
-        batch: 'BTH-00189',
-        qtyText: '1 KG @ ₹120',
-        pricePerUnit: 120,
-        lineTotal: 120,
-      },
-    ],
-  },
-  {
-    id: 'SALE-00240',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-    customerName: 'Ganesh K.',
-    customerCode: 'CUS-00388',
-    itemCountText: '3 Items',
-    channel: 'Direct Sale',
-    dateText: '23 Sep · 5:45 PM',
-    amount: 410,
-    status: 'Pending',
-    invoiceNo: 'INV-00240',
-    paymentMethod: 'Wallet',
-    items: [
-      {
-        name: 'Potato',
-        grade: 'Grade 1',
-        batch: 'BTH-00204',
-        qtyText: '3 KG @ ₹50',
-        pricePerUnit: 50,
-        lineTotal: 150,
-      },
-      {
-        name: 'Tomato',
-        grade: 'Grade 2',
-        batch: 'BTH-00219',
-        qtyText: '2 KG @ ₹80',
-        pricePerUnit: 80,
-        lineTotal: 160,
-      },
-      {
-        name: 'Onion',
-        grade: 'Grade 1',
-        batch: 'BTH-00177',
-        qtyText: '2 KG @ ₹50',
-        pricePerUnit: 50,
-        lineTotal: 100,
-      },
-    ],
-  },
-];
+function istDay(ms: number): string {
+  const d = new Date(ms + IST_OFFSET_MS);
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${month}-${day}`;
+}
+
+/** YYYY-MM-DD from / to (inclusive, IST calendar days) for a preset. Pure. */
+export function salesHistoryRangeDates(range: SalesHistoryRange, now: Date): { from: string; to: string } {
+  const nowMs = now.getTime();
+  return { from: istDay(nowMs - RANGE_DAYS_BACK[range] * DAY_MS), to: istDay(nowMs) };
+}
+
+const SALE_STATUSES: readonly SaleStatus[] = ['PENDING_PAYMENT', 'PICKED_UP', 'CANCELLED'];
+
+function buyerLabel(row: Pick<SaleListRow, 'buyer'>): string {
+  if (row.buyer.kind === 'WALK_IN') {
+    return row.buyer.name.trim() === '' ? t('sales.common.walkIn') : t('sales.history.walkInNamed', { name: row.buyer.name });
+  }
+  return row.buyer.customerCode ? `${row.buyer.name} · ${row.buyer.customerCode}` : row.buyer.name;
+}
+
+function statusTone(status: SaleStatus): { bg: string; text: string } {
+  if (status === 'PICKED_UP') return adminColors.success;
+  if (status === 'CANCELLED') return adminColors.danger;
+  return adminColors.warning;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -157,46 +115,141 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
   );
 }
 
-// ─── Component Props ─────────────────────────────────────────────────────────
+// ─── Filter chips ────────────────────────────────────────────────────────────
 
-// Design id: M6-S08
-export interface SalesHistoryScreenProps extends WarehouseScreenBaseProps {
-  onSelectSale: (sale: SaleHistoryItem) => void;
-  sales?: readonly SaleHistoryItem[] | undefined;
+interface ChipOption<V> {
+  value: V;
+  label: string;
 }
 
-export function SalesHistoryScreen({
-  scope,
-  onBack,
-  onSelectSale,
-  sales = INITIAL_SALES_DATA,
-}: SalesHistoryScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  // Main only: the picked warehouse (undefined = all). A Sub list is always
-  // filtered to scope.warehouseId (FINAL_LIST row 116).
+function ChipRow<V>({
+  title,
+  options,
+  selected,
+  onSelect,
+}: {
+  title: string;
+  options: readonly ChipOption<V>[];
+  selected: V;
+  onSelect: (value: V) => void;
+}) {
+  return (
+    <View style={styles.chipGroup}>
+      <Text style={styles.chipGroupTitle}>{title}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {options.map((o) => {
+          const active = o.value === selected;
+          return (
+            <TouchableOpacity
+              key={String(o.value ?? 'all')}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => onSelect(o.value)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+// Design id: M6-S08
+export interface SalesHistoryScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
+  onSelectSale: (saleId: string) => void;
+}
+
+export function SalesHistoryScreen({ scope, can, onBack, onSelectSale }: SalesHistoryScreenProps) {
+  const canView = can('sales.history.view');
+  const warehouses = useSalesWarehouseOptions(scope, can);
+  // Main only: the picked warehouse (undefined = all). A Sub list is pinned to scope.warehouseId.
   const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
-  const showWarehouse = isAllWarehouses(scope);
 
-  const filteredSales = sales.filter((sale) => {
-    if (!inWarehouse(scope, pickedWarehouse, sale.warehouseId)) return false;
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
+  const [searchInput, setSearchInput] = useState('');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setQ(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [range, setRange] = useState<SalesHistoryRange>('today');
+  const [channel, setChannel] = useState<'DIRECT' | 'MARKET' | undefined>(undefined);
+  const [status, setStatus] = useState<SaleStatus | undefined>(undefined);
+  const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | undefined>(undefined);
+
+  // A search spans every date (the server searches all days when `q` is set
+  // and no range is sent); otherwise the preset's IST range is sent explicitly.
+  const searching = q !== '';
+  const dates: { from?: string; to?: string } = searching ? {} : salesHistoryRangeDates(range, new Date());
+  const filters: SaleListFilters = {
+    channel,
+    status,
+    paymentMethod,
+    q: searching ? q : undefined,
+    from: dates.from,
+    to: dates.to,
+  };
+
+  const list = useSalesList(salesWarehouseFilter(scope, pickedWarehouse), filters, { enabled: canView });
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
+  const now = new Date();
+  const isAll = scope.warehouseId === undefined;
+
+  const allLabel = t('sales.history.filter.all');
+
+  const renderRow = ({ item }: { item: SaleListRow }) => {
+    const tone = statusTone(item.status);
     return (
-      sale.id.toLowerCase().includes(q) ||
-      sale.customerName.toLowerCase().includes(q) ||
-      sale.channel.toLowerCase().includes(q) ||
-      (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(q)) ||
-      (showWarehouse && (sale.warehouseName ?? '').toLowerCase().includes(q))
-    );
-  });
+      <TouchableOpacity
+        style={styles.saleCard}
+        onPress={() => onSelectSale(item.id)}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+      >
+        <View style={styles.cardTopRow}>
+          <Text style={styles.saleIdText}>{item.saleNumber}</Text>
+          <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
+            <Text style={[styles.statusText, { color: tone.text }]}>{t(SALE_STATUS_KEY[item.status])}</Text>
+          </View>
+        </View>
 
-  const handleSalePress = (sale: SaleHistoryItem) => onSelectSale(sale);
+        <Text style={styles.customerSubText}>
+          {buyerLabel(item)} · {t('sales.common.itemCount', { count: item.itemCount })}
+        </Text>
+
+        <Text style={styles.metaText}>
+          {t(SALE_CHANNEL_KEY[item.channel])} · {t(PAYMENT_METHOD_KEY[item.paymentMethod])} ·{' '}
+          {t(PAYMENT_STATUS_KEY[item.paymentStatus])}
+          {isAll && warehouses.nameOf(item.warehouseId) ? ` · ${warehouses.nameOf(item.warehouseId)}` : ''}
+        </Text>
+
+        <View style={styles.cardBottomRow}>
+          <Text style={styles.channelText}>
+            {item.invoiceNumber ? t('sales.history.invoice', { number: item.invoiceNumber }) : ''}
+          </Text>
+          <View style={styles.rightInfoWrap}>
+            <Text style={styles.dateText}>{formatAdminDate(item.createdAt, now)}</Text>
+            <Text style={styles.amountText}>{formatPaise(item.totalPaise)}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -204,104 +257,131 @@ export function SalesHistoryScreen({
             onPress={onBack}
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('sales.common.back')}
           >
             <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Sales History</Text>
+          <Text style={styles.headerTitle}>{t('sales.history.title')}</Text>
 
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => Alert.alert('Filter Sales', 'Filter by Date range, Channel, or Payment Status.')}
-            activeOpacity={0.8}
-          >
-            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ─── Main Content ─── */}
-      <View style={styles.mainContainer}>
-        {/* Search Bar */}
-        <View style={styles.searchBarWrap}>
-          <SearchIcon size={18} color={adminColors.muted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search sale ID, invoice, customer"
-            placeholderTextColor={adminColors.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} />
-
-        {/* Sales List */}
-        <FlatList
-          data={filteredSales}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const isPaid = item.status === 'Paid';
-            return (
-              <TouchableOpacity
-                style={styles.saleCard}
-                onPress={() => handleSalePress(item)}
-                activeOpacity={0.82}
-              >
-                {/* Top Row: Sale ID & Status Pill */}
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.saleIdText}>{item.id}</Text>
-                  <View
-                    style={[
-                      styles.statusPill,
-                      { backgroundColor: isPaid ? adminColors.success.bg : adminColors.warning.bg },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: isPaid ? adminColors.success.text : adminColors.warning.text },
-                      ]}
-                    >
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Subtitle: Customer · Items */}
-                <Text style={styles.customerSubText}>
-                  {item.customerName} · {item.itemCountText}
-                </Text>
-
-                {/* Bottom Row: Channel (Left), Date & Amount (Right) */}
-                <View style={styles.cardBottomRow}>
-                  <Text style={styles.channelText}>
-                    {showWarehouse && item.warehouseName ? `${item.channel} · ${item.warehouseName}` : item.channel}
-                  </Text>
-
-                  <View style={styles.rightInfoWrap}>
-                    <Text style={styles.dateText}>{item.dateText}</Text>
-                    <Text style={styles.amountText}>₹{item.amount}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          ListFooterComponent={
+          {canView ? (
             <TouchableOpacity
-              style={styles.loadMoreWrap}
-              onPress={() => Alert.alert('Loaded', 'All historical sales records loaded.')}
-              activeOpacity={0.7}
+              style={[styles.filterBtn, showFilters && styles.filterBtnActive]}
+              onPress={() => setShowFilters((v) => !v)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('sales.history.filtersToggle')}
+              accessibilityState={{ expanded: showFilters }}
             >
-              <Text style={styles.loadMoreText}>Load More ↓</Text>
+              <FilterSlidersIcon size={20} color={adminColors.onBrand} />
             </TouchableOpacity>
-          }
-        />
+          ) : null}
+        </View>
       </View>
 
+      {!canView ? (
+        <View style={styles.mainContainer}>
+          <AdminEmptyState title={t('sales.common.noPermission')} />
+        </View>
+      ) : (
+        <View style={styles.mainContainer}>
+          <View style={styles.searchBarWrap}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('sales.history.searchPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              value={searchInput}
+              onChangeText={setSearchInput}
+              clearButtonMode="while-editing"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              accessibilityLabel={t('sales.history.searchLabel')}
+            />
+          </View>
+
+          <WarehouseChips
+            scope={scope}
+            selected={pickedWarehouse}
+            onSelect={setPickedWarehouse}
+            options={warehouses.options}
+          />
+
+          {searching ? (
+            <Text style={styles.noteText}>{t('sales.history.searchAllDates')}</Text>
+          ) : (
+            <ChipRow
+              title={t('sales.history.filter.range')}
+              options={RANGES.map((r) => ({ value: r, label: t(`sales.history.range.${r}`) }))}
+              selected={range}
+              onSelect={setRange}
+            />
+          )}
+
+          {showFilters ? (
+            <View style={styles.filterPanel}>
+              <ChipRow<'DIRECT' | 'MARKET' | undefined>
+                title={t('sales.history.filter.channel')}
+                options={[
+                  { value: undefined, label: allLabel },
+                  ...SALE_CHANNELS.map((c) => ({ value: c, label: t(SALE_CHANNEL_KEY[c]) })),
+                ]}
+                selected={channel}
+                onSelect={setChannel}
+              />
+              <ChipRow<SaleStatus | undefined>
+                title={t('sales.history.filter.status')}
+                options={[
+                  { value: undefined, label: allLabel },
+                  ...SALE_STATUSES.map((s) => ({ value: s, label: t(SALE_STATUS_KEY[s]) })),
+                ]}
+                selected={status}
+                onSelect={setStatus}
+              />
+              <ChipRow<SalePaymentMethod | undefined>
+                title={t('sales.history.filter.method')}
+                options={[
+                  { value: undefined, label: allLabel },
+                  ...SALE_PAYMENT_METHODS.map((m) => ({ value: m, label: t(PAYMENT_METHOD_KEY[m]) })),
+                ]}
+                selected={paymentMethod}
+                onSelect={setPaymentMethod}
+              />
+            </View>
+          ) : null}
+
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={list.error} onRetry={list.refresh} />
+          ) : view === 'empty' ? (
+            <AdminEmptyState title={t('sales.history.empty.title')} subtitle={t('sales.history.empty.subtitle')} />
+          ) : (
+            <FlatList
+              data={list.items}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              renderItem={renderRow}
+              refreshControl={
+                <RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={adminColors.brand} />
+              }
+              onEndReachedThreshold={0.4}
+              onEndReached={() => {
+                if (list.hasMore && !list.isLoading) list.loadMore();
+              }}
+              ListFooterComponent={
+                list.hasMore ? (
+                  <View style={styles.loadMoreWrap}>
+                    <AdminStateButton label={t('sales.common.loadMore')} onPress={list.loadMore} variant="secondary" />
+                  </View>
+                ) : null
+              }
+            />
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -343,9 +423,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderWidth: 1,
+    borderColor: adminColors.onBrand,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: adminColors.brandDeep,
   },
   mainContainer: {
     flex: 1,
@@ -361,7 +445,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 16,
+    marginBottom: adminSpacing.xs,
   },
   searchInput: {
     flex: 1,
@@ -370,7 +454,54 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     padding: 0,
   },
+  noteText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginVertical: adminSpacing.sm,
+  },
+  filterPanel: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  chipGroup: {
+    marginTop: adminSpacing.xs,
+  },
+  chipGroupTitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+  },
+  chipRow: {
+    gap: adminSpacing.sm,
+    paddingVertical: adminSpacing.sm,
+  },
+  chip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  chipActive: {
+    backgroundColor: adminColors.brandSoft.bg,
+    borderColor: adminColors.brandSoft.border,
+  },
+  chipText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
+  chipTextActive: {
+    ...adminType.caption,
+    color: adminColors.brandSoft.text,
+  },
   listContent: {
+    paddingTop: adminSpacing.sm,
     paddingBottom: 20,
   },
   saleCard: {
@@ -401,8 +532,13 @@ const styles = StyleSheet.create({
   },
   customerSubText: {
     ...adminType.body,
-    color: adminColors.muted,
+    color: adminColors.ink,
     marginTop: 4,
+  },
+  metaText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   cardBottomRow: {
     flexDirection: 'row',
@@ -411,8 +547,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   channelText: {
-    ...adminType.body,
+    ...adminType.rowMeta,
     color: adminColors.muted,
+    flex: 1,
   },
   rightInfoWrap: {
     alignItems: 'flex-end',
@@ -430,31 +567,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     marginTop: 4,
-  },
-  loadMoreText: {
-    ...adminType.sectionHead,
-    color: adminColors.warning.text,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: adminColors.card,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    paddingTop: 8,
-    paddingBottom: 6,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: 3,
-  },
-  navLabelActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
   },
 });

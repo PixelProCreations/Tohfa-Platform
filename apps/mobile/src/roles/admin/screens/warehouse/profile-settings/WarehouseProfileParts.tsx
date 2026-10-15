@@ -17,7 +17,6 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseScope } from './types';
-import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 
 /** docs/rbac.json codes the warehouse-facing screens check (each one exists there). */
 export const WAREHOUSE_PROFILE_CODES = {
@@ -28,13 +27,19 @@ export const WAREHOUSE_PROFILE_CODES = {
 // ─── Scope helpers ───────────────────────────────────────────────────────────
 
 /**
+ * No options yet (the live list is loading, or a Sub scope, which never picks).
+ * There is no sample fallback: Main's options come from GET /warehouses.
+ */
+const NO_OPTIONS: readonly WarehouseScope[] = [];
+
+/**
  * The ONE warehouse a single-warehouse screen shows: a Sub scope its own, Main
  * its selector pick, or the first option when Main has not picked one.
  */
 export function singleWarehouseId(
   scope: WarehouseScope,
   selectedWarehouseId: string | undefined,
-  options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
+  options: readonly WarehouseScope[] = NO_OPTIONS,
 ): string | undefined {
   if (!isAllWarehouses(scope)) return scope.warehouseCode ?? scope.warehouseId;
   return selectedWarehouseId ?? options[0]?.warehouseId;
@@ -49,7 +54,7 @@ export function recordFor<T extends { warehouseId: string }>(rows: readonly T[],
 export function warehouseNameOf(
   scope: WarehouseScope,
   warehouseId: string | undefined,
-  options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
+  options: readonly WarehouseScope[] = NO_OPTIONS,
 ): string {
   if (warehouseId !== undefined && warehouseId === (scope.warehouseCode ?? scope.warehouseId) && scope.warehouseName) return scope.warehouseName;
   const option = options.find((o) => o.warehouseId === warehouseId);
@@ -71,7 +76,7 @@ export function formatKg(kg: number): string {
 export function SingleWarehouseHeader({
   scope,
   warehouseId,
-  options = PROFILE_WAREHOUSES,
+  options = NO_OPTIONS,
   onSelect,
 }: {
   scope: WarehouseScope;

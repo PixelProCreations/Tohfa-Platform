@@ -25,8 +25,9 @@
  * no route under /admin/customers moves money. Total Credited / Total Used are
  * hidden in live mode (the API has no such figures).
  *
- * Without `live` (the wallet hub's sample search, plan phase 9), the caller
- * passes the customer and transactions to show; this screen holds no samples.
+ * Without `live` (only customers/CustomerSearchScreen's sample search still
+ * does this; the wallet flow never does), the caller passes the customer and
+ * transactions to show; this screen holds no samples.
  */
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -113,13 +114,13 @@ export function CustomerWalletScreen({
 
   return (
     <WalletScreen
-      title="Customer Wallet"
+      title={t('wallet.customer.title')}
       subtitle={active.name}
       onBack={onBack}
       footer={
         showTopUp ? (
           <WalletFooter>
-            <WalletButton label="Cash Top-Up" icon={<CashIcon />} onPress={() => onCashTopUp(active)} />
+            <WalletButton label={t('wallet.topup.title')} icon={<CashIcon />} onPress={() => onCashTopUp(active)} />
           </WalletFooter>
         ) : undefined
       }
@@ -135,10 +136,10 @@ export function CustomerWalletScreen({
       >
         <Card>
           <Text style={styles.customerName}>{active.name}</Text>
-          <Text style={styles.customerMeta}>Customer ID: {active.id}</Text>
+          <Text style={styles.customerMeta}>{t('wallet.customer.code', { code: active.id })}</Text>
           {active.mobile ? (
             <View style={styles.mobileBlock}>
-              <Text style={styles.customerMeta}>Mobile</Text>
+              <Text style={styles.customerMeta}>{t('wallet.customer.mobile')}</Text>
               <Text style={styles.mobileValue}>{active.mobile}</Text>
             </View>
           ) : null}
@@ -146,10 +147,10 @@ export function CustomerWalletScreen({
 
         <View style={styles.balanceBanner}>
           <Text style={styles.balanceAmount}>{active.balance}</Text>
-          <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
+          <Text style={styles.balanceLabel}>{t('wallet.customer.available')}</Text>
         </View>
 
-        <SectionTitle>Wallet Summary</SectionTitle>
+        <SectionTitle>{t('wallet.customer.summary')}</SectionTitle>
         {summaryView === 'loading' ? (
           <AdminLoadingState />
         ) : summaryView === 'error' ? (
@@ -163,17 +164,17 @@ export function CustomerWalletScreen({
               value={String(live.wallet?.transactionCount ?? noValue)}
             />
             <AmountRow divider label={t('customers.wallet.lastTransaction')} value={live.wallet?.lastTransactionLabel ?? noValue} />
-            <AmountRow divider label="Current Balance" value={active.balance} emphasis="total" />
+            <AmountRow divider label={t('wallet.customer.currentBalance')} value={active.balance} emphasis="total" />
           </Card>
         ) : (
           <Card>
-            <AmountRow label="Total Credited" value={active.totalCredited} />
-            <AmountRow divider label="Total Used" value={active.totalUsed} />
-            <AmountRow divider label="Current Balance" value={active.balance.split('.')[0] ?? active.balance} emphasis="total" />
+            <AmountRow label={t('wallet.customer.totalCredited')} value={active.totalCredited} />
+            <AmountRow divider label={t('wallet.customer.totalUsed')} value={active.totalUsed} />
+            <AmountRow divider label={t('wallet.customer.currentBalance')} value={active.balance.split('.')[0] ?? active.balance} emphasis="total" />
           </Card>
         )}
 
-        <SectionTitle>Recent Wallet Transactions</SectionTitle>
+        <SectionTitle>{t('wallet.customer.recent')}</SectionTitle>
         <Card>
           {txView === 'loading' ? (
             <AdminLoadingState />
@@ -183,7 +184,7 @@ export function CustomerWalletScreen({
             live ? (
               <EmptyState title={t('customers.wallet.noTransactions')} />
             ) : (
-              <EmptyState title="No transactions" subtitle="No wallet movements recorded at your warehouse." />
+              <EmptyState title={t('wallet.customer.noTransactions')} subtitle={t('wallet.customer.noTransactionsHint')} />
             )
           ) : (
             visible.map((tx, index) => {
@@ -219,10 +220,7 @@ export function CustomerWalletScreen({
 
         <View style={styles.notice}>
           <LockIcon size={16} color={adminColors.brandDeep} />
-          <Text style={styles.noticeText}>
-            No Edit Balance / Set Balance / Manual Credit action exists on this screen. Cash top-up happens through the
-            authorized transaction flow; wallet credit only happens server-side.
-          </Text>
+          <Text style={styles.noticeText}>{t('wallet.customer.readOnlyNote')}</Text>
         </View>
       </ScrollView>
     </WalletScreen>

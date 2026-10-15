@@ -1,29 +1,29 @@
-import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+/**
+ * The result of a sale (design M6-S07), drawn only from the SaleDetailView the
+ * server returned (POST /admin/sales, or the UPI confirm / cancel). Nothing
+ * here is computed on the phone: totals, status and the invoice come from
+ * the server, so this screen never shows a local or optimistic success.
+ *
+ * "View invoice" appears only when the host passes onViewInvoice (it holds
+ * invoice.view_own) and the sale already has a billing invoice uuid; a sale
+ * still pending UPI payment or cancelled has none.
+ */
+import React from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors, adminType } from '../../../theme';
-import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
-import type { WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { formatKg } from '../../../money/quantity';
+import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { formatAdminDate } from '../../../utils/datetime';
+import type { SaleDetailView } from './mappers';
+import { GRADE_KEY, PAYMENT_METHOD_KEY, PAYMENT_STATUS_KEY, SALE_CHANNEL_KEY, SALE_STATUS_KEY } from './salesLabels';
+import type { WarehouseScreenBaseProps } from './types';
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -43,6 +43,24 @@ function SuccessCheckIcon({ size = 32 }: { size?: number }) {
   );
 }
 
+function CrossCircleIcon({ size = 32, color = adminColors.danger.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <Circle cx="16" cy="16" r="14" stroke={color} strokeWidth="2.5" />
+      <Path d="M11 11l10 10M21 11L11 21" stroke={color} strokeWidth="2.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ClockIcon({ size = 32, color = adminColors.warning.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <Circle cx="16" cy="16" r="14" stroke={color} strokeWidth="2.5" />
+      <Path d="M16 9v7l5 3" stroke={color} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function InvoiceIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -58,250 +76,173 @@ function InvoiceIcon({ size = 18, color = adminColors.onBrand }: { size?: number
   );
 }
 
-function ShieldCheckIcon({ size = 16, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 // Design id: M6-S07
 export interface SaleConfirmationScreenProps extends WarehouseScreenBaseProps {
-  saleId?: string | undefined;
-  customerName?: string | undefined;
-  customerCode?: string | undefined;
-  paymentMethod?: string | undefined;
-  totalAmount?: number | undefined;
-  /** Number of product lines, for the invoice review step. */
-  itemsCount?: number | undefined;
-  /** Warehouse that made the sale (Main picks one on New Sale); defaults to the viewer's scope. */
-  saleWarehouse?: WarehouseScope | undefined;
-  /** Open the invoice in the host; without it the shared billing flow opens inline. */
-  onViewInvoice?: (() => void) | undefined;
-  onNewSale?: (() => void) | undefined;
+  /** The sale as the server returned it. */
+  sale: SaleDetailView;
+  /** Name of the selling warehouse, when the host knows it. */
+  warehouseName?: string | undefined;
+  /** Open the billing invoice (host holds invoice.view_own); shown only with sale.invoiceId. */
+  onViewInvoice?: ((invoiceId: string) => void) | undefined;
+  onViewSale: (saleId: string) => void;
+  onNewSale: () => void;
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.valueBold}>{value}</Text>
+    </View>
+  );
 }
 
 export function SaleConfirmationScreen({
-  saleId = 'SALE-00251',
-  customerName = 'Rajesh Kumar',
-  customerCode = 'CUS-00291',
-  paymentMethod = 'Cash',
-  totalAmount = 320,
-  itemsCount = 2,
-  saleWarehouse,
+  sale,
+  warehouseName,
   onBack,
   onViewInvoice,
+  onViewSale,
   onNewSale,
-  scope,
-  can,
-}: SaleConfirmationScreenProps) {
-  const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
-  // View Invoice opens the invoice wizard on its Review step, which issues the
-  // invoice: gated on the code that wizard checks (FINAL_LIST row 112).
-  const canShowInvoice = can('invoice.generate');
-  const warehouseLabel = saleWarehouse?.warehouseName ?? scope.warehouseName ?? 'All warehouses';
-  // Post-sale entry of the invoice wizard: opens on its Review step (W4).
-  const invoiceParams = useMemo<BillingRouteParams>(
-    () => ({
-      review: {
-        invoiceType: 'Direct Sale',
-        customerName,
-        itemsCount,
-        subtotal: `₹${totalAmount}`,
-        gst: '₹0',
-        total: `₹${totalAmount}`,
-      },
-    }),
-    [customerName, itemsCount, totalAmount],
-  );
-
-  const handleViewInvoice = () => {
-    if (onViewInvoice) {
-      onViewInvoice();
-    } else {
-      setShowInvoiceScreen(true);
-    }
-  };
-
-  const handleNewSale = () => {
-    if (onNewSale) {
-      onNewSale();
-    } else {
-      Alert.alert('New Sale', 'Starting a new sale...');
-    }
-  };
-
-  if (showInvoiceScreen) {
-    return (
-      <BillingFlow
-        scope={saleWarehouse?.warehouseId ? saleWarehouse : scope}
-        can={can}
-        initialScreen="InvoiceWizard"
-        initialParams={invoiceParams}
-        onBack={() => setShowInvoiceScreen(false)}
-      />
-    );
-  }
+}: SaleConfirmationScreenProps): React.JSX.Element {
+  const cancelled = sale.status === 'CANCELLED';
+  const pending = sale.status === 'PENDING_PAYMENT';
+  const invoiceId = sale.invoiceId;
+  const when = formatAdminDate(sale.completedAt ?? sale.createdAt, new Date());
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={onBack}
             activeOpacity={0.75}
-            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessibilityLabel={t('sales.common.back')}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sale Confirmation</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">
+            {t('sales.confirmation.title')}
+          </Text>
         </View>
       </View>
 
-      {/* ─── Main Content ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ─── Success Badge & Title ─── */}
-        <View style={styles.successSection}>
-          <View style={styles.successCircle}>
-            <SuccessCheckIcon size={34} />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Outcome */}
+        <View style={styles.resultSection}>
+          <View
+            style={[
+              styles.resultCircle,
+              cancelled ? styles.resultCircleDanger : pending ? styles.resultCircleWarning : styles.resultCircleSuccess,
+            ]}
+          >
+            {cancelled ? <CrossCircleIcon size={34} /> : pending ? <ClockIcon size={34} /> : <SuccessCheckIcon size={34} />}
           </View>
-          <Text style={styles.successTitle}>Sale Completed</Text>
+          <Text style={styles.resultTitle}>
+            {cancelled
+              ? t('sales.confirmation.cancelledTitle')
+              : pending
+                ? t('sales.confirmation.pendingTitle')
+                : t('sales.confirmation.successTitle')}
+          </Text>
+          {cancelled ? <Text style={styles.resultMessage}>{t('sales.confirmation.cancelledMessage')}</Text> : null}
+          {pending ? <Text style={styles.resultMessage}>{t('sales.confirmation.pendingMessage')}</Text> : null}
         </View>
 
-        {/* ─── 1. Sale Information ─── */}
-        <Text style={styles.sectionHeading}>Sale Information</Text>
+        {/* Sale */}
         <View style={styles.card}>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Sale ID</Text>
-              <Text style={styles.valueBold}>{saleId}</Text>
-            </View>
-
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Date</Text>
-              <Text style={styles.valueBold}>24 Sep, 6:35 PM</Text>
-            </View>
-          </View>
-
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Warehouse</Text>
-              <Text style={styles.valueBold}>{warehouseLabel}</Text>
-            </View>
-
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Channel</Text>
-              <Text style={styles.valueBold}>Direct Sale</Text>
-            </View>
-          </View>
+          <InfoRow label={t('sales.confirmation.saleNumber')} value={sale.saleNumber} />
+          {when ? <Text style={styles.meta}>{when}</Text> : null}
+          <InfoRow label={t('sales.confirmation.status')} value={t(SALE_STATUS_KEY[sale.status])} />
+          <InfoRow label={t('sales.confirmation.channel')} value={t(SALE_CHANNEL_KEY[sale.channel])} />
+          {warehouseName ? <InfoRow label={t('sales.confirmation.warehouse')} value={warehouseName} /> : null}
+          {sale.invoiceNumber !== null ? (
+            <InfoRow label={t('sales.confirmation.invoiceNumber')} value={sale.invoiceNumber} />
+          ) : null}
         </View>
 
-        {/* ─── 2. Customer ─── */}
-        <Text style={styles.sectionHeading}>Customer</Text>
+        {/* Buyer */}
+        <Text style={styles.sectionHeading}>{t('sales.confirmation.buyer')}</Text>
         <View style={styles.card}>
-          <Text style={styles.customerName}>{customerName}</Text>
-          <Text style={styles.customerCode}>{customerCode}</Text>
-        </View>
-
-        {/* ─── 3. Products ─── */}
-        <Text style={styles.sectionHeading}>Products</Text>
-        <View style={styles.card}>
-          <View style={styles.productRow}>
-            <View>
-              <Text style={styles.productName}>Tomato</Text>
-              <Text style={styles.productGrade}>Grade 1 · 2 KG</Text>
-            </View>
-            <Text style={styles.productPrice}>₹200</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.productRow}>
-            <View>
-              <Text style={styles.productName}>Carrot</Text>
-              <Text style={styles.productGrade}>Grade 1 · 1 KG</Text>
-            </View>
-            <Text style={styles.productPrice}>₹120</Text>
-          </View>
-        </View>
-
-        {/* ─── 4. Payment ─── */}
-        <Text style={styles.sectionHeading}>Payment</Text>
-        <View style={styles.card}>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Method</Text>
-              <Text style={styles.valueBold}>{paymentMethod}</Text>
-            </View>
-
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Status</Text>
-              <Text style={styles.valueBold}>Paid</Text>
-            </View>
-          </View>
-
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.label}>Amount</Text>
-              <Text style={styles.valueBold}>₹{totalAmount}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── 5. Invoice ─── */}
-        <Text style={styles.sectionHeading}>Invoice</Text>
-        <View style={styles.card}>
-          <Text style={styles.label}>Invoice Number</Text>
-          <Text style={styles.valueBold}>INV-00251</Text>
-        </View>
-
-        {/* ─── Server Confirmation Notice ─── */}
-        <View style={styles.serverNoticeBanner}>
-          <ShieldCheckIcon size={18} color={adminColors.success.text} />
-          <Text style={styles.serverNoticeText}>
-            This screen only ever appears after the server confirms payment, sale, and the inventory ledger movement together — never on a local/optimistic success.
+          <Text style={styles.valueBold}>{sale.buyer.name}</Text>
+          <Text style={styles.meta}>
+            {sale.buyer.kind === 'WALK_IN' || sale.buyer.customerCode === null
+              ? t('sales.common.walkIn')
+              : sale.buyer.customerCode}
           </Text>
         </View>
 
-        <View style={{ height: 20 }} />
+        {/* Items */}
+        <Text style={styles.sectionHeading}>
+          {t('sales.confirmation.items')} · {t('sales.common.itemCount', { count: sale.items.length })}
+        </Text>
+        {sale.items.length > 0 ? (
+          <View style={styles.card}>
+            {sale.items.map((line, i) => (
+              <View key={`${line.productId}:${line.grade}`}>
+                {i > 0 ? <View style={styles.divider} /> : null}
+                <View style={styles.productRow}>
+                  <View style={styles.flex}>
+                    <Text style={styles.productName}>{line.name}</Text>
+                    <Text style={styles.meta}>
+                      {t(GRADE_KEY[line.grade])} · {formatKg(line.qtyGrams)}
+                    </Text>
+                  </View>
+                  <Text style={styles.valueBold}>{formatPaise(line.lineTotalPaise)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Payment and totals */}
+        <Text style={styles.sectionHeading}>{t('sales.confirmation.paymentStatus')}</Text>
+        <View style={styles.card}>
+          <InfoRow label={t('sales.confirmation.method')} value={t(PAYMENT_METHOD_KEY[sale.payment.method])} />
+          <InfoRow label={t('sales.confirmation.paymentStatus')} value={t(PAYMENT_STATUS_KEY[sale.paymentStatus])} />
+          {sale.payment.upiTxnRef !== null ? (
+            <InfoRow label={t('sales.confirmation.upiRef')} value={sale.payment.upiTxnRef} />
+          ) : null}
+          {sale.payment.cardRef !== null ? (
+            <InfoRow label={t('sales.confirmation.cardRef')} value={sale.payment.cardRef} />
+          ) : null}
+          <View style={styles.divider} />
+          <InfoRow label={t('sales.confirmation.subtotal')} value={formatPaise(sale.subtotalPaise)} />
+          <InfoRow label={t('sales.confirmation.gst')} value={formatPaise(sale.gstPaise)} />
+          <InfoRow label={t('sales.confirmation.total')} value={formatPaise(sale.totalPaise)} />
+          {sale.changeGivenPaise !== null ? (
+            <InfoRow label={t('sales.confirmation.changeGiven')} value={formatPaise(sale.changeGivenPaise)} />
+          ) : null}
+        </View>
       </ScrollView>
 
-      {/* ─── Bottom Actions ─── */}
       <View style={styles.bottomBar}>
-        {canShowInvoice && (
+        {onViewInvoice && invoiceId ? (
           <TouchableOpacity
-            style={styles.viewInvoiceBtn}
-            onPress={handleViewInvoice}
+            style={styles.primaryBtn}
+            onPress={() => onViewInvoice(invoiceId)}
+            accessibilityRole="button"
             activeOpacity={0.85}
           >
             <InvoiceIcon size={18} color={adminColors.onBrand} />
-            <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
+            <Text style={styles.primaryBtnText}>{t('sales.confirmation.viewInvoice')}</Text>
           </TouchableOpacity>
-        )}
-
+        ) : null}
         <TouchableOpacity
-          style={styles.newSaleBtn}
-          onPress={handleNewSale}
+          style={styles.secondaryBtn}
+          onPress={() => onViewSale(sale.id)}
+          accessibilityRole="button"
           activeOpacity={0.75}
         >
-          <Text style={styles.newSaleBtnText}>New Sale</Text>
+          <Text style={styles.secondaryBtnText}>{t('sales.confirmation.viewSale')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={onNewSale} accessibilityRole="button" activeOpacity={0.75}>
+          <Text style={styles.secondaryBtnText}>{t('sales.confirmation.newSale')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -313,112 +254,113 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
+  flex: {
+    flex: 1,
+  },
   headerBanner: {
     backgroundColor: adminColors.brand,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: 14,
-    paddingBottom: 16,
+    paddingBottom: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    width: '100%',
     minHeight: 36,
-    gap: 12,
+    gap: adminSpacing.md,
   },
   backButton: {
-    padding: 4,
+    padding: adminSpacing.xs,
     marginLeft: -4,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: 0.2,
-    textAlign: 'left',
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
-  successSection: {
+  resultSection: {
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 14,
   },
-  successCircle: {
+  resultCircle: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  successTitle: {
+  resultCircleSuccess: {
+    backgroundColor: adminColors.success.bg,
+  },
+  resultCircleWarning: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  resultCircleDanger: {
+    backgroundColor: adminColors.danger.bg,
+  },
+  resultTitle: {
     ...adminType.title,
     color: adminColors.ink,
   },
+  resultMessage: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.xs,
+  },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginTop: 12,
-    marginBottom: 8,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 14,
   },
-  gridRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  gridCol: {
-    flex: 1,
+    paddingVertical: adminSpacing.xs,
+    gap: adminSpacing.md,
   },
   label: {
-    ...adminType.rowMeta,
+    ...adminType.body,
     color: adminColors.muted,
-    marginBottom: 4,
   },
   valueBold: {
     ...adminType.sectionHead,
     color: adminColors.ink,
+    flexShrink: 1,
+    textAlign: 'right',
   },
-  customerName: {
-    ...adminType.body,
+  meta: {
+    ...adminType.rowMeta,
     color: adminColors.muted,
-    marginBottom: 2,
-  },
-  customerCode: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    marginTop: 2,
   },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
+    gap: adminSpacing.md,
   },
   productName: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: 2,
-  },
-  productGrade: {
-    ...adminType.body,
-    color: adminColors.muted,
-  },
-  productPrice: {
     ...adminType.sectionHead,
     color: adminColors.ink,
   },
@@ -427,56 +369,37 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.border,
     marginVertical: 10,
   },
-  serverNoticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: adminColors.success.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.success.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  serverNoticeText: {
-    flex: 1,
-    ...adminType.rowMeta,
-    color: adminColors.success.text,
-    lineHeight: 16.5,
-  },
   bottomBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 20,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    paddingBottom: adminSpacing.input,
     backgroundColor: adminColors.canvas,
     gap: 10,
   },
-  viewInvoiceBtn: {
+  primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.brand,
-    borderRadius: 12,
-    height: 48,
-    gap: 8,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
+    gap: adminSpacing.sm,
   },
-  viewInvoiceBtnText: {
-    color: adminColors.onBrand,
+  primaryBtnText: {
     ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
-  newSaleBtn: {
+  secondaryBtn: {
     backgroundColor: adminColors.card,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    height: 48,
+    height: ADMIN_BUTTON_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  newSaleBtnText: {
-    color: adminColors.brand,
+  secondaryBtnText: {
     ...adminType.sectionHead,
+    color: adminColors.brand,
   },
 });

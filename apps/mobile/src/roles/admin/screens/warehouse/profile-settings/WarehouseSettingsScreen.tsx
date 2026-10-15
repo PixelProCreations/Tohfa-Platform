@@ -1,162 +1,198 @@
 // Design id: M15-S05T
 /**
- * Warehouse Settings (capacity & thresholds), Main Warehouse only
- * (FINAL_LIST #76).
+ * Warehouse Settings, Main Warehouse only (FINAL_LIST #76).
  *
- * Was admin/screens/warehouse/WarehouseSettingsScreen. Route-guarded with
- * can('warehouse.capacity.set') (MAIN_WH_ADMIN all, SUB_WH_ADMIN none): without
- * it the screen shows a permission note and nothing else.
+ * Live, and only what the server stores:
+ *   - Capacity limit: GET /warehouses/{id}/capacity, edited with PATCH
+ *     .../capacity (warehouse.capacity.set, BR-66). A decimal kg string end to
+ *     end, never a float.
+ *   - Contact phone and operating hours: GET /warehouses/{id}, edited with
+ *     PATCH /warehouses/{id} (warehouse.profile.edit, BR-80): E.164 phone, and
+ *     the week in the one shape the API accepts.
  *
- * The capacity row used to be locked "SA-only" (following the Role Matrix),
- * but docs/rbac.json grants MAIN_WH_ADMIN warehouse.capacity.set = all (reqs
- * Ch.6 precedence, conflictPrecedence entry "warehouse capacity"), so the row
- * is unlocked: an Edit control opens a capacity dialog. There is no capacity
- * write endpoint (GET /warehouses only), so the change is local until one
- * exists (SPEC_GAPS W4m-4).
+ * Each edit is shown only with its own docs/rbac.json code; without either
+ * (a Sub admin holds neither) the screen shows a permission note and nothing
+ * else. The server checks both again (root CLAUDE.md 2.1).
  *
- * "Edit Threshold & Hours" and the "Automated Operational Rules" switches have
- * no rbac code: shown ungated (inside the guard) and local only (SPEC_GAPS
- * W4m-4). The threshold presets, hours, staff count and the escalation share
- * come from the warehouse record (mock), not from constants in this screen; the
- * old hard-coded warehouse list ('Kotagiri' / 'Ooty' / 'Coonoor') is the
- * scope's warehouse options.
+ * Removed: the per-warehouse low-stock threshold and its presets, the
+ * escalation share, the assigned-staff stepper and the three automation
+ * switches. None has an endpoint, and business thresholds belong in
+ * system_config, not in a screen (root CLAUDE.md 2.7); they were local mock
+ * state that saved nothing.
  */
-import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { adminErrorKey } from '../../../api/errors';
+import type { UpdateWarehouseProfileBody } from '../../../api/warehouseSettings';
+import { t } from '../../../i18n';
+import { formatKg, gramsToKgString } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { Card, CheckIcon, PermissionNote, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { toOperatingWeek } from './mappers';
 import {
-  Card,
-  CheckIcon,
-  EmptyState,
-  PermissionNote,
-  SectionTitle,
-  StatusBadge,
-  WalletButton,
-  WalletScreen,
-} from '../wallet-cashtopup/WalletParts';
+  capacityInputOf,
+  operatingHoursBody,
+  operatingHoursFormOf,
+  parseCapacityInput,
+  parsePhoneInput,
+  type OperatingDayForm,
+} from './mappers_settings';
 import { PencilIcon } from './ProfileParts';
-import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseSettingsValues } from './types';
-import { PROFILE_WAREHOUSES, THRESHOLD_PRESETS, WAREHOUSE_SETTINGS } from './warehouseFixtures';
-import {
-  ClockIcon,
-  formatKg,
-  singleWarehouseId,
-  SingleWarehouseHeader,
-  WAREHOUSE_PROFILE_CODES,
-  warehouseNameOf,
-  warehouseProfileLayout,
-} from './WarehouseProfileParts';
+import type { CapacityView, WarehouseProfileView, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
+import { SingleWarehouseHeader, warehouseProfileLayout } from './WarehouseProfileParts';
+
+/** The docs/rbac.json codes this screen checks (both exist there). */
+export const WAREHOUSE_SETTINGS_CODES = {
+  capacitySet: 'warehouse.capacity.set',
+  profileEdit: 'warehouse.profile.edit',
+} as const;
+
+/** How long the "saved" banner stays: a UI timing, not a business threshold. */
+const SAVED_BANNER_MS = 3000;
 
 export interface WarehouseSettingsScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
-  settings?: readonly WarehouseSettingsValues[] | undefined;
-  /** Quick-pick low-stock thresholds in the editor. */
-  thresholdPresets?: readonly number[] | undefined;
+  headerWarehouseId?: string | undefined;
+  /** No warehouse to ask for (Main before the warehouse list loads, or none). */
+  unavailable?: boolean | undefined;
+  profile?: WarehouseProfileView | undefined;
+  /** The stored operating hours as sent (GET /warehouses/{id}). */
+  operatingHours?: unknown;
+  capacity?: CapacityView | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+
+  onSaveCapacity: (capacityKg: string, onDone: () => void) => void;
+  isSavingCapacity?: boolean | undefined;
+  capacityError?: unknown;
+  onResetCapacity?: (() => void) | undefined;
+
+  onSaveProfile: (body: UpdateWarehouseProfileBody, onDone: () => void) => void;
+  isSavingProfile?: boolean | undefined;
+  profileError?: unknown;
+  onResetProfile?: (() => void) | undefined;
 }
 
-type Dialog = 'none' | 'thresholdHours' | 'capacity';
+type Dialog = 'none' | 'capacity' | 'phone' | 'hours';
 
-export function WarehouseSettingsScreen({
-  scope,
-  can,
-  onBack,
-  warehouseOptions = PROFILE_WAREHOUSES,
-  selectedWarehouseId,
-  onSelectWarehouse,
-  settings = WAREHOUSE_SETTINGS,
-  thresholdPresets = THRESHOLD_PRESETS,
-}: WarehouseSettingsScreenProps) {
-  const [localSelection, setLocalSelection] = useState<string | undefined>(selectedWarehouseId);
-  const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
-  const select = onSelectWarehouse ?? setLocalSelection;
-  const warehouseId = singleWarehouseId(scope, selected, warehouseOptions);
-  const warehouseName = warehouseNameOf(scope, warehouseId, warehouseOptions);
-
-  // Local edits per warehouse (no write endpoint yet, SPEC_GAPS W4m-4).
-  const [values, setValues] = useState<readonly WarehouseSettingsValues[]>(settings);
-  const current = values.find((v) => v.warehouseId === warehouseId);
+export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
+  const { scope, can, onBack, warehouseOptions, headerWarehouseId, onSelectWarehouse, profile, capacity } = props;
+  const canCapacity = can(WAREHOUSE_SETTINGS_CODES.capacitySet);
+  const canProfile = can(WAREHOUSE_SETTINGS_CODES.profileEdit);
 
   const [dialog, setDialog] = useState<Dialog>('none');
-  const [thresholdInput, setThresholdInput] = useState('');
-  const [hoursInput, setHoursInput] = useState('');
-  const [staffInput, setStaffInput] = useState(1);
   const [capacityInput, setCapacityInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [hoursInput, setHoursInput] = useState<OperatingDayForm[]>([]);
   const [inputError, setInputError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (savedMessage === null) return undefined;
-    const timer = setTimeout(() => setSavedMessage(null), 3000);
+    const timer = setTimeout(() => setSavedMessage(null), SAVED_BANNER_MS);
     return () => clearTimeout(timer);
   }, [savedMessage]);
 
-  if (!can(WAREHOUSE_PROFILE_CODES.capacitySet)) {
+  const week = useMemo(() => toOperatingWeek(props.operatingHours, new Date()), [props.operatingHours]);
+
+  if (!canCapacity && !canProfile) {
     return (
-      <WalletScreen title="Warehouse Settings" onBack={onBack}>
+      <WalletScreen title={t('warehouseSettings.title')} onBack={onBack}>
         <View style={warehouseProfileLayout.scrollContent}>
-          <PermissionNote>Warehouse settings need the warehouse.capacity.set permission (Main Warehouse admins).</PermissionNote>
+          <PermissionNote>{t('warehouseSettings.noPermission')}</PermissionNote>
         </View>
       </WalletScreen>
     );
   }
 
-  const update = (patch: Partial<WarehouseSettingsValues>) => {
-    setValues((prev) => prev.map((v) => (v.warehouseId === warehouseId ? { ...v, ...patch } : v)));
-  };
+  const state = props.unavailable
+    ? props.isLoading
+      ? 'loading'
+      : 'unavailable'
+    : profile !== undefined
+      ? 'ready'
+      : queryViewState({ isLoading: props.isLoading ?? false, error: props.error, itemCount: 0 });
+  const noValue = t('profile.noValue');
+  const warehouseName = profile?.name ?? '';
 
-  const openThresholdHours = () => {
-    if (!current) return;
-    setThresholdInput(String(current.lowStockThresholdPercent));
-    setHoursInput(current.operatingHours);
-    setStaffInput(current.assignedStaff);
+  const open = (next: Dialog) => {
     setInputError(null);
-    setDialog('thresholdHours');
+    props.onResetCapacity?.();
+    props.onResetProfile?.();
+    if (next === 'capacity') {
+      setCapacityInput(capacity?.capacityGrams === null || capacity === undefined ? '' : capacityInputOf(gramsToKgString(capacity.capacityGrams)));
+    } else if (next === 'phone') {
+      setPhoneInput(profile?.contactPhone ?? '');
+    } else if (next === 'hours') {
+      setHoursInput(operatingHoursFormOf(props.operatingHours).days);
+    }
+    setDialog(next);
   };
 
-  const openCapacity = () => {
-    if (!current) return;
-    setCapacityInput(String(current.capacityKg));
-    setInputError(null);
-    setDialog('capacity');
-  };
-
-  const saveThresholdHours = () => {
-    const threshold = Number(thresholdInput.trim());
-    if (!Number.isInteger(threshold) || threshold < 1 || threshold > 100) {
-      setInputError('Enter a whole-number threshold between 1 and 100.');
-      return;
-    }
-    if (!hoursInput.trim()) {
-      setInputError('Enter the operating hours.');
-      return;
-    }
-    update({ lowStockThresholdPercent: threshold, operatingHours: hoursInput.trim(), assignedStaff: staffInput });
+  const done = (messageKey: 'warehouseSettings.saved.capacity' | 'warehouseSettings.saved.phone' | 'warehouseSettings.saved.hours') => () => {
     setDialog('none');
-    setSavedMessage(`Settings updated for ${warehouseName}`);
+    setSavedMessage(t(messageKey, { warehouse: warehouseName }));
   };
 
-  const saveCapacity = () => {
-    const kg = Number(capacityInput.replace(/,/g, '').trim());
-    if (!Number.isInteger(kg) || kg <= 0) {
-      setInputError('Enter the capacity as a whole number of kg.');
-      return;
+  const save = () => {
+    if (dialog === 'capacity') {
+      const parsed = parseCapacityInput(capacityInput);
+      if ('errorKey' in parsed) return setInputError(t(parsed.errorKey));
+      setInputError(null);
+      props.onSaveCapacity(parsed.value, done('warehouseSettings.saved.capacity'));
+    } else if (dialog === 'phone') {
+      const parsed = parsePhoneInput(phoneInput);
+      if ('errorKey' in parsed) return setInputError(t(parsed.errorKey));
+      setInputError(null);
+      props.onSaveProfile({ contactPhone: parsed.value }, done('warehouseSettings.saved.phone'));
+    } else if (dialog === 'hours') {
+      const parsed = operatingHoursBody(hoursInput);
+      if ('errorKey' in parsed) {
+        const day = 'day' in parsed ? hoursInput.find((d) => d.day === parsed.day) : undefined;
+        return setInputError(day ? t('warehouseSettings.hours.error.onDay', { day: t(day.labelKey), message: t(parsed.errorKey) }) : t(parsed.errorKey));
+      }
+      setInputError(null);
+      props.onSaveProfile({ operatingHours: parsed.value }, done('warehouseSettings.saved.hours'));
     }
-    update({ capacityKg: kg });
-    setDialog('none');
-    setSavedMessage(`Capacity updated for ${warehouseName}`);
+    return undefined;
   };
+
+  const updateDay = (day: OperatingDayForm['day'], patch: Partial<OperatingDayForm>) =>
+    setHoursInput((prev) => prev.map((d) => (d.day === day ? { ...d, ...patch } : d)));
+
+  const saving = dialog === 'capacity' ? props.isSavingCapacity ?? false : props.isSavingProfile ?? false;
+  const serverError = dialog === 'capacity' ? props.capacityError : dialog === 'none' ? null : props.profileError;
+  const dialogTitle =
+    dialog === 'capacity'
+      ? t('warehouseSettings.capacity.dialogTitle')
+      : dialog === 'phone'
+        ? t('warehouseSettings.phone.dialogTitle')
+        : t('warehouseSettings.hours.dialogTitle');
 
   return (
     <WalletScreen
-      title="Warehouse Settings"
-      subtitle={`${warehouseName} · Threshold & operating configuration`}
+      title={t('warehouseSettings.title')}
+      subtitle={warehouseName || undefined}
       onBack={onBack}
-      headerExtra={<SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={select} />}
+      headerExtra={<SingleWarehouseHeader scope={scope} warehouseId={headerWarehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />}
     >
-      {current === undefined ? (
-        <EmptyState title="No settings" subtitle="This warehouse has no configuration yet." />
+      {state === 'unavailable' ? (
+        <AdminEmptyState title={t('warehouseSettings.unavailable')} />
+      ) : state === 'loading' ? (
+        <AdminLoadingState />
+      ) : state !== 'ready' || profile === undefined ? (
+        <AdminErrorState error={props.error} onRetry={props.onRetry} />
       ) : (
-        <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={warehouseProfileLayout.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={props.onRefresh ? <RefreshControl refreshing={props.isRefreshing ?? false} onRefresh={props.onRefresh} /> : undefined}
+        >
           {savedMessage ? (
             <View style={styles.savedBanner}>
               <View style={styles.savedIcon}>
@@ -166,153 +202,149 @@ export function WarehouseSettingsScreen({
             </View>
           ) : null}
 
-          <SectionTitle>Threshold & Operating Configurations</SectionTitle>
+          <SectionTitle>{t('warehouseSettings.section.capacity')}</SectionTitle>
           <Card>
-            <SettingRow label="Capacity limit" sub="Maximum storage for this warehouse" first>
+            <SettingRow label={t('warehouseSettings.capacity.label')} sub={t('warehouseSettings.capacity.sub')} first>
               <View style={styles.rowRight}>
-                <Text style={styles.rowValue}>{formatKg(current.capacityKg)}</Text>
-                <TouchableOpacity
-                  style={styles.editPill}
-                  onPress={openCapacity}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit capacity limit"
-                >
-                  <PencilIcon size={12} color={adminColors.brandDeep} />
-                  <Text style={styles.editPillText}>Edit</Text>
-                </TouchableOpacity>
+                <Text style={styles.rowValue}>
+                  {capacity?.capacityGrams === null || capacity === undefined ? t('warehouseSettings.capacity.notSet') : formatKg(capacity.capacityGrams)}
+                </Text>
+                {canCapacity ? <EditPill label={t('warehouseSettings.capacity.edit')} onPress={() => open('capacity')} /> : null}
               </View>
             </SettingRow>
-            <SettingRow label="Low-stock threshold" sub="Triggers procurement replenishment alert">
-              <StatusBadge label={`${current.lowStockThresholdPercent}%`} tone="warning" />
-            </SettingRow>
-            <SettingRow label="Operating hours" sub="Receiving & dispatch operational window">
-              <View style={styles.hoursBadge}>
-                <ClockIcon size={14} />
-                <Text style={styles.hoursText}>{current.operatingHours}</Text>
-              </View>
-            </SettingRow>
-            <SettingRow label="Assigned staff" sub="Active Sub-Warehouse Administrators">
-              <Text style={styles.rowValue}>{`${current.assignedStaff} members`}</Text>
-            </SettingRow>
+            {capacity !== undefined ? (
+              <SettingRow label={t('warehouseSettings.capacity.used')} sub={capacity.utilizationLabel ?? noValue}>
+                <Text style={styles.rowValue}>{formatKg(capacity.usedGrams)}</Text>
+              </SettingRow>
+            ) : null}
           </Card>
-          <View style={warehouseProfileLayout.gap} />
-          <WalletButton
-            label="Edit Threshold & Hours"
-            variant="outline"
-            icon={<PencilIcon size={16} color={adminColors.brandDeep} />}
-            onPress={openThresholdHours}
-          />
+          {canCapacity ? <Text style={styles.hint}>{t('warehouseSettings.capacity.note')}</Text> : null}
 
-          <SectionTitle>Automated Operational Rules</SectionTitle>
+          <SectionTitle>{t('warehouseSettings.section.contact')}</SectionTitle>
           <Card>
-            <SettingRow label="Inbound Storage Auto-Assignment" sub="Auto-assign storage racks based on product temperature" first>
-              <RuleSwitch value={current.autoAssignment} onChange={(v) => update({ autoAssignment: v })} />
-            </SettingRow>
-            <SettingRow label="Immediate Low-Stock Push Alerts" sub="Notify central warehouse when threshold is breached">
-              <RuleSwitch value={current.lowStockAlerts} onChange={(v) => update({ lowStockAlerts: v })} />
-            </SettingRow>
-            <SettingRow
-              label="Auto-Escalate Discrepancies"
-              sub={`Escalate quantity mismatches exceeding ${current.escalationThresholdPercent}%`}
-            >
-              <RuleSwitch value={current.discrepancyEscalation} onChange={(v) => update({ discrepancyEscalation: v })} />
+            <SettingRow label={t('warehouseSettings.phone.label')} sub={t('warehouseSettings.phone.sub')} first>
+              <View style={styles.rowRight}>
+                <Text style={styles.rowValue}>{profile.contactPhone ?? noValue}</Text>
+                {canProfile ? <EditPill label={t('warehouseSettings.phone.edit')} onPress={() => open('phone')} /> : null}
+              </View>
             </SettingRow>
           </Card>
+
+          <SectionTitle
+            right={canProfile ? <EditPill label={t('warehouseSettings.hours.edit')} onPress={() => open('hours')} /> : undefined}
+          >
+            {t('warehouseSettings.section.hours')}
+          </SectionTitle>
+          <Card>
+            {week === null ? (
+              <Text style={styles.settingSub}>{t('profile.operating.notConfigured')}</Text>
+            ) : (
+              week.map((day, i) => (
+                <SettingRow key={day.day} label={day.day} first={i === 0}>
+                  <Text style={styles.rowValue}>{day.hours ?? t('profile.operating.closed')}</Text>
+                </SettingRow>
+              ))
+            )}
+          </Card>
+          {!canCapacity || !canProfile ? <PermissionNote>{t('warehouseSettings.partialPermission')}</PermissionNote> : null}
         </ScrollView>
       )}
 
       <Modal visible={dialog !== 'none'} transparent animationType="fade" onRequestClose={() => setDialog('none')}>
         <View style={styles.backdrop}>
-          <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>{dialog === 'capacity' ? 'Set Capacity Limit' : 'Configure Threshold & Hours'}</Text>
+          <ScrollView contentContainerStyle={styles.dialog} keyboardShouldPersistTaps="handled">
+            <Text style={styles.dialogTitle}>{dialogTitle}</Text>
             <Text style={styles.dialogSub}>{warehouseName}</Text>
 
             {dialog === 'capacity' ? (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>CAPACITY LIMIT (KG)</Text>
+                <Text style={styles.inputLabel}>{t('warehouseSettings.capacity.inputLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={capacityInput}
                   onChangeText={setCapacityInput}
-                  keyboardType="numeric"
-                  placeholder="Capacity in kg"
+                  keyboardType="decimal-pad"
+                  placeholder={t('warehouseSettings.capacity.placeholder')}
                   placeholderTextColor={adminColors.placeholder}
                 />
               </View>
-            ) : (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>LOW-STOCK THRESHOLD (%)</Text>
-                  <View style={styles.presetRow}>
-                    {thresholdPresets.map((preset) => {
-                      const active = thresholdInput === String(preset);
-                      return (
-                        <TouchableOpacity
-                          key={preset}
-                          style={[styles.preset, active && styles.presetActive]}
-                          onPress={() => setThresholdInput(String(preset))}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                        >
-                          <Text style={[styles.presetText, active && styles.presetTextActive]}>{preset}%</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+            ) : dialog === 'phone' ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('warehouseSettings.phone.inputLabel')}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phoneInput}
+                  onChangeText={setPhoneInput}
+                  keyboardType="phone-pad"
+                  placeholder={t('warehouseSettings.phone.placeholder')}
+                  placeholderTextColor={adminColors.placeholder}
+                />
+                <Text style={styles.hint}>{t('warehouseSettings.phone.hint')}</Text>
+              </View>
+            ) : dialog === 'hours' ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.hint}>{t('warehouseSettings.hours.hint')}</Text>
+                {hoursInput.map((day) => (
+                  <View key={day.day} style={styles.dayRow}>
+                    <Text style={styles.dayLabel}>{t(day.labelKey)}</Text>
+                    <Switch
+                      value={day.isOpen}
+                      onValueChange={(isOpen) => updateDay(day.day, { isOpen })}
+                      trackColor={{ false: adminColors.border, true: adminColors.brand }}
+                      thumbColor={adminColors.card}
+                      accessibilityLabel={t('warehouseSettings.hours.openToggle', { day: t(day.labelKey) })}
+                    />
+                    {day.isOpen ? (
+                      <View style={styles.timeRow}>
+                        <TextInput
+                          style={[styles.input, styles.timeInput]}
+                          value={day.open}
+                          onChangeText={(value) => updateDay(day.day, { open: value })}
+                          placeholder={t('warehouseSettings.hours.openPlaceholder')}
+                          placeholderTextColor={adminColors.placeholder}
+                          keyboardType="numbers-and-punctuation"
+                        />
+                        <TextInput
+                          style={[styles.input, styles.timeInput]}
+                          value={day.close}
+                          onChangeText={(value) => updateDay(day.day, { close: value })}
+                          placeholder={t('warehouseSettings.hours.closePlaceholder')}
+                          placeholderTextColor={adminColors.placeholder}
+                          keyboardType="numbers-and-punctuation"
+                        />
+                      </View>
+                    ) : (
+                      <Text style={styles.closedText}>{t('profile.operating.closed')}</Text>
+                    )}
                   </View>
-                  <TextInput
-                    style={styles.input}
-                    value={thresholdInput}
-                    onChangeText={setThresholdInput}
-                    keyboardType="numeric"
-                    placeholder="Custom threshold"
-                    placeholderTextColor={adminColors.placeholder}
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>OPERATING HOURS</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={hoursInput}
-                    onChangeText={setHoursInput}
-                    placeholder="Opening – closing time"
-                    placeholderTextColor={adminColors.placeholder}
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>ASSIGNED SWA STAFF</Text>
-                  <View style={styles.stepper}>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setStaffInput((n) => Math.max(1, n - 1))}
-                      accessibilityRole="button"
-                      accessibilityLabel="Fewer staff"
-                    >
-                      <Text style={styles.stepperButtonText}>−</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.stepperValue}>{`${staffInput} members`}</Text>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setStaffInput((n) => n + 1)}
-                      accessibilityRole="button"
-                      accessibilityLabel="More staff"
-                    >
-                      <Text style={styles.stepperButtonText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            )}
+                ))}
+              </View>
+            ) : null}
 
             {inputError ? <Text style={styles.error}>{inputError}</Text> : null}
+            {!inputError && serverError ? <Text style={styles.error}>{t(adminErrorKey(serverError))}</Text> : null}
             <View style={styles.dialogActions}>
-              <WalletButton label="Cancel" variant="neutral" flex onPress={() => setDialog('none')} />
-              <WalletButton label="Save" flex onPress={dialog === 'capacity' ? saveCapacity : saveThresholdHours} />
+              <WalletButton label={t('warehouseSettings.action.cancel')} variant="neutral" flex onPress={() => setDialog('none')} />
+              <WalletButton
+                label={saving ? t('warehouseSettings.action.saving') : t('warehouseSettings.action.save')}
+                flex
+                disabled={saving}
+                onPress={save}
+              />
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </WalletScreen>
+  );
+}
+
+function EditPill({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.editPill} onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={label}>
+      <PencilIcon size={12} color={adminColors.brandDeep} />
+      <Text style={styles.editPillText}>{t('warehouseSettings.action.edit')}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -323,7 +355,7 @@ function SettingRow({
   children,
 }: {
   label: string;
-  sub: string;
+  sub?: string | undefined;
   first?: boolean | undefined;
   children: React.ReactNode;
 }) {
@@ -331,27 +363,15 @@ function SettingRow({
     <View style={[styles.settingRow, !first && styles.settingRowDivider]}>
       <View style={styles.settingText}>
         <Text style={styles.settingLabel}>{label}</Text>
-        <Text style={styles.settingSub}>{sub}</Text>
+        {sub ? <Text style={styles.settingSub}>{sub}</Text> : null}
       </View>
       {children}
     </View>
   );
 }
 
-function RuleSwitch({ value, onChange }: { value: boolean; onChange: (next: boolean) => void }) {
-  return (
-    <Switch
-      value={value}
-      onValueChange={onChange}
-      trackColor={{ false: adminColors.border, true: adminColors.brand }}
-      thumbColor={adminColors.card}
-    />
-  );
-}
-
-// Saved-banner icon and stepper button diameters: icon sizes, not spacing.
+// Saved-banner icon diameter: an icon size, not spacing.
 const SAVED_ICON = 22;
-const STEPPER_BUTTON = 36;
 
 const styles = StyleSheet.create({
   savedBanner: {
@@ -377,20 +397,11 @@ const styles = StyleSheet.create({
   settingRowDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
   settingText: { flex: 1 },
   settingLabel: { ...adminType.rowTitle, color: adminColors.ink },
-  settingSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  settingSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   rowRight: { alignItems: 'flex-end', gap: adminSpacing.xs },
   rowValue: { ...adminType.rowTitle, color: adminColors.ink },
+  hint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
   editPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTint,
-  },
-  editPillText: { ...adminType.caption, color: adminColors.brandDeep },
-  hoursBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: adminSpacing.xs,
@@ -399,9 +410,9 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
     backgroundColor: adminColors.brandTint,
   },
-  hoursText: { ...adminType.caption, color: adminColors.brandDeep },
+  editPillText: { ...adminType.caption, color: adminColors.brandDeep },
 
-  // Was a translucent black overlay; no translucent token, so a solid canvas scrim with the card raised by adminShadow.lg.
+  // No translucent token: a solid canvas scrim with the card raised by adminShadow.lg.
   backdrop: { flex: 1, backgroundColor: adminColors.canvas, justifyContent: 'center', padding: adminSpacing.xl },
   dialog: {
     backgroundColor: adminColors.card,
@@ -425,30 +436,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.sm,
   },
-  presetRow: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.sm },
-  preset: {
-    flex: 1,
+  dayRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
     paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
   },
-  presetActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  presetText: { ...adminType.rowTitle, color: adminColors.muted },
-  presetTextActive: { color: adminColors.brandDeep },
-  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stepperButton: {
-    width: STEPPER_BUTTON,
-    height: STEPPER_BUTTON,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonText: { ...adminType.title, color: adminColors.brandDeep },
-  stepperValue: { ...adminType.sectionHead, color: adminColors.ink },
+  dayLabel: { ...adminType.rowTitle, color: adminColors.ink, flex: 1 },
+  timeRow: { flexDirection: 'row', gap: adminSpacing.sm, width: '100%' },
+  timeInput: { flex: 1 },
+  closedText: { ...adminType.rowMeta, color: adminColors.muted },
   error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.md },
   dialogActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.xl },
 });

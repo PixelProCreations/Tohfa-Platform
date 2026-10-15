@@ -18,6 +18,12 @@
  * prefix (FinanceRoute). Daily Cash is the wallet-cashtopup DailyCashScreen
  * (W4i). SubWarehouseExpenseRecord (a duplicate stub with an 'Approve' button;
  * no approve code exists) is ExpenseDetail.
+ *
+ * Route params are ids only (FinanceRouteParams): each screen reads its own
+ * record from the API, so a stale or hand-built param can never show figures
+ * the server did not send. There is no warehouse list prop: a Main-admin
+ * screen that needs a warehouse fetches the live list itself
+ * (useFinanceWarehousePicker in ./FinanceParts.tsx).
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
@@ -25,21 +31,13 @@ import { useFlowBack } from '../useFlowBack';
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
-import { FINANCE_TODAY, FINANCE_WAREHOUSES } from './fixtures';
-import { FINANCE_CODES } from './FinanceParts';
+import { canOpenFinanceRoute } from './FinanceParts';
 import { FinanceHistoryScreen } from './FinanceHistoryScreen';
-import { canOpenFinanceRoute, FinanceHubScreen } from './FinanceHubScreen';
+import { FinanceHubScreen } from './FinanceHubScreen';
 import { FinanceReportsScreen } from './FinanceReportsScreen';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
-import { revenueDetailOf, RevenueScreen } from './RevenueScreen';
-import type {
-  ExpenseDraft,
-  FinanceRoute,
-  FinanceRouteParams,
-  PermissionCheck,
-  WarehouseScope,
-  WarehouseTab,
-} from './types';
+import { RevenueScreen } from './RevenueScreen';
+import type { FinanceRoute, FinanceRouteParams, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
@@ -55,6 +53,7 @@ export interface FinanceFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
   initialScreen?: FinanceRoute | undefined;
+  /** Ids only (orderId / expenseId); every screen reads its own record from the API. */
   initialParams?: FinanceRouteParams | undefined;
   /** Leave the finance module (pressed back on its first screen). */
   onBack: () => void;
@@ -66,24 +65,6 @@ export interface FinanceFlowProps {
   onNavigateToCustomerOrders?: (() => void) | undefined;
   /** Revenue detail 'View Invoice' (invoice.view_own). */
   onNavigateToInvoiceList?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selectors (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-}
-
-/** The expense the edit form opens with when the detail screen's Edit is used. */
-function draftOf(params: FinanceRouteParams): ExpenseDraft | undefined {
-  const e = params.expense;
-  if (e?.expenseId === undefined) return undefined;
-  const method = e.paymentMethod;
-  return {
-    expenseId: e.expenseId,
-    amount: String(e.amount ?? '').replace(/[^0-9.]/g, ''),
-    category: e.category ?? '',
-    date: e.date ?? '',
-    description: e.description ?? '',
-    paymentMethod: method === 'UPI' || method === 'Bank' ? method : 'Cash',
-    vendorPayee: e.vendorPayee ?? '',
-  };
 }
 
 export function FinanceFlow({
@@ -97,7 +78,6 @@ export function FinanceFlow({
   onOpenWallet,
   onNavigateToCustomerOrders,
   onNavigateToInvoiceList,
-  warehouseOptions = FINANCE_WAREHOUSES,
 }: FinanceFlowProps) {
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -111,7 +91,6 @@ export function FinanceFlow({
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: FinanceRouteParams = current.params ?? {};
-  const isMain = scope.warehouseId === undefined;
 
   const navigate = (screen: FinanceRoute, nextParams?: FinanceRouteParams) => {
     if (!canOpenFinanceRoute(can, screen)) return;
@@ -135,6 +114,7 @@ export function FinanceFlow({
 
   const common = { scope, can, onBack: back, onTabChange };
   const openHistory = () => navigate('FinanceHistory');
+  const openVoucher = (expenseId: string) => navigate('VoucherDetail', { expenseId });
 
   switch (current.screen) {
     case 'FinanceHub':
@@ -147,115 +127,57 @@ export function FinanceFlow({
         />
       );
     case 'Revenue':
-      return (
-        <RevenueScreen
-          {...common}
-          warehouseOptions={warehouseOptions}
-          onSelectRevenue={(record) => navigate('RevenueDetail', { revenue: revenueDetailOf(record) })}
-        />
-      );
+      return <RevenueScreen {...common} onSelectRevenue={(orderId) => navigate('RevenueDetail', { orderId })} />;
     case 'RevenueDetail':
       return (
         <RevenueDetailScreen
           {...common}
-          {...params.revenue}
-          isShortVersion={params.isShortVersion}
+          orderId={params.orderId}
           onViewOrder={onNavigateToCustomerOrders}
           onViewInvoice={onNavigateToInvoiceList}
           onViewTransactionHistory={canOpenFinanceRoute(can, 'FinanceHistory') ? openHistory : undefined}
         />
       );
     case 'Expenses':
-      return <WarehouseExpensesScreen {...common} onAddExpense={() => navigate('AddExpense')} />;
-    case 'AddExpense':
       return (
-        <WarehouseAddExpenseScreen
+        <WarehouseExpensesScreen
           {...common}
-          initialExpense={params.expenseDraft}
-          onSaveSuccess={() =>
-            replace('ExpenseDetail', {
-              expense: params.expenseDraft
-                ? {
-                    expenseId: params.expenseDraft.expenseId,
-                    amount: params.expenseDraft.amount,
-                    category: params.expenseDraft.category,
-                    date: params.expenseDraft.date,
-                    description: params.expenseDraft.description,
-                    paymentMethod: params.expenseDraft.paymentMethod,
-                    vendorPayee: params.expenseDraft.vendorPayee,
-                    status: 'Recorded',
-                  }
-                : undefined,
-            })
-          }
+          onAddExpense={() => navigate('AddExpense')}
+          onSelectExpense={(expenseId) => navigate('ExpenseDetail', { expenseId })}
         />
       );
+    case 'AddExpense':
+      // There is no PATCH /admin/expenses/{id}: the form only records (BR-62).
+      return <WarehouseAddExpenseScreen {...common} onSaveSuccess={(expenseId) => replace('ExpenseDetail', { expenseId })} />;
     case 'ExpenseDetail':
       return (
         <ExpenseDetailScreen
           {...common}
-          {...params.expense}
-          isShortVersion={params.isShortVersion}
-          isReceiptView={params.isReceiptView}
-          onEdit={
-            can(FINANCE_CODES.expenseLog) ? () => navigate('AddExpense', { expenseDraft: draftOf(params) }) : undefined
-          }
-          onViewReceipt={() => navigate('ExpenseDetail', { ...params, isReceiptView: true })}
-          onViewVouchers={canOpenFinanceRoute(can, 'Vouchers') ? () => navigate('Vouchers') : undefined}
+          expenseId={params.expenseId}
+          onViewVoucher={canOpenFinanceRoute(can, 'VoucherDetail') ? openVoucher : undefined}
         />
       );
     case 'ExpenseCategories':
       return <ExpenseCategoriesScreen {...common} />;
     case 'Vouchers':
-      return (
-        <VouchersScreen
-          {...common}
-          warehouseOptions={warehouseOptions}
-          onSelectVoucher={(voucher) => navigate('VoucherDetail', { voucher })}
-        />
-      );
+      return <VouchersScreen {...common} onSelectVoucher={openVoucher} />;
     case 'VoucherDetail':
-      return <VoucherDetailScreen {...common} voucher={params.voucher} />;
+      return <VoucherDetailScreen {...common} expenseId={params.expenseId} />;
     case 'FinanceHistory':
       return (
         <FinanceHistoryScreen
           {...common}
-          onSelectItem={(item) => {
-            // Main opened history rows in the compact layout (ported isShortVersion).
-            if (item.type === 'Revenue') {
-              navigate('RevenueDetail', {
-                isShortVersion: isMain,
-                revenue: {
-                  revenueId: item.id,
-                  finalAmount: item.amount.toLocaleString('en-IN'),
-                  salesChannel: item.title,
-                  transactionDate: item.time,
-                },
-              });
-            } else {
-              navigate('ExpenseDetail', {
-                isShortVersion: isMain,
-                expense: { expenseId: item.id, amount: item.amount, category: item.title, date: item.time },
-              });
-            }
-          }}
+          onSelectItem={(row) =>
+            row.kind === 'revenue'
+              ? navigate('RevenueDetail', { orderId: row.id })
+              : navigate('ExpenseDetail', { expenseId: row.id })
+          }
         />
       );
     case 'FinanceReports':
-      return (
-        <FinanceReportsScreen
-          {...common}
-          // report.export.file is `view` (read-only) for MAIN_WH_ADMIN and `own`
-          // for SUB_WH_ADMIN; /auth/me drops the grant scope, so the Main view
-          // keeps Generate/Export off explicitly (SPEC_GAPS section 1 #11).
-          canExport={isMain ? false : undefined}
-          onNavigateToCustomerOrders={onNavigateToCustomerOrders}
-          onNavigateToInvoiceList={onNavigateToInvoiceList}
-          onNavigateToHistory={openHistory}
-        />
-      );
+      return <FinanceReportsScreen {...common} onNavigateToHistory={openHistory} />;
     case 'DailyCash':
-      return <DailyCashScreen {...common} date={FINANCE_TODAY} warehouseOptions={warehouseOptions} />;
+      return <DailyCashScreen scope={scope} can={can} onBack={back} onTabChange={onTabChange} />;
     default:
       return null;
   }

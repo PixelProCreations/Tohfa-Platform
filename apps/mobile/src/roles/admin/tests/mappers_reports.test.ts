@@ -25,6 +25,8 @@ import {
   mapReceivingReport,
   mapReturnsReport,
   mapSalesReport,
+  reportChannelLabel,
+  reportStatusLabel,
   reportsWarehouseFilter,
   validateReportDateRange,
 } from '../screens/warehouse/reports/mappers';
@@ -111,6 +113,8 @@ describe('roles/admin/screens/warehouse/reports/mappers.ts', () => {
       expect(mapped.totalReceipts).toBe(8);
       expect(mapped.byStatusCounts['ACCEPTED']).toBe(7);
       expect(mapped.byStatusCounts['REJECTED']).toBe(1);
+      expect(mapped.acceptedCount).toBe(7);
+      expect(mapped.rejectedCount).toBe(1);
       expect(mapped.byDay).toHaveLength(3);
     });
   });
@@ -216,6 +220,29 @@ describe('roles/admin/screens/warehouse/reports/mappers.ts', () => {
     it('passes through selected warehouse when scope is main', () => {
       expect(reportsWarehouseFilter(MAIN_SCOPE, FOREIGN_WAREHOUSE)).toBe(FOREIGN_WAREHOUSE);
       expect(reportsWarehouseFilter(MAIN_SCOPE, undefined)).toBeUndefined();
+    });
+
+    it('BR-64a: a Sub admin never sends a non-uuid warehouse id (old fixture ids become undefined)', () => {
+      expect(reportsWarehouseFilter({ warehouseId: 'WH-COON', warehouseName: 'Coonoor' }, FOREIGN_WAREHOUSE)).toBeUndefined();
+      expect(reportsWarehouseFilter(SUB_SCOPE, 'WH-OOTY')).toBe(OWN_WAREHOUSE);
+    });
+
+    it('BR-64b: a Main admin selection that is not a uuid means all warehouses, not a 400', () => {
+      expect(reportsWarehouseFilter(MAIN_SCOPE, 'WH-OOTY')).toBeUndefined();
+      expect(reportsWarehouseFilter(MAIN_SCOPE, '')).toBeUndefined();
+      expect(reportsWarehouseFilter(MAIN_SCOPE, 'ALL')).toBeUndefined();
+      expect(reportsWarehouseFilter(MAIN_SCOPE, FOREIGN_WAREHOUSE)).toBe(FOREIGN_WAREHOUSE);
+    });
+  });
+
+  describe('report labels', () => {
+    it('translates known status and channel codes and falls back to the raw code', () => {
+      expect(reportStatusLabel('order', 'PENDING_PAYMENT')).toBe('Payment Pending');
+      expect(reportStatusLabel('grn', 'PARTIALLY_ACCEPTED')).toBe('Partially Accepted');
+      expect(reportStatusLabel('return', 'REFUND_PENDING_BANK')).toBe('Bank Refund Pending');
+      expect(reportStatusLabel('order', 'SOMETHING_NEW')).toBe('SOMETHING_NEW');
+      expect(reportChannelLabel('ONLINE')).toBe('Online');
+      expect(reportChannelLabel('X')).toBe('X');
     });
   });
 

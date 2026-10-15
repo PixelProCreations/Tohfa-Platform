@@ -1,21 +1,28 @@
 /**
- * Operational Issue Detail: one issue's information, location, description,
- * evidence, reporter and resolution.
+ * Operational Issue Detail, live from GET /warehouses/{id}/issues/{issueId}
+ * (warehouse.issue.view; BR-103): the issue, its status history fields and
+ * its comment thread.
  *
- * Gate (FINAL_LIST 132): none; read-only. A resolve / update action would need
- * a new rbac code (SPEC_GAPS W4v-1), so none is offered. Scope-locked: an
- * issue outside the viewer's warehouse renders "not found" (no existence leak).
- * The warehouse label comes from the issue's warehouse id, not a fixed name.
+ * With `warehouse.issue.manage` (Main all, Sub own) the screen offers the
+ * status moves BR-103 rule 3 allows from the current status (start, back to
+ * open, resolve, reopen, close) as PATCH .../issues/{issueId}; resolving needs
+ * a resolution note. A comment is POST .../comments, refused on a CLOSED
+ * issue. The server decides every move again (409 INVALID_STATE_TRANSITION).
+ *
+ * Not shown, because the API does not carry them: a location, evidence
+ * photos (there is no attachment endpoint) and people's names (only user
+ * uuids, which mean nothing to staff). An issue of another warehouse is 404.
  */
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import type { IssueStatusCode } from '../../../api/warehouseIssues';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
-  EmptyState,
   InfoCard,
-  inScope,
-  ScopeHeader,
   SectionTitle,
   StatusBadge,
   WalletButton,
@@ -23,117 +30,226 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { OPERATIONAL_ISSUES, storageWarehouseName } from './fixtures';
-import { ISSUE_STATUS_TONE } from './OperationalIssuesScreen';
-import { ImageIcon } from './StorageParts';
-import type { OperationalIssue, WarehouseScreenBaseProps } from './types';
+import {
+  buildComment,
+  buildStatusChange,
+  canCommentOn,
+  ISSUE_LIMITS,
+  ISSUE_NEXT_STATUSES,
+  issueActionLabel,
+  toIssueCommentRow,
+  toIssueRow,
+} from './mappers';
+import { STORAGE_CODES } from './StorageParts';
+import type { StorageWarehouse } from './StorageWarehouse';
+import { useAddIssueComment, useIssue, useUpdateIssue } from './useStorageData';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface OperationalIssueDetailScreenProps extends WarehouseScreenBaseProps {
+  warehouse: StorageWarehouse;
   issueId?: string | undefined;
-  issues?: readonly OperationalIssue[] | undefined;
 }
 
-export function OperationalIssueDetailScreen({ scope, onBack, issueId, issues = OPERATIONAL_ISSUES }: OperationalIssueDetailScreenProps) {
-  const issue = issues.find((i) => i.id === issueId && inScope(scope, i.warehouseId));
+export function OperationalIssueDetailScreen({ can, onBack, warehouse, issueId }: OperationalIssueDetailScreenProps) {
+  const issue = useIssue(warehouse.warehouseId, issueId);
+  const update = useUpdateIssue(warehouse.warehouseId, issueId);
+  const comment = useAddIssueComment(warehouse.warehouseId, issueId);
+  const [resolving, setResolving] = useState(false);
+  const [note, setNote] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [formError, setFormError] = useState<string | undefined>(undefined);
+  const canManage = can(STORAGE_CODES.issueManage);
 
-  if (issue === undefined) {
-    return (
-      <WalletScreen title="Issue Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Issue not found" subtitle="This issue is not available in your warehouse." />
-      </WalletScreen>
-    );
-  }
+  const detail = issue.detail;
+  const now = new Date();
+  const row = detail === undefined ? undefined : toIssueRow(detail, now);
+
+  const changeStatus = (to: IssueStatusCode) => {
+    if (to === 'RESOLVED' && !resolving) {
+      setResolving(true);
+      setFormError(undefined);
+      return;
+    }
+    const built = buildStatusChange(to, note);
+    if (!built.ok) {
+      setFormError(t(built.error));
+      return;
+    }
+    setFormError(undefined);
+    update.mutate(built.body, {
+      onSuccess: () => {
+        setResolving(false);
+        setNote('');
+      },
+      onError: (err) => setFormError(t(adminErrorKey(err))),
+    });
+  };
+
+  const sendComment = () => {
+    const built = buildComment(commentText);
+    if (!built.ok) {
+      setFormError(t(built.error));
+      return;
+    }
+    setFormError(undefined);
+    comment.mutate(built.body, {
+      onSuccess: () => setCommentText(''),
+      onError: (err) => setFormError(t(adminErrorKey(err))),
+    });
+  };
+
+  const busy = update.isPending || comment.isPending;
+  const nextStatuses = row === undefined ? [] : ISSUE_NEXT_STATUSES[row.status];
 
   return (
     <WalletScreen
-      title="Issue Detail"
-      subtitle={issue.id}
+      title={t('storageOps.issue.title')}
+      subtitle={row?.issueNumber}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={storageWarehouseName(issue.warehouseId)} />}
+      headerExtra={warehouse.header}
       footer={
         <WalletFooter>
-          <WalletButton label="Back to Issues" onPress={onBack} />
+          <WalletButton label={t('storageOps.issue.back')} variant="neutral" onPress={onBack} />
         </WalletFooter>
       }
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle right={<StatusBadge label={issue.status} tone={ISSUE_STATUS_TONE[issue.status]} />}>Issue Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Issue ID', value: issue.id },
-              { label: 'Issue Type', value: issue.type },
-            ],
-            [
-              { label: 'Status', value: issue.status },
-              { label: 'Reported Date', value: issue.reportedDate },
-            ],
-            ...(issue.severity !== undefined ? [[{ label: 'Severity', value: issue.severity }]] : []),
-          ]}
-        />
+      {warehouse.placeholder ??
+        (row === undefined || detail === undefined ? (
+          issue.isLoading ? (
+            <AdminLoadingState />
+          ) : (
+            <AdminErrorState error={issue.error} onRetry={issue.refresh} />
+          )
+        ) : (
+          <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <SectionTitle right={<StatusBadge label={row.statusLabel} tone={row.statusTone} />}>{row.title}</SectionTitle>
+            <InfoCard
+              rows={[
+                [
+                  { label: t('storageOps.issue.field.number'), value: row.issueNumber },
+                  { label: t('storageOps.issue.field.category'), value: row.categoryLabel },
+                ],
+                [
+                  { label: t('storageOps.issue.field.severity'), value: row.severityLabel },
+                  { label: t('storageOps.issue.field.reported'), value: row.reportedAt },
+                ],
+                [
+                  { label: t('storageOps.issue.field.warehouse'), value: warehouse.warehouseName ?? t('storageOps.notAvailable') },
+                  {
+                    label: t('storageOps.issue.field.assigned'),
+                    value: t(row.isAssigned ? 'storageOps.issue.assigned.yes' : 'storageOps.issue.assigned.no'),
+                  },
+                ],
+              ]}
+            />
 
-        <SectionTitle>Location</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Warehouse', value: storageWarehouseName(issue.warehouseId) },
-              { label: 'Location', value: issue.location },
-            ],
-          ]}
-        />
+            <SectionTitle>{t('storageOps.issue.section.description')}</SectionTitle>
+            <InfoCard rows={[[{ label: row.title, value: row.description ?? t('storageOps.issue.noDescription') }]]} />
 
-        <SectionTitle>Description</SectionTitle>
-        <InfoCard rows={[[{ label: issue.title, value: issue.description }]]} />
+            {row.resolvedAt !== undefined || row.resolutionNote !== undefined || row.closedAt !== undefined ? (
+              <>
+                <SectionTitle>{t('storageOps.issue.section.resolution')}</SectionTitle>
+                <InfoCard
+                  rows={[
+                    [
+                      { label: t('storageOps.issue.field.resolvedAt'), value: row.resolvedAt ?? t('storageOps.notAvailable') },
+                      { label: t('storageOps.issue.field.closedAt'), value: row.closedAt ?? t('storageOps.notAvailable') },
+                    ],
+                    [{ label: t('storageOps.issue.field.resolutionNote'), value: row.resolutionNote ?? t('storageOps.notAvailable') }],
+                  ]}
+                />
+              </>
+            ) : null}
 
-        {issue.evidenceCount > 0 ? (
-          <>
-            <SectionTitle>Evidence</SectionTitle>
-            <View style={styles.evidenceRow}>
-              {Array.from({ length: issue.evidenceCount }, (_, i) => (
-                <View key={i} style={styles.evidenceBox} accessibilityLabel={`Evidence photo ${i + 1}`}>
-                  <ImageIcon />
+            {canManage && nextStatuses.length > 0 ? (
+              <>
+                <SectionTitle>{t('storageOps.issue.section.actions')}</SectionTitle>
+                {resolving ? (
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('storageOps.issue.notePlaceholder')}
+                    placeholderTextColor={adminColors.placeholder}
+                    value={note}
+                    onChangeText={setNote}
+                    maxLength={ISSUE_LIMITS.resolutionNote}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                ) : null}
+                <View style={styles.actions}>
+                  {nextStatuses.map((to) => (
+                    <WalletButton
+                      key={to}
+                      label={issueActionLabel(row.status, to)}
+                      variant={to === 'RESOLVED' ? 'primary' : 'outline'}
+                      disabled={busy}
+                      onPress={() => changeStatus(to)}
+                    />
+                  ))}
                 </View>
-              ))}
-            </View>
-          </>
-        ) : null}
+              </>
+            ) : null}
 
-        <SectionTitle>Reporter</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Reported By', value: issue.reportedBy },
-              { label: 'Date / Time', value: issue.reportedAt },
-            ],
-          ]}
-        />
+            {formError !== undefined ? <Text style={styles.error}>{formError}</Text> : null}
 
-        <SectionTitle>Resolution</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Resolved By', value: issue.resolvedBy ?? '—' },
-              { label: 'Resolved At', value: issue.resolvedAt ?? '—' },
-            ],
-          ]}
-        />
-      </ScrollView>
+            <SectionTitle>{t('storageOps.issue.section.comments')}</SectionTitle>
+            {detail.comments.length === 0 ? (
+              <Text style={styles.muted}>{t('storageOps.issue.noComments')}</Text>
+            ) : (
+              detail.comments.map((c) => {
+                const crow = toIssueCommentRow(c, now);
+                return (
+                  <View key={crow.id} style={styles.comment}>
+                    <Text style={styles.commentBody}>{crow.body}</Text>
+                    <Text style={styles.muted}>{crow.at}</Text>
+                  </View>
+                );
+              })
+            )}
+            {canManage && canCommentOn(row.status) ? (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t('storageOps.issue.commentPlaceholder')}
+                  placeholderTextColor={adminColors.placeholder}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  maxLength={ISSUE_LIMITS.comment}
+                  multiline
+                  textAlignVertical="top"
+                />
+                <WalletButton label={t('storageOps.issue.addComment')} variant="outline" disabled={busy} onPress={sendComment} />
+              </>
+            ) : null}
+          </ScrollView>
+        ))}
     </WalletScreen>
   );
 }
 
-const EVIDENCE_BOX = 84;
-
 const styles = StyleSheet.create({
-  evidenceRow: { flexDirection: 'row', gap: adminSpacing.md },
-  evidenceBox: {
-    width: EVIDENCE_BOX,
-    height: EVIDENCE_BOX,
-    borderRadius: adminRadius.lg,
+  actions: { gap: adminSpacing.sm },
+  input: {
+    ...adminType.body,
+    color: adminColors.ink,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
-    backgroundColor: adminColors.warning.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    minHeight: adminSpacing.xxl * 2,
+    marginBottom: adminSpacing.md,
   },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.sm },
+  muted: { ...adminType.rowMeta, color: adminColors.muted },
+  comment: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+    gap: adminSpacing.xs,
+  },
+  commentBody: { ...adminType.body, color: adminColors.ink },
 });

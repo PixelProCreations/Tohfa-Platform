@@ -1,7 +1,7 @@
 /**
  * roles/admin/api/wallet.ts: the warehouse cash top-up and the counter
  * customer lookup (docs/openapi.yaml operations createCashTopup and
- * lookupAdminSaleCustomer). The shell client is mocked (same pattern as
+ * lookupCashTopupCustomer). The shell client is mocked (same pattern as
  * api_orders.test.ts), so these tests pin exactly what goes on the wire.
  *
  * BR-18 / BR-19: the top-up body is the CashTopupCreate allow-list (amount as
@@ -99,21 +99,29 @@ describe('createCashTopup: POST /admin/wallets/{customerId}/cash-topup', () => {
   });
 });
 
-describe('lookupCustomers: GET /admin/sales/customers/lookup', () => {
-  it('sends exactly one of mobile / code / q, as given', async () => {
+describe('lookupCustomers: GET /admin/wallets/cash-topup/customers/lookup (BR-91i)', () => {
+  it('BR-91i: sends exactly one of mobile / code to the cash top-up lookup, as given', async () => {
     await lookupCustomers({ mobile: '9876543210' });
     await lookupCustomers({ code: 'CUS-00291' });
-    await lookupCustomers({ q: 'ravi' });
     expect(requestMock.mock.calls.map((c) => c[0])).toEqual([
-      '/admin/sales/customers/lookup?mobile=9876543210',
-      '/admin/sales/customers/lookup?code=CUS-00291',
-      '/admin/sales/customers/lookup?q=ravi',
+      '/admin/wallets/cash-topup/customers/lookup?mobile=9876543210',
+      '/admin/wallets/cash-topup/customers/lookup?code=CUS-00291',
     ]);
     for (const call of requestMock.mock.calls) expect(call[1]).toMatchObject({ method: 'GET' });
   });
 
-  it('sends no warehouseId: the server scopes the lookup to the caller (BR-91)', async () => {
-    await lookupCustomers({ q: 'ravi' });
+  it('never calls the sales counter lookup (sales.sale.create, which MAIN_WH_ADMIN does not hold)', async () => {
+    await lookupCustomers({ mobile: '9876543210' });
+    expect(String(requestMock.mock.calls[0]?.[0])).not.toMatch(/\/admin\/sales\//);
+  });
+
+  it('sends no q (422 on this lookup) and nothing else the caller object carries', async () => {
+    await lookupCustomers({ code: 'CUS-1', q: 'ravi', warehouseId: 'x' } as unknown as { code: string });
+    expect(requestMock.mock.calls[0]?.[0]).toBe('/admin/wallets/cash-topup/customers/lookup?code=CUS-1');
+  });
+
+  it('sends no warehouseId: the server scopes the caller itself', async () => {
+    await lookupCustomers({ code: 'CUS-1' });
     expect(String(requestMock.mock.calls[0]?.[0])).not.toMatch(/warehouse/i);
   });
 
@@ -121,7 +129,7 @@ describe('lookupCustomers: GET /admin/sales/customers/lookup', () => {
     requestMock.mockResolvedValueOnce({
       items: [{ customerId: CUSTOMER, customerCode: 'CUS-1', name: 'Ravi', mobileMasked: '******3210', walletBalance: '450.00' }],
     });
-    const res = await lookupCustomers({ q: 'ravi' });
+    const res = await lookupCustomers({ code: 'CUS-1' });
     expect(res.items).toHaveLength(1);
   });
 });

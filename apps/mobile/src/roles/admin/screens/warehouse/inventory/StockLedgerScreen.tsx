@@ -149,8 +149,8 @@ export function StockLedgerScreen({
   // warehouses (selector + cross-warehouse batch list, from the absorbed Main
   // screen); without it the flow pins every request to scope.warehouseId (view_own).
   const canViewAll = can('inventory.stock_ledger.view_all');
-  // Stock verification has no server API (availability.ts), so its tab is hidden;
-  // so is the old 'Verify / Adjust a Batch' button (physical count, no API).
+  // Stock counts (BR-106) are shown only with inventory.stock_verification.perform
+  // (availability.ts); a count is started from the Verify tab or Batch Detail.
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: movements.length });
   const activeBatches = batches.filter((batch) => batch.status === 'active');

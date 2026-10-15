@@ -1,22 +1,30 @@
 /**
  * Warehouse City Detail: one warehouse's own data (identity, operational KPIs,
- * capacity usage, assigned SWA) for the Main admin.
+ * capacity usage, assigned SWAs) for the Main admin.
  *
  * Gate (FINAL_LIST 156): Main-only; needs `warehouse.all.view` (MAIN all, SUB
  * none). The Sub equivalent is profile-settings Warehouse Profile. Settings
  * also needs `warehouse.capacity.set`.
  *
- * Absorbs MainWarehouseDetailScreen (M15-S01, Main side): its Warehouse ID /
- * location / status, the Operational KPIs (current stock, utilization, today's
- * receiving, today's orders), Warehouse Information (address, assigned SWA,
- * staff count) and its View Documents action, which now opens the shared
- * profile-settings Documents screen on this warehouse (via the flow). The
- * warehouse comes from `warehouseId`, not the old 'Ooty' / 'Coonoor' defaults.
+ * Live data (./useWarehouseAdminData.ts), all keyed by the warehouse uuid:
+ *   GET /warehouses/{id}             identity, address, contact, status
+ *   GET /warehouses/{id}/capacity    current stock, utilization (BR-66b)
+ *   GET /warehouses/{id}/issues      OPEN and IN_PROGRESS counts (`total`, BR-103; warehouse.issue.view)
+ *   GET /admin/tasks/summary         open work items (`open`, BR-77; task.own.view)
+ *   GET /admin/sub-warehouse-admins  assigned SWAs (admin.sub_wh_admin.create)
+ *
+ * Removed with the fixtures, because no endpoint carries them: today's
+ * receipts, staff count (the staff list has no total) and operating hours
+ * (the stored JSON has no specified read format; Warehouse Settings shows it).
+ * "Pending orders" is now "open tasks" from the task summary, which is what
+ * the server actually counts.
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   EmptyState,
   InfoCard,
@@ -30,138 +38,209 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { adminWarehouseLabel, adminWarehouseName, swaNameOf, WAREHOUSE_ADMIN_ROWS } from './fixtures';
+import {
+  countLabel,
+  figureLabel,
+  formatWarehouseAddress,
+  toCapacitySummary,
+  warehouseKindLabel,
+  warehouseStatusLabel,
+} from './mappers';
+import { useWarehouseDetail, useWarehouseSubAdmins } from './useWarehouseAdminData';
 import {
   CapacityBar,
   CapacityIcon,
   DocumentIcon,
-  formatAdminKg,
   GearIcon,
-  utilizationPercent,
+  ManageUsersIcon,
   ViewTile,
   ViewTileGrid,
   WAREHOUSE_ADMIN_CODES,
 } from './WarehouseAdminParts';
-import type { WarehouseAdminRow, WarehouseScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface WarehouseCityDetailScreenProps extends WarehouseScreenBaseProps {
+  /** Server uuid of the warehouse to show. */
   warehouseId?: string | undefined;
-  warehouses?: readonly WarehouseAdminRow[] | undefined;
   onOpenDocuments?: ((warehouseId: string) => void) | undefined;
   onOpenSettings?: ((warehouseId: string) => void) | undefined;
   onOpenCapacity?: (() => void) | undefined;
+  onOpenStaff?: ((warehouseId: string) => void) | undefined;
 }
 
-export function WarehouseCityDetailScreen({
+export function WarehouseCityDetailScreen(props: WarehouseCityDetailScreenProps) {
+  if (!props.can(WAREHOUSE_ADMIN_CODES.allView)) {
+    return (
+      <WalletScreen title={t('warehouseAdmin.detail.title')} onBack={props.onBack}>
+        <EmptyState title={t('warehouseAdmin.notAvailable.title')} subtitle={t('warehouseAdmin.detail.notAvailable')} />
+      </WalletScreen>
+    );
+  }
+  if (props.warehouseId === undefined) {
+    return (
+      <WalletScreen title={t('warehouseAdmin.detail.title')} onBack={props.onBack} headerExtra={<ScopeHeader scope={props.scope} />}>
+        <EmptyState title={t('warehouseAdmin.detail.missing.title')} subtitle={t('warehouseAdmin.detail.missing.subtitle')} />
+      </WalletScreen>
+    );
+  }
+  return <WarehouseCityDetailContent {...props} warehouseId={props.warehouseId} />;
+}
+
+function WarehouseCityDetailContent({
   scope,
   can,
   onBack,
   warehouseId,
-  warehouses = WAREHOUSE_ADMIN_ROWS,
   onOpenDocuments,
   onOpenSettings,
   onOpenCapacity,
-}: WarehouseCityDetailScreenProps) {
-  if (!can(WAREHOUSE_ADMIN_CODES.allView)) {
-    return (
-      <WalletScreen title="Warehouse Detail" onBack={onBack}>
-        <EmptyState title="Not available" subtitle="Viewing another warehouse needs warehouse.all.view." />
-      </WalletScreen>
-    );
-  }
+  onOpenStaff,
+}: WarehouseCityDetailScreenProps & { warehouseId: string }) {
+  const canIssues = can(WAREHOUSE_ADMIN_CODES.issueView);
+  const canTasks = can(WAREHOUSE_ADMIN_CODES.taskView);
+  const canSwa = can(WAREHOUSE_ADMIN_CODES.swaCreate);
+  const canStaff = (can(WAREHOUSE_ADMIN_CODES.staffView) || can(WAREHOUSE_ADMIN_CODES.attendanceView)) && onOpenStaff !== undefined;
+  const detail = useWarehouseDetail(warehouseId, { issues: canIssues, tasks: canTasks });
+  const swas = useWarehouseSubAdmins(warehouseId, canSwa);
+  const settings = can(WAREHOUSE_ADMIN_CODES.capacitySet) ? onOpenSettings : undefined;
 
-  const w = warehouses.find((row) => row.warehouseId === warehouseId);
+  const w = detail.warehouse.data;
   if (w === undefined) {
     return (
-      <WalletScreen title="Warehouse Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Warehouse not found" subtitle="Pick a warehouse from the overview." />
+      <WalletScreen title={t('warehouseAdmin.detail.title')} onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
+        {detail.warehouse.isLoading ? (
+          <AdminLoadingState />
+        ) : (
+          <AdminErrorState error={detail.warehouse.error} onRetry={detail.warehouse.refresh} />
+        )}
       </WalletScreen>
     );
   }
 
-  const pct = utilizationPercent(w.stockKg, w.capacityKg);
-  const near = w.status === 'Near Capacity';
-  const settings = can(WAREHOUSE_ADMIN_CODES.capacitySet) ? onOpenSettings : undefined;
+  const summary = detail.capacity.data === undefined ? undefined : toCapacitySummary(detail.capacity.data);
+  const noValue = t('warehouseAdmin.figure.unavailable');
+  const issueTone = (detail.openIssues.data ?? 0) > 0 ? ('danger' as const) : undefined;
 
   return (
     <WalletScreen
-      title={adminWarehouseLabel(w.warehouseId)}
-      subtitle="Warehouse Detail"
+      title={w.name}
+      subtitle={t('warehouseAdmin.detail.title')}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={adminWarehouseName(w.warehouseId)} />}
+      headerExtra={<ScopeHeader scope={scope} label={w.name} />}
       footer={
         <WalletFooter>
-          <WalletButton label="Back to All Warehouses" variant="outline" onPress={onBack} />
+          <WalletButton label={t('warehouseAdmin.detail.backToAll')} variant="outline" onPress={onBack} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statusRow}>
-          <StatusBadge label={w.status} tone={near ? 'warning' : 'success'} />
-          <Text style={styles.meta}>{w.kind}</Text>
+          <StatusBadge label={warehouseStatusLabel(w.isActive)} tone={w.isActive ? 'success' : 'danger'} />
+          {summary?.overCapacity ? (
+            <StatusBadge label={t('warehouseAdmin.capacity.over', { percent: summary.percentLabel ?? '' })} tone="warning" />
+          ) : null}
+          <Text style={styles.meta}>{warehouseKindLabel(w.type)}</Text>
         </View>
         <InfoCard
           rows={[
             [
-              { label: 'Warehouse', value: adminWarehouseName(w.warehouseId) },
-              { label: 'Warehouse ID', value: w.code },
+              { label: t('warehouseAdmin.detail.field.warehouse'), value: w.name },
+              { label: t('warehouseAdmin.detail.field.code'), value: w.code },
             ],
             [
-              { label: 'Location', value: w.city },
-              { label: 'SWA', value: swaNameOf(w) ?? 'Unassigned' },
+              { label: t('warehouseAdmin.detail.field.location'), value: w.city ?? noValue },
+              ...(canSwa
+                ? [
+                    {
+                      label: t('warehouseAdmin.detail.field.swa'),
+                      value: figureLabel(swas, (rows) =>
+                        rows.length === 0
+                          ? t('warehouseAdmin.swa.unassigned')
+                          : rows.map((r) => r.fullName).join(t('warehouseAdmin.listSeparator')),
+                      ),
+                    },
+                  ]
+                : []),
             ],
           ]}
         />
 
-        <SectionTitle>Operational KPIs</SectionTitle>
+        <SectionTitle>{t('warehouseAdmin.detail.section.kpis')}</SectionTitle>
         <KpiRow
           items={[
-            { value: formatAdminKg(w.stockKg), label: 'CURRENT STOCK' },
-            { value: `${pct}%`, label: 'UTILIZATION', tone: near ? 'warning' : undefined },
+            { value: figureLabel(detail.capacity, (dto) => toCapacitySummary(dto).usedLabel), label: t('warehouseAdmin.detail.kpi.stock') },
+            {
+              value: figureLabel(detail.capacity, (dto) => toCapacitySummary(dto).percentLabel ?? noValue),
+              label: t('warehouseAdmin.detail.kpi.utilization'),
+              tone: summary?.overCapacity ? 'warning' : undefined,
+            },
           ]}
         />
-        <KpiRow
-          items={[
-            { value: formatAdminKg(w.receiptsTodayKg), label: "TODAY'S RECEIPTS" },
-            { value: String(w.pendingOrders), label: 'PENDING ORDERS' },
-            { value: String(w.openIssues), label: 'OPEN ISSUES', tone: w.openIssues > 0 ? 'danger' : undefined },
-          ]}
-        />
+        {canTasks || canIssues ? (
+          <KpiRow
+            items={[
+              ...(canTasks
+                ? [{ value: figureLabel(detail.tasks, (s) => countLabel(s.open)), label: t('warehouseAdmin.detail.kpi.openTasks') }]
+                : []),
+              ...(canIssues
+                ? [
+                    { value: figureLabel(detail.openIssues, countLabel), label: t('warehouseAdmin.detail.kpi.openIssues'), tone: issueTone },
+                    { value: figureLabel(detail.inProgressIssues, countLabel), label: t('warehouseAdmin.detail.kpi.inProgressIssues') },
+                  ]
+                : []),
+            ]}
+          />
+        ) : null}
 
-        <SectionTitle>Capacity Usage</SectionTitle>
+        <SectionTitle>{t('warehouseAdmin.detail.section.capacity')}</SectionTitle>
         <View style={styles.card}>
-          <CapacityBar percent={pct} warning={near} />
+          <CapacityBar percent={summary?.fillPercent ?? 0} warning={summary?.overCapacity === true} />
           <Text style={styles.capacityText}>
-            {formatAdminKg(w.stockKg)} of {formatAdminKg(w.capacityKg)} · {pct}%
+            {figureLabel(detail.capacity, (dto) => {
+              const s = toCapacitySummary(dto);
+              return s.capacityLabel === null
+                ? t('warehouseAdmin.capacity.usedOnly', { used: s.usedLabel })
+                : t('warehouseAdmin.capacity.usedOf', { used: s.usedLabel, capacity: s.capacityLabel });
+            })}
           </Text>
+          {summary?.availableLabel ? (
+            <Text style={styles.meta}>{t('warehouseAdmin.capacity.available', { available: summary.availableLabel })}</Text>
+          ) : null}
         </View>
 
-        <SectionTitle>Warehouse Information</SectionTitle>
+        <SectionTitle>{t('warehouseAdmin.detail.section.info')}</SectionTitle>
         <InfoCard
           rows={[
-            [{ label: 'Address', value: w.address }],
-            [
-              { label: 'Operating Hours', value: w.operatingHours },
-              { label: 'Staff Count', value: String(w.staffCount) },
-            ],
+            [{ label: t('warehouseAdmin.detail.field.address'), value: formatWarehouseAddress(w) ?? noValue }],
+            [{ label: t('warehouseAdmin.detail.field.contact'), value: w.contactPhone ?? noValue }],
           ]}
         />
 
-        {onOpenDocuments || settings || onOpenCapacity ? <SectionTitle>Quick Actions</SectionTitle> : null}
+        {onOpenDocuments || settings || onOpenCapacity || canStaff ? (
+          <SectionTitle>{t('warehouseAdmin.detail.section.actions')}</SectionTitle>
+        ) : null}
         <ViewTileGrid>
           {onOpenDocuments ? (
-            <ViewTile label="View Documents" icon={<DocumentIcon />} onPress={() => onOpenDocuments(w.warehouseId)} />
+            <ViewTile label={t('warehouseAdmin.action.documents')} icon={<DocumentIcon />} onPress={() => onOpenDocuments(w.id)} />
           ) : null}
-          {settings ? <ViewTile label="Settings" icon={<GearIcon />} onPress={() => settings(w.warehouseId)} /> : null}
+          {settings ? <ViewTile label={t('warehouseAdmin.action.settings')} icon={<GearIcon />} onPress={() => settings(w.id)} /> : null}
           {onOpenCapacity ? (
-            <ViewTile label="Capacity" icon={<CapacityIcon size={22} color={adminColors.brand} />} onPress={onOpenCapacity} />
+            <ViewTile
+              label={t('warehouseAdmin.action.capacity')}
+              icon={<CapacityIcon size={22} color={adminColors.brand} />}
+              onPress={onOpenCapacity}
+            />
+          ) : null}
+          {canStaff ? (
+            <ViewTile
+              label={t('warehouseAdmin.action.staff')}
+              icon={<ManageUsersIcon size={22} />}
+              onPress={() => onOpenStaff(w.id)}
+            />
           ) : null}
         </ViewTileGrid>
 
-        <InfoNote tone="brandSoft">
-          Selecting a warehouse shows that warehouse&apos;s own data; it never carries figures over from the consolidated
-          dashboard.
-        </InfoNote>
+        <InfoNote tone="brandSoft">{t('warehouseAdmin.detail.note')}</InfoNote>
       </ScrollView>
     </WalletScreen>
   );

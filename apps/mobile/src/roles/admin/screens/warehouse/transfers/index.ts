@@ -9,6 +9,14 @@ export {
   TransferReceivingInspectionScreen,
   type TransferReceivingInspectionScreenProps,
 } from './TransferReceivingInspectionScreen';
-export { TRANSFER_CODES, transferInScope } from './TransferParts';
-export { TRANSFERS } from './fixtures';
-export type { TransferItem, TransferRoute, TransferRouteParams, TransferStatus } from './types';
+export { TRANSFER_CODES, transferActions, transferListScopeParams } from './mappers';
+export { useTransferStatusCounts } from './useTransfersData';
+export type {
+  // `TransferItem` is kept as a name for the warehouse barrel (../index.ts); it is the live list row.
+  TransferListItem as TransferItem,
+  TransferDetailView,
+  TransferListItem,
+  TransferRoute,
+  TransferRouteParams,
+  TransferStatusCode,
+} from './types';

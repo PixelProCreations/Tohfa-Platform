@@ -26,4 +26,4 @@ export {
   type InventoryFlowNavigation,
   type InventoryFlowProps,
 } from './InventoryFlow';
-export type { InventoryRouteParams, InventoryScreenBaseProps, PhysicalCountResult } from './types';
+export type { InventoryRouteParams, InventoryScreenBaseProps } from './types';
