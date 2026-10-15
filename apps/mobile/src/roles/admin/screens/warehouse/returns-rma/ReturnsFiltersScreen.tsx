@@ -279,13 +279,6 @@ export function ReturnsFiltersScreen({
           })}
         </View>
 
-        {/* Backend configured note */}
-        <View style={styles.reasonNote}>
-          <Text style={styles.reasonNoteText}>
-            Only configured reasons from the backend appear here — no hard-coded exhaustive list.
-          </Text>
-        </View>
-
         {/* Refund Method */}
         <View style={styles.sectionHeadRow}>
           <CreditCardIcon size={17} color={adminColors.ink} />

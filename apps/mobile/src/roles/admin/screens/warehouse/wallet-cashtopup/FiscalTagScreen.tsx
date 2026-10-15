@@ -50,13 +50,6 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
   const [error, setError] = useState(false);
   const canTag = can('wallet.cash_topup.fiscal_tag');
 
-  const handleSimulateDuplicate = () => {
-    Alert.alert(
-      'Duplicate Fiscal Tag Error (demo)',
-      `Tag ${tag} was already recorded for another transaction today.\n\nTag must be unique per warehouse register.`,
-    );
-  };
-
   const handleContinue = () => {
     if (!canTag) return;
     if (!tag.trim()) {
@@ -136,14 +129,4 @@ const styles = StyleSheet.create({
   },
   tagInputError: { borderColor: adminColors.danger.border },
   errorText: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
-  demoButton: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: adminSpacing.md,
-    alignItems: 'center',
-    marginTop: adminSpacing.md,
-  },
-  demoButtonText: { ...adminType.rowTitle, color: adminColors.brandDeep },
 });

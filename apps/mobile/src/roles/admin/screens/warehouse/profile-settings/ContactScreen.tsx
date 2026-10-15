@@ -137,12 +137,6 @@ export function ContactScreen({
               />
             </>
           ) : null}
-          {isMain ? (
-            <>
-              <View style={warehouseProfileLayout.gap} />
-              <InfoNote>Contact person and emergency contact are shown only when the warehouse configuration contains them.</InfoNote>
-            </>
-          ) : null}
         </ScrollView>
       )}
     </WalletScreen>

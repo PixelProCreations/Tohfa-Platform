@@ -14,6 +14,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 import { MainWarehouseListScreen, type WarehouseListItem } from './MainWarehouseListScreen';
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 import { MainWarehouseAddScreen, type AddedWarehouseData } from './MainWarehouseAddScreen';
@@ -22,6 +23,8 @@ import { NotificationsScreen } from '../warehouse/notifications/NotificationsScr
 import { NotificationSettingsScreen } from '../warehouse/profile-settings/NotificationSettingsScreen';
 import { defaultNotifications } from '../warehouse/notifications/fixtures';
 import { WarehouseSelector } from '../warehouse/inventory';
+import { WarehouseEditProfileScreen } from '../warehouse/profile-settings/WarehouseEditProfileScreen';
+import { WarehouseAdminFlow } from '../warehouse/warehouse-admin/WarehouseAdminFlow';
 import type { NotificationItem, WarehouseScope } from '../warehouse/notifications/types';
 
 const MAIN_SCOPE: WarehouseScope = {
@@ -107,6 +110,66 @@ function NoSWaIcon({ size = 20, color = adminColors.danger.text }: { size?: numb
   );
 }
 
+export interface MainWarehouseItem {
+  id: string;
+  name: string;
+  code: string;
+  status: 'Active' | 'Near Capacity';
+  capacity: string;
+  stock: string;
+  swa: string;
+  staff: string;
+  needsAttention?: boolean | undefined;
+  attentionText?: string | undefined;
+  attentionDesc?: string | undefined;
+}
+
+const MAIN_WAREHOUSES_DATA: MainWarehouseItem[] = [
+  {
+    id: 'WH-OOTY',
+    name: 'Ooty',
+    code: 'WH-001',
+    status: 'Active',
+    capacity: '68%',
+    stock: '4,820 kg',
+    swa: 'SWA-01',
+    staff: '12',
+  },
+  {
+    id: 'WH-COON',
+    name: 'Coonoor',
+    code: 'WH-002',
+    status: 'Active',
+    capacity: '74%',
+    stock: '5,240 kg',
+    swa: 'SWA-02',
+    staff: '15',
+  },
+  {
+    id: 'WH-KOTA',
+    name: 'Kotagiri',
+    code: 'WH-003',
+    status: 'Active',
+    capacity: '52%',
+    stock: '2,320 kg',
+    swa: 'SWA-03',
+    staff: '8',
+  },
+  {
+    id: 'WH-GUDA',
+    name: 'Gudalur Market',
+    code: 'WH-004',
+    status: 'Near Capacity',
+    capacity: '81%',
+    stock: '6,120 kg',
+    swa: 'Unassigned',
+    staff: '6',
+    needsAttention: true,
+    attentionText: 'Gudalur Market has no assigned SWA',
+    attentionDesc: 'Create a Sub Warehouse Admin',
+  },
+];
+
 const INITIAL_WAREHOUSES: WarehouseListItem[] = [
   {
     name: 'Ooty',
@@ -126,9 +189,28 @@ const INITIAL_WAREHOUSES: WarehouseListItem[] = [
     capacity: '74%',
     staff: '15',
   },
+  {
+    name: 'Kotagiri',
+    id: 'WH-003',
+    location: 'Kotagiri, Nilgiris',
+    status: 'Active',
+    stock: '2,320 kg',
+    capacity: '52%',
+    staff: '8',
+  },
+  {
+    name: 'Gudalur Market',
+    id: 'WH-004',
+    location: 'Gudalur, Nilgiris',
+    status: 'Near Capacity',
+    stock: '6,120 kg',
+    capacity: '81%',
+    staff: '6',
+  },
 ];
 
 export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
+  const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
   const [showList, setShowList] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
   const [showManageSWAs, setShowManageSWAs] = useState(false);
@@ -157,6 +239,21 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
     setShowAddScreen(false);
     setShowList(true);
   };
+
+  if (showWarehouseOverview) {
+    return (
+      <WarehouseAdminFlow
+        scope={MAIN_SCOPE}
+        can={() => true}
+        initialScreen="WarehouseOverview"
+        onBack={() => setShowWarehouseOverview(false)}
+        onManageWarehouses={() => {
+          setShowWarehouseOverview(false);
+          setShowList(true);
+        }}
+      />
+    );
+  }
 
   if (showNotificationSettings) {
     return (
@@ -205,12 +302,36 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
   }
 
   if (showAddScreen) {
-    return <MainWarehouseAddScreen onBack={() => setShowAddScreen(false)} onWarehouseAdded={handleWarehouseAdded} />;
+    return (
+      <WarehouseEditProfileScreen
+        scope={MAIN_SCOPE}
+        mode="add"
+        can={() => true}
+        onBack={() => setShowAddScreen(false)}
+        onSaveSuccess={() => {
+          setShowAddScreen(false);
+          setShowList(true);
+        }}
+      />
+    );
   }
 
   if (showList) {
     return <MainWarehouseListScreen onBack={() => setShowList(false)} warehouses={warehouses} />;
   }
+
+  // Filtered warehouses based on dropdown selection
+  const displayedWarehouses = selectedWarehouseId === undefined
+    ? MAIN_WAREHOUSES_DATA
+    : MAIN_WAREHOUSES_DATA.filter((w) => w.id === selectedWarehouseId || w.code === selectedWarehouseId || w.name.toLowerCase() === selectedWarehouseId.toLowerCase());
+
+  // Dynamic stats calculation
+  const totalWh = displayedWarehouses.length;
+  const activeWh = displayedWarehouses.filter((w) => w.status === 'Active' || w.status === 'Near Capacity').length;
+  const needsAttentionCount = displayedWarehouses.filter((w) => w.needsAttention).length;
+  const pendingSwaCount = displayedWarehouses.filter((w) => w.swa === 'Unassigned').length;
+
+  const attentionItems = displayedWarehouses.filter((w) => w.needsAttention);
 
   return (
     <View style={styles.root}>
@@ -233,10 +354,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
           selectedId={selectedWarehouseId}
           onSelect={(id) => {
             setSelectedWarehouseId(id);
-            if (id) {
-              const found = warehouses.find((w) => w.id === id || w.name.toLowerCase() === id.toLowerCase());
-              if (found) setSelectedWarehouse(found.name);
-            }
           }}
         />
       </View>
@@ -245,89 +362,97 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TOTAL WAREHOUSES</Text>
-              <Text style={styles.statValue}>4</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>ACTIVE</Text>
-              <Text style={styles.statValue}>4</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>NEEDS ATTENTION</Text>
-              <Text style={[styles.statValue, styles.statValueWarning]}>2</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>PENDING SWA</Text>
-              <Text style={[styles.statValue, styles.statValueDanger]}>3</Text>
-            </View>
+            <OverviewDashboardCard
+              value="4"
+              title="Total Warehouses"
+              subtitle="All locations"
+              icon="box"
+            />
+            <OverviewDashboardCard
+              value="4"
+              title="Active"
+              subtitle="Operational"
+              icon="pickup"
+              tone="success"
+            />
+            <OverviewDashboardCard
+              value="1"
+              title="Needs Attention"
+              subtitle="Action required"
+              icon="alert"
+              tone="warning"
+            />
+            <OverviewDashboardCard
+              value="1"
+              title="Pending SWA"
+              subtitle="Unassigned admin"
+              icon="orders"
+              tone="danger"
+            />
           </View>
 
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Warehouse Overview</Text>
-            <TouchableOpacity onPress={() => setShowList(true)} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => setShowWarehouseOverview(true)} activeOpacity={0.7}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.overviewCard} onPress={() => setSelectedWarehouse('Ooty')} activeOpacity={0.8}>
-            <View style={styles.overviewHeaderRow}>
-              <Text style={styles.overviewTitle}>Ooty</Text>
-              <View style={styles.tagGreen}><Text style={styles.tagGreenText}>Active</Text></View>
-            </View>
-            <View style={styles.overviewStatsRow}>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>68%</Text>
-                <Text style={styles.overviewStatLabel}>Capacity</Text>
+          {displayedWarehouses.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.overviewCard}
+              onPress={() => setSelectedWarehouse(item.name)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.overviewHeaderRow}>
+                <Text style={styles.overviewTitle}>{item.name}</Text>
+                {item.status === 'Active' ? (
+                  <View style={styles.tagGreen}><Text style={styles.tagGreenText}>Active</Text></View>
+                ) : (
+                  <View style={styles.tagWarning}><Text style={styles.tagWarningText}>Near Capacity</Text></View>
+                )}
               </View>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>4,820 kg</Text>
-                <Text style={styles.overviewStatLabel}>Inventory</Text>
+              <View style={styles.overviewStatsRow}>
+                <View style={styles.overviewCol}>
+                  <Text style={styles.overviewStatVal}>{item.capacity}</Text>
+                  <Text style={styles.overviewStatLabel}>Capacity</Text>
+                </View>
+                <View style={styles.overviewCol}>
+                  <Text style={styles.overviewStatVal}>{item.stock}</Text>
+                  <Text style={styles.overviewStatLabel}>Inventory</Text>
+                </View>
+                <View style={styles.overviewCol}>
+                  <Text style={styles.overviewStatVal}>{item.swa}</Text>
+                  <Text style={styles.overviewStatLabel}>SWA</Text>
+                </View>
               </View>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>SWA-01</Text>
-                <Text style={styles.overviewStatLabel}>SWA</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.overviewCard} onPress={() => setSelectedWarehouse('Gudalur Market')} activeOpacity={0.8}>
-            <View style={styles.overviewHeaderRow}>
-              <Text style={styles.overviewTitle}>Gudalur Market</Text>
-              <View style={styles.tagWarning}><Text style={styles.tagWarningText}>Near Capacity</Text></View>
-            </View>
-            <View style={styles.overviewStatsRow}>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>81%</Text>
-                <Text style={styles.overviewStatLabel}>Capacity</Text>
-              </View>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>6,120 kg</Text>
-                <Text style={styles.overviewStatLabel}>Inventory</Text>
-              </View>
-              <View style={styles.overviewCol}>
-                <Text style={styles.overviewStatVal}>Unassigned</Text>
-                <Text style={styles.overviewStatLabel}>SWA</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
 
-          <Text style={styles.sectionTitle}>Needs Attention</Text>
-          <TouchableOpacity
-            style={[styles.attentionCard, styles.attentionCardDanger]}
-            activeOpacity={0.8}
-            onPress={() => {
-              setManageSWAView('detail');
-              setManageSWAAdminId('4');
-              setShowManageSWAs(true);
-            }}
-          >
-            <View style={styles.attentionIcon}><NoSWaIcon /></View>
-            <View style={styles.attentionTextWrap}>
-              <Text style={styles.attentionTitle}>Gudalur Market has no assigned SWA</Text>
-              <Text style={styles.attentionDesc}>Create a Sub Warehouse Admin</Text>
-            </View>
-          </TouchableOpacity>
+          {attentionItems.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Needs Attention</Text>
+              {attentionItems.map((att) => (
+                <TouchableOpacity
+                  key={att.id}
+                  style={[styles.attentionCard, styles.attentionCardDanger]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setManageSWAView('detail');
+                    setManageSWAAdminId('4');
+                    setShowManageSWAs(true);
+                  }}
+                >
+                  <View style={styles.attentionIcon}><NoSWaIcon /></View>
+                  <View style={styles.attentionTextWrap}>
+                    <Text style={styles.attentionTitle}>{att.attentionText}</Text>
+                    <Text style={styles.attentionDesc}>{att.attentionDesc}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
 
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
@@ -371,9 +496,11 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: { ...adminType.title, color: adminColors.onBrand, marginLeft: adminSpacing.md },
   bellBtn: {
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     padding: adminSpacing.sm,
-    borderRadius: adminRadius.xs,
+    borderRadius: adminRadius.full,
   },
   warehouseDropdown: {
     flexDirection: 'row',
@@ -391,7 +518,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: adminSpacing.lg, paddingBottom: adminSpacing.xl },
   
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: adminSpacing.lg },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.lg },
   statCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

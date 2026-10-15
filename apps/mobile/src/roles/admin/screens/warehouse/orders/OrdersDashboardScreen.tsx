@@ -18,6 +18,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } fr
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { WarehouseSelector } from '../inventory';
 import type { OrderScreenBaseProps } from './types';
 
@@ -427,27 +428,33 @@ export function OrdersDashboardScreen({
         {isAllWarehouses ? (
           // Main Warehouse Content (Matches M5-01 Customer Orders design)
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* 4 KPI Cards (2x2 Grid) - Static */}
+            {/* 4 KPI Cards (2x2 Grid) */}
             <View style={styles.mainKpiGrid}>
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TOTAL ORDERS</Text>
-                <Text style={styles.mainKpiValue}>48</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>NEW ORDERS</Text>
-                <Text style={styles.mainKpiValue}>8</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>READY PICKUP</Text>
-                <Text style={styles.mainKpiValue}>9</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>ISSUES</Text>
-                <Text style={styles.mainKpiValue}>2</Text>
-              </View>
+              <OverviewDashboardCard
+                value="48"
+                title="Total Orders"
+                subtitle="All active orders"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="8"
+                title="New Orders"
+                subtitle="Awaiting processing"
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value="9"
+                title="Ready Pickup"
+                subtitle="Ready for handover"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="2"
+                title="Issues"
+                subtitle="Needs attention"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* Warehouse Order Summary */}
@@ -560,54 +567,32 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.statusGrid}>
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <NewBadgeIcon />
-                </View>
-                <Text style={styles.statusNumber}>12</Text>
-                <Text style={styles.statusLabel}>New Orders</Text>
-              </View>
-
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <CheckCircleTickIcon />
-                </View>
-                <Text style={styles.statusNumber}>8</Text>
-                <Text style={styles.statusLabel}>Confirmed</Text>
-              </View>
-
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <PackageBoxIcon />
-                </View>
-                <Text style={styles.statusNumber}>5</Text>
-                <Text style={styles.statusLabel}>Packing</Text>
-              </View>
-
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <ReadyPickupIcon />
-                </View>
-                <Text style={styles.statusNumber}>7</Text>
-                <Text style={styles.statusLabel}>Ready for Pickup</Text>
-              </View>
-
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <DeliveryTruckIcon />
-                </View>
-                <Text style={styles.statusNumber}>3</Text>
-                <Text style={styles.statusLabel}>Delivery</Text>
-              </View>
-
-              <View style={styles.statusCard}>
-                <View style={styles.statusCardTop}>
-                  <ErrorExclamationIcon />
-                </View>
-                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
-                <Text style={styles.statusLabel}>Order Issues</Text>
-              </View>
+            <View style={styles.mainKpiGrid}>
+              <OverviewDashboardCard
+                value="48"
+                title="Total Orders"
+                subtitle="All active orders"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="8"
+                title="New Orders"
+                subtitle="Awaiting processing"
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value="9"
+                title="Ready Pickup"
+                subtitle="Ready for handover"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="2"
+                title="Issues"
+                subtitle="Needs attention"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             <ScrollView
@@ -808,6 +793,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 16,
   },
   mainKpiCard: {
@@ -1026,6 +1012,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 14,
   },
   statusCard: {

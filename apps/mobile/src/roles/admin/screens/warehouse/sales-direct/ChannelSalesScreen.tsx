@@ -172,7 +172,6 @@ export function ChannelSalesScreen({
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [createStep, setCreateStep] = useState<1 | 2 | 3>(1); // 1 = Form, 2 = Review, 3 = Confirmation
   const [showAddItemModal, setShowAddItemModal] = useState(false);
-  const [serverOutcome, setServerOutcome] = useState<'Success' | 'Stock Shortage' | 'Permission Denied' | 'Network Error'>('Success');
 
   // Form Field State
   const [businessType, setBusinessType] = useState(channel === 'B2B' ? 'Retailer' : 'Hotel');
@@ -573,46 +572,10 @@ export function ChannelSalesScreen({
               </Text>
             </View>
 
-            {/* Server Outcome (Demo) */}
-            <Text style={styles.formSectionHeader}>Server Outcome (Demo)</Text>
-            <View style={styles.demoOutcomesWrap}>
-              {(['Success', 'Stock Shortage', 'Permission Denied', 'Network Error'] as const).map((outcome) => {
-                const isActive = serverOutcome === outcome;
-                return (
-                  <TouchableOpacity
-                    key={outcome}
-                    style={[
-                      styles.demoOutcomeChip,
-                      isActive && styles.demoOutcomeChipActive,
-                    ]}
-                    onPress={() => setServerOutcome(outcome)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.demoOutcomeChipText,
-                        isActive && styles.demoOutcomeChipTextActive,
-                      ]}
-                    >
-                      {outcome}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
             <TouchableOpacity
               style={styles.primaryActionButton}
               onPress={() => {
-                if (serverOutcome === 'Success') {
-                  setCreateStep(3);
-                } else if (serverOutcome === 'Stock Shortage') {
-                  Alert.alert('Stock Shortage', 'Insufficient stock in fulfilling warehouse for the requested items.');
-                } else if (serverOutcome === 'Permission Denied') {
-                  Alert.alert('Permission Denied', 'User role does not have permission to place channel orders.');
-                } else if (serverOutcome === 'Network Error') {
-                  Alert.alert('Network Error', 'Failed to connect to server. Please try again.');
-                }
+                setCreateStep(3);
               }}
               activeOpacity={0.85}
             >

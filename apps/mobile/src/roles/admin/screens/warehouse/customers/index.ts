@@ -7,6 +7,7 @@ export { CustomerIssuesScreen, type CustomerIssuesScreenProps } from './Customer
 export { CustomerOrdersScreen, type CustomerOrdersScreenProps } from './CustomerOrdersScreen';
 export { CustomerSearchScreen, type CustomerSearchScreenProps } from './CustomerSearchScreen';
 export { CustomersListScreen, type CustomersListScreenProps } from './CustomersListScreen';
+export { CustomerFiltersScreen, type CustomerFiltersScreenProps, type CustomerFilterValues, type CustomerFilterStatus } from './CustomerFiltersScreen';
 export { CustomerSupportDetailScreen, type CustomerSupportDetailScreenProps } from './CustomerSupportDetailScreen';
 export { OrderFiltersScreen, type OrderFiltersScreenProps } from './OrderFiltersScreen';
 export { PurchaseHistoryScreen, type PurchaseHistoryScreenProps } from './PurchaseHistoryScreen';

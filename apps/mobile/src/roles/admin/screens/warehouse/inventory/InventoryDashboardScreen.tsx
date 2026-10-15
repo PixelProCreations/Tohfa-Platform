@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
 import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
@@ -226,14 +227,14 @@ function CreateTransferQuickIcon({ size = 24, color = adminColors.brand }: { siz
 }
 
 const MAIN_KPIS = [
-  { key: 'total_stock', label: 'TOTAL STOCK', value: '12,840 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'available_stock', label: 'AVAILABLE STOCK', value: '9,240 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'allocated', label: 'ALLOCATED', value: '2,100 KG', unit: 'KG', screen: 'M3S07' },
-  { key: 'reserved', label: 'RESERVED', value: '1,500 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'low_stock', label: 'LOW STOCK', value: '14', unit: 'products', screen: 'M3S09' },
-  { key: 'pending_verification', label: 'PENDING VERIFICATION', value: '6', unit: 'items', screen: 'M3S10' },
-  { key: 'variance_detected', label: 'VARIANCE DETECTED', value: '2', unit: 'items', screen: 'M3S12' },
-  { key: 'pending_adjustments', label: 'PENDING ADJUSTMENTS', value: '3', unit: 'requests', screen: 'M3S14' },
+  { key: 'total_stock', label: 'Total Stock', value: '12,840 KG', unit: 'KG across warehouses', icon: 'inventory', screen: 'M3S02' },
+  { key: 'available_stock', label: 'Available Stock', value: '9,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+  { key: 'allocated', label: 'Allocated Stock', value: '2,100 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+  { key: 'reserved', label: 'Reserved Stock', value: '1,500 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+  { key: 'low_stock', label: 'Low Stock Items', value: '14', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+  { key: 'pending_verification', label: 'Verification Pending', value: '6', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+  { key: 'variance_detected', label: 'Variance Detected', value: '2', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+  { key: 'pending_adjustments', label: 'Pending Adjustments', value: '3', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
 ];
 
 const WAREHOUSE_OVERVIEW_ROWS = [
@@ -282,31 +283,16 @@ export function InventoryDashboardScreen({
     screenKey: string,
     isAlert?: boolean,
   ) => {
-    const cardContent = (
-      <>
-        {icon}
-        <Text style={isAlert ? styles.lowStockValue : styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </>
-    );
-
-    if (isSub) {
-      return (
-        <View key={key} style={styles.statCard}>
-          {cardContent}
-        </View>
-      );
-    }
-
     return (
-      <TouchableOpacity
+      <OverviewDashboardCard
         key={key}
-        style={styles.statCard}
-        onPress={() => onNavigate?.(screenKey)}
-        activeOpacity={0.7}
-      >
-        {cardContent}
-      </TouchableOpacity>
+        value={value}
+        title={label}
+        subtitle={isAlert ? 'Needs attention' : undefined}
+        icon={icon}
+        tone={isAlert ? 'danger' : 'default'}
+        onPress={onNavigate ? () => onNavigate(screenKey) : undefined}
+      />
     );
   };
 
@@ -526,14 +512,15 @@ export function InventoryDashboardScreen({
           {/* 8 KPI Cards Grid (2x4) */}
           <View style={styles.mainKpiGrid}>
             {MAIN_KPIS.map((kpi) => (
-              <View
+              <OverviewDashboardCard
                 key={kpi.key}
-                style={styles.mainKpiCard}
-              >
-                <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
-                <Text style={styles.mainKpiValue}>{kpi.value}</Text>
-                <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
-              </View>
+                value={kpi.value}
+                title={kpi.label}
+                subtitle={kpi.unit}
+                icon={kpi.icon}
+                tone={(kpi as any).tone ?? 'default'}
+                onPress={() => onNavigate?.(kpi.screen)}
+              />
             ))}
           </View>
 
@@ -764,7 +751,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 16,
     justifyContent: 'space-between',
-    marginBottom: 8,
+    rowGap: 12,
+    columnGap: 10,
+    marginBottom: 16,
   },
   statCard: {
     width: '48%',

@@ -23,6 +23,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import {
   BellRingIcon,
   HeaderIconButton,
@@ -111,25 +112,21 @@ export function WarehouseOperationsScreen({
   );
 
   const mainKpiTiles = [
-    { label: 'STORAGE LOCATIONS', value: '4', sub: 'warehouses', onPress: () => onOpenModule('storage') },
-    { label: 'OCCUPANCY', value: '64%', sub: 'avg', onPress: onOpenCapacity },
-    { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials },
-    { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues },
-    { label: 'STAFF PRESENT', value: '27/34', sub: 'today', onPress: () => onOpenModule('staff') },
-    { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today') },
+    { label: 'Storage Locations', value: '4', sub: 'Warehouses', onPress: () => onOpenModule('storage') },
+    { label: 'Occupancy', value: '64%', sub: 'Avg', onPress: onOpenCapacity },
+    { label: 'Material Items', value: '42', sub: 'Tracked', onPress: onOpenMaterials },
+    { label: 'Open Issues', value: '9', sub: 'Requires Attention', onPress: onOpenIssues },
+    { label: 'Staff Present', value: '27/34', sub: 'Today', onPress: () => onOpenModule('staff') },
+    { label: "Today's Activities", value: '84', sub: 'Total', onPress: () => onOpenActivity('Today') },
   ];
 
   const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
-    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
-    ...(mainView
-      ? [
-          { label: 'Open Issues', value: String(openIssues.length), sub: 'requires attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
-          { label: 'Operations History', value: String(total('historyRecords')), sub: 'searchable log', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('All') },
-        ]
-      : []),
+    { label: 'Storage Locations', value: '4', sub: 'Warehouses', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: 'Occupancy', value: '64%', sub: 'Avg', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Material Items', value: '42', sub: 'Tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Open Issues', value: '9', sub: 'Requires Attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
+    { label: 'Staff Present', value: '27/34', sub: 'Today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
+    { label: "Today's Activities", value: '84', sub: 'Total', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('Today') },
   ];
 
   const mainQuickActions = [
@@ -176,26 +173,55 @@ export function WarehouseOperationsScreen({
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <View style={styles.grid}>
-            {mainKpiTiles.map((card) => (
-              <View key={card.label} style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>{card.label}</Text>
-                <Text style={styles.mainKpiValue}>{card.value}</Text>
-                <Text style={styles.mainKpiSub}>{card.sub}</Text>
-              </View>
-            ))}
+            {mainKpiTiles.map((card) => {
+              const getIcon = (label: string): 'box' | 'orders' | 'inventory' | 'alert' | 'pickup' | 'receiving' => {
+                const lower = label.toLowerCase();
+                if (lower.includes('location')) return 'box';
+                if (lower.includes('occupancy')) return 'inventory';
+                if (lower.includes('material')) return 'orders';
+                if (lower.includes('issue')) return 'alert';
+                if (lower.includes('staff')) return 'pickup';
+                return 'receiving';
+              };
+              const isAlert = card.label.toLowerCase().includes('issue');
+              return (
+                <OverviewDashboardCard
+                  key={card.label}
+                  value={card.value}
+                  title={card.label}
+                  subtitle={card.sub}
+                  icon={getIcon(card.label)}
+                  tone={isAlert ? 'danger' : 'default'}
+                />
+              );
+            })}
           </View>
         ) : (
           <>
             <SectionTitle>Operations Overview</SectionTitle>
             <View style={styles.grid}>
-              {overviewTiles.map((tile) => (
-                <View key={tile.label} style={styles.overviewTile}>
-                  <View style={styles.tileIcon}>{tile.icon}</View>
-                  <Text style={styles.tileValue}>{tile.value}</Text>
-                  <Text style={styles.tileLabel}>{tile.label}</Text>
-                  <Text style={styles.tileSub}>{tile.sub}</Text>
-                </View>
-              ))}
+              {overviewTiles.map((tile) => {
+                const getIcon = (label: string): 'box' | 'orders' | 'inventory' | 'alert' | 'pickup' | 'receiving' => {
+                  const lower = label.toLowerCase();
+                  if (lower.includes('location')) return 'box';
+                  if (lower.includes('occupancy')) return 'inventory';
+                  if (lower.includes('material')) return 'orders';
+                  if (lower.includes('issue')) return 'alert';
+                  if (lower.includes('staff')) return 'pickup';
+                  return 'receiving';
+                };
+                const isAlert = tile.label.toLowerCase().includes('issue');
+                return (
+                  <OverviewDashboardCard
+                    key={tile.label}
+                    value={tile.value}
+                    title={tile.label}
+                    subtitle={tile.sub}
+                    icon={getIcon(tile.label)}
+                    tone={isAlert ? 'danger' : 'default'}
+                  />
+                );
+              })}
             </View>
           </>
         )}
@@ -394,7 +420,13 @@ export function WarehouseOperationsScreen({
 const TILE_ICON = 36;
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: adminSpacing.sm,
+  },
   dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',

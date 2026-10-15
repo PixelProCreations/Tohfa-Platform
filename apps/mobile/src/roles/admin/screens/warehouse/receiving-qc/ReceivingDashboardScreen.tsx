@@ -21,6 +21,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import {
   BellRingIcon,
@@ -303,44 +304,50 @@ export function ReceivingDashboardScreen({
   const mainKpis = [
     {
       key: 'expected',
-      label: 'EXPECTED TODAY',
+      label: 'Expected Today',
       value: 24,
       unit: 'shipments',
+      icon: 'receiving',
       onPress: () => onOpenShipments('Expected'),
     },
     {
       key: 'arrived',
-      label: 'ARRIVED',
+      label: 'Arrived',
       value: 19,
       unit: 'shipments',
+      icon: 'truck',
       onPress: () => onOpenShipments('Arrived'),
     },
     {
       key: 'in_progress',
-      label: 'IN PROGRESS',
+      label: 'In Progress',
       value: 5,
       unit: 'receiving',
+      icon: 'orders',
       onPress: () => onOpenShipments('Receiving'),
     },
     {
       key: 'completed',
-      label: 'COMPLETED',
+      label: 'Completed',
       value: 14,
       unit: 'today',
+      icon: 'pickup',
       onPress: () => onOpenHistory('Accepted'),
     },
     {
       key: 'discrepancies',
-      label: 'DISCREPANCIES',
+      label: 'Discrepancies',
       value: 2,
       unit: 'flagged',
+      icon: 'alert',
       onPress: onOpenQualityIssues,
     },
     {
       key: 'turnaround',
-      label: 'AVG TURNAROUND',
+      label: 'Avg Turnaround',
       value: 38,
       unit: 'minutes',
+      icon: 'cash',
       onPress: () => onOpenHistory('All'),
     },
   ];
@@ -417,14 +424,15 @@ export function ReceivingDashboardScreen({
             {/* 6 KPI Cards (2x3) */}
             <View style={styles.mainKpiGrid}>
               {mainKpis.map((kpi) => (
-                <View
+                <OverviewDashboardCard
                   key={kpi.key}
-                  style={styles.mainKpiCard}
-                >
-                  <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
-                  <Text style={styles.mainKpiValue}>{kpi.value}</Text>
-                  <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
-                </View>
+                  value={kpi.value}
+                  title={kpi.label}
+                  subtitle={kpi.unit}
+                  icon={kpi.icon}
+                  tone={kpi.key === 'discrepancies' ? 'danger' : 'default'}
+                  onPress={kpi.onPress}
+                />
               ))}
             </View>
 
@@ -527,13 +535,15 @@ export function ReceivingDashboardScreen({
           <>
             <View style={styles.grid}>
               {tiles.map((tile) => (
-                <View key={tile.key} style={styles.tile}>
-                  {tile.icon}
-                  <Text style={[styles.tileValue, tile.alert === true && styles.tileValueAlert]}>
-                    {typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
-                  </Text>
-                  <Text style={styles.tileLabel}>{tile.label}</Text>
-                </View>
+                <OverviewDashboardCard
+                  key={tile.key}
+                  value={typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
+                  title={tile.label}
+                  subtitle={tile.alert ? 'Needs attention' : undefined}
+                  icon={tile.icon}
+                  tone={tile.alert ? 'danger' : 'default'}
+                  onPress={tile.onPress}
+                />
               ))}
             </View>
 

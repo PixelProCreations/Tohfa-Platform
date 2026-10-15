@@ -170,6 +170,7 @@ export type OrderFiltersVariant = 'customer' | 'queue';
 /** Route keys of CustomersFlow. */
 export type CustomersRoute =
   | 'CustomersList'
+  | 'CustomerFilters'
   | 'CustomerSearch'
   | 'CustomerDetails'
   | 'CustomerOrders'

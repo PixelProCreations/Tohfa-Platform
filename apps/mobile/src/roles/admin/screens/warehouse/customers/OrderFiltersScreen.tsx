@@ -229,7 +229,9 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
         >
           <BackArrowIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Filters</Text>
+        <Text style={styles.headerTitle}>
+          {props.config === 'purchase' ? 'Purchase Filters' : 'Order Filters'}
+        </Text>
         <TouchableOpacity
           onPress={clearAll}
           activeOpacity={0.7}

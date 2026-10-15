@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -800,6 +801,7 @@ export interface MainWarehouseAdminDashboardScreenProps {
 export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<MainWHTab>('Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
+  const [activeReceivingRoute, setActiveReceivingRoute] = useState<string>('Dashboard');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
@@ -2049,87 +2051,71 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.totalStock}
+                  title="Total Stock"
+                  subtitle="KG in warehouse"
+                  icon="inventory"
                   onPress={() => {
                     setActiveTab('Inventory');
                     setWhSubView('overview');
                     setWhHistory([]);
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.totalStock}</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Incoming Goods */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.incomingGoods}
+                  title="Incoming Goods"
+                  subtitle="KG expected today"
+                  icon="receiving"
                   onPress={() => {
                     setActiveTab('Receiving');
                     setReceivingSubView('incoming_shipments');
                     setWhSubView('overview');
                     setWhHistory([]);
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.incomingGoods}</Text>
-                  <Text style={styles.kpiSub}>KG today</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Pending Transfers */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.pendingTransfers}
+                  title="Pending Transfers"
+                  subtitle="Transfers active"
+                  icon="truck"
                   onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.pendingTransfers}</Text>
-                  <Text style={styles.kpiSub}>transfers</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Today's Orders */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.todayOrders}
+                  title="Today's Orders"
+                  subtitle="Customer orders"
+                  icon="orders"
                   onPress={() => {
                     setOrdersInitialScreen('M5S02');
                     navigateWh('customer_orders');
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.todayOrders}</Text>
-                  <Text style={styles.kpiSub}>orders</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Sales */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.sales}
+                  title="Today's Sales"
+                  subtitle="Direct sales"
+                  icon="sales"
                   onPress={() => navigateWh('sales')}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.sales}</Text>
-                  <Text style={styles.kpiSub}>today</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Open Issues */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.openIssues}
+                  title="Open Issues"
+                  subtitle="Needs attention"
+                  icon="alert"
+                  tone={Number(homeKpi.openIssues) > 0 ? 'danger' : 'default'}
                   onPress={() => navigateWh('operational_issues')}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.openIssues}</Text>
-                  <Text style={styles.kpiSub}>issues</Text>
-                </TouchableOpacity>
+                />
               </View>
 
               {/* ─── 2. Warehouse Overview ─── */}
@@ -2435,6 +2421,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               initialParams={receivingRouteFor(receivingSubView).params}
               receiverName={user?.fullName}
               finishTo="History"
+              onScreenChange={(route) => setActiveReceivingRoute(route)}
               onBack={() => {
                 if (receivingSubView !== 'dashboard') {
                   setReceivingSubView('dashboard');
@@ -2442,6 +2429,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   setActiveTab('Home');
                   setWhSubView('overview');
                 }
+                setActiveReceivingRoute('Dashboard');
               }}
               onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
               onOpenOperationalIssues={() => {
@@ -2500,32 +2488,50 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* 1. KPI 2x2 Grid */}
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </View>
+                <OverviewDashboardCard
+                  value="12,840 KG"
+                  title="Total Stock"
+                  subtitle="KG in warehouse"
+                  icon="inventory"
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                />
 
                 {/* Incoming Today */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </View>
+                <OverviewDashboardCard
+                  value="1,240 KG"
+                  title="Incoming Today"
+                  subtitle="KG expected"
+                  icon="receiving"
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                />
 
                 {/* Allocated */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </View>
+                <OverviewDashboardCard
+                  value="240 KG"
+                  title="Allocated"
+                  subtitle="KG allocated"
+                  icon="orders"
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                />
 
                 {/* Low Stock SKUs */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
-                  <Text style={styles.kpiSub}>SKUs</Text>
-                </View>
+                <OverviewDashboardCard
+                  value="5"
+                  title="Low Stock SKUs"
+                  subtitle="Needs attention"
+                  icon="alert"
+                  tone="danger"
+                  onPress={() => navigateWh('low_stock_alerts')}
+                />
               </View>
 
               {/* 2. Warehouse Summary */}
@@ -2835,6 +2841,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
                 onBack={goBackWh}
                 onNavigateComparison={() => navigateWh('warehouse_comparison')}
+                onManageWarehouses={() => navigateWh('manage_warehouses')}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
                 onViewStaffAttendance={() => navigateWh('staff_attendance')}
               />
@@ -3151,40 +3158,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           )}
       </View>
 
-      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
-      {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */}
-      {((activeTab === 'Home' &&
-          (whSubView === 'overview' ||
-            whSubView === 'warehouse_operations' ||
-            whSubView === 'warehouse_overview' ||
-            whSubView === 'warehouse_city_detail' ||
-            whSubView === 'dashboard_operations' ||
-            whSubView === 'todays_operations' ||
-            whSubView === 'todays_operations_overview' ||
-            whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
-            whSubView === 'warehouse_capacity' ||
-            whSubView === 'warehouse_activity' ||
-            whSubView === 'operational_issues' ||
-            whSubView === 'report_operational_issue' ||
-            whSubView === 'staff_attendance' ||
-            whSubView === 'operations_history' ||
-            whSubView === 'incoming_goods_ops' ||
-            whSubView === 'order_fulfilment_ops' ||
-            whSubView === 'quality_issues_ops' ||
-            whSubView === 'activity_timeline_ops' ||
-            whSubView === 'warehouse_performance' ||
-            whSubView === 'manage_warehouses' ||
-            whSubView === 'warehouse_settings' ||
-            whSubView === 'alerts_action_center' ||
-            whSubView === 'alert_detail' ||
-            whSubView === 'stock_and_transfer' ||
-            whSubView === 'consolidated_stock' ||
-            whSubView === 'low_stock_surplus' ||
-            whSubView === 'transfer_tracking' ||
-            whSubView === 'quick_actions_overview' ||
-            whSubView === 'sales')) ||
-        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff')))) && (
+      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More ONLY) ─── */}
+      {((activeTab === 'Home' && whSubView === 'overview') ||
+        (activeTab === 'Receiving' && receivingSubView === 'dashboard' && activeReceivingRoute === 'Dashboard') ||
+        (activeTab === 'Inventory' && whSubView === 'overview') ||
+        (activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null)) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}
             <TouchableOpacity
@@ -3194,7 +3172,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3210,15 +3187,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setActiveTab('Receiving');
                 setMoreSubScreen(null);
                 setReceivingSubView('dashboard');
+                setActiveReceivingRoute('Dashboard');
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <ReceivingTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>Receiving</Text>
+              <ReceivingTabNavIcon active={activeTab === 'Receiving'} />
+              <Text style={[styles.tabLabel, activeTab === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
             </TouchableOpacity>
 
             {/* Inventory */}
@@ -3229,13 +3206,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <InventoryTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>Inventory</Text>
+              <InventoryTabNavIcon active={activeTab === 'Inventory'} />
+              <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
             </TouchableOpacity>
 
             {/* More */}
@@ -3246,7 +3222,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}

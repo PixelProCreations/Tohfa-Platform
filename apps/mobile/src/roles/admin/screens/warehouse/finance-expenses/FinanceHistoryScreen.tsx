@@ -430,30 +430,7 @@ export function FinanceHistoryScreen({
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar (Subwarehouse only - Main Warehouse shell already has its own tab bar) ─── */}
-      {!isMain && (
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Home')} activeOpacity={0.7}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Receiving')} activeOpacity={0.7}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Inventory')} activeOpacity={0.7}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('More')} activeOpacity={0.7}>
-            <MoreTabIcon active />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* ─── Filter Full Screen Modal ─── */}
       <Modal

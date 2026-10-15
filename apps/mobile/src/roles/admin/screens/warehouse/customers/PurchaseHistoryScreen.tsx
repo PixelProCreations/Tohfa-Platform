@@ -104,7 +104,12 @@ export function PurchaseHistoryScreen({
       }
     >
       <StatTiles items={PURCHASE_KPIS} />
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search product, order ID or invoice" />
+      <SearchField
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search product, order ID or invoice"
+        onFilterPress={onOpenFilters}
+      />
 
       {rows.length === 0 ? (
         <EmptyState title="No purchases found" subtitle="Try adjusting your search query or filters." />

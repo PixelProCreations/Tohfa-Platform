@@ -13,6 +13,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../admin/theme';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
+import { OverviewDashboardCard } from '../../admin/components';
 import {
   ALERT_RECEIPT_ID,
   GoodsReceivingWizardScreen,
@@ -1300,8 +1301,12 @@ export function SubWarehouseAdminDashboardScreen({
     screen: ReceivingRoute;
     params?: ReceivingRouteParams | undefined;
   }>(() => receivingRouteFor(initialReceivingSubView));
+  const [subReceivingRoute, setSubReceivingRoute] = useState<ReceivingRoute>(
+    () => receivingRouteFor(initialReceivingSubView).screen
+  );
   const openReceiving = (screen: ReceivingRoute = 'Dashboard', params?: ReceivingRouteParams) => {
     setReceivingEntry({ screen, params });
+    setSubReceivingRoute(screen);
     setActiveTab('Receiving');
   };
   // Shipment the Home-tab receiving shortcuts open the wizard on.
@@ -2671,91 +2676,71 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
               <View style={styles.overviewGrid}>
                 {canOrders ? (
-                <>
-                {/* 1. Pending Orders */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
+                  <>
+                    {/* 1. Pending Orders */}
+                    <OverviewDashboardCard
+                      value="12"
+                      title="Pending Orders"
+                      subtitle="8 need action"
+                      icon="orders"
                       onPress={() => {
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
-                  <View style={styles.overviewIconWrap}>
-                    <ClipboardClockIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>12</Text>
-                  <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>8 need action</Text>
-                    </TouchableOpacity>
+                    />
 
-                {/* 2. Ready for Pickup */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
+                    {/* 2. Ready for Pickup */}
+                    <OverviewDashboardCard
+                      value="08"
+                      title="Ready for Pickup"
+                      subtitle="3 customers expected"
+                      icon="pickup"
                       onPress={() => {
                         setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S09');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
-                  <View style={styles.overviewIconWrap}>
-                    <PersonCheckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>08</Text>
-                  <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>3 customers expected</Text>
-                    </TouchableOpacity>
-                </>
+                    />
+                  </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <OverviewDashboardCard
+                  value={String(receivingKpiCount).padStart(2, '0')}
+                  title="Today's Receiving"
+                  subtitle={`${awaitingQcCount} awaiting QC`}
+                  icon="receiving"
                   onPress={() => {
                     setReturnToTabOnBack('Home');
                     openReceiving('Dashboard');
                   }}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <View style={styles.overviewIconWrap}>
-                    <DeliveryTruckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{String(receivingKpiCount).padStart(2, '0')}</Text>
-                  <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{awaitingQcCount} awaiting QC · {completedShipmentsCount} completed</Text>
-                </TouchableOpacity>
+                />
 
                 {/* 4. Low Stock Items (Stock Verification) */}
                 {canStock ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
+                  <OverviewDashboardCard
+                    value="05"
+                    title="Low Stock Items"
+                    subtitle="Needs attention"
+                    icon="inventory"
+                    tone="danger"
                     onPress={() => {
                       setReturnToTabOnBack('Home');
                       setInventoryInitialScreen('M3S10');
                       setActiveTab('Inventory');
                     }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
-                  <View style={styles.overviewIconWrap}>
-                    <BoxIcon color={PALETTE.primary} />
-                  </View>
-                  <Text style={[styles.overviewNumber, { color: adminColors.danger.text }]}>05</Text>
-                  <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                  <Text style={[styles.overviewSub, { color: adminColors.danger.text }]}>Needs attention</Text>
-                  </TouchableOpacity>
+                  />
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
+                  <OverviewDashboardCard
+                    value="₹24,850"
+                    title="Today's Sales"
+                    subtitle="42 transactions"
+                    icon="sales"
                     onPress={() => {
                       if (onNavigate) {
                         onNavigate('SubWarehouseSales');
@@ -2764,35 +2749,20 @@ export function SubWarehouseAdminDashboardScreen({
                         setShowSalesScreen(true);
                       }
                     }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
-                  <View style={styles.overviewIconWrap}>
-                    <BanknotesIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>₹24,850</Text>
-                  <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>42 transactions</Text>
-                  </TouchableOpacity>
+                  />
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <OverviewDashboardCard
+                  value="₹18,500"
+                  title="Cash Top-Ups"
+                  subtitle="12 transactions"
+                  icon="cash"
                   onPress={() => {
                     setReturnToTabOnBack('Home');
                     setShowCashTopUp(true);
                   }}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <View style={styles.overviewIconWrap}>
-                    <WalletIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>₹18,500</Text>
-                  <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>12 transactions</Text>
-                </TouchableOpacity>
+                />
               </View>
 
               {/* 3. Quick Actions */}
@@ -3363,10 +3333,12 @@ export function SubWarehouseAdminDashboardScreen({
             initialScreen={receivingEntry.screen}
             initialParams={receivingEntry.params}
             receiverName={userName}
+            onScreenChange={(route) => setSubReceivingRoute(route)}
             onBack={() => {
               setActiveTab(returnToTabOnBack || 'Home');
               setReturnToTabOnBack(null);
               setReceivingEntry({ screen: 'Dashboard' });
+              setSubReceivingRoute('Dashboard');
             }}
             onTabChange={(tab) => {
               if (tab === 'Receiving') openReceiving();
@@ -3565,8 +3537,9 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Home; the Receiving flow draws its own on its dashboard) ─── */}
-      {activeTab === 'Home' && !showOrdersModule && (
+      {/* ─── Bottom Navigation Bar (Home, More ONLY — Receiving and Inventory render their own) ─── */}
+      {((activeTab === 'Home' && !showOrdersModule) ||
+        (activeTab === 'More' && !showOrdersModule)) && (
         <View style={styles.bottomTabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -3586,8 +3559,8 @@ export function SubWarehouseAdminDashboardScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.tabLabel}>Receiving</Text>
+            <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
+            <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
           </TouchableOpacity>
 
           <Pressable
@@ -3595,8 +3568,8 @@ export function SubWarehouseAdminDashboardScreen({
             onPress={() => navigateTo('Inventory')}
             accessibilityRole="tab"
           >
-            <InventoryTabIcon active={false} />
-            <Text style={styles.tabLabel}>Inventory</Text>
+            <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
+            <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
           </Pressable>
 
           <TouchableOpacity
@@ -3606,8 +3579,8 @@ export function SubWarehouseAdminDashboardScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MoreTabIcon active={false} />
-            <Text style={styles.tabLabel}>More</Text>
+            <MoreTabIcon active={activeTab === 'More'} />
+            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
           </TouchableOpacity>
         </View>
       )}

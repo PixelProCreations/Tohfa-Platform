@@ -39,6 +39,7 @@ import {
   View,
 } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
@@ -5070,13 +5071,13 @@ export function ReportsScreen({
 
   // Hub KPI tiles, each shown only when the viewer may see the data behind it.
   const hubKpis = [
-    { label: "TODAY'S SALES", value: '₹24,850', permission: REPORT_CODES.sales },
-    { label: 'INVENTORY', value: '12,480 kg', permission: REPORT_CODES.inventory },
-    { label: 'RECEIVED TODAY', value: '2,850 kg', permission: REPORT_CODES.inventory },
-    { label: 'CUSTOMERS SERVED', value: '126', permission: REPORT_CODES.customers },
-    { label: 'CASH TOP-UP', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
-    { label: 'EXPENSES', value: '₹6,420', permission: REPORT_CODES.expense },
-    { label: 'RETURNS', value: '8', permission: REPORT_CODES.returns },
+    { label: "Today's Sales", value: '₹24,850', permission: REPORT_CODES.sales },
+    { label: 'Inventory', value: '12,480 kg', permission: REPORT_CODES.inventory },
+    { label: 'Received Today', value: '2,850 kg', permission: REPORT_CODES.inventory },
+    { label: 'Customers Served', value: '126', permission: REPORT_CODES.customers },
+    { label: 'Cash Top-Up', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
+    { label: 'Expenses', value: '₹6,420', permission: REPORT_CODES.expense },
+    { label: 'Returns', value: '8', permission: REPORT_CODES.returns },
   ].filter((k) => can(k.permission));
 
   return (
@@ -5152,15 +5153,29 @@ export function ReportsScreen({
           {/* ─── 1. KPI Metric Cards (2 Columns Grid) ─── */}
           {hubKpis.length > 0 ? (
             <View style={styles.kpiGrid}>
-              {hubKpis.map((k, idx) => (
-                <View
-                  key={k.label}
-                  style={[styles.kpiCard, idx === hubKpis.length - 1 && hubKpis.length % 2 === 1 && styles.kpiCardFull]}
-                >
-                  <Text style={styles.kpiLabel}>{k.label}</Text>
-                  <Text style={styles.kpiValue}>{k.value}</Text>
-                </View>
-              ))}
+              {hubKpis.map((k, idx) => {
+                const getIcon = (label: string): 'sales' | 'box' | 'receiving' | 'orders' | 'cash' | 'alert' => {
+                  const lower = label.toLowerCase();
+                  if (lower.includes('sales')) return 'sales';
+                  if (lower.includes('inventory')) return 'box';
+                  if (lower.includes('received')) return 'receiving';
+                  if (lower.includes('customer')) return 'orders';
+                  if (lower.includes('cash') || lower.includes('expense')) return 'cash';
+                  if (lower.includes('return')) return 'alert';
+                  return 'orders';
+                };
+                const isOddLast = idx === hubKpis.length - 1 && hubKpis.length % 2 === 1;
+                return (
+                  <OverviewDashboardCard
+                    key={k.label}
+                    value={k.value}
+                    title={k.label}
+                    subtitle="Report Metric"
+                    icon={getIcon(k.label)}
+                    style={isOddLast ? { width: '100%' } : undefined}
+                  />
+                );
+              })}
             </View>
           ) : null}
 

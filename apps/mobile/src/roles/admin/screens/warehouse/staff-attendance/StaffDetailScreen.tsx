@@ -210,7 +210,6 @@ export function StaffDetailScreen({
                 [{ label: 'Failed', value: String(DRIVER_DELIVERY_SUMMARY.failed) }],
               ]}
             />
-            {isMain ? <InfoNote>Only metrics the backend actually defines are shown — no invented performance figures.</InfoNote> : null}
           </>
         ) : (
           <>

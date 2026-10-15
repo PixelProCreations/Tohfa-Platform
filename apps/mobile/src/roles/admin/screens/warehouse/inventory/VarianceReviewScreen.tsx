@@ -122,22 +122,6 @@ export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: V
             <Text style={styles.flowVarianceLabel}>VARIANCE</Text>
           </View>
 
-          {/* Variance Warning Box */}
-          <View style={styles.varianceWarningBox}>
-            <WarningTriangleIcon />
-            <Text style={styles.varianceWarningText}>
-              Variance Detected — this quantity cannot be corrected by editing the balance directly.
-            </Text>
-          </View>
-
-          {/* Blue Info Notice Box */}
-          <View style={styles.blueNoticeBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.blueNoticeText}>
-              The physical count never overwrites system quantity. Continuing creates a Stock Adjustment Request, which goes through review before any ledger movement is posted.
-            </Text>
-          </View>
-
           {/* Bottom Spacing */}
           <View style={{ height: 28 }} />
         </ScrollView>
@@ -230,40 +214,6 @@ const styles = StyleSheet.create({
     color: adminColors.danger.text,
     letterSpacing: 0.5,
     marginTop: 2,
-  },
-  varianceWarningBox: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  varianceWarningText: {
-    ...adminType.rowTitle,
-    flex: 1,
-    color: adminColors.brandDeep,
-    lineHeight: 18,
-  },
-  blueNoticeBox: {
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.info.bg,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 16,
-  },
-  blueNoticeText: {
-    ...adminType.body,
-    flex: 1,
-    color: adminColors.info.text,
-    lineHeight: 18,
   },
   bottomBar: {
     paddingHorizontal: 16,
