@@ -76,7 +76,7 @@ function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function QuestionCircleIcon({ size = 20, color = '#059669' }: { size?: number; color?: string }) {
+function QuestionCircleIcon({ size = 20, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -91,7 +91,7 @@ function QuestionCircleIcon({ size = 20, color = '#059669' }: { size?: number; c
   );
 }
 
-function CheckmarkOutlineIcon({ size = 18, color = '#059669' }: { size?: number; color?: string }) {
+function CheckmarkOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -105,7 +105,7 @@ function CheckmarkOutlineIcon({ size = 18, color = '#059669' }: { size?: number;
   );
 }
 
-function CancelCrossIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -291,7 +291,7 @@ export function SelectProductsScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -490,7 +490,7 @@ export function SelectProductsScreen({
         {screenStep === 'confirm_add' && (
           <View style={styles.confirmAddCard}>
             <View style={styles.confirmAddHeader}>
-              <QuestionCircleIcon size={20} color="#059669" />
+              <QuestionCircleIcon size={20} color={adminColors.success.text} />
               <Text style={styles.confirmAddTitle}>Add Product?</Text>
             </View>
 
@@ -508,7 +508,7 @@ export function SelectProductsScreen({
               onPress={handleConfirmAddProduct}
               activeOpacity={0.8}
             >
-              <CheckmarkOutlineIcon size={18} color="#059669" />
+              <CheckmarkOutlineIcon size={18} color={adminColors.success.text} />
               <Text style={styles.confirmAddBtnText}>Add to Sale</Text>
             </TouchableOpacity>
 
@@ -517,7 +517,7 @@ export function SelectProductsScreen({
               onPress={handleCancelAddProduct}
               activeOpacity={0.8}
             >
-              <CancelCrossIcon size={18} color="#92400E" />
+              <CancelCrossIcon size={18} color={adminColors.brandDeep} />
               <Text style={styles.confirmCancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -591,8 +591,7 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
@@ -740,7 +739,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     padding: 16,
     marginBottom: 16,
     ...adminShadow.sm,
@@ -752,8 +751,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   expandedTitleText: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   expandedGridRow: {
@@ -764,33 +762,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expandedGridLabel: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 3,
   },
   expandedGridValuePrice: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   expandedGridValueAvail: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   expandedGridValueBatch: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   expandedGridValueLoc: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   traceabilityBanner: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: adminColors.info.bg,
+    borderColor: adminColors.info.border,
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
@@ -801,13 +795,11 @@ const styles = StyleSheet.create({
   },
   traceabilityText: {
     flex: 1,
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#1D4ED8',
+    ...adminType.rowMeta,
+    color: adminColors.info.text,
   },
   quantitySectionHeader: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginTop: 16,
     marginBottom: 12,
@@ -822,19 +814,17 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FEF3E2',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.title,
+    color: adminColors.brandDeep,
     marginTop: -2,
   },
   stepperValueText: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     minWidth: 70,
     textAlign: 'center',
@@ -850,8 +840,7 @@ const styles = StyleSheet.create({
   },
   addToSaleBtnText: {
     color: adminColors.onBrand,
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.sectionHead,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -870,14 +859,13 @@ const styles = StyleSheet.create({
   },
   continueBtnText: {
     color: adminColors.onBrand,
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
   },
   confirmAddCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#047857',
+    borderColor: adminColors.success.border,
     padding: 16,
     marginTop: 12,
   },
@@ -887,66 +875,62 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmAddTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#047857',
+    ...adminType.title,
+    color: adminColors.success.text,
   },
   confirmAddSubBox: {
-    backgroundColor: '#F6F4EE',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     padding: 14,
     marginTop: 12,
   },
   confirmAddProdName: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
-    color: '#52525B',
+    color: adminColors.muted,
     marginBottom: 6,
   },
   confirmAddCalculation: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#18181B',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   confirmAddBtn: {
     borderWidth: 1.5,
-    borderColor: '#047857',
+    borderColor: adminColors.success.border,
     borderRadius: 12,
     height: 46,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     gap: 6,
   },
   confirmAddBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#047857',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   confirmCancelBtn: {
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     borderRadius: 12,
     height: 46,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     gap: 6,
   },
   confirmCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   summaryCardBox: {
-    backgroundColor: '#FEFBF6',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     padding: 16,
     marginTop: 12,
   },
@@ -957,14 +941,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   summaryTitleText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   summarySubText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#78350F',
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   summaryItemRow: {
     flexDirection: 'row',
@@ -973,18 +955,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   summaryItemName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#78350F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   summaryItemQty: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#78350F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: '#D97706',
+    backgroundColor: adminColors.brand,
     opacity: 0.4,
     marginVertical: 10,
   },
@@ -994,13 +974,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryTotalLabel: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   summaryTotalValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
 });

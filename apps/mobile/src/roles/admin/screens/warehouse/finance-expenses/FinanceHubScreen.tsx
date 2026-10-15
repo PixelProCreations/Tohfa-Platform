@@ -285,8 +285,7 @@ export function FinanceHubScreen({
   return (
     <WalletScreen
       title="Warehouse Finance"
-      onBack={isMain ? onBack : undefined}
-      headerLeft={!isMain ? <GridIcon size={22} color={adminColors.onBrand} /> : undefined}
+      onBack={onBack}
       headerRight={
         <HeaderIconButton
           accessibilityLabel="Notifications"

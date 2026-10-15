@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { formatTransferThreshold, transferNeedsApproval } from '../../../config/businessThresholds';
 import {
   ChipGroup,
@@ -42,7 +42,7 @@ const PRIORITY_COPY: Record<Priority, { title: string; subtitle: string }> = {
 
 const WAREHOUSE_IDS: readonly string[] = TRANSFER_WAREHOUSES.flatMap((w) => (w.warehouseId ? [w.warehouseId] : []));
 
-function BackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
+function BackArrowIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -56,7 +56,7 @@ function BackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
   );
 }
 
-function ChevronDownIcon({ color = '#1C1917' }: { color?: string }) {
+function ChevronDownIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -180,12 +180,12 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
   if (isMain) {
     return (
       <SafeAreaView style={wizardStyles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={wizardStyles.container}>
           {/* Header */}
           <View style={wizardStyles.header}>
             <TouchableOpacity onPress={handleBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={wizardStyles.backBtn}>
-              <BackArrowIcon color="#FFFFFF" />
+              <BackArrowIcon color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={wizardStyles.headerTitle}>{isCreated ? 'Transfer Created' : 'Create Transfer'}</Text>
           </View>
@@ -212,8 +212,8 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                 <View style={wizardStyles.createdCenterGroup}>
                   <View style={wizardStyles.createdIconCircle}>
                     <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
-                      <Path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#10B981" strokeWidth="2" />
-                      <Path d="M8 12l2.5 2.5 5-5" stroke="#10B981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke={adminColors.success.text} strokeWidth="2" />
+                      <Path d="M8 12l2.5 2.5 5-5" stroke={adminColors.success.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </View>
                   <Text style={wizardStyles.createdTitle}>Transfer Created</Text>
@@ -252,7 +252,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                         onPress={() => setSelectedSource(0)}
                         activeOpacity={0.7}
                       >
-                        <Text style={wizardStyles.gridBtnTextBold}>#E48932</Text>
+                        <Text style={wizardStyles.gridBtnTextBold}>Ooty</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -260,7 +260,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                         onPress={() => setSelectedSource(1)}
                         activeOpacity={0.7}
                       >
-                        <Text style={wizardStyles.gridBtnTextBold}>#E4E0D3</Text>
+                        <Text style={wizardStyles.gridBtnTextBold}>Coonoor</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -268,7 +268,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                         onPress={() => setSelectedSource(2)}
                         activeOpacity={0.7}
                       >
-                        <Text style={wizardStyles.gridBtnTextBold}>#E4E0D3</Text>
+                        <Text style={wizardStyles.gridBtnTextBold}>Kotagiri</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -276,7 +276,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                         onPress={() => setSelectedSource(3)}
                         activeOpacity={0.7}
                       >
-                        <Text style={wizardStyles.gridBtnTextBold}>#E4E0D3</Text>
+                        <Text style={wizardStyles.gridBtnTextBold}>Gudalur Market</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -295,7 +295,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                         onPress={() => setSelectedDest('Coonoor')}
                         activeOpacity={0.7}
                       >
-                        <Text style={[wizardStyles.gridBtnTextBold, selectedDest === 'Coonoor' && { color: '#78350F' }]}>
+                        <Text style={[wizardStyles.gridBtnTextBold, selectedDest === 'Coonoor' && { color: adminColors.brandDeep }]}>
                           Coonoor
                         </Text>
                       </TouchableOpacity>
@@ -328,7 +328,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                     <Text style={wizardStyles.stepTitle}>Step 3 — Product</Text>
                     <View style={wizardStyles.dropdownCard}>
                       <Text style={wizardStyles.dropdownCardText}>Tomato — Grade 1</Text>
-                      <ChevronDownIcon color="#1C1917" />
+                      <ChevronDownIcon color={adminColors.ink} />
                     </View>
 
                     <View style={wizardStyles.infoCard}>
@@ -363,7 +363,7 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
                     <Text style={wizardStyles.stepTitle}>Step 5 — Reason</Text>
                     <View style={wizardStyles.dropdownCard}>
                       <Text style={wizardStyles.dropdownCardText}>Low Stock Rebalancing</Text>
-                      <ChevronDownIcon color="#1C1917" />
+                      <ChevronDownIcon color={adminColors.ink} />
                     </View>
                   </View>
                 )}
@@ -600,224 +600,191 @@ const styles = StyleSheet.create({
 const wizardStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
-    marginRight: 12,
-    padding: 2,
+    marginRight: adminSpacing.md,
+    padding: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   progressContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-    gap: 6,
-    backgroundColor: '#FAF5EE',
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
+    gap: adminSpacing.xs,
+    backgroundColor: adminColors.canvas,
   },
   progressSegment: {
     flex: 1,
     height: 3.5,
-    borderRadius: 2,
-    backgroundColor: '#E4E0D3',
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.border,
   },
   progressSegmentActive: {
-    backgroundColor: '#E48932',
+    backgroundColor: adminColors.brand,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.xs,
+    paddingBottom: adminSpacing.xxl,
   },
   stepTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#78350F',
-    marginBottom: 14,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
   grid2x2: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: adminSpacing.md,
   },
   gridBtn: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   gridBtnSelected: {
-    borderColor: '#E48932',
+    borderColor: adminColors.brand,
     borderWidth: 1.5,
   },
   gridBtnActivePeach: {
-    backgroundColor: '#FDF4ED',
-    borderColor: '#E48932',
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
     borderWidth: 1.5,
   },
   gridBtnDisabled: {
-    backgroundColor: '#F5EFE6',
-    borderColor: '#EFEAE2',
+    backgroundColor: adminColors.canvas,
+    borderColor: adminColors.border,
   },
   gridBtnTextBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   gridBtnTextDisabled: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#A8A29E',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   noteBanner: {
-    backgroundColor: '#FDF4ED',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginTop: 14,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   noteBannerText: {
-    color: '#78350F',
-    fontSize: 12,
+    color: adminColors.brandDeep,
+    ...adminType.caption,
     fontWeight: '600',
   },
   dropdownCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   dropdownCardText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   qtyInputCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#E48932',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderColor: adminColors.brand,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   qtyInputValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.title,
+    color: adminColors.ink,
     flex: 1,
     padding: 0,
   },
   qtyInputUnit: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#78716C',
+    color: adminColors.muted,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    padding: 16,
-    marginTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    ...adminShadow.sm,
   },
   infoCardTitle: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: '#1C1917',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   infoCardValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1C1917',
-    marginTop: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
-    backgroundColor: '#FAF5EE',
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
+    backgroundColor: adminColors.canvas,
   },
   nextBtn: {
-    backgroundColor: '#E48932',
-    height: 48,
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.md,
   },
   nextBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   reviewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   reviewRow: {
     flexDirection: 'row',
@@ -826,72 +793,63 @@ const wizardStyles = StyleSheet.create({
     flex: 1,
   },
   reviewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#78716C',
-    marginBottom: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   reviewValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   confirmBtn: {
-    backgroundColor: '#E48932',
-    height: 48,
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.md,
   },
   confirmBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   backOutlineBtn: {
-    backgroundColor: '#FFFFFF',
-    height: 48,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: adminSpacing.sm,
   },
   backOutlineBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#78716C',
+    ...adminType.sectionHead,
+    color: adminColors.muted,
   },
   createdCenterGroup: {
     alignItems: 'center',
-    paddingTop: 36,
-    paddingBottom: 8,
+    paddingTop: adminSpacing.xl,
+    paddingBottom: adminSpacing.sm,
   },
   createdIconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E6F9F0',
+    backgroundColor: adminColors.success.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: adminSpacing.md,
   },
   createdTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   createdSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
-    color: '#78716C',
-    marginTop: 4,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
 });
 

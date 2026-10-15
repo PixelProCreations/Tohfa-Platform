@@ -1,7 +1,6 @@
-// Design id: M3S02
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
@@ -14,7 +13,7 @@ export interface StockListScreenProps extends InventoryScreenBaseProps {
 
 // ─── Main Warehouse Consolidated Stock Icons ────────────────────────────────
 
-function MainBackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
+function MainBackArrowIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -28,7 +27,7 @@ function MainBackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
   );
 }
 
-function MainFilterSlidersIcon({ color = '#FFFFFF' }: { color?: string }) {
+function MainFilterSlidersIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -37,7 +36,7 @@ function MainFilterSlidersIcon({ color = '#FFFFFF' }: { color?: string }) {
   );
 }
 
-function DistributionIcon({ color = '#F0562A' }: { color?: string }) {
+function DistributionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d="M6 20v-6M12 20V5M18 20v-9" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
@@ -45,7 +44,7 @@ function DistributionIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function AvailabilityIcon({ color = '#F0562A' }: { color?: string }) {
+function AvailabilityIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,7 +62,7 @@ function AvailabilityIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ComparisonIcon({ color = '#F0562A' }: { color?: string }) {
+function ComparisonIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d="M12 4v16M8 20h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
@@ -73,7 +72,7 @@ function ComparisonIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ProductDetailIcon({ color = '#F0562A' }: { color?: string }) {
+function ProductDetailIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
@@ -91,7 +90,7 @@ function ProductDetailIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ViewBatchesIcon({ color = '#F0562A' }: { color?: string }) {
+function ViewBatchesIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
@@ -105,7 +104,7 @@ function ViewBatchesIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ViewLedgerIcon({ color = '#F0562A' }: { color?: string }) {
+function ViewLedgerIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
@@ -328,7 +327,7 @@ export function StockListScreen({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <MainBackArrowIcon color="#FFFFFF" />
+                <MainBackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.mainHeaderTitle}>{getHeaderTitle()}</Text>
               <View style={{ flex: 1 }} />
@@ -337,7 +336,7 @@ export function StockListScreen({
                 onPress={() => onNavigate?.('M3S16')}
                 activeOpacity={0.7}
               >
-                <MainFilterSlidersIcon color="#FFFFFF" />
+                <MainFilterSlidersIcon color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
             <Text style={styles.mainHeaderSubtitle}>Same product across all four warehouses</Text>
@@ -375,7 +374,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => setMainView('distribution')}
                   >
-                    <DistributionIcon color="#F0562A" />
+                    <DistributionIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>Distribution</Text>
                   </TouchableOpacity>
 
@@ -384,7 +383,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => setMainView('availability')}
                   >
-                    <AvailabilityIcon color="#F0562A" />
+                    <AvailabilityIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>Availability</Text>
                   </TouchableOpacity>
 
@@ -393,7 +392,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => setMainView('comparison')}
                   >
-                    <ComparisonIcon color="#F0562A" />
+                    <ComparisonIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>Comparison</Text>
                   </TouchableOpacity>
 
@@ -402,7 +401,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => onNavigate?.('M3S03', { product: 'Tomato G1' })}
                   >
-                    <ProductDetailIcon color="#F0562A" />
+                    <ProductDetailIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>Product Detail</Text>
                   </TouchableOpacity>
 
@@ -411,7 +410,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => onNavigate?.('M3S04')}
                   >
-                    <ViewBatchesIcon color="#F0562A" />
+                    <ViewBatchesIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>View Batches</Text>
                   </TouchableOpacity>
 
@@ -420,7 +419,7 @@ export function StockListScreen({
                     activeOpacity={0.7}
                     onPress={() => onNavigate?.('M3S06')}
                   >
-                    <ViewLedgerIcon color="#F0562A" />
+                    <ViewLedgerIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>View Ledger</Text>
                   </TouchableOpacity>
                 </View>
@@ -815,13 +814,13 @@ const styles = StyleSheet.create({
   // Main Warehouse Consolidated Stock styles
   mainContainer: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   mainHeader: {
-    backgroundColor: '#F0562A',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
   },
   mainHeaderTopRow: {
     flexDirection: 'row',
@@ -833,22 +832,23 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   mainHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   mainFilterBtn: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.sm,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: adminColors.onBrand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainHeaderSubtitle: {
-    fontSize: 13,
-    color: '#FFFFFF',
+    ...adminType.body,
+    color: adminColors.onBrand,
     opacity: 0.92,
     fontWeight: '500',
     paddingLeft: 2,
@@ -857,93 +857,77 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainContentContainer: {
-    padding: 16,
+    padding: adminSpacing.lg,
     paddingBottom: 32,
   },
   mainSectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#78350F',
-    marginBottom: 16,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.lg,
   },
   tableCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
+    borderColor: adminColors.border,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#F5EFE6',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brandTint,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     alignItems: 'center',
   },
   tableColHeader: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   tableDataRow: {
     flexDirection: 'row',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   tableCell: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   detailGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: adminSpacing.md,
   },
   detailCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
+    borderColor: adminColors.border,
     paddingVertical: 22,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   detailCardLabel: {
     marginTop: 10,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     textAlign: 'center',
   },
   distListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   distRow: {
     flexDirection: 'row',
@@ -951,73 +935,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE4',
+    borderBottomColor: adminColors.border,
   },
   distRowLast: {
     borderBottomWidth: 0,
   },
   distWarehouseName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   distWarehouseQty: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   distTotalLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   distTotalQty: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   availCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.xl,
+    ...adminShadow.sm,
   },
   availRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   availCol: {
     flex: 1,
   },
   availLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   availValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   compListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   compRow: {
     flexDirection: 'row',
@@ -1025,20 +995,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE4',
+    borderBottomColor: adminColors.border,
   },
   compRowLast: {
     borderBottomWidth: 0,
   },
   compWarehouseName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   compWarehouseStat: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
 });
 

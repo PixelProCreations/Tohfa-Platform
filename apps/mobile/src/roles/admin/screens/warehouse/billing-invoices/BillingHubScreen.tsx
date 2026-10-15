@@ -74,7 +74,7 @@ function TileIcon({ d, color = adminColors.brand }: { d: string; color?: string 
   );
 }
 
-function GenerateInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function GenerateInvoiceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -83,7 +83,7 @@ function GenerateInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; 
   );
 }
 
-function ViewInvoicesIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function ViewInvoicesIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -92,7 +92,7 @@ function ViewInvoicesIcon({ size = 26, color = '#F0562A' }: { size?: number; col
   );
 }
 
-function InvoiceHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function InvoiceHistoryIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -101,7 +101,7 @@ function InvoiceHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; c
   );
 }
 
-function GstInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function GstInvoiceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -452,102 +452,96 @@ const styles = StyleSheet.create({
   },
   mainKpiCard: {
     width: '48.4%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E8DED5',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     alignItems: 'flex-start',
   },
   mainKpiLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#6B6560',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     lineHeight: 28,
   },
   mainSectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#8A5A30',
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
   },
   mainActionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
   },
   mainActionCard: {
     width: '48.4%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E8DED5',
+    borderColor: adminColors.border,
     paddingVertical: 18,
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainActionIconWrap: {
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainActionLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     textAlign: 'center',
   },
   mainInvoiceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E8DED5',
-    padding: 16,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
   },
   mainInvoiceTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   mainInvoiceNumber: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   mainBadgeGenerated: {
-    backgroundColor: '#E6F4EA',
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
   },
   mainBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#137333',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   mainCustomerName: {
-    fontSize: 12,
-    color: '#6B6560',
-    marginBottom: 10,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
   },
   mainCardDivider: {
     height: 1,
-    backgroundColor: '#F0E7DD',
-    marginBottom: 10,
+    backgroundColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
   },
   mainInvoiceBottom: {
     flexDirection: 'row',
@@ -555,12 +549,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainOrderId: {
-    fontSize: 12,
-    color: '#6B6560',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   mainAmount: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
 });

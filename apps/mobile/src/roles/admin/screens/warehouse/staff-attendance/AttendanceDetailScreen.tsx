@@ -17,6 +17,7 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { InfoCard, InfoNote, isAllWarehouses, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { ATTENDANCE_DATE_TEXT, DEFAULT_ATTENDANCE_RECORD } from './fixtures';
 import { ProhibitedIcon, RingTimeline } from './StaffParts';

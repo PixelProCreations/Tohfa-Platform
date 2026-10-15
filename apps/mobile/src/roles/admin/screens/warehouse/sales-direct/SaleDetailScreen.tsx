@@ -178,7 +178,7 @@ export function SaleDetailScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity
@@ -428,14 +428,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   paidBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.success.text,
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -453,16 +451,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   itemLeftText: {
-    ...adminType.title,
+    ...adminType.rowTitle,
     color: adminColors.ink,
-    fontSize: 14,
     flex: 1,
     paddingRight: 8,
   },
   itemRightPrice: {
-    ...adminType.title,
+    ...adminType.rowTitle,
     color: adminColors.ink,
-    fontSize: 14,
   },
   itemDivider: {
     height: 1,
@@ -476,10 +472,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   referenceNoticeText: {
-    ...adminType.body,
+    ...adminType.rowMeta,
     color: adminColors.muted,
-    fontSize: 12,
-    lineHeight: 16,
   },
   viewInvoiceOutlineBtn: {
     borderWidth: 1.5,
@@ -492,9 +486,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   viewInvoiceOutlineBtnText: {
-    ...adminType.title,
+    ...adminType.sectionHead,
     color: adminColors.brand,
-    fontSize: 14,
   },
   timelineCard: {
     paddingLeft: 4,

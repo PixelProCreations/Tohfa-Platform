@@ -663,7 +663,7 @@ export function WarehouseEditProfileScreen({
                 value={tempControlledEnabled}
                 onValueChange={setTempControlledEnabled}
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
-                thumbColor="#FFFFFF"
+                thumbColor={adminColors.onBrand}
               />
             </View>
 
@@ -710,7 +710,7 @@ export function WarehouseEditProfileScreen({
                 value={humidityEnabled}
                 onValueChange={setHumidityEnabled}
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
-                thumbColor="#FFFFFF"
+                thumbColor={adminColors.onBrand}
               />
             </View>
 
@@ -831,7 +831,7 @@ export function WarehouseEditProfileScreen({
                 value={receivingEnabled}
                 onValueChange={setReceivingEnabled}
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
-                thumbColor="#FFFFFF"
+                thumbColor={adminColors.onBrand}
               />
             </View>
 
@@ -871,7 +871,7 @@ export function WarehouseEditProfileScreen({
                 value={qcAreaAvailable}
                 onValueChange={setQcAreaAvailable}
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
-                thumbColor="#FFFFFF"
+                thumbColor={adminColors.onBrand}
               />
             </View>
 
@@ -976,16 +976,14 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: adminRadius.md,
-    backgroundColor: '#C5BCB2',
+    backgroundColor: adminColors.border,
   },
   summaryCardInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   summaryCardTitle: {
-    ...adminType.rowTitle,
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 4,
   },
@@ -1009,11 +1007,9 @@ const styles = StyleSheet.create({
   /* Headings */
   sectionHeader: {
     ...adminType.sectionHead,
-    fontSize: 16,
     color: adminColors.brandDeep,
     marginTop: adminSpacing.md,
     marginBottom: adminSpacing.md,
-    fontWeight: '700',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1024,9 +1020,7 @@ const styles = StyleSheet.create({
   },
   sectionHeaderWithIcon: {
     ...adminType.sectionHead,
-    fontSize: 16,
     color: adminColors.brandDeep,
-    fontWeight: '700',
   },
 
   /* Form Layout */
@@ -1125,7 +1119,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 72,
     borderRadius: adminRadius.md,
-    backgroundColor: '#C5BCB2',
+    backgroundColor: adminColors.border,
   },
   uploadDashedBox: {
     flex: 1,
@@ -1133,7 +1127,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     borderStyle: 'dashed',
     borderRadius: adminRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: adminSpacing.sm,
@@ -1146,7 +1140,6 @@ const styles = StyleSheet.create({
   },
   uploadSubtitle: {
     ...adminType.caption,
-    fontSize: 10,
     color: adminColors.muted,
   },
 
@@ -1202,15 +1195,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   kpiValueDark: {
-    ...adminType.title,
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
   },
   kpiValueGreen: {
-    ...adminType.title,
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.success.text,
   },
   progressBarBg: {
@@ -1228,7 +1217,6 @@ const styles = StyleSheet.create({
   },
   kpiSubText: {
     ...adminType.caption,
-    fontSize: 10,
     color: adminColors.muted,
   },
   kpiSubTextMuted: {
@@ -1348,7 +1336,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#D32F2F',
+    borderColor: adminColors.danger.text,
     borderRadius: adminRadius.md,
     paddingVertical: adminSpacing.md,
     backgroundColor: adminColors.card,
@@ -1356,7 +1344,7 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     ...adminType.rowTitle,
     fontWeight: '700',
-    color: '#D32F2F',
+    color: adminColors.danger.text,
   },
   saveBtn: {
     flex: 1,

@@ -175,7 +175,7 @@ export function StorageInfoScreen({
           </>
         ) : null}
 
-        {visibleSections.length > 0 ? (
+        {isMain && visibleSections.length > 0 ? (
           <>
             <SectionTitle>Storage Sections</SectionTitle>
             {sectionTypes.map((type) => (

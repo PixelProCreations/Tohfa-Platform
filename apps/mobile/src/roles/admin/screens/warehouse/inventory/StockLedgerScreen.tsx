@@ -147,6 +147,7 @@ export function StockLedgerScreen({
   // warehouses (selector + cross-warehouse batch list, from the absorbed Main
   // screen); without it the ledger is forced to scope.warehouseId (view_own).
   const canViewAll = can('inventory.stock_ledger.view_all');
+  const isSub = scope.warehouseId !== undefined || !canViewAll;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
     canViewAll ? undefined : scope.warehouseId,
   );
@@ -349,7 +350,7 @@ export function StockLedgerScreen({
             </>
           ) : null}
 
-          {canAdjust && firstBatch ? (
+          {!isSub && canAdjust && firstBatch ? (
             <TouchableOpacity
               style={styles.adjustBtn}
               activeOpacity={0.8}
@@ -419,14 +420,14 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 20,
+    borderColor: adminColors.onBrand,
+    borderRadius: adminRadius.full,
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: adminSpacing.md,
     alignSelf: 'flex-start',
-    gap: 6,
+    gap: adminSpacing.xs + 2,
   },
   warehousePillText: {
     ...adminType.rowTitle,

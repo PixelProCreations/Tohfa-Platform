@@ -96,6 +96,9 @@ const REASONS = [
 export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routeParams }: StockAdjustmentRequestScreenProps) {
   // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own (own warehouse only).
   const canCreateAdjustment = can('inventory.stock_adjustment.create');
+  const systemCount = Number(routeParams?.systemCount ?? 100);
+  const physicalCount = Number(routeParams?.physicalCount ?? 95);
+  const varianceKg = Number(routeParams?.varianceKg ?? physicalCount - systemCount);
   const [selectedReason, setSelectedReason] = useState('Physical Counting Error');
   const [notes, setNotes] = useState('');
 
@@ -111,15 +114,15 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
           {/* Top 3 Quantity Summary Cards */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>100 KG</Text>
+              <Text style={styles.summaryValue}>{systemCount} KG</Text>
               <Text style={styles.summaryLabel}>SYSTEM</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>95 KG</Text>
+              <Text style={styles.summaryValue}>{physicalCount} KG</Text>
               <Text style={styles.summaryLabel}>PHYSICAL</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValueRed}>-5 KG</Text>
+              <Text style={styles.summaryValueRed}>{varianceKg > 0 ? `+${varianceKg}` : varianceKg} KG</Text>
               <Text style={styles.summaryLabelRed}>VARIANCE</Text>
             </View>
           </View>
@@ -128,7 +131,9 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
           <Text style={styles.sectionHeader}>Adjustment Requested</Text>
           <View style={styles.adjustmentBadge}>
             <DownArrowRedIcon />
-            <Text style={styles.adjustmentBadgeText}>ADJUSTMENT_DOWN · -5 KG</Text>
+            <Text style={styles.adjustmentBadgeText}>
+              {varianceKg < 0 ? `ADJUSTMENT_DOWN · ${varianceKg} KG` : `ADJUSTMENT_UP · +${varianceKg} KG`}
+            </Text>
           </View>
 
           {/* Reason Section */}

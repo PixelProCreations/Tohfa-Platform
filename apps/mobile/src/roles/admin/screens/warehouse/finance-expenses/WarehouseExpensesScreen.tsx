@@ -619,8 +619,10 @@ export function WarehouseExpensesScreen({
         ) : (
           <View style={styles.warehousePillRow}>
             <View style={styles.warehousePill}>
-              <LockIcon size={11} />
-              <Text style={styles.warehousePillText}>{warehouseLabel}</Text>
+              <LockIcon size={12} color={adminColors.onBrand} />
+              <Text style={styles.warehousePillText}>
+                {`${warehouseLabel.includes('Warehouse') ? warehouseLabel : `${warehouseLabel} Warehouse`} · Assigned Warehouse`}
+              </Text>
             </View>
           </View>
         )}
@@ -826,7 +828,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -836,10 +838,10 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: adminSpacing.md,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: adminRadius.full,
     alignSelf: 'flex-start',

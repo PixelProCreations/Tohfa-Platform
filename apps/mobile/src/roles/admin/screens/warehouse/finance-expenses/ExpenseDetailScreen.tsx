@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -124,6 +124,44 @@ function EyeIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; 
   );
 }
 
+function DownloadIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ReceiptCheckIcon({ size = 16, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" fill={adminColors.success.bg} />
+      <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PrinterIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M6 14h12v8H6z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ExpenseDetailScreen({
@@ -138,15 +176,24 @@ export function ExpenseDetailScreen({
   createdBy = 'SWA – Suresh',
   status = 'Recorded',
   isShortVersion = false,
+  isReceiptView = false,
   scope,
   can,
   onBack,
   onEdit,
+  onViewReceipt,
   onViewVouchers,
 }: ExpenseDetailScreenProps) {
   const isMain = scope.warehouseId === undefined;
   const warehouseLabel = warehouse ?? scope.warehouseName ?? 'All Warehouses';
   const canLog = can('finance.expense.log');
+  const [showReceiptScreen, setShowReceiptScreen] = useState(Boolean(isReceiptView));
+
+  useEffect(() => {
+    if (isReceiptView !== undefined) {
+      setShowReceiptScreen(isReceiptView);
+    }
+  }, [isReceiptView]);
 
   const handleEditExpense = () => {
     if (!canLog) return;
@@ -177,7 +224,19 @@ export function ExpenseDetailScreen({
   };
 
   const handleViewReceipt = () => {
-    Alert.alert('Receipt Viewer', `Opening supporting document for ${expenseId}...`);
+    if (onViewReceipt) {
+      onViewReceipt();
+    } else {
+      setShowReceiptScreen(true);
+    }
+  };
+
+  const handleCloseReceipt = () => {
+    if (isReceiptView) {
+      onBack();
+    } else {
+      setShowReceiptScreen(false);
+    }
   };
 
   const handleDownloadReceipt = () => {
@@ -194,6 +253,155 @@ export function ExpenseDetailScreen({
   };
 
   const formattedAmount = typeof amount === 'number' ? amount.toLocaleString() : amount;
+
+  // ─── Customized Receipt Screen (matches design colors) ───
+  if (showReceiptScreen || isReceiptView) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ─── Top Brand Header Banner (transparent back arrow, no circle/box) ─── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleCloseReceipt}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>Expense Receipt</Text>
+              <Text style={styles.headerSubtitle}>
+                {expenseId} · ▫ {status}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.receiptHeaderBtn}
+              onPress={handleDownloadReceipt}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Download receipt"
+            >
+              <DownloadIcon size={20} color={adminColors.onBrand} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ─── Main Content Scroll ─── */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Main Voucher Card */}
+          <View style={styles.voucherCard}>
+            {/* Top row with status badge */}
+            <View style={styles.voucherStatusRow}>
+              <View style={styles.statusPill}>
+                <ReceiptCheckIcon size={14} color={adminColors.success.text} />
+                <Text style={styles.statusPillText}>RECEIPT · RECORDED</Text>
+              </View>
+              <Text style={styles.voucherNoText}>RCT-{expenseId.replace('EXP-', '')}</Text>
+            </View>
+
+            {/* Title & Date */}
+            <Text style={styles.voucherTitleText}>Official Expense Voucher</Text>
+            <Text style={styles.voucherDateText}>{date} · 10:30 AM IST</Text>
+
+            {/* Dashed / Divider Line */}
+            <View style={styles.voucherDividerLine} />
+
+            {/* Highlighted Amount Box */}
+            <View style={styles.voucherAmountBox}>
+              <Text style={styles.voucherAmountLabel}>TOTAL AMOUNT</Text>
+              <Text style={styles.voucherAmountValue}>₹{formattedAmount}</Text>
+              <Text style={styles.voucherAmountSub}>{category} · Paid via {paymentMethod}</Text>
+            </View>
+
+            {/* Key Receipt Fields */}
+            <View style={styles.voucherFieldGrid}>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Expense ID</Text>
+                <Text style={styles.voucherFieldValue}>{expenseId}</Text>
+              </View>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Category</Text>
+                <Text style={styles.voucherFieldValue}>{category}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.voucherFieldGrid, { marginTop: adminSpacing.md }]}>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Payee / Vendor</Text>
+                <Text style={styles.voucherFieldValue}>{vendorPayee}</Text>
+              </View>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Payment Method</Text>
+                <Text style={styles.voucherFieldValue}>{paymentMethod}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.voucherFieldGrid, { marginTop: adminSpacing.md }]}>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Warehouse</Text>
+                <Text style={styles.voucherFieldValue}>{warehouseLabel}</Text>
+              </View>
+              <View style={styles.voucherFieldCol}>
+                <Text style={styles.voucherFieldLabel}>Logged By</Text>
+                <Text style={styles.voucherFieldValue}>{createdBy}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.voucherFieldFull, { marginTop: adminSpacing.md }]}>
+              <Text style={styles.voucherFieldLabel}>Description</Text>
+              <Text style={styles.voucherFieldValue}>{description}</Text>
+            </View>
+
+            {/* Attached Supporting Document Card */}
+            <View style={styles.attachedDocCard}>
+              <View style={styles.receiptIconBox}>
+                <DocumentIcon size={24} color={adminColors.brandDeep} />
+              </View>
+              <View style={styles.attachedDocInfo}>
+                <Text style={styles.attachedDocTitle}>Attached Supporting Doc</Text>
+                <Text style={styles.attachedDocSub}>{expenseId}_receipt.pdf · 142 KB</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.voucherActionsRow}>
+            <TouchableOpacity
+              style={styles.primaryDownloadBtn}
+              onPress={handleDownloadReceipt}
+              activeOpacity={0.8}
+            >
+              <DownloadIcon size={18} color={adminColors.onBrand} />
+              <Text style={styles.primaryDownloadBtnText}>Download Receipt</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryPrintBtn}
+              onPress={() => Alert.alert('Print / Share', `Sharing voucher for ${expenseId}...`)}
+              activeOpacity={0.8}
+            >
+              <PrinterIcon size={18} color={adminColors.brandDeep} />
+              <Text style={styles.secondaryPrintBtnText}>Print / Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Screen Footer Code */}
+          <Text style={styles.screenFooterCode}>M11-S05-R · Expense Receipt</Text>
+          <View style={{ height: adminSpacing.lg }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -548,5 +756,164 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: adminSpacing.sm,
     marginBottom: adminSpacing.xs,
+  },
+
+  // Customized Receipt Screen
+  receiptHeaderBtn: {
+    padding: adminSpacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  voucherCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  voucherStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+  },
+  statusPillText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+  voucherNoText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  voucherTitleText: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
+  },
+  voucherDateText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+    marginBottom: adminSpacing.md,
+  },
+  voucherDividerLine: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
+  },
+  voucherAmountBox: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    alignItems: 'center',
+    marginBottom: adminSpacing.lg,
+  },
+  voucherAmountLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  voucherAmountValue: {
+    ...adminType.kpiValue,
+    color: adminColors.brandDeep,
+    marginTop: 2,
+  },
+  voucherAmountSub: {
+    ...adminType.rowMeta,
+    color: adminColors.ink,
+    marginTop: 2,
+  },
+  voucherFieldGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  voucherFieldCol: {
+    flex: 1,
+  },
+  voucherFieldFull: {
+    width: '100%',
+  },
+  voucherFieldLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  voucherFieldValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  attachedDocCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+    gap: adminSpacing.md,
+  },
+  attachedDocInfo: {
+    flex: 1,
+  },
+  attachedDocTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  attachedDocSub: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  voucherActionsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+  },
+  primaryDownloadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    gap: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  primaryDownloadBtnText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
+  },
+  secondaryPrintBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  secondaryPrintBtnText: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
 });

@@ -60,6 +60,14 @@ function ListEditLinesIcon() {
 export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: VarianceReviewScreenProps) {
   // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own.
   const canCreateAdjustment = can('inventory.stock_adjustment.create');
+  const produceName = String(routeParams?.produceName ?? 'Tomato');
+  const grade = String(routeParams?.grade ?? 'Grade 1');
+  const batchId = String(routeParams?.batchId ?? 'BAT-2026-00124');
+  const zone = String(routeParams?.zone ?? 'Cold Storage · A03');
+  const systemCount = Number(routeParams?.systemCount ?? 100);
+  const physicalCount = Number(routeParams?.physicalCount ?? 95);
+  const varianceKg = Number(routeParams?.varianceKg ?? physicalCount - systemCount);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -74,43 +82,43 @@ export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: V
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Product</Text>
-                <Text style={styles.colValue}>Tomato</Text>
+                <Text style={styles.colValue}>{produceName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Grade</Text>
-                <Text style={styles.colValue}>Grade 1</Text>
+                <Text style={styles.colValue}>{grade}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, { marginTop: 12 }]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Batch</Text>
-                <Text style={styles.colValue}>BAT-2026-00124</Text>
+                <Text style={styles.colValue}>{batchId}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Storage Location</Text>
-                <Text style={styles.colValue}>Cold Storage · A03</Text>
+                <Text style={styles.colValue}>{zone}</Text>
               </View>
             </View>
           </View>
 
           {/* Variance Flow Card */}
           <View style={styles.flowCard}>
-            <Text style={styles.flowNumber}>100 KG</Text>
+            <Text style={styles.flowNumber}>{systemCount} KG</Text>
             <Text style={styles.flowLabel}>SYSTEM</Text>
 
             <View style={styles.arrowWrap}>
               <DownArrowGreyIcon />
             </View>
 
-            <Text style={styles.flowNumber}>95 KG</Text>
+            <Text style={styles.flowNumber}>{physicalCount} KG</Text>
             <Text style={styles.flowLabel}>PHYSICAL</Text>
 
             <View style={styles.arrowWrap}>
               <DownArrowGreyIcon />
             </View>
 
-            <Text style={styles.flowVarianceNumber}>-5 KG</Text>
+            <Text style={styles.flowVarianceNumber}>{varianceKg > 0 ? `+${varianceKg}` : varianceKg} KG</Text>
             <Text style={styles.flowVarianceLabel}>VARIANCE</Text>
           </View>
 

@@ -351,15 +351,15 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#FFF1EB',
+                  backgroundColor: adminColors.brandTint,
                   paddingHorizontal: 10,
                   paddingVertical: 4,
-                  borderRadius: 12,
+                  borderRadius: adminRadius.md,
                   gap: 4,
                 }}
               >
                 <DeliveryTruckSmallIcon />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+                <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.brand }}>
                   {fulfillmentFilter} Only ✕
                 </Text>
               </TouchableOpacity>
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   mwaBannerText: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.success.text,
     lineHeight: 18,
@@ -334,8 +334,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   mwaStatusValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.success.text,
   },
   tableRow: {

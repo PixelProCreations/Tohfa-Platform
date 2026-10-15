@@ -399,15 +399,12 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.sm,
   },
   previewBrandTitle: {
-    ...adminType.sectionHead,
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     textAlign: 'center',
   },
   previewDocLabel: {
-    ...adminType.rowMeta,
-    fontSize: 12,
+    ...adminType.caption,
     color: adminColors.muted,
     marginTop: 2,
     textAlign: 'center',
@@ -420,18 +417,15 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     ...adminType.body,
-    fontSize: 13,
     color: adminColors.muted,
   },
   previewValue: {
     ...adminType.rowTitle,
-    fontSize: 13,
     fontWeight: '600',
     color: adminColors.ink,
   },
   previewGrandTotal: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
     textAlign: 'center',
     marginTop: adminSpacing.md,

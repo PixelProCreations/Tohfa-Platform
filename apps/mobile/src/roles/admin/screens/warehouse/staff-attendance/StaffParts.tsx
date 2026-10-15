@@ -40,7 +40,7 @@ export function attendanceTone(status: AttendanceStatus): AdminTone {
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-export function TruckIcon({ size = 20, color = '#F0562A' }: IconProps) {
+export function TruckIcon({ size = 20, color = adminColors.brand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="1.8" />
@@ -60,7 +60,7 @@ export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: Ic
   );
 }
 
-export function PersonIcon({ size = 20, color = '#F0562A' }: IconProps) {
+export function PersonIcon({ size = 20, color = adminColors.brand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -79,7 +79,7 @@ export function StaffGroupIcon({ size = 22, color = adminColors.onBrand }: IconP
   );
 }
 
-export function HistoryIcon({ size = 20, color = '#F0562A' }: IconProps) {
+export function HistoryIcon({ size = 20, color = adminColors.brand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -151,8 +151,8 @@ export function ChevronDownIcon({ size = 18, color = adminColors.muted }: IconPr
 
 /** Round avatar with the driver truck or the warehouse-staff person, tinted by attendance. */
 export function StaffAvatar({ type, tone, large = false }: { type?: StaffType | undefined; tone?: AdminTone | undefined; large?: boolean }) {
-  const color = tone ? adminColors[tone].text : '#F0562A';
-  const bgColor = tone !== undefined ? adminColors[tone].bg : '#FFF1EB';
+  const color = tone ? adminColors[tone].text : adminColors.brand;
+  const bgColor = tone !== undefined ? adminColors[tone].bg : adminColors.brandTint;
   const size = large ? 28 : 22;
   return (
     <View style={[styles.avatar, large && styles.avatarLarge, { backgroundColor: bgColor }]}>

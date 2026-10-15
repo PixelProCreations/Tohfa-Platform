@@ -18,7 +18,7 @@ import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { WarehouseScope } from './types';
 
-function BuildingWarehouseIcon({ color = '#FFFFFF' }: { color?: string | undefined }) {
+function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string | undefined }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
       <Path
@@ -32,7 +32,7 @@ function BuildingWarehouseIcon({ color = '#FFFFFF' }: { color?: string | undefin
   );
 }
 
-function ChevronDownSmallIcon({ color = '#FFFFFF', rotated = false }: { color?: string | undefined; rotated?: boolean | undefined }) {
+function ChevronDownSmallIcon({ color = adminColors.onBrand, rotated = false }: { color?: string | undefined; rotated?: boolean | undefined }) {
   return (
     <View style={rotated ? { transform: [{ rotate: '180deg' }] } : undefined}>
       <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
@@ -110,9 +110,9 @@ export function WarehouseSelector({ scope, options = [], selectedId, onSelect, a
         accessibilityRole="button"
         accessibilityLabel={`Selected warehouse: ${selectedName}. Tap to change.`}
       >
-        <BuildingWarehouseIcon color="#FFFFFF" />
+        <BuildingWarehouseIcon color={adminColors.onBrand} />
         <Text style={styles.dropdownBtnText}>{selectedName}</Text>
-        <ChevronDownSmallIcon color="#FFFFFF" rotated={showModal} />
+        <ChevronDownSmallIcon color={adminColors.onBrand} rotated={showModal} />
       </TouchableOpacity>
 
       <Modal
@@ -194,16 +194,16 @@ export function WarehouseSelector({ scope, options = [], selectedId, onSelect, a
 const styles = StyleSheet.create({
   dropdownBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 100,
-    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 5.5,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: adminColors.onBrand,
   },
   dropdownBtnText: {
     ...adminType.rowTitle,

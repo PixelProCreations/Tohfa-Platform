@@ -9,9 +9,9 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {
   /** Rows to show; defaults to the design sample. */
@@ -30,8 +30,8 @@ function BackArrowWhiteIcon() {
 
 function LockSmallWhiteIcon() {
   return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={adminColors.onBrand} strokeWidth="2" />
+    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={adminColors.onBrand} strokeWidth="2" />
       <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
@@ -100,7 +100,9 @@ export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments
           {scope.warehouseId !== undefined ? (
             <View style={styles.warehousePill}>
               <LockSmallWhiteIcon />
-              <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+              <Text style={styles.warehousePillText}>
+                {`${(scope.warehouseName ?? 'Coonoor Warehouse').includes('Warehouse') ? (scope.warehouseName ?? 'Coonoor Warehouse') : `${scope.warehouseName} Warehouse`} · Assigned Warehouse`}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -204,10 +206,10 @@ const styles = StyleSheet.create({
   },
   warehousePill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 20,
+    borderColor: adminColors.headerPill.border,
+    borderRadius: adminRadius.full,
     paddingHorizontal: 12,
     paddingVertical: 5,
     marginTop: 10,

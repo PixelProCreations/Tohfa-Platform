@@ -338,8 +338,7 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   accordionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   accordionRightRow: {
@@ -348,7 +347,7 @@ const styles = StyleSheet.create({
     gap: adminSpacing.xs,
   },
   locationsCountText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   nestedCardsColumn: {
@@ -372,8 +371,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   groupTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   treeWrapper: {
@@ -405,12 +403,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   cardSubtitle: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 6,
   },
@@ -421,12 +418,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   stockLabel: {
-    fontSize: 13,
+    ...adminType.caption,
     color: adminColors.muted,
   },
   stockValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.ink,
   },
 });

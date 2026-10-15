@@ -55,11 +55,11 @@ function BellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-function LockBadgeIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="10" width="16" height="11" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M8 10V6.5a4 4 0 0 1 8 0V10" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -315,7 +315,9 @@ export function WalletOperationsScreen({
             /* Subwarehouse Lock + Active pill */
             <View style={styles.assignedWarehousePill}>
               <LockBadgeIcon size={12} color={adminColors.onBrand} />
-              <Text style={styles.assignedWarehouseText}>{`${warehouseLabel} · Active`}</Text>
+              <Text style={styles.assignedWarehouseText}>
+                {`${(warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '').includes('Warehouse') ? warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '') : `${warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '')} Warehouse`)} · Assigned Warehouse`}
+              </Text>
             </View>
           ) : (
             <WarehouseSelector
@@ -747,10 +749,10 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   headerIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -758,13 +760,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.headerPill.border,
     borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 6,
-    marginTop: adminSpacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: adminSpacing.sm,
     gap: 6,
   },
   assignedWarehouseText: {
@@ -1022,10 +1024,10 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   noticeCallout: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.border,
     padding: adminSpacing.md,
     marginBottom: 20,
   },
