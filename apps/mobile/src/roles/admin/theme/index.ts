@@ -93,6 +93,16 @@ export const adminColors = {
     text: neutral('white'),
     icon: hex('adminSuccessOnDark'),
   },
+
+  /** Header translucent pill (subwarehouse locked warehouse pill on brand background). */
+  headerPill: {
+    bg: 'rgba(255, 255, 255, 0.18)',
+    border: 'rgba(255, 255, 255, 0.35)',
+  },
+  /** Header translucent icon button (e.g. notifications bell) on brand background. */
+  headerIcon: {
+    bg: 'rgba(255, 255, 255, 0.22)',
+  },
 } as const;
 
 export type AdminColors = typeof adminColors;

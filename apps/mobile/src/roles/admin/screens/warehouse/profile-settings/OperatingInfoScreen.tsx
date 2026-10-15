@@ -62,6 +62,7 @@ export function OperatingInfoScreen({
       headerExtra={
         <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
+      footer={onTabChange ? <WarehouseTabBar activeTab="More" onTabChange={onTabChange} /> : undefined}
     >
       {info === undefined ? (
         <EmptyState title="No operating information" subtitle="Nothing is configured for this warehouse yet." />
@@ -133,43 +134,112 @@ export function OperatingInfoScreen({
             <View style={styles.services}>
               {info.services.map((service) => (
                 <View key={service} style={styles.servicePill}>
-                  <CheckIcon size={14} color="#166534" />
+                  <CheckIcon size={14} color={adminColors.success.text} />
                   <Text style={styles.serviceText}>{service}</Text>
                 </View>
               ))}
             </View>
           </View>
 
-          {isMain ? (
+          {/* FULFILLMENT INFORMATION */}
+          <Text style={styles.sectionTitle}>Fulfillment Information</Text>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, gap: adminSpacing.lg }}>
+                <View>
+                  <Text style={styles.label}>Customer Pickup</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 }}>
+                    {info.fulfillment.find((f) => f.label === 'Customer Pickup')?.value ?? 'Available'}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={styles.label}>Market Sales</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 }}>
+                    {info.fulfillment.find((f) => f.label === 'Market Sales')?.value ?? 'Available'}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Home Delivery</Text>
+                <Text style={{ ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 }}>
+                  {info.fulfillment.find((f) => f.label === 'Home Delivery')?.value ?? 'Available'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* DAILY OPERATIONAL CAPACITY */}
+          <Text style={styles.sectionTitle}>Daily Operational Capacity</Text>
+          <View style={[styles.card, { paddingVertical: 4, paddingHorizontal: 0 }]}>
+            {info.dailyCapacity.map((row, index) => {
+              const isLast = index === info.dailyCapacity.length - 1;
+              return (
+                <View
+                  key={row.label}
+                  style={[
+                    {
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingHorizontal: adminSpacing.lg,
+                      paddingVertical: adminSpacing.md,
+                    },
+                    !isLast && { borderBottomWidth: 1, borderBottomColor: adminColors.border },
+                  ]}
+                >
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{row.label}</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{row.value}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Info banner below capacity */}
+          {!isMain ? (
+            <View style={styles.infoBanner}>
+              <Text style={styles.infoBannerText}>
+                Capacity numbers shown only if configured — never invented.
+              </Text>
+            </View>
+          ) : (
+            <InfoNote>Capacity numbers are shown only when configured.</InfoNote>
+          )}
+
+          {/* SPECIAL OPERATING DAYS */}
+          {info.specialDays.length > 0 && (
             <>
-              <View style={warehouseProfileLayout.gap} />
-              <InfoNote>Only services actually configured for this warehouse are shown.</InfoNote>
-              <SectionTitle>Fulfillment Information</SectionTitle>
-              <InfoCard rows={pairs(info.fulfillment.map((f) => ({ label: f.label, value: f.value })))} />
-              <SectionTitle>Daily Operational Capacity</SectionTitle>
-              <Card>
-                {info.dailyCapacity.map((row, index) => (
-                  <DetailRow key={row.label} first={index === 0} label={row.label} value={row.value} />
-                ))}
-              </Card>
-              <View style={warehouseProfileLayout.gap} />
-              <InfoNote>Capacity numbers are shown only when configured.</InfoNote>
-              {info.specialDays.length > 0 ? (
-                <>
-                  <SectionTitle>Special Operating Days</SectionTitle>
-                  <Card>
-                    {info.specialDays.map((row, index) => (
-                      <DetailRow key={row.date} first={index === 0} label={row.date} value={row.note} valueTone="danger" />
-                    ))}
-                  </Card>
-                </>
-              ) : null}
-              <SectionTitle>Operating Notes</SectionTitle>
-              <Card>
-                <Text style={styles.notes}>{info.notes}</Text>
-              </Card>
+              <Text style={styles.sectionTitle}>Special Operating Days</Text>
+              <View style={[styles.card, { paddingVertical: 4, paddingHorizontal: 0 }]}>
+                {info.specialDays.map((row, index) => {
+                  const isLast = index === info.specialDays.length - 1;
+                  return (
+                    <View
+                      key={row.date}
+                      style={[
+                        {
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          paddingHorizontal: adminSpacing.lg,
+                          paddingVertical: adminSpacing.md,
+                        },
+                        !isLast && { borderBottomWidth: 1, borderBottomColor: adminColors.border },
+                      ]}
+                    >
+                      <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{row.date}</Text>
+                      <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{row.note}</Text>
+                    </View>
+                  );
+                })}
+              </View>
             </>
-          ) : null}
+          )}
+
+          {/* OPERATING NOTES */}
+          <Text style={styles.sectionTitle}>Operating Notes</Text>
+          <View style={styles.card}>
+            <Text style={{ ...adminType.body, color: adminColors.muted, lineHeight: 20 }}>{info.notes}</Text>
+          </View>
         </ScrollView>
       )}
     </WalletScreen>
@@ -186,147 +256,143 @@ function pairs<T>(items: readonly T[]): T[][] {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: adminSpacing.lg,
-    paddingBottom: 40,
+    paddingBottom: adminSpacing.xxl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#18181B',
-    marginBottom: 12,
+    ...adminType.title,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   label: {
-    fontSize: 13,
-    color: '#4B5563',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
     marginBottom: 6,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#16A34A',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.success.text,
   },
   statusText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#15803D',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   statusClosed: {
     color: adminColors.danger.text,
   },
   infoBanner: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    backgroundColor: adminColors.info.bg,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#BFDBFE',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
+    borderColor: adminColors.info.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   infoBannerText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     lineHeight: 18,
-    color: '#1E40AF',
+    color: adminColors.info.text,
     fontWeight: '600',
   },
   todayCard: {
-    backgroundColor: '#FDF4E7',
-    borderRadius: 16,
+    backgroundColor: adminColors.brandSoft.bg,
+    borderRadius: adminRadius.lg,
     borderWidth: 1.5,
-    borderColor: '#FB923C',
-    padding: 16,
-    marginBottom: 20,
+    borderColor: adminColors.brandSoft.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.xl,
   },
   todayLabel: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#78716C',
+    color: adminColors.brandSoft.text,
     marginBottom: 4,
   },
   todayValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#9A3412',
+    ...adminType.rowTitle,
+    color: adminColors.brandSoft.text,
   },
   hoursCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 4,
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
     overflow: 'hidden',
   },
   dayRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
   },
   dayRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   dayRowHighlight: {
-    backgroundColor: '#FDF2E2',
-    borderRadius: 8,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
     marginHorizontal: 6,
     marginVertical: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
   dayLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   dayLabelHighlight: {
-    color: '#1F2937',
+    color: adminColors.brandDeep,
     fontWeight: '700',
   },
   dayValue: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '500',
-    color: '#374151',
+    color: adminColors.ink,
   },
   dayValueClosed: {
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   services: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   servicePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#DCFCE7',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.success.bg,
   },
   serviceText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#166534',
+    color: adminColors.success.text,
   },
   notes: {
-    fontSize: 13,
+    ...adminType.body,
     color: adminColors.muted,
     lineHeight: 18,
   },

@@ -10,6 +10,7 @@
 import React, { useMemo } from 'react';
 import { Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   EmptyState,
   KpiRow,
@@ -45,13 +46,13 @@ export function TransferReceivingScreen({
   if (isMain) {
     return (
       <View style={mainStyles.root}>
-        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Top Header Banner (Screenshot 2) */}
         <View style={mainStyles.header}>
           <View style={mainStyles.headerRow}>
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={mainStyles.backBtn}>
-              <BackArrowIcon color="#FFFFFF" size={22} />
+              <BackArrowIcon color={adminColors.onBrand} size={22} />
             </TouchableOpacity>
             <Text style={mainStyles.headerTitle}>Transfer Receiving</Text>
           </View>
@@ -179,18 +180,18 @@ export function TransferReceivingScreen({
 const mainStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: Platform.OS === 'ios' ? 8 : 12,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingBottom: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
     marginBottom: 4,
   },
   backBtn: {
@@ -198,89 +199,77 @@ const mainStyles = StyleSheet.create({
     marginRight: 4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.95)',
+    ...adminType.caption,
+    color: adminColors.onBrand,
     marginTop: 2,
     paddingLeft: 2,
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 18,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   kpiTile: {
     width: '48.5%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    padding: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    ...adminShadow.sm,
   },
   kpiLabel: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.3,
     marginBottom: 6,
   },
   kpiVal: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   sectionHeading: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#92400E',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     marginBottom: 10,
     letterSpacing: -0.1,
   },
   tableCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    paddingHorizontal: adminSpacing.md,
+    ...adminShadow.sm,
   },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   tableColHeader: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.3,
   },
   tableDataRow: {
@@ -289,24 +278,22 @@ const mainStyles = StyleSheet.create({
     paddingVertical: 14,
   },
   tableValBold: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   tableValNormal: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#4B5563',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   arrivedBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.brandSoft.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: adminRadius.xs,
   },
   arrivedBadgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#92400E',
+    color: adminColors.brandSoft.text,
   },
 });

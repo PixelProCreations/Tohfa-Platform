@@ -45,20 +45,20 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function InvoiceDocIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function InvoiceDocIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+        d="M8 7h8M8 11h8M8 15h5"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -66,7 +66,7 @@ function InvoiceDocIcon({ size = 18, color = adminColors.onBrand }: { size?: num
   );
 }
 
-function FlagStatusIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+function FlagStatusIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -269,13 +269,13 @@ export function ChannelOrderDetailScreen({
         {/* ─── Actions (read-only views) ─── */}
         {showInvoice && (
           <TouchableOpacity style={styles.primaryBtn} onPress={handleInvoicePress} activeOpacity={0.85}>
-            <InvoiceDocIcon size={18} color={adminColors.onBrand} />
+            <InvoiceDocIcon size={18} color={adminColors.brandDeep} />
             <Text style={styles.primaryBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity style={styles.secondaryBtn} onPress={handleStatusPress} activeOpacity={0.8}>
-          <FlagStatusIcon size={18} color={adminColors.brand} />
+          <FlagStatusIcon size={18} color={adminColors.brandDeep} />
           <Text style={styles.secondaryBtnText}>View Status</Text>
         </TouchableOpacity>
 
@@ -318,26 +318,26 @@ const styles = StyleSheet.create({
     paddingTop: adminSpacing.lg,
   },
   sectionHeading: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-    marginBottom: adminSpacing.sm,
-    marginTop: adminSpacing.xs,
+    ...adminType.title,
+    color: adminColors.ink,
+    marginBottom: 8,
+    marginTop: 4,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
-    marginBottom: adminSpacing.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   rowGap: {
-    marginTop: adminSpacing.lg,
+    marginTop: 14,
   },
   col: {
     flex: 1,
@@ -345,10 +345,10 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...adminType.rowMeta,
     color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
+    marginBottom: 4,
   },
   fieldValue: {
-    ...adminType.rowTitle,
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   summaryRow: {
@@ -357,59 +357,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryGap: {
-    marginTop: adminSpacing.sm,
+    marginTop: 10,
   },
   summaryLabel: {
     ...adminType.body,
     color: adminColors.muted,
   },
   summaryValue: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: adminColors.border,
-    marginVertical: adminSpacing.md,
-  },
-  totalLabel: {
     ...adminType.sectionHead,
     color: adminColors.ink,
   },
+  divider: {
+    height: 1.5,
+    backgroundColor: adminColors.ink,
+    marginVertical: 12,
+  },
+  totalLabel: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
   totalValue: {
-    ...adminType.kpiValue,
+    ...adminType.title,
     color: adminColors.ink,
   },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    height: ADMIN_BUTTON_HEIGHT,
-    marginBottom: adminSpacing.md,
-    gap: adminSpacing.sm,
-    ...adminShadow.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: adminColors.brandDeep,
+    borderRadius: 14,
+    height: 48,
+    marginBottom: 12,
+    gap: 8,
   },
   primaryBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.brandTint,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    height: ADMIN_BUTTON_HEIGHT,
-    marginBottom: adminSpacing.md,
-    gap: adminSpacing.sm,
+    borderColor: adminColors.brandDeep,
+    borderRadius: 14,
+    height: 48,
+    marginBottom: 16,
+    gap: 8,
   },
   secondaryBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.brand,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   bottomSpacer: {
     height: adminSpacing.xxl,

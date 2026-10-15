@@ -44,7 +44,7 @@ const REFUND_METHOD = 'TOHFA Wallet';
 
 function CheckmarkIcon() {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M20 6L9 17l-5-5" stroke={adminColors.success.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
@@ -52,7 +52,7 @@ function CheckmarkIcon() {
 
 function CloseCrossIcon() {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
@@ -145,5 +145,5 @@ export function ReviewReturnRequestScreen({
 const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xxl },
   notesText: { ...adminType.body, color: adminColors.ink },
-  decisionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.xs },
+  decisionRow: { flexDirection: 'row', gap: 14, marginTop: 4, marginBottom: 24 },
 });

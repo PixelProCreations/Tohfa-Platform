@@ -52,7 +52,7 @@ export interface DocumentsScreenProps extends WarehouseScreenBaseProps, Warehous
   documents?: readonly WarehouseDocItem[] | undefined;
 }
 
-function EyeIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+function EyeIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -67,7 +67,7 @@ function EyeIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: stri
   );
 }
 
-function DownloadTrayIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+function DownloadTrayIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -183,7 +183,7 @@ export function DocumentsScreen({
               onPress={() => Alert.alert('View Document', `Opening ${openDoc.name} preview...`)}
               activeOpacity={0.75}
             >
-              <EyeIcon size={20} color="#9A3412" />
+              <EyeIcon size={20} color={adminColors.brandDeep} />
               <Text style={styles.previewActionText}>View</Text>
             </TouchableOpacity>
 
@@ -192,13 +192,13 @@ export function DocumentsScreen({
               onPress={() => Alert.alert('Download Document', `Downloading ${openDoc.name} (${openDoc.code})...`)}
               activeOpacity={0.75}
             >
-              <DownloadTrayIcon size={20} color="#9A3412" />
+              <DownloadTrayIcon size={20} color={adminColors.brandDeep} />
               <Text style={styles.previewActionText}>Download</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.restrictionBanner}>
-            <BlockIcon size={20} color="#DC2626" />
+            <BlockIcon size={20} color={adminColors.danger.text} />
             <Text style={styles.restrictionBannerText}>
               No Edit, Delete, Replace, Approve, or Verify Document — those aren't granted to SWA by the role matrix.
             </Text>
@@ -217,7 +217,7 @@ export function DocumentsScreen({
       >
         {!isMain ? (
           <View style={styles.scopeRow}>
-            <LockIcon size={14} color="#374151" />
+            <LockIcon size={14} color={adminColors.ink} />
             <Text style={styles.scopeText}>{warehouseNameOf(scope, selected, warehouseOptions)}</Text>
           </View>
         ) : null}
@@ -254,15 +254,15 @@ export function DocumentsScreen({
         </View>
 
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#6B7280" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Document name, ID, type"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={adminColors.placeholder}
           />
-          <SlidersIcon size={18} color="#4B5563" />
+          <SlidersIcon size={18} color={adminColors.muted} />
         </View>
 
         {filtered.length === 0 ? (
@@ -284,7 +284,7 @@ export function DocumentsScreen({
                   <View style={[styles.badge, expiring ? styles.badgeExpiring : styles.badgeActive]}>
                     {expiring ? (
                       <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
-                        <Path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#B45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <Path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </Svg>
                     ) : null}
                     <Text style={[styles.badgeText, expiring ? styles.badgeTextExpiring : styles.badgeTextActive]}>
@@ -309,108 +309,105 @@ export function DocumentsScreen({
 const styles = StyleSheet.create({
   scrollContent: {
     padding: adminSpacing.lg,
-    paddingBottom: 32,
+    paddingBottom: adminSpacing.xxl,
   },
   scopeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
+    gap: adminSpacing.xs,
+    marginBottom: adminSpacing.lg,
   },
   scopeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E7E5E4',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
   },
   kpiLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#4B5563',
+    color: adminColors.muted,
     letterSpacing: 0.3,
   },
   kpiValueTotal: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-    marginTop: 6,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
   },
   kpiValueActive: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#15803D',
-    marginTop: 6,
+    ...adminType.kpiValue,
+    color: adminColors.success.text,
+    marginTop: adminSpacing.xs,
   },
   kpiValueExpiring: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#D97706',
-    marginTop: 6,
+    ...adminType.kpiValue,
+    color: adminColors.warning.text,
+    marginTop: adminSpacing.xs,
   },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   chip: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   chipSelected: {
     borderWidth: 1.5,
-    borderColor: '#C2410C',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#374151',
+    color: adminColors.ink,
   },
   chipTextSelected: {
-    color: '#9A3412',
+    color: adminColors.brandDeep,
     fontWeight: '700',
   },
   searchBar: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    marginBottom: 16,
+    paddingHorizontal: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#111827',
+    marginLeft: adminSpacing.sm,
+    ...adminType.body,
+    color: adminColors.ink,
   },
   docCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   docCardHeader: {
     flexDirection: 'row',
@@ -418,107 +415,105 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   docTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     flex: 1,
-    marginRight: 8,
+    marginRight: adminSpacing.sm,
   },
   badge: {
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
   },
   badgeActive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   badgeExpiring: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   badgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
   },
   badgeTextActive: {
-    color: '#166534',
+    color: adminColors.success.text,
   },
   badgeTextExpiring: {
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   docCode: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginTop: 4,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   docDateNote: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginTop: 8,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
   detailSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: adminSpacing.sm,
   },
   previewSectionTitle: {
     marginTop: adminSpacing.lg,
   },
   previewBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: adminColors.border,
     height: 190,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: adminSpacing.md,
   },
   previewPlaceholderText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '600',
-    color: '#64748b',
+    color: adminColors.muted,
   },
   previewActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   previewActionBtn: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: adminSpacing.xs,
   },
   previewActionText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '700',
-    color: '#451a03',
+    color: adminColors.brandDeep,
   },
   restrictionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: adminColors.danger.bg,
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    gap: adminSpacing.sm,
     marginTop: adminSpacing.xs,
   },
   restrictionBannerText: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#dc2626',
+    color: adminColors.danger.text,
     lineHeight: 18,
   },
 });

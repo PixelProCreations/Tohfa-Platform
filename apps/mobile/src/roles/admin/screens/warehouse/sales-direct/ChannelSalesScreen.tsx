@@ -21,6 +21,8 @@ import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
 import { CHANNEL_COPY, CHANNEL_KPIS, CHANNEL_ORDERS } from './fixtures';
 import { SALE_WAREHOUSES, isAllWarehouses } from './SalesParts';
 import { WarehouseSelector } from '../inventory';
+import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
+import type { WarehouseTab } from '../wallet-cashtopup/types';
 import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -146,6 +148,7 @@ export interface ChannelSalesScreenProps extends WarehouseScreenBaseProps {
   channel: SalesChannel;
   /** Host navigation to the order detail; renders inline when absent. */
   onSelectOrder?: ((order: ChannelOrderItem) => void) | undefined;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
 }
 
 export function ChannelSalesScreen({
@@ -155,6 +158,7 @@ export function ChannelSalesScreen({
   onNavigate,
   channel,
   onSelectOrder,
+  onTabChange,
 }: ChannelSalesScreenProps): React.JSX.Element {
   const isMain = isAllWarehouses(scope);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1006,13 +1010,8 @@ export function ChannelSalesScreen({
             </View>
           </View>
         ) : (
-          /* ─── Subwarehouse 4-Box Row & Policy ─── */
+          /* ─── Subwarehouse 4-Box Row & Sales Value (policy banner removed) ─── */
           <>
-            <View style={styles.policyBanner}>
-              <EyeMonitorIcon size={18} color={adminColors.info.text} />
-              <Text style={styles.policyBannerText}>{copy.monitoringNotice}</Text>
-            </View>
-
             <View style={styles.kpiRow}>
               <View style={styles.kpiBox}>
                 <Text style={styles.kpiNumber}>{kpis.orders}</Text>
@@ -1030,6 +1029,11 @@ export function ChannelSalesScreen({
                 <Text style={styles.kpiNumber}>{kpis.completed}</Text>
                 <Text style={styles.kpiLabel}>COMPLETED</Text>
               </View>
+            </View>
+
+            <View style={styles.salesValueCard}>
+              <Text style={styles.salesValueLabel}>Sales Value</Text>
+              <Text style={styles.salesValueAmount}>₹{kpis.salesValue.toLocaleString('en-IN')}</Text>
             </View>
           </>
         )}
@@ -1060,6 +1064,11 @@ export function ChannelSalesScreen({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
+            const isConfirmed = item.status === 'Confirmed';
+            const isProcessing = item.status === 'Processing';
+            const badgeBg = isConfirmed || isProcessing ? adminColors.brandTint : adminColors.success.bg;
+            const badgeTextColor = isConfirmed || isProcessing ? adminColors.brandDeep : adminColors.success.text;
+
             return (
               <TouchableOpacity
                 style={styles.orderCard}
@@ -1068,19 +1077,18 @@ export function ChannelSalesScreen({
               >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.orderIdText}>{item.id}</Text>
-                  <View style={styles.paidBadge}>
-                    <Text style={styles.paidBadgeText}>Paid</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
+                    <Text style={[styles.statusBadgeText, { color: badgeTextColor }]}>{item.status}</Text>
                   </View>
                 </View>
 
                 <Text style={styles.businessNameText}>{item.businessName}</Text>
-                <View style={styles.cardDivider} />
 
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.itemCountText}>{item.itemCountText}</Text>
                   <Text style={styles.amountText}>₹{item.amount.toLocaleString('en-IN')}</Text>
                 </View>
-                <Text style={styles.dateText}>{item.dateText}</Text>
+                {item.dateText ? <Text style={styles.dateText}>{item.dateText}</Text> : null}
               </TouchableOpacity>
             );
           }}
@@ -1114,6 +1122,10 @@ export function ChannelSalesScreen({
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {!isMain ? (
+        <WarehouseTabBar activeTab="More" onTabChange={onTabChange} onBack={onBack} />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1137,7 +1149,6 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1154,8 +1165,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   stepPillText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.brandDeep,
   },
   warehouseDropdownRow: {
@@ -1173,8 +1183,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   warehouseDropdownText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   mainContainer: {
@@ -1201,15 +1210,13 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   mainKpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
 
@@ -1232,44 +1239,62 @@ const styles = StyleSheet.create({
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
+    gap: 8,
+    marginBottom: adminSpacing.sm,
   },
   kpiBox: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kpiNumber: {
-    ...adminType.kpiValue,
+    ...adminType.title,
     color: adminColors.ink,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   kpiLabel: {
     ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 0.3,
   },
+  salesValueCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  salesValueLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  salesValueAmount: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 10,
-    marginBottom: adminSpacing.md,
+    paddingHorizontal: 14,
+    height: 48,
+    marginBottom: 12,
+    gap: 10,
   },
   searchInput: {
     ...adminType.body,
     flex: 1,
-    marginLeft: adminSpacing.sm,
     color: adminColors.ink,
     padding: 0,
   },
@@ -1278,12 +1303,11 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: 16,
-    marginBottom: adminSpacing.md,
-    ...adminShadow.sm,
+    marginBottom: 12,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -1292,9 +1316,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderIdText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.ink,
+    ...adminType.title,
+    color: adminColors.brandDeep,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    ...adminType.caption,
   },
   paidBadge: {
     backgroundColor: adminColors.success.bg,
@@ -1304,14 +1335,13 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: adminColors.success.text,
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   businessNameText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: adminColors.muted,
-    marginBottom: 10,
+    ...adminType.title,
+    color: adminColors.ink,
+    marginTop: 4,
+    marginBottom: 4,
   },
   cardDivider: {
     height: 1,
@@ -1322,21 +1352,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 6,
   },
   itemCountText: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   dateText: {
-    fontSize: 12,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginTop: 4,
   },
   amountText: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
 
@@ -1354,8 +1382,7 @@ const styles = StyleSheet.create({
   },
   disclaimerNoticeText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     lineHeight: 18,
   },
@@ -1370,15 +1397,13 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   createOrderBottomBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
   },
 
   /* Form & Create Order Styles */
   formSectionHeader: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
     marginTop: 14,
     marginBottom: 8,
@@ -1393,8 +1418,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   inputFieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.muted,
     marginBottom: 6,
   },
@@ -1419,7 +1443,7 @@ const styles = StyleSheet.create({
   },
   inputTextInput: {
     flex: 1,
-    fontSize: 14,
+    ...adminType.body,
     color: adminColors.ink,
     padding: 0,
   },
@@ -1441,13 +1465,12 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandTint,
   },
   typeChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.body,
     color: adminColors.muted,
   },
   typeChipTextActive: {
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
-    fontWeight: '700',
   },
   modeToggleRow: {
     flexDirection: 'row',
@@ -1468,16 +1491,14 @@ const styles = StyleSheet.create({
     borderColor: adminColors.brand,
   },
   modeToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   modeToggleTextActive: {
     color: adminColors.onBrand,
-    fontWeight: '700',
   },
   noItemsText: {
-    fontSize: 13,
+    ...adminType.body,
     color: adminColors.muted,
     textAlign: 'center',
     marginVertical: 12,
@@ -1492,8 +1513,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   addItemOutlineBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brand,
   },
   formInfoBox: {
@@ -1507,7 +1527,7 @@ const styles = StyleSheet.create({
   },
   formInfoText: {
     flex: 1,
-    fontSize: 12,
+    ...adminType.rowMeta,
     color: adminColors.brandDeep,
     lineHeight: 16,
   },
@@ -1531,13 +1551,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   stickyItemsCount: {
-    fontSize: 13,
+    ...adminType.rowTitle,
     color: adminColors.muted,
-    fontWeight: '600',
   },
   stickyItemsAmount: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   reviewOrderButton: {
@@ -1550,8 +1568,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewOrderButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
   },
 
@@ -1573,18 +1590,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryFieldLabel: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 2,
   },
   summaryFieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   summaryFieldValueBold: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   reviewItemRow: {
@@ -1593,24 +1608,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reviewItemLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.body,
     color: adminColors.ink,
     flex: 1,
   },
   reviewItemPrice: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   reviewTotalLabel: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   reviewTotalPrice: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   primaryActionButton: {
@@ -1624,8 +1635,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   primaryActionBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
   },
   backToEditBtn: {
@@ -1634,8 +1644,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backToEditBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   demoOutcomesWrap: {
@@ -1657,8 +1666,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.brand,
   },
   demoOutcomeChipText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.rowMeta,
     color: adminColors.ink,
   },
   demoOutcomeChipTextActive: {
@@ -1678,13 +1686,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   confirmationTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     textAlign: 'center',
   },
   confirmationSub: {
-    fontSize: 13,
+    ...adminType.body,
     color: adminColors.muted,
     textAlign: 'center',
     marginTop: 2,
@@ -1705,15 +1712,14 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
   },
   halfSecondaryBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
 
   /* Modal Backdrop & Content */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminColors.canvas,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -1728,8 +1734,7 @@ const styles = StyleSheet.create({
     ...adminShadow.md,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 16,
   },
@@ -1740,8 +1745,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalSubLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.muted,
     marginBottom: 8,
   },
@@ -1758,8 +1762,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandTint,
   },
   modalChipText: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   modalChipTextActive: {
@@ -1781,13 +1784,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperBtnText: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...adminType.title,
     color: adminColors.brandDeep,
   },
   stepperValueText: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   modalPriceRow: {
@@ -1796,17 +1797,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   modalPriceLabel: {
-    fontSize: 13,
+    ...adminType.body,
     color: adminColors.muted,
   },
   modalPriceValue: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   modalPriceValueBold: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   modalAddBtn: {
@@ -1819,8 +1818,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalAddBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
   },
   modalCancelBtn: {
@@ -1828,8 +1826,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.muted,
   },
 
@@ -1846,7 +1843,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandTint,
   },
   modalItemText: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
   },

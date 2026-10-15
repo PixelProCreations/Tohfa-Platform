@@ -131,10 +131,11 @@ export function StaffDetailScreen({
             ) : null}
             {!isMain ? (
               <WalletButton
-                label="View Attendance"
+                label={isDriver ? 'Edit Driver Profile' : 'View Attendance'}
                 variant="primary"
                 onPress={() => {
-                  if (onViewAttendance) onViewAttendance(member);
+                  if (isDriver && onEditProfile) onEditProfile(member);
+                  else if (onViewAttendance) onViewAttendance(member);
                   else if (onViewAttendanceHistory) onViewAttendanceHistory(member);
                   else if (onEditProfile) onEditProfile(member);
                 }}

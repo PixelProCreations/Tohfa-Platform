@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { cardStyles, CustomersScreen, EmptyState, SearchField, StatTiles, StatusBadge } from './CustomersParts';
 import { DEFAULT_CUSTOMER, INITIAL_SUPPORT_TICKETS, SUPPORT_KPIS } from './fixtures';
 import type { CustomerRef, SupportTicketRecord, WarehouseScreenBaseProps } from './types';

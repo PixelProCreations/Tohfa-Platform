@@ -179,6 +179,10 @@ export function ReceivingFlow({
   const openWizard = (wizardStep: ReceivingWizardStep, shipmentId?: string | undefined) =>
     navigate('Wizard', { wizardStep, shipmentId: shipmentId ?? params.shipmentId ?? firstShipment()?.code });
   const openIssue = (issue: QualityIssue) => {
+    if (issue.kind === 'Damage Reported' || issue.id === 'QC-1020') {
+      openWizard('damage_mismatch', issue.shipmentCode ?? 'GR-1020');
+      return;
+    }
     if (issue.target === 'wizard' && issue.wizardStep !== undefined) openWizard(issue.wizardStep, issue.shipmentCode);
     else if (issue.target === 'shipment') navigate('ShipmentDetail', { shipmentId: issue.shipmentCode });
     else onOpenOperationalIssues?.();
@@ -257,7 +261,14 @@ export function ReceivingFlow({
           filters={filters}
           onOpenFilters={() => navigate('SearchFilters')}
           onClearFilters={() => setFilters(EMPTY_RECEIVING_FILTERS)}
-          onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
+          onSelectShipment={(shipmentId) => {
+            if (shipmentId === 'GR-1021' || shipmentId === 'SHP-000121') {
+              openWizard('damage_mismatch', shipmentId);
+            } else {
+              navigate('ShipmentDetail', { shipmentId });
+            }
+          }}
+          onTabChange={onTabChange}
         />
       );
     case 'SearchFilters':

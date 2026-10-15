@@ -1,7 +1,7 @@
 // Design id: M3S05
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -187,79 +187,73 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   sectionMuted: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.caption,
     color: adminColors.muted,
   },
 
   // Card
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg - 2,
   },
   gridRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   gridCol: {
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 0.2,
     marginBottom: 3,
   },
   fieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.ink,
   },
 
   // Movement cards
   movementRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   movementCard: {
     flex: 1,
     backgroundColor: adminColors.card,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderRadius: 12,
+    paddingVertical: adminSpacing.lg - 2,
+    paddingHorizontal: adminSpacing.xs,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: adminColors.border,
   },
   movementValue: {
-    fontSize: 17,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
     marginBottom: 4,
   },
   movementLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     letterSpacing: 0.5,
   },
@@ -271,30 +265,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: adminColors.card,
     height: 48,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     marginBottom: 10,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   actionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.brandDeep,
   },
 
   // Active badge — white pill with border matching reference
   activeBadge: {
     backgroundColor: adminColors.card,
-    paddingHorizontal: 14,
+    paddingHorizontal: adminSpacing.lg - 2,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     borderWidth: 1.5,
     borderColor: adminColors.onBrand,
   },
   activeBadgeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.success.text,
   },
 });

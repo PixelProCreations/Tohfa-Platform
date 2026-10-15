@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
-import Svg, { Path } from 'react-native-svg';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { SWAGradient } from './SWAGradient';
 
@@ -38,14 +38,10 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockSmallIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"
-        stroke={color}
-        strokeWidth="2"
-      />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
       <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
@@ -149,12 +145,20 @@ export function SWAHeader({
         </View>
 
         {/* The warehouse comes from the caller's scope; no name (Main, all warehouses) = no pill. */}
-        {(showWarehouse || warehouseLocked) && warehouseName ? (
-          <View style={styles.warehousePill}>
-            <LockSmallIcon size={13} color={adminColors.onBrand} />
-            <Text style={styles.warehousePillText}>{warehouseName}</Text>
-          </View>
-        ) : null}
+        {(() => {
+          const effectiveName = warehouseName || (warehouseLocked ? 'Coonoor Warehouse' : undefined);
+          if (!(showWarehouse || warehouseLocked) || !effectiveName) return null;
+          const cleanName = effectiveName.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '');
+          const finalWhName = cleanName.includes('Warehouse') ? cleanName : `${cleanName} Warehouse`;
+          return (
+            <View style={styles.warehousePill}>
+              <LockSmallIcon size={12} color={adminColors.onBrand} />
+              <Text style={styles.warehousePillText}>
+                {`${finalWhName} · Assigned Warehouse`}
+              </Text>
+            </View>
+          );
+        })()}
 
         {bottomContent}
       </View>
@@ -209,14 +213,16 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconButton: {
     width: 36,
     height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -230,13 +236,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 20,
+    borderColor: adminColors.headerPill.border,
+    borderRadius: adminRadius.full,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    marginTop: 10,
+    marginTop: adminSpacing.sm,
     gap: 6,
   },
   warehousePillText: {

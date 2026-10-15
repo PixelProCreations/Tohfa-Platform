@@ -1,7 +1,7 @@
 // Design id: M3S15
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -371,8 +371,10 @@ const styles = StyleSheet.create({
   moreButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: adminColors.onBrand,
     alignItems: 'center',
     justifyContent: 'center',
   },

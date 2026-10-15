@@ -23,7 +23,7 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   ChipGroup,
   EmptyState,
@@ -189,25 +189,23 @@ export function AttendanceScreen({
         ) : undefined
       }
       headerExtra={
-        isMain ? (
-          <>
-            <DateNavigator
-              label={`${scopeLabel} · ${dateText}`}
-              onPrev={() => shiftDay(-1)}
-              onNext={() => shiftDay(1)}
-              onPressLabel={() => {
-                setPickerDay(day);
-                setPickerOpen(true);
-              }}
-            />
-            <ScopeHeader
-              scope={scope}
-              warehouseOptions={warehouseOptions}
-              selectedWarehouseId={selectedWarehouseId}
-              onSelectWarehouse={setSelectedWarehouseId}
-            />
-          </>
-        ) : undefined
+        <>
+          <DateNavigator
+            label={`${scopeLabel} · ${dateText}`}
+            onPrev={() => shiftDay(-1)}
+            onNext={() => shiftDay(1)}
+            onPressLabel={() => {
+              setPickerDay(day);
+              setPickerOpen(true);
+            }}
+          />
+          <ScopeHeader
+            scope={scope}
+            warehouseOptions={isMain ? warehouseOptions : undefined}
+            selectedWarehouseId={isMain ? selectedWarehouseId : undefined}
+            onSelectWarehouse={isMain ? setSelectedWarehouseId : undefined}
+          />
+        </>
       }
       footer={<WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab="More" />}
     >
@@ -267,44 +265,42 @@ const styles = StyleSheet.create({
   kpiRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E7E5E4',
-    paddingVertical: 12,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
     paddingHorizontal: 6,
     alignItems: 'center',
   },
   kpiLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#4B5563',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
     marginBottom: 6,
   },
   kpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.kpiValue,
   },
   searchBar: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    marginBottom: 16,
+    paddingHorizontal: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
-    fontSize: 14,
-    color: '#111827',
+    ...adminType.body,
+    color: adminColors.ink,
   },
 });

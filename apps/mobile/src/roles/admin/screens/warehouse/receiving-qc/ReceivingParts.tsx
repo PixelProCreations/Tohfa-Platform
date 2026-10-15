@@ -116,7 +116,8 @@ export function StepperHeader({ labels, current, onStepPress }: StepperHeaderPro
               </View>
               <Text
                 style={[partStyles.stepLabel, isDone && partStyles.stepLabelDone, isCurrent && partStyles.stepLabelCurrent]}
-                numberOfLines={2}
+                numberOfLines={1}
+                ellipsizeMode="tail"
               >
                 {label}
               </Text>
@@ -536,7 +537,7 @@ export function CrateInventoryIcon({ color = adminColors.warning.text, size = 22
   );
 }
 
-export function ShipmentBoxIcon({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) {
+export function ShipmentBoxIcon({ color = adminColors.onBrand, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect
@@ -694,7 +695,7 @@ export function StarIcon({ color = adminColors.brand, size = 18 }: { color?: str
   );
 }
 
-export function PartialAcceptIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+export function PartialAcceptIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 8l2.5 2.5 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -704,7 +705,7 @@ export function PartialAcceptIcon({ size = 24, color = '#F0562A' }: { size?: num
   );
 }
 
-export function RejectCircleIcon({ size = 24, color = '#EF4444' }: { size?: number; color?: string }) {
+export function RejectCircleIcon({ size = 24, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
@@ -713,7 +714,7 @@ export function RejectCircleIcon({ size = 24, color = '#EF4444' }: { size?: numb
   );
 }
 
-export function FileTextIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+export function FileTextIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -722,7 +723,7 @@ export function FileTextIcon({ size = 18, color = '#F0562A' }: { size?: number; 
   );
 }
 
-export function HistoryIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+export function HistoryIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 8v4l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -737,9 +738,11 @@ const partStyles = StyleSheet.create({
   stepperCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
-    paddingVertical: 18,
-    paddingHorizontal: adminSpacing.sm,
-    marginBottom: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
   stepperRow: {
@@ -750,8 +753,8 @@ const partStyles = StyleSheet.create({
   },
   stepperTrackContainer: {
     position: 'absolute',
-    top: 15.5,
-    height: 3,
+    top: 13,
+    height: 2,
     zIndex: 0,
   },
   stepperTrackBg: {
@@ -759,17 +762,17 @@ const partStyles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 3,
+    height: 2,
     backgroundColor: adminColors.border,
-    borderRadius: 1.5,
+    borderRadius: 1,
   },
   stepperTrackProgress: {
     position: 'absolute',
     top: 0,
     left: 0,
-    height: 3,
-    backgroundColor: adminColors.success.text,
-    borderRadius: 1.5,
+    height: 2,
+    backgroundColor: adminColors.brand,
+    borderRadius: 1,
   },
   stepItem: {
     flex: 1,
@@ -777,38 +780,38 @@ const partStyles = StyleSheet.create({
     zIndex: 1,
   },
   stepCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: adminColors.border,
+    width: 28,
+    height: 28,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: adminSpacing.sm,
+    marginBottom: 6,
   },
   stepCircleCurrent: {
     backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   stepCircleDone: {
     backgroundColor: adminColors.success.text,
+    borderColor: adminColors.success.text,
   },
   stepNumberText: {
-    ...adminType.sectionHead,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.muted,
   },
   stepNumberTextCurrent: {
     color: adminColors.onBrand,
   },
   stepLabel: {
-    ...adminType.rowMeta,
-    fontSize: 10,
-    fontWeight: '500',
+    ...adminType.caption,
     color: adminColors.muted,
     textAlign: 'center',
-    minHeight: 16,
   },
   stepLabelDone: {
-    color: adminColors.muted,
+    color: adminColors.ink,
     fontWeight: '600',
   },
   stepLabelCurrent: {

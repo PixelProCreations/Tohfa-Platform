@@ -926,16 +926,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleText: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
@@ -954,13 +951,12 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   warehouseDropdownText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminColors.canvas,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -975,8 +971,7 @@ const styles = StyleSheet.create({
     ...adminShadow.md,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 16,
   },
@@ -993,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandSoft.bg,
   },
   modalItemText: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
   },
@@ -1009,8 +1004,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
   },
   modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.muted,
   },
   warehouseBadgeRow: {
@@ -1019,9 +1013,9 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -1030,14 +1024,14 @@ const styles = StyleSheet.create({
   },
   warehouseBadgeText: {
     color: adminColors.onBrand,
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
   },
   headerBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1079,26 +1073,22 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   mainKpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 3,
   },
   mainKpiSub: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   mainSectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
     marginBottom: 12,
     marginTop: 8,
@@ -1111,8 +1101,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mainSectionLink: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   whSummaryCard: {
@@ -1132,8 +1121,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   whSummaryName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   whSummaryBadge: {
@@ -1143,13 +1131,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   whSummaryBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.success.text,
   },
   whSummarySub: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   channelGrid2x2: {
@@ -1174,8 +1160,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   channelCardBtnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   mainAlertCard: {
@@ -1199,14 +1184,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainAlertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginBottom: 3,
   },
   mainAlertSub: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   mainRecentSaleCard: {
@@ -1225,13 +1208,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   mainRecentId: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   mainRecentItems: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 10,
   },
@@ -1246,20 +1227,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   mainRecentWarehouse: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   mainRecentAmount: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
 
   /* Subwarehouse Styles */
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 12,
     marginTop: 6,
@@ -1371,13 +1349,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   sectionHeaderRow: {
@@ -1388,8 +1364,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAllText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   recentSaleCard: {
@@ -1408,8 +1383,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recentSaleId: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
   },
   paidBadge: {
@@ -1420,12 +1394,10 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: adminColors.success.text,
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   recentSaleCustomer: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 10,
   },
@@ -1435,22 +1407,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   recentSaleType: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   recentSaleRight: {
     alignItems: 'flex-end',
   },
   recentSaleTime: {
-    fontSize: 12,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 2,
   },
   recentSaleAmount: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   needsAttentionHeader: {
@@ -1494,14 +1463,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginBottom: 2,
   },
   alertSub: {
-    fontSize: 13,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
 });

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 
@@ -35,15 +35,11 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockSmallIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"
-        stroke={color}
-        strokeWidth="2.2"
-      />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -197,6 +193,7 @@ export function StockVerificationScreen({
       badgeBg: adminColors.warning.bg,
       badgeColor: adminColors.warning.text,
       warehouse: 'Coonoor Warehouse',
+      warehouseId: 'WH-COON',
     },
     {
       id: '2',
@@ -210,6 +207,7 @@ export function StockVerificationScreen({
       badgeBg: adminColors.success.bg,
       badgeColor: adminColors.success.text,
       warehouse: 'Coonoor Warehouse',
+      warehouseId: 'WH-COON',
     },
     {
       id: '3',
@@ -223,8 +221,43 @@ export function StockVerificationScreen({
       badgeBg: adminColors.success.bg,
       badgeColor: adminColors.success.text,
       warehouse: 'Coonoor Warehouse',
+      warehouseId: 'WH-COON',
+    },
+    {
+      id: '4',
+      date: '22 Sep',
+      produce: 'Tomato',
+      grade: 'Grade 1',
+      systemQty: '120 KG',
+      countedQty: '118 KG',
+      variance: '-2 KG',
+      status: 'Pending Review',
+      badgeBg: adminColors.warning.bg,
+      badgeColor: adminColors.warning.text,
+      warehouse: 'Ooty Warehouse',
+      warehouseId: 'WH-OOTY',
+    },
+    {
+      id: '5',
+      date: '18 Sep',
+      produce: 'Carrot',
+      grade: 'Grade 1',
+      systemQty: '90 KG',
+      countedQty: '88 KG',
+      variance: '-2 KG',
+      status: 'Completed',
+      badgeBg: adminColors.success.bg,
+      badgeColor: adminColors.success.text,
+      warehouse: 'Kotagiri Warehouse',
+      warehouseId: 'WH-KOTA',
     },
   ];
+
+  const filteredHistory = isAllWarehouses
+    ? verificationHistory
+    : verificationHistory.filter(
+        (item) => !selectedWarehouseId || item.warehouseId === selectedWarehouseId || item.warehouse === (scope.warehouseName ?? 'Coonoor Warehouse')
+      );
 
   const handleStartPhysicalCount = () => {
     onNavigate?.('M3S11', {
@@ -284,8 +317,13 @@ export function StockVerificationScreen({
           {/* Warehouse Selector or Locked Pill based on role */}
           {!canViewAll || scope.warehouseId !== undefined ? (
             <View style={styles.warehousePill}>
-              <LockSmallIcon size={13} color={adminColors.onBrand} />
-              <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'Coonoor Warehouse'}</Text>
+              <LockSmallIcon size={12} color={adminColors.onBrand} />
+              <Text style={styles.warehousePillText}>
+                {(() => {
+                  const raw = (scope.warehouseName ?? 'Coonoor Warehouse').replace(/\s*·\s*(Active|Assigned Warehouse)$/, '');
+                  return raw.includes('Warehouse') ? raw : `${raw} Warehouse`;
+                })()}
+              </Text>
             </View>
           ) : (
             <View style={{ marginTop: 10 }}>
@@ -373,7 +411,7 @@ export function StockVerificationScreen({
               <Text style={styles.historyLink}>Adjustment History</Text>
             </TouchableOpacity>
           </View>
-          {verificationHistory.map((item) => (
+          {filteredHistory.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.historyCard}
@@ -393,6 +431,9 @@ export function StockVerificationScreen({
                 {item.systemQty} → {item.countedQty}
                 {item.variance !== '0 KG' && (
                   <Text style={styles.historyVarianceText}> · Variance {item.variance}</Text>
+                )}
+                {isAllWarehouses && (
+                  <Text style={styles.historyWarehouseText}> · {item.warehouse}</Text>
                 )}
               </Text>
             </TouchableOpacity>
@@ -486,11 +527,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
+    backgroundColor: adminColors.headerPill.bg,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    paddingHorizontal: 14,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     marginTop: 10,
     gap: 6,
@@ -701,14 +742,15 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: adminColors.canvas,
     justifyContent: 'center',
-    padding: 24,
+    padding: adminSpacing.xl,
   },
   modalContent: {
     backgroundColor: adminColors.card,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
+    ...adminShadow.lg,
   },
   modalTitle: {
     ...adminType.title,
@@ -732,5 +774,9 @@ const styles = StyleSheet.create({
   modalItemTextActive: {
     color: adminColors.brand,
     fontWeight: '800',
+  },
+  historyWarehouseText: {
+    color: adminColors.brand,
+    fontWeight: '600',
   },
 });

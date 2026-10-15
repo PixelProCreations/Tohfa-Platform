@@ -268,7 +268,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <CalendarIcon size={22} color="#F0562A" />
+              <CalendarIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
@@ -279,7 +279,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <HistoryIcon size={22} color="#F0562A" />
+              <HistoryIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>
           ) : null}
@@ -295,14 +295,14 @@ export function StaffScreen({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFF1EB',
+                backgroundColor: adminColors.brandTint,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
-                borderRadius: 14,
+                borderRadius: adminRadius.lg,
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+              <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.brand }}>
                 Attendance: {attendanceFilter} ✕
               </Text>
             </TouchableOpacity>
@@ -314,14 +314,14 @@ export function StaffScreen({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFF1EB',
+                backgroundColor: adminColors.brandTint,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
-                borderRadius: 14,
+                borderRadius: adminRadius.lg,
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+              <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.brand }}>
                 Status: {statusFilter} ✕
               </Text>
             </TouchableOpacity>
@@ -383,7 +383,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <CalendarIcon size={22} color="#F0562A" />
+              <CalendarIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
@@ -394,7 +394,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <HistoryIcon size={22} color="#F0562A" />
+              <HistoryIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>
           ) : null}
@@ -427,38 +427,36 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
   kpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   kpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   infoBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 14,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   infoText: {
-    fontSize: 12,
+    ...adminType.body,
     lineHeight: 18,
     fontWeight: '500',
-    color: '#1D4ED8',
+    color: adminColors.info.text,
   },
   chipRow: {
     flexDirection: 'row',
@@ -470,40 +468,39 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     backgroundColor: adminColors.card,
   },
   chipActive: {
-    borderColor: '#F0562A',
-    backgroundColor: '#FFF7ED',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   chipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   cardInfo: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  meta: { fontSize: 13, color: '#64748B', marginTop: 3 },
+  name: { ...adminType.sectionHead, color: adminColors.ink },
+  meta: { ...adminType.body, color: adminColors.muted, marginTop: 3 },
   badgeRow: { flexDirection: 'row', gap: adminSpacing.xs, marginTop: adminSpacing.xs },
   footerText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: adminSpacing.md },
+  divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md },
   threeCol: { flexDirection: 'row', gap: adminSpacing.sm },
   col: { flex: 1 },
-  colLabel: { fontSize: 11, color: '#64748B', marginBottom: 4 },
-  colValue: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  colLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: 4 },
+  colValue: { ...adminType.rowTitle, color: adminColors.ink },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

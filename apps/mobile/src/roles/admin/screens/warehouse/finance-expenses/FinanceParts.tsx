@@ -268,7 +268,7 @@ export function PadlockIcon({ size = 16, color = adminColors.muted }: IconProps)
   );
 }
 
-export function BankIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
+export function BankIcon({ size = 22, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -282,7 +282,7 @@ export function BankIcon({ size = 22, color = '#FFFFFF' }: IconProps) {
   );
 }
 
-export function BuildingWarehouseIcon({ size = 14, color = '#FFFFFF' }: IconProps) {
+export function BuildingWarehouseIcon({ size = 14, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -296,7 +296,7 @@ export function BuildingWarehouseIcon({ size = 14, color = '#FFFFFF' }: IconProp
   );
 }
 
-export function ChevronDownIcon({ size = 14, color = '#FFFFFF' }: IconProps) {
+export function ChevronDownIcon({ size = 14, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   },
   tileThird: { width: '31.5%', minHeight: 72, paddingVertical: adminSpacing.md },
   tileHalf: { width: '48.5%', minHeight: 86, paddingVertical: 18 },
-  tileLabel: { ...adminType.caption, fontSize: 13, fontWeight: '600', color: adminColors.ink, textAlign: 'center' },
+  tileLabel: { ...adminType.caption, fontWeight: '600', color: adminColors.ink, textAlign: 'center' },
 
   tableRow: {
     flexDirection: 'row',
