@@ -246,6 +246,8 @@ function buildRepo(store: Store) {
       const created: OfferMutable = {
         id: `offer-r${data.round}-${Math.random().toString(36).slice(2, 8)}`,
         listingId: data.listingId,
+        // The listing endpoints never write a goods receipt: only a quality counter-offer has one.
+        goodsReceiptId: null,
         round: data.round,
         actor: data.actor,
         actorUserId: data.actorUserId,

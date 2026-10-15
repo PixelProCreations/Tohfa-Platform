@@ -1,6 +1,8 @@
 import { writeAuditLog, type AuditEntry } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { scopedWhere, type ResolvedScope } from '../../rbac/requirePermission.js';
+import { toBatchView, type BatchRow } from '../inventory/inventory.repo.js';
+import type { BatchView } from '../inventory/inventory.schema.js';
 import { counterOffersRepo } from '../listings/counter-offers.repo.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import type {
@@ -118,6 +120,59 @@ export interface CounterOfferConfig {
   roundLimit: number;
 }
 
+/**
+ * BR-106: what stocking a receipt needs from it and its purchase order. Read with the receipt row
+ * locked, so the quality check and a farmer's acceptance of a quality counter-offer on the same
+ * receipt cannot both decide to stock it.
+ */
+export interface StockingSource {
+  goodsReceiptId: string;
+  warehouseId: string;
+  /** goods_receipts.farmer_id: provenance only (BR-24b), never on a customer response (BR-16). */
+  farmerId: string;
+  cropId: string;
+  /** purchase_orders.price_per_kg, the agreed price: the batch cost as-is (owner decision 1). */
+  purchasePricePerKg: string;
+  grossQtyKg: string;
+  /** The batch this receipt already produced, if any (at most one: migration 0070). */
+  existingBatchId: string | null;
+}
+
+/** BR-106: the accepted quality counter-offer, and the inspector's values to stock its lot with. */
+export interface QualityOfferStocking {
+  goodsReceiptId: string;
+  /** The accepted offer quantity, capped in SQL at the receipt's gross quantity. */
+  quantityKg: string;
+  /** null when the receipt was counter-offered without a quality check (no inspector grade). */
+  qualityCheck: {
+    assignedGrade: ProduceGrade;
+    expiryOn: string | null;
+    storageLocation: string | null;
+  } | null;
+}
+
+export interface InsertInventoryBatchData {
+  batchCode: string;
+  warehouseId: string;
+  cropId: string;
+  grade: ProduceGrade;
+  goodsReceiptId: string;
+  sourceFarmerId: string;
+  qtyReceivedKg: string;
+  costPerKg: string;
+  storageLocation: string | null;
+  expiryOn: string | null;
+}
+
+export interface InsertReceiptMovementData {
+  batchId: string;
+  warehouseId: string;
+  qtyKg: string;
+  goodsReceiptId: string;
+  /** users.id of the admin who accepted the goods; null when the system stocked them. */
+  createdBy: string | null;
+}
+
 export interface GoodsReceiptsRepo {
   nextGrnNumber(tx: Executor): Promise<string>;
   insertGoodsReceipt(
@@ -165,6 +220,17 @@ export interface GoodsReceiptsRepo {
   /** Sets only the status: the QC quantities and rejection reason stay as recorded. */
   markGoodsReceiptCounterOffered(tx: Executor, goodsReceiptId: string): Promise<void>;
   recordAudit(tx: Executor, entry: AuditEntry): Promise<string>;
+  /** BR-106: the receipt (row-locked) and its purchase order; null for an unknown receipt. */
+  findStockingSource(tx: Executor, goodsReceiptId: string): Promise<StockingSource | null>;
+  /** BR-106: the quality counter-offer `offerId`; null when the offer is a plain listing offer. */
+  findQualityOfferStocking(tx: Executor, offerId: string): Promise<QualityOfferStocking | null>;
+  /** `BATCH-<year>-<6 digits>` from inventory_batch_number_seq (migration 0070). */
+  nextBatchCode(tx: Executor): Promise<string>;
+  /** Inserts the batch with qty_available 0; the RECEIPT ledger row fills it. Returns its id. */
+  insertInventoryBatch(tx: Executor, data: InsertInventoryBatchData): Promise<string>;
+  /** Appends the RECEIPT row to stock_ledger; its trigger maintains the batch balance. */
+  insertReceiptMovement(tx: Executor, data: InsertReceiptMovementData): Promise<string>;
+  findBatchView(tx: Executor, batchId: string): Promise<BatchView>;
   listGoodsReceipts(
     tx: Executor,
     scope: ResolvedScope,
@@ -291,10 +357,14 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         gr.received_at AS "receivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
-        po.grade
+        po.grade,
+        ib.id AS "batchId",
+        ib.batch_code AS "batchCode"
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN crop_master c ON c.id = po.crop_id
+      -- BR-106: at most one batch per receipt (uq_inventory_batches_goods_receipt_id), so no fan-out.
+      LEFT JOIN inventory_batches ib ON ib.goods_receipt_id = gr.id
       WHERE gr.id = $1 AND ${scopeFilter.sql}
     `;
 
@@ -327,9 +397,11 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         price_adjustment,
         defect_notes,
         photo_keys,
-        checked_by
+        checked_by,
+        expiry_on,
+        storage_location
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13)
       RETURNING
         id,
         goods_receipt_id AS "goodsReceiptId",
@@ -358,6 +430,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.defectNotes ?? null,
       data.photos,
       data.checkedBy,
+      // Stored so a batch deferred by a quality counter-offer is stocked with them later (BR-106).
+      data.expiryOn ?? null,
+      data.storageLocation ?? null,
     ];
 
     const qcResult = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
@@ -603,6 +678,139 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     return writeAuditLog(tx, entry);
   },
 
+  /**
+   * `FOR UPDATE OF gr` holds the receipt for the rest of the transaction: a quality check and a
+   * farmer accepting a quality counter-offer on the same receipt queue here, and the second one
+   * sees the first one's batch in `existingBatchId`. uq_inventory_batches_goods_receipt_id
+   * (migration 0070) remains the backstop.
+   */
+  async findStockingSource(tx: Executor, goodsReceiptId: string): Promise<StockingSource | null> {
+    const result = await tx.query<StockingSource>(
+      `SELECT gr.id AS "goodsReceiptId",
+              gr.warehouse_id AS "warehouseId",
+              gr.farmer_id AS "farmerId",
+              po.crop_id AS "cropId",
+              po.price_per_kg::text AS "purchasePricePerKg",
+              gr.gross_qty_kg::text AS "grossQtyKg",
+              (SELECT ib.id FROM inventory_batches ib WHERE ib.goods_receipt_id = gr.id) AS "existingBatchId"
+         FROM goods_receipts gr
+         JOIN purchase_orders po ON po.id = gr.purchase_order_id
+        WHERE gr.id = $1
+          FOR UPDATE OF gr`,
+      [goodsReceiptId],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  /**
+   * The quantity is capped at the receipt's gross quantity IN SQL (numeric, never a JS float): an
+   * offer is not validated against what arrived, and stock can never exceed what physically came
+   * in (BR-106, UNCONFIRMED default). The latest quality check of the receipt supplies the grade,
+   * expiry and storage location.
+   */
+  async findQualityOfferStocking(tx: Executor, offerId: string): Promise<QualityOfferStocking | null> {
+    const result = await tx.query<{
+      goodsReceiptId: string;
+      quantityKg: string;
+      assignedGrade: ProduceGrade | null;
+      expiryOn: string | null;
+      storageLocation: string | null;
+    }>(
+      `SELECT co.goods_receipt_id AS "goodsReceiptId",
+              LEAST(co.quantity_kg, gr.gross_qty_kg)::text AS "quantityKg",
+              qc.assigned_grade AS "assignedGrade",
+              to_char(qc.expiry_on, 'YYYY-MM-DD') AS "expiryOn",
+              qc.storage_location AS "storageLocation"
+         FROM counter_offers co
+         JOIN goods_receipts gr ON gr.id = co.goods_receipt_id
+         LEFT JOIN LATERAL (
+              SELECT q.assigned_grade, q.expiry_on, q.storage_location
+                FROM quality_checks q
+               WHERE q.goods_receipt_id = gr.id
+               ORDER BY q.checked_at DESC, q.created_at DESC
+               LIMIT 1
+         ) qc ON true
+        WHERE co.id = $1
+          AND co.goods_receipt_id IS NOT NULL`,
+      [offerId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return null;
+    return {
+      goodsReceiptId: row.goodsReceiptId,
+      quantityKg: row.quantityKg,
+      qualityCheck:
+        row.assignedGrade === null
+          ? null
+          : { assignedGrade: row.assignedGrade, expiryOn: row.expiryOn, storageLocation: row.storageLocation },
+    };
+  },
+
+  async nextBatchCode(tx: Executor): Promise<string> {
+    const year = new Date().getFullYear();
+    const result = await tx.query<{ seq: string }>(
+      `SELECT nextval('inventory_batch_number_seq')::text AS seq`,
+    );
+    const num = (result.rows[0]?.seq ?? '1').padStart(6, '0');
+    return `BATCH-${year}-${num}`;
+  },
+
+  async insertInventoryBatch(tx: Executor, data: InsertInventoryBatchData): Promise<string> {
+    // qty_available stays at its default 0: the RECEIPT ledger row fills it (CLAUDE.md 2.3).
+    const result = await tx.query<{ id: string }>(
+      `INSERT INTO inventory_batches (
+         batch_code, warehouse_id, crop_id, grade, goods_receipt_id, source_farmer_id,
+         qty_received, cost_per_kg, storage_location, received_on, expiry_on, status
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6,
+         $7::numeric, $8::numeric, $9, (now() AT TIME ZONE 'Asia/Kolkata')::date, $10::date, 'ACTIVE'
+       )
+       RETURNING id`,
+      [
+        data.batchCode,
+        data.warehouseId,
+        data.cropId,
+        data.grade,
+        data.goodsReceiptId,
+        data.sourceFarmerId,
+        data.qtyReceivedKg,
+        data.costPerKg,
+        data.storageLocation,
+        data.expiryOn,
+      ],
+    );
+    return result.rows[0]!.id;
+  },
+
+  async insertReceiptMovement(tx: Executor, data: InsertReceiptMovementData): Promise<string> {
+    // balance_after is computed by trg_stock_ledger_balance under a row lock on the batch; the 0
+    // here is overwritten before the row is stored.
+    const result = await tx.query<{ id: string }>(
+      `INSERT INTO stock_ledger (
+         batch_id, warehouse_id, movement_type, qty_delta, balance_after, ref_type, ref_id, remarks, created_by
+       ) VALUES ($1, $2, 'RECEIPT', $3::numeric, 0, 'GOODS_RECEIPT', $4, 'Goods receipt accepted', $5)
+       RETURNING id`,
+      [data.batchId, data.warehouseId, data.qtyKg, data.goodsReceiptId, data.createdBy],
+    );
+    return result.rows[0]!.id;
+  },
+
+  async findBatchView(tx: Executor, batchId: string): Promise<BatchView> {
+    const result = await tx.query<BatchRow>(
+      `SELECT b.id, b.batch_code, b.warehouse_id, b.crop_id, c.name AS crop_name, b.grade,
+              b.goods_receipt_id, b.source_farmer_id, b.qty_received::text, b.qty_available::text,
+              b.cost_per_kg::text, b.storage_location, to_char(b.received_on, 'YYYY-MM-DD') AS received_on,
+              to_char(b.expiry_on, 'YYYY-MM-DD') AS expiry_on, b.status, b.created_at, b.updated_at
+         FROM inventory_batches b
+         JOIN crop_master c ON c.id = b.crop_id
+        WHERE b.id = $1`,
+      [batchId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error(`inventory batch ${batchId} vanished inside its own transaction`);
+    return toBatchView(row);
+  },
+
   async listGoodsReceipts(
     tx: Executor,
     scope: ResolvedScope,
@@ -669,10 +877,13 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         to_char(gr.received_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorReceivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
-        po.grade
+        po.grade,
+        ib.id AS "batchId",
+        ib.batch_code AS "batchCode"
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN crop_master c ON c.id = po.crop_id
+      LEFT JOIN inventory_batches ib ON ib.goods_receipt_id = gr.id
       ${whereClause}
       ORDER BY gr.received_at DESC
       ${limitClause}
