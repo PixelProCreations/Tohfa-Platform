@@ -51,7 +51,7 @@ const TYPES = code(read(`${RETURNS}/types.ts`));
 const ISSUE_DETAIL = read('roles/admin/screens/warehouse/customers/CustomerIssueDetailScreen.tsx');
 const CUSTOMERS_FLOW = read('roles/admin/screens/warehouse/customers/CustomersFlow.tsx');
 const MORE = read('roles/admin/screens/warehouse/dashboard-home-more/MoreScreen.tsx');
-const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');
 
 function grant(codeName: string, role: string): string | undefined {

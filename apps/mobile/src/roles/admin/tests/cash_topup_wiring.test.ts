@@ -33,7 +33,7 @@ const SUCCESS = code(read(`${WALLET}/TopUpSuccessScreen.tsx`));
 const SEARCH = read('roles/admin/screens/warehouse/customers/CustomerSearchScreen.tsx');
 const DETAILS = read('roles/admin/screens/warehouse/customers/CustomerDetailsScreen.tsx');
 const CUSTOMERS_FLOW = read('roles/admin/screens/warehouse/customers/CustomersFlow.tsx');
-const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');
 
 /** The body of a top-level function declaration (up to the next top-level declaration). */
