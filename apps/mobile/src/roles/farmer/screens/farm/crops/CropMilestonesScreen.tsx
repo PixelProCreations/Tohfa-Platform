@@ -64,21 +64,6 @@ function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; c
   );
 }
 
-function CheckCircleSolidIcon({ size = 18, color = P.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" fill={color} />
-      <Path
-        d="M8 12.5l2.8 2.8L16 9.5"
-        stroke={P.white}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function CheckMiniIcon({ size = 14, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

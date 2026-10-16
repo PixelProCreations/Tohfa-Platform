@@ -8,8 +8,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import Svg, { Path, Circle, Rect, Line, G, Polyline } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────

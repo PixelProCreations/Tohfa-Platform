@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import {
   BackHandler,
   Image,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 

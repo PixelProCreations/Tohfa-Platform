@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,

@@ -132,7 +132,6 @@ export function StorageFlow({
   onOpenModule,
   onExportActivity,
   onViewStock,
-  onViewProductDetail,
   onConfirmAssignment,
   onManageCapacity,
   onOpenNotifications,

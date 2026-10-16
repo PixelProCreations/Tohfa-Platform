@@ -7,12 +7,11 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
   AdminAllFarmersScreen,
   AdminFarmerDetailScreen,
@@ -245,17 +244,6 @@ function MicrophoneIcon({ color = PALETTE.purpleIcon, size = 18 }: { color?: str
   );
 }
 
-function QuickKycBadgeIcon({ color = PALETTE.orangePrimary, size = 26 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="3" stroke={color} strokeWidth="2.2" />
-      <Circle cx="9" cy="10.5" r="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M5.5 17c0-1.5 1.5-2.5 3.5-2.5s3.5 1 3.5 2.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="14" y1="10" x2="18" y2="10" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="14" y1="14" x2="17" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function ChevronRightIcon({ color = PALETTE.textSecondary, size = 18 }: { color?: string; size?: number }) {
   return (
@@ -405,7 +393,6 @@ export interface TohfaAdminDashboardScreenProps {
 export function TohfaAdminDashboardScreen({
   onSignOut,
   onNavigate,
-  onSwitchRole,
   initialTab,
 }: TohfaAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<TohfaAdminTab>(initialTab ?? 'Dashboard');
@@ -529,7 +516,7 @@ export function TohfaAdminDashboardScreen({
           ) : dashboardSubScreen === 'pendingApplications' ? (
             <AdminPendingApplicationsScreen
               onBack={() => setDashboardSubScreen(null)}
-              onSelectApplication={(item) => {
+              onSelectApplication={(_item) => {
                 if (onNavigate) {
                   onNavigate('AdminPendingApplications');
                 }

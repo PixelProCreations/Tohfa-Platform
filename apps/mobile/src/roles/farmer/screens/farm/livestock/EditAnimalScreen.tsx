@@ -568,11 +568,11 @@ export function EditAnimalScreen({
                 style={styles.pickerInputBox}
                 activeOpacity={0.8}
                 onPress={() => {
-                  Alert.prompt
-                    ? Alert.prompt('Date of Birth', 'Enter birth date (DD Mon YYYY):', (val) => {
-                        if (val) setDob(val);
-                      })
-                    : null;
+                  if (Alert.prompt) {
+                    Alert.prompt('Date of Birth', 'Enter birth date (DD Mon YYYY):', (val) => {
+                      if (val) setDob(val);
+                    });
+                  }
                 }}
               >
                 <Text style={styles.pickerValueText}>{dob || '—'}</Text>
@@ -633,11 +633,11 @@ export function EditAnimalScreen({
                     style={styles.pickerInputBox}
                     activeOpacity={0.8}
                     onPress={() => {
-                      Alert.prompt
-                        ? Alert.prompt('Purchase Date', 'Enter purchase date (DD Mon YYYY):', (val) => {
-                            if (val) setPurchaseDate(val);
-                          })
-                        : null;
+                      if (Alert.prompt) {
+                        Alert.prompt('Purchase Date', 'Enter purchase date (DD Mon YYYY):', (val) => {
+                          if (val) setPurchaseDate(val);
+                        });
+                      }
                     }}
                   >
                     <Text style={styles.pickerValueText}>{purchaseDate || '—'}</Text>

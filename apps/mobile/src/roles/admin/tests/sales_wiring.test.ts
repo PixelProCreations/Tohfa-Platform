@@ -2,9 +2,10 @@
  * Live sales screens hook integration tests (BR-17, BR-86, BR-88, BR-89, BR-94, BR-98).
  */
 import { describe, expect, it, vi } from 'vitest';
+import type * as ApiClient from '../../../shell/api/client';
 
 vi.mock('../../../shell/api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shell/api/client')>();
+  const actual = await importOriginal<typeof ApiClient>();
   return {
     ...actual,
     request: vi.fn(async (path: string) => {

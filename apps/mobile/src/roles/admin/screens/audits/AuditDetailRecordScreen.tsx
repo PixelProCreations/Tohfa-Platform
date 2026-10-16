@@ -105,9 +105,6 @@ export function AuditDetailRecordScreen({
   onBack,
 }: AuditDetailRecordScreenProps) {
   const displayQuarter = record?.title ?? quarterTitle;
-  const displayDate = record?.date ?? date;
-  const displayAuditor = record?.auditor ?? auditor;
-  const displayType = record?.type ?? type;
 
   function handleExport() {
     Alert.alert(

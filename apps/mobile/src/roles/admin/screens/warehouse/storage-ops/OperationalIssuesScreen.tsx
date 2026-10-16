@@ -24,7 +24,6 @@ import {
   inScope,
   isAllWarehouses,
   KpiRow,
-  PermissionNote,
   ScopeHeader,
   StatusBadge,
   WalletButton,
@@ -64,7 +63,10 @@ export function OperationalIssuesScreen({
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
   const allWarehouses = isAllWarehouses(scope);
-  const canReport = can(STORAGE_CODES.issueReport) && onReportIssue !== undefined;
+  // Not read yet — the Report button below gates only on `onReportIssue` being
+  // passed, not on this rbac check (W4v-2: neither warehouse admin role holds
+  // support.ticket.create_own today, so a host wires the button to it directly).
+  const _canReport = can(STORAGE_CODES.issueReport) && onReportIssue !== undefined;
 
   const scoped = useMemo(
     () => issues.filter((i) => inScope(scope, i.warehouseId, selectedWarehouseId)),

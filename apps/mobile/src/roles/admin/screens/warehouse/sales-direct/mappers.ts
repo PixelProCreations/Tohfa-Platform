@@ -21,7 +21,7 @@ import type {
   SaleStatus,
 } from '../../../api/sales';
 import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
-import { gramsToKgString, parseKgToGrams } from '../../../money/quantity';
+import { parseKgToGrams } from '../../../money/quantity';
 import type {
   ChannelOrderItem,
   ChannelOrderLine,

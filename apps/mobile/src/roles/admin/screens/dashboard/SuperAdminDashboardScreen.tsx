@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Image,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,9 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { Icon } from '@tohfa/mobile-ui';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { colors } from '../../../farmer/theme';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import {
@@ -73,7 +70,6 @@ import {
 } from '../reports';
 import { PLStatementScreen } from '../finance';
 import { AdminRequestsApprovalScreen } from './AdminRequestsApprovalScreen';
-import { AdminRequestDetailScreen } from './AdminRequestDetailScreen';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -98,19 +94,6 @@ const PALETTE = {
   tabInactive: '#786F68',
   tabBorder: '#EDE7DE',
   checkGreen: '#0D8253',
-};
-
-// Shorthand alias for colors used in components
-const A = {
-  orange: PALETTE.orange,
-  orangeBg: PALETTE.peachIconBg,
-  blue: PALETTE.blueText,
-  blueBg: PALETTE.blueIconBg,
-  greenBg: PALETTE.greenIconBg,
-  amber: PALETTE.amberText,
-  amberBg: PALETTE.amberIconBg,
-  pageBg: PALETTE.pageBg,
-  muted: PALETTE.labelMuted,
 };
 
 // ─── Tab Bar Types ────────────────────────────────────────────────────────────
@@ -172,20 +155,6 @@ function CustomersGridIcon() {
     </Svg>
   );
 }
-
-function QuickBtn({
-  iconName, label, accent = A.orange, bg = A.orangeBg, onPress,
-}: { iconName: string; label: string; accent?: string; bg?: string; onPress?: () => void }) {
-  return (
-    <TouchableOpacity style={styles.quickCard} activeOpacity={0.75} onPress={onPress}>
-      <View style={[styles.quickIconWrap, { backgroundColor: bg }]}>
-        <Icon name={iconName} size={22} color={accent} />
-      </View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 
 function RevenueGridIcon() {
   return (

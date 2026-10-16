@@ -18,8 +18,8 @@
  * There is no revenue edit code, so nothing here edits revenue.
  */
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { InfoCard, InfoNote, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';

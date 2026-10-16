@@ -193,7 +193,7 @@ export function GroupDetailScreen({
   group = DEFAULT_GROUP,
   onBack,
 }: GroupDetailScreenProps): React.JSX.Element {
-  const [currentGroup, setCurrentGroup] = useState<GroupItem>(group ?? DEFAULT_GROUP);
+  const [currentGroup] = useState<GroupItem>(group ?? DEFAULT_GROUP);
   const [isJoined, setIsJoined] = useState(group?.isJoined ?? true);
   const [membersCount, setMembersCount] = useState(group?.membersCount ?? 128);
   const [newPostText, setNewPostText] = useState('');

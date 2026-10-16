@@ -130,20 +130,6 @@ function PencilEditIcon({ size = 15, color = P.white }: { size?: number; color?:
   );
 }
 
-function ChevronLeftIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M15 18l-6-6 6-6"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -151,99 +137,6 @@ function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; c
         d="M9 18l6-6-6-6"
         stroke={color}
         strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CheckCircleSolidIcon({ size = 18, color = P.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" fill={color} />
-      <Path
-        d="M8 12.5l2.8 2.8L16 9.5"
-        stroke={P.white}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CheckMiniIcon({ size = 14, color = P.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 13l4 4L19 7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SproutActiveIcon({ size = 18, color = P.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 21v-8M12 13c0-3.5 2.5-6.5 6.5-6.5 0 4-3 6.5-6.5 6.5zM12 15c0-3-2-5.5-5.5-5.5 0 3.5 2.2 5.5 5.5 5.5z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function TaskDotIcon({ size = 10, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="6" fill={color} />
-    </Svg>
-  );
-}
-
-function ThermometerIcon({ size = 13, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function DropletIcon({ size = 13, color = P.twBlue600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SparklesIcon({ size = 13, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"
-        stroke={color}
-        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -261,16 +154,6 @@ function FlagMilestoneIcon({ size = 16, color = P.brandGreen }: { size?: number;
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function TargetMetricIcon({ size = 15, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Circle cx="12" cy="12" r="5" stroke={color} strokeWidth="1.8" />
-      <Circle cx="12" cy="12" r="1.5" fill={color} />
     </Svg>
   );
 }
@@ -1527,7 +1410,6 @@ export function CropDetailScreen({
 
   // Growth Lifecycle calculations
   const totalCycleDays = lifecycle.totalDays;
-  const progressPercent = Math.min(100, Math.max(0, Math.round((daysOld / totalCycleDays) * 100)));
 
   // Identify current active stage
   let activeStageIndex = lifecycle.stages.findIndex(

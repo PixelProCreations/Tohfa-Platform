@@ -160,7 +160,7 @@ export function SystemConfigScreen({
   onOpenAuditLogs,
 }: SystemConfigScreenProps) {
   // Config state values
-  const [channelSplit, setChannelSplit] = useState('70/10/10/10');
+  const [channelSplit] = useState('70/10/10/10');
   const [subscriptionFee, setSubscriptionFee] = useState('₹500/yr');
   const [sessionTimeout, setSessionTimeout] = useState('30 min');
   const [ratingThresholds, setRatingThresholds] = useState('650/700/750');

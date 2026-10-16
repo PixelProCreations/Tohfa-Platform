@@ -12,7 +12,6 @@ import {
   Pressable,
 } from 'react-native';
 import { authPalette as themeAuthPalette, typography } from '../../theme';
-import { Icon } from '@tohfa/mobile-ui';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
@@ -144,7 +143,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         setActiveChallengeId(res.challengeId);
       }
       if (res._mockCode) {
-        console.log(`[Dev] Mock OTP for ${mobile}: ${res._mockCode}`);
+        console.warn(`[Dev] Mock OTP for ${mobile}: ${res._mockCode}`);
       }
       setResendAvailableAt(res.resendAvailableAt);
       setAttemptsRemaining(res.attemptsRemaining);

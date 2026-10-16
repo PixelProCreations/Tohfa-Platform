@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
-import { authPalette as P, colors, typography } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import { listFarmAssets } from '../../api/farmAssets';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
   Image,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,9 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
-
-const pinIconAsset = require('../../assets/images/pin.png');
+import pinIconAsset from '../../assets/images/pin.png';
 
 // ─── Theme & Palette ─────────────────────────────────────────────────────────
 const P = {

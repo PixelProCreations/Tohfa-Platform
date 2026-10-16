@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
+import { adminColors, adminSpacing } from '../../../theme';
 import {
   LockIcon,
   SectionTitle,

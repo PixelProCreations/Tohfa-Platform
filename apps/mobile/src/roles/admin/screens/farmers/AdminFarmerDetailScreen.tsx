@@ -13,9 +13,8 @@ import {
 import { Icon } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
-
-const telephoneIconAsset = require('../../assets/images/telephone.png');
-const calendarIconAsset = require('../../assets/images/calendar.png');
+import telephoneIconAsset from '../../assets/images/telephone.png';
+import calendarIconAsset from '../../assets/images/calendar.png';
 
 const P = {
   bg: '#FAF8F5',

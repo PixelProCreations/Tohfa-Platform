@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Line, Path } from 'react-native-svg';
 import type { RecentDocItem } from './AdminReportsMainScreen';
 
 const P = {

@@ -10,18 +10,14 @@ import {
   getExpense,
   getExpenseVoucher,
   getFinanceRevenue,
-  listCashCloses,
   listExpenseCategories,
   listExpenses,
   listFinanceRevenue,
   type CashCloseCreateDto,
-  type CashCloseDto,
   type ExpenseCreateDto,
   type ExpenseDto,
   type ExpensePaymentMethod,
   type ExpenseStatus,
-  type ExpenseVoucherDto,
-  type FinanceRevenueDetailDto,
   type FinanceRevenueItemDto,
   type RevenueChannel,
   type RevenuePaymentMethod,
@@ -29,14 +25,12 @@ import {
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
 import { adminKeys } from '../../../api/queryKeys';
 import {
-  mapCashClose,
   mapDailyCashSummary,
   mapExpenseCategory,
   mapExpenseRecord,
   mapExpenseVoucher,
   mapRevenueDetail,
   mapRevenueRecord,
-  type CashCloseMapped,
   type DailyCashSummaryMapped,
 } from './mappers';
 import type { ExpenseCategoryItem, ExpenseRecord, RevenueDetail, RevenueRecord, VoucherRecord } from './types';

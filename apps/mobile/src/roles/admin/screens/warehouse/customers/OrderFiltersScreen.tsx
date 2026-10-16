@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
-import { CUSTOMER_WAREHOUSES, DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
+import { adminColors } from '../../../theme';
+import { DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
 import type {
   OrderFiltersVariant,
   OrderFilterState,

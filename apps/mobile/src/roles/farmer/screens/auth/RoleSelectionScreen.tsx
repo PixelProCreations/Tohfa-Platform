@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useTheme, authPalette as P, typography } from '../../theme';
+import customerCardImage from '../../assets/customer.jpg';
+import farmerCardImage from '../../assets/farmer.jpg';
 
 interface RoleSelectionProps {
   onNavigate: (screen: 'Login' | 'Register') => void;
@@ -58,7 +60,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionProps> = ({ onNavigate }
           }}
         >
           <Image
-            source={require('../../assets/customer.jpg')}
+            source={customerCardImage}
             style={styles.cardImage}
           />
           <View style={styles.cardTextContainer}>
@@ -80,7 +82,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionProps> = ({ onNavigate }
           onPress={() => onNavigate('Register')}
         >
           <Image
-            source={require('../../assets/farmer.jpg')}
+            source={farmerCardImage}
             style={styles.cardImage}
           />
           <View style={styles.cardTextContainer}>

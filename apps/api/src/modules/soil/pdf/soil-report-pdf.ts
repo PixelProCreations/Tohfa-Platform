@@ -1,6 +1,5 @@
 import PDFDocument from 'pdfkit';
 import { tokens } from '@tohfa/design-tokens';
-import type { ClassificationBands, SoilMetricKey } from '../soil.repo.js';
 
 export interface SoilReportPlotData {
   id: string;

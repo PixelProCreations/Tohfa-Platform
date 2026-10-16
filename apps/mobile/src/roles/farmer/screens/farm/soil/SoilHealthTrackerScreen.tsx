@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
@@ -208,7 +208,7 @@ export function SoilHealthTrackerScreen({ farmId, onBack }: SoilHealthTrackerScr
   const [plotsError, setPlotsError] = useState<string | null>(null);
 
   const [reading, setReading] = useState<ZoneReading>(EMPTY_READING);
-  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   // Android hardware back handler
