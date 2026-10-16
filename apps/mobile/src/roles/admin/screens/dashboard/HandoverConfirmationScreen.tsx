@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginTop: adminSpacing.lg,
     marginBottom: adminSpacing.sm,
   },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.xs,
   },
   noticeBox: {
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,

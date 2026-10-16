@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   // Section Heading
   sectionHeading: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginTop: adminSpacing.md,
     marginBottom: adminSpacing.sm,
   },

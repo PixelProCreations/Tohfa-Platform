@@ -28,6 +28,7 @@ import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
 import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
 import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
+import { FarmerSupportScreen } from './FarmerSupportScreen';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
@@ -2042,6 +2043,7 @@ export function FarmerAdminDashboardScreen({
     | 'handover_details'
     | 'admin_activity'
     | 'notifications'
+    | 'farmer_support'
     | 'profile'
     | 'purchases'
     | 'purchase_orders'
@@ -2262,6 +2264,30 @@ export function FarmerAdminDashboardScreen({
           setSubView('none');
           setActiveTab('More');
           setMoreSubScreen('dispute_detail');
+        }}
+        onTabChange={(tab) => {
+          setSubView('none');
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Support subview
+  if (subView === 'farmer_support') {
+    return (
+      <FarmerSupportScreen
+        onBack={() => setSubView('none')}
+        onNavigateFarmerProfile={(_farmerId) => {
+          setFarmerProfileReturnSubView('none');
+          setSubView('farmer_profile');
+        }}
+        onNavigateProduceListing={(_listingId) => {
+          setSubView('product_listings');
+        }}
+        onTabChange={(tab) => {
+          setSubView('none');
+          setActiveTab(tab);
         }}
       />
     );
@@ -3278,6 +3304,7 @@ export function FarmerAdminDashboardScreen({
               setMoreSubScreen('disputes');
             }}
             onNavigateProfile={() => setSubView('profile')}
+            onNavigateFarmerSupport={() => setSubView('farmer_support')}
             onNavigateNotifications={() => setSubView('notifications')}
             onSwitchRole={() =>
               setModalItem({
@@ -3294,6 +3321,8 @@ export function FarmerAdminDashboardScreen({
                 setSubView('farmer_ratings');
               } else if (title === 'Disputes') {
                 setMoreSubScreen('disputes');
+              } else if (title === 'Farmer Support') {
+                setSubView('farmer_support');
               } else if (title === 'Community') {
                 setMoreSubScreen('community');
               } else {

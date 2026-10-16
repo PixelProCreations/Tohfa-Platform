@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginTop: adminSpacing.lg,
     marginBottom: adminSpacing.sm,
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,

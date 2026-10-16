@@ -26,6 +26,7 @@ export * from './HandoverDetailsScreen';
 export * from './FarmerAdminActivityScreen';
 export * from './FarmerAdminNotificationsScreen';
 export * from './FarmerAdminMoreScreen';
+export * from './FarmerSupportScreen';
 export * from './FarmerDisputesMediationScreen';
 export * from './FarmerDisputeDetailScreen';
 export * from './FarmerDisputeTimelineScreen';

@@ -65,7 +65,7 @@ function FilterSlidersIcon({ size = 18, color = adminColors.ink }: { size?: numb
   );
 }
 
-function TrendingLineIcon({ size = 20, color = '#B85D19' }: { size?: number; color?: string }) {
+function TrendingLineIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -107,17 +107,17 @@ export { INITIAL_DISPUTES };
 function getStatusBadgeStyle(status: DisputeStatus) {
   switch (status) {
     case 'Under Review':
-      return { bg: '#E0EBF7', text: '#1D5A8A' };
+      return { bg: adminColors.info.bg, text: adminColors.info.text };
     case 'Awaiting TOHFA':
-      return { bg: '#FEF3C7', text: '#B45309' };
+      return { bg: adminColors.warning.bg, text: adminColors.warning.text };
     case 'Open':
-      return { bg: '#FEF3C7', text: '#B45309' };
+      return { bg: adminColors.warning.bg, text: adminColors.warning.text };
     case 'Escalated':
-      return { bg: '#FEE2E2', text: '#DC2626' };
+      return { bg: adminColors.danger.bg, text: adminColors.danger.text };
     case 'Resolved':
-      return { bg: '#D1FAE5', text: '#059669' };
+      return { bg: adminColors.success.bg, text: adminColors.success.text };
     default:
-      return { bg: '#F3EFEA', text: '#6C6258' };
+      return { bg: adminColors.canvas, text: adminColors.muted };
   }
 }
 
@@ -343,7 +343,7 @@ export function FarmerDisputesMediationScreen({
               {/* Card Top Row: ID & Trending Icon */}
               <View style={styles.cardTopRow}>
                 <Text style={styles.cardId}>{item.id}</Text>
-                <TrendingLineIcon size={20} color="#B85D19" />
+                <TrendingLineIcon size={20} color={adminColors.brandDeep} />
               </View>
 
               {/* Badges Row */}
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.sm,
   },
   activeFilterChip: {
-    backgroundColor: '#F3EFEA',
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.sm,
     borderWidth: 1,
     borderColor: adminColors.border,
@@ -880,13 +880,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   categoryPill: {
-    backgroundColor: '#F3EFEA',
+    backgroundColor: adminColors.canvas,
   },
   categoryText: {
     ...adminType.caption,
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#6C6258',
+    color: adminColors.muted,
   },
   disputeTitle: {
     ...adminType.body,
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontSize: 13,
     fontWeight: '800',
-    color: '#B85D19',
+    color: adminColors.brandDeep,
   },
   timelineLinkBtn: {
     paddingVertical: 2,
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
   },
   filterChipActive: {
     borderColor: adminColors.brand,
-    backgroundColor: '#FFF1E8',
+    backgroundColor: adminColors.brandTint,
   },
   filterChipText: {
     ...adminType.caption,
@@ -1133,9 +1133,9 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   resolutionBox: {
-    backgroundColor: '#E6F7ED',
+    backgroundColor: adminColors.success.bg,
     borderWidth: 1,
-    borderColor: '#A3E3B9',
+    borderColor: adminColors.success.border,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
@@ -1143,13 +1143,13 @@ const styles = StyleSheet.create({
   resolutionTitle: {
     ...adminType.caption,
     fontWeight: '800',
-    color: '#059669',
+    color: adminColors.success.text,
     marginBottom: 4,
   },
   resolutionBody: {
     ...adminType.caption,
     fontSize: 12,
-    color: '#047857',
+    color: adminColors.success.text,
   },
   timelineSection: {
     marginBottom: adminSpacing.md,
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   resolveActionBtn: {
-    backgroundColor: '#059669',
+    backgroundColor: adminColors.success.text,
     borderRadius: adminRadius.md,
     paddingVertical: 10,
     alignItems: 'center',
@@ -1198,7 +1198,7 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   escalateActionBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.danger.text,
     borderRadius: adminRadius.md,
     paddingVertical: 10,
     alignItems: 'center',
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   reviewActionBtn: {
-    backgroundColor: '#1E6091',
+    backgroundColor: adminColors.info.text,
     borderRadius: adminRadius.md,
     paddingVertical: 10,
     alignItems: 'center',
