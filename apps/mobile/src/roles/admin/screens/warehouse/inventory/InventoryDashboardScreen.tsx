@@ -1,7 +1,8 @@
 // Design id: M3S01
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
 import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
@@ -62,8 +63,8 @@ function BellIcon({ size = 22, color = adminColors.onBrand }: { size?: number; c
 function LockBadgeIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -139,7 +140,7 @@ function StatStockLedgerIcon({ size = 22, color = adminColors.brandDeep }: { siz
   );
 }
 
-function InfoCircleIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -148,7 +149,7 @@ function InfoCircleIcon({ size = 18, color = '#92400E' }: { size?: number; color
   );
 }
 
-function ArrowUpSmallIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+function ArrowUpSmallIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -156,7 +157,7 @@ function ArrowUpSmallIcon({ size = 18, color = '#92400E' }: { size?: number; col
   );
 }
 
-function Grid4SquaresIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function Grid4SquaresIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -167,7 +168,7 @@ function Grid4SquaresIcon({ size = 22, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function ConsolidatedStockIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function ConsolidatedStockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2L2 7l10 5 10-5-10-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,7 +178,7 @@ function ConsolidatedStockIcon({ size = 24, color = '#F0562A' }: { size?: number
   );
 }
 
-function WarehouseStockIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function WarehouseStockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 21V8l8-4 8 4v13" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -187,7 +188,7 @@ function WarehouseStockIcon({ size = 24, color = '#F0562A' }: { size?: number; c
   );
 }
 
-function StockVerificationQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function StockVerificationQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -197,7 +198,7 @@ function StockVerificationQuickIcon({ size = 24, color = '#F0562A' }: { size?: n
   );
 }
 
-function AllocationQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function AllocationQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -207,7 +208,7 @@ function AllocationQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; 
   );
 }
 
-function LowStockQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function LowStockQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 7l6 6 4-4 8 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -216,7 +217,7 @@ function LowStockQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; co
   );
 }
 
-function CreateTransferQuickIcon({ size = 24, color = '#F0562A' }: { size?: number; color?: string }) {
+function CreateTransferQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 8h14M15 5l3 3-3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -226,15 +227,58 @@ function CreateTransferQuickIcon({ size = 24, color = '#F0562A' }: { size?: numb
 }
 
 const MAIN_KPIS = [
-  { key: 'total_stock', label: 'TOTAL STOCK', value: '12,840 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'available_stock', label: 'AVAILABLE STOCK', value: '9,240 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'allocated', label: 'ALLOCATED', value: '2,100 KG', unit: 'KG', screen: 'M3S07' },
-  { key: 'reserved', label: 'RESERVED', value: '1,500 KG', unit: 'KG', screen: 'M3S02' },
-  { key: 'low_stock', label: 'LOW STOCK', value: '14', unit: 'products', screen: 'M3S09' },
-  { key: 'pending_verification', label: 'PENDING VERIFICATION', value: '6', unit: 'items', screen: 'M3S10' },
-  { key: 'variance_detected', label: 'VARIANCE DETECTED', value: '2', unit: 'items', screen: 'M3S12' },
-  { key: 'pending_adjustments', label: 'PENDING ADJUSTMENTS', value: '3', unit: 'requests', screen: 'M3S14' },
+  { key: 'total_stock', label: 'Total Stock', value: '12,840 KG', unit: 'KG across warehouses', icon: 'inventory', screen: 'M3S02' },
+  { key: 'available_stock', label: 'Available Stock', value: '9,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+  { key: 'allocated', label: 'Allocated Stock', value: '2,100 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+  { key: 'reserved', label: 'Reserved Stock', value: '1,500 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+  { key: 'low_stock', label: 'Low Stock Items', value: '14', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+  { key: 'pending_verification', label: 'Verification Pending', value: '6', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+  { key: 'variance_detected', label: 'Variance Detected', value: '2', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+  { key: 'pending_adjustments', label: 'Pending Adjustments', value: '3', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
 ];
+
+const WAREHOUSE_SPECIFIC_KPIS: Record<string, typeof MAIN_KPIS> = {
+  'WH-OOTY': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,420 KG', unit: 'Ooty warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,540 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '580 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-COON': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,180 KG', unit: 'Coonoor warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,310 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '520 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '350 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-KOTA': [
+    { key: 'total_stock', label: 'Total Stock', value: '2,940 KG', unit: 'Kotagiri warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,150 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '490 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-GUDA': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,300 KG', unit: 'Gudalur warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '510 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '550 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '0', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+};
 
 const WAREHOUSE_OVERVIEW_ROWS = [
   { name: 'Ooty', stock: '3,420 KG', warehouseId: 'WH-OOTY' },
@@ -246,7 +290,7 @@ const WAREHOUSE_OVERVIEW_ROWS = [
 const PENDING_ACTION_ROWS = [
   { label: 'Verification', count: 6, screen: 'M3S10' },
   { label: 'Adjustment', count: 3, screen: 'M3S14' },
-  { label: 'Transfer Receiving', count: 2, screen: 'transfers' },
+  { label: 'Transfer Receiving', count: 2, screen: 'TransferReceiving' },
   { label: 'Stock Exception', count: 1, screen: 'M3S12' },
 ];
 
@@ -282,41 +326,26 @@ export function InventoryDashboardScreen({
     screenKey: string,
     isAlert?: boolean,
   ) => {
-    const cardContent = (
-      <>
-        {icon}
-        <Text style={isAlert ? styles.lowStockValue : styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </>
-    );
-
-    if (isSub) {
-      return (
-        <View key={key} style={styles.statCard}>
-          {cardContent}
-        </View>
-      );
-    }
-
     return (
-      <TouchableOpacity
+      <OverviewDashboardCard
         key={key}
-        style={styles.statCard}
-        onPress={() => onNavigate?.(screenKey)}
-        activeOpacity={0.7}
-      >
-        {cardContent}
-      </TouchableOpacity>
+        value={value}
+        title={label}
+        subtitle={isAlert ? 'Needs attention' : undefined}
+        icon={icon}
+        tone={isAlert ? 'danger' : 'default'}
+        onPress={onNavigate ? () => onNavigate(screenKey) : undefined}
+      />
     );
   };
 
   const quickActions = [
-    { key: 'consolidated', label: 'Consolidated Stock', icon: <ConsolidatedStockIcon size={24} color="#F0562A" />, screen: 'M3S02' },
-    { key: 'warehouse', label: 'Warehouse Stock', icon: <WarehouseStockIcon size={24} color="#F0562A" />, screen: 'M3S02' },
-    { key: 'verification', label: 'Stock Verification', icon: <StockVerificationQuickIcon size={24} color="#F0562A" />, screen: 'M3S10' },
-    { key: 'allocation', label: 'Allocation', icon: <AllocationQuickIcon size={24} color="#F0562A" />, screen: 'M3S07' },
-    { key: 'low_stock', label: 'Low Stock', icon: <LowStockQuickIcon size={24} color="#F0562A" />, screen: 'M3S09' },
-    { key: 'transfer', label: 'Create Transfer', icon: <CreateTransferQuickIcon size={24} color="#F0562A" />, isTransfer: true },
+    { key: 'consolidated', label: 'Consolidated Stock', icon: <ConsolidatedStockIcon size={24} color={adminColors.brand} />, screen: 'M3S02', params: { view: 'consolidated' } },
+    { key: 'warehouse', label: 'Warehouse Stock', icon: <WarehouseStockIcon size={24} color={adminColors.brand} />, screen: 'M3S02', params: { view: 'warehouse' } },
+    { key: 'verification', label: 'Stock Verification', icon: <StockVerificationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S10' },
+    { key: 'allocation', label: 'Allocation', icon: <AllocationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S07' },
+    { key: 'low_stock', label: 'Low Stock', icon: <LowStockQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S09' },
+    { key: 'transfer', label: 'Create Transfer', icon: <CreateTransferQuickIcon size={24} color={adminColors.brand} />, isTransfer: true },
   ];
 
   if (isSub) {
@@ -353,7 +382,9 @@ export function InventoryDashboardScreen({
 
               <View style={styles.warehousePill}>
                 <LockBadgeIcon size={12} color={adminColors.onBrand} />
-                <Text style={styles.warehouseText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+                <Text style={styles.warehouseText}>
+                  {`${(scope.warehouseName ?? 'Coonoor Warehouse').includes('Warehouse') ? (scope.warehouseName ?? 'Coonoor Warehouse') : `${scope.warehouseName} Warehouse`} · Assigned Warehouse`}
+                </Text>
               </View>
             </View>
           </View>
@@ -506,7 +537,7 @@ export function InventoryDashboardScreen({
                     <BackArrowIcon size={22} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 )}
-                <Grid4SquaresIcon size={22} color="#FFFFFF" />
+                <Grid4SquaresIcon size={22} color={adminColors.onBrand} />
                 <Text style={styles.mainHeaderTitle}>Inventory & Stock</Text>
               </View>
             </View>
@@ -523,23 +554,22 @@ export function InventoryDashboardScreen({
         <ScrollView style={styles.mainContent} contentContainerStyle={styles.mainScrollPad} showsVerticalScrollIndicator={false}>
           {/* 8 KPI Cards Grid (2x4) */}
           <View style={styles.mainKpiGrid}>
-            {MAIN_KPIS.map((kpi) => (
-              <TouchableOpacity
+            {(selectedWarehouseId && WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] ? WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] : MAIN_KPIS).map((kpi) => (
+              <OverviewDashboardCard
                 key={kpi.key}
-                style={styles.mainKpiCard}
+                value={kpi.value}
+                title={kpi.label}
+                subtitle={kpi.unit}
+                icon={kpi.icon}
+                tone={(kpi as any).tone ?? 'default'}
                 onPress={() => onNavigate?.(kpi.screen)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
-                <Text style={styles.mainKpiValue}>{kpi.value}</Text>
-                <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
 
           {/* Info Banner */}
           <View style={styles.mainInfoBanner}>
-            <InfoCircleIcon size={18} color="#92400E" />
+            <InfoCircleIcon size={18} color={adminColors.warning.text} />
             <Text style={styles.mainInfoBannerText}>
               Low-stock thresholds always come from backend configuration — never hard-coded percentages.
             </Text>
@@ -554,7 +584,7 @@ export function InventoryDashboardScreen({
               <TouchableOpacity
                 key={item.name}
                 style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
-                onPress={() => onNavigate?.('M3S02', { warehouseId: item.warehouseId })}
+                onPress={() => onNavigate?.('M3S02', { view: 'warehouse', warehouseId: item.warehouseId })}
                 activeOpacity={0.7}
               >
                 <Text style={styles.mainListItemLabel}>{item.name}</Text>
@@ -571,19 +601,19 @@ export function InventoryDashboardScreen({
             <View style={styles.healthGrid}>
               <View style={styles.healthCell}>
                 <Text style={styles.healthCellLabel}>Normal</Text>
-                <Text style={[styles.healthCellValue, { color: '#059669' }]}>62 products</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.success.text }]}>62 products</Text>
               </View>
               <View style={styles.healthCell}>
                 <Text style={styles.healthCellLabel}>Low</Text>
-                <Text style={[styles.healthCellValue, { color: '#D97706' }]}>14 products</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.warning.text }]}>14 products</Text>
               </View>
               <View style={styles.healthCell}>
                 <Text style={styles.healthCellLabel}>Critical</Text>
-                <Text style={[styles.healthCellValue, { color: '#DC2626' }]}>3 products</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.danger.text }]}>3 products</Text>
               </View>
               <View style={styles.healthCell}>
                 <Text style={styles.healthCellLabel}>Verification Pending</Text>
-                <Text style={[styles.healthCellValue, { color: '#1F2937' }]}>6</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.ink }]}>6</Text>
               </View>
             </View>
           </View>
@@ -601,7 +631,7 @@ export function InventoryDashboardScreen({
             activeOpacity={0.8}
           >
             <View style={styles.recentMovementBadge}>
-              <ArrowUpSmallIcon size={18} color="#92400E" />
+              <ArrowUpSmallIcon size={18} color={adminColors.warning.text} />
             </View>
             <View style={styles.recentMovementInfo}>
               <Text style={styles.recentMovementTitle}>{`${RECENT_MOVEMENT.id} · ${RECENT_MOVEMENT.type}`}</Text>
@@ -623,9 +653,8 @@ export function InventoryDashboardScreen({
                 key={item.label}
                 style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
                 onPress={() => {
-                  if (item.screen === 'transfers') {
-                    if (onInitiateTransfer) onInitiateTransfer();
-                    else onNavigate?.('M3S02');
+                  if (item.screen === 'TransferReceiving' || item.screen === 'transfers' || item.screen === 'Transfers') {
+                    onNavigate?.(item.screen);
                   } else {
                     onNavigate?.(item.screen);
                   }
@@ -650,9 +679,9 @@ export function InventoryDashboardScreen({
                 onPress={() => {
                   if (action.isTransfer) {
                     if (onInitiateTransfer) onInitiateTransfer();
-                    else onNavigate?.('M3S09');
+                    else onNavigate?.('Transfers');
                   } else if (action.screen) {
-                    onNavigate?.(action.screen);
+                    onNavigate?.(action.screen, (action as any).params);
                   }
                 }}
                 activeOpacity={0.8}
@@ -663,8 +692,6 @@ export function InventoryDashboardScreen({
             ))}
           </View>
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );
@@ -708,10 +735,10 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -719,12 +746,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.headerPill.border,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     marginTop: 10,
     gap: 6,
   },
@@ -764,7 +791,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 16,
     justifyContent: 'space-between',
-    marginBottom: 8,
+    rowGap: 12,
+    columnGap: 10,
+    marginBottom: 16,
   },
   statCard: {
     width: '48%',
@@ -878,65 +907,61 @@ const styles = StyleSheet.create({
   // Main Warehouse Styles (Matching Mockup Exactly)
   mainContent: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   mainScrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
   },
   mainHeaderTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   mainKpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: adminSpacing.md,
   },
   mainKpiCard: {
     width: '48.2%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     gap: 2,
+    ...adminShadow.sm,
   },
   mainKpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
   },
   mainKpiValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#111827',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     marginTop: 4,
   },
   mainKpiUnit: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   mainInfoBanner: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 14,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    padding: 12,
+    borderColor: adminColors.warning.border,
+    padding: adminSpacing.md,
     marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
   mainInfoBannerText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#92400E',
+    ...adminType.caption,
+    color: adminColors.warning.text,
     flex: 1,
     lineHeight: 18,
   },
@@ -948,22 +973,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mainSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#78350F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   mainSectionLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#D97706',
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
   mainListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 2,
+    ...adminShadow.sm,
   },
   mainListItemRow: {
     flexDirection: 'row',
@@ -973,24 +997,23 @@ const styles = StyleSheet.create({
   },
   mainListItemDivider: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: adminColors.border,
   },
   mainListItemLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   mainListItemValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   healthCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   healthGrid: {
     flexDirection: 'row',
@@ -1002,30 +1025,29 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   healthCellLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   healthCellValue: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.rowTitle,
   },
   recentMovementCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    ...adminShadow.sm,
   },
   recentMovementBadge: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1033,44 +1055,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recentMovementTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   recentMovementSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   recentMovementQty: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#059669',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   mainQuickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
-    marginBottom: 16,
+    rowGap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   mainQuickActionCard: {
     width: '48.2%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    ...adminShadow.sm,
   },
   mainQuickActionLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 });

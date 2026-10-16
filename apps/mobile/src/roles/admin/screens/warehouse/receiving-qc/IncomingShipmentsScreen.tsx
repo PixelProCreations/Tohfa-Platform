@@ -24,9 +24,11 @@ import {
   ScopeHeader,
   SlidersIcon,
   StatusBadge,
+  WarehouseTabBar,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import { WarehouseSelector } from '../inventory';
 import {
   EMPTY_RECEIVING_FILTERS,
   activeFilterCount,
@@ -36,7 +38,7 @@ import {
   shipmentsInScope,
 } from './fixtures';
 import { PermissionNote, RefreshRetryIcon, StepperCheckIcon, TransferArrowsIcon, TruckDeliveryIcon, canViewReceiving, shipmentTone } from './ReceivingParts';
-import type { IncomingShipment, ReceivingFilters, ShipmentFilterTab, WarehouseScreenBaseProps } from './types';
+import type { IncomingShipment, ReceivingFilters, ShipmentFilterTab, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
 const TABS: readonly ShipmentFilterTab[] = ['All', 'Expected', 'Arrived', 'Receiving', 'QC Pending', 'Completed', 'Rejected'];
 
@@ -48,6 +50,7 @@ export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps {
   onOpenFilters: () => void;
   onClearFilters?: (() => void) | undefined;
   onSelectShipment: (code: string) => void;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
 }
 
 /** The two figures a card shows, by status (as the Sub shell's inline cards). */
@@ -76,6 +79,7 @@ export function IncomingShipmentsScreen({
   onOpenFilters,
   onClearFilters,
   onSelectShipment,
+  onTabChange,
 }: IncomingShipmentsScreenProps) {
   const [tab, setTab] = useState<ShipmentFilterTab>(initialTab);
   const mainView = isMainScope(scope);
@@ -89,7 +93,8 @@ export function IncomingShipmentsScreen({
         <SlidersIcon size={20} />
       </HeaderIconButton>
     ),
-    headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
+    headerExtra: undefined,
+    footer: <WarehouseTabBar activeTab="Receiving" onTabChange={onTabChange} onBack={onBack} />,
   };
 
   if (!canViewReceiving(can)) {
@@ -108,11 +113,27 @@ export function IncomingShipmentsScreen({
 
   return (
     <WalletScreen {...header}>
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
-          <ChipGroup options={TABS} value={tab} onChange={setTab} />
+      <View style={styles.pillsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsScroll}>
+          {TABS.map((option) => {
+            const active = option === tab;
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[styles.pill, active && styles.pillActive]}
+                onPress={() => setTab(option)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {applied > 0 ? (
           <View style={styles.appliedRow}>
             <Text style={styles.appliedText}>
@@ -126,55 +147,102 @@ export function IncomingShipmentsScreen({
           </View>
         ) : null}
 
-
-
         {rows.length === 0 ? <EmptyState title="No shipments" subtitle="Nothing matches this status and these filters." /> : null}
 
-        {rows.map((s) => (
-          <TouchableOpacity
-            key={s.code}
-            style={styles.card}
-            onPress={() => onSelectShipment(s.code)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <View style={styles.rowBetween}>
-              <View style={styles.codeRow}>
-                {s.type === 'Inter-Warehouse Transfer' ? <TransferArrowsIcon size={16} /> : <TruckDeliveryIcon size={16} color={adminColors.brand} />}
+        {rows.map((s) => {
+          const stats = cardStats(s);
+          const tone = shipmentTone(s.status);
+          const badgeColors = adminColors[tone];
+
+          return (
+            <TouchableOpacity
+              key={s.code}
+              style={styles.card}
+              onPress={() => onSelectShipment(s.code)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <View style={styles.cardHeader}>
                 <Text style={styles.code}>{s.code}</Text>
-              </View>
-              <StatusBadge label={s.status} tone={shipmentTone(s.status)} />
-            </View>
-            <Text style={styles.meta}>
-              {s.from} → {s.to}
-              {mainView ? ` · ${warehouseNameOf(s.warehouseId)}` : ''}
-            </Text>
-            <Text style={styles.produce}>
-              {s.produce} · {s.grade}
-            </Text>
-            <View style={styles.stats}>
-              {cardStats(s).map(([label, value]) => (
-                <View key={label} style={styles.statCol}>
-                  <Text style={styles.meta}>{label}</Text>
-                  <Text style={styles.statValue}>{value}</Text>
+                <View style={[styles.badge, { backgroundColor: badgeColors.bg }]}>
+                  <Text style={[styles.badgeText, { color: badgeColors.text }]}>{s.status}</Text>
                 </View>
-              ))}
-            </View>
-            {s.hasReview ? (
-              <View style={styles.reviewRow}>
-                <Text style={styles.link}>Review &gt;</Text>
               </View>
-            ) : null}
-          </TouchableOpacity>
-        ))}
+
+              <Text style={styles.route}>
+                {`→ ${s.from} → ${s.to}`}
+                {mainView ? ` · ${warehouseNameOf(s.warehouseId)}` : ''}
+              </Text>
+
+              <Text style={styles.produce}>
+                {s.produce} · {s.grade}
+              </Text>
+
+              <View style={styles.statsRow}>
+                {stats.map(([label, value]) => (
+                  <View key={label} style={styles.statCol}>
+                    <Text style={styles.statLabel}>{label}</Text>
+                    <Text style={styles.statValue}>{value}</Text>
+                  </View>
+                ))}
+                {s.hasReview ? (
+                  <TouchableOpacity
+                    style={styles.reviewButton}
+                    onPress={() => onSelectShipment(s.code)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.reviewText}>Review &gt;</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  pills: { paddingVertical: adminSpacing.sm },
-  appliedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm },
+  pillsWrapper: {
+    paddingVertical: 12,
+  },
+  pillsScroll: {
+    paddingHorizontal: adminSpacing.lg,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  pillActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  pillText: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  pillTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  scrollContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  appliedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
   appliedText: { ...adminType.rowMeta, color: adminColors.muted },
   link: { ...adminType.caption, color: adminColors.brand },
   card: {
@@ -182,24 +250,67 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    padding: 16,
+    marginBottom: 12,
   },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  codeRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
-  code: { ...adminType.rowTitle, color: adminColors.ink },
-  meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  produce: { ...adminType.sectionHead, color: adminColors.ink, marginTop: adminSpacing.xs },
-  stats: {
+  cardHeader: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    marginTop: adminSpacing.sm,
-    paddingTop: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  statCol: { flex: 1 },
-  statValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-  reviewRow: { alignItems: 'flex-end', marginTop: adminSpacing.sm },
+  code: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: adminRadius.md,
+  },
+  badgeText: {
+    ...adminType.caption,
+    fontWeight: '700',
+  },
+  route: {
+    ...adminType.caption,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 5,
+  },
+  produce: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: 6,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: 10,
+  },
+  statCol: {
+    minWidth: 80,
+    marginRight: 20,
+  },
+  statLabel: {
+    ...adminType.caption,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  statValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  reviewButton: {
+    marginLeft: 'auto',
+    alignSelf: 'flex-end',
+    paddingVertical: 2,
+  },
+  reviewText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
 });
 
 export interface ReceivingActivityScreenProps {
@@ -208,6 +319,7 @@ export interface ReceivingActivityScreenProps {
 }
 
 export function ReceivingActivityScreen({ onBack, onSelectStep }: ReceivingActivityScreenProps) {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const steps = [
     { key: 'shipment_detail', label: 'Shipment Created', done: true },
     { key: 'shipment_detail', label: 'Shipment Arrived', done: true },
@@ -222,27 +334,27 @@ export function ReceivingActivityScreen({ onBack, onSelectStep }: ReceivingActiv
 
   return (
     <SafeAreaView style={customStyles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
-      <View style={customStyles.lightHeader}>
-        <View style={customStyles.lightHeaderTop}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <View style={customStyles.header}>
+        <View style={customStyles.headerTop}>
           <TouchableOpacity onPress={onBack} style={customStyles.backBtn} activeOpacity={0.7} accessibilityLabel="Back">
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#92400E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={customStyles.lightHeaderTitle}>Receiving Activity</Text>
-          <TouchableOpacity style={customStyles.lightRefreshBtn} activeOpacity={0.7} accessibilityLabel="Refresh">
-            <RefreshRetryIcon size={18} color="#92400E" />
+          <Text style={customStyles.headerTitle}>Receiving Activity</Text>
+          <TouchableOpacity style={customStyles.refreshBtn} activeOpacity={0.7} accessibilityLabel="Refresh">
+            <RefreshRetryIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <View style={customStyles.lightSelectorPill}>
+        <View style={customStyles.selectorPill}>
           <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Path d="M3 21h18M3 7v14M21 7v14M6 11h4M6 15h4M14 11h4M14 15h4M12 3L2 8v1M12 3l10 5v1" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M3 21h18M3 7v14M21 7v14M6 11h4M6 15h4M14 11h4M14 15h4M12 3L2 8v1M12 3l10 5v1" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={customStyles.lightSelectorText}>All Warehouses</Text>
+          <Text style={customStyles.selectorText}>All Warehouses</Text>
           <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-            <Path d="M6 9l6 6 6-6" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M6 9l6 6 6-6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </View>
       </View>
@@ -260,7 +372,7 @@ export function ReceivingActivityScreen({ onBack, onSelectStep }: ReceivingActiv
             >
               <View style={[customStyles.timelineCircle, step.done && customStyles.timelineCircleDone]}>
                 {step.done ? (
-                  <StepperCheckIcon size={11} color="#FFFFFF" />
+                  <StepperCheckIcon size={11} color={adminColors.onBrand} />
                 ) : (
                   <View style={customStyles.timelineDash} />
                 )}
@@ -282,6 +394,7 @@ export interface PendingQueueScreenProps {
 }
 
 export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScreenProps) {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [selectedTab, setSelectedTab] = useState<'Arrived' | 'In Progress' | 'QC Pending' | 'Decision Pending'>('Arrived');
 
   const tabs: ('Arrived' | 'In Progress' | 'QC Pending' | 'Decision Pending')[] = [
@@ -303,27 +416,27 @@ export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScr
 
   return (
     <SafeAreaView style={customStyles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
-      <View style={customStyles.lightHeader}>
-        <View style={customStyles.lightHeaderTop}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <View style={customStyles.header}>
+        <View style={customStyles.headerTop}>
           <TouchableOpacity onPress={onBack} style={customStyles.backBtn} activeOpacity={0.7} accessibilityLabel="Back">
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#92400E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={customStyles.lightHeaderTitle}>Pending Queue</Text>
-          <TouchableOpacity style={customStyles.lightRefreshBtn} activeOpacity={0.7} accessibilityLabel="Refresh">
-            <RefreshRetryIcon size={18} color="#92400E" />
+          <Text style={customStyles.headerTitle}>Pending Queue</Text>
+          <TouchableOpacity style={customStyles.refreshBtn} activeOpacity={0.7} accessibilityLabel="Refresh">
+            <RefreshRetryIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
-        <View style={customStyles.lightSelectorPill}>
+        <View style={customStyles.selectorPill}>
           <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Path d="M3 21h18M3 7v14M21 7v14M6 11h4M6 15h4M14 11h4M14 15h4M12 3L2 8v1M12 3l10 5v1" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M3 21h18M3 7v14M21 7v14M6 11h4M6 15h4M14 11h4M14 15h4M12 3L2 8v1M12 3l10 5v1" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={customStyles.lightSelectorText}>All Warehouses</Text>
+          <Text style={customStyles.selectorText}>All Warehouses</Text>
           <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-            <Path d="M6 9l6 6 6-6" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M6 9l6 6 6-6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </View>
       </View>
@@ -352,13 +465,13 @@ export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScr
 
         {/* Scroll indicator track */}
         <View style={customStyles.trackContainer}>
-          <Svg width={10} height={10} viewBox="0 0 24 24" fill="#9CA3AF">
+          <Svg width={10} height={10} viewBox="0 0 24 24" fill={adminColors.muted}>
             <Path d="M16 5l-8 7 8 7V5z" />
           </Svg>
           <View style={customStyles.trackBar}>
             <View style={customStyles.trackThumb} />
           </View>
-          <Svg width={10} height={10} viewBox="0 0 24 24" fill="#9CA3AF">
+          <Svg width={10} height={10} viewBox="0 0 24 24" fill={adminColors.muted}>
             <Path d="M8 5l8 7-8 7V5z" />
           </Svg>
         </View>
@@ -372,7 +485,7 @@ export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScr
             activeOpacity={0.8}
           >
             <View style={customStyles.queueCardIconBox}>
-              <TruckDeliveryIcon size={20} color="#D97706" />
+              <TruckDeliveryIcon size={20} color={adminColors.warning.text} />
             </View>
             <View style={customStyles.queueCardContent}>
               <Text style={customStyles.queueCardTitle}>{item.code}</Text>
@@ -391,15 +504,15 @@ export function PendingQueueScreen({ onBack, onSelectShipment }: PendingQueueScr
 const customStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
   },
-  lightHeader: {
+  header: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 12,
-    backgroundColor: '#FAF5EF',
+    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
   },
-  lightHeaderTop: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -409,20 +522,62 @@ const customStyles = StyleSheet.create({
     padding: 6,
     marginLeft: -6,
   },
-  lightHeaderTitle: {
-    fontSize: 20,
+  headerTitle: {
+    ...adminType.title,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.onBrand,
+    flex: 1,
+    marginLeft: 8,
+  },
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 6,
+  },
+  selectorText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  lightHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: adminColors.canvas,
+  },
+  lightHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  lightHeaderTitle: {
+    ...adminType.title,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
     flex: 1,
     marginLeft: 8,
   },
   lightRefreshBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -430,18 +585,18 @@ const customStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 8,
+    borderColor: adminColors.warning.border,
+    borderRadius: adminRadius.sm,
     paddingHorizontal: 10,
     paddingVertical: 5,
     gap: 6,
   },
   lightSelectorText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -449,16 +604,16 @@ const customStyles = StyleSheet.create({
     paddingBottom: 28,
   },
   sectionHeading: {
-    fontSize: 16,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     marginBottom: 12,
   },
   timelineCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 16,
     gap: 16,
@@ -473,40 +628,38 @@ const customStyles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: adminColors.border,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineCircleDone: {
-    backgroundColor: '#D97706',
-    borderColor: '#D97706',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   timelineDash: {
     width: 6,
     height: 2,
-    backgroundColor: '#9CA3AF',
+    backgroundColor: adminColors.muted,
   },
   timelineTextDone: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   timelineTextPending: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   timelineNoticeBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.md,
     padding: 14,
   },
   timelineNoticeText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#92400E',
+    color: adminColors.warning.text,
     lineHeight: 18,
   },
   pillsContainer: {
@@ -515,27 +668,27 @@ const customStyles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabPill: {
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   tabPillActive: {
-    backgroundColor: '#D97706',
+    backgroundColor: adminColors.brand,
   },
   tabPillInactive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
   },
   tabPillText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
   },
   tabPillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   tabPillTextInactive: {
-    color: '#4B5563',
+    color: adminColors.ink,
   },
   trackContainer: {
     flexDirection: 'row',
@@ -547,31 +700,31 @@ const customStyles = StyleSheet.create({
   trackBar: {
     width: 140,
     height: 6,
-    borderRadius: 3,
-    backgroundColor: '#E5E7EB',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.border,
     position: 'relative',
   },
   trackThumb: {
     width: 60,
     height: 6,
-    borderRadius: 3,
-    backgroundColor: '#9CA3AF',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.muted,
   },
   queueCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 14,
     marginTop: 8,
   },
   queueCardIconBox: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -580,24 +733,24 @@ const customStyles = StyleSheet.create({
     flex: 1,
   },
   queueCardTitle: {
-    fontSize: 15,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
   },
   queueCardSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
   },
   queueBadge: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   queueBadgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#059669',
+    color: adminColors.success.text,
   },
 });

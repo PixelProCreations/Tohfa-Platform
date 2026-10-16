@@ -14,7 +14,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminSpacing } from '../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -78,47 +79,47 @@ export type ReceivingSubView =
 // ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
 const PALETTE = {
   // Brand Palette (Page 1)
-  primary: '#F0562A', // Orange - Primary actions, active states, icons
-  headerBg: '#F0562A', // Brand Terracotta Orange
-  headerBgDark: '#D9481E',
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  headerText: '#FFFFFF',
+  primary: adminColors.brand,
+  headerBg: adminColors.brand,
+  headerBgDark: adminColors.brandDeep,
+  headerPillBg: adminColors.brandDeep,
+  headerText: adminColors.onBrand,
 
-  orangeDeep: '#7A2E14', // Orange Deep - Section headings, emphasis text
-  primarySoft: '#FDF3F0', // Orange Tint - Icon chips, role badges, active pills
-  pageBg: '#F3EFE9', // Background - App canvas soft cream
+  orangeDeep: adminColors.brandDeep,
+  primarySoft: adminColors.brandTint,
+  pageBg: adminColors.canvas,
 
   // Neutrals (Page 1)
-  textInk: '#1A1A1A', // Ink - Primary text
-  textSecondary: '#5F5E5A', // Muted - Secondary text
-  textMuted: '#5F5E5A', // Muted text
-  border: '#EEDCD3', // Border - Card and input borders
-  borderLight: '#F8F3ED',
-  cardBg: '#FFFFFF', // Card - Card surfaces
-  primaryBorder: '#EEDCD3',
+  textInk: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  border: adminColors.border,
+  borderLight: adminColors.canvas,
+  cardBg: adminColors.card,
+  primaryBorder: adminColors.border,
 
   // Semantic Colors (Page 2)
-  amber: '#854F0B', // Warning (#854F0B)
-  amberBg: '#FEF3E2', // Warning BG (#FEF3E2)
-  green: '#173404', // Success (#173404)
-  greenBg: '#EAF3DE', // Success BG (#EAF3DE)
-  greenText: '#1E8E5A',
+  amber: adminColors.warning.text,
+  amberBg: adminColors.warning.bg,
+  green: adminColors.success.text,
+  greenBg: adminColors.success.bg,
+  greenText: adminColors.success.text,
 
-  red: '#E24B4A', // Danger (#E24B4A)
-  redBg: '#FCEBEB', // Danger BG (#FCEBEB)
-  redBorder: '#FCA5A5',
+  red: adminColors.danger.text,
+  redBg: adminColors.danger.bg,
+  redBorder: adminColors.danger.border,
 
-  tabInactive: '#5F5E5A',
-  tabActive: '#F0562A',
-  tabBorder: '#EEDCD3',
-  goldProgress: '#B8860B',
-  greenProgress: '#0D684D',
-  trackBg: '#EBE5DC',
-  divider: '#F2ECE5',
-  goldBg: '#FEF9E7',
-  greenPillBg: '#E6F7F2',
-  brandBrown: '#5C3D2E',
-  subTextMuted: '#8C827A',
+  tabInactive: adminColors.muted,
+  tabActive: adminColors.brand,
+  tabBorder: adminColors.border,
+  goldProgress: adminColors.warning.text,
+  greenProgress: adminColors.success.text,
+  trackBg: adminColors.border,
+  divider: adminColors.border,
+  goldBg: adminColors.warning.bg,
+  greenPillBg: adminColors.success.bg,
+  brandBrown: adminColors.brandDeep,
+  subTextMuted: adminColors.muted,
 };
 
 export type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -143,6 +144,7 @@ type WarehouseSubView =
   | 'warehouse_activity'
   | 'operational_issues'
   | 'report_operational_issue'
+  | 'staff'
   | 'staff_attendance'
   | 'operations_history'
   | 'incoming_goods_ops'
@@ -178,7 +180,7 @@ type WarehouseSubView =
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
 
-function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -190,7 +192,7 @@ function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; color?: string }) {
+function BellOutlineIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -211,7 +213,7 @@ function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; colo
   );
 }
 
-function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ProfileHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="1.9" />
@@ -226,7 +228,7 @@ function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; co
   );
 }
 
-function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BuildingWarehouseIcon({ size = 16, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide Building2 (exact match to warehouse filter building icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -241,7 +243,7 @@ function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
+function ChevronRightGrayIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -249,7 +251,7 @@ function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number;
   );
 }
 
-function FilterFunnelWhiteIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FilterFunnelWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -263,7 +265,7 @@ function FilterFunnelWhiteIcon({ size = 20, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function WarningTriangleIcon({ size = 20, color = '#EF4444' }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -364,7 +366,7 @@ function StockBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; c
   );
 }
 
-function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowLeftWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -732,7 +734,7 @@ const WAREHOUSE_ADMIN_ENTRY: Partial<Record<WarehouseSubView, WarehouseAdminRout
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
 const INVENTORY_ENTRY = {
   stock_ledger: 'M3S06',
-  verify_stock: 'M3S11',
+  verify_stock: 'M3S10',
   stock_adjustment_approval: 'M3S17',
   low_stock_alerts: 'M3S09',
 } as const;
@@ -798,6 +800,8 @@ export interface MainWarehouseAdminDashboardScreenProps {
   initialTab?: MainWHTab;
   initialMoreSubScreen?: MainMoreSubScreen | null;
   initialWhSubView?: WarehouseSubView;
+  initialInventoryScreen?: string;
+  initialInventoryParams?: any;
 }
 
 export function MainWarehouseAdminDashboardScreen({
@@ -806,14 +810,23 @@ export function MainWarehouseAdminDashboardScreen({
   initialTab,
   initialMoreSubScreen,
   initialWhSubView,
+  initialInventoryScreen,
+  initialInventoryParams,
 }: MainWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<MainWHTab>(initialTab || 'Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
-  const [whSubView, setWhSubView] = useState<WarehouseSubView>(initialWhSubView || 'overview');
+  const [activeReceivingRoute, setActiveReceivingRoute] = useState<string>('Dashboard');
+  const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
   const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(initialMoreSubScreen || null);
+  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string | undefined>(
+    initialInventoryScreen || 'M3S01'
+  );
+  const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(
+    initialInventoryParams || null
+  );
 
   useEffect(() => {
     if (initialTab) {
@@ -825,7 +838,13 @@ export function MainWarehouseAdminDashboardScreen({
     if (initialWhSubView) {
       setWhSubView(initialWhSubView);
     }
-  }, [initialTab, initialMoreSubScreen, initialWhSubView]);
+    if (initialInventoryScreen) {
+      setInventoryInitialScreen(initialInventoryScreen);
+    }
+    if (initialInventoryParams !== undefined) {
+      setInventoryInitialParams(initialInventoryParams);
+    }
+  }, [initialTab, initialMoreSubScreen, initialWhSubView, initialInventoryScreen, initialInventoryParams]);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
@@ -950,7 +969,7 @@ export function MainWarehouseAdminDashboardScreen({
     else if (module === 'verification') navigateWh('verify_stock');
     else if (module === 'orders') navigateWh('order_fulfilment_ops');
     else if (module === 'qc') navigateWh('quality_issues_ops');
-    else if (module === 'staff') navigateWh('staff_attendance');
+    else if (module === 'staff') navigateWh('staff');
     else if (module === 'cash') openTab('More', 'wallet');
   };
   /**
@@ -1040,7 +1059,7 @@ export function MainWarehouseAdminDashboardScreen({
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
             </View>
@@ -1055,7 +1074,7 @@ export function MainWarehouseAdminDashboardScreen({
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
           </View>
@@ -1105,7 +1124,7 @@ export function MainWarehouseAdminDashboardScreen({
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
             </View>
@@ -1120,7 +1139,7 @@ export function MainWarehouseAdminDashboardScreen({
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
           </View>
@@ -1181,7 +1200,7 @@ export function MainWarehouseAdminDashboardScreen({
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
             </View>
@@ -1196,7 +1215,7 @@ export function MainWarehouseAdminDashboardScreen({
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
           </View>
@@ -1238,7 +1257,7 @@ export function MainWarehouseAdminDashboardScreen({
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Manage Warehouses</Text>
           </View>
@@ -1333,7 +1352,7 @@ export function MainWarehouseAdminDashboardScreen({
           <View style={styles.alertsHeaderTopRow}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
             </View>
@@ -1350,7 +1369,7 @@ export function MainWarehouseAdminDashboardScreen({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <View style={{ position: 'relative' }}>
-                <FilterFunnelWhiteIcon size={20} color="#FFFFFF" />
+                <FilterFunnelWhiteIcon size={20} color={adminColors.onBrand} />
                 {hasActiveAlertFilters && <View style={styles.alertsFilterActiveDot} />}
               </View>
             </TouchableOpacity>
@@ -1419,7 +1438,7 @@ export function MainWarehouseAdminDashboardScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.alertsFilterModalTitle}>Filter Alerts & Actions</Text>
               <TouchableOpacity
@@ -1573,7 +1592,7 @@ export function MainWarehouseAdminDashboardScreen({
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Alert Detail</Text>
           </View>
@@ -2019,7 +2038,7 @@ export function MainWarehouseAdminDashboardScreen({
               {/* Top Greeting Row */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Grid4SquaresIcon size={20} color={adminColors.onBrand} />
                   <Text style={styles.headerGreetingText}>Good morning, {displayName}</Text>
                 </View>
 
@@ -2047,7 +2066,7 @@ export function MainWarehouseAdminDashboardScreen({
                     }}
                     activeOpacity={0.8}
                   >
-                    <ProfileHeaderIcon size={19} color="#FFFFFF" />
+                    <ProfileHeaderIcon size={19} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2070,87 +2089,71 @@ export function MainWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.totalStock}
+                  title="Total Stock"
+                  subtitle="KG in warehouse"
+                  icon="inventory"
                   onPress={() => {
                     setActiveTab('Inventory');
                     setWhSubView('overview');
                     setWhHistory([]);
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.totalStock}</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Incoming Goods */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.incomingGoods}
+                  title="Incoming Goods"
+                  subtitle="KG expected today"
+                  icon="receiving"
                   onPress={() => {
                     setActiveTab('Receiving');
                     setReceivingSubView('incoming_shipments');
                     setWhSubView('overview');
                     setWhHistory([]);
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.incomingGoods}</Text>
-                  <Text style={styles.kpiSub}>KG today</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Pending Transfers */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.pendingTransfers}
+                  title="Pending Transfers"
+                  subtitle="Transfers active"
+                  icon="truck"
                   onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.pendingTransfers}</Text>
-                  <Text style={styles.kpiSub}>transfers</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Today's Orders */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.todayOrders}
+                  title="Today's Orders"
+                  subtitle="Customer orders"
+                  icon="orders"
                   onPress={() => {
                     setOrdersInitialScreen('M5S02');
                     navigateWh('customer_orders');
                   }}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.todayOrders}</Text>
-                  <Text style={styles.kpiSub}>orders</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Sales */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.sales}
+                  title="Today's Sales"
+                  subtitle="Direct sales"
+                  icon="sales"
                   onPress={() => navigateWh('sales')}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.sales}</Text>
-                  <Text style={styles.kpiSub}>today</Text>
-                </TouchableOpacity>
+                />
 
                 {/* Open Issues */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
+                <OverviewDashboardCard
+                  value={homeKpi.openIssues}
+                  title="Open Issues"
+                  subtitle="Needs attention"
+                  icon="alert"
+                  tone={Number(homeKpi.openIssues) > 0 ? 'danger' : 'default'}
                   onPress={() => navigateWh('operational_issues')}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>{homeKpi.openIssues}</Text>
-                  <Text style={styles.kpiSub}>issues</Text>
-                </TouchableOpacity>
+                />
               </View>
 
               {/* ─── 2. Warehouse Overview ─── */}
@@ -2456,6 +2459,7 @@ export function MainWarehouseAdminDashboardScreen({
               initialParams={receivingRouteFor(receivingSubView).params}
               receiverName={user?.fullName}
               finishTo="History"
+              onScreenChange={(route) => setActiveReceivingRoute(route)}
               onBack={() => {
                 if (receivingSubView !== 'dashboard') {
                   setReceivingSubView('dashboard');
@@ -2463,6 +2467,7 @@ export function MainWarehouseAdminDashboardScreen({
                   setActiveTab('Home');
                   setWhSubView('overview');
                 }
+                setActiveReceivingRoute('Dashboard');
               }}
               onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
               onOpenOperationalIssues={() => {
@@ -2479,215 +2484,29 @@ export function MainWarehouseAdminDashboardScreen({
 
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && whSubView === 'overview' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollPad}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.headerBanner}>
-              {/* Header Title Row */}
-              <View style={styles.headerTopRow}>
-                <View style={styles.headerTitleWrap}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setActiveTab('Home');
-                      setWhSubView('overview');
-                      setWhHistory([]);
-                    }}
-                    style={styles.headerBackBtn}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Back to Home"
-                  >
-                    <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                  <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
-                </View>
-              </View>
-
-              {/* Warehouse Dropdown Filter Pill */}
-              <WarehouseSelector
-                scope={MAIN_WAREHOUSE_SCOPE}
-                options={HOME_WAREHOUSE_OPTIONS}
-                selectedId={selectedWHId}
-                onSelect={handleSelectWarehouseScope}
-              />
-            </View>
-
-            {/* Content Container */}
-            <View style={styles.contentBody}>
-              {/* 1. KPI 2x2 Grid */}
-              <View style={styles.kpiGrid}>
-                {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Incoming Today */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Allocated */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Low Stock SKUs */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
-                  <Text style={styles.kpiSub}>SKUs</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 2. Warehouse Summary */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Ooty</Text>
-                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Coonoor Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Coonoor</Text>
-                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 3. Inventory Activity */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Inventory Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.summaryListCard}
-                onPress={() => navigateWh('stock_ledger')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.inventoryActivityText}>
-                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
-                </Text>
-              </TouchableOpacity>
-
-              {/* 4. Pending Actions */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Pending Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <Text style={styles.summaryItemValue}>2</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
-              <View style={styles.quickActionsDualRow}>
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('verify_stock')}
-                  activeOpacity={0.8}
-                >
-                  <StockVerificationIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.8}
-                >
-                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ height: 20 }} />
-            </View>
-          </ScrollView>
+          <InventoryFlow
+            scope={
+              selectedWHId
+                ? { warehouseId: selectedWHId, warehouseName: selectedWHName }
+                : MAIN_WAREHOUSE_SCOPE
+            }
+            can={can}
+            initialScreen={inventoryInitialScreen || 'M3S01'}
+            initialParams={inventoryInitialParams}
+            onBack={() => {
+              setInventoryInitialScreen(undefined);
+              setInventoryInitialParams(null);
+              setActiveTab('Home');
+              setWhSubView('overview');
+            }}
+            onInitiateTransfer={() => navigateWh('initiate_new_transfer')}
+            warehouseOptions={HOME_WAREHOUSE_OPTIONS}
+            onTabChange={(tab) => {
+              setInventoryInitialScreen(undefined);
+              setInventoryInitialParams(null);
+              handleMoreTabChange(tab);
+            }}
+          />
         )}
 
         {/* ─── More Tab ─── */}
@@ -2802,6 +2621,7 @@ export function MainWarehouseAdminDashboardScreen({
             onNavigateToFinance={() => setMoreSubScreen('finance')}
             onNavigateToReports={() => setMoreSubScreen('reports')}
             onNavigateToStaff={() => setMoreSubScreen('staff')}
+            onNavigateToAttendance={() => navigateWh('staff_attendance')}
             onNavigateToOrders={() => {
               setOrdersInitialScreen('M5S01');
               navigateWh('customer_orders');
@@ -2843,389 +2663,381 @@ export function MainWarehouseAdminDashboardScreen({
           ) : whSubView === 'dashboard_operations' ||
             whSubView === 'todays_operations' ||
             whSubView === 'todays_operations_overview' ? (
-              // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
-              // shared Warehouse Activity as its Today preset: the six-tile strip and the
-              // monitoring card show for the all-warehouses scope.
-              renderActivityFlow(ACTIVITY_TODAY_PARAMS)
-            ) : whSubView === 'warehouse_operations' ? (
-              // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
-              // selector (replaces the shell's filter modal here); per-warehouse cards,
-              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-              // capacity, issues and activity open inside the flow.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Operations"
-                onBack={goBackWh}
-                onOpenModule={openMainModule}
-                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
-                onOpenNotifications={() => navigateWh('warehouse_notifications')}
-                onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
-                onManageCapacity={() => navigateWh('warehouse_settings')}
-              />
-            ) : whSubView === 'warehouse_comparison' ? (
-              renderWarehouseComparisonScreen()
-            ) : whSubView === 'manage_warehouses' ? (
-              renderManageWarehousesScreen()
-            ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
-              // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
-              // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
-              <WarehouseAdminFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
-                onBack={goBackWh}
-                onNavigateComparison={() => navigateWh('warehouse_comparison')}
-                onViewOperationsHistory={() => navigateWh('operations_history')}
-                onViewStaffAttendance={() => navigateWh('staff_attendance')}
-              />
-            ) : whSubView === 'warehouse_notifications' ? (
-              renderNotificationsFlow('Notifications')
-            ) : whSubView === 'storage_locations' ? (
-              // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
-              // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageInfo"
-                onBack={() => navigateWh('warehouse_operations')}
-                onSelectStorageLocation={(locId) => {
-                  setSelectedLocationId(locId);
-                  navigateWh('location_detail');
-                }}
-              />
-            ) : whSubView === 'location_detail' ? (
-              // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
-              // card and occupancy bar were ported. View Stock needs inventory.batch.view.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageLocationDetail"
-                initialParams={{ locationId: selectedLocationId }}
-                onBack={() => navigateWh('storage_locations')}
-                onViewStock={() => {
-                  setActiveTab('Inventory');
-                  setWhSubView('overview');
-                }}
-              />
-            ) : whSubView === 'material_handling' ? (
-              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-              // actions were ported into the shared screens (inventory.material_handling.manage).
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialHandling"
-                onBack={() => navigateWh('warehouse_operations')}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'material_detail' ? (
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialDetail"
-                initialParams={{ materialId: selectedMaterialId }}
-                onBack={goBackWh}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'warehouse_capacity' ? (
-              renderWarehouseCapacityScreen()
-            ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
-              // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
-              // shared activity log (All preset): search, warehouse selector, rows with
-              // warehouse + operator, detail, and CSV export with report.export.file.
-              renderActivityFlow(ACTIVITY_ALL_PARAMS)
-            ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
-              // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
-              // warehouse's issues with the selector and opens their detail. The
-              // report form (operational mode, with Main's warehouse / rack /
-              // severity fields) needs support.ticket.create_own, which MAIN does
-              // not hold today, so the Report button is replaced by a note.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
-                initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
-                onBack={() => navigateWh('warehouse_operations')}
-              />
-            ) : whSubView === 'staff_attendance' ? (
-              // The dropped Staff & Attendance hub was Main's only attendance entry
-              // (Manage SWAs card, operations hub); it opens the shared Attendance
-              // overview now (W4, M14). Attendance has no rbac code (ungated).
-              <StaffFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Attendance"
-                initialParams={ATTENDANCE_ALL_PARAMS}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'needs_attention' ? (
-              // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="NeedsAttention"
-                initialParams={{ category: attentionCategory }}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'stock_and_transfer' ? (
-              renderStockAndTransferScreen()
-            ) : whSubView === 'consolidated_stock' ? (
-              renderConsolidatedStockScreen()
-            ) : whSubView === 'low_stock_surplus' ? (
-              renderLowStockSurplusScreen()
-            ) : whSubView === 'transfer_tracking' ? (
-              renderTransferTrackingScreen()
-            ) : whSubView === 'quick_actions_overview' ? (
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QuickActions"
-                onBack={goBackWh}
-                onOpenTarget={openHomeTarget}
-              />
-            ) : whSubView === 'alerts_action_center' ? (
-              renderAlertsActionCenterScreen()
-            ) : whSubView === 'alert_detail' ? (
-              renderAlertDetailScreen()
-            ) : whSubView === 'stock_ledger' ||
-              whSubView === 'verify_stock' ||
-              whSubView === 'stock_adjustment_approval' ||
-              whSubView === 'low_stock_alerts' ? (
-              // The four Main-only inventory screens were folded into the shared
-              // inventory area (W4); each old sub-view opens the flow on its survivor.
-              <InventoryFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
-                onBack={goBackWh}
-                onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
-              // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
-              // list -> initiate. The flow owns the (mock) transfer list; Initiate
-              // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
-              <TransfersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={TRANSFER_ENTRY[whSubView]}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_settings' ? (
-              // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
-              // on warehouse.capacity.set; opens on the warehouse the overview showed.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="WarehouseSettings"
-                initialWarehouseId={warehouseIdForName(selectedWHName)}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_performance' ? (
-              renderWarehousePerformanceScreen()
-            ) : whSubView === 'incoming_goods_ops' ? (
-              // Incoming Goods was the receiving summary again: it is the shared
-              // receiving dashboard now (W4), opened from the operations hub.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Dashboard"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenTransferReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('transfer_receiving');
-                }}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'order_fulfilment_ops' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={ordersInitialScreen}
-                onBack={goBackWh}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'quality_issues_ops' ? (
-              // Shared receiving Quality Issues (W4, read-only list); issues open the
-              // wizard step / shipment inside the flow, damage reports Operational Issues.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QualityIssues"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'customers_list' ? (
-              // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
-              // customers with the all-warehouses selector. Wallet, cash top-up (the
-              // wallet operations hub), order detail and RMA open inside the flow;
-              // New Sale goes to the Main direct-sale flow.
-              <CustomersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
-                onOpenExternal={(target) => {
-                  if (target === 'NewSale') navigateWh('direct_sale_new');
-                }}
-                renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
-                  if (target === 'CustomerWallet' || target === 'CashTopUp') {
-                    // The shared wallet flow opened on this customer's wallet or
-                    // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
-                    return (
-                      <WalletFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen={target}
-                        initialParams={walletParamsForCustomer(p.customer)}
-                        onBack={nav.back}
-                      />
-                    );
-                  }
-                  if (target === 'OrderDetail') {
-                    return (
-                      <OrdersFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen="M5S04"
-                        initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
-                        onBack={nav.back}
-                        onViewIssue={() => navigateWh('operational_issues')}
-                      />
-                    );
-                  }
-                  if (target === 'RmaDetail') {
-                    return (
-                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
-                    );
-                  }
-                  return null;
-                }}
-              />
-            ) : whSubView === 'customer_orders' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={ordersInitialScreen}
-                initialParams={ordersInitialParams}
-                onBack={() => {
-                  setOrdersInitialScreen('M5S01');
-                  setOrdersInitialParams(null);
-                  if (returnToMoreSubScreen) {
-                    const target = returnToMoreSubScreen;
-                    setReturnToMoreSubScreen(null);
-                    setWhSubView('overview');
-                    setMoreSubScreen(target);
-                  } else {
-                    goBackWh();
-                  }
-                }}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setOrdersInitialScreen('M5S01');
-                  setOrdersInitialParams(null);
+            // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
+            // shared Warehouse Activity as its Today preset: the six-tile strip and the
+            // monitoring card show for the all-warehouses scope.
+            renderActivityFlow(ACTIVITY_TODAY_PARAMS)
+          ) : whSubView === 'warehouse_operations' ? (
+            // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
+            // selector (replaces the shell's filter modal here); per-warehouse cards,
+            // Open Issues / Operations History tiles need warehouse.all.view. Materials,
+            // capacity, issues and activity open inside the flow.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Operations"
+              onBack={goBackWh}
+              onOpenModule={openMainModule}
+              onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
+              onOpenNotifications={() => navigateWh('warehouse_notifications')}
+              onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
+              onSelectWarehouse={(whName) => {
+                setSelectedWHName(whName);
+                navigateWh('warehouse_city_detail');
+              }}
+              onManageCapacity={() => navigateWh('warehouse_settings')}
+            />
+          ) : whSubView === 'warehouse_comparison' ? (
+            renderWarehouseComparisonScreen()
+          ) : whSubView === 'manage_warehouses' ? (
+            renderManageWarehousesScreen()
+          ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
+            // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
+            // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
+            <WarehouseAdminFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
+              initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
+              onBack={goBackWh}
+              onNavigateComparison={() => navigateWh('warehouse_comparison')}
+              onManageWarehouses={() => navigateWh('manage_warehouses')}
+              onViewOperationsHistory={() => navigateWh('operations_history')}
+              onViewStaffAttendance={() => navigateWh('staff_attendance')}
+            />
+          ) : whSubView === 'warehouse_notifications' ? (
+            renderNotificationsFlow('Notifications')
+          ) : whSubView === 'storage_locations' ? (
+            // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
+            // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="StorageInfo"
+              onBack={() => navigateWh('warehouse_operations')}
+              onSelectStorageLocation={(locId) => {
+                setSelectedLocationId(locId);
+                navigateWh('location_detail');
+              }}
+            />
+          ) : whSubView === 'location_detail' ? (
+            // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
+            // card and occupancy bar were ported. View Stock needs inventory.batch.view.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="StorageLocationDetail"
+              initialParams={{ locationId: selectedLocationId }}
+              onBack={() => navigateWh('storage_locations')}
+              onViewStock={() => {
+                setActiveTab('Inventory');
+                setWhSubView('overview');
+              }}
+            />
+          ) : whSubView === 'material_handling' ? (
+            // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
+            // actions were ported into the shared screens (inventory.material_handling.manage).
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="MaterialHandling"
+              onBack={() => navigateWh('warehouse_operations')}
+              onViewActivity={() => navigateWh('warehouse_activity')}
+            />
+          ) : whSubView === 'material_detail' ? (
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="MaterialDetail"
+              initialParams={{ materialId: selectedMaterialId }}
+              onBack={goBackWh}
+              onViewActivity={() => navigateWh('warehouse_activity')}
+            />
+          ) : whSubView === 'warehouse_capacity' ? (
+            renderWarehouseCapacityScreen()
+          ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
+            // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
+            // shared activity log (All preset): search, warehouse selector, rows with
+            // warehouse + operator, detail, and CSV export with report.export.file.
+            renderActivityFlow(ACTIVITY_ALL_PARAMS)
+          ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
+            // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
+            // warehouse's issues with the selector and opens their detail. The
+            // report form (operational mode, with Main's warehouse / rack /
+            // severity fields) needs support.ticket.create_own, which MAIN does
+            // not hold today, so the Report button is replaced by a note.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
+              initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
+              onBack={() => navigateWh('warehouse_operations')}
+            />
+          ) : whSubView === 'staff' ? (
+            <StaffFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Staff"
+              onBack={goBackWh}
+              onTabChange={handleMoreTabChange}
+              onAssignDelivery={(driver) => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams({
+                  warehouseId: driver?.warehouseId,
+                });
+                navigateWh('customer_orders');
+              }}
+            />
+          ) : whSubView === 'staff_attendance' ? (
+            // The dropped Staff & Attendance hub was Main's only attendance entry
+            // (Manage SWAs card, operations hub); it opens the shared Attendance
+            // overview now (W4, M14). Attendance has no rbac code (ungated).
+            <StaffFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Attendance"
+              initialParams={ATTENDANCE_ALL_PARAMS}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'needs_attention' ? (
+            // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
+            <HomeFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="NeedsAttention"
+              initialParams={{ category: attentionCategory }}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'stock_and_transfer' ? (
+            renderStockAndTransferScreen()
+          ) : whSubView === 'consolidated_stock' ? (
+            renderConsolidatedStockScreen()
+          ) : whSubView === 'low_stock_surplus' ? (
+            renderLowStockSurplusScreen()
+          ) : whSubView === 'transfer_tracking' ? (
+            renderTransferTrackingScreen()
+          ) : whSubView === 'quick_actions_overview' ? (
+            <HomeFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="QuickActions"
+              onBack={goBackWh}
+              onOpenTarget={openHomeTarget}
+            />
+          ) : whSubView === 'alerts_action_center' ? (
+            renderAlertsActionCenterScreen()
+          ) : whSubView === 'alert_detail' ? (
+            renderAlertDetailScreen()
+          ) : whSubView === 'stock_ledger' ||
+            whSubView === 'verify_stock' ||
+            whSubView === 'stock_adjustment_approval' ||
+            whSubView === 'low_stock_alerts' ? (
+            // The four Main-only inventory screens were folded into the shared
+            // inventory area (W4); each old sub-view opens the flow on its survivor.
+            <InventoryFlow
+              scope={
+                selectedWHId
+                  ? { warehouseId: selectedWHId, warehouseName: selectedWHName }
+                  : MAIN_WAREHOUSE_SCOPE
+              }
+              can={can}
+              initialScreen={INVENTORY_ENTRY[whSubView]}
+              initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+              onBack={goBackWh}
+              onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
+              warehouseOptions={HOME_WAREHOUSE_OPTIONS}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
+            // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
+            // list -> initiate. The flow owns the (mock) transfer list; Initiate
+            // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
+            <TransfersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={TRANSFER_ENTRY[whSubView]}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'warehouse_settings' ? (
+            // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
+            // on warehouse.capacity.set; opens on the warehouse the overview showed.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="WarehouseSettings"
+              initialWarehouseId={warehouseIdForName(selectedWHName)}
+              onBack={goBackWh}
+            />
+          ) : whSubView === 'warehouse_performance' ? (
+            renderWarehousePerformanceScreen()
+          ) : whSubView === 'incoming_goods_ops' ? (
+            // Incoming Goods was the receiving summary again: it is the shared
+            // receiving dashboard now (W4), opened from the operations hub.
+            <ReceivingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Dashboard"
+              receiverName={user?.fullName}
+              finishTo="History"
+              onBack={goBackWh}
+              onOpenTransferReceiving={() => {
+                setActiveTab('Receiving');
+                setReceivingSubView('transfer_receiving');
+              }}
+              onOpenOperationalIssues={() => navigateWh('operational_issues')}
+              onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+            />
+          ) : whSubView === 'order_fulfilment_ops' ? (
+            <OrdersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={ordersInitialScreen}
+              onBack={goBackWh}
+              onViewIssue={() => navigateWh('operational_issues')}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : whSubView === 'quality_issues_ops' ? (
+            // Shared receiving Quality Issues (W4, read-only list); issues open the
+            // wizard step / shipment inside the flow, damage reports Operational Issues.
+            <ReceivingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="QualityIssues"
+              receiverName={user?.fullName}
+              finishTo="History"
+              onBack={goBackWh}
+              onOpenOperationalIssues={() => navigateWh('operational_issues')}
+              onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+            />
+          ) : whSubView === 'customers_list' ? (
+            // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
+            // customers with the all-warehouses selector. Wallet, cash top-up (the
+            // wallet operations hub), order detail and RMA open inside the flow;
+            // New Sale goes to the Main direct-sale flow.
+            <CustomersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+              onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+              inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
+              onOpenExternal={(target) => {
+                if (target === 'NewSale') navigateWh('direct_sale_new');
+              }}
+              renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
+                if (target === 'CustomerWallet' || target === 'CashTopUp') {
+                  // The shared wallet flow opened on this customer's wallet or
+                  // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
+                  return (
+                    <WalletFlow
+                      scope={MAIN_WAREHOUSE_SCOPE}
+                      can={can}
+                      initialScreen={target}
+                      initialParams={walletParamsForCustomer(p.customer)}
+                      onBack={nav.back}
+                    />
+                  );
+                }
+                if (target === 'OrderDetail') {
+                  return (
+                    <OrdersFlow
+                      scope={MAIN_WAREHOUSE_SCOPE}
+                      can={can}
+                      initialScreen="M5S04"
+                      initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
+                      onBack={nav.back}
+                      onViewIssue={() => navigateWh('operational_issues')}
+                    />
+                  );
+                }
+                if (target === 'RmaDetail') {
+                  return (
+                    <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
+                  );
+                }
+                return null;
+              }}
+            />
+          ) : whSubView === 'customer_orders' ? (
+            <OrdersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={ordersInitialScreen}
+              initialParams={ordersInitialParams}
+              onBack={() => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams(null);
+                if (returnToMoreSubScreen) {
+                  const target = returnToMoreSubScreen;
                   setReturnToMoreSubScreen(null);
-                  setActiveTab(tab);
                   setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'billing_invoices' ? (
-              // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
-              <BillingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
-              // Shared direct sales flow (warehouse/sales-direct), all warehouses.
-              <SalesFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
-                initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                onNavigateToNeedsAttention={(category) => {
-                  setAttentionCategory(category ?? 'all');
-                  navigateWh('needs_attention');
-                }}
-              />
-            ) : null
-          )}
+                  setMoreSubScreen(target);
+                } else {
+                  goBackWh();
+                }
+              }}
+              onViewIssue={() => navigateWh('operational_issues')}
+              onTabChange={(tab) => {
+                setOrdersInitialScreen('M5S01');
+                setOrdersInitialParams(null);
+                setReturnToMoreSubScreen(null);
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : whSubView === 'billing_invoices' ? (
+            // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+            <BillingFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+            />
+          ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
+            // Shared direct sales flow (warehouse/sales-direct), all warehouses.
+            <SalesFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
+              initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+              onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+              onNavigateToNeedsAttention={(category) => {
+                setAttentionCategory(category ?? 'all');
+                navigateWh('needs_attention');
+              }}
+            />
+          ) : null
+        )}
       </View>
 
-      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
-      {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */}
-      {((activeTab === 'Home' &&
-          (whSubView === 'overview' ||
-            whSubView === 'warehouse_operations' ||
-            whSubView === 'warehouse_overview' ||
-            whSubView === 'warehouse_city_detail' ||
-            whSubView === 'dashboard_operations' ||
-            whSubView === 'todays_operations' ||
-            whSubView === 'todays_operations_overview' ||
-            whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
-            whSubView === 'warehouse_capacity' ||
-            whSubView === 'warehouse_activity' ||
-            whSubView === 'operational_issues' ||
-            whSubView === 'report_operational_issue' ||
-            whSubView === 'staff_attendance' ||
-            whSubView === 'operations_history' ||
-            whSubView === 'incoming_goods_ops' ||
-            whSubView === 'order_fulfilment_ops' ||
-            whSubView === 'quality_issues_ops' ||
-            whSubView === 'activity_timeline_ops' ||
-            whSubView === 'warehouse_performance' ||
-            whSubView === 'manage_warehouses' ||
-            whSubView === 'warehouse_settings' ||
-            whSubView === 'alerts_action_center' ||
-            whSubView === 'alert_detail' ||
-            whSubView === 'stock_and_transfer' ||
-            whSubView === 'consolidated_stock' ||
-            whSubView === 'low_stock_surplus' ||
-            whSubView === 'transfer_tracking' ||
-            whSubView === 'quick_actions_overview' ||
-            whSubView === 'sales')) ||
-        (activeTab === 'More' && (whSubView !== 'overview' || (moreSubScreen !== null && moreSubScreen !== 'staff')))) && (
+      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More ONLY) ─── */}
+      {((activeTab === 'Home' && whSubView === 'overview') ||
+        (activeTab === 'Receiving' && receivingSubView === 'dashboard' && activeReceivingRoute === 'Dashboard') ||
+        (activeTab === 'Inventory' && whSubView === 'overview') ||
+        (activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null)) && (
           <View style={styles.bottomTabBar}>
             {/* Home */}
             <TouchableOpacity
@@ -3235,7 +3047,6 @@ export function MainWarehouseAdminDashboardScreen({
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3251,15 +3062,15 @@ export function MainWarehouseAdminDashboardScreen({
                 setActiveTab('Receiving');
                 setMoreSubScreen(null);
                 setReceivingSubView('dashboard');
+                setActiveReceivingRoute('Dashboard');
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <ReceivingTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>Receiving</Text>
+              <ReceivingTabNavIcon active={activeTab === 'Receiving'} />
+              <Text style={[styles.tabLabel, activeTab === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
             </TouchableOpacity>
 
             {/* Inventory */}
@@ -3270,13 +3081,12 @@ export function MainWarehouseAdminDashboardScreen({
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <InventoryTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>Inventory</Text>
+              <InventoryTabNavIcon active={activeTab === 'Inventory'} />
+              <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
             </TouchableOpacity>
 
             {/* More */}
@@ -3287,7 +3097,6 @@ export function MainWarehouseAdminDashboardScreen({
                 setMoreSubScreen(null);
                 setWhSubView('overview');
                 setWhHistory([]);
-                setMoreSubScreen(null);
               }}
               accessibilityRole="tab"
               activeOpacity={0.7}
@@ -3337,7 +3146,7 @@ const styles = StyleSheet.create({
   headerGreetingText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerActions: {
@@ -3349,7 +3158,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3358,7 +3167,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3367,7 +3176,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.danger.text,
     borderRadius: 8,
     minWidth: 15,
     height: 15,
@@ -3375,17 +3184,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#EA580C',
+    borderColor: adminColors.brand,
   },
   notificationBadgeText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 9,
     fontWeight: '800',
   },
   headerSubtitle: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: adminColors.onBrand,
     marginTop: 4,
   },
   whFilterPill: {
@@ -3402,7 +3211,7 @@ const styles = StyleSheet.create({
   whFilterPillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 
   // ─── Content Body ───
@@ -3447,7 +3256,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     alignItems: 'flex-start',
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -3513,7 +3322,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3719,7 +3528,7 @@ const styles = StyleSheet.create({
   // ─── Bottom Tab Bar ───
   bottomTabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PALETTE.cardBg,
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
     paddingTop: 8,
@@ -3779,7 +3588,7 @@ const styles = StyleSheet.create({
   inventoryActivityText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#4B433E',
+    color: adminColors.ink,
     lineHeight: 18,
   },
   quickActionsDualRow: {
@@ -3809,14 +3618,14 @@ const styles = StyleSheet.create({
   // ─── Filter Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminColors.toast.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   filterModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 20,
   },
@@ -3854,7 +3663,7 @@ const styles = StyleSheet.create({
 
   // ─── Sales View Specific Styles ───
   greenBadgePill: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -3862,13 +3671,13 @@ const styles = StyleSheet.create({
   greenBadgeText: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#0D6B4F',
+    color: adminColors.success.text,
   },
   needsAttentionAlertCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.brandTint,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -3917,7 +3726,7 @@ const styles = StyleSheet.create({
   subHeaderTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   alertsHeaderTopRow: {
     flexDirection: 'row',
@@ -3937,7 +3746,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.onBrand,
     borderWidth: 1.5,
     borderColor: PALETTE.headerBg,
   },
@@ -3956,12 +3765,12 @@ const styles = StyleSheet.create({
   alertsFilterModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   alertsFilterCloseText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   alertsFilterModalScroll: {
     flex: 1,
@@ -3976,7 +3785,7 @@ const styles = StyleSheet.create({
   alertsFilterSectionTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6E6760',
+    color: adminColors.muted,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -3990,17 +3799,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E2DDD6',
+    borderColor: adminColors.border,
   },
   alertsFilterChipActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderColor: PALETTE.headerBg,
   },
   alertsFilterChipText: {
     fontSize: 13.5,
-    color: '#3A332C',
+    color: adminColors.ink,
     fontWeight: '500',
   },
   alertsFilterChipTextActive: {
@@ -4012,9 +3821,9 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#EBE5DC',
+    borderTopColor: adminColors.border,
   },
   alertsModalApplyBtn: {
     flex: 1,
@@ -4027,26 +3836,26 @@ const styles = StyleSheet.create({
   alertsModalApplyBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   alertsModalResetBtn: {
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#DDD6CE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   alertsModalResetBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#4B433E',
+    color: adminColors.ink,
   },
   subHeaderSubtitle: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     opacity: 0.9,
     marginTop: 4,
     marginLeft: 34,
@@ -4066,7 +3875,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -4143,7 +3952,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -4162,7 +3971,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -4194,7 +4003,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,

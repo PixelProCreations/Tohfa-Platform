@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   WalletButton,
   WalletFooter,
@@ -19,7 +19,7 @@ import {
 } from './fixtures';
 import type { IssueSeverity, ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
-function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: string }) {
+function CameraIcon({ size = 22, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -34,7 +34,7 @@ function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: s
   );
 }
 
-function InfoCircleIcon({ size = 18, color = '#0284C7' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 18, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -334,7 +334,7 @@ export function ReportIssueScreen({
           activeOpacity={0.75}
           accessibilityRole="button"
         >
-          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : '#64748B'} />
+          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : adminColors.muted} />
           <Text style={[styles.photoButtonText, hasPhoto && styles.photoButtonTextActive]}>
             {hasPhoto ? 'Photo Added' : 'Add Photo'}
           </Text>
@@ -342,7 +342,7 @@ export function ReportIssueScreen({
 
         <Text style={[styles.labelTitle, { marginTop: adminSpacing.lg }]}>Priority</Text>
         <View style={styles.infoCard}>
-          <InfoCircleIcon size={18} color="#0284C7" />
+          <InfoCircleIcon size={18} color={adminColors.info.text} />
           <Text style={styles.infoCardText}>
             Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
           </Text>
@@ -354,18 +354,17 @@ export function ReportIssueScreen({
 
 const styles = StyleSheet.create({
   labelTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
   },
   requiredText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '400',
     color: adminColors.muted,
   },
   optionalText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '400',
     color: adminColors.muted,
   },
@@ -382,14 +381,14 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.lg,
   },
   dropdownText: {
-    fontSize: 15,
+    ...adminType.body,
     color: adminColors.ink,
   },
   placeholder: {
     color: adminColors.placeholder,
   },
   dropdownList: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
@@ -404,8 +403,8 @@ const styles = StyleSheet.create({
     borderBottomColor: adminColors.border,
   },
   dropdownOptionText: {
-    fontSize: 15,
-    color: '#1E293B',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   textAreaBox: {
     backgroundColor: adminColors.card,
@@ -419,15 +418,15 @@ const styles = StyleSheet.create({
   },
   textArea: {
     flex: 1,
-    fontSize: 15,
+    ...adminType.body,
     color: adminColors.ink,
   },
   photoButton: {
     width: 80,
     height: 72,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: adminColors.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -439,29 +438,29 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandTint,
   },
   photoButtonText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#475569',
+    color: adminColors.muted,
   },
   photoButtonTextActive: {
     color: adminColors.brand,
   },
   infoCard: {
     flexDirection: 'row',
-    gap: 10,
-    backgroundColor: '#EFF6FF',
+    gap: adminSpacing.sm,
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#93C5FD',
-    borderRadius: 12,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.md,
     padding: 14,
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: adminSpacing.xl,
   },
   infoCardText: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.body,
     lineHeight: 18,
-    color: '#0369A1',
+    color: adminColors.info.text,
     fontWeight: '500',
   },
   dropdownOptionActive: {
@@ -486,13 +485,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   faqHeaderTitle: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
     color: adminColors.ink,
     letterSpacing: 0.5,
   },
   faqHeaderSub: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: adminSpacing.sm,
   },
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
   },
   badgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     color: adminColors.brand,
     fontWeight: '700',
   },
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
   },
   faqCardExpanded: {
     borderColor: adminColors.brandSoft.border,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   faqRow: {
     flexDirection: 'row',
@@ -529,7 +528,7 @@ const styles = StyleSheet.create({
     gap: adminSpacing.xs,
   },
   faqQuestion: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
     flex: 1,
@@ -545,7 +544,7 @@ const styles = StyleSheet.create({
     paddingTop: adminSpacing.xs,
   },
   faqAnswer: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     lineHeight: 18,
     color: adminColors.muted,
   },
@@ -560,7 +559,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   input: {
-    fontSize: 15,
+    ...adminType.body,
     color: adminColors.ink,
   },
 });

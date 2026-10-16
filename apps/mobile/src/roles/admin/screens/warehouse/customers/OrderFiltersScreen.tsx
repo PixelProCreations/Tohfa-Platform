@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
 import type {
   OrderFiltersVariant,
@@ -21,7 +21,7 @@ import type {
   WarehouseScreenBaseProps,
 } from './types';
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -29,7 +29,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -38,7 +38,7 @@ function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: s
   );
 }
 
-function FlagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function FlagIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +52,7 @@ function FlagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: str
   );
 }
 
-function TruckIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: string }) {
+function TruckIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="4" width="14" height="12" rx="1" stroke={color} strokeWidth="2" />
@@ -63,7 +63,7 @@ function TruckIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: st
   );
 }
 
-function StoreIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function StoreIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -78,7 +78,7 @@ function StoreIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: st
   );
 }
 
-function CalendarIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -87,7 +87,7 @@ function CalendarIcon({ size = 17, color = '#1E293B' }: { size?: number; color?:
   );
 }
 
-function PaymentIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: string }) {
+function PaymentIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
@@ -99,7 +99,7 @@ function PaymentIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: 
 
 
 
-function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FunnelIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -229,7 +229,9 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
         >
           <BackArrowIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Filters</Text>
+        <Text style={styles.headerTitle}>
+          {props.config === 'purchase' ? 'Purchase Filters' : 'Order Filters'}
+        </Text>
         <TouchableOpacity
           onPress={clearAll}
           activeOpacity={0.7}
@@ -249,11 +251,11 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
       >
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#64748B" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Order ID, customer or phone"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
@@ -262,7 +264,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Status */}
         <View style={styles.sectionHeadRow}>
-          <FlagIcon size={17} color="#1E293B" />
+          <FlagIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Status</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -283,7 +285,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Fulfillment */}
         <View style={styles.sectionHeadRow}>
-          <TruckIcon size={18} color="#1E293B" />
+          <TruckIcon size={18} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Fulfillment</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -304,7 +306,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Channel */}
         <View style={styles.sectionHeadRow}>
-          <StoreIcon size={17} color="#1E293B" />
+          <StoreIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Channel</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -325,7 +327,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Date */}
         <View style={styles.sectionHeadRow}>
-          <CalendarIcon size={17} color="#1E293B" />
+          <CalendarIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Date</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -346,7 +348,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Payment */}
         <View style={styles.sectionHeadRow}>
-          <PaymentIcon size={18} color="#1E293B" />
+          <PaymentIcon size={18} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Payment</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -367,7 +369,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
         {/* Warehouse */}
         <View style={styles.sectionHeadRow}>
-          <StoreIcon size={17} color="#1E293B" />
+          <StoreIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Warehouse</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -390,7 +392,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
       {/* Footer */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.applyButton} onPress={apply} activeOpacity={0.85} accessibilityRole="button">
-          <FunnelIcon size={18} color="#FFFFFF" />
+          <FunnelIcon size={18} color={adminColors.onBrand} />
           <Text style={styles.applyButtonText}>Apply Filters</Text>
         </TouchableOpacity>
       </View>
@@ -408,111 +410,106 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
   },
   backButton: {
-    padding: 4,
+    padding: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   clearAllText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
   body: {
     flex: 1,
-    backgroundColor: '#FBF8F2',
+    backgroundColor: adminColors.canvas,
   },
   bodyContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
     height: 48,
-    gap: 10,
+    gap: adminSpacing.sm,
     marginBottom: 6,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1E293B',
+    ...adminType.body,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   sectionHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 18,
-    marginBottom: 12,
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   chip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: '#FDF4EC',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   chipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
   },
 
   footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FBF8F2',
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#F1ECE4',
+    borderTopColor: adminColors.border,
   },
   applyButton: {
     height: 52,
-    borderRadius: 14,
-    backgroundColor: '#F0562A',
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   applyButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

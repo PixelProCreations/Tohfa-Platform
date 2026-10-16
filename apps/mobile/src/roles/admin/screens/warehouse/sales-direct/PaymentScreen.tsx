@@ -167,7 +167,7 @@ export function PaymentScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -329,7 +329,7 @@ export function PaymentScreen({
             {showConfirmPopup && (
               <View style={styles.inlineConfirmCard}>
                 <View style={styles.inlineConfirmHeader}>
-                  <QuestionCircleIcon size={20} color="#854F0B" />
+                  <QuestionCircleIcon size={20} color={adminColors.brandDeep} />
                   <Text style={styles.inlineConfirmTitle}>Confirm Payment?</Text>
                 </View>
 
@@ -349,7 +349,7 @@ export function PaymentScreen({
                   onPress={handleFinalConfirm}
                   activeOpacity={0.8}
                 >
-                  <CheckmarkOutlineIcon size={18} color="#059669" />
+                  <CheckmarkOutlineIcon size={18} color={adminColors.success.text} />
                   <Text style={styles.inlineConfirmBtnText}>Confirm Payment</Text>
                 </TouchableOpacity>
 
@@ -605,20 +605,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  simulateBtn: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  simulateBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-  },
   walletNoticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -739,17 +725,16 @@ const styles = StyleSheet.create({
     color: adminColors.brandDeep,
   },
   paymentSummaryHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.title,
+    color: adminColors.brandDeep,
     marginTop: 14,
     marginBottom: 8,
   },
   paymentSummaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 16,
     flexDirection: 'row',
     marginBottom: 6,
@@ -758,21 +743,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#18181B',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   inlineConfirmCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     padding: 16,
     marginTop: 10,
     marginBottom: 10,
@@ -784,12 +767,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   inlineConfirmTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#854F0B',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   inlineConfirmSubBox: {
-    backgroundColor: '#F6F4EE',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     padding: 14,
     flexDirection: 'row',
@@ -798,46 +780,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inlineConfirmSubLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   inlineConfirmSubVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#18181B',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   inlineConfirmBtn: {
     borderWidth: 1.5,
-    borderColor: '#059669',
+    borderColor: adminColors.success.border,
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     gap: 8,
   },
   inlineConfirmBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#059669',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   inlineCancelBtn: {
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     borderRadius: 12,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   inlineCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#854F0B',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
 });

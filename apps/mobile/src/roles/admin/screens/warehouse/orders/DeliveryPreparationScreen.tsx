@@ -57,7 +57,7 @@ function GreenCheckboxIcon() {
       <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
         <Path
           d="M20 6L9 17l-5-5"
-          stroke="#FFFFFF"
+          stroke={adminColors.onBrand}
           strokeWidth="3.2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -74,8 +74,8 @@ function EmptyCheckboxIcon() {
 function InfoCircleIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#0284C7" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#0284C7" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -83,10 +83,10 @@ function InfoCircleIcon() {
 function DeliveryTruckIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="14" height="13" rx="1" stroke="#FFFFFF" strokeWidth="2" />
-      <Path d="M15 8h4l3 3v5h-7V8z" stroke="#FFFFFF" strokeWidth="2" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
     </Svg>
   );
 }
@@ -204,146 +204,144 @@ export function DeliveryPreparationScreen({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
-  container: { flex: 1, backgroundColor: '#FBF8F2' },
+  container: { flex: 1, backgroundColor: adminColors.canvas },
   header: {
     backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
-    gap: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.md,
+    gap: adminSpacing.md,
   },
   backButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  headerTitle: { ...adminType.title, color: adminColors.onBrand, letterSpacing: -0.3 },
   content: { flex: 1 },
-  contentContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 },
+  contentContainer: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
   scrollTail: { height: 20 },
   orderIdTop: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#9A7150',
+    color: adminColors.brandDeep,
     paddingLeft: 34,
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
   sectionTitleFirst: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 18,
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
   },
-  fieldLabel: { fontSize: 13, color: '#64748B', marginBottom: 4 },
-  fieldValueBold: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 20 },
-  slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  fieldValueBold: { ...adminType.rowTitle, color: adminColors.ink, lineHeight: 20 },
+  slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
   slotPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
   },
   slotPillActive: {
-    backgroundColor: '#FDF4EC',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1.5,
-    borderColor: '#C27038',
+    borderColor: adminColors.brand,
   },
   slotPillText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#475569',
+    color: adminColors.muted,
   },
   slotPillTextActive: {
-    color: '#8A421D',
+    color: adminColors.brandDeep,
   },
   infoBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#93C5FD',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xs,
   },
-  infoText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#0369A1', lineHeight: 18 },
+  infoText: { flex: 1, ...adminType.body, fontWeight: '600', color: adminColors.info.text, lineHeight: 18 },
   packingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: adminSpacing.md,
   },
-  packingCardSpaced: { marginTop: 10 },
-  packingCardText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  packingCardSpaced: { marginTop: adminSpacing.sm },
+  packingCardText: { ...adminType.sectionHead, color: adminColors.ink },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     overflow: 'hidden',
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    gap: adminSpacing.md,
   },
-  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: adminColors.border },
   greenCheckbox: {
     width: 24,
     height: 24,
-    borderRadius: 6,
-    backgroundColor: '#1E824C',
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.success.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyCheckbox: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
   },
-  checklistText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  checklistText: { ...adminType.sectionHead, color: adminColors.ink },
   bottomBar: {
-    backgroundColor: '#FBF8F2',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#F1ECE4',
+    borderTopColor: adminColors.border,
   },
   dispatchBtn: {
-    backgroundColor: '#F0562A',
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: adminSpacing.xs,
   },
-  dispatchBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  dispatchBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
 });

@@ -4,6 +4,7 @@ import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
@@ -55,11 +56,11 @@ function BellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-function LockBadgeIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="10" width="16" height="11" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M8 10V6.5a4 4 0 0 1 8 0V10" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -315,7 +316,9 @@ export function WalletOperationsScreen({
             /* Subwarehouse Lock + Active pill */
             <View style={styles.assignedWarehousePill}>
               <LockBadgeIcon size={12} color={adminColors.onBrand} />
-              <Text style={styles.assignedWarehouseText}>{`${warehouseLabel} · Active`}</Text>
+              <Text style={styles.assignedWarehouseText}>
+                {`${(warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '').includes('Warehouse') ? warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '') : `${warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '')} Warehouse`)} · Assigned Warehouse`}
+              </Text>
             </View>
           ) : (
             <WarehouseSelector
@@ -333,25 +336,31 @@ export function WalletOperationsScreen({
           <View style={styles.mainContainer}>
             {/* 1. 4 KPI Cards (2x2 Grid) - Static */}
             <View style={styles.mainKpiGrid}>
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TODAY'S CASH TOP-UPS</Text>
-                <Text style={styles.mainKpiValue}>₹18,500</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TRANSACTIONS</Text>
-                <Text style={styles.mainKpiValue}>12</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>CUSTOMERS SERVED</Text>
-                <Text style={styles.mainKpiValue}>10</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>PENDING / ATTENTION</Text>
-                <Text style={styles.mainKpiValue}>2</Text>
-              </View>
+              <OverviewDashboardCard
+                value="₹18,500"
+                title="Today's Cash Top-Ups"
+                subtitle="12 transactions"
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value="12"
+                title="Transactions"
+                subtitle="Completed top-ups"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="10"
+                title="Customers Served"
+                subtitle="Distinct customers"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="2"
+                title="Pending / Attention"
+                subtitle="Needs attention"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* 2. Quick Actions */}
@@ -495,41 +504,38 @@ export function WalletOperationsScreen({
         <View style={styles.mainContainer}>
           {/* 1. KPI Overview Grid (2x2) */}
           <View style={styles.kpiGrid}>
-            {/* Today's Top-Ups */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <CalendarIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
-              <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
-            </View>
+            {/* Today's Cash Top-Ups */}
+            <OverviewDashboardCard
+              value="₹18,500"
+              title="Today's Cash Top-Ups"
+              subtitle="12 transactions"
+              icon="cash"
+            />
 
-            {/* Cash Collected */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <CashIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
-              <Text style={styles.kpiLabel}>Cash Collected</Text>
-            </View>
+            {/* Transactions */}
+            <OverviewDashboardCard
+              value="12"
+              title="Transactions"
+              subtitle="Completed top-ups"
+              icon="orders"
+            />
 
-            {/* Pending */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <EllipsisPendingIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={styles.kpiValue}>2</Text>
-              <Text style={styles.kpiLabel}>Pending</Text>
-            </View>
+            {/* Customers Served */}
+            <OverviewDashboardCard
+              value="10"
+              title="Customers Served"
+              subtitle="Distinct customers"
+              icon="pickup"
+            />
 
-            {/* Failed */}
-            <View style={styles.kpiCard}>
-              <View style={styles.kpiIconWrap}>
-                <ExclamationFailedIcon size={20} color={adminColors.brandDeep} />
-              </View>
-              <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>1</Text>
-              <Text style={styles.kpiLabel}>Failed</Text>
-            </View>
+            {/* Pending / Attention */}
+            <OverviewDashboardCard
+              value="2"
+              title="Pending / Attention"
+              subtitle="Needs attention"
+              icon="alert"
+              tone="danger"
+            />
           </View>
 
           {/* 2. Quick Actions Section */}
@@ -747,10 +753,10 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   headerIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -758,13 +764,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.headerPill.border,
     borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 6,
-    marginTop: adminSpacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: adminSpacing.sm,
     gap: 6,
   },
   assignedWarehouseText: {
@@ -978,6 +984,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 16,
   },
   mainKpiCard: {
@@ -1022,10 +1029,10 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   noticeCallout: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.border,
     padding: adminSpacing.md,
     marginBottom: 20,
   },

@@ -19,6 +19,7 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { SWABottomNav } from '../../swa/components';
 import { WarehouseSelector } from '../inventory';
 import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS, RMA_STATUS_COUNTS } from './fixtures';
@@ -102,7 +103,7 @@ function PendingDotsIcon({ color }: { color: string }) {
   );
 }
 
-function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -111,7 +112,7 @@ function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: s
   );
 }
 
-function FilterSlidersIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -168,7 +169,9 @@ export function ReturnsIssuesScreen({
   ) : (
     <View style={styles.warehousePill}>
       <LockIcon />
-      <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId} · Active</Text>
+      <Text style={styles.warehousePillText}>
+        {`${(scope.warehouseName ?? 'Coonoor Warehouse').includes('Warehouse') ? (scope.warehouseName ?? 'Coonoor Warehouse') : `${scope.warehouseName} Warehouse`} · Assigned Warehouse`}
+      </Text>
     </View>
   );
 
@@ -299,25 +302,34 @@ export function ReturnsIssuesScreen({
       >
         <ScrollView contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator={false}>
           {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
-          <View style={styles.mainKpiRow}>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>PENDING</Text>
-              <Text style={styles.mainKpiValue}>05</Text>
-            </View>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>UNDER REVIEW</Text>
-              <Text style={styles.mainKpiValue}>03</Text>
-            </View>
-          </View>
-          <View style={styles.mainKpiRow}>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>APPROVED</Text>
-              <Text style={styles.mainKpiValue}>12</Text>
-            </View>
-            <View style={styles.mainKpiBox}>
-              <Text style={styles.mainKpiLabel}>REFUND PENDING</Text>
-              <Text style={styles.mainKpiValue}>02</Text>
-            </View>
+          <View style={styles.mainKpiGrid}>
+            <OverviewDashboardCard
+              value="05"
+              title="Pending"
+              subtitle="Awaiting review"
+              icon="orders"
+              tone="warning"
+            />
+            <OverviewDashboardCard
+              value="03"
+              title="Under Review"
+              subtitle="Inspection in progress"
+              icon="pickup"
+            />
+            <OverviewDashboardCard
+              value="12"
+              title="Approved"
+              subtitle="Ready for resolution"
+              icon="receiving"
+              tone="success"
+            />
+            <OverviewDashboardCard
+              value="02"
+              title="Refund Pending"
+              subtitle="Needs refund action"
+              icon="alert"
+              tone="danger"
+            />
           </View>
 
           {/* Search Bar */}
@@ -326,7 +338,7 @@ export function ReturnsIssuesScreen({
             <TextInput
               style={styles.mainSearchInput}
               placeholder="Search RMA, order or customer"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -337,15 +349,15 @@ export function ReturnsIssuesScreen({
               accessibilityRole="button"
               accessibilityLabel="Open Filters"
             >
-              <FilterSlidersIcon color={hasActiveFilters ? adminColors.brand : '#9E9690'} />
+              <FilterSlidersIcon color={hasActiveFilters ? adminColors.brand : adminColors.muted} />
             </TouchableOpacity>
           </View>
 
           {/* RMA Cards */}
           {mainItems.map((item) => {
             const isApproved = item.status === 'Approved';
-            const badgeBg = isApproved ? '#DEF7EC' : '#FEF3C7';
-            const badgeText = isApproved ? '#03543F' : '#D97706';
+            const badgeBg = isApproved ? adminColors.success.bg : adminColors.warning.bg;
+            const badgeText = isApproved ? adminColors.success.text : adminColors.warning.text;
             const displayPrice = item.lineTotal || (item.productName === 'Tomato' ? '₹450' : '₹120');
             const displayProduct = item.productName === 'Tomato' ? 'Organic Tomato · 1.8 KG' : `${item.productName} · ${item.requestedQuantity}`;
             const displayMeta = item.productName === 'Tomato' ? 'Damaged Product · 25 Sep, 10:40 AM' : `${item.issueCategory} · ${item.timestampText}`;
@@ -412,18 +424,33 @@ export function ReturnsIssuesScreen({
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.metricsGrid}>
-          {METRICS.map((metric) => {
-            const iconColor = metric.alert ? adminColors.danger.text : adminColors.brandDeep;
-            return (
-              <View key={metric.key} style={styles.metricCard}>
-                <View style={styles.metricIconWrap}>
-                  {metric.icon === 'check' ? <CheckCircleIcon color={iconColor} /> : <PendingDotsIcon color={iconColor} />}
-                </View>
-                <Text style={[styles.metricValue, metric.alert && styles.metricValueAlert]}>{metric.value}</Text>
-                <Text style={styles.metricLabel}>{metric.label}</Text>
-              </View>
-            );
-          })}
+          <OverviewDashboardCard
+            value="05"
+            title="Pending"
+            subtitle="Awaiting review"
+            icon="orders"
+            tone="warning"
+          />
+          <OverviewDashboardCard
+            value="03"
+            title="Under Review"
+            subtitle="Inspection in progress"
+            icon="pickup"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Approved"
+            subtitle="Ready for resolution"
+            icon="receiving"
+            tone="success"
+          />
+          <OverviewDashboardCard
+            value="02"
+            title="Refund Pending"
+            subtitle="Needs refund action"
+            icon="alert"
+            tone="danger"
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Issue Category Summary</Text>
@@ -499,10 +526,10 @@ const BELL_SIZE = 38;
 
 const styles = StyleSheet.create({
   bellButton: {
-    width: BELL_SIZE,
-    height: BELL_SIZE,
+    width: 36,
+    height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -510,19 +537,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: adminRadius.full,
     marginTop: adminSpacing.sm,
-    gap: adminSpacing.xs,
+    gap: 6,
   },
-  warehousePillText: { ...adminType.caption, color: adminColors.onBrand },
+  warehousePillText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xxl },
 
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.lg },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.lg },
   metricCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,
@@ -613,68 +643,74 @@ const styles = StyleSheet.create({
 
   // Main Warehouse Dashboard Styles
   mainScrollContent: {
-    padding: 16,
-    paddingBottom: 24,
+    padding: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   mainBellBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: 16,
+  },
   mainKpiRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
   mainKpiBox: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: '#E8DED5',
+    borderColor: adminColors.border,
   },
   mainKpiLabel: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#6B6560',
-    marginBottom: 6,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
     textTransform: 'uppercase',
   },
   mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   mainSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E8DED5',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-    marginTop: 6,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
+    marginTop: adminSpacing.xs,
   },
   mainSearchInput: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.body,
     padding: 0,
-    marginHorizontal: 10,
-    color: '#1E1612',
+    marginHorizontal: adminSpacing.sm,
+    color: adminColors.ink,
   },
   mainListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E8DED5',
-    padding: 16,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   mainCardHeader: {
     flexDirection: 'row',
@@ -682,54 +718,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainRmaId: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   mainBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.sm,
   },
   mainBadgeText: {
-    fontSize: 10.5,
+    ...adminType.caption,
     fontWeight: '800',
   },
   mainCustomerLine: {
-    fontSize: 12,
-    color: '#6B6560',
-    marginTop: 4,
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   mainDivider: {
     height: 1,
-    backgroundColor: '#F0E7DD',
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   mainProductRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   mainProductName: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: '#1E1612',
+    ...adminType.rowMeta,
+    color: adminColors.ink,
   },
   mainProductPrice: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#8A5A30',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   mainProductMeta: {
-    fontSize: 11.5,
-    color: '#6B6560',
-    fontWeight: '500',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   mainViewLink: {
-    fontSize: 11.5,
-    color: '#8A5A30',
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     fontWeight: '800',
   },
 });

@@ -24,6 +24,7 @@
  *   - HORECA / B2B channel chips: ungated, no per-channel code (SPEC_GAPS #5).
  */
 import React, { useEffect, useState } from 'react';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +39,7 @@ import {
   View,
 } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
@@ -137,8 +139,8 @@ export function ReportsScreen({
   // Revenue filter (the unused revFilter state was dropped; the view has no filter chips)
   const [revChartPeriod, setRevChartPeriod] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
-  // Export report states (5 Steps + Generating + Ready)
-  const [exportStep, setExportStep] = useState<1 | 2 | 3 | 4 | 5 | 'generating' | 'ready'>(1);
+  // Export report states (5 Steps + Generating + Ready + Downloaded)
+  const [exportStep, setExportStep] = useState<1 | 2 | 3 | 4 | 5 | 'generating' | 'ready' | 'downloaded'>(1);
   const [selectedExportReport, setSelectedExportReport] = useState<string>('Revenue Report');
   const [exportPeriod, setExportPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('This Month');
   const [exportChannel, setExportChannel] = useState<'All' | 'Online' | 'Market'>('All');
@@ -453,7 +455,7 @@ export function ReportsScreen({
       onRequestClose={() => setShowReportFilterModal(false)}
     >
       <SafeAreaView style={styles.fullScreenFilterModal}>
-        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Top Header */}
         <View style={styles.filterModalHeader}>
@@ -3696,7 +3698,9 @@ export function ReportsScreen({
     const EXPORT_OPTIONS = exportOptions;
 
     const handleBackStep = () => {
-      if (exportStep === 'generating') {
+      if (exportStep === 'downloaded') {
+        setExportStep('ready');
+      } else if (exportStep === 'generating') {
         setExportStep(5);
       } else if (exportStep === 'ready') {
         setExportStep(1);
@@ -3723,17 +3727,26 @@ export function ReportsScreen({
               >
                 <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={styles.headerTitleText}>Export Report</Text>
+              <View>
+                <Text style={styles.headerTitleText}>Export Report</Text>
+                {exportStep === 'downloaded' && (
+                  <Text style={{ ...adminType.body, color: adminColors.onBrand, marginTop: 2, fontWeight: '500' }}>
+                    Generating your report
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
           {/* Warehouse Lock Sub-pill */}
-          <View style={styles.warehouseLockSubRow}>
-            <View style={styles.warehouseLockPill}>
-              {isMain ? null : <LockBadgeIcon />}
-              <Text style={styles.warehouseLockPillText}>{warehouseLabel}</Text>
+          {exportStep !== 'downloaded' && (
+            <View style={styles.warehouseLockSubRow}>
+              <View style={styles.warehouseLockPill}>
+                {isMain ? null : <LockBadgeIcon />}
+                <Text style={styles.warehouseLockPillText}>{warehouseLabel}</Text>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* GENERATING REPORT SCREEN */}
@@ -3770,7 +3783,7 @@ export function ReportsScreen({
               </View>
             </ScrollView>
 
-            {/* Bottom Download Button (+ Generate Another, from MainWarehouseExportReportScreen) */}
+            {/* Bottom Download Button */}
             <View style={styles.exportBottomBarDual}>
               <TouchableOpacity
                 style={[styles.nextActionButton, !exportAllowed && styles.buttonDisabled]}
@@ -3779,29 +3792,192 @@ export function ReportsScreen({
                 accessibilityState={{ disabled: !exportAllowed }}
                 onPress={() => {
                   if (!exportAllowed) return;
-                  Alert.alert(
-                    'Download Complete',
-                    `${selectedExportReport} (${exportFormat}) downloaded successfully to your device.`,
-                    [
-                      {
-                        text: 'Done',
-                        onPress: () => {
-                          setExportStep(1);
-                          setCurrentScreen('main');
-                        },
-                      },
-                    ]
-                  );
+                  setExportStep('downloaded');
                 }}
               >
                 <DownloadIcon size={18} color={adminColors.onBrand} />
                 <Text style={styles.nextActionButtonText}>Download</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.backStepBtn} activeOpacity={0.8} onPress={() => setExportStep(1)}>
-                <Text style={styles.backStepBtnText}>Generate Another</Text>
-              </TouchableOpacity>
             </View>
           </>
+        )}
+
+        {/* DOWNLOADED / PROGRESS & SUMMARY SCREEN */}
+        {exportStep === 'downloaded' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={{ paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xxl }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Card 1: Preparing report... with donut chart & checklist */}
+            <View
+              style={{
+                backgroundColor: adminColors.card,
+                borderRadius: adminRadius.xl,
+                paddingVertical: adminSpacing.xl,
+                paddingHorizontal: adminSpacing.lg,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: adminColors.border,
+                ...adminShadow.sm,
+              }}
+            >
+              {/* Donut progress ring */}
+              <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={120} height={120} viewBox="0 0 120 120">
+                  <Circle
+                    cx="60"
+                    cy="60"
+                    r="48"
+                    stroke={adminColors.border}
+                    strokeWidth="12"
+                    fill="none"
+                  />
+                  <Circle
+                    cx="60"
+                    cy="60"
+                    r="48"
+                    stroke={adminColors.success.text}
+                    strokeWidth="12"
+                    fill="none"
+                    strokeDasharray="196 105.59"
+                    strokeDashoffset="0"
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                  />
+                </Svg>
+                <View style={{ position: 'absolute' }}>
+                  <Text style={{ ...adminType.kpiValue, color: adminColors.ink }}>65%</Text>
+                </View>
+              </View>
+
+              <Text style={{ ...adminType.title, color: adminColors.ink, marginTop: adminSpacing.lg }}>
+                Preparing report...
+              </Text>
+              <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.xs, lineHeight: 18 }}>
+                {'This may take a few moments.\nPlease do not close this page.'}
+              </Text>
+
+              {/* Checklist */}
+              <View style={{ width: '100%', marginTop: adminSpacing.lg, gap: adminSpacing.md }}>
+                {/* 1. Fetching data */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="11" fill={adminColors.success.text} />
+                    <Path d="M7 12.5l3.5 3.5 6.5-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Fetching data</Text>
+                </View>
+
+                {/* 2. Applying filters */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="11" fill={adminColors.success.text} />
+                    <Path d="M7 12.5l3.5 3.5 6.5-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Applying filters</Text>
+                </View>
+
+                {/* 3. Generating file */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2.4" />
+                  </Svg>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Generating file</Text>
+                </View>
+
+                {/* 4. Finalizing report */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="10" stroke={adminColors.border} strokeWidth="2" />
+                  </Svg>
+                  <Text style={{ ...adminType.rowTitle, fontWeight: '600', color: adminColors.muted }}>Finalizing report</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Card 2: Export Completed Card */}
+            <View
+              style={{
+                backgroundColor: adminColors.success.bg,
+                borderWidth: 1.5,
+                borderColor: adminColors.success.border,
+                borderRadius: adminRadius.xl,
+                padding: adminSpacing.lg,
+                marginTop: adminSpacing.lg,
+                alignItems: 'center',
+              }}
+            >
+              {/* Badge */}
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: adminRadius.full,
+                  backgroundColor: adminColors.success.text,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 13l4.5 4.5L19 7.5" stroke={adminColors.onBrand} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+
+              <Text style={{ ...adminType.title, color: adminColors.ink, marginTop: adminSpacing.md }}>
+                Export Completed!
+              </Text>
+              <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.xs }}>
+                Your report has been generated successfully.
+              </Text>
+
+              {/* White Summary Table */}
+              <View
+                style={{
+                  backgroundColor: adminColors.card,
+                  borderRadius: adminRadius.md,
+                  paddingHorizontal: adminSpacing.lg,
+                  paddingVertical: adminSpacing.md,
+                  width: '100%',
+                  marginTop: adminSpacing.lg,
+                  borderWidth: 1,
+                  borderColor: adminColors.border,
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Report Type</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
+                    {selectedExportReport || 'Inventory & Stock Report'}
+                  </Text>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Date Range</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
+                    01 Oct 2026 – 31 Oct 2026
+                  </Text>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Format</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
+                    {exportFormat === 'Excel' ? 'Excel (.xlsx)' : exportFormat === 'PDF' ? 'PDF (.pdf)' : 'CSV (.csv)'}
+                  </Text>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Total Records</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>1,248</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         )}
 
         {/* STEPS 1 TO 5 */}
@@ -4895,13 +5071,13 @@ export function ReportsScreen({
 
   // Hub KPI tiles, each shown only when the viewer may see the data behind it.
   const hubKpis = [
-    { label: "TODAY'S SALES", value: '₹24,850', permission: REPORT_CODES.sales },
-    { label: 'INVENTORY', value: '12,480 kg', permission: REPORT_CODES.inventory },
-    { label: 'RECEIVED TODAY', value: '2,850 kg', permission: REPORT_CODES.inventory },
-    { label: 'CUSTOMERS SERVED', value: '126', permission: REPORT_CODES.customers },
-    { label: 'CASH TOP-UP', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
-    { label: 'EXPENSES', value: '₹6,420', permission: REPORT_CODES.expense },
-    { label: 'RETURNS', value: '8', permission: REPORT_CODES.returns },
+    { label: "Today's Sales", value: '₹24,850', permission: REPORT_CODES.sales },
+    { label: 'Inventory', value: '12,480 kg', permission: REPORT_CODES.inventory },
+    { label: 'Received Today', value: '2,850 kg', permission: REPORT_CODES.inventory },
+    { label: 'Customers Served', value: '126', permission: REPORT_CODES.customers },
+    { label: 'Cash Top-Up', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
+    { label: 'Expenses', value: '₹6,420', permission: REPORT_CODES.expense },
+    { label: 'Returns', value: '8', permission: REPORT_CODES.returns },
   ].filter((k) => can(k.permission));
 
   return (
@@ -4977,15 +5153,29 @@ export function ReportsScreen({
           {/* ─── 1. KPI Metric Cards (2 Columns Grid) ─── */}
           {hubKpis.length > 0 ? (
             <View style={styles.kpiGrid}>
-              {hubKpis.map((k, idx) => (
-                <View
-                  key={k.label}
-                  style={[styles.kpiCard, idx === hubKpis.length - 1 && hubKpis.length % 2 === 1 && styles.kpiCardFull]}
-                >
-                  <Text style={styles.kpiLabel}>{k.label}</Text>
-                  <Text style={styles.kpiValue}>{k.value}</Text>
-                </View>
-              ))}
+              {hubKpis.map((k, idx) => {
+                const getIcon = (label: string): 'sales' | 'box' | 'receiving' | 'orders' | 'cash' | 'alert' => {
+                  const lower = label.toLowerCase();
+                  if (lower.includes('sales')) return 'sales';
+                  if (lower.includes('inventory')) return 'box';
+                  if (lower.includes('received')) return 'receiving';
+                  if (lower.includes('customer')) return 'orders';
+                  if (lower.includes('cash') || lower.includes('expense')) return 'cash';
+                  if (lower.includes('return')) return 'alert';
+                  return 'orders';
+                };
+                const isOddLast = idx === hubKpis.length - 1 && hubKpis.length % 2 === 1;
+                return (
+                  <OverviewDashboardCard
+                    key={k.label}
+                    value={k.value}
+                    title={k.label}
+                    subtitle="Report Metric"
+                    icon={getIcon(k.label)}
+                    style={isOddLast ? { width: '100%' } : undefined}
+                  />
+                );
+              })}
             </View>
           ) : null}
 
@@ -5071,8 +5261,6 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -5093,14 +5281,14 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5.5,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.brandTint,
   },
   warehouseBadgeText: {
     color: adminColors.onBrand,
@@ -5110,8 +5298,8 @@ const styles = StyleSheet.create({
   headerBellBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -5839,14 +6027,14 @@ const styles = StyleSheet.create({
   warehouseLockPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5.5,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.brandTint,
   },
   warehouseLockPillText: {
     color: adminColors.onBrand,

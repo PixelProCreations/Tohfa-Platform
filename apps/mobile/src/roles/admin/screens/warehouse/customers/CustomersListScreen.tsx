@@ -30,14 +30,17 @@ import {
   StatusBadge,
 } from './CustomersParts';
 import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
+import { CustomerFiltersScreen, type CustomerFilterStatus, type CustomerFilterValues } from './CustomerFiltersScreen';
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { WarehouseSelector } from '../inventory';
 
 export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
   onNavigateToSearch?: (() => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
+  onOpenFilters?: (() => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Customer rows; defaults to the mock set until the customer API is wired. */
@@ -52,11 +55,14 @@ export function CustomersListScreen({
   onSelectCustomer,
   onNavigateToSearch,
   onNavigateToNotifications,
+  onOpenFilters,
   warehouseOptions = CUSTOMER_WAREHOUSES,
   customers = INITIAL_CUSTOMERS,
 }: CustomersListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<CustomerFilterStatus>('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showFilterScreen, setShowFilterScreen] = useState(false);
   const allWarehouses = isAllWarehouses(scope);
 
   if (!can('customer.list.view')) {
@@ -67,10 +73,47 @@ export function CustomersListScreen({
     );
   }
 
+  const handleOpenFilters = () => {
+    if (onOpenFilters) {
+      onOpenFilters();
+    } else {
+      setShowFilterScreen(true);
+    }
+  };
+
+  if (showFilterScreen) {
+    return (
+      <CustomerFiltersScreen
+        scope={scope}
+        can={can}
+        initialFilters={{
+          searchQuery,
+          status: statusFilter,
+          warehouseId: selectedWarehouseId,
+        }}
+        warehouseOptions={allWarehouses ? warehouseOptions : []}
+        onBack={() => setShowFilterScreen(false)}
+        onApplyFilters={(filters: CustomerFilterValues) => {
+          setSearchQuery(filters.searchQuery);
+          setStatusFilter(filters.status);
+          setSelectedWarehouseId(filters.warehouseId);
+          setShowFilterScreen(false);
+        }}
+      />
+    );
+  }
+
   const query = searchQuery.trim().toLowerCase();
   const rows = customers.filter((cust) => {
     if (!inScope(scope, cust.warehouseId)) return false;
     if (allWarehouses && selectedWarehouseId !== undefined && cust.warehouseId !== selectedWarehouseId) return false;
+    
+    // Status filter
+    if (statusFilter === 'Active' && cust.status !== 'Active') return false;
+    if (statusFilter === 'Inactive' && cust.status !== 'Inactive') return false;
+    if (statusFilter === 'With Orders' && cust.ordersCount <= 0) return false;
+    if (statusFilter === 'With Issues' && (cust.openIssues ?? 0) <= 0) return false;
+
     if (!query) return true;
     return (
       cust.name.toLowerCase().includes(query) ||
@@ -109,28 +152,44 @@ export function CustomersListScreen({
       {allWarehouses ? (
         // Main Warehouse 4 KPI Cards (2x2 Grid) - Static
         <View style={styles.mainKpiGrid}>
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>TOTAL CUSTOMERS</Text>
-            <Text style={styles.mainKpiValue}>1,248</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>ACTIVE</Text>
-            <Text style={styles.mainKpiValue}>1,102</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>WITH ORDERS</Text>
-            <Text style={styles.mainKpiValue}>864</Text>
-          </View>
-
-          <View style={styles.mainKpiCard}>
-            <Text style={styles.mainKpiLabel}>WITH ISSUES</Text>
-            <Text style={styles.mainKpiValue}>23</Text>
-          </View>
+          <OverviewDashboardCard
+            value="1,248"
+            title="Total Customers"
+            subtitle="All registered"
+            icon="pickup"
+          />
+          <OverviewDashboardCard
+            value="1,102"
+            title="Active"
+            subtitle="Regular buyers"
+            icon="orders"
+          />
+          <OverviewDashboardCard
+            value="864"
+            title="With Orders"
+            subtitle="Active orders"
+            icon="sales"
+          />
+          <OverviewDashboardCard
+            value="23"
+            title="With Issues"
+            subtitle="Needs attention"
+            icon="alert"
+            tone="danger"
+          />
         </View>
       ) : (
-        <StatTiles items={SUB_CUSTOMER_KPIS} />
+        <View style={styles.mainKpiGrid}>
+          {SUB_CUSTOMER_KPIS.map((item) => (
+            <OverviewDashboardCard
+              key={item.label}
+              value={item.value}
+              title={item.label}
+              subtitle="Registered"
+              icon={item.label.toLowerCase().includes('active') ? 'pickup' : 'orders'}
+            />
+          ))}
+        </View>
       )}
 
       <SearchField
@@ -139,8 +198,13 @@ export function CustomersListScreen({
         placeholder={allWarehouses ? 'Search by name, Customer ID or mobile' : 'Search customers...'}
         onFocus={onNavigateToSearch}
         right={
-          <TouchableOpacity onPress={onNavigateToSearch} accessibilityRole="button" accessibilityLabel="Open search">
-            <FilterIcon color={adminColors.muted} />
+          <TouchableOpacity
+            onPress={handleOpenFilters}
+            accessibilityRole="button"
+            accessibilityLabel="Open Filters"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <FilterIcon color={statusFilter !== 'All' ? adminColors.brand : adminColors.muted} />
           </TouchableOpacity>
         }
       />
@@ -200,6 +264,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 16,
   },
   mainKpiCard: {

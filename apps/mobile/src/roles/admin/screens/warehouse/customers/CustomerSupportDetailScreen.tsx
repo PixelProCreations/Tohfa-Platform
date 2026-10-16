@@ -8,6 +8,7 @@
  */
 import React from 'react';
 
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CustomersScreen, InfoGrid, SectionHeading, Timeline } from './CustomersParts';
 import { DEFAULT_CUSTOMER, INITIAL_SUPPORT_TICKETS } from './fixtures';
 import type { CustomerRef, SupportTicketRecord, Loose, WarehouseScreenBaseProps } from './types';

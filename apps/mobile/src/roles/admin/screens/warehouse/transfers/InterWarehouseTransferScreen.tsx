@@ -13,6 +13,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { formatTransferThreshold } from '../../../config/businessThresholds';
 import {
   ChipGroup,
@@ -43,7 +44,7 @@ const FILTER_LABEL: Record<FilterKey, string> = {
   Completed: 'Completed',
 };
 
-function BackArrowIcon({ color = '#FFFFFF' }: { color?: string }) {
+function BackArrowIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -84,12 +85,12 @@ export function InterWarehouseTransferScreen({
   if (!isSub) {
     return (
       <SafeAreaView style={mainStyles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={mainStyles.container}>
           {/* Header */}
           <View style={mainStyles.header}>
             <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={mainStyles.backBtn}>
-              <BackArrowIcon color="#FFFFFF" />
+              <BackArrowIcon color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={mainStyles.headerTitle}>Inter-Warehouse Transfer</Text>
           </View>
@@ -209,17 +210,17 @@ export function InterWarehouseTransferScreen({
 const mainStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -228,57 +229,52 @@ const mainStyles = StyleSheet.create({
     padding: 2,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.3,
   },
   chipsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.sm,
+    gap: adminSpacing.sm,
   },
   chip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
   },
   activeChip: {
-    backgroundColor: '#E48932',
-    borderColor: '#E48932',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '700',
-    color: '#1C1917',
+    color: adminColors.ink,
   },
   activeChipText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 20,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xl,
   },
   transferCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -287,47 +283,42 @@ const mainStyles = StyleSheet.create({
     marginBottom: 6,
   },
   transferCode: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   statusBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.info.bg,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
   },
   statusBadgeText: {
-    color: '#2563EB',
-    fontSize: 11,
+    color: adminColors.info.text,
+    ...adminType.caption,
     fontWeight: '700',
   },
   transferRoute: {
-    color: '#78716C',
-    fontSize: 12.5,
+    color: adminColors.muted,
+    ...adminType.caption,
     fontWeight: '500',
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
-    backgroundColor: '#FAF5EE',
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xl,
+    backgroundColor: adminColors.canvas,
   },
   createBtn: {
-    backgroundColor: '#E48932',
+    backgroundColor: adminColors.brand,
     height: 48,
-    borderRadius: 14,
+    borderRadius: adminRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
     fontWeight: '700',
   },
 });

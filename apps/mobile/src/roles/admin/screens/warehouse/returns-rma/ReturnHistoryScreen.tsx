@@ -17,7 +17,7 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { SWABottomNav } from '../../swa/components';
+import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
 import { INITIAL_RETURN_HISTORY } from './fixtures';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
@@ -39,6 +39,20 @@ function SearchIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={adminColors.muted} strokeWidth="2" />
       <Path d="M21 21l-4.35-4.35" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -74,6 +88,17 @@ export function ReturnHistoryScreen({
     <ReturnsScreen
       title="Return History"
       onBack={onBack}
+      headerRight={
+        <TouchableOpacity
+          style={styles.headerFilterBtn}
+          onPress={() => {}}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Filter returns"
+        >
+          <FilterSlidersIcon size={20} color={adminColors.onBrand} />
+        </TouchableOpacity>
+      }
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector
@@ -82,6 +107,11 @@ export function ReturnHistoryScreen({
             selectedId={selectedWarehouseId}
             onSelect={setSelectedWarehouseId}
           />
+        ) : null
+      }
+      footer={
+        !allWarehouses ? (
+          <WarehouseTabBar activeTab="More" onTabChange={onTabChange} onBack={onBack} />
         ) : null
       }
     >
@@ -154,6 +184,14 @@ export function ReturnHistoryScreen({
 
 const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xl },
+  headerFilterBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -162,7 +200,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    height: 48,
     gap: adminSpacing.sm,
     marginBottom: adminSpacing.md,
   },
@@ -170,19 +208,19 @@ const styles = StyleSheet.create({
   chipsRow: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.lg },
   chipBtn: {
     paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.xs,
+    paddingVertical: adminSpacing.sm,
     borderRadius: adminRadius.full,
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
   },
-  chipBtnActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  chipText: { ...adminType.body, color: adminColors.muted },
-  chipTextActive: { ...adminType.sectionHead, color: adminColors.brand },
+  chipBtnActive: { borderColor: adminColors.brandDeep, backgroundColor: adminColors.brandTint },
+  chipText: { ...adminType.rowMeta, color: adminColors.muted },
+  chipTextActive: { ...adminType.rowMeta, fontWeight: '700', color: adminColors.brandDeep },
   cardsList: { gap: adminSpacing.md },
   rmaCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.lg,
@@ -194,32 +232,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: adminSpacing.xs,
   },
-  rmaIdText: { ...adminType.sectionHead, color: adminColors.brandDeep },
+  rmaIdText: { ...adminType.rowTitle, color: adminColors.brandDeep },
   statusBadge: {
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.md,
     backgroundColor: adminColors.success.bg,
   },
   statusBadgeRejected: { backgroundColor: adminColors.danger.bg },
-  statusBadgeText: { ...adminType.caption, color: adminColors.success.text },
+  statusBadgeText: { ...adminType.caption, fontWeight: '700', color: adminColors.success.text },
   statusBadgeTextRejected: { color: adminColors.danger.text },
-  customerName: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: 2 },
-  orderId: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.md },
+  customerName: { ...adminType.rowTitle, color: adminColors.ink, marginTop: adminSpacing.xs, marginBottom: 2 },
+  orderId: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.sm },
   tagAmountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.xs,
   },
   reasonTag: {
-    backgroundColor: adminColors.warning.bg,
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
+    paddingVertical: 3,
+    borderRadius: adminRadius.sm,
   },
-  reasonTagText: { ...adminType.caption, color: adminColors.warning.text },
-  refundText: { ...adminType.sectionHead, color: adminColors.success.text },
-  dateText: { ...adminType.rowMeta, color: adminColors.muted },
-  emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', padding: adminSpacing.xxl },
+  reasonTagText: { ...adminType.caption, fontWeight: '700', color: adminColors.brandDeep },
+  refundText: { ...adminType.rowTitle, color: adminColors.success.text },
+  dateText: { ...adminType.caption, color: adminColors.muted },
+  emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', padding: adminSpacing.xl },
 });

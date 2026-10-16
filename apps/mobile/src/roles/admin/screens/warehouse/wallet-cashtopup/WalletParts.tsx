@@ -327,27 +327,36 @@ export function ScopeHeader({
   selectedWarehouseId?: string | undefined;
   onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
 }) {
+  const [internalSelectedId, setInternalSelectedId] = React.useState<string | undefined>(selectedWarehouseId);
+
   if (isAllWarehouses(scope)) {
-    if (onSelectWarehouse === undefined) {
-      return (
-        <View style={styles.warehousePill}>
-          <Text style={styles.warehousePillText}>{label ?? 'All Warehouses'}</Text>
-        </View>
-      );
-    }
+    const activeSelectedId = onSelectWarehouse !== undefined ? selectedWarehouseId : internalSelectedId;
+    const handleSelect = (id: string | undefined) => {
+      if (onSelectWarehouse !== undefined) {
+        onSelectWarehouse(id);
+      } else {
+        setInternalSelectedId(id);
+      }
+    };
+
     return (
       <WarehouseSelector
         scope={scope}
         options={warehouseOptions}
-        selectedId={selectedWarehouseId}
-        onSelect={(id) => onSelectWarehouse(id)}
+        selectedId={activeSelectedId}
+        onSelect={handleSelect}
       />
     );
   }
+  const rawName = label ?? scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse';
+  const cleanName = rawName.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '');
+  const finalWhName = cleanName.includes('Warehouse') ? cleanName : `${cleanName} Warehouse`;
+  const pillText = `${finalWhName} · Assigned Warehouse`;
+
   return (
     <View style={styles.warehousePill}>
-      <LockIcon />
-      <Text style={styles.warehousePillText}>{label ?? `${scope.warehouseName ?? scope.warehouseId} · Active`}</Text>
+      <LockIcon size={12} color={adminColors.onBrand} />
+      <Text style={styles.warehousePillText}>{pillText}</Text>
     </View>
   );
 }
@@ -699,7 +708,7 @@ const styles = StyleSheet.create({
     width: HEADER_ICON_BUTTON,
     height: HEADER_ICON_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -707,16 +716,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: adminRadius.full,
     marginTop: adminSpacing.sm,
-    gap: adminSpacing.xs,
+    gap: 6,
   },
-  warehousePillText: { ...adminType.caption, color: adminColors.onBrand, fontWeight: '600' },
+  warehousePillText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
   body: { flex: 1, backgroundColor: adminColors.canvas },
 
   sectionRow: {

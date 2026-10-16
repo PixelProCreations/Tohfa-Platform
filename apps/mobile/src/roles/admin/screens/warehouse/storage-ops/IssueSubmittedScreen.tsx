@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   WalletButton,
   WalletFooter,
@@ -11,7 +11,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import type { ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
-function EyeIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function EyeIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -26,7 +26,7 @@ function EyeIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: stri
   );
 }
 
-function GreenCheckCircleIcon({ size = 56, color = '#0D8A68' }: { size?: number; color?: string }) {
+function GreenCheckCircleIcon({ size = 56, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.4" />
@@ -96,22 +96,21 @@ const styles = StyleSheet.create({
     paddingTop: 48,
   },
   iconWrap: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
+    ...adminType.title,
+    color: adminColors.ink,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: adminSpacing.xl,
   },
   card: {
     width: '100%',
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 20,
     justifyContent: 'space-between',
@@ -120,13 +119,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 13,
-    color: '#64748B',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 6,
   },
   value: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Modal,
   View,
   ScrollView,
   StatusBar,
@@ -31,6 +32,15 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
       <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16 4v4M8 10v4M15 16v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -75,12 +85,18 @@ export function MainWarehouseListScreen({
 }) {
   const [selectedWarehouse, setSelectedWarehouse] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
+  const [showFilterModal, setShowFilterModal] = React.useState(false);
+  const [statusFilter, setStatusFilter] = React.useState<'All' | 'Active' | 'Inactive'>('All');
+  const [tempStatusFilter, setTempStatusFilter] = React.useState<'All' | 'Active' | 'Inactive'>('All');
 
   if (selectedWarehouse) {
     return <MainWarehouseDetailScreen onBack={() => setSelectedWarehouse(null)} warehouse={selectedWarehouse} />;
   }
 
   const filtered = warehouses.filter((item) => {
+    if (statusFilter !== 'All' && item.status !== statusFilter) {
+      return false;
+    }
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (
@@ -112,7 +128,29 @@ export function MainWarehouseListScreen({
             value={query}
             onChangeText={setQuery}
           />
+          <TouchableOpacity
+            onPress={() => {
+              setTempStatusFilter(statusFilter);
+              setShowFilterModal(true);
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.searchFilterBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Filter Warehouses"
+          >
+            <FilterSlidersIcon size={18} color={statusFilter !== 'All' ? adminColors.brand : adminColors.muted} />
+          </TouchableOpacity>
         </View>
+
+        {statusFilter !== 'All' ? (
+          <View style={styles.appliedFilterRow}>
+            <Text style={styles.appliedFilterText}>Filter: {statusFilter}</Text>
+            <TouchableOpacity onPress={() => setStatusFilter('All')} activeOpacity={0.7}>
+              <Text style={styles.clearFilterText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {filtered.map((wh) => (
@@ -149,6 +187,65 @@ export function MainWarehouseListScreen({
           ))}
         </ScrollView>
       </View>
+
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter Warehouses</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} activeOpacity={0.7}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterSectionTitle}>Status</Text>
+            <View style={styles.chipRow}>
+              {(['All', 'Active', 'Inactive'] as const).map((st) => {
+                const active = tempStatusFilter === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setTempStatusFilter(st)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{st}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={() => {
+                  setTempStatusFilter('All');
+                  setStatusFilter('All');
+                  setShowFilterModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalResetText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={() => {
+                  setStatusFilter(tempStatusFilter);
+                  setShowFilterModal(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalApplyText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -183,6 +280,25 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     marginLeft: adminSpacing.sm,
   },
+  searchFilterBtn: {
+    padding: 6,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appliedFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.sm,
+  },
+  appliedFilterText: { ...adminType.caption, color: '#92400E', fontWeight: '600' },
+  clearFilterText: { ...adminType.caption, color: adminColors.brand, fontWeight: '700' },
   
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingBottom: adminSpacing.xl },
@@ -205,4 +321,75 @@ const styles = StyleSheet.create({
   statCol: { flex: 1, alignItems: 'center' },
   statVal: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs / 2 },
   statLabel: { ...adminType.caption, color: adminColors.muted },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.lg,
+  },
+  modalTitle: { ...adminType.title, color: adminColors.ink },
+  modalCloseText: { fontSize: 18, color: adminColors.muted, fontWeight: '700' },
+  filterSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  chip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  chipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  chipText: { ...adminType.caption, color: adminColors.ink },
+  chipTextActive: { ...adminType.caption, color: adminColors.onBrand, fontWeight: '700' },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+  },
+  modalResetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalResetText: { ...adminType.sectionHead, color: adminColors.muted },
+  modalApplyBtn: {
+    flex: 2,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalApplyText: { ...adminType.sectionHead, color: adminColors.onBrand, fontWeight: '700' },
 });

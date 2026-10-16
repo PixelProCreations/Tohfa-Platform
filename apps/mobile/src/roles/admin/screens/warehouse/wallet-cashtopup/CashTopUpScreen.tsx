@@ -17,6 +17,8 @@
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import Svg, { Path, Rect } from 'react-native-svg';
+
 import { CASH_TOPUP_CAP_PAISE, formatCashTopUpCap, validateTopUpAmount } from '../../../config/businessThresholds';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { SAMPLE_WALLET_CUSTOMER, TOP_UP_PRESETS, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
@@ -28,6 +30,7 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
+  SearchBar,
   SectionHint,
   SectionTitle,
   WalletButton,
@@ -38,6 +41,23 @@ import {
   rupeesOf,
   walletLayout,
 } from './WalletParts';
+
+function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <Rect x="8" y="8" width="3" height="3" fill={color} />
+      <Rect x="13" y="8" width="3" height="3" fill={color} />
+      <Rect x="8" y="13" width="3" height="3" fill={color} />
+      <Rect x="13" y="13" width="3" height="3" fill={color} />
+    </Svg>
+  );
+}
 
 export interface CashTopUpScreenProps extends WarehouseScreenBaseProps {
   /** Customer being topped up (demo customer when omitted). */
@@ -63,6 +83,7 @@ export function CashTopUpScreen({
   const custCode = customer?.id ?? SAMPLE_WALLET_CUSTOMER.id;
   const baseBalance = rupeesOf(customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [amount, setAmount] = useState<number>(2000);
   const [customInputVisible, setCustomInputVisible] = useState(false);
   const [customInputValue, setCustomInputValue] = useState('2000');
@@ -139,14 +160,30 @@ export function CashTopUpScreen({
     >
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-          <Card>
-            <Text style={styles.customerLine}>
-              {custName} <Text style={styles.customerLineBold}>{custCode}</Text>
-            </Text>
-            <Text style={[styles.customerLine, styles.customerLineSpaced]}>
-              Current Wallet Balance <Text style={styles.customerLineBold}>{formatRupees(baseBalance)}</Text>
-            </Text>
-          </Card>
+          {!isAllWarehouses(scope) ? (
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search Customer ID or mobile number"
+              rightAction={
+                <TouchableOpacity
+                  onPress={() => Alert.alert('QR Scanner', 'Opening QR & Barcode scanner...')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <QrScanIcon size={20} color={adminColors.muted} />
+                </TouchableOpacity>
+              }
+            />
+          ) : (
+            <Card>
+              <Text style={styles.customerLine}>
+                {custName} <Text style={styles.customerLineBold}>{custCode}</Text>
+              </Text>
+              <Text style={[styles.customerLine, styles.customerLineSpaced]}>
+                Current Wallet Balance <Text style={styles.customerLineBold}>{formatRupees(baseBalance)}</Text>
+              </Text>
+            </Card>
+          )}
 
           <SectionTitle>Cash Amount</SectionTitle>
           <View style={styles.amountCard}>

@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { formatTransferThreshold } from '../../../config/businessThresholds';
 import {
   EmptyState,
@@ -57,7 +57,7 @@ const STEP_INDEX: Record<TransferStatus, number> = {
   Completed: 5,
 };
 
-function TrackingTrendIcon({ size = 24, color = '#D97706' }: { size?: number; color?: string }) {
+function TrackingTrendIcon({ size = 24, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -71,7 +71,7 @@ function TrackingTrendIcon({ size = 24, color = '#D97706' }: { size?: number; co
   );
 }
 
-function DiscrepancyAlertIcon({ size = 24, color = '#D97706' }: { size?: number; color?: string }) {
+function DiscrepancyAlertIcon({ size = 24, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth="2" />
@@ -83,8 +83,8 @@ function DiscrepancyAlertIcon({ size = 24, color = '#D97706' }: { size?: number;
 function CompletedCheckIcon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx={10} cy={10} r={10} fill="#15803D" />
-      <Path d="M6 10.2l2.8 2.8 5.6-5.6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx={10} cy={10} r={10} fill={adminColors.success.text} />
+      <Path d="M6 10.2l2.8 2.8 5.6-5.6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -92,8 +92,8 @@ function CompletedCheckIcon({ size = 20 }: { size?: number }) {
 function PendingCircleIcon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx={10} cy={10} r={9} stroke="#D1D5DB" strokeWidth="1.8" />
-      <Circle cx={10} cy={10} r={3} fill="#D1D5DB" />
+      <Circle cx={10} cy={10} r={9} stroke={adminColors.border} strokeWidth="1.8" />
+      <Circle cx={10} cy={10} r={3} fill={adminColors.border} />
     </Svg>
   );
 }
@@ -149,7 +149,7 @@ export function TransferDetailScreen({
     if (mainSubView === 'tracking') {
       return (
         <SafeAreaView style={mainStyles.safeArea}>
-          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
           <View style={mainStyles.container}>
             {/* Header */}
             <View style={mainStyles.header}>
@@ -158,7 +158,7 @@ export function TransferDetailScreen({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={mainStyles.backBtn}
               >
-                <BackArrowIcon color="#FFFFFF" size={22} />
+                <BackArrowIcon color={adminColors.onBrand} size={22} />
               </TouchableOpacity>
               <Text style={mainStyles.headerTitle}>Tracking</Text>
             </View>
@@ -184,7 +184,7 @@ export function TransferDetailScreen({
     if (mainSubView === 'discrepancy') {
       return (
         <SafeAreaView style={mainStyles.safeArea}>
-          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
           <View style={mainStyles.container}>
             {/* Header */}
             <View style={mainStyles.header}>
@@ -193,7 +193,7 @@ export function TransferDetailScreen({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={mainStyles.backBtn}
               >
-                <BackArrowIcon color="#FFFFFF" size={22} />
+                <BackArrowIcon color={adminColors.onBrand} size={22} />
               </TouchableOpacity>
               <Text style={mainStyles.headerTitle}>Discrepancy</Text>
             </View>
@@ -233,12 +233,12 @@ export function TransferDetailScreen({
     // Default: detail
     return (
       <SafeAreaView style={mainStyles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={mainStyles.container}>
           {/* Header */}
           <View style={mainStyles.header}>
             <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={mainStyles.backBtn}>
-              <BackArrowIcon color="#FFFFFF" size={22} />
+              <BackArrowIcon color={adminColors.onBrand} size={22} />
             </TouchableOpacity>
             <Text style={mainStyles.headerTitle}>Transfer Detail</Text>
           </View>
@@ -284,7 +284,7 @@ export function TransferDetailScreen({
                 activeOpacity={0.7}
                 onPress={() => setMainSubView('tracking')}
               >
-                <TrackingTrendIcon size={24} color="#D97706" />
+                <TrackingTrendIcon size={24} color={adminColors.warning.text} />
                 <Text style={mainStyles.actionCardText}>Tracking</Text>
               </TouchableOpacity>
 
@@ -293,7 +293,7 @@ export function TransferDetailScreen({
                 activeOpacity={0.7}
                 onPress={() => setMainSubView('discrepancy')}
               >
-                <DiscrepancyAlertIcon size={24} color="#D97706" />
+                <DiscrepancyAlertIcon size={24} color={adminColors.warning.text} />
                 <Text style={mainStyles.actionCardText}>Discrepancy</Text>
               </TouchableOpacity>
             </View>
@@ -476,135 +476,119 @@ const styles = StyleSheet.create({
 const mainStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 8 : 12,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: Platform.OS === 'ios' ? adminSpacing.sm : adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
-    marginRight: 12,
-    padding: 2,
+    marginRight: adminSpacing.md,
+    padding: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
   },
   scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
   },
   sectionHeading: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#78350F',
-    marginBottom: 12,
-    letterSpacing: -0.1,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: adminSpacing.md,
   },
   gridCol: {
     flex: 1,
   },
   gridLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   gridValBold: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1C1917',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   actionCardsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
   },
   actionCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#EFEAE2',
-    paddingVertical: 18,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   actionCardText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#1C1917',
-    marginTop: 8,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: adminSpacing.sm,
   },
   trackingList: {
-    paddingTop: 4,
+    paddingTop: adminSpacing.xs,
   },
   trackingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   trackingText: {
-    fontSize: 13.5,
+    ...adminType.body,
   },
   trackingTextDone: {
-    fontWeight: '700',
-    color: '#1C1917',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   trackingTextPending: {
-    fontWeight: '600',
-    color: '#6B7280',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   discrepancyAlert: {
-    marginTop: 16,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 16,
+    marginTop: adminSpacing.lg,
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: '#FEE2E2',
+    borderColor: adminColors.danger.border,
   },
   discrepancyAlertText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#EF4444',
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
     lineHeight: 18,
   },
 });

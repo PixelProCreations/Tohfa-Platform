@@ -1181,12 +1181,24 @@ export default function App(): React.JSX.Element {
    */
   const openWarehouseTab = useCallback(
     (tab: WarehouseTab) => {
+      const isMain =
+        params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
+        lastAdminRole === 'MAIN_WH_ADMIN' ||
+        adminShellForRole(params?.['adminRole']) === 'MAIN_WH_ADMIN' ||
+        screen.startsWith('MainWarehouse');
+      if (isMain) {
+        if (tab === 'Home') navigate('MainWarehouseAdminDashboard');
+        else if (tab === 'Receiving') navigate('MainWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'dashboard' });
+        else if (tab === 'Inventory') navigate('MainWarehouseAdminDashboard', { initialTab: 'Inventory' });
+        else if (tab === 'More') navigate('MainWarehouseAdminDashboard', { initialTab: 'More' });
+        return;
+      }
       if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
       else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
       else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
       else if (tab === 'More') navigate('WarehouseMore');
     },
-    [navigate],
+    [navigate, params, lastAdminRole, screen],
   );
 
   const goBack = useCallback(

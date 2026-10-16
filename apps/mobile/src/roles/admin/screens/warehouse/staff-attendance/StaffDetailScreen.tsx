@@ -43,7 +43,7 @@ import {
   staffWarehouseName,
 } from './fixtures';
 import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
-import { STAFF_ROSTER_CODE } from './StaffScreen';
+import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
 function DeliveryTruckIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -76,7 +76,7 @@ export function StaffDetailScreen({
   onViewAttendanceHistory,
   onAssignDelivery,
 }: StaffDetailScreenProps) {
-  if (!can(STAFF_ROSTER_CODE)) {
+  if (!hasStaffRosterAccess(can, scope)) {
     return (
       <WalletScreen title="Staff Detail" onBack={onBack}>
         <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />
@@ -131,10 +131,11 @@ export function StaffDetailScreen({
             ) : null}
             {!isMain ? (
               <WalletButton
-                label="View Attendance"
+                label={isDriver ? 'Edit Driver Profile' : 'View Attendance'}
                 variant="primary"
                 onPress={() => {
-                  if (onViewAttendance) onViewAttendance(member);
+                  if (isDriver && onEditProfile) onEditProfile(member);
+                  else if (onViewAttendance) onViewAttendance(member);
                   else if (onViewAttendanceHistory) onViewAttendanceHistory(member);
                   else if (onEditProfile) onEditProfile(member);
                 }}
@@ -209,7 +210,6 @@ export function StaffDetailScreen({
                 [{ label: 'Failed', value: String(DRIVER_DELIVERY_SUMMARY.failed) }],
               ]}
             />
-            {isMain ? <InfoNote>Only metrics the backend actually defines are shown — no invented performance figures.</InfoNote> : null}
           </>
         ) : (
           <>

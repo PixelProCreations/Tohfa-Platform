@@ -28,6 +28,7 @@ import { CustomerOrdersScreen } from './CustomerOrdersScreen';
 import { CustomerSearchScreen } from './CustomerSearchScreen';
 import { CustomersListScreen } from './CustomersListScreen';
 import { CustomerSupportDetailScreen } from './CustomerSupportDetailScreen';
+import { CustomerFiltersScreen, type CustomerFilterValues } from './CustomerFiltersScreen';
 import { CUSTOMER_WAREHOUSES } from './fixtures';
 import { OrderFiltersScreen } from './OrderFiltersScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
@@ -109,6 +110,7 @@ export function CustomersFlow({
 }: CustomersFlowProps) {
   const [stack, setStack] = useState<CustomersStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // Filters survive the trip to the filter screen and back (one set per list).
+  const [customerFilters, setCustomerFilters] = useState<CustomerFilterValues | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
 
@@ -158,6 +160,25 @@ export function CustomersFlow({
           onNavigateToSearch={() => navigate('CustomerSearch')}
           onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
           onNavigateToNotifications={onNavigateToNotifications}
+          onOpenFilters={() => navigate('CustomerFilters')}
+        />
+      );
+    case 'CustomerFilters':
+      return (
+        <CustomerFiltersScreen
+          {...common}
+          warehouseOptions={warehouseOptions}
+          initialFilters={
+            customerFilters ?? {
+              searchQuery: '',
+              status: 'All',
+              warehouseId: undefined,
+            }
+          }
+          onApplyFilters={(next) => {
+            setCustomerFilters(next);
+            back();
+          }}
         />
       );
     case 'CustomerSearch':

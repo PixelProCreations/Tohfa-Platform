@@ -94,10 +94,15 @@ export const adminColors = {
     icon: hex('adminSuccessOnDark'),
   },
 
-  /** Very light warm orange card/surface tint. */
-  brandTintWarm: hex('adminWarmTint'),
-  /** Deep rust colour for section titles. */
-  rustDeep: hex('adminRustDeep'),
+  /** Header translucent pill (subwarehouse locked warehouse pill on brand background). */
+  headerPill: {
+    bg: 'rgba(255, 255, 255, 0.18)',
+    border: 'rgba(255, 255, 255, 0.35)',
+  },
+  /** Header translucent icon button (e.g. notifications bell) on brand background. */
+  headerIcon: {
+    bg: 'rgba(255, 255, 255, 0.22)',
+  },
 } as const;
 
 export type AdminColors = typeof adminColors;

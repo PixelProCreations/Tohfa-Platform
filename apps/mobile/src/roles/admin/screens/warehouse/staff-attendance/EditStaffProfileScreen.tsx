@@ -31,7 +31,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { ChevronDownIcon, SaveIcon } from './StaffParts';
-import { STAFF_ROSTER_CODE } from './StaffScreen';
+import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
 type EditStep = 'form' | 'confirm' | 'success';
@@ -56,7 +56,7 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
   const [vehicleDetails, setVehicleDetails] = useState(staff?.vehicleDetails ?? '');
   const [statusOpen, setStatusOpen] = useState(false);
 
-  if (!can(STAFF_ROSTER_CODE)) {
+  if (!hasStaffRosterAccess(can, scope)) {
     return (
       <WalletScreen title={titleText} onBack={onBack}>
         <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />

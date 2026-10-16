@@ -11,7 +11,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../admin/theme';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
+import { OverviewDashboardCard } from '../../admin/components';
 import {
   ALERT_RECEIPT_ID,
   GoodsReceivingWizardScreen,
@@ -74,31 +76,31 @@ import {
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary: '#F0562A',
-  primaryDark: '#7A2E14',
-  primarySoft: '#FDF3F0',
-  primaryBorder: '#EEDCD3',
-  pageBg: '#F3EFE9',
-  cardBg: '#FFFFFF',
-  textInk: '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted: '#5F5E5A',
-  border: '#EEDCD3',
-  divider: '#EEDCD3',
-  greenBadge: '#EAF3DE',
-  greenText: '#173404',
-  greenDot: '#173404',
-  amberBadge: '#FEF3E2',
-  amberText: '#854F0B',
-  amberIconBg: '#FEF3E2',
-  redBadge: '#FCEBEB',
-  redText: '#E24B4A',
-  redIconBg: '#FCEBEB',
-  tealBadge: '#E6F1FB',
-  tealText: '#0C447C',
-  tabInactive: '#5F5E5A',
-  tabBorder: '#EEDCD3',
-  linkText: '#F0562A',
+  primary: adminColors.brand,
+  primaryDark: adminColors.brandDeep,
+  primarySoft: adminColors.brandTint,
+  primaryBorder: adminColors.border,
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textInk: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  border: adminColors.border,
+  divider: adminColors.border,
+  greenBadge: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  greenDot: adminColors.success.text,
+  amberBadge: adminColors.warning.bg,
+  amberText: adminColors.warning.text,
+  amberIconBg: adminColors.warning.bg,
+  redBadge: adminColors.danger.bg,
+  redText: adminColors.danger.text,
+  redIconBg: adminColors.danger.bg,
+  tealBadge: adminColors.info.bg,
+  tealText: adminColors.info.text,
+  tabInactive: adminColors.muted,
+  tabBorder: adminColors.border,
+  linkText: adminColors.brand,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -110,12 +112,12 @@ function WarehouseHeaderIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M9 21V12h6v9" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21V12h6v9" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -125,7 +127,7 @@ function BellIcon() {
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -139,7 +141,7 @@ function ProfileHeaderIcon() {
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -151,8 +153,8 @@ function ProfileHeaderIcon() {
 function LockBadgeIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke="#FFFFFF" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={adminColors.onBrand} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -162,7 +164,7 @@ function ClipboardClockIcon({ color = PALETTE.primary }: { color?: string }) {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.8" />
-      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill="#FFF" />
+      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill={adminColors.onBrand} />
       <Path d="M16 14v2l1.5 1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
@@ -202,7 +204,7 @@ function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
 function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill={adminColors.onBrand} />
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
       <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -289,7 +291,7 @@ function ActivityHistoryActionIcon({ color = PALETTE.primary }: { color?: string
   );
 }
 
-function WarningTriangleIcon({ color = '#D97706', size = 16 }: { color?: string; size?: number }) {
+function WarningTriangleIcon({ color = adminColors.warning.text, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -303,7 +305,7 @@ function WarningTriangleIcon({ color = '#D97706', size = 16 }: { color?: string;
   );
 }
 
-function InfoCircleIcon({ color = '#2563EB', size = 16 }: { color?: string; size?: number }) {
+function InfoCircleIcon({ color = adminColors.info.text, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -315,7 +317,7 @@ function InfoCircleIcon({ color = '#2563EB', size = 16 }: { color?: string; size
 function FlaskIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M10 2v7.31L4.69 19.34A2 2 0 0 0 6.44 22h11.12a2 2 0 0 0 1.75-2.66L14 9.31V2M8.5 2h7M7 16h10" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M10 2v7.31L4.69 19.34A2 2 0 0 0 6.44 22h11.12a2 2 0 0 0 1.75-2.66L14 9.31V2M8.5 2h7M7 16h10" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -323,8 +325,8 @@ function FlaskIcon() {
 function ExclamationCircleIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.danger.text} strokeWidth="2" />
+      <Path d="M12 8v4M12 16h.01" stroke={adminColors.danger.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -332,8 +334,8 @@ function ExclamationCircleIcon() {
 function BrokenCrateIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M8 8l3 4-2 4 5-3 2 5" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={adminColors.danger.text} strokeWidth="2" />
+      <Path d="M8 8l3 4-2 4 5-3 2 5" stroke={adminColors.danger.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -341,8 +343,8 @@ function BrokenCrateIcon() {
 function ClockIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#D97706" strokeWidth="2" />
-      <Path d="M12 6v6l4 2" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.warning.text} strokeWidth="2" />
+      <Path d="M12 6v6l4 2" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -350,7 +352,7 @@ function ClockIcon() {
 function ChevronRight() {
   return (
     <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke="#9E9690" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 18l6-6-6-6" stroke={adminColors.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -568,7 +570,7 @@ export function OrdersModule({
   );
 }
 
-function OverviewTruckIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewTruckIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="5" width="14" height="12" rx="2" stroke={color} strokeWidth="1.8" />
@@ -579,7 +581,7 @@ function OverviewTruckIcon({ size = 20, color = '#8B4513' }: { size?: number; co
   );
 }
 
-function OverviewReceiptIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewReceiptIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -588,26 +590,29 @@ function OverviewReceiptIcon({ size = 20, color = '#8B4513' }: { size?: number; 
   );
 }
 
-function OverviewBoxIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewBoxIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="1.8" />
+      <Path d="M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M10 14h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function OverviewRegisterIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewRegisterIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Rect x="6" y="14" width="12" height="8" rx="1" stroke={color} strokeWidth="1.8" />
+      <Path d="M7 9l1.5-6h7L17 9" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 5h6M9 7h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="6" y="14" width="12" height="7" rx="1" stroke={color} strokeWidth="1.8" />
+      <Circle cx="12" cy="17.5" r="1" fill={color} />
     </Svg>
   );
 }
 
-function OverviewCashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewCashIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="1.8" />
@@ -622,45 +627,49 @@ function SubWarehouseTodayOverviewView({
   onOpenReceiving,
   onOpenOrders,
   onOpenInventory,
+  onOpenStockVerification,
   onOpenSales,
   onOpenCash,
+  onNavigateTab,
 }: {
   onBack: () => void;
   onOpenReceiving?: () => void;
   onOpenOrders?: () => void;
   onOpenInventory?: () => void;
+  onOpenStockVerification?: () => void;
   onOpenSales?: () => void;
   onOpenCash?: () => void;
+  onNavigateTab?: (tab: SubWHTab) => void;
 }) {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
-      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.brand }}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <View style={{ backgroundColor: adminColors.brand, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={onBack}
             activeOpacity={0.8}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Go back"
             style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>Today's Overview</Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
+            <Text style={{ fontSize: 21, fontWeight: '800', color: adminColors.onBrand, letterSpacing: -0.3 }}>Today's Overview</Text>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', color: adminColors.onBrand, marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
           </View>
         </View>
       </View>
 
-      <View style={{ flex: 1, backgroundColor: '#F8F5F0' }}>
-        <View style={{ paddingVertical: 12 }}>
+      <View style={{ flex: 1, backgroundColor: adminColors.canvas }}>
+        <View style={{ backgroundColor: adminColors.canvas, paddingVertical: 12 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
             {categories.map((cat) => {
               const active = activeCategory === cat;
@@ -670,53 +679,53 @@ function SubWarehouseTodayOverviewView({
                   onPress={() => setActiveCategory(cat)}
                   activeOpacity={0.8}
                   style={{
-                    backgroundColor: active ? '#F0562A' : '#FFFFFF',
-                    borderRadius: 20,
-                    paddingHorizontal: 18,
-                    paddingVertical: 8,
+                    backgroundColor: active ? adminColors.brand : adminColors.card,
+                    borderRadius: 22,
+                    paddingHorizontal: 20,
+                    paddingVertical: 9,
                     borderWidth: 1,
-                    borderColor: active ? '#F0562A' : '#ECE8E3',
+                    borderColor: active ? adminColors.brand : adminColors.border,
                   }}
                 >
-                  <Text style={{ color: active ? '#FFFFFF' : '#4A4A4A', fontWeight: '700', fontSize: 13 }}>{cat}</Text>
+                  <Text style={{ color: active ? adminColors.onBrand : adminColors.muted, fontWeight: '700', fontSize: 13.5 }}>{cat}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
           {(activeCategory === 'All' || activeCategory === 'Receiving') && (
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={onOpenReceiving}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: adminColors.card,
+                borderRadius: 18,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.border,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <OverviewTruckIcon size={20} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: adminColors.brandTint, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewTruckIcon size={20} color={adminColors.brandDeep} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Receiving</Text>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: adminColors.ink }}>Receiving</Text>
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>03</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>total</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>03</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>total</Text>
                 </View>
                 <View style={{ flex: 1.2 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>01</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>01</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>pending QC</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>02</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>completed</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -727,32 +736,32 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenOrders}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: adminColors.card,
+                borderRadius: 18,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.border,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <OverviewReceiptIcon size={20} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: adminColors.brandTint, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewReceiptIcon size={20} color={adminColors.brandDeep} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Orders</Text>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: adminColors.ink }}>Orders</Text>
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>12</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>pending</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>08</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>08</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>ready</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>27</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>27</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>completed</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -761,30 +770,30 @@ function SubWarehouseTodayOverviewView({
           {(activeCategory === 'All' || activeCategory === 'Inventory') && (
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={onOpenInventory}
+              onPress={onOpenStockVerification ?? onOpenInventory}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: adminColors.card,
+                borderRadius: 18,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.border,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <OverviewBoxIcon size={20} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: adminColors.brandTint, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewBoxIcon size={20} color={adminColors.brandDeep} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Inventory</Text>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: adminColors.ink }}>Inventory</Text>
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>05</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>05</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>low stock</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>verification pending</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>02</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>verification pending</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -795,28 +804,28 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenSales}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: adminColors.card,
+                borderRadius: 18,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.border,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <OverviewRegisterIcon size={20} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: adminColors.brandTint, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewRegisterIcon size={20} color={adminColors.brandDeep} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Sales</Text>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: adminColors.ink }}>Sales</Text>
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>42</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>42</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹24,850</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>₹24,850</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>today's total</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -827,33 +836,84 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenCash}
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: adminColors.card,
+                borderRadius: 18,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.border,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <OverviewCashIcon size={20} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: adminColors.brandTint, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewCashIcon size={20} color={adminColors.brandDeep} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Cash Top-Up</Text>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: adminColors.ink }}>Cash Top-Up</Text>
               </View>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>12</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹18,500</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>₹18,500</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>today's total</Text>
                 </View>
               </View>
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {/* Bottom Navigation Bar */}
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: adminColors.card,
+          borderTopWidth: 1,
+          borderTopColor: adminColors.border,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          justifyContent: 'space-around',
+        }}>
+          <TouchableOpacity
+            style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}
+            onPress={() => (onNavigateTab ? onNavigateTab('Home') : onBack())}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <HomeTabIcon active={false} />
+            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, marginTop: 3 }}>Home</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}
+            onPress={() => (onOpenReceiving ? onOpenReceiving() : onNavigateTab?.('Receiving'))}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <ReceivingTabIcon active={false} />
+            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, marginTop: 3 }}>Receiving</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}
+            onPress={() => (onOpenStockVerification ? onOpenStockVerification() : onOpenInventory ? onOpenInventory() : onNavigateTab?.('Inventory'))}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <InventoryTabIcon active={false} />
+            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, marginTop: 3 }}>Inventory</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}
+            onPress={() => (onNavigateTab ? onNavigateTab('More') : undefined)}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <MoreTabIcon active={false} />
+            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, marginTop: 3 }}>More</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -944,10 +1004,10 @@ function SubWarehouseRecentActivityView({
   });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.brand }}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Brand Orange Header */}
-      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+      <View style={{ backgroundColor: adminColors.brand, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={onBack}
@@ -958,15 +1018,15 @@ function SubWarehouseRecentActivityView({
             style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
           >
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>Recent Activity</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: adminColors.onBrand }}>Recent Activity</Text>
         </View>
       </View>
 
       {/* Main Body */}
-      <View style={{ flex: 1, backgroundColor: '#F8F6F2' }}>
+      <View style={{ flex: 1, backgroundColor: adminColors.canvas }}>
         {/* Filter Buttons */}
         <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 12 }}>
           {/* Date Filter Button */}
@@ -979,22 +1039,22 @@ function SubWarehouseRecentActivityView({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: adminColors.card,
               borderRadius: 12,
               paddingVertical: 9,
               paddingHorizontal: 14,
               borderWidth: 1,
-              borderColor: '#E8E8E8',
-              shadowColor: '#000',
+              borderColor: adminColors.border,
+              shadowColor: adminColors.ink,
               shadowOffset: { width: 0, height: 1 },
               shadowOpacity: 0.05,
               shadowRadius: 2,
               elevation: 1,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{dateFilter}</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: adminColors.ink, marginRight: 8 }}>{dateFilter}</Text>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M6 9l6 6 6-6" stroke={adminColors.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
 
@@ -1008,22 +1068,22 @@ function SubWarehouseRecentActivityView({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: adminColors.card,
               borderRadius: 12,
               paddingVertical: 9,
               paddingHorizontal: 14,
               borderWidth: 1,
-              borderColor: '#E8E8E8',
-              shadowColor: '#000',
+              borderColor: adminColors.border,
+              shadowColor: adminColors.ink,
               shadowOffset: { width: 0, height: 1 },
               shadowOpacity: 0.05,
               shadowRadius: 2,
               elevation: 1,
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{activityFilter}</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: adminColors.ink, marginRight: 8 }}>{activityFilter}</Text>
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M6 9l6 6 6-6" stroke={adminColors.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
         </View>
@@ -1034,13 +1094,13 @@ function SubWarehouseRecentActivityView({
             style={{
               marginHorizontal: 16,
               marginBottom: 10,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: adminColors.card,
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: adminColors.border,
               paddingVertical: 4,
               elevation: 3,
-              shadowColor: '#000',
+              shadowColor: adminColors.ink,
               shadowOpacity: 0.1,
               shadowRadius: 4,
             }}
@@ -1055,10 +1115,10 @@ function SubWarehouseRecentActivityView({
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 16,
-                  backgroundColor: dateFilter === opt ? '#FFF1EB' : '#FFFFFF',
+                  backgroundColor: dateFilter === opt ? adminColors.brandTint : adminColors.card,
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? '#F0562A' : '#1F2937' }}>
+                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? adminColors.brand : adminColors.ink }}>
                   {opt}
                 </Text>
               </TouchableOpacity>
@@ -1072,13 +1132,13 @@ function SubWarehouseRecentActivityView({
             style={{
               marginHorizontal: 16,
               marginBottom: 10,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: adminColors.card,
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: adminColors.border,
               paddingVertical: 4,
               elevation: 3,
-              shadowColor: '#000',
+              shadowColor: adminColors.ink,
               shadowOpacity: 0.1,
               shadowRadius: 4,
             }}
@@ -1093,10 +1153,10 @@ function SubWarehouseRecentActivityView({
                 style={{
                   paddingVertical: 10,
                   paddingHorizontal: 16,
-                  backgroundColor: activityFilter === opt ? '#FFF1EB' : '#FFFFFF',
+                  backgroundColor: activityFilter === opt ? adminColors.brandTint : adminColors.card,
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? '#F0562A' : '#1F2937' }}>
+                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? adminColors.brand : adminColors.ink }}>
                   {opt}
                 </Text>
               </TouchableOpacity>
@@ -1128,13 +1188,13 @@ function SubWarehouseRecentActivityView({
                 activeOpacity={0.75}
                 accessibilityRole="button"
                 style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: adminColors.card,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: '#ECE8E3',
+                  borderColor: adminColors.border,
                   padding: 16,
                   marginBottom: 14,
-                  shadowColor: '#000',
+                  shadowColor: adminColors.ink,
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.04,
                   shadowRadius: 3,
@@ -1143,46 +1203,46 @@ function SubWarehouseRecentActivityView({
               >
                 {/* Header: Title + Badge */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: adminColors.ink }}>{item.title}</Text>
                   <View
                     style={{
-                      backgroundColor: '#FFF1EB',
+                      backgroundColor: adminColors.brandTint,
                       paddingHorizontal: 12,
                       paddingVertical: 3,
                       borderRadius: 14,
                     }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>{item.badge}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: adminColors.brand }}>{item.badge}</Text>
                   </View>
                 </View>
 
                 {/* Subtitle */}
-                <Text style={{ fontSize: 13.5, color: '#6B7280', marginBottom: item.stats ? 12 : 14 }}>
+                <Text style={{ fontSize: 13.5, color: adminColors.muted, marginBottom: item.stats ? 12 : 14 }}>
                   {item.subtitle}
                 </Text>
 
                 {/* Stats Box (Stock Verification) */}
                 {item.stats && (
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.system}</Text>
-                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>SYSTEM</Text>
+                    <View style={{ flex: 1, backgroundColor: adminColors.canvas, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: adminColors.ink }}>{item.stats.system}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: adminColors.muted, marginTop: 2 }}>SYSTEM</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.counted}</Text>
-                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>COUNTED</Text>
+                    <View style={{ flex: 1, backgroundColor: adminColors.canvas, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: adminColors.ink }}>{item.stats.counted}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: adminColors.muted, marginTop: 2 }}>COUNTED</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#EF4444' }}>{item.stats.variance}</Text>
-                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>VARIANCE</Text>
+                    <View style={{ flex: 1, backgroundColor: adminColors.canvas, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: adminColors.danger.text }}>{item.stats.variance}</Text>
+                      <Text style={{ fontSize: 10.5, fontWeight: '600', color: adminColors.muted, marginTop: 2 }}>VARIANCE</Text>
                     </View>
                   </View>
                 )}
 
                 {/* Footer: Author & Time */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.author}</Text>
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.time}</Text>
+                  <Text style={{ fontSize: 12, color: adminColors.muted }}>{item.author}</Text>
+                  <Text style={{ fontSize: 12, color: adminColors.muted }}>{item.time}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -1241,8 +1301,12 @@ export function SubWarehouseAdminDashboardScreen({
     screen: ReceivingRoute;
     params?: ReceivingRouteParams | undefined;
   }>(() => receivingRouteFor(initialReceivingSubView));
+  const [subReceivingRoute, setSubReceivingRoute] = useState<ReceivingRoute>(
+    () => receivingRouteFor(initialReceivingSubView).screen
+  );
   const openReceiving = (screen: ReceivingRoute = 'Dashboard', params?: ReceivingRouteParams) => {
     setReceivingEntry({ screen, params });
+    setSubReceivingRoute(screen);
     setActiveTab('Receiving');
   };
   // Shipment the Home-tab receiving shortcuts open the wizard on.
@@ -1901,7 +1965,7 @@ export function SubWarehouseAdminDashboardScreen({
         setShowCashTopUp(true);
         break;
       case 'staff':
-        setStaffEntry({ screen: 'Attendance', filter: 'All' });
+        setStaffEntry({ screen: 'Staff' });
         break;
       case 'qc':
         setNotificationsEntry({
@@ -2030,7 +2094,13 @@ export function SubWarehouseAdminDashboardScreen({
         onOpenInventory={() => {
           setShowTodayOverview(false);
           setReturnToTabOnBack('Home');
-          setInventoryInitialScreen('M3S01');
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
+        onOpenStockVerification={() => {
+          setShowTodayOverview(false);
+          setReturnToTabOnBack('Home');
+          setInventoryInitialScreen('M3S10');
           setActiveTab('Inventory');
         }}
         onOpenSales={() => {
@@ -2042,6 +2112,19 @@ export function SubWarehouseAdminDashboardScreen({
           setShowTodayOverview(false);
           setReturnToTabOnBack('Home');
           setShowCashTopUp(true);
+        }}
+        onNavigateTab={(tab) => {
+          setShowTodayOverview(false);
+          if (tab === 'Home') {
+            setActiveTab('Home');
+          } else if (tab === 'Receiving') {
+            openReceiving();
+          } else if (tab === 'Inventory') {
+            setInventoryInitialScreen('M3S10');
+            setActiveTab('Inventory');
+          } else if (tab === 'More') {
+            setActiveTab('More');
+          }
         }}
       />
     );
@@ -2057,10 +2140,10 @@ export function SubWarehouseAdminDashboardScreen({
             setReturnToTabOnBack(null);
           }
         }}
-        onOpenReceiving={(shipmentId) => {
+        onOpenReceiving={() => {
           setShowRecentActivity(false);
           setReturnToTabOnBack('Home');
-          openReceiving('ShipmentDetail', { shipmentId: shipmentId ?? 'SHP-000124' });
+          openReceiving('Shipments');
         }}
         onOpenOrders={(orderId) => {
           setShowRecentActivity(false);
@@ -2489,7 +2572,7 @@ export function SubWarehouseAdminDashboardScreen({
             bounces={true}
             nestedScrollEnabled={true}
           >
-            {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+            {/* ─── Top Brand Header Banner ─── */}
             <View style={styles.headerBanner}>
               <View style={styles.headerTopRow}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
@@ -2553,7 +2636,9 @@ export function SubWarehouseAdminDashboardScreen({
 
               <View style={styles.assignedWarehousePill}>
                 <LockBadgeIcon />
-                <Text style={styles.assignedWarehouseText}>Assigned Warehouse · Cannot switch</Text>
+                <Text style={styles.assignedWarehouseText}>
+                  {`${(warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '').includes('Warehouse') ? warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '') : `${warehouseLabel.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '')} Warehouse`)} · Assigned Warehouse`}
+                </Text>
               </View>
             </View>
 
@@ -2591,91 +2676,71 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
               <View style={styles.overviewGrid}>
                 {canOrders ? (
-                <>
-                {/* 1. Pending Orders */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
+                  <>
+                    {/* 1. Pending Orders */}
+                    <OverviewDashboardCard
+                      value="12"
+                      title="Pending Orders"
+                      subtitle="8 need action"
+                      icon="orders"
                       onPress={() => {
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
-                  <View style={styles.overviewIconWrap}>
-                    <ClipboardClockIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>12</Text>
-                  <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>8 need action</Text>
-                    </TouchableOpacity>
+                    />
 
-                {/* 2. Ready for Pickup */}
-                    <TouchableOpacity
-                      style={styles.overviewCard}
+                    {/* 2. Ready for Pickup */}
+                    <OverviewDashboardCard
+                      value="08"
+                      title="Ready for Pickup"
+                      subtitle="3 customers expected"
+                      icon="pickup"
                       onPress={() => {
                         setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S09');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                    >
-                  <View style={styles.overviewIconWrap}>
-                    <PersonCheckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>08</Text>
-                  <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>3 customers expected</Text>
-                    </TouchableOpacity>
-                </>
+                    />
+                  </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <OverviewDashboardCard
+                  value={String(receivingKpiCount).padStart(2, '0')}
+                  title="Today's Receiving"
+                  subtitle={`${awaitingQcCount} awaiting QC`}
+                  icon="receiving"
                   onPress={() => {
                     setReturnToTabOnBack('Home');
                     openReceiving('Dashboard');
                   }}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <View style={styles.overviewIconWrap}>
-                    <DeliveryTruckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{String(receivingKpiCount).padStart(2, '0')}</Text>
-                  <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{awaitingQcCount} awaiting QC · {completedShipmentsCount} completed</Text>
-                </TouchableOpacity>
+                />
 
-                {/* 4. Low Stock Items */}
+                {/* 4. Low Stock Items (Stock Verification) */}
                 {canStock ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
+                  <OverviewDashboardCard
+                    value="05"
+                    title="Low Stock Items"
+                    subtitle="Needs attention"
+                    icon="inventory"
+                    tone="danger"
                     onPress={() => {
                       setReturnToTabOnBack('Home');
-                      setInventoryInitialScreen('M3S09');
+                      setInventoryInitialScreen('M3S10');
                       setActiveTab('Inventory');
                     }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
-                  <View style={styles.overviewIconWrap}>
-                    <BoxIcon color={PALETTE.primary} />
-                  </View>
-                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
-                  <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                  <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                  </TouchableOpacity>
+                  />
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                  <TouchableOpacity
-                    style={styles.overviewCard}
+                  <OverviewDashboardCard
+                    value="₹24,850"
+                    title="Today's Sales"
+                    subtitle="42 transactions"
+                    icon="sales"
                     onPress={() => {
                       if (onNavigate) {
                         onNavigate('SubWarehouseSales');
@@ -2684,46 +2749,27 @@ export function SubWarehouseAdminDashboardScreen({
                         setShowSalesScreen(true);
                       }
                     }}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                  >
-                  <View style={styles.overviewIconWrap}>
-                    <BanknotesIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>₹24,850</Text>
-                  <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>42 transactions</Text>
-                  </TouchableOpacity>
+                  />
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <OverviewDashboardCard
+                  value="₹18,500"
+                  title="Cash Top-Ups"
+                  subtitle="12 transactions"
+                  icon="cash"
                   onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseDailyCash');
-                    } else {
-                      setReturnToTabOnBack('Home');
-                      setStorageEntry({ screen: 'Operations', closeOnBack: true });
-                    }
+                    setReturnToTabOnBack('Home');
+                    setShowCashTopUp(true);
                   }}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <View style={styles.overviewIconWrap}>
-                    <WalletIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>₹18,500</Text>
-                  <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>12 transactions</Text>
-                </TouchableOpacity>
+                />
               </View>
 
               {/* 3. Quick Actions */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
               <View style={styles.quickActionsGrid}>
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => setReceivingWizardStep('start_receiving')}
                 >
                   <ReceiveGoodsActionIcon />
@@ -2731,7 +2777,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2747,7 +2793,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 {canOrders ? (
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
                     setReturnToTabOnBack('Home');
                     setShowOrdersModule(true);
@@ -2759,13 +2805,10 @@ export function SubWarehouseAdminDashboardScreen({
                 ) : null}
 
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('WarehouseWalletOperations');
-                    } else {
-                      navigateTo('More');
-                    }
+                    setReturnToTabOnBack('Home');
+                    setShowCashTopUp(true);
                   }}
                 >
                   <CashTopUpActionIcon />
@@ -2774,9 +2817,10 @@ export function SubWarehouseAdminDashboardScreen({
 
                 {canStock ? (
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
                     setReturnToTabOnBack('Home');
+                    setInventoryInitialScreen('M3S10');
                     setActiveTab('Inventory');
                   }}
                 >
@@ -2786,7 +2830,7 @@ export function SubWarehouseAdminDashboardScreen({
                 ) : null}
 
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
                     setReturnToTabOnBack('Home');
                     setShowRecentActivity(true);
@@ -2799,7 +2843,7 @@ export function SubWarehouseAdminDashboardScreen({
 
               {/* 4. Needs Attention */}
               <View style={styles.sectionHeaderRow}>
-                <WarningTriangleIcon color="#D97706" size={17} />
+                <WarningTriangleIcon color={adminColors.warning.text} size={17} />
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Needs Attention</Text>
               </View>
 
@@ -2835,7 +2879,11 @@ export function SubWarehouseAdminDashboardScreen({
                   </View>
                 </View>
 
-                <View style={styles.alertCard}>
+                <TouchableOpacity
+                  style={styles.alertCard}
+                  onPress={() => setReceivingWizardStep('damage_mismatch')}
+                  activeOpacity={0.7}
+                >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
                     <BrokenCrateIcon />
                   </View>
@@ -2843,7 +2891,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>Damage Report</Text>
                     <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {canOrders ? (
                 <View style={styles.alertCard}>
@@ -2858,15 +2906,23 @@ export function SubWarehouseAdminDashboardScreen({
                 ) : null}
 
                 {canStock ? (
-                <View style={styles.alertCard}>
+                <TouchableOpacity
+                  style={styles.alertCard}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setInventoryInitialScreen('M3S10');
+                    setActiveTab('Inventory');
+                  }}
+                  activeOpacity={0.7}
+                >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <BoxIcon color="#D97706" />
+                    <BoxIcon color={adminColors.warning.text} />
                   </View>
                   <View style={styles.alertCardTextWrap}>
                     <Text style={styles.alertCardTitle}>Low Stock</Text>
                     <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
                 ) : null}
               </View>
 
@@ -2877,7 +2933,16 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
 
               <View style={styles.cardStack}>
-                <View style={styles.orderReceivingCard}>
+                <TouchableOpacity
+                  style={styles.orderReceivingCard}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    openReceiving('Shipments');
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel="View incoming shipments for GR-00124"
+                >
                   <View style={styles.cardHeaderRow}>
                     <Text style={styles.itemCodeBold}>GR-00124</Text>
                     <View style={styles.awaitingQcBadge}>
@@ -2890,7 +2955,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.detailText}>Expected: 150 KG</Text>
                     <Text style={styles.timeText}>09:40 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.orderReceivingCard}>
                   <View style={styles.cardHeaderRow}>
@@ -3038,17 +3103,26 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Low Stock</Text>
-                  <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
+                  <Text style={[styles.infoTableValue, { color: adminColors.danger.text }]}>05</Text>
                 </View>
                 {/* Ported from the absorbed Today's Overview (Inventory card). */}
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                <TouchableOpacity
+                  style={[styles.infoTableRow, { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    setInventoryInitialScreen('M3S10');
+                    setActiveTab('Inventory');
+                  }}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.infoTableLabel}>Verification Pending</Text>
                   <Text style={styles.infoTableValue}>02</Text>
-                </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
                   onPress={() => {
                     setReturnToTabOnBack('Home');
+                    setInventoryInitialScreen('M3S10');
                     setActiveTab('Inventory');
                   }}
                   activeOpacity={0.7}
@@ -3171,8 +3245,17 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
 
               <View style={styles.activityCardContainer}>
-                {/* Activity 1 */}
-                <View style={styles.activityItemRow}>
+                {/* Activity 1: Goods Received */}
+                <TouchableOpacity
+                  style={styles.activityItemRow}
+                  onPress={() => {
+                    setReturnToTabOnBack('Home');
+                    openReceiving('Shipments');
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel="View incoming shipments for Goods Received"
+                >
                   <View style={styles.activityIconBox}>
                     <ReceiveGoodsActionIcon />
                   </View>
@@ -3181,7 +3264,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
                     <Text style={styles.activityTimeText}>10:42 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {canOrders ? (
                 <>
@@ -3220,18 +3303,18 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
               <View style={styles.alertsContainerCard}>
                 <View style={styles.alertBulletRow}>
-                  <WarningTriangleIcon color="#D97706" size={16} />
+                  <WarningTriangleIcon color={adminColors.warning.text} size={16} />
                   <Text style={styles.alertBulletText}>2 QC checks pending</Text>
                 </View>
                 {canStock ? (
                   <View style={styles.alertBulletRow}>
-                    <WarningTriangleIcon color="#D97706" size={16} />
+                    <WarningTriangleIcon color={adminColors.warning.text} size={16} />
                     <Text style={styles.alertBulletText}>5 low-stock products</Text>
                   </View>
                 ) : null}
                 {canOrders ? (
                   <View style={styles.alertBulletRow}>
-                    <InfoCircleIcon color="#2563EB" size={16} />
+                    <InfoCircleIcon color={adminColors.info.text} size={16} />
                     <Text style={styles.alertBulletText}>3 pickups scheduled today</Text>
                   </View>
                 ) : null}
@@ -3250,10 +3333,12 @@ export function SubWarehouseAdminDashboardScreen({
             initialScreen={receivingEntry.screen}
             initialParams={receivingEntry.params}
             receiverName={userName}
+            onScreenChange={(route) => setSubReceivingRoute(route)}
             onBack={() => {
               setActiveTab(returnToTabOnBack || 'Home');
               setReturnToTabOnBack(null);
               setReceivingEntry({ screen: 'Dashboard' });
+              setSubReceivingRoute('Dashboard');
             }}
             onTabChange={(tab) => {
               if (tab === 'Receiving') openReceiving();
@@ -3452,8 +3537,9 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Home; the Receiving flow draws its own on its dashboard) ─── */}
-      {activeTab === 'Home' && !showOrdersModule && (
+      {/* ─── Bottom Navigation Bar (Home, More ONLY — Receiving and Inventory render their own) ─── */}
+      {((activeTab === 'Home' && !showOrdersModule) ||
+        (activeTab === 'More' && !showOrdersModule)) && (
         <View style={styles.bottomTabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -3473,8 +3559,8 @@ export function SubWarehouseAdminDashboardScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.tabLabel}>Receiving</Text>
+            <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
+            <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
           </TouchableOpacity>
 
           <Pressable
@@ -3482,8 +3568,8 @@ export function SubWarehouseAdminDashboardScreen({
             onPress={() => navigateTo('Inventory')}
             accessibilityRole="tab"
           >
-            <InventoryTabIcon active={false} />
-            <Text style={styles.tabLabel}>Inventory</Text>
+            <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
+            <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
           </Pressable>
 
           <TouchableOpacity
@@ -3493,8 +3579,8 @@ export function SubWarehouseAdminDashboardScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MoreTabIcon active={false} />
-            <Text style={styles.tabLabel}>More</Text>
+            <MoreTabIcon active={activeTab === 'More'} />
+            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -3536,7 +3622,7 @@ const styles = StyleSheet.create({
   headerGreeting: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FFF2EE',
+    color: adminColors.brandTint,
     marginBottom: 3,
   },
   warehouseNameRow: {
@@ -3547,7 +3633,7 @@ const styles = StyleSheet.create({
   warehouseNameText: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.4,
   },
   headerActions: {
@@ -3556,10 +3642,10 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3568,7 +3654,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 3,
     right: 3,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.danger.text,
     borderRadius: 8,
     minWidth: 15,
     height: 15,
@@ -3581,11 +3667,11 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   headerDate: {
     fontSize: 12,
-    color: '#FFE2D9',
+    color: adminColors.brandTint,
     marginTop: 5,
     marginBottom: 8,
   },
@@ -3594,17 +3680,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderRadius: 16,
+    backgroundColor: adminColors.headerPill.bg,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: 11,
-    paddingVertical: 4.5,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   assignedWarehouseText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
 
   // ─── Status Card ───────────────────────────────────────────────────────────
@@ -3618,7 +3704,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     marginBottom: 14,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3718,7 +3804,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3767,7 +3853,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,

@@ -126,8 +126,15 @@ export function InventoryFlow({
       case 'M3S01':
         return <InventoryDashboardScreen {...common} onInitiateTransfer={onInitiateTransfer ?? (() => navigate('Transfers'))} />;
       case 'Transfers':
+      case 'transfers':
       case 'inter_warehouse_transfer':
         return <TransfersFlow scope={scope} can={can} initialScreen="Transfers" onBack={back} />;
+      case 'TransferReceiving':
+      case 'transfer_receiving':
+        return <TransfersFlow scope={scope} can={can} initialScreen="TransferReceiving" onBack={back} />;
+      case 'InitiateNewTransfer':
+      case 'initiate_new_transfer':
+        return <TransfersFlow scope={scope} can={can} initialScreen="InitiateNewTransfer" onBack={back} />;
       case 'M3S02':
         return <StockListScreen {...common} initialTab={params?.initialTab} />;
       case 'M3S03':

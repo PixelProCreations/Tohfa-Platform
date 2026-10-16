@@ -29,6 +29,7 @@ import { CustomersFlow } from '../customers';
 import { StaffFlow } from '../staff-attendance';
 import { MainWarehouseAdminScreen } from '../../dashboard/MainWarehouseAdminScreen';
 import { WarehouseAdminFlow } from '../warehouse-admin';
+import { WarehouseSelector } from '../inventory';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
@@ -564,6 +565,7 @@ export function MoreScreen({
   onLogout,
 }: MoreScreenProps) {
   const isMain = scope.warehouseId === undefined;
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   // Derived from scope, never hard-coded: Main spans every warehouse.
   const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
   const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
@@ -926,12 +928,21 @@ export function MoreScreen({
 
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>More</Text>
-            <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>
+            {!isMain && <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>}
           </View>
         </View>
+        {isMain && (
+          <View style={{ marginTop: 10 }}>
+            <WarehouseSelector
+              scope={scope}
+              selectedId={selectedWarehouseId}
+              onSelect={(id) => setSelectedWarehouseId(id)}
+            />
+          </View>
+        )}
       </View>
 
-      {/* â”€â”€â”€ Main Content Scroll â”€â”€â”€ */}
+      {/* Main Content Scroll */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -1037,44 +1048,6 @@ export function MoreScreen({
 
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
-
-      {/* â”€â”€â”€ Bottom Navigation Bar â”€â”€â”€ */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          activeOpacity={1}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -1096,10 +1069,8 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },

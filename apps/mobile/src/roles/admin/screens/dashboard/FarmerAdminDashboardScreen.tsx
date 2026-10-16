@@ -27,6 +27,11 @@ import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
 import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
 import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
+import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
+import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
+import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
+import { FarmerDisputeResolutionScreen } from './FarmerDisputeResolutionScreen';
+import { type DisputeItem, INITIAL_DISPUTES } from './fixtures';
 import { FarmersDirectoryScreen } from './FarmersDirectoryScreen';
 import { FarmerPurchasesScreen } from './FarmerPurchasesScreen';
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
@@ -445,7 +450,15 @@ export function FarmerAdminDashboardScreen({
     | 'markup_breakdown'
     | 'audit_schedule'
     | 'farmer_ratings'
+    | 'disputes'
+    | 'dispute_detail'
+    | 'dispute_timeline'
+    | 'dispute_resolution'
   >('none');
+  const [moreSubScreen, setMoreSubScreen] = useState<'menu' | 'disputes' | 'dispute_detail' | 'dispute_timeline' | 'dispute_resolution'>('menu');
+  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | undefined>(undefined);
+  const [disputeDetailReturnTo, setDisputeDetailReturnTo] = useState<'menu' | 'disputes'>('menu');
+  const [timelineReturnTo, setTimelineReturnTo] = useState<'menu' | 'disputes' | 'dispute_detail'>('dispute_detail');
   const [activeHandoverId, setActiveHandoverId] = useState<string>('HO-2026-0002');
   const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
   const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
@@ -456,6 +469,7 @@ export function FarmerAdminDashboardScreen({
   const [listingInitialFilter, setListingInitialFilter] = useState<'all' | 'pending' | 'counter'>('all');
   const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders'>('none');
   const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
+  const [purchaseOrderReturnSubView, setPurchaseOrderReturnSubView] = useState<'purchase_orders' | 'dispute_detail'>('purchase_orders');
   const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report'>('calendar');
   const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
   const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
@@ -605,12 +619,13 @@ export function FarmerAdminDashboardScreen({
           setSubView('none');
           setActiveTab('Audits');
         }}
-        onViewDispute={() =>
-          setModalItem({
-            title: 'Dispute Mediation Desk',
-            content: 'Boundary irrigation runoff disagreement between Farm #FR-00214 and Farm #FR-00215 in Ooty North.',
-          })
-        }
+        onViewDispute={() => {
+          setSelectedDispute(INITIAL_DISPUTES[0]);
+          setDisputeDetailReturnTo('menu');
+          setSubView('none');
+          setActiveTab('More');
+          setMoreSubScreen('dispute_detail');
+        }}
       />
     );
   }
@@ -691,7 +706,15 @@ export function FarmerAdminDashboardScreen({
     return (
       <PurchaseOrderDetailScreen
         orderId={activeOrderId}
-        onBack={() => setSubView('purchase_orders')}
+        onBack={() => {
+          if (purchaseOrderReturnSubView === 'dispute_detail') {
+            setSubView('none');
+            setActiveTab('More');
+            setMoreSubScreen('dispute_detail');
+          } else {
+            setSubView('purchase_orders');
+          }
+        }}
         onViewOriginalListing={() => {
           setProduceReturnSubView('purchase_orders');
           setSubView('produce_listings');
@@ -1006,6 +1029,69 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
+  // Module Disputes & Mediation
+  if (subView === 'disputes') {
+    return (
+      <FarmerDisputesMediationScreen
+        onBack={() => setSubView('none')}
+        onOpenNotifications={() => setSubView('notifications')}
+        onViewDetails={(item) => {
+          setSelectedDispute(item);
+          setSubView('dispute_detail');
+        }}
+        onViewTimeline={(item) => {
+          setSelectedDispute(item);
+          setSubView('dispute_timeline');
+        }}
+      />
+    );
+  }
+
+  if (subView === 'dispute_detail') {
+    return (
+      <FarmerDisputeDetailScreen
+        dispute={selectedDispute}
+        onBack={() => setSubView('disputes')}
+        onNavigateOrder={(orderId) => {
+          setActiveOrderId(orderId);
+          setPurchaseOrderReturnSubView('dispute_detail');
+          setSubView('purchase_order_detail');
+        }}
+        onViewTimeline={(item) => {
+          if (item) setSelectedDispute(item);
+          setSubView('dispute_timeline');
+        }}
+        onNavigateResolve={(item) => {
+          if (item) setSelectedDispute(item);
+          setSubView('dispute_resolution');
+        }}
+      />
+    );
+  }
+
+  if (subView === 'dispute_timeline') {
+    return (
+      <FarmerDisputeTimelineScreen
+        dispute={selectedDispute}
+        onBack={() => setSubView('dispute_detail')}
+        onViewDisputeDetail={() => setSubView('dispute_detail')}
+      />
+    );
+  }
+
+  if (subView === 'dispute_resolution') {
+    return (
+      <FarmerDisputeResolutionScreen
+        dispute={selectedDispute}
+        onBack={() => setSubView('dispute_detail')}
+        onResolvedSuccess={(updated) => {
+          setSelectedDispute(updated);
+          setSubView('disputes');
+        }}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1112,13 +1198,22 @@ export function FarmerAdminDashboardScreen({
               </View>
 
               {/* Tile 4: Open Disputes */}
-              <View style={styles.kpiCard}>
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => {
+                  setActiveTab('More');
+                  setSelectedDispute(INITIAL_DISPUTES[0]);
+                  setDisputeDetailReturnTo('menu');
+                  setMoreSubScreen('dispute_detail');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.kpiLabel}>OPEN DISPUTES</Text>
                 <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>4</Text>
                 <Text style={[styles.kpiSub, { color: adminColors.danger.text, fontWeight: '700' }]}>
                   2 need attention
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* 4. Handover History Section */}
@@ -1237,7 +1332,16 @@ export function FarmerAdminDashboardScreen({
             </View>
 
             {/* Attention Item 4: Farmer Dispute */}
-            <View style={styles.attentionCard}>
+            <TouchableOpacity
+              style={styles.attentionCard}
+              onPress={() => {
+                setActiveTab('More');
+                setSelectedDispute(INITIAL_DISPUTES[0]);
+                setDisputeDetailReturnTo('menu');
+                setMoreSubScreen('dispute_detail');
+              }}
+              activeOpacity={0.8}
+            >
               <View style={styles.accentStripe} />
               <View style={styles.attentionHeaderRow}>
                 <View style={styles.attentionIconCircle}>
@@ -1252,7 +1356,7 @@ export function FarmerAdminDashboardScreen({
               <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
                 <Text style={styles.attentionActionLink}>View Dispute →</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* 6. Farmer Product Listings Section */}
             <TouchableOpacity
@@ -1431,12 +1535,12 @@ export function FarmerAdminDashboardScreen({
               {/* Row 2, Col 1: Review Disputes */}
               <TouchableOpacity
                 style={styles.quickCard}
-                onPress={() =>
-                  setModalItem({
-                    title: 'Review Disputes',
-                    content: '4 active farmer mediation cases open in Nilgiris cooperative zone.',
-                  })
-                }
+                onPress={() => {
+                  setActiveTab('More');
+                  setSelectedDispute(INITIAL_DISPUTES[0]);
+                  setDisputeDetailReturnTo('menu');
+                  setMoreSubScreen('dispute_detail');
+                }}
                 activeOpacity={0.75}
               >
                 <ExactScalesIcon size={24} color={adminColors.brand} />
@@ -1528,13 +1632,16 @@ export function FarmerAdminDashboardScreen({
         )}
 
         {/* ─── More Tab (Screenshot 5) ─── */}
-        {activeTab === 'More' && (
+        {activeTab === 'More' && moreSubScreen === 'menu' && (
           <FarmerAdminMoreScreen
             onBack={() => setActiveTab('Home')}
             onNavigatePurchases={() => setSubView('purchases')}
             onNavigateInputsPest={() => setSubView('inputs_pest')}
             onNavigateMarketPricing={() => setSubView('market_pricing')}
             onNavigateProduceListings={() => setSubView('produce_listings')}
+            onNavigateDisputes={() => {
+              setMoreSubScreen('disputes');
+            }}
             onNavigateProfile={() => setSubView('profile')}
             onNavigateNotifications={() => setSubView('notifications')}
             onSwitchRole={() =>
@@ -1551,10 +1658,7 @@ export function FarmerAdminDashboardScreen({
               } else if (title === 'Ratings') {
                 setSubView('farmer_ratings');
               } else if (title === 'Disputes') {
-                setModalItem({
-                  title: 'Disputes Mediation',
-                  content: '4 active farmer mediation cases open in Nilgiris cooperative zone.',
-                });
+                setMoreSubScreen('disputes');
               } else if (title === 'Community') {
                 setModalItem({
                   title: 'Community Forum',
@@ -1566,6 +1670,66 @@ export function FarmerAdminDashboardScreen({
                   content: `Detailed management and parameters for ${title}.`,
                 });
               }
+            }}
+          />
+        )}
+
+        {activeTab === 'More' && moreSubScreen === 'disputes' && (
+          <FarmerDisputesMediationScreen
+            onBack={() => setMoreSubScreen('menu')}
+            onOpenNotifications={() => setSubView('notifications')}
+            onViewDetails={(item) => {
+              setSelectedDispute(item);
+              setDisputeDetailReturnTo('disputes');
+              setMoreSubScreen('dispute_detail');
+            }}
+            onViewTimeline={(item) => {
+              setSelectedDispute(item);
+              setTimelineReturnTo('disputes');
+              setMoreSubScreen('dispute_timeline');
+            }}
+          />
+        )}
+
+        {activeTab === 'More' && moreSubScreen === 'dispute_detail' && (
+          <FarmerDisputeDetailScreen
+            dispute={selectedDispute}
+            onBack={() => setMoreSubScreen(disputeDetailReturnTo)}
+            onNavigateOrder={(orderId) => {
+              setActiveOrderId(orderId);
+              setPurchaseOrderReturnSubView('dispute_detail');
+              setSubView('purchase_order_detail');
+            }}
+            onViewTimeline={(item) => {
+              if (item) setSelectedDispute(item);
+              setTimelineReturnTo('dispute_detail');
+              setMoreSubScreen('dispute_timeline');
+            }}
+            onNavigateResolve={(item) => {
+              if (item) setSelectedDispute(item);
+              setMoreSubScreen('dispute_resolution');
+            }}
+          />
+        )}
+
+        {activeTab === 'More' && moreSubScreen === 'dispute_timeline' && (
+          <FarmerDisputeTimelineScreen
+            dispute={selectedDispute}
+            onBack={() => setMoreSubScreen(timelineReturnTo)}
+            onViewDisputeDetail={() => {
+              setDisputeDetailReturnTo('disputes');
+              setMoreSubScreen('dispute_detail');
+            }}
+          />
+        )}
+
+        {activeTab === 'More' && moreSubScreen === 'dispute_resolution' && (
+          <FarmerDisputeResolutionScreen
+            dispute={selectedDispute}
+            onBack={() => setMoreSubScreen('dispute_detail')}
+            onResolvedSuccess={(updated) => {
+              setSelectedDispute(updated);
+              setMoreSubScreen('disputes');
             }}
           />
         )}
@@ -1594,57 +1758,65 @@ export function FarmerAdminDashboardScreen({
       </Modal>
 
       {/* ─── Bottom Tab Bar (5 Tabs) ─── */}
-      <View style={styles.tabBar}>
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Home')}
-          accessibilityRole="tab"
-          accessibilityLabel="Home"
-        >
-          <TabHomeIcon active={activeTab === 'Home'} />
-          <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-        </Pressable>
+      {!(activeTab === 'More' && (moreSubScreen === 'dispute_detail' || moreSubScreen === 'dispute_timeline' || moreSubScreen === 'dispute_resolution')) && (
+        <View style={styles.tabBar}>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Home')}
+            accessibilityRole="tab"
+            accessibilityLabel="Home"
+          >
+            <TabHomeIcon active={activeTab === 'Home'} />
+            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Farmers')}
-          accessibilityRole="tab"
-          accessibilityLabel="Farmers"
-        >
-          <TabFarmersIcon active={activeTab === 'Farmers'} />
-          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Farmers')}
+            accessibilityRole="tab"
+            accessibilityLabel="Farmers"
+          >
+            <TabFarmersIcon active={activeTab === 'Farmers'} />
+            <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Produce')}
-          accessibilityRole="tab"
-          accessibilityLabel="Produce"
-        >
-          <TabProduceIcon active={activeTab === 'Produce'} />
-          <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Produce')}
+            accessibilityRole="tab"
+            accessibilityLabel="Produce"
+          >
+            <TabProduceIcon active={activeTab === 'Produce'} />
+            <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Audits')}
-          accessibilityRole="tab"
-          accessibilityLabel="Audits"
-        >
-          <TabAuditsIcon active={activeTab === 'Audits'} />
-          <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Audits')}
+            accessibilityRole="tab"
+            accessibilityLabel="Audits"
+          >
+            <TabAuditsIcon active={activeTab === 'Audits'} />
+            <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('More')}
-          accessibilityRole="tab"
-          accessibilityLabel="More"
-        >
-          <TabMoreIcon active={activeTab === 'More'} />
-          <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              if (activeTab === 'More' && moreSubScreen !== 'menu') {
+                setMoreSubScreen('menu');
+              } else {
+                setActiveTab('More');
+              }
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="More"
+          >
+            <TabMoreIcon active={activeTab === 'More'} />
+            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

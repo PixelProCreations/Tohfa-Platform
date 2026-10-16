@@ -152,14 +152,6 @@ export function StorageInfoScreen({
             <CapacityCell label="Available Capacity" value={formatKg(Math.max(0, totalKg - usedKg))} />
           </View>
         </Card>
-        {isMain ? (
-          <>
-            <View style={warehouseProfileLayout.gap} />
-            <InfoNote>
-              Capacity is displayed here, not edited. Capacity limits are set in Warehouse Settings.
-            </InfoNote>
-          </>
-        ) : null}
 
         {isMain ? (
           <>
@@ -175,7 +167,7 @@ export function StorageInfoScreen({
           </>
         ) : null}
 
-        {visibleSections.length > 0 ? (
+        {isMain && visibleSections.length > 0 ? (
           <>
             <SectionTitle>Storage Sections</SectionTitle>
             {sectionTypes.map((type) => (
@@ -201,11 +193,6 @@ export function StorageInfoScreen({
                   ))}
               </View>
             ))}
-            {isMain ? (
-              <InfoNote>
-                Capacity and occupancy figures are read from the warehouse's storage configuration, not entered here.
-              </InfoNote>
-            ) : null}
           </>
         ) : null}
 

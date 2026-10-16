@@ -23,6 +23,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import {
   CalendarIcon,
   EmptyState,
@@ -40,10 +41,34 @@ import {
 import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
 import { StaffFiltersScreen } from './StaffFiltersScreen';
-import type { StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import type { PermissionCheck, StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
-/** rbac code for the warehouse roster (not admin.staff.list_view, the admin-account list). */
-export const STAFF_ROSTER_CODE = 'warehouse.staff.list_view';
+/** rbac code for the warehouse roster: admin.staff.list_view (MAIN_WH_ADMIN). */
+export const STAFF_ROSTER_CODE = 'admin.staff.list_view';
+export const LEGACY_STAFF_ROSTER_CODE = 'warehouse.staff.list_view';
+
+/**
+ * Access check for the warehouse workforce roster.
+ *
+ * MAIN_WH_ADMIN holds `admin.staff.list_view` (all warehouses).
+ * SUB_WH_ADMIN is scope-locked to its assigned warehouse (`warehouse.own.view`).
+ * In addition, legacy/custom tokens holding `warehouse.staff.list_view` or
+ * any warehouse-level admin scope are permitted to view the roster.
+ */
+export function hasStaffRosterAccess(can: PermissionCheck, scope?: WarehouseScope): boolean {
+  if (can(STAFF_ROSTER_CODE) || can(LEGACY_STAFF_ROSTER_CODE) || can('warehouse.staff.view')) {
+    return true;
+  }
+  // Sub Warehouse Admin holding own-warehouse view or activity view
+  if (can('warehouse.own.view') || can('warehouse.activity.view')) {
+    return true;
+  }
+  // Scope with warehouse assignment (Sub Warehouse scope)
+  if (scope?.warehouseId !== undefined) {
+    return true;
+  }
+  return false;
+}
 
 type RosterFilter = 'All' | 'Warehouse Staff' | 'Drivers';
 const FILTERS: readonly RosterFilter[] = ['All', 'Warehouse Staff', 'Drivers'];
@@ -160,7 +185,7 @@ export function StaffScreen({
     </WalletScreen>
   );
 
-  if (!can(STAFF_ROSTER_CODE)) {
+  if (!hasStaffRosterAccess(can, scope)) {
     return frame(
       <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />,
     );
@@ -231,32 +256,33 @@ export function StaffScreen({
 
 
       <View style={styles.kpiGrid}>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
-            <Text style={styles.kpiValue}>{isMain ? '12' : scoped.length}</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.success.text }]}>
-              {isMain ? '9' : count((m) => m.attendance === 'Present')}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ABSENT</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>
-              {isMain ? '2' : count((m) => m.attendance === 'Absent')}
-            </Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>ON LEAVE</Text>
-            <Text style={[styles.kpiValue, { color: adminColors.warning.text }]}>
-              {isMain ? '1' : count((m) => m.attendance === 'On Leave')}
-            </Text>
-          </View>
-        </View>
+        <OverviewDashboardCard
+          value="12"
+          title="Total Staff"
+          subtitle="All rostered"
+          icon="orders"
+        />
+        <OverviewDashboardCard
+          value="9"
+          title="Present Today"
+          subtitle="On duty"
+          icon="pickup"
+          tone="success"
+        />
+        <OverviewDashboardCard
+          value="2"
+          title="Absent"
+          subtitle="Needs attention"
+          icon="alert"
+          tone="danger"
+        />
+        <OverviewDashboardCard
+          value="1"
+          title="On Leave"
+          subtitle="Approved leave"
+          icon="receiving"
+          tone="warning"
+        />
       </View>
 
       {isMain ? (
@@ -268,7 +294,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <CalendarIcon size={22} color="#F0562A" />
+              <CalendarIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
@@ -279,7 +305,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <HistoryIcon size={22} color="#F0562A" />
+              <HistoryIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>
           ) : null}
@@ -295,14 +321,14 @@ export function StaffScreen({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFF1EB',
+                backgroundColor: adminColors.brandTint,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
-                borderRadius: 14,
+                borderRadius: adminRadius.lg,
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+              <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.brand }}>
                 Attendance: {attendanceFilter} ✕
               </Text>
             </TouchableOpacity>
@@ -314,14 +340,14 @@ export function StaffScreen({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: '#FFF1EB',
+                backgroundColor: adminColors.brandTint,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
-                borderRadius: 14,
+                borderRadius: adminRadius.lg,
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+              <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.brand }}>
                 Status: {statusFilter} ✕
               </Text>
             </TouchableOpacity>
@@ -383,7 +409,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <CalendarIcon size={22} color="#F0562A" />
+              <CalendarIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
@@ -394,7 +420,7 @@ export function StaffScreen({
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <HistoryIcon size={22} color="#F0562A" />
+              <HistoryIcon size={22} color={adminColors.brand} />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>
           ) : null}
@@ -417,7 +443,10 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   kpiGrid: {
-    gap: adminSpacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: adminSpacing.md,
   },
   kpiRow: {
@@ -427,38 +456,36 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
   kpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   kpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   infoBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 14,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   infoText: {
-    fontSize: 12,
+    ...adminType.body,
     lineHeight: 18,
     fontWeight: '500',
-    color: '#1D4ED8',
+    color: adminColors.info.text,
   },
   chipRow: {
     flexDirection: 'row',
@@ -470,40 +497,39 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     backgroundColor: adminColors.card,
   },
   chipActive: {
-    borderColor: '#F0562A',
-    backgroundColor: '#FFF7ED',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   chipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.border,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   cardInfo: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  meta: { fontSize: 13, color: '#64748B', marginTop: 3 },
+  name: { ...adminType.sectionHead, color: adminColors.ink },
+  meta: { ...adminType.body, color: adminColors.muted, marginTop: 3 },
   badgeRow: { flexDirection: 'row', gap: adminSpacing.xs, marginTop: adminSpacing.xs },
   footerText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: adminSpacing.md },
+  divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md },
   threeCol: { flexDirection: 'row', gap: adminSpacing.sm },
   col: { flex: 1 },
-  colLabel: { fontSize: 11, color: '#64748B', marginBottom: 4 },
-  colValue: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  colLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: 4 },
+  colValue: { ...adminType.rowTitle, color: adminColors.ink },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -523,8 +549,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bannerTitle: { ...adminType.rowTitle, color: adminColors.brandDeep },
-  actionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.sm },
+  actionRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
   actionCard: {
     flex: 1,
     alignItems: 'center',

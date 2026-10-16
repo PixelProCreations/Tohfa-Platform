@@ -57,7 +57,6 @@ export function ExpenseCategoriesScreen({
     <WalletScreen
       title="Expense Categories"
       onBack={onBack}
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} activeTab={undefined} hideMoreTab /> : undefined}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search categories..." />

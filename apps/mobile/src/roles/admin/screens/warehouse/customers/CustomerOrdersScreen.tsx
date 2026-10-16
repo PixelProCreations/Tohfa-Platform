@@ -139,7 +139,12 @@ export function CustomerOrdersScreen({
       }
     >
       <ChipRow options={ORDER_TABS} selected={selectedTab} onSelect={setSelectedTab} />
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search by Order ID or product" />
+      <SearchField
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search by Order ID or product"
+        onFilterPress={onOpenFilters}
+      />
 
       {rows.length === 0 ? (
         <EmptyState title="No orders found" subtitle="Try adjusting your search query or filter selection." />

@@ -97,7 +97,7 @@ export function NewSaleScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity

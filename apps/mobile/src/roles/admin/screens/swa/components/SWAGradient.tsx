@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { adminColors } from '../../../theme';
 
 interface ColorGradientProps {
-  colors: string[];
+  colors?: [string, string] | string[];
   /** Number of stacked bands; 20 reads visually identical to a true gradient. */
   bands?: number;
   children?: React.ReactNode;
@@ -14,14 +15,11 @@ interface ColorGradientProps {
  * No Expo dependencies required.
  */
 export const SWAGradient: React.FC<ColorGradientProps> = ({ 
-  colors, 
+  colors = [adminColors.brand, adminColors.brandDeep], 
   bands = 20,
   children 
 }) => {
-  // Ensure we have at least 2 colors
-  if (!colors || colors.length < 2) {
-    return <View style={styles.container}>{children}</View>;
-  }
+  const effectiveColors = colors && colors.length >= 2 ? colors : [adminColors.brand, adminColors.brandDeep];
 
   // Parse hex colors to RGB
   const parseColor = (hex: string): [number, number, number] => {
@@ -33,8 +31,8 @@ export const SWAGradient: React.FC<ColorGradientProps> = ({
     ];
   };
 
-  const startRGB = parseColor(colors[0]!);
-  const endRGB = parseColor(colors[1]!);
+  const startRGB = parseColor(effectiveColors[0]!);
+  const endRGB = parseColor(effectiveColors[1]!);
 
   // Generate intermediate colors
   const bandColors = Array.from({ length: bands }, (_, i) => {

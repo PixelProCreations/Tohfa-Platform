@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
 import {
   ChipGroup,
   EmptyState,
@@ -179,17 +179,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   cardSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 4,
   },
   cardTime: {
-    fontSize: 12,
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
 });

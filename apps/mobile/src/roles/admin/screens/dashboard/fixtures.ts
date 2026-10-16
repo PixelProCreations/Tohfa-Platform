@@ -414,4 +414,275 @@ export const INITIAL_SCHEDULE_RECORDS: AuditScheduleRecord[] = [
     previousSummary: { date: '21 Jun 2026', score: '90/100' },
   },
 ];
+
+// ─── Module 9: Disputes & Mediation Fixtures ─────────────────────────────────
+
+export type DisputeStatus = 'Under Review' | 'Awaiting TOHFA' | 'Open' | 'Escalated' | 'Resolved';
+export type DisputeCategory =
+  | 'Payment & Payout'
+  | 'Purchase & Collection'
+  | 'Produce Quality & Rejection'
+  | 'Audit & Documentation';
+
+export interface DisputeEvidence {
+  id: string;
+  type: 'Document' | 'Image';
+  title: string;
+  meta: string;
+}
+
+export interface DisputeAdminNote {
+  id: string;
+  text: string;
+  author: string;
+  date: string;
+  isInternal?: boolean | undefined;
+}
+
+export const RESOLUTION_OUTCOME_OPTIONS = [
+  'Select an outcome',
+  'Resolved — Clarification Provided',
+  'Resolved — Corrective Action Recorded',
+  'Awaiting Farmer Information',
+  'Awaiting TOHFA Response',
+  'Escalated to TOHFA Admin',
+  'Unable to Resolve — Further Review Required',
+] as const;
+
+export const TOHFA_RESPONSE_OPTIONS = [
+  'No TOHFA response recorded',
+  'Response received & noted',
+  'Clarification provided by procurement team',
+  'Payment correction verified on file',
+] as const;
+
+export const FOLLOWUP_REQUIRED_OPTIONS = [
+  'Select',
+  'None',
+  'Farmer Follow-up',
+  'TOHFA Follow-up',
+  'Secondary Inspection',
+] as const;
+
+export type DisputeTimelineEventType = 'status' | 'note' | 'evidence';
+
+export interface DisputeTimelineEvent {
+  id: string;
+  type: DisputeTimelineEventType;
+  title: string;
+  description: string;
+  author: string;
+  timestamp: string;
+  attachmentTitle?: string | undefined;
+}
+
+export interface DisputeItem {
+  id: string;
+  status: DisputeStatus;
+  category: DisputeCategory;
+  title: string;
+  raisedBy: string;
+  otherParty: string;
+  createdDate: string;
+  lastActivityDate: string;
+  description: string;
+  disputeType?: string | undefined;
+  assignedAdmin?: string | undefined;
+  farmerId?: string | undefined;
+  farmName?: string | undefined;
+  zone?: string | undefined;
+  tohfaDepartment?: string | undefined;
+  tohfaRepresentative?: string | undefined;
+  incidentDate?: string | undefined;
+  linkedRecord?: string | undefined;
+  expectedOutcome?: string | undefined;
+  evidence?: DisputeEvidence[] | undefined;
+  adminNotes?: DisputeAdminNote[] | undefined;
+  resolutionNote?: string | undefined;
+  timeline?: { date: string; action: string; actor: string }[] | undefined;
+  detailedTimeline?: DisputeTimelineEvent[] | undefined;
+}
+
+export const INITIAL_DISPUTES: DisputeItem[] = [
+  {
+    id: 'DIS-2026-0042',
+    status: 'Under Review',
+    category: 'Payment & Payout',
+    title: 'Farmer rating question',
+    raisedBy: 'Ramesh Kumar',
+    otherParty: 'Procurement Team (TOHFA)',
+    createdDate: '08 Oct 2026',
+    lastActivityDate: '09 Oct 2026',
+    disputeType: '',
+    assignedAdmin: 'Suresh Kumar',
+    farmerId: 'FMR-00124',
+    farmName: 'Ramesh Organic Farm',
+    zone: 'Coonoor',
+    tohfaDepartment: 'Procurement Team',
+    tohfaRepresentative: 'Anitha R',
+    description:
+      'The payment for the carrot batch delivered on 6 October was lower than the accepted price and I was not told why.',
+    incidentDate: '06 Oct 2026',
+    linkedRecord: 'Purchase Order PO-2026-00124',
+    expectedOutcome:
+      'A clear explanation of the difference, and a correction if it was a mistake.',
+    evidence: [
+      {
+        id: 'ev-1',
+        type: 'Document',
+        title: 'Payment statement',
+        meta: 'Document · 08 Oct 2026 · by Ramesh Kumar',
+      },
+      {
+        id: 'ev-2',
+        type: 'Image',
+        title: 'Carrot batch photo',
+        meta: 'Image · 08 Oct 2026 · by Ramesh Kumar',
+      },
+    ],
+    adminNotes: [
+      {
+        id: 'note-1',
+        text: 'Spoke to the farmer. The accepted price matches the purchase order; the difference needs a TOHFA explanation.',
+        author: 'Suresh Kumar',
+        date: '09 Oct 2026, 10:30',
+        isInternal: true,
+      },
+    ],
+    timeline: [
+      { date: '08 Oct 2026', action: 'Dispute filed by farmer', actor: 'Ramesh Kumar' },
+      { date: '09 Oct 2026', action: 'Mediation desk assigned review to TOHFA Procurement', actor: 'Mediation Desk' },
+      { date: '09 Oct 2026', action: 'Grading audit sheets retrieved for cross-check', actor: 'Procurement Team' },
+    ],
+    detailedTimeline: [
+      {
+        id: 'tle-1',
+        type: 'status',
+        title: 'Dispute submitted',
+        description: 'Ramesh Kumar submitted a dispute about a payment.',
+        author: 'Ramesh Kumar',
+        timestamp: '08 Oct 2026, 09:12',
+      },
+      {
+        id: 'tle-2',
+        type: 'evidence',
+        title: 'Evidence added',
+        description: 'Payment statement was attached.',
+        author: 'Ramesh Kumar',
+        timestamp: '08 Oct 2026, 09:14',
+        attachmentTitle: 'Payment statement',
+      },
+      {
+        id: 'tle-3',
+        type: 'evidence',
+        title: 'Evidence added',
+        description: 'Carrot batch photo was attached.',
+        author: 'Ramesh Kumar',
+        timestamp: '08 Oct 2026, 09:15',
+        attachmentTitle: 'Carrot batch photo',
+      },
+      {
+        id: 'tle-4',
+        type: 'status',
+        title: 'Status changed to Under Review',
+        description: 'The Farmer Admin started reviewing the dispute.',
+        author: 'Suresh Kumar',
+        timestamp: '09 Oct 2026, 10:05',
+      },
+      {
+        id: 'tle-5',
+        type: 'note',
+        title: 'Mediation note added',
+        description: 'Mediation note recorded (internal).',
+        author: 'Suresh Kumar',
+        timestamp: '09 Oct 2026, 10:30',
+      },
+    ],
+  },
+  {
+    id: 'DIS-2026-0043',
+    status: 'Awaiting TOHFA',
+    category: 'Payment & Payout',
+    title: 'Payment delay for accepted produce',
+    raisedBy: 'Meena',
+    otherParty: 'Procurement Team (TOHFA)',
+    createdDate: '05 Oct 2026',
+    lastActivityDate: '09 Oct 2026',
+    description:
+      'Accepted 180kg carrots at Ooty Collection Centre on 02 Oct 2026. Payment milestone exceeded standard 48hr window. Waiting on TOHFA finance disbursement clearance.',
+    timeline: [
+      { date: '05 Oct 2026', action: 'Dispute submitted for delayed payout', actor: 'Meena' },
+      { date: '07 Oct 2026', action: 'Warehouse receipt confirmed valid by Ooty Hub', actor: 'Collection Team' },
+      { date: '09 Oct 2026', action: 'Escalated to finance disbursement desk', actor: 'Procurement Team' },
+    ],
+  },
+  {
+    id: 'DIS-2026-0044',
+    status: 'Open',
+    category: 'Purchase & Collection',
+    title: 'Collection delay at the Ooty centre',
+    raisedBy: 'Kumar',
+    otherParty: 'Collection Team (TOHFA)',
+    createdDate: '03 Oct 2026',
+    lastActivityDate: '04 Oct 2026',
+    description:
+      'Truck arrival delayed by 5 hours at harvest gate, leading to potential dehydration of sensitive leafy vegetables. Requesting priority morning collection schedule.',
+    timeline: [
+      { date: '03 Oct 2026', action: 'Grievance recorded by farmer', actor: 'Kumar' },
+      { date: '04 Oct 2026', action: 'Logistics team notified to adjust transport route', actor: 'Collection Team' },
+    ],
+  },
+  {
+    id: 'DIS-2026-0045',
+    status: 'Open',
+    category: 'Purchase & Collection',
+    title: 'Transport cost deducted from payout',
+    raisedBy: 'Lakshmi',
+    otherParty: 'Collection Team (TOHFA)',
+    createdDate: '07 Oct 2026',
+    lastActivityDate: '07 Oct 2026',
+    description:
+      'Deduction of ₹450 made on transport handling contrary to free cooperative collection terms for Grade 1 produce in Kotagiri sector.',
+    timeline: [
+      { date: '07 Oct 2026', action: 'Dispute filed with receipt deduction proof', actor: 'Lakshmi' },
+      { date: '07 Oct 2026', action: 'Sent to logistics auditor for deduction verification', actor: 'Mediation Desk' },
+    ],
+  },
+  {
+    id: 'DIS-2026-0046',
+    status: 'Escalated',
+    category: 'Produce Quality & Rejection',
+    title: 'Grade assigned to a produce listing',
+    raisedBy: 'Selvi',
+    otherParty: 'Quality Control Team (TOHFA)',
+    createdDate: '01 Oct 2026',
+    lastActivityDate: '08 Oct 2026',
+    description:
+      'Listing lot PL-001245 was marked Grade 2 by Secondary Hub inspector without photo evidence. Re-inspection requested under PGS organic guidelines.',
+    timeline: [
+      { date: '01 Oct 2026', action: 'Initial grade appeal filed', actor: 'Selvi' },
+      { date: '04 Oct 2026', action: 'Secondary hub inspector maintained Grade 2 ruling', actor: 'Quality Control' },
+      { date: '08 Oct 2026', action: 'Farmer escalated to Senior Mediation Panel', actor: 'Selvi' },
+    ],
+  },
+  {
+    id: 'DIS-2026-0038',
+    status: 'Resolved',
+    category: 'Audit & Documentation',
+    title: 'Audit report clarification',
+    raisedBy: 'Ramesh Kumar',
+    otherParty: 'Audit Team (TOHFA)',
+    createdDate: '20 Sep 2026',
+    lastActivityDate: '28 Sep 2026',
+    description:
+      'Finding 3 on field buffer zone marking was marked non-compliant. Farmer submitted GPS-tagged photos showing updated boundary signs. Re-evaluated to full compliance.',
+    resolutionNote: 'Audit score reinstated to 8.8/10. Buffer zone certified.',
+    timeline: [
+      { date: '20 Sep 2026', action: 'Dispute raised regarding buffer zone marking', actor: 'Ramesh Kumar' },
+      { date: '25 Sep 2026', action: 'Photographic evidence verified by auditor', actor: 'Audit Team' },
+      { date: '28 Sep 2026', action: 'Case resolved & score updated', actor: 'Senior Auditor' },
+    ],
+  },
+];
+
 

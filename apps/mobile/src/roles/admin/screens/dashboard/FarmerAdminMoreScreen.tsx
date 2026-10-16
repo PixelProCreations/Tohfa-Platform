@@ -156,6 +156,7 @@ export interface FarmerAdminMoreScreenProps {
   onNavigateInputsPest?: () => void;
   onNavigateMarketPricing?: () => void;
   onNavigateProduceListings?: () => void;
+  onNavigateDisputes?: () => void;
   onNavigateProfile: () => void;
   onNavigateNotifications: () => void;
   onSwitchRole: () => void;
@@ -168,6 +169,7 @@ export function FarmerAdminMoreScreen({
   onNavigateInputsPest,
   onNavigateMarketPricing,
   onNavigateProduceListings,
+  onNavigateDisputes,
   onNavigateProfile,
   onNavigateNotifications,
   onSwitchRole,
@@ -220,7 +222,13 @@ export function FarmerAdminMoreScreen({
       id: 'disputes',
       title: 'Disputes',
       icon: <GavelIcon size={20} />,
-      onPress: () => onItemSelect?.('Disputes'),
+      onPress: () => {
+        if (onNavigateDisputes) {
+          onNavigateDisputes();
+        } else {
+          onItemSelect?.('Disputes');
+        }
+      },
     },
     {
       id: 'community',

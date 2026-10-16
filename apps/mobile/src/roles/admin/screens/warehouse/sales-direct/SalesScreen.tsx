@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 
 import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
 import { WarehouseSelector } from '../inventory';
@@ -439,48 +440,45 @@ export function SalesScreen({
              MAIN WAREHOUSE VIEW (M6-01 Sales Dashboard)
              ═══════════════════════════════════════════════════════════════════════ */
           <>
-            {/* 6 Top KPI Cards (Static, no redirection) */}
+            {/* 6 Top KPI Cards */}
             <View style={styles.mainKpiGrid}>
-              {/* Card 1: TODAY'S SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>TODAY'S SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.todaySales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.todayTxns}</Text>
-              </View>
-
-              {/* Card 2: DIRECT SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>DIRECT SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.directSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.directTxns}</Text>
-              </View>
-
-              {/* Card 3: MARKET SALES */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>MARKET SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.marketSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.marketTxns}</Text>
-              </View>
-
-              {/* Card 4: HORECA */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>HORECA</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.horecaSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.horecaOrders}</Text>
-              </View>
-
-              {/* Card 5: B2B */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>B2B</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.b2bSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.b2bOrders}</Text>
-              </View>
-
-              {/* Card 6: NEEDS ATTENTION */}
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>NEEDS ATTENTION</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.needsAttentionCount}</Text>
-              </View>
+              <OverviewDashboardCard
+                value={kpiData.todaySales}
+                title="Today's Sales"
+                subtitle={kpiData.todayTxns}
+                icon="sales"
+              />
+              <OverviewDashboardCard
+                value={kpiData.directSales}
+                title="Direct Sales"
+                subtitle={kpiData.directTxns}
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value={kpiData.marketSales}
+                title="Market Sales"
+                subtitle={kpiData.marketTxns}
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value={kpiData.horecaSales}
+                title="HORECA"
+                subtitle={kpiData.horecaOrders}
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value={kpiData.b2bSales}
+                title="B2B"
+                subtitle={kpiData.b2bOrders}
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value={kpiData.needsAttentionCount}
+                title="Needs Attention"
+                subtitle="Requires action"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* Warehouse Sales Summary */}
@@ -632,59 +630,43 @@ export function SalesScreen({
             <Text style={styles.sectionTitle}>Today's Sales by Channel</Text>
 
             <View style={styles.channelGrid}>
-              {/* Card 1: Today's Sales */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <MoneyCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹24,850</Text>
-                <Text style={styles.cardSubtitle}>Today's Sales · 42 txns</Text>
-              </View>
-
-              {/* Card 2: Direct */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹8,450</Text>
-                <Text style={styles.cardSubtitle}>Direct · 18 sales</Text>
-              </View>
-
-              {/* Card 3: Market */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹7,200</Text>
-                <Text style={styles.cardSubtitle}>Market · 15 sales</Text>
-              </View>
-
-              {/* Card 4: HORECA */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <CutleryCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹4,800</Text>
-                <Text style={styles.cardSubtitle}>HORECA · 5 orders</Text>
-              </View>
-
-              {/* Card 5: B2B */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <BuildingCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.cardAmount}>₹4,400</Text>
-                <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
-              </View>
-
-              {/* Card 6: Needs Attention */}
-              <View style={styles.channelCard}>
-                <View style={styles.cardIconWrap}>
-                  <ExclamationCircleCardIcon color={adminColors.danger.text} />
-                </View>
-                <Text style={[styles.cardAmount, { color: adminColors.danger.text }]}>5</Text>
-                <Text style={styles.cardSubtitle}>Needs Attention</Text>
-              </View>
+              <OverviewDashboardCard
+                value="₹24,850"
+                title="Today's Sales"
+                subtitle="42 transactions"
+                icon="sales"
+              />
+              <OverviewDashboardCard
+                value="₹8,450"
+                title="Direct Sales"
+                subtitle="18 sales"
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value="₹7,200"
+                title="Market"
+                subtitle="15 sales"
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value="₹4,800"
+                title="HORECA"
+                subtitle="5 orders"
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value="₹4,400"
+                title="B2B"
+                subtitle="4 orders"
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value="5"
+                title="Needs Attention"
+                subtitle="Requires action"
+                icon="alert"
+                tone="danger"
+              />
             </View>
 
             {/* 2. Quick Actions */}
@@ -926,16 +908,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleText: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
@@ -954,13 +933,12 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   warehouseDropdownText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminColors.canvas,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -975,8 +953,7 @@ const styles = StyleSheet.create({
     ...adminShadow.md,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 16,
   },
@@ -993,7 +970,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brandSoft.bg,
   },
   modalItemText: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
   },
@@ -1009,8 +986,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
   },
   modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.muted,
   },
   warehouseBadgeRow: {
@@ -1019,9 +995,9 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -1030,14 +1006,14 @@ const styles = StyleSheet.create({
   },
   warehouseBadgeText: {
     color: adminColors.onBrand,
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
   },
   headerBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1064,7 +1040,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    rowGap: 10,
     marginBottom: 20,
   },
   mainKpiCard: {
@@ -1079,26 +1055,22 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   mainKpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 3,
   },
   mainKpiSub: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   mainSectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
     marginBottom: 12,
     marginTop: 8,
@@ -1111,8 +1083,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mainSectionLink: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   whSummaryCard: {
@@ -1132,8 +1103,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   whSummaryName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   whSummaryBadge: {
@@ -1143,13 +1113,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   whSummaryBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.success.text,
   },
   whSummarySub: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   channelGrid2x2: {
@@ -1174,8 +1142,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   channelCardBtnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   mainAlertCard: {
@@ -1199,14 +1166,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainAlertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginBottom: 3,
   },
   mainAlertSub: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
   mainRecentSaleCard: {
@@ -1225,13 +1190,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   mainRecentId: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   mainRecentItems: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 10,
   },
@@ -1246,20 +1209,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   mainRecentWarehouse: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   mainRecentAmount: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
 
   /* Subwarehouse Styles */
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: 12,
     marginTop: 6,
@@ -1371,13 +1331,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   sectionHeaderRow: {
@@ -1388,8 +1346,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAllText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   recentSaleCard: {
@@ -1408,8 +1365,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recentSaleId: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
   },
   paidBadge: {
@@ -1420,12 +1376,10 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: adminColors.success.text,
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   recentSaleCustomer: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 10,
   },
@@ -1435,22 +1389,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   recentSaleType: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   recentSaleRight: {
     alignItems: 'flex-end',
   },
   recentSaleTime: {
-    fontSize: 12,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 2,
   },
   recentSaleAmount: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   needsAttentionHeader: {
@@ -1494,14 +1445,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginBottom: 2,
   },
   alertSub: {
-    fontSize: 13,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
   },
 });

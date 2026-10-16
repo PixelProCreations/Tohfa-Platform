@@ -2,7 +2,7 @@
 // (Staff, Staff Detail, Edit Staff Profile; rbac warehouse.staff.list_view) and
 // attendance (overview, detail, history; no code). Explicit exports only (no `export *`).
 export { StaffFlow, canOpenStaffRoute, type StaffFlowProps } from './StaffFlow';
-export { StaffScreen, STAFF_ROSTER_CODE, type StaffScreenProps } from './StaffScreen';
+export { StaffScreen, STAFF_ROSTER_CODE, hasStaffRosterAccess, type StaffScreenProps } from './StaffScreen';
 export { StaffFiltersScreen, type StaffFiltersScreenProps, type StaffFilterValues } from './StaffFiltersScreen';
 export { StaffDetailScreen, type StaffDetailScreenProps } from './StaffDetailScreen';
 export { EditStaffProfileScreen, type EditStaffProfileScreenProps } from './EditStaffProfileScreen';

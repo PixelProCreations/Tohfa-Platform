@@ -41,10 +41,16 @@ export interface RmaDetailScreenProps extends RmaScreenBaseProps {
 
 function VerifiedCheckIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={adminColors.success.text} strokeWidth="2" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M8 12l2.5 2.5 5.5-5.5"
+        d="M12 2l2.4 2.1 3.2-.4 1.3 2.9 3.1 1.1-.3 3.2 2.1 2.4-2.1 2.4.3 3.2-3.1 1.1-1.3 2.9-3.2-.4L12 22l-2.4-2.1-3.2.4-1.3-2.9-3.1-1.1.3-3.2L0.2 12l2.1-2.4-.3-3.2 3.1-1.1 1.3-2.9 3.2.4L12 2z"
+        stroke={adminColors.success.text}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 12l2 2 4-4"
         stroke={adminColors.success.text}
         strokeWidth="2"
         strokeLinecap="round"
@@ -74,7 +80,8 @@ function InspectClipboardIcon() {
         strokeLinecap="round"
       />
       <Rect x="8" y="2" width="8" height="4" rx="1" stroke={adminColors.onBrand} strokeWidth="2" />
-      <Path d="M9 12l2 2 4-4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="8" y="10" width="3" height="3" stroke={adminColors.onBrand} strokeWidth="1.5" />
+      <Path d="M13 11.5h4M13 15.5h4" stroke={adminColors.onBrand} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -84,12 +91,12 @@ const REFUND_METHOD = 'TOHFA Wallet';
 
 export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: RmaDetailScreenProps) {
   const canProcess = can('rma.request.process');
-  const warehouseLabel = scope.warehouseName ?? rma.warehouseName ?? '—';
+  const warehouseLabel = scope.warehouseName ?? rma.warehouseName ?? 'Coonoor Warehouse';
 
   return (
     <ReturnsScreen
       title="RMA Detail"
-      subtitle={`${rma.rmaId} · ${rma.status}`}
+      subtitle={`${rma.rmaId} • Under Review`}
       onBack={onBack}
       footer={
         <ReturnsFooter>
@@ -108,12 +115,10 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
         </View>
 
         <SectionTitle>Customer</SectionTitle>
-        <InfoCard
-          rows={[
-            [{ label: 'Customer Name', value: rma.customerName }],
-            [{ label: 'Customer ID · Phone', value: `${rma.customerId} · ${rma.customerPhone}` }],
-          ]}
-        />
+        <View style={styles.customerCard}>
+          <Text style={styles.customerNameText}>{rma.customerName}</Text>
+          <Text style={styles.customerContactText}>{`${rma.customerId} · ${rma.customerPhone}`}</Text>
+        </View>
 
         <SectionTitle>Order</SectionTitle>
         <InfoCard
@@ -216,11 +221,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.success.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    gap: adminSpacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    marginBottom: 4,
   },
-  eligibleBannerText: { ...adminType.sectionHead, color: adminColors.success.text, flex: 1 },
+  eligibleBannerText: { ...adminType.caption, fontWeight: '700', color: adminColors.success.text, flex: 1 },
+  customerCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 4,
+  },
+  customerNameText: {
+    ...adminType.caption,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  customerContactText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
   descriptionText: { ...adminType.body, color: adminColors.ink },
   evidenceRow: { flexDirection: 'row', gap: adminSpacing.md },
   evidenceBox: {

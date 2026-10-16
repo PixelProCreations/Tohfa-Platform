@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   LockIcon,
   WalletScreen,
@@ -10,7 +10,7 @@ import {
 import { STORAGE_LOCATIONS } from '../profile-settings/warehouseFixtures';
 import type { WarehouseScreenBaseProps } from './types';
 
-function BoxOutlineIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BoxOutlineIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -62,7 +62,7 @@ export function StorageLocationDetailScreen({
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.scopeRow}>
-          <LockIcon size={14} color="#374151" />
+          <LockIcon size={14} color={adminColors.muted} />
           <Text style={styles.scopeText}>{whName}</Text>
         </View>
 
@@ -111,7 +111,7 @@ export function StorageLocationDetailScreen({
           accessibilityRole="button"
           accessibilityLabel="View Stock"
         >
-          <BoxOutlineIcon size={20} color="#FFFFFF" />
+          <BoxOutlineIcon size={20} color={adminColors.onBrand} />
           <Text style={styles.viewStockButtonText}>View Stock</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -131,23 +131,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   scopeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   locationTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 16,
+    ...adminType.title,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.lg,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 20,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.xl,
   },
   infoGridRow: {
     flexDirection: 'row',
@@ -160,30 +158,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
-    fontWeight: '500',
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 12,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
   usageCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 4,
-    marginBottom: 20,
+    marginBottom: adminSpacing.xl,
   },
   usageRow: {
     flexDirection: 'row',
@@ -193,30 +188,27 @@ const styles = StyleSheet.create({
   },
   usageDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.border,
   },
   usageItemName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1F2937',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   usageItemQty: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   viewStockButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DE6C1E',
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     height: 50,
-    gap: 8,
+    gap: adminSpacing.xs,
   },
   viewStockButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

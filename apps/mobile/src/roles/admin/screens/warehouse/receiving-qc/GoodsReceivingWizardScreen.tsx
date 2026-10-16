@@ -48,7 +48,9 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-function ArrowBackBrownIcon({ size = 22, color = '#92400E' }: { size?: number; color?: string }) {
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+
+function ArrowBackBrownIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -62,7 +64,7 @@ function ArrowBackBrownIcon({ size = 22, color = '#92400E' }: { size?: number; c
   );
 }
 
-function ChainLinkIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+function ChainLinkIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -83,7 +85,7 @@ function ChainLinkIcon({ size = 18, color = '#92400E' }: { size?: number; color?
   );
 }
 
-function EyeOffIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function EyeOffIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -97,7 +99,7 @@ function EyeOffIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: s
   );
 }
 
-function QuestionCircleIcon({ size = 22, color = '#92400E' }: { size?: number; color?: string }) {
+function QuestionCircleIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -112,7 +114,7 @@ function QuestionCircleIcon({ size = 22, color = '#92400E' }: { size?: number; c
   );
 }
 
-function MapPinIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function MapPinIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -127,7 +129,7 @@ function MapPinIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -140,8 +142,6 @@ function ChevronRightIcon({ size = 18, color = '#6B7280' }: { size?: number; col
     </Svg>
   );
 }
-
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   AlertCircleOutlineIcon,
   BackArrowIcon,
@@ -320,13 +320,13 @@ export function GoodsReceivingWizardScreen({
   const isSub = scope.warehouseId !== undefined;
 
   const SUB_STAGES = [
-    'Shipment Arrived',
-    'Receiving Started',
-    'Quantity Verification',
-    'Quality Check',
+    'Shipment',
+    'Receiving',
+    'Quantity',
+    'Quality',
     'Decision',
-    'Storage Assignment',
-    'Receipt Completion',
+    'Storage',
+    'Receipt',
   ] as const;
 
   const subStageIndex = (stage: string): number => {
@@ -512,7 +512,7 @@ export function GoodsReceivingWizardScreen({
     setCurrentStep(first);
     setHistory([first]);
     if (first === 'damage_mismatch') {
-      setMismatchSubView('detail');
+      setMismatchSubView('report');
     }
     if (first === 'receipt_summary') {
       setSummarySubView('main');
@@ -538,7 +538,7 @@ export function GoodsReceivingWizardScreen({
     setCurrentStep(step);
   };
 
-  const [mismatchSubView, setMismatchSubView] = useState<'report' | 'detail'>('detail');
+  const [mismatchSubView, setMismatchSubView] = useState<'report' | 'detail'>('report');
   const [summarySubView, setSummarySubView] = useState<'main' | 'preview' | 'detail' | 'activity'>('main');
 
   /* Navigation handler based on back button: pops exactly ONE screen */
@@ -1147,11 +1147,11 @@ export function GoodsReceivingWizardScreen({
       if (gradeSubView === 'product_mismatch') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#F0562A" barStyle="light-content" />
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
             <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#FFFFFF" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Product Mismatch</Text>
               </View>
@@ -1182,7 +1182,7 @@ export function GoodsReceivingWizardScreen({
               </View>
 
               <View style={customMismatchStyles.subtleNoticeBox}>
-                <CheckmarkCircleOutlineIcon size={18} color="#059669" />
+                <CheckmarkCircleOutlineIcon size={18} color={adminColors.success.text} />
                 <Text style={customMismatchStyles.subtleNoticeText}>
                   No product mismatch on this shipment — actual product matches expected. This panel populates only when a mismatch is actually recorded.
                 </Text>
@@ -1195,11 +1195,11 @@ export function GoodsReceivingWizardScreen({
       if (gradeSubView === 'grade_mismatch') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#F0562A" barStyle="light-content" />
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
             <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#FFFFFF" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Grade Mismatch</Text>
               </View>
@@ -1231,9 +1231,9 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.notesCard}>
                 <TextInput
-                  style={[customMismatchStyles.notesPlaceholder, { color: '#1F2937' }]}
+                  style={[customMismatchStyles.notesPlaceholder, { color: adminColors.ink }]}
                   placeholder="Notes on grade mismatch"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={adminColors.muted}
                   multiline
                 />
               </View>
@@ -1245,11 +1245,11 @@ export function GoodsReceivingWizardScreen({
       if (gradeSubView === 'product_summary') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#F0562A" barStyle="light-content" />
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
             <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#FFFFFF" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Product Summary</Text>
               </View>
@@ -1261,7 +1261,7 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.whiteCard}>
                 <Text style={customMismatchStyles.gridLabel}>Overall Status</Text>
-                <Text style={[customMismatchStyles.gridVal, { color: '#059669', marginTop: 4 }]}>
+                <Text style={[customMismatchStyles.gridVal, { color: adminColors.success.text, marginTop: adminSpacing.xs }]}>
                   Product Match — Confirmed
                 </Text>
               </View>
@@ -1273,11 +1273,11 @@ export function GoodsReceivingWizardScreen({
       if (gradeSubView === 'grade_summary') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#F0562A" barStyle="light-content" />
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
             <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#FFFFFF" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Grade Summary</Text>
               </View>
@@ -1289,7 +1289,7 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.whiteCard}>
                 <Text style={customMismatchStyles.gridLabel}>Overall Status</Text>
-                <Text style={[customMismatchStyles.gridVal, { color: '#D97706', marginTop: 4 }]}>
+                <Text style={[customMismatchStyles.gridVal, { color: adminColors.warning.text, marginTop: adminSpacing.xs }]}>
                   Grade Mismatch — 1 product affected
                 </Text>
               </View>
@@ -1301,11 +1301,11 @@ export function GoodsReceivingWizardScreen({
       // Main Grade & Product Verification Screen (Screenshot 1)
       return (
         <View style={customMismatchStyles.root}>
-          <StatusBar backgroundColor="#F0562A" barStyle="light-content" />
+          <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
           <View style={customMismatchStyles.header}>
             <View style={customMismatchStyles.headerRow}>
               <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                <BackArrowIcon color="#FFFFFF" />
+                <BackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Grade & Product Verification</Text>
             </View>
@@ -1326,23 +1326,23 @@ export function GoodsReceivingWizardScreen({
               </View>
             </View>
 
-            <Text style={[styles.inputLabel, { color: '#6B7280', fontSize: 12, fontWeight: '600', marginBottom: 6 }]}>Actual Product</Text>
+            <Text style={[styles.inputLabel, { ...adminType.caption, color: adminColors.muted, fontWeight: '600', marginBottom: 6 }]}>Actual Product</Text>
             <TouchableOpacity
-              style={[styles.dropdownSelectBox, { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', borderRadius: 12, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
+              style={[styles.dropdownSelectBox, { backgroundColor: adminColors.card, borderColor: adminColors.border, borderRadius: adminRadius.md, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
               activeOpacity={0.7}
               onPress={() => pickFrom('Actual Product', PRODUCT_OPTIONS, setActualProduct)}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{actualProduct || 'Tomato'}</Text>
+              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{actualProduct || 'Tomato'}</Text>
               <ChevronDownIcon />
             </TouchableOpacity>
 
-            <Text style={[styles.inputLabel, { color: '#6B7280', fontSize: 12, fontWeight: '600', marginBottom: 6 }]}>Actual Grade</Text>
+            <Text style={[styles.inputLabel, { ...adminType.caption, color: adminColors.muted, fontWeight: '600', marginBottom: 6 }]}>Actual Grade</Text>
             <TouchableOpacity
-              style={[styles.dropdownSelectBox, { backgroundColor: '#FFFFFF', borderColor: '#E5E7EB', borderRadius: 12, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
+              style={[styles.dropdownSelectBox, { backgroundColor: adminColors.card, borderColor: adminColors.border, borderRadius: adminRadius.md, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
               activeOpacity={0.7}
               onPress={() => pickFrom('Actual Grade', GRADE_OPTIONS, setActualGrade)}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937' }}>{actualGrade || 'Grade 1'}</Text>
+              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{actualGrade || 'Grade 1'}</Text>
               <ChevronDownIcon />
             </TouchableOpacity>
 
@@ -1351,10 +1351,10 @@ export function GoodsReceivingWizardScreen({
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 14,
+                    backgroundColor: adminColors.card,
+                    borderRadius: adminRadius.md,
                     borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    borderColor: adminColors.border,
                     paddingVertical: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1363,17 +1363,17 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setGradeSubView('product_mismatch')}
                   activeOpacity={0.8}
                 >
-                  <ClipboardChecklistIcon color="#F0562A" size={20} />
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1F2937' }}>Product Mismatch</Text>
+                  <ClipboardChecklistIcon color={adminColors.brand} size={20} />
+                  <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.ink }}>Product Mismatch</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 14,
+                    backgroundColor: adminColors.card,
+                    borderRadius: adminRadius.md,
                     borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    borderColor: adminColors.border,
                     paddingVertical: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1382,8 +1382,8 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setGradeSubView('grade_mismatch')}
                   activeOpacity={0.8}
                 >
-                  <StarIcon color="#F0562A" size={20} />
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1F2937' }}>Grade Mismatch</Text>
+                  <StarIcon color={adminColors.brand} size={20} />
+                  <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.ink }}>Grade Mismatch</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1391,10 +1391,10 @@ export function GoodsReceivingWizardScreen({
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 14,
+                    backgroundColor: adminColors.card,
+                    borderRadius: adminRadius.md,
                     borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    borderColor: adminColors.border,
                     paddingVertical: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1403,17 +1403,17 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setGradeSubView('product_summary')}
                   activeOpacity={0.8}
                 >
-                  <ReceiptPaperIcon color="#F0562A" size={20} />
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1F2937' }}>Product Summary</Text>
+                  <ReceiptPaperIcon color={adminColors.brand} size={20} />
+                  <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.ink }}>Product Summary</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 14,
+                    backgroundColor: adminColors.card,
+                    borderRadius: adminRadius.md,
                     borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    borderColor: adminColors.border,
                     paddingVertical: 18,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1422,8 +1422,8 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setGradeSubView('grade_summary')}
                   activeOpacity={0.8}
                 >
-                  <ReceiptPaperIcon color="#F0562A" size={20} />
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1F2937' }}>Grade Summary</Text>
+                  <ReceiptPaperIcon color={adminColors.brand} size={20} />
+                  <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.ink }}>Grade Summary</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1435,7 +1435,7 @@ export function GoodsReceivingWizardScreen({
               activeOpacity={0.85}
               onPress={() => goToStep('damage_mismatch')}
             >
-              <RightArrowIcon color="#FFFFFF" size={18} />
+              <RightArrowIcon color={adminColors.onBrand} size={18} />
               <Text style={customMismatchStyles.orangeBottomBtnText}>Continue to Damage / Mismatch Report</Text>
             </TouchableOpacity>
           </View>
@@ -1563,17 +1563,17 @@ export function GoodsReceivingWizardScreen({
     if (!isSub) {
       return (
         <View style={customMismatchStyles.root}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-          {/* Top Header Banner (Screenshot 3) */}
-          <View style={customMismatchStyles.lightHeader}>
+          {/* Top Header Banner */}
+          <View style={customMismatchStyles.header}>
             <View style={customMismatchStyles.headerRow}>
               <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                <BackArrowIcon color="#92400E" />
+                <BackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={customMismatchStyles.lightHeaderTitle}>Acceptance Decision</Text>
+              <Text style={customMismatchStyles.headerTitle}>Acceptance Decision</Text>
             </View>
-            <Text style={customMismatchStyles.lightHeaderSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
           </View>
 
           <ScrollView
@@ -1625,7 +1625,7 @@ export function GoodsReceivingWizardScreen({
               }}
               activeOpacity={0.8}
             >
-              <CheckmarkCircleOutlineIcon size={24} color="#059669" />
+              <CheckmarkCircleOutlineIcon size={24} color={adminColors.success.text} />
               <View style={customMismatchStyles.optionContent}>
                 <Text style={customMismatchStyles.optionTitle}>Accept</Text>
                 <Text style={customMismatchStyles.optionSub}>Accept the applicable quantity</Text>
@@ -1643,7 +1643,7 @@ export function GoodsReceivingWizardScreen({
               }}
               activeOpacity={0.8}
             >
-              <PartialAcceptIcon size={24} color="#F0562A" />
+              <PartialAcceptIcon size={24} color={adminColors.brand} />
               <View style={customMismatchStyles.optionContent}>
                 <Text style={customMismatchStyles.optionTitle}>Partial Accept</Text>
                 <Text style={customMismatchStyles.optionSub}>Accept some, reject the remainder</Text>
@@ -1661,7 +1661,7 @@ export function GoodsReceivingWizardScreen({
               }}
               activeOpacity={0.8}
             >
-              <RejectCircleIcon size={24} color="#DC2626" />
+              <RejectCircleIcon size={24} color={adminColors.danger.text} />
               <View style={customMismatchStyles.optionContent}>
                 <Text style={customMismatchStyles.optionTitle}>Reject</Text>
                 <Text style={customMismatchStyles.optionSub}>Reject the incoming goods</Text>
@@ -2033,17 +2033,17 @@ export function GoodsReceivingWizardScreen({
       if (summarySubView === 'preview') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+            <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-            {/* Header: Receipt Preview (Screenshot 4, Screen 2) */}
-            <View style={customMismatchStyles.lightHeader}>
+            {/* Header: Receipt Preview */}
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={() => setSummarySubView('main')} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#92400E" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Receipt Preview</Text>
+                <Text style={customMismatchStyles.headerTitle}>Receipt Preview</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{grnCode}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{grnCode}</Text>
             </View>
 
             <ScrollView
@@ -2073,7 +2073,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => goToStep('batch_assignment')}
                 activeOpacity={0.8}
               >
-                <QrCodeIcon size={18} color="#FFFFFF" />
+                <QrCodeIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
               </TouchableOpacity>
             </View>
@@ -2084,17 +2084,17 @@ export function GoodsReceivingWizardScreen({
       if (summarySubView === 'detail') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+            <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-            {/* Header: Receipt Detail (Screenshot 4, Screen 3) */}
-            <View style={customMismatchStyles.lightHeader}>
+            {/* Header: Receipt Detail */}
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={() => setSummarySubView('main')} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#92400E" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Receipt Detail</Text>
+                <Text style={customMismatchStyles.headerTitle}>Receipt Detail</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{grnCode}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{grnCode}</Text>
             </View>
 
             <ScrollView
@@ -2123,7 +2123,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => goToStep('batch_assignment')}
                 activeOpacity={0.8}
               >
-                <QrCodeIcon size={18} color="#FFFFFF" />
+                <QrCodeIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
               </TouchableOpacity>
             </View>
@@ -2134,17 +2134,17 @@ export function GoodsReceivingWizardScreen({
       if (summarySubView === 'activity') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+            <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-            {/* Header: Receipt Activity (Screenshot 5) */}
-            <View style={customMismatchStyles.lightHeader}>
+            {/* Header: Receipt Activity */}
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={() => setSummarySubView('main')} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#92400E" />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Receipt Activity</Text>
+                <Text style={customMismatchStyles.headerTitle}>Receipt Activity</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{grnCode}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{grnCode}</Text>
             </View>
 
             <ScrollView
@@ -2186,7 +2186,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => goToStep('batch_assignment')}
                 activeOpacity={0.8}
               >
-                <QrCodeIcon size={18} color="#FFFFFF" />
+                <QrCodeIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
               </TouchableOpacity>
             </View>
@@ -2197,13 +2197,13 @@ export function GoodsReceivingWizardScreen({
       {/* Main Goods Receipt Summary (Screenshot 4, Screen 1) */}
       return (
         <View style={customMismatchStyles.root}>
-          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
           {/* Top Header Banner */}
           <View style={customMismatchStyles.header}>
             <View style={customMismatchStyles.headerRow}>
               <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                <BackArrowIcon color="#FFFFFF" />
+                <BackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Goods Receipt Summary</Text>
             </View>
@@ -2287,7 +2287,7 @@ export function GoodsReceivingWizardScreen({
                   activeOpacity={0.75}
                   onPress={() => setSummarySubView('preview')}
                 >
-                  <EyeIcon size={20} color="#F0562A" />
+                  <EyeIcon size={20} color={adminColors.brand} />
                   <Text style={customMismatchStyles.nextStepActionText}>Preview</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -2295,7 +2295,7 @@ export function GoodsReceivingWizardScreen({
                   activeOpacity={0.75}
                   onPress={() => setSummarySubView('detail')}
                 >
-                  <FileTextIcon size={20} color="#F0562A" />
+                  <FileTextIcon size={20} color={adminColors.brand} />
                   <Text style={customMismatchStyles.nextStepActionText}>Full Detail</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -2303,7 +2303,7 @@ export function GoodsReceivingWizardScreen({
                   activeOpacity={0.75}
                   onPress={() => setSummarySubView('activity')}
                 >
-                  <HistoryIcon size={20} color="#F0562A" />
+                  <HistoryIcon size={20} color={adminColors.brand} />
                   <Text style={customMismatchStyles.nextStepActionText}>Activity</Text>
                 </TouchableOpacity>
               </View>
@@ -2325,7 +2325,7 @@ export function GoodsReceivingWizardScreen({
               onPress={() => goToStep('batch_assignment')}
               activeOpacity={0.8}
             >
-              <QrCodeIcon size={18} color="#FFFFFF" />
+              <QrCodeIcon size={18} color={adminColors.onBrand} />
               <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
             </TouchableOpacity>
           </View>
@@ -2510,21 +2510,21 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'confirm') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Batch Creation Review</Text>
+                <Text style={customMismatchStyles.headerTitle}>Batch Creation Review</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{displayGrn}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{displayGrn}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
               <View style={customMismatchStyles.confirmCard}>
                 <View style={customMismatchStyles.confirmCardHeader}>
-                  <QuestionCircleIcon size={22} color="#92400E" />
+                  <QuestionCircleIcon size={22} color={adminColors.brandDeep} />
                   <Text style={customMismatchStyles.confirmCardTitle}>Confirm Batch Assignment?</Text>
                 </View>
 
@@ -2540,7 +2540,7 @@ export function GoodsReceivingWizardScreen({
                     activeOpacity={0.75}
                     onPress={() => setBatchSubView('batch_created')}
                   >
-                    <CheckmarkIcon size={14} color="#F0562A" />
+                    <CheckmarkIcon size={14} color={adminColors.brand} />
                     <Text style={customMismatchStyles.confirmActionText}>Confirm</Text>
                   </TouchableOpacity>
 
@@ -2550,7 +2550,7 @@ export function GoodsReceivingWizardScreen({
                     onPress={() => setBatchSubView('review')}
                   >
                     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                      <Path d="M18 6L6 18M6 6l12 12" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M18 6L6 18M6 6l12 12" stroke={adminColors.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                     <Text style={customMismatchStyles.cancelActionText}>Cancel</Text>
                   </TouchableOpacity>
@@ -2564,15 +2564,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'batch_created') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Batch Created</Text>
+                <Text style={customMismatchStyles.headerTitle}>Batch Created</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{displayGrn}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{displayGrn}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2581,14 +2581,14 @@ export function GoodsReceivingWizardScreen({
                   width: 52,
                   height: 52,
                   borderRadius: 26,
-                  backgroundColor: '#E6F4EA',
+                  backgroundColor: adminColors.success.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 12,
                 }}>
-                  <QrCodeIcon size={24} color="#059669" />
+                  <QrCodeIcon size={24} color={adminColors.success.text} />
                 </View>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1F2937' }}>Batch Created</Text>
+                <Text style={{ ...adminType.title, fontWeight: '800', color: adminColors.ink }}>Batch Created</Text>
               </View>
 
               <View style={customMismatchStyles.whiteCard}>
@@ -2633,7 +2633,7 @@ export function GoodsReceivingWizardScreen({
                 activeOpacity={0.85}
                 onPress={() => setBatchSubView('storage_assignment')}
               >
-                <MapPinIcon size={18} color="#FFFFFF" />
+                <MapPinIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Storage Location</Text>
               </TouchableOpacity>
             </View>
@@ -2644,15 +2644,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'storage_assignment') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Storage Location Assignment</Text>
+                <Text style={customMismatchStyles.headerTitle}>Storage Location Assignment</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2695,15 +2695,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'storage_list') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Storage Location List</Text>
+                <Text style={customMismatchStyles.headerTitle}>Storage Location List</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2716,13 +2716,13 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setBatchSubView('storage_detail')}
                 >
                   <View>
-                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1F2937' }}>Cold Storage A · Rack 02 · Shelf 03</Text>
-                    <Text style={{ fontSize: 12, fontWeight: '500', color: '#6B7280', marginTop: 3 }}>1,650 / 2,000 KG used</Text>
+                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Cold Storage A · Rack 02 · Shelf 03</Text>
+                    <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 3 }}>1,650 / 2,000 KG used</Text>
                   </View>
-                  <ChevronRightIcon size={18} color="#6B7280" />
+                  <ChevronRightIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
 
-                <View style={{ borderBottomWidth: 1, borderBottomColor: '#F3F4F6', marginVertical: 4 }} />
+                <View style={{ borderBottomWidth: 1, borderBottomColor: adminColors.border, marginVertical: 4 }} />
 
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
@@ -2730,10 +2730,10 @@ export function GoodsReceivingWizardScreen({
                   onPress={() => setBatchSubView('storage_detail')}
                 >
                   <View>
-                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#1F2937' }}>Dry Storage B · Rack 01 · Shelf 01</Text>
-                    <Text style={{ fontSize: 12, fontWeight: '500', color: '#6B7280', marginTop: 3 }}>920 / 1,500 KG used</Text>
+                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Dry Storage B · Rack 01 · Shelf 01</Text>
+                    <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 3 }}>920 / 1,500 KG used</Text>
                   </View>
-                  <ChevronRightIcon size={18} color="#6B7280" />
+                  <ChevronRightIcon size={18} color={adminColors.muted} />
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -2744,15 +2744,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'storage_detail') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Cold Storage A</Text>
+                <Text style={customMismatchStyles.headerTitle}>Cold Storage A</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2783,7 +2783,7 @@ export function GoodsReceivingWizardScreen({
                 activeOpacity={0.85}
                 onPress={() => setBatchSubView('location_review')}
               >
-                <CheckmarkIcon size={14} color="#FFFFFF" />
+                <CheckmarkIcon size={14} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Assign This Location</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -2794,15 +2794,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'location_review') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Assignment Review</Text>
+                <Text style={customMismatchStyles.headerTitle}>Assignment Review</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2839,7 +2839,7 @@ export function GoodsReceivingWizardScreen({
                 activeOpacity={0.85}
                 onPress={() => setBatchSubView('confirm_location')}
               >
-                <CheckmarkIcon size={14} color="#FFFFFF" />
+                <CheckmarkIcon size={14} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Confirm Assignment</Text>
               </TouchableOpacity>
             </View>
@@ -2850,21 +2850,21 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'confirm_location') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Assignment Review</Text>
+                <Text style={customMismatchStyles.headerTitle}>Assignment Review</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
               <View style={customMismatchStyles.confirmCard}>
                 <View style={customMismatchStyles.confirmCardHeader}>
-                  <QuestionCircleIcon size={22} color="#92400E" />
+                  <QuestionCircleIcon size={22} color={adminColors.brandDeep} />
                   <Text style={customMismatchStyles.confirmCardTitle}>Confirm Location Assignment?</Text>
                 </View>
 
@@ -2880,7 +2880,7 @@ export function GoodsReceivingWizardScreen({
                     activeOpacity={0.75}
                     onPress={() => setBatchSubView('assignment_complete')}
                   >
-                    <CheckmarkIcon size={14} color="#F0562A" />
+                    <CheckmarkIcon size={14} color={adminColors.brand} />
                     <Text style={customMismatchStyles.confirmActionText}>Confirm</Text>
                   </TouchableOpacity>
 
@@ -2890,7 +2890,7 @@ export function GoodsReceivingWizardScreen({
                     onPress={() => setBatchSubView('location_review')}
                   >
                     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                      <Path d="M18 6L6 18M6 6l12 12" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M18 6L6 18M6 6l12 12" stroke={adminColors.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                     <Text style={customMismatchStyles.cancelActionText}>Cancel</Text>
                   </TouchableOpacity>
@@ -2904,15 +2904,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'assignment_complete') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Assignment Complete</Text>
+                <Text style={customMismatchStyles.headerTitle}>Assignment Complete</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>Batch BAT-00512</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2921,17 +2921,17 @@ export function GoodsReceivingWizardScreen({
                   width: 52,
                   height: 52,
                   borderRadius: 26,
-                  backgroundColor: '#E6F4EA',
+                  backgroundColor: adminColors.success.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 12,
                 }}>
                   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="10" stroke="#059669" strokeWidth="2" />
-                    <Path d="M8 12l3 3 5-5" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2" />
+                    <Path d="M8 12l3 3 5-5" stroke={adminColors.success.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </View>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1F2937' }}>Assignment Complete</Text>
+                <Text style={{ ...adminType.title, fontWeight: '800', color: adminColors.ink }}>Assignment Complete</Text>
               </View>
 
               <View style={customMismatchStyles.whiteCard}>
@@ -2968,8 +2968,8 @@ export function GoodsReceivingWizardScreen({
                 }}
               >
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                  <Circle cx="12" cy="12" r="10" stroke="#FFFFFF" strokeWidth="2" />
-                  <Path d="M8 12l3 3 5-5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Circle cx="12" cy="12" r="10" stroke={adminColors.onBrand} strokeWidth="2" />
+                  <Path d="M8 12l3 3 5-5" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Receipt Completed — Back to Dashboard</Text>
               </TouchableOpacity>
@@ -2981,15 +2981,15 @@ export function GoodsReceivingWizardScreen({
       if (batchSubView === 'review') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-            <View style={customMismatchStyles.lightHeader}>
+            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <ArrowBackBrownIcon />
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Batch Creation Review</Text>
+                <Text style={customMismatchStyles.headerTitle}>Batch Creation Review</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{displayGrn}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{displayGrn}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -3037,7 +3037,7 @@ export function GoodsReceivingWizardScreen({
                 activeOpacity={0.85}
                 onPress={() => setBatchSubView('confirm')}
               >
-                <QrCodeIcon size={18} color="#FFFFFF" />
+                <QrCodeIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.orangeBottomBtnText}>Generate Batch Code</Text>
               </TouchableOpacity>
             </View>
@@ -3048,15 +3048,15 @@ export function GoodsReceivingWizardScreen({
       // Default: batchSubView === 'assignment'
       return (
         <View style={customMismatchStyles.root}>
-          <StatusBar backgroundColor="#FAF5EF" barStyle="dark-content" />
-          <View style={customMismatchStyles.lightHeader}>
+          <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+          <View style={customMismatchStyles.header}>
             <View style={customMismatchStyles.headerRow}>
               <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                <ArrowBackBrownIcon />
+                <BackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={customMismatchStyles.lightHeaderTitle}>Batch Assignment</Text>
+              <Text style={customMismatchStyles.headerTitle}>Batch Assignment</Text>
             </View>
-            <Text style={customMismatchStyles.lightHeaderSubtitle}>{displayGrn}</Text>
+            <Text style={customMismatchStyles.headerSubtitle}>{displayGrn}</Text>
           </View>
 
           <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -3110,14 +3110,18 @@ export function GoodsReceivingWizardScreen({
               </View>
             </View>
 
+            <View style={{ height: 16 }} />
+          </ScrollView>
+
+          <View style={customMismatchStyles.bottomBar}>
             <TouchableOpacity
-              style={customMismatchStyles.secondaryBtn}
-              activeOpacity={0.8}
+              style={customMismatchStyles.actionBtn}
+              activeOpacity={0.85}
               onPress={() => setBatchSubView('review')}
             >
-              <Text style={customMismatchStyles.secondaryBtnText}>Review Before Creating Batch</Text>
+              <Text style={customMismatchStyles.actionBtnText}>Review Before Creating Batch</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
         </View>
       );
     }
@@ -4285,17 +4289,17 @@ export function GoodsReceivingWizardScreen({
       if (mismatchSubView === 'detail') {
         return (
           <View style={customMismatchStyles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAF5EF" />
+            <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-            {/* Header: Discrepancy Detail (Screenshot 2) */}
-            <View style={customMismatchStyles.lightHeader}>
+            {/* Header: Discrepancy Detail */}
+            <View style={customMismatchStyles.header}>
               <View style={customMismatchStyles.headerRow}>
-                <TouchableOpacity onPress={() => setMismatchSubView('report')} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color="#92400E" />
+                <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
+                  <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.lightHeaderTitle}>Discrepancy Detail</Text>
+                <Text style={customMismatchStyles.headerTitle}>Discrepancy Detail</Text>
               </View>
-              <Text style={customMismatchStyles.lightHeaderSubtitle}>{receiptCode || 'SHP-000124'} · Combined discrepancies</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'} · Combined discrepancies</Text>
             </View>
 
             <ScrollView
@@ -4363,7 +4367,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => goToStep('receiving_decision')}
                 activeOpacity={0.8}
               >
-                <RightArrowIcon size={18} color="#FFFFFF" />
+                <RightArrowIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.actionBtnText}>Continue to Acceptance Decision</Text>
               </TouchableOpacity>
             </View>
@@ -4397,13 +4401,13 @@ export function GoodsReceivingWizardScreen({
 
       return (
         <View style={customMismatchStyles.root}>
-          <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
           {/* Top Header Banner (Screenshot 1) */}
           <View style={customMismatchStyles.header}>
             <View style={customMismatchStyles.headerRow}>
               <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                <BackArrowIcon color="#FFFFFF" />
+                <BackArrowIcon color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Damage / Mismatch Report</Text>
             </View>
@@ -4428,7 +4432,7 @@ export function GoodsReceivingWizardScreen({
                     activeOpacity={0.75}
                   >
                     <View style={customMismatchStyles.iconCircle}>
-                      <IconComp size={18} color="#F0562A" />
+                      <IconComp size={18} color={adminColors.brand} />
                     </View>
                     <View style={customMismatchStyles.itemContent}>
                       <Text style={customMismatchStyles.itemTitle}>{item.title}</Text>
@@ -4461,7 +4465,7 @@ export function GoodsReceivingWizardScreen({
               onPress={() => goToStep('receiving_decision')}
               activeOpacity={0.8}
             >
-              <RightArrowIcon size={18} color="#FFFFFF" />
+              <RightArrowIcon size={18} color={adminColors.onBrand} />
               <Text style={customMismatchStyles.actionBtnText}>Continue to Acceptance Decision</Text>
             </TouchableOpacity>
           </View>
@@ -5193,21 +5197,22 @@ const styles = StyleSheet.create({
   criteriaCard: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    marginBottom: 12,
+    marginBottom: 14,
+    ...adminShadow.sm,
   },
   criteriaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
+    marginBottom: 14,
+    gap: 12,
   },
   criteriaIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -5219,59 +5224,64 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontWeight: '700',
     color: adminColors.muted,
-    letterSpacing: 0.3,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   criteriaTitle: {
-    ...adminType.title,
-    fontWeight: '700',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '800',
     color: adminColors.ink,
-    marginTop: 1,
+    marginTop: 2,
+    letterSpacing: -0.2,
   },
   choiceRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   choiceBtn: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: adminColors.border,
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingVertical: 11,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   choiceBtnText: {
-    ...adminType.body,
+    fontSize: 13,
     fontWeight: '600',
     color: adminColors.muted,
+    letterSpacing: -0.1,
   },
   choiceBtnPassActive: {
     backgroundColor: adminColors.success.bg,
     borderColor: adminColors.success.border,
-    borderWidth: 1.5,
+    borderWidth: 2,
   },
   choiceBtnPassTextActive: {
     color: adminColors.success.text,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   choiceBtnAttentionActive: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFDF9',
     borderColor: adminColors.warning.border,
-    borderWidth: 1.5,
+    borderWidth: 2,
   },
   choiceBtnAttentionTextActive: {
     color: adminColors.warning.text,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   choiceBtnFailActive: {
     backgroundColor: adminColors.danger.bg,
     borderColor: adminColors.danger.border,
-    borderWidth: 1.5,
+    borderWidth: 2,
   },
   choiceBtnFailTextActive: {
     color: adminColors.danger.text,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   qcPhotosRow: {
     flexDirection: 'row',
@@ -5733,26 +5743,28 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: adminColors.card,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
+    ...adminShadow.md,
   },
   primaryCtaBtn: {
     ...adminShadow.sm,
     backgroundColor: adminColors.brand,
-    height: 52,
+    height: 50,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryCtaText: {
-    ...adminType.title,
+    fontSize: 15,
+    lineHeight: 20,
     color: adminColors.onBrand,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   /* Rejected Goods Screen Styles */
@@ -6269,8 +6281,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   voucherIdText: {
-    ...adminType.sectionHead,
-    fontSize: 18,
+    ...adminType.title,
     color: adminColors.ink,
   },
   voucherDateText: {
@@ -6281,7 +6292,7 @@ const styles = StyleSheet.create({
   voucherQrBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
@@ -6297,7 +6308,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: adminColors.canvas,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     padding: 12,
   },
   voucherQcTitle: {
@@ -6314,21 +6325,21 @@ const styles = StyleSheet.create({
 const customMismatchStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: Platform.OS === 'ios' ? 8 : 12,
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
   lightHeader: {
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
     paddingTop: Platform.OS === 'ios' ? 8 : 12,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: adminColors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -6341,34 +6352,34 @@ const customMismatchStyles = StyleSheet.create({
     marginRight: 4,
   },
   headerTitle: {
-    fontSize: 20,
+    ...adminType.title,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   lightHeaderTitle: {
-    fontSize: 20,
+    ...adminType.title,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: adminColors.onBrand,
     marginTop: 2,
     paddingLeft: 2,
   },
   lightHeaderSubtitle: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     marginTop: 2,
     paddingLeft: 2,
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
   },
   scrollPad: {
     paddingHorizontal: 16,
@@ -6376,50 +6387,38 @@ const customMismatchStyles = StyleSheet.create({
     paddingBottom: 24,
   },
   sectionHeading: {
-    fontSize: 14.5,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     marginBottom: 10,
     letterSpacing: -0.1,
   },
   listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   whiteCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
@@ -6430,15 +6429,15 @@ const customMismatchStyles = StyleSheet.create({
     flex: 1,
   },
   gridLabel: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginBottom: 3,
   },
   gridVal: {
-    fontSize: 14,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
   },
   tableRow: {
     flexDirection: 'row',
@@ -6446,45 +6445,44 @@ const customMismatchStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   tableLabel: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   tableVal: {
-    fontSize: 13.5,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
   },
   decisionPill: {
     borderWidth: 1.5,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 8,
+    borderColor: adminColors.warning.border,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.sm,
     paddingVertical: 10,
     alignItems: 'flex-start',
     paddingHorizontal: 14,
   },
   decisionPillText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '800',
-    color: '#D97706',
+    color: adminColors.warning.text,
     letterSpacing: 0.5,
   },
   assignBatchLinkRow: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 12,
   },
   assignBatchLinkText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   nextStepsRow: {
     flexDirection: 'row',
@@ -6494,63 +6492,63 @@ const customMismatchStyles = StyleSheet.create({
   nextStepActionCard: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   nextStepActionText: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#1F2937',
+    color: adminColors.ink,
     marginTop: 6,
   },
   referenceCard: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.md,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   referenceText: {
-    fontSize: 14,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     letterSpacing: 0.5,
   },
   previewBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.md,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   previewBoxLabel: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     marginBottom: 4,
   },
   previewBoxCode: {
-    fontSize: 16,
+    ...adminType.title,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   previewNoticeText: {
-    fontSize: 11.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     textAlign: 'center',
     paddingVertical: 4,
   },
   detailBoxText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#1F2937',
+    color: adminColors.ink,
     lineHeight: 18,
   },
   activityRow: {
@@ -6561,50 +6559,49 @@ const customMismatchStyles = StyleSheet.create({
   },
   activityDashedDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   activityTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activityTime: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   notesCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 16,
     minHeight: 80,
     marginBottom: 16,
   },
   notesPlaceholder: {
-    fontSize: 13.5,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#9CA3AF',
+    color: adminColors.muted,
   },
   noticeBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.md,
     padding: 14,
     marginBottom: 16,
   },
   noticeText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     lineHeight: 17,
   },
   optionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -6615,15 +6612,15 @@ const customMismatchStyles = StyleSheet.create({
     flex: 1,
   },
   optionTitle: {
-    fontSize: 15,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
     marginBottom: 2,
   },
   optionSub: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   itemRow: {
     flexDirection: 'row',
@@ -6633,13 +6630,13 @@ const customMismatchStyles = StyleSheet.create({
   },
   itemRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: adminColors.border,
   },
   iconCircle: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -6647,98 +6644,86 @@ const customMismatchStyles = StyleSheet.create({
     flex: 1,
   },
   itemTitle: {
-    fontSize: 14.5,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
     marginBottom: 3,
   },
   itemSub: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   badge: {
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 100,
-    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.warning.bg,
   },
   badgeText: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   secondaryBtn: {
-    backgroundColor: '#FAF6F2',
-    borderRadius: 14,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   secondaryBtnText: {
-    fontSize: 14.5,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   bottomBar: {
-    backgroundColor: '#FAF5EF',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 24 : 14,
   },
   actionBtn: {
-    backgroundColor: '#F0562A',
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   actionBtnText: {
-    fontSize: 15.5,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   orangeBottomBtn: {
-    backgroundColor: '#F0562A',
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   orangeBottomBtnText: {
-    fontSize: 15.5,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   confirmCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     padding: 18,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   confirmCardHeader: {
     flexDirection: 'row',
@@ -6747,22 +6732,22 @@ const customMismatchStyles = StyleSheet.create({
     marginBottom: 14,
   },
   confirmCardTitle: {
-    fontSize: 15.5,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   confirmInnerBox: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginBottom: 16,
   },
   confirmInnerText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#374151',
+    color: adminColors.ink,
     lineHeight: 18,
   },
   confirmButtonsRow: {
@@ -6773,42 +6758,42 @@ const customMismatchStyles = StyleSheet.create({
   confirmActionBtn: {
     flex: 1,
     height: 46,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   confirmActionText: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#F0562A',
+    color: adminColors.brand,
   },
   cancelActionBtn: {
     flex: 1,
     height: 46,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   cancelActionText: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   subtleNoticeBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -6817,14 +6802,14 @@ const customMismatchStyles = StyleSheet.create({
   },
   subtleNoticeText: {
     flex: 1,
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
     lineHeight: 17,
   },
   linkNoticeBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.md,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -6833,9 +6818,9 @@ const customMismatchStyles = StyleSheet.create({
   },
   linkNoticeText: {
     flex: 1,
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#92400E',
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
 });

@@ -1,29 +1,133 @@
 /**
  * Invoice Filters: search, status, type, date range, customer, order, amount
  * range and sort for the invoice list (both layouts).
- *
- * Scope (FINAL_LIST row 5): filter UI only, no action to gate. The warehouse
- * filter renders only for the Main view (scope.warehouseId undefined); a Sub
- * admin is locked to its own warehouse, so applying never carries a warehouse.
- *
- * Absorbs SubWarehouseInvoiceHistoryFiltersScreen (folded with Invoice History
- * into the one list): its Sort By section is here, its status/type options are
- * covered by this screen's, and its InvoiceHistoryFilterState is
- * InvoiceFilterState.
+ * Styled consistently with the standard filter screens (SalesFiltersScreen, ReturnsFiltersScreen).
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { BillingButton, BillingFooter, BillingScreen, ChipGroup, isAllWarehouses, SearchBar } from './BillingParts';
+import { isAllWarehouses } from './BillingParts';
 import { BILLING_WAREHOUSES, DEFAULT_INVOICE_FILTERS } from './fixtures';
 import type { InvoiceFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 
 export interface InvoiceFiltersScreenProps extends WarehouseScreenBaseProps {
   initialFilters?: InvoiceFilterState | undefined;
   onApplyFilters: (filters: InvoiceFilterState) => void;
   /** Warehouses for the Main warehouse filter (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
+}
+
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function FlagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v19"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CalendarIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function TagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BuildingWarehouseIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function UserIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RupeeIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a4 4 0 0 0 0-8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SortIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 const STATUS_OPTIONS: readonly InvoiceFilterState['status'][] = ['All', 'Generated', 'Pending', 'Cancelled'];
@@ -43,43 +147,6 @@ const SORT_OPTIONS: readonly InvoiceFilterState['sortBy'][] = [
 ];
 const ALL_WAREHOUSES = 'All Warehouses';
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-function LabeledInput({
-  label,
-  value,
-  placeholder,
-  onChangeText,
-  numeric = false,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  onChangeText: (text: string) => void;
-  numeric?: boolean;
-}) {
-  return (
-    <View style={styles.inputCol}>
-      <Text style={styles.inputSubLabel}>{label}</Text>
-      <TextInput
-        style={styles.textInput}
-        placeholder={placeholder}
-        placeholderTextColor={adminColors.placeholder}
-        keyboardType={numeric ? 'numeric' : 'default'}
-        value={value}
-        onChangeText={onChangeText}
-      />
-    </View>
-  );
-}
-
 export function InvoiceFiltersScreen({
   scope,
   onBack,
@@ -91,175 +158,414 @@ export function InvoiceFiltersScreen({
   const allWarehouses = isAllWarehouses(scope);
   const set = (patch: Partial<InvoiceFilterState>) => setFilters((prev) => ({ ...prev, ...patch }));
   const handleClearAll = () => setFilters({ ...DEFAULT_INVOICE_FILTERS });
-  // A Sub scope never filters by another warehouse: drop any stale value on apply.
   const handleApply = () => onApplyFilters(allWarehouses ? filters : { ...filters, warehouseId: undefined });
 
-  const warehouseLabels = [
-    ALL_WAREHOUSES,
+  const warehouseList = [
+    { id: undefined, name: ALL_WAREHOUSES },
     ...warehouseOptions
       .filter((o) => o.warehouseId !== undefined)
-      .map((o) => o.warehouseName ?? String(o.warehouseId)),
+      .map((o) => ({ id: o.warehouseId, name: o.warehouseName ?? String(o.warehouseId) })),
   ];
-  const selectedWarehouseLabel =
-    warehouseOptions.find((o) => o.warehouseId === filters.warehouseId)?.warehouseName ?? ALL_WAREHOUSES;
 
   return (
-    <BillingScreen
-      title="Invoice Filters"
-      onBack={onBack}
-      headerRight={
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity
-          style={styles.headerResetButton}
+          style={styles.backButton}
+          onPress={onBack}
+          activeOpacity={0.8}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <BackArrowIcon />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Invoice Filters</Text>
+        <TouchableOpacity
           onPress={handleClearAll}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Clear All Filters"
+          accessibilityLabel="Clear All"
         >
-          <Text style={styles.headerResetText}>Reset</Text>
+          <Text style={styles.clearAllText}>Clear All</Text>
         </TouchableOpacity>
-      }
-      footer={
-        <BillingFooter>
-          <View style={styles.footerRow}>
-            <BillingButton label="Clear All" variant="neutral" flex onPress={handleClearAll} />
-            <BillingButton label="Apply Filters" flex onPress={handleApply} />
-          </View>
-        </BillingFooter>
-      }
-    >
+      </View>
+
+      {/* Body */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Section label="Search">
-          <SearchBar
+        {/* Search Bar */}
+        <View style={styles.searchBar}>
+          <SearchIcon size={18} color="#64748B" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search invoice, order or customer"
+            placeholderTextColor="#94A3B8"
             value={filters.searchQuery}
             onChangeText={(text) => set({ searchQuery: text })}
-            placeholder="Search Invoice / Order / Customer"
+            autoCorrect={false}
           />
-        </Section>
+        </View>
 
-        {allWarehouses ? (
-          <Section label="Warehouse">
-            <ChipGroup
-              options={warehouseLabels}
-              value={selectedWarehouseLabel}
-              onChange={(label) =>
-                set({ warehouseId: warehouseOptions.find((o) => o.warehouseName === label)?.warehouseId })
-              }
-            />
-          </Section>
-        ) : null}
+        {/* Status */}
+        <View style={styles.sectionHeadRow}>
+          <FlagIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Invoice Status</Text>
+        </View>
+        <View style={styles.chipWrap}>
+          {STATUS_OPTIONS.map((item) => {
+            const active = item === filters.status;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => set({ status: item })}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-        <Section label="Invoice Status">
-          <ChipGroup options={STATUS_OPTIONS} value={filters.status} onChange={(status) => set({ status })} />
-        </Section>
+        {/* Invoice Type */}
+        <View style={styles.sectionHeadRow}>
+          <TagIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Invoice Type</Text>
+        </View>
+        <View style={styles.chipWrap}>
+          {TYPE_OPTIONS.map((item) => {
+            const active = item === filters.invoiceType;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => set({ invoiceType: item })}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-        <Section label="Invoice Type">
-          <ChipGroup
-            options={TYPE_OPTIONS}
-            value={filters.invoiceType}
-            onChange={(invoiceType) => set({ invoiceType })}
-          />
-        </Section>
-
-        <Section label="Date Range">
-          <ChipGroup
-            options={DATE_PRESETS}
-            value={filters.datePreset}
-            onChange={(datePreset) => set({ datePreset })}
-          />
-          {filters.datePreset === 'Custom' ? (
-            <View style={styles.inputRow}>
-              <LabeledInput
-                label="From"
-                value={filters.startDate}
+        {/* Date Range */}
+        <View style={styles.sectionHeadRow}>
+          <CalendarIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Date Range</Text>
+        </View>
+        <View style={styles.chipWrap}>
+          {DATE_PRESETS.map((item) => {
+            const active = item === filters.datePreset;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => set({ datePreset: item })}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {filters.datePreset === 'Custom' ? (
+          <View style={styles.inputRow}>
+            <View style={styles.inputCol}>
+              <Text style={styles.inputSubLabel}>From</Text>
+              <TextInput
+                style={styles.textInput}
                 placeholder="DD/MM/YYYY"
+                placeholderTextColor="#94A3B8"
+                value={filters.startDate}
                 onChangeText={(startDate) => set({ startDate })}
               />
-              <LabeledInput
-                label="To"
-                value={filters.endDate}
+            </View>
+            <View style={styles.inputCol}>
+              <Text style={styles.inputSubLabel}>To</Text>
+              <TextInput
+                style={styles.textInput}
                 placeholder="DD/MM/YYYY"
+                placeholderTextColor="#94A3B8"
+                value={filters.endDate}
                 onChangeText={(endDate) => set({ endDate })}
               />
             </View>
-          ) : null}
-        </Section>
+          </View>
+        ) : null}
 
-        <Section label="Customer & Order">
-          <View style={styles.inputStack}>
-            <LabeledInput
-              label="Customer"
-              value={filters.customer}
+        {/* Warehouse Selector */}
+        {allWarehouses && (
+          <>
+            <View style={styles.sectionHeadRow}>
+              <BuildingWarehouseIcon size={18} color="#1E293B" />
+              <Text style={styles.sectionTitle}>Warehouse</Text>
+            </View>
+            <View style={styles.chipWrap}>
+              {warehouseList.map((w) => {
+                const active = filters.warehouseId === w.id;
+                return (
+                  <TouchableOpacity
+                    key={w.name}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => set({ warehouseId: w.id })}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{w.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Customer & Order */}
+        <View style={styles.sectionHeadRow}>
+          <UserIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Customer & Order</Text>
+        </View>
+        <View style={styles.inputStack}>
+          <View style={styles.inputCol}>
+            <Text style={styles.inputSubLabel}>Customer</Text>
+            <TextInput
+              style={styles.textInput}
               placeholder="e.g. Ravi Kumar"
+              placeholderTextColor="#94A3B8"
+              value={filters.customer}
               onChangeText={(customer) => set({ customer })}
             />
-            <LabeledInput
-              label="Order ID"
-              value={filters.orderId}
+          </View>
+          <View style={styles.inputCol}>
+            <Text style={styles.inputSubLabel}>Order ID</Text>
+            <TextInput
+              style={styles.textInput}
               placeholder="e.g. ORD-002154"
+              placeholderTextColor="#94A3B8"
+              value={filters.orderId}
               onChangeText={(orderId) => set({ orderId })}
             />
           </View>
-        </Section>
+        </View>
 
-        <Section label="Amount Range (₹)">
-          <View style={styles.inputRow}>
-            <LabeledInput
-              label="Min"
-              value={filters.minAmount}
+        {/* Amount Range */}
+        <View style={styles.sectionHeadRow}>
+          <RupeeIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Amount Range (₹)</Text>
+        </View>
+        <View style={styles.inputRow}>
+          <View style={styles.inputCol}>
+            <Text style={styles.inputSubLabel}>Min</Text>
+            <TextInput
+              style={styles.textInput}
               placeholder="₹ 0"
-              numeric
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              value={filters.minAmount}
               onChangeText={(minAmount) => set({ minAmount })}
             />
-            <LabeledInput
-              label="Max"
-              value={filters.maxAmount}
+          </View>
+          <View style={styles.inputCol}>
+            <Text style={styles.inputSubLabel}>Max</Text>
+            <TextInput
+              style={styles.textInput}
               placeholder="Any"
-              numeric
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              value={filters.maxAmount}
               onChangeText={(maxAmount) => set({ maxAmount })}
             />
           </View>
-        </Section>
+        </View>
 
-        <Section label="Sort By">
-          <ChipGroup options={SORT_OPTIONS} value={filters.sortBy} onChange={(sortBy) => set({ sortBy })} />
-        </Section>
+        {/* Sort By */}
+        <View style={styles.sectionHeadRow}>
+          <SortIcon size={17} color="#1E293B" />
+          <Text style={styles.sectionTitle}>Sort By</Text>
+        </View>
+        <View style={styles.chipWrap}>
+          {SORT_OPTIONS.map((item) => {
+            const active = item === filters.sortBy;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => set({ sortBy: item })}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={{ height: 20 }} />
       </ScrollView>
-    </BillingScreen>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.applyButton}
+          onPress={handleApply}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Apply Filters"
+        >
+          <FunnelIcon size={18} color="#FFFFFF" />
+          <Text style={styles.applyButtonText}>Apply Filters</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
-const INPUT_HEIGHT = 44;
-
 const styles = StyleSheet.create({
-  headerResetButton: { paddingHorizontal: adminSpacing.sm, paddingVertical: adminSpacing.xs },
-  headerResetText: { ...adminType.rowTitle, color: adminColors.onBrand },
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.md, paddingBottom: adminSpacing.xl },
-  sectionCard: {
+  root: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+    letterSpacing: -0.3,
+  },
+  clearAllText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+    textDecorationLine: 'underline',
+  },
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    height: 48,
+    gap: 10,
+    marginBottom: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: adminColors.ink,
+    paddingVertical: 0,
+  },
+  sectionHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 18,
     marginBottom: adminSpacing.md,
   },
-  sectionLabel: { ...adminType.sectionHead, color: adminColors.brandDeep, marginBottom: adminSpacing.sm },
-  inputRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.md },
-  inputStack: { gap: adminSpacing.md },
-  inputCol: { flex: 1 },
-  inputSubLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  textInput: {
+  sectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: {
+    backgroundColor: adminColors.brandSoft.bg,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+  },
+  chipText: {
     ...adminType.body,
-    height: INPUT_HEIGHT,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  chipTextActive: {
+    color: adminColors.brand,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  inputStack: {
+    gap: 10,
+  },
+  inputCol: {
+    flex: 1,
+  },
+  inputSubLabel: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  textInput: {
+    height: 44,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    fontSize: 14,
     color: adminColors.ink,
   },
-  footerRow: { flexDirection: 'row', gap: adminSpacing.md },
+  footer: {
+    backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  applyButton: {
+    backgroundColor: adminColors.brand,
+    height: 50,
+    borderRadius: adminRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  applyButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
+  },
 });

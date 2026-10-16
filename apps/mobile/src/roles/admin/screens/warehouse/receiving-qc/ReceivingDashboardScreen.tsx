@@ -21,6 +21,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import {
   BellRingIcon,
@@ -185,7 +186,7 @@ export function ReceivingDashboardScreen({
           warehouseId: scope.warehouseId ?? 'WH-COON',
           time: '09:20 AM',
           target: 'wizard',
-          wizardStep: 'rejected_goods',
+          wizardStep: 'damage_mismatch',
         },
       ]
     : issuesInView.slice(0, ATTENTION_PREVIEW);
@@ -303,44 +304,50 @@ export function ReceivingDashboardScreen({
   const mainKpis = [
     {
       key: 'expected',
-      label: 'EXPECTED TODAY',
+      label: 'Expected Today',
       value: 24,
       unit: 'shipments',
+      icon: 'receiving',
       onPress: () => onOpenShipments('Expected'),
     },
     {
       key: 'arrived',
-      label: 'ARRIVED',
+      label: 'Arrived',
       value: 19,
       unit: 'shipments',
+      icon: 'truck',
       onPress: () => onOpenShipments('Arrived'),
     },
     {
       key: 'in_progress',
-      label: 'IN PROGRESS',
+      label: 'In Progress',
       value: 5,
       unit: 'receiving',
+      icon: 'orders',
       onPress: () => onOpenShipments('Receiving'),
     },
     {
       key: 'completed',
-      label: 'COMPLETED',
+      label: 'Completed',
       value: 14,
       unit: 'today',
+      icon: 'pickup',
       onPress: () => onOpenHistory('Accepted'),
     },
     {
       key: 'discrepancies',
-      label: 'DISCREPANCIES',
+      label: 'Discrepancies',
       value: 2,
       unit: 'flagged',
+      icon: 'alert',
       onPress: onOpenQualityIssues,
     },
     {
       key: 'turnaround',
-      label: 'AVG TURNAROUND',
+      label: 'Avg Turnaround',
       value: 38,
       unit: 'minutes',
+      icon: 'cash',
       onPress: () => onOpenHistory('All'),
     },
   ];
@@ -363,8 +370,8 @@ export function ReceivingDashboardScreen({
     ) : (
       'Goods Receiving'
     ),
-    headerLeft: !mainView ? <TruckDeliveryIcon size={24} color={adminColors.onBrand} /> : undefined,
-    onBack: undefined,
+    headerLeft: undefined,
+    onBack: onBack ?? (() => {}),
     headerRight: mainView ? (
       <HeaderIconButton onPress={() => {}} accessibilityLabel="Refresh">
         <RefreshRetryIcon size={20} color={adminColors.onBrand} />
@@ -417,16 +424,15 @@ export function ReceivingDashboardScreen({
             {/* 6 KPI Cards (2x3) */}
             <View style={styles.mainKpiGrid}>
               {mainKpis.map((kpi) => (
-                <TouchableOpacity
+                <OverviewDashboardCard
                   key={kpi.key}
-                  style={styles.mainKpiCard}
+                  value={kpi.value}
+                  title={kpi.label}
+                  subtitle={kpi.unit}
+                  icon={kpi.icon}
+                  tone={kpi.key === 'discrepancies' ? 'danger' : 'default'}
                   onPress={kpi.onPress}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.mainKpiLabel}>{kpi.label}</Text>
-                  <Text style={styles.mainKpiValue}>{kpi.value}</Text>
-                  <Text style={styles.mainKpiUnit}>{kpi.unit}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
 
@@ -437,7 +443,7 @@ export function ReceivingDashboardScreen({
                 onPress={onShipmentArrived ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
                 activeOpacity={0.85}
               >
-                <ShipmentBoxIcon size={22} color="#FFFFFF" />
+                <ShipmentBoxIcon size={22} color={adminColors.onBrand} />
                 <Text style={styles.shipmentArrivedBtnText}>Shipment Arrived</Text>
               </TouchableOpacity>
             </View>
@@ -521,7 +527,7 @@ export function ReceivingDashboardScreen({
               onPress={onViewIncomingShipments ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
               activeOpacity={0.85}
             >
-              <TruckDeliveryIcon size={20} color="#FFFFFF" />
+              <TruckDeliveryIcon size={20} color={adminColors.onBrand} />
               <Text style={styles.viewIncomingBtnText}>View Incoming Shipments</Text>
             </TouchableOpacity>
           </>
@@ -529,13 +535,15 @@ export function ReceivingDashboardScreen({
           <>
             <View style={styles.grid}>
               {tiles.map((tile) => (
-                <View key={tile.key} style={styles.tile}>
-                  {tile.icon}
-                  <Text style={[styles.tileValue, tile.alert === true && styles.tileValueAlert]}>
-                    {typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
-                  </Text>
-                  <Text style={styles.tileLabel}>{tile.label}</Text>
-                </View>
+                <OverviewDashboardCard
+                  key={tile.key}
+                  value={typeof tile.value === 'number' ? String(tile.value).padStart(2, '0') : tile.value}
+                  title={tile.label}
+                  subtitle={tile.alert ? 'Needs attention' : undefined}
+                  icon={tile.icon}
+                  tone={tile.alert ? 'danger' : 'default'}
+                  onPress={tile.onPress}
+                />
               ))}
             </View>
 
@@ -552,15 +560,15 @@ export function ReceivingDashboardScreen({
               <>
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.rowCenterSm}>
-                    <WarningTriangleIcon size={18} color="#D97706" />
+                    <WarningTriangleIcon size={18} color={adminColors.warning.text} />
                     <Text style={styles.sectionTitleText}>Needs Attention</Text>
                   </View>
                 </View>
                 {effectiveIssues.map((issue) => {
                   const isQc = issue.kind === 'QC Pending';
                   const isMismatch = issue.kind === 'Quantity Mismatch';
-                  const iconBg = isQc ? '#FEF3C7' : '#FEE2E2';
-                  const iconColor = isQc ? '#D97706' : '#EF4444';
+                  const iconBg = isQc ? adminColors.warning.bg : adminColors.danger.bg;
+                  const iconColor = isQc ? adminColors.warning.text : adminColors.danger.text;
 
                   let issueIcon: React.ReactNode;
                   if (isQc) {
@@ -590,7 +598,7 @@ export function ReceivingDashboardScreen({
                           {issue.produce} — {issue.shipmentCode}
                         </Text>
                       </View>
-                      <ChevronRightSmall color="#9CA3AF" size={18} />
+                      <ChevronRightSmall color={adminColors.muted} size={18} />
                     </TouchableOpacity>
                   );
                 })}
@@ -661,12 +669,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitleText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   viewDetailsLink: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
     color: adminColors.brandDeep,
   },
@@ -680,21 +687,21 @@ const styles = StyleSheet.create({
   tile: {
     width: '48.2%',
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: 16,
     gap: 4,
   },
   tileValue: {
-    fontSize: 26,
+    ...adminType.title,
     fontWeight: '800',
     color: adminColors.ink,
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
   },
   tileValueAlert: { color: adminColors.danger.text },
   tileLabel: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '500',
     color: adminColors.muted,
   },
@@ -705,14 +712,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: adminSpacing.sm,
     backgroundColor: adminColors.brand,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
   startButtonText: { ...adminType.sectionHead, color: adminColors.onBrand, fontWeight: '700' },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: 14,
@@ -731,13 +738,13 @@ const styles = StyleSheet.create({
   cardTitle: { ...adminType.rowTitle, color: adminColors.ink },
   cardMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   cardValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: adminSpacing.xs },
-  link: { ...adminType.caption, color: adminColors.brand, fontWeight: '700', fontSize: 13 },
+  link: { ...adminType.caption, color: adminColors.brand, fontWeight: '700' },
   attentionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: 14,
@@ -747,18 +754,17 @@ const styles = StyleSheet.create({
   attentionIconSquare: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   attentionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   attentionMeta: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   pipelineText: { ...adminType.body, color: adminColors.ink },
@@ -786,7 +792,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   mainHeaderTitleText: {
-    fontSize: 20,
+    ...adminType.title,
     fontWeight: '800',
     color: adminColors.onBrand,
   },
@@ -800,28 +806,27 @@ const styles = StyleSheet.create({
   mainKpiCard: {
     width: '48.2%',
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: 16,
     gap: 2,
   },
   mainKpiLabel: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
     letterSpacing: 0.3,
   },
   mainKpiValue: {
-    fontSize: 26,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
     marginTop: 4,
   },
   mainKpiUnit: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   mainSectionHeaderRow: {
     flexDirection: 'row',
@@ -831,32 +836,32 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   mainSectionHeaderTitle: {
-    fontSize: 16,
+    ...adminType.sectionHead,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   mainSectionHeaderLink: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#D97706',
+    color: adminColors.warning.text,
   },
   mainActivityCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: 16,
     marginBottom: 16,
   },
   mainActivityPipelineText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.ink,
     lineHeight: 18,
   },
   mainQueueCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: 16,
@@ -871,17 +876,16 @@ const styles = StyleSheet.create({
   },
   mainQueueRowDivider: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: adminColors.border,
   },
   mainQueueLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   mainQueueValue: {
-    fontSize: 14,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: '#1F2937',
+    color: adminColors.ink,
   },
   mainQuickActionsGrid: {
     flexDirection: 'row',
@@ -893,7 +897,7 @@ const styles = StyleSheet.create({
   mainQuickActionCard: {
     width: '48.2%',
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingVertical: 18,
@@ -903,14 +907,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   mainQuickActionText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#1F2937',
+    color: adminColors.ink,
     textAlign: 'center',
   },
   viewIncomingBtn: {
     backgroundColor: adminColors.brand,
-    borderRadius: 14,
+    borderRadius: adminRadius.md,
     height: ADMIN_BUTTON_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
@@ -920,7 +924,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   viewIncomingBtnText: {
-    fontSize: 16,
+    ...adminType.sectionHead,
     fontWeight: '700',
     color: adminColors.onBrand,
   },
@@ -930,8 +934,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   shipmentArrivedBtn: {
-    backgroundColor: '#F0562A',
-    borderRadius: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     height: ADMIN_BUTTON_HEIGHT,
     width: '100%',
     flexDirection: 'row',
@@ -941,9 +945,9 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   shipmentArrivedBtnText: {
-    fontSize: 16,
+    ...adminType.sectionHead,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 });
 

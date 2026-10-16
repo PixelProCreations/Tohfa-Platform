@@ -269,15 +269,6 @@ export function InvoiceWizardScreen({
                 ],
               ]}
             />
-            {canGenerate ? (
-              <View style={styles.demoButton}>
-                <BillingButton
-                  label="Simulate generation failure (demo)"
-                  variant="outline"
-                  onPress={() => setShowFailure(true)}
-                />
-              </View>
-            ) : null}
           </>
         ) : null}
       </ScrollView>
@@ -327,8 +318,6 @@ const styles = StyleSheet.create({
   billingValue: { ...adminType.rowTitle, color: adminColors.ink },
   billingTotalLabel: { ...adminType.sectionHead, color: adminColors.ink },
   billingTotalValue: { ...adminType.kpiValue, color: adminColors.ink },
-
-  demoButton: { marginTop: adminSpacing.lg },
 
   modalOverlay: {
     flex: 1,

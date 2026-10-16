@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   CategoryBadge,
   FILTER_LABEL,
@@ -29,7 +29,7 @@ import type {
   WarehouseScreenBaseProps,
 } from './types';
 
-function SettingsGearIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function SettingsGearIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
@@ -98,7 +98,7 @@ export function NotificationsScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header with Warm Orange Accent */}
       <View style={styles.header}>
         <SafeAreaView style={styles.headerSafeArea}>
@@ -115,7 +115,7 @@ export function NotificationsScreen({
                 <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M19 12H5M12 19l-7-7 7-7"
-                    stroke="#FFFFFF"
+                    stroke={adminColors.onBrand}
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -239,22 +239,22 @@ export function NotificationsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F4EE',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
-    paddingBottom: 14,
+    backgroundColor: adminColors.brand,
+    paddingBottom: adminSpacing.md,
   },
   headerSafeArea: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -262,77 +262,73 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    paddingRight: 10,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 4,
+    ...adminType.title,
+    color: adminColors.onBrand,
+    marginLeft: adminSpacing.xs,
   },
   settingsBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markAllReadText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
   selectorWrapper: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.xs,
   },
   subHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
   },
   unreadCountText: {
     ...adminType.caption,
-    fontSize: 13,
-    color: '#7A2E14',
+    color: adminColors.brandDeep,
     fontWeight: '600',
   },
   markAllLinkText: {
     ...adminType.caption,
-    fontSize: 13,
-    color: '#7A2E14',
+    color: adminColors.brandDeep,
     fontWeight: '600',
   },
   list: {
     flex: 1,
-    backgroundColor: '#F7F4EE',
+    backgroundColor: adminColors.canvas,
   },
   listContent: {
-    paddingBottom: 30,
+    paddingBottom: adminSpacing.xl,
   },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#E5DFD7',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
+    borderColor: adminColors.border,
+    marginHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    padding: adminSpacing.md,
   },
   itemCardUnread: {
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     borderLeftWidth: 4,
-    borderLeftColor: '#F0562A',
+    borderLeftColor: adminColors.brand,
   },
   cardIconWrap: {
-    marginRight: 12,
+    marginRight: adminSpacing.md,
     paddingTop: 2,
   },
   cardTopRow: {
@@ -343,43 +339,39 @@ const styles = StyleSheet.create({
   unreadPillDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#F0562A',
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.brand,
     marginLeft: 6,
   },
   contentCol: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     lineHeight: 20,
   },
   itemMessage: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#5F5E5A',
+    ...adminType.body,
+    color: adminColors.muted,
     lineHeight: 18,
     marginTop: 3,
   },
   itemTimestamp: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#7E7A75',
-    marginTop: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   actionLinkBtn: {
     marginTop: 6,
     alignSelf: 'flex-start',
   },
   actionLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7A2E14',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   emptyWrap: {
-    padding: 32,
+    padding: adminSpacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -230,10 +230,14 @@ export function ScopeHeader({
       />
     );
   }
+  const rawName = scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse';
+  const cleanName = rawName.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '');
+  const finalWhName = cleanName.includes('Warehouse') ? cleanName : `${cleanName} Warehouse`;
+  const pillText = `${finalWhName} · Assigned Warehouse`;
   return (
     <View style={styles.warehousePill}>
       <LockIcon />
-      <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId} · Active</Text>
+      <Text style={styles.warehousePillText}>{pillText}</Text>
     </View>
   );
 }
@@ -548,7 +552,7 @@ const styles = StyleSheet.create({
     width: HEADER_ICON_BUTTON,
     height: HEADER_ICON_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -565,16 +569,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
+    borderColor: adminColors.headerPill.border,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: adminRadius.full,
     marginTop: adminSpacing.sm,
-    gap: adminSpacing.xs,
+    gap: 6,
   },
-  warehousePillText: { ...adminType.caption, color: adminColors.onBrand },
+  warehousePillText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
   body: { flex: 1, backgroundColor: adminColors.canvas },
 
   sectionTitle: {
@@ -682,14 +689,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: adminColors.border,
     gap: 10,
     ...adminShadow.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
   },
   toastIconBadge: {
     width: 22,
@@ -702,7 +704,6 @@ const styles = StyleSheet.create({
   toastText: {
     ...adminType.rowTitle,
     color: adminColors.toast.text,
-    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.2,
   },

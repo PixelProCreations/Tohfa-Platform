@@ -81,10 +81,15 @@ export function SingleWarehouseHeader({
   onSelect?: ((warehouseId: string | undefined) => void) | undefined;
 }) {
   if (!isAllWarehouses(scope) || onSelect === undefined) {
+    const rawName = warehouseNameOf(scope, warehouseId, options) || 'Coonoor Warehouse';
+    const cleanName = rawName.replace(/\s*·\s*(Active|Assigned Warehouse)$/, '');
+    const finalWhName = cleanName.includes('Warehouse') ? cleanName : `${cleanName} Warehouse`;
     return (
       <View style={styles.lockedPill}>
         {isAllWarehouses(scope) ? null : <LockIcon />}
-        <Text style={styles.lockedPillText}>{warehouseNameOf(scope, warehouseId, options)}</Text>
+        <Text style={styles.lockedPillText}>
+          {isAllWarehouses(scope) ? finalWhName : `${finalWhName} · Assigned Warehouse`}
+        </Text>
       </View>
     );
   }
@@ -301,14 +306,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: adminSpacing.xs,
-    marginTop: adminSpacing.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
+    gap: 6,
+    marginTop: adminSpacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.headerPill.bg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminColors.headerPill.border,
   },
   lockedPillText: { ...adminType.rowTitle, color: adminColors.onBrand },
   chipRow: { gap: adminSpacing.sm, marginTop: adminSpacing.md },
@@ -316,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
   },
   chipActive: { backgroundColor: adminColors.card },
   chipText: { ...adminType.rowTitle, color: adminColors.onBrand },

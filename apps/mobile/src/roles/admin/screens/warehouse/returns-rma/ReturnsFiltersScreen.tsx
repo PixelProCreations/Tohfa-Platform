@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -19,7 +21,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -28,7 +30,7 @@ function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: s
   );
 }
 
-function FlagIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: string }) {
+function FlagIcon({ size = 17, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -42,7 +44,7 @@ function FlagIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-function CalendarIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 17, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -51,7 +53,7 @@ function CalendarIcon({ size = 17, color = '#F0562A' }: { size?: number; color?:
   );
 }
 
-function AlertCircleIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: string }) {
+function AlertCircleIcon({ size = 17, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -60,7 +62,7 @@ function AlertCircleIcon({ size = 17, color = '#F0562A' }: { size?: number; colo
   );
 }
 
-function CreditCardIcon({ size = 17, color = '#F0562A' }: { size?: number; color?: string }) {
+function CreditCardIcon({ size = 17, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -69,7 +71,7 @@ function CreditCardIcon({ size = 17, color = '#F0562A' }: { size?: number; color
   );
 }
 
-function BuildingWarehouseIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+function BuildingWarehouseIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -78,7 +80,7 @@ function BuildingWarehouseIcon({ size = 18, color = '#F0562A' }: { size?: number
   );
 }
 
-function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FunnelIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -92,7 +94,7 @@ function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
   );
 }
 
-function LockIcon({ size = 18, color = '#9A3412' }: { size?: number; color?: string }) {
+function LockIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -169,7 +171,7 @@ export function ReturnsFiltersScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -203,11 +205,11 @@ export function ReturnsFiltersScreen({
       >
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#64748B" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search RMA, order or customer"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
@@ -216,7 +218,7 @@ export function ReturnsFiltersScreen({
 
         {/* Status */}
         <View style={styles.sectionHeadRow}>
-          <FlagIcon size={17} color="#1E293B" />
+          <FlagIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Status</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollRow}>
@@ -237,7 +239,7 @@ export function ReturnsFiltersScreen({
 
         {/* Date */}
         <View style={styles.sectionHeadRow}>
-          <CalendarIcon size={17} color="#1E293B" />
+          <CalendarIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Date</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScrollRow}>
@@ -258,7 +260,7 @@ export function ReturnsFiltersScreen({
 
         {/* Return Reason */}
         <View style={styles.sectionHeadRow}>
-          <AlertCircleIcon size={17} color="#1E293B" />
+          <AlertCircleIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Return Reason</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -277,16 +279,9 @@ export function ReturnsFiltersScreen({
           })}
         </View>
 
-        {/* Backend configured note */}
-        <View style={styles.reasonNote}>
-          <Text style={styles.reasonNoteText}>
-            Only configured reasons from the backend appear here — no hard-coded exhaustive list.
-          </Text>
-        </View>
-
         {/* Refund Method */}
         <View style={styles.sectionHeadRow}>
-          <CreditCardIcon size={17} color="#1E293B" />
+          <CreditCardIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Refund Method</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -309,7 +304,7 @@ export function ReturnsFiltersScreen({
         {showWarehouseSelector && warehouses.length > 0 && (
           <>
             <View style={styles.sectionHeadRow}>
-              <BuildingWarehouseIcon size={18} color="#1E293B" />
+              <BuildingWarehouseIcon size={18} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Warehouse</Text>
             </View>
             <View style={styles.chipWrap}>
@@ -336,14 +331,14 @@ export function ReturnsFiltersScreen({
         {/* Locked Warehouse Pill */}
         {!showWarehouseSelector && warehouseName && (
           <View style={styles.orangeNote}>
-            <LockIcon size={18} color="#9A3412" />
+            <LockIcon size={18} color={adminColors.brandDeep} />
             <Text style={styles.orangeNoteText}>
               Locked to {warehouseName} · Active. Switch warehouse from the header selector if needed.
             </Text>
           </View>
         )}
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: adminSpacing.lg }} />
       </ScrollView>
 
       {/* Footer */}
@@ -355,7 +350,7 @@ export function ReturnsFiltersScreen({
           accessibilityRole="button"
           accessibilityLabel="Apply Filters"
         >
-          <FunnelIcon size={18} color="#FFFFFF" />
+          <FunnelIcon size={18} color={adminColors.onBrand} />
           <Text style={styles.applyButtonText}>Apply Filters</Text>
         </TouchableOpacity>
       </View>
@@ -366,13 +361,13 @@ export function ReturnsFiltersScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -384,139 +379,135 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   clearAllText: {
-    fontSize: 14,
+    ...adminType.rowMeta,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
   body: {
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
     height: 48,
-    gap: 10,
-    marginBottom: 6,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xs,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1E293B',
+    ...adminType.body,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   sectionHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 18,
-    marginBottom: 12,
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   horizontalScrollRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingRight: 16,
+    gap: adminSpacing.sm,
+    paddingRight: adminSpacing.lg,
   },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   chip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: '#FDF4EC',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
   },
   chipText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '700',
-    color: '#334155',
+    color: adminColors.muted,
   },
   chipTextActive: {
-    color: '#F0562A',
+    color: adminColors.brand,
   },
   reasonNote: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
+    borderColor: adminColors.brandSoft.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   reasonNoteText: {
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#9A3412',
+    color: adminColors.brandSoft.text,
     lineHeight: 18,
   },
   orangeNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF7ED',
+    gap: adminSpacing.sm,
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: '#FDBA74',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 24,
+    borderColor: adminColors.brandSoft.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.xl,
   },
   orangeNoteText: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.rowMeta,
     fontWeight: '600',
-    color: '#9A3412',
+    color: adminColors.brandSoft.text,
     lineHeight: 18,
   },
   footer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: adminColors.border,
   },
   applyButton: {
-    backgroundColor: '#F0562A',
-    height: 50,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   applyButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

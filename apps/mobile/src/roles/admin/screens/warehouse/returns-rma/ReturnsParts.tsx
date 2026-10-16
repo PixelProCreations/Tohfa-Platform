@@ -106,7 +106,7 @@ export function InfoCard({ rows }: { rows: InfoField[][] }) {
     <View style={styles.card}>
       {rows.map((row, rowIndex) => (
         <View key={rowIndex}>
-          {rowIndex > 0 ? <View style={styles.cardDivider} /> : null}
+          {rowIndex > 0 ? <View style={{ marginTop: 14 }} /> : null}
           <View style={styles.twoColRow}>
             {row.map((field) => (
               <View key={field.label} style={styles.col}>
@@ -244,29 +244,30 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.xs,
   },
   cardDivider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.sm },
   twoColRow: { flexDirection: 'row', alignItems: 'flex-start' },
   col: { flex: 1 },
-  fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
+  fieldLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  fieldValue: { ...adminType.rowTitle, color: adminColors.ink },
 
   issueTag: {
     alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandSoft.bg,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.md,
   },
-  issueTagText: { ...adminType.caption, color: adminColors.brandSoft.text },
+  issueTagText: { ...adminType.caption, fontWeight: '700', color: adminColors.brandDeep },
 
   timeline: { paddingLeft: adminSpacing.xs, marginBottom: adminSpacing.sm },
   timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
   timelineNodeCol: { alignItems: 'center', width: adminSpacing.xl },
   timelineRing: {
-    width: TIMELINE_RING,
-    height: TIMELINE_RING,
+    width: 20,
+    height: 20,
     borderRadius: adminRadius.full,
     borderWidth: 2,
     borderColor: adminColors.success.text,
@@ -275,15 +276,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timelineDot: {
-    width: TIMELINE_DOT,
-    height: TIMELINE_DOT,
+    width: 8,
+    height: 8,
     borderRadius: adminRadius.full,
     backgroundColor: adminColors.success.text,
   },
-  timelineLine: { width: 2, height: TIMELINE_LINE_HEIGHT, backgroundColor: adminColors.border, marginVertical: 2 },
-  timelineTextCol: { flex: 1, paddingLeft: adminSpacing.md, paddingBottom: adminSpacing.lg },
-  timelineTitle: { ...adminType.sectionHead, color: adminColors.ink },
-  timelineTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  timelineLine: { width: 2, height: 26, backgroundColor: adminColors.success.bg, marginVertical: 2 },
+  timelineTextCol: { flex: 1, paddingLeft: 14, paddingBottom: 18 },
+  timelineTitle: { ...adminType.rowTitle, color: adminColors.ink },
+  timelineTime: { ...adminType.caption, color: adminColors.muted, marginTop: 2 },
 
   footer: {
     backgroundColor: adminColors.card,
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
   },
   buttonFlex: { flex: 1 },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { ...adminType.sectionHead },
+  buttonText: { ...adminType.rowTitle },
   permissionNote: { ...adminType.rowMeta, color: adminColors.muted, textAlign: 'center' },
 
   hero: { alignItems: 'center', marginTop: adminSpacing.xxxl, marginBottom: adminSpacing.xl },
@@ -333,5 +334,5 @@ const BUTTON_TEXT_STYLE = StyleSheet.create({
   danger: { color: adminColors.onBrand },
   successOutline: { color: adminColors.success.text },
   dangerOutline: { color: adminColors.danger.text },
-  neutralOutline: { color: adminColors.brandDeep },
+  neutralOutline: { color: adminColors.ink },
 });

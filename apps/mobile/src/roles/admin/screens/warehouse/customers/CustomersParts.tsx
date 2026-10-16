@@ -257,12 +257,14 @@ export function SearchField({
   onChangeText,
   placeholder,
   onFocus,
+  onFilterPress,
   right,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
   onFocus?: (() => void) | undefined;
+  onFilterPress?: (() => void) | undefined;
   right?: React.ReactNode;
 }) {
   return (
@@ -278,7 +280,19 @@ export function SearchField({
         autoCorrect={false}
         clearButtonMode="while-editing"
       />
-      {right}
+      {right !== undefined ? (
+        right
+      ) : onFilterPress !== undefined ? (
+        <TouchableOpacity
+          onPress={onFilterPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Open Filters"
+        >
+          <FilterIcon color={adminColors.brand} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -462,10 +476,10 @@ const styles = StyleSheet.create({
   headerTitle: { ...adminType.title, color: adminColors.onBrand },
   headerSubtitle: { ...adminType.rowMeta, color: adminColors.onBrand, marginTop: 2 },
   headerIconButton: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -482,7 +496,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
   },
   headerTextButtonText: { ...adminType.caption, color: adminColors.onBrand },
   body: { flex: 1, backgroundColor: adminColors.canvas },
