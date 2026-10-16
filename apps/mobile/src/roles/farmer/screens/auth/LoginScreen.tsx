@@ -111,7 +111,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     setLocaleState(lang);
   };
 
-  const cleanMobile = () => (mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`);
+  const cleanMobile = () => {
+    const raw = mobile.trim();
+    if (raw.startsWith('+')) return raw;
+    return `+91${raw.replace(/^91/, '')}`;
+  };
 
   /**
    * Social sign-in (BR-39). Apple Sign-In has been removed from this screen
@@ -237,7 +241,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
-      console.error('[LoginScreen] Catch block hit:', err);
+      console.warn('[LoginScreen] Login failed:', err);
       setErrorMsg(formatErrorMessage(err, 'Invalid credentials. Please check your mobile number and password.'));
     } finally {
       setLoading(false);
@@ -276,7 +280,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           <View style={styles.prefixDivider} />
           <TextInput
             value={mobile}
-            onChangeText={setMobile}
+            onChangeText={(val) => {
+              const stripped = val.replace(/^\+91\s*|^\+/, '');
+              setMobile(stripped);
+            }}
             onFocus={() => setIsMobileFocused(true)}
             onBlur={() => setIsMobileFocused(false)}
             keyboardType="phone-pad"
