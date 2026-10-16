@@ -21,10 +21,15 @@
  * order route param must be an order uuid (orderIdParam); a host still passing
  * a sample code gets "not found", not a request for it.
  *
+ * The order invoice (M5S18) is live: its container reads the order detail
+ * (cached from M5S04) for the invoice id and the screen renders the billing
+ * area's LiveInvoiceDetail. It is gated on invoice.view_own (availability.ts
+ * 'orderInvoices'), so a caller without it is refused like a hidden route.
+ *
  * Cancel (M5S17), order issues (M5S16), the stock check (M5S05), delivery
- * preparation and dispatch (M5S13, M5S14) and the order invoice (M5S18) have no
- * API yet (availability.ts). The flow refuses to open them, whatever the deep
- * link, and renders the dashboard instead; the screens stay in the code.
+ * preparation and dispatch (M5S13, M5S14) have no API yet (availability.ts).
+ * The flow refuses to open them, whatever the deep link, and renders the
+ * dashboard instead; the screens stay in the code.
  */
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View } from 'react-native';
@@ -228,6 +233,21 @@ function LiveHistoryRoute({ base, warehouseId, params }: LiveRouteProps) {
   );
 }
 
+function LiveInvoiceRoute({ base, warehouseId, params }: LiveRouteProps) {
+  const live = useOrder(warehouseId, orderIdParam(params));
+  return (
+    <OrderInvoiceScreen
+      {...base}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
 const PACKING_STEPS: readonly PackingStep[] = ['packing', 'confirm'];
 
 function LivePackingRoute({ base, warehouseId, params }: LiveRouteProps) {
@@ -288,7 +308,7 @@ export function OrdersFlow({
   // scope ignores it; ordersWarehouseFilter always sends its own warehouse.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const warehouseId = ordersWarehouseFilter(scope, selectedWarehouseId);
-  /** False for a route of an order area with no API (cancel, issues, stock check, delivery, invoice). */
+  /** False for a route of an order area with no API (cancel, issues, stock check, delivery), or the invoice without invoice.view_own. */
   const isRouteAvailable = (screen: string): boolean => {
     const area = ordersRouteArea(screen);
     return area === undefined || isAreaAvailable(area, can);
@@ -418,7 +438,7 @@ export function OrdersFlow({
         return <CancelOrderScreen {...common} orderId={orderId} />;
       case 'M5S18':
       case 'M5S18_OrderInvoice':
-        return <OrderInvoiceScreen {...common} orderId={orderId} />;
+        return <LiveInvoiceRoute {...live} />;
       default: {
         const external = renderExternalScreen?.(current.screen, params, { navigate, back });
         return external ?? dashboard;

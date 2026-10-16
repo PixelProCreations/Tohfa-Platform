@@ -6,11 +6,12 @@
  *   POST /admin/sales                              sales.sale.create (BR-86, BR-88, BR-89; Idempotency-Key)
  *   GET  /admin/sales                              sales.history.view (BR-85, BR-90; cursor)
  *   GET  /admin/sales/{saleId}                     sales.history.view (BR-90, BR-92)
- *   GET  /admin/sales/summary                      sales.history.view (BR-96)
+ *   GET  /admin/sales/summary                      sales.dashboard.view (BR-96)
  *   GET  /admin/sales/market-day                   sales.market_day.view (BR-95, BR-96)
  *   GET  /admin/sales/horeca                       sales.horeca.view (BR-85h, BR-13; read-only)
  *   GET  /admin/sales/b2b                          sales.b2b.view (BR-85h, BR-13; read-only)
  *   POST /admin/sales/{saleId}/payments/upi/confirm payment.record (BR-94, BR-88g; Idempotency-Key)
+ *   POST /admin/sales/{saleId}/cancel              sales.sale.cancel (BR-94i; Idempotency-Key)
  *
  * Shell client is mocked (same pattern as api_orders.test.ts and api_finance.test.ts).
  */
@@ -28,6 +29,7 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 import { request } from '../../../shell/api/client';
 import {
   ERROR_CODES,
+  cancelSale,
   confirmSaleUpiPayment,
   createSale,
   getSale,
@@ -62,25 +64,34 @@ describe('roles/admin/api/sales.ts (HTTP contract)', () => {
   });
 
   describe('GET /admin/sales/products (BR-89, BR-95)', () => {
-    it('sends GET /admin/sales/products with warehouseId', async () => {
-      await listSaleProducts({ warehouseId: OWN_WAREHOUSE });
+    it('BR-95: sends the required channel with warehouseId, q and cursor', async () => {
+      await listSaleProducts({ channel: 'MARKET', warehouseId: OWN_WAREHOUSE, q: 'carrot', cursor: 'c-1' });
       expect(requestMock).toHaveBeenCalledTimes(1);
       const [path, init] = requestMock.mock.calls[0]!;
       expect(path).toContain('/admin/sales/products');
+      expect(path).toContain('channel=MARKET');
       expect(path).toContain(`warehouseId=${OWN_WAREHOUSE}`);
+      expect(path).toContain('q=carrot');
+      expect(path).toContain('cursor=c-1');
       expect(init?.method).toBe('GET');
     });
   });
 
   describe('GET /admin/sales/customers/lookup (BR-91, BR-92)', () => {
-    it('sends GET /admin/sales/customers/lookup with phone and warehouseId', async () => {
-      await lookupSaleCustomer({ phone: '9876543210', warehouseId: OWN_WAREHOUSE });
-      expect(requestMock).toHaveBeenCalledTimes(1);
-      const [path, init] = requestMock.mock.calls[0]!;
-      expect(path).toContain('/admin/sales/customers/lookup');
-      expect(path).toContain('phone=9876543210');
-      expect(path).toContain(`warehouseId=${OWN_WAREHOUSE}`);
+    it('BR-91: sends exactly one of mobile / code / q and no warehouseId (the server scopes it)', async () => {
+      await lookupSaleCustomer({ mobile: '9876543210' });
+      await lookupSaleCustomer({ q: 'Priya' });
+      expect(requestMock).toHaveBeenCalledTimes(2);
+      const [mobilePath, init] = requestMock.mock.calls[0]!;
+      expect(mobilePath).toContain('/admin/sales/customers/lookup');
+      expect(mobilePath).toContain('mobile=9876543210');
+      expect(mobilePath).not.toContain('phone=');
+      expect(mobilePath).not.toContain('warehouseId=');
+      expect(mobilePath).not.toContain('q=');
       expect(init?.method).toBe('GET');
+      const [qPath] = requestMock.mock.calls[1]!;
+      expect(qPath).toContain('q=Priya');
+      expect(qPath).not.toContain('mobile=');
     });
   });
 
@@ -89,7 +100,7 @@ describe('roles/admin/api/sales.ts (HTTP contract)', () => {
       const quoteBody: SaleQuoteRequestDto = {
         channel: 'DIRECT',
         warehouseId: OWN_WAREHOUSE,
-        items: [{ productId: PRODUCT_ID, grade: 'Grade 1', qtyKg: '2.500' }],
+        items: [{ productId: PRODUCT_ID, grade: 'GRADE_1', qtyKg: '2.500' }],
       };
       await quoteSale(quoteBody);
       expect(requestMock).toHaveBeenCalledTimes(1);
@@ -105,8 +116,8 @@ describe('roles/admin/api/sales.ts (HTTP contract)', () => {
       const saleBody: SaleCreateDto = {
         channel: 'DIRECT',
         warehouseId: OWN_WAREHOUSE,
-        walkIn: { name: 'Walk-in Customer' },
-        items: [{ productId: PRODUCT_ID, grade: 'Grade 1', qtyKg: '2.500' }],
+        walkIn: { name: 'Asha' },
+        items: [{ productId: PRODUCT_ID, grade: 'GRADE_1', qtyKg: '2.500' }],
         expectedTotal: '225.00',
         payment: { method: 'CASH', amountReceived: '250.00' },
       };
@@ -125,7 +136,7 @@ describe('roles/admin/api/sales.ts (HTTP contract)', () => {
         channel: 'DIRECT',
         warehouseId: OWN_WAREHOUSE,
         customer: { customerId: CUSTOMER_ID },
-        items: [{ productId: PRODUCT_ID, grade: 'Grade 1', qtyKg: '1.000' }],
+        items: [{ productId: PRODUCT_ID, grade: 'GRADE_1', qtyKg: '1.000' }],
         expectedTotal: '90.00',
         payment: { method: 'WALLET' },
       };
@@ -224,6 +235,28 @@ describe('roles/admin/api/sales.ts (HTTP contract)', () => {
       expect(init?.method).toBe('POST');
       expect(init?.body).toEqual({ upiTxnRef: 'UPI123456789' });
       expect(init?.idempotencyKey).toBe(key);
+    });
+  });
+
+  describe('POST /admin/sales/{saleId}/cancel (BR-94i, BR-94l)', () => {
+    it('sends POST /admin/sales/{saleId}/cancel with its own Idempotency-Key', async () => {
+      await cancelSale(SALE_ID, { reason: 'Customer left' }, 'idem-cancel-1');
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      const [path, init] = requestMock.mock.calls[0]!;
+      expect(path).toBe(`/admin/sales/${SALE_ID}/cancel`);
+      expect(init?.method).toBe('POST');
+      expect(init?.body).toEqual({ reason: 'Customer left' });
+      expect(init?.idempotencyKey).toBe('idem-cancel-1');
+    });
+  });
+
+  describe('GET /admin/sales filters', () => {
+    it('sends paymentStatus, paymentMethod and q when given', async () => {
+      await listSales({ paymentStatus: 'PAID', paymentMethod: 'UPI', q: 'SALE-1' });
+      const [path] = requestMock.mock.calls[0]!;
+      expect(path).toContain('paymentStatus=PAID');
+      expect(path).toContain('paymentMethod=UPI');
+      expect(path).toContain('q=SALE-1');
     });
   });
 

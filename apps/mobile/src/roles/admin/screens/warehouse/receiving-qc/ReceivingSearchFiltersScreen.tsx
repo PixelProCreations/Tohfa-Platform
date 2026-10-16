@@ -17,7 +17,8 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { t } from '../../../i18n';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   ChipGroup,
   InfoNote,
@@ -58,7 +59,11 @@ export function ReceivingSearchFiltersScreen({
   const [f, setF] = useState<ReceivingFilters>(initialFilters);
   const mainView = isMainScope(scope);
   const set = <K extends keyof ReceivingFilters>(key: K, value: ReceivingFilters[K]) => setF((prev) => ({ ...prev, [key]: value }));
-  const warehouseIds = [ALL_WAREHOUSES, ...WALLET_WAREHOUSES.map((w) => w.warehouseId ?? '')];
+  // Main picks from the real GET /warehouses list (uuids); a Sub scope never
+  // gets the facet and is pinned to its own warehouse (BR-30).
+  const warehouses = useWarehouseOptions({ enabled: mainView && can('warehouse.all.view') });
+  const warehouseIds = [ALL_WAREHOUSES, ...warehouses.options.map((w) => w.warehouseId)];
+  const warehouseNameOf = (id: string): string => warehouses.options.find((w) => w.warehouseId === id)?.warehouseName ?? id;
 
   const header = {
     title: 'Search & Filters',
@@ -102,7 +107,7 @@ export function ReceivingSearchFiltersScreen({
               options={warehouseIds}
               value={f.warehouseId ?? ALL_WAREHOUSES}
               onChange={(id) => set('warehouseId', id === ALL_WAREHOUSES ? undefined : id)}
-              labelOf={(id) => (id === ALL_WAREHOUSES ? 'All' : warehouseNameOf(id))}
+              labelOf={(id) => (id === ALL_WAREHOUSES ? t('filters.warehouse.all') : warehouseNameOf(id))}
             />
             <SectionTitle>Shipment Type</SectionTitle>
             <ChipGroup options={TYPE_OPTIONS} value={f.shipmentType as (typeof TYPE_OPTIONS)[number]} onChange={(v) => set('shipmentType', v)} />

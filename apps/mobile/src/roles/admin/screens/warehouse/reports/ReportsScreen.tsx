@@ -1,1025 +1,668 @@
 /**
- * ReportsScreen (design module M12).
- * Warehouse reports hub and live report views for Main and Sub Warehouse Admins.
+ * ReportsScreen (design module M12): the warehouse reports hub and its inline
+ * report views, for the Main and Sub Warehouse Admins.
+ *
+ * Every number comes from a live endpoint through ./useReportsData.ts:
+ *   GET /admin/reports/{sales,inventory,receiving,customers,cash-topups,returns}
+ *   GET /admin/finance/reports/{revenue,expenses}
+ * The summary view only re-reads those same queries.
  *
  * Rules:
- *   - Scope: Sub Warehouse Admin is pinned to its assigned warehouse (BR-30, BR-64).
- *   - Money is integer paise, quantities are integer grams (BR-64).
- *   - Date filters: from and to are required for all date-bounded reports (BR-64).
- *   - Customer report is COUNTS ONLY (BR-64d, BR-16).
- *   - CSV/file export is hidden entirely (no in-app file-share mechanism yet).
- *   - Permission gated: each report card and action is gated by can('<code-from-rbac>').
+ *   - Scope: a Sub admin is pinned to its warehouse (BR-30, BR-64a); a Main
+ *     admin picks one warehouse from GET /warehouses or all (BR-64b). Only a
+ *     uuid is ever sent (mappers.ts reportsWarehouseFilter).
+ *   - from and to are always both sent, from the preset chips (BR-64e).
+ *   - Money is integer paise, quantities integer grams (BR-64g).
+ *   - The customer report is counts only (BR-64d, BR-16).
+ *   - Each card is gated on the code its route requires (constants.ts).
+ *   - No CSV export: GET /admin/exports/<report> answers text/csv and the app
+ *     has no file save / share mechanism (see constants.ts).
  */
 import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import type { ReportChannel } from '../../../api/reports';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
-import type { ReportChannel } from '../../../api/reports';
-import { REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './constants';
-import { getReportPresetDates, reportsWarehouseFilter } from './mappers';
-import type { ReportCode, ReportScreenType } from './types';
-import {
-  useCashTopupsReportData,
-  useCustomersReportData,
-  useExpenseReportData,
-  useInventoryReportData,
-  useReceivingReportData,
-  useReportsHubData,
-  useReturnsReportData,
-  useRevenueReportData,
-  useSalesReportData,
-} from './useReportsData';
-import {
-  AdminEmptyState,
-  AdminErrorState,
-  AdminLoadingState,
-} from '../shared/AsyncStates';
-import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
+import { AdminEmptyState, AdminErrorState } from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { visibleReportSections } from './constants';
+import { reportChannelLabel, reportStatusLabel } from './mappers';
 import {
   ArrowBackIcon,
   BellHeaderIcon,
   ChevronRightIcon,
-  FilterIcon,
+  ChipRow,
+  DataRow,
+  KpiGrid,
+  KpiTile,
   LockBadgeIcon,
   ReportDocHeaderIcon,
+  ReportView,
+  RowStack,
   SearchIcon,
+  SectionTitle,
+  reportStyles,
+  type ChipOption,
 } from './ReportsParts';
+import type { ReportCode, ReportPreset, ReportScreenType } from './types';
+import { enabledReports, useReportsData, type ReportsData } from './useReportsData';
 
 export interface ReportsScreenProps extends WarehouseScreenBaseProps {
+  /** Kept for hosts that still pass it; there is no export in the app (see constants.ts). */
   canExport?: boolean | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
+  /** Kept for hosts that still pass it; the hub opens its own views. */
   onSelectReport?: ((reportKey: string) => void) | undefined;
+  /**
+   * Main warehouse choices. Omitted (the normal case) = the live GET /warehouses
+   * list. Ignored for a Sub scope (BR-30).
+   */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
-export function ReportsScreen({
-  onBack,
-  onNavigateToNotifications,
-  scope,
-  can,
-  warehouseOptions = REPORT_WAREHOUSES,
-}: ReportsScreenProps) {
-  const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
+const PRESETS: readonly ReportPreset[] = ['Today', 'Week', 'Month'];
+/** GET /admin/reports/sales `channel` values (reports.schema.ts orderChannels). */
+const SALES_CHANNELS: readonly ReportChannel[] = ['ONLINE', 'MARKET', 'HORECA', 'B2B'];
+const ALL = 'ALL';
+type ChannelChoice = ReportChannel | typeof ALL;
+
+const VIEW_OF: Record<ReportCode, ReportScreenType> = {
+  SALES_REPORT: 'sales_report',
+  INVENTORY_REPORT: 'inventory_report',
+  RECEIVING_REPORT: 'receiving_report',
+  CUSTOMER_REPORT: 'customer_report',
+  REVENUE_REPORT: 'revenue_report',
+  EXPENSE_REPORT: 'expense_report',
+  CASH_TOPUP_REPORT: 'cash_topup_report',
+  RETURNS_REPORT: 'returns_report',
+  SUMMARY_REPORT: 'summary_report',
+};
+
+const count = (key: Parameters<typeof t>[0], n: number) => t(key, { count: n });
+const kg = (qty: string) => t('reports.unit.kg', { qty });
+
+export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, warehouseOptions }: ReportsScreenProps) {
+  const [view, setView] = useState<ReportScreenType>('main');
+  const [preset, setPreset] = useState<ReportPreset>('Today');
   const [searchQuery, setSearchQuery] = useState('');
-  const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month'>('Today');
+  const [channel, setChannel] = useState<ChannelChoice>(ALL);
 
   const isMain = scope.warehouseId === undefined;
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
-  const [pendingWarehouseId, setPendingWarehouseId] = useState<string | undefined>(undefined);
+  const pickerAllowed = isMain && can('warehouse.all.view');
+  const live = useWarehouseOptions({ enabled: pickerAllowed && warehouseOptions === undefined });
+  const options: readonly WarehouseScope[] = useMemo(
+    () =>
+      warehouseOptions ??
+      live.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName, warehouseCode: o.warehouseCode })),
+    [warehouseOptions, live.options],
+  );
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(ALL);
 
+  const data = useReportsData(
+    scope,
+    selectedWarehouseId === ALL ? undefined : selectedWarehouseId,
+    preset,
+    can,
+    channel === ALL ? undefined : channel,
+  );
+
+  const allLabel = t('reports.scope.allWarehouses');
   const warehouseLabel = isMain
-    ? (warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses')
-    : (scope.warehouseName ?? 'My warehouse');
+    ? (options.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? allLabel)
+    : (scope.warehouseName ?? t('reports.scope.myWarehouse'));
+  const rangeSubtitle = t('reports.rangeSubtitle', { warehouse: warehouseLabel, from: data.from, to: data.to });
+  // The finance reports take no warehouseId: the server scopes them to the caller.
+  const financeSubtitle = isMain
+    ? t('reports.finance.scopeSubtitle', { from: data.from, to: data.to })
+    : rangeSubtitle;
 
-  const visibleSections = useMemo(() => {
-    return REPORT_SECTIONS.map((sec) => ({
-      ...sec,
-      reports: sec.reports.filter((r) => r.code !== 'EXPORT_REPORT' && reportVisible(r, can)),
-    })).filter((sec) => sec.reports.length > 0);
-  }, [can]);
-
-  const effectiveWarehouseId = reportsWarehouseFilter(scope, selectedWarehouseId);
-  const { from: reportFrom, to: reportTo } = useMemo(() => getReportPresetDates(timeFilter), [timeFilter]);
-
-  const {
-    hubKpis: liveHubKpis,
-    isLoading: hubLoading,
-    error: hubError,
-    refresh: hubRefresh,
-  } = useReportsHubData(scope, selectedWarehouseId, timeFilter, can);
-
-  // Sales filter
-  const [salesChannel, setSalesChannel] = useState<'All' | 'Online' | 'Market' | 'HORECA' | 'B2B'>('All');
-
-  const mappedSalesChannel: ReportChannel | undefined =
-    salesChannel === 'Online'
-      ? 'ONLINE'
-      : salesChannel === 'Market'
-        ? 'MARKET'
-        : salesChannel === 'HORECA'
-          ? 'HORECA'
-          : salesChannel === 'B2B'
-            ? 'B2B'
-            : undefined;
-
-  const {
-    sales: liveSales,
-    isLoading: salesLoading,
-    error: salesError,
-    refresh: salesRefresh,
-  } = useSalesReportData(effectiveWarehouseId, reportFrom, reportTo, mappedSalesChannel);
-
-  const {
-    inventory: liveInventory,
-    isLoading: invLoading,
-    error: invError,
-    refresh: invRefresh,
-  } = useInventoryReportData(effectiveWarehouseId, reportFrom, reportTo);
-
-  const {
-    receiving: liveReceiving,
-    isLoading: recLoading,
-    error: recError,
-    refresh: recRefresh,
-  } = useReceivingReportData(effectiveWarehouseId, reportFrom, reportTo);
-
-  const {
-    customers: liveCustomers,
-    isLoading: custLoading,
-    error: custError,
-    refresh: custRefresh,
-  } = useCustomersReportData(effectiveWarehouseId, reportFrom, reportTo);
-
-  const {
-    cashTopups: liveCashTopups,
-    isLoading: topupLoading,
-    error: topupError,
-    refresh: topupRefresh,
-  } = useCashTopupsReportData(effectiveWarehouseId, reportFrom, reportTo);
-
-  const {
-    returns: liveReturns,
-    isLoading: retLoading,
-    error: retError,
-    refresh: retRefresh,
-  } = useReturnsReportData(effectiveWarehouseId, reportFrom, reportTo);
-
-  const {
-    revenue: liveRevenue,
-    isLoading: revLoading,
-    error: revError,
-    refresh: revRefresh,
-  } = useRevenueReportData(reportFrom, reportTo);
-
-  const {
-    expense: liveExpense,
-    isLoading: expLoading,
-    error: expError,
-    refresh: expRefresh,
-  } = useExpenseReportData(reportFrom, reportTo);
-
-  const handleOpenReport = (code: ReportCode) => {
-    if (code === 'SALES_REPORT') {
-      setCurrentScreen('sales_report');
-      setSearchQuery('');
-    } else if (code === 'INVENTORY_REPORT') {
-      setCurrentScreen('inventory_report');
-      setSearchQuery('');
-    } else if (code === 'RECEIVING_REPORT') {
-      setCurrentScreen('receiving_report');
-      setSearchQuery('');
-    } else if (code === 'CUSTOMER_REPORT') {
-      setCurrentScreen('customer_report');
-      setSearchQuery('');
-    } else if (code === 'CASH_TOPUP_REPORT') {
-      setCurrentScreen('cash_topup_report');
-      setSearchQuery('');
-    } else if (code === 'REVENUE_REPORT') {
-      setCurrentScreen('revenue_report');
-      setSearchQuery('');
-    } else if (code === 'EXPENSE_REPORT') {
-      setCurrentScreen('expense_report');
-      setSearchQuery('');
-    } else if (code === 'RETURNS_REPORT') {
-      setCurrentScreen('returns_report');
-      setSearchQuery('');
-    } else if (code === 'SUMMARY_REPORT') {
-      setCurrentScreen('summary_report');
-      setSearchQuery('');
-    }
+  const sections = useMemo(() => visibleReportSections(can), [can]);
+  const openReport = (code: ReportCode) => {
+    setSearchQuery('');
+    setView(VIEW_OF[code]);
   };
+  const toMain = () => setView('main');
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 1. SALES REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'sales_report') {
+  // ─── Report views ─────────────────────────────────────────────────────────
+
+  if (view === 'sales_report') {
+    const r = data.sales;
+    const channelOptions: ChipOption<ChannelChoice>[] = [
+      { value: ALL, label: t('reports.channel.all') },
+      ...SALES_CHANNELS.map((c) => ({ value: c, label: reportChannelLabel(c) })),
+    ];
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Sales Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        <View style={styles.filterChipRow}>
-          {(['All', 'Online', 'Market', 'HORECA', 'B2B'] as const).map((ch) => (
-            <TouchableOpacity
-              key={ch}
-              style={[styles.filterChip, salesChannel === ch && styles.filterChipActive]}
-              onPress={() => setSalesChannel(ch)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.filterChipText, salesChannel === ch && styles.filterChipTextActive]}>{ch}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {salesLoading ? (
-          <AdminLoadingState />
-        ) : salesError ? (
-          <AdminErrorState error={salesError} onRetry={salesRefresh} />
-        ) : !liveSales || liveSales.count === 0 ? (
-          <AdminEmptyState title="No sales found" subtitle="No sales orders found in the selected date range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL SALES</Text>
-                <Text style={styles.kpiValue}>{liveSales.totalFormatted}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>ORDERS</Text>
-                <Text style={styles.kpiValue}>{liveSales.count}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>AVG ORDER</Text>
-                <Text style={styles.kpiValue}>{liveSales.averageOrderValueFormatted}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>CHANNEL</Text>
-                <Text style={styles.kpiValue}>{salesChannel}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Sales by Channel</Text>
-            <View style={styles.cardStack}>
-              {liveSales.byChannel.map((c) => (
-                <View key={c.channel} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{c.channel}</Text>
-                    <Text style={styles.rowAmountText}>{c.totalFormatted}</Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{c.count} orders</Text>
-                </View>
+      <ReportView
+        title={t('reports.card.sales.title')}
+        subtitle={rangeSubtitle}
+        onBack={toMain}
+        toolbar={<ChipRow options={channelOptions} value={channel} onChange={setChannel} />}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.count > 0}
+        emptyTitle={t('reports.sales.empty.title')}
+        emptySubtitle={t('reports.sales.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.sales.kpi.total')} value={r.data.totalFormatted} />
+              <KpiTile label={t('reports.sales.kpi.orders')} value={String(r.data.count)} />
+              <KpiTile label={t('reports.sales.kpi.average')} value={r.data.averageOrderValueFormatted} />
+              <KpiTile
+                label={t('reports.sales.kpi.channel')}
+                value={channel === ALL ? t('reports.channel.all') : reportChannelLabel(channel)}
+              />
+            </KpiGrid>
+            <SectionTitle>{t('reports.sales.byChannel')}</SectionTitle>
+            <RowStack>
+              {r.data.byChannel.map((c) => (
+                <DataRow
+                  key={c.channel}
+                  title={reportChannelLabel(c.channel)}
+                  value={c.totalFormatted}
+                  meta={count('reports.count.orders', c.count)}
+                />
               ))}
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Sales by Status</Text>
-            <View style={styles.cardStack}>
-              {liveSales.byStatus.map((s) => (
-                <View key={s.status} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{s.status}</Text>
-                    <Text style={styles.rowValueBadge}>{s.count}</Text>
-                  </View>
-                </View>
+            </RowStack>
+            <SectionTitle>{t('reports.sales.byStatus')}</SectionTitle>
+            <RowStack>
+              {r.data.byStatus.map((s) => (
+                <DataRow key={s.status} title={reportStatusLabel('order', s.status)} value={String(s.count)} />
               ))}
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Daily Trend</Text>
-            <View style={styles.cardStack}>
-              {liveSales.byDay.map((d) => (
-                <View key={d.date} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{d.date}</Text>
-                    <Text style={styles.rowAmountText}>{d.totalFormatted}</Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{d.count} orders</Text>
-                </View>
+            </RowStack>
+            <SectionTitle>{t('reports.sales.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((d) => (
+                <DataRow key={d.date} title={d.date} value={d.totalFormatted} meta={count('reports.count.orders', d.count)} />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 2. INVENTORY REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'inventory_report') {
-    const filteredItems = (liveInventory?.items ?? []).filter((it) =>
-      searchQuery ? it.name.toLowerCase().includes(searchQuery.toLowerCase()) : true,
-    );
-
+  if (view === 'inventory_report') {
+    const r = data.inventory;
+    const needle = searchQuery.trim().toLowerCase();
+    const items = (r.data?.items ?? []).filter((it) => (needle ? it.name.toLowerCase().includes(needle) : true));
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Inventory Report</Text>
+      <ReportView
+        title={t('reports.card.inventory.title')}
+        subtitle={t('reports.inventory.snapshotSubtitle', { warehouse: warehouseLabel })}
+        onBack={toMain}
+        toolbar={
+          <View style={styles.searchBarWrap}>
+            <SearchIcon />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('reports.inventory.searchPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
-          <Text style={styles.headerSubtitleText}>{warehouseLabel} · Current snapshot</Text>
-        </View>
-
-        <View style={styles.searchBarWrap}>
-          <SearchIcon size={16} color={adminColors.muted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search crop name..."
-            placeholderTextColor={adminColors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {invLoading ? (
-          <AdminLoadingState />
-        ) : invError ? (
-          <AdminErrorState error={invError} onRetry={invRefresh} />
-        ) : !liveInventory || liveInventory.items.length === 0 ? (
-          <AdminEmptyState title="No inventory data" subtitle="No active stock batches found." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL CROPS</Text>
-                <Text style={styles.kpiValue}>{liveInventory.items.length}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL BATCHES</Text>
-                <Text style={styles.kpiValue}>{liveInventory.totalBatchCount}</Text>
-              </View>
-              <View style={styles.kpiCardFull}>
-                <Text style={styles.kpiLabel}>AVAILABLE QUANTITY</Text>
-                <Text style={styles.kpiValue}>{liveInventory.totalQtyKg} kg</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Stock by Crop</Text>
-            <View style={styles.cardStack}>
-              {filteredItems.map((item) => (
-                <View key={item.cropId} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{item.name}</Text>
-                    <Text style={styles.rowAmountText}>{item.totalQtyKg} kg</Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{item.batchCount} batches</Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+        }
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.items.length > 0}
+        emptyTitle={t('reports.inventory.empty.title')}
+        emptySubtitle={t('reports.inventory.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.inventory.kpi.crops')} value={String(r.data.items.length)} />
+              <KpiTile label={t('reports.inventory.kpi.batches')} value={String(r.data.totalBatchCount)} />
+              <KpiTile label={t('reports.inventory.kpi.quantity')} value={kg(r.data.totalQtyKg)} />
+            </KpiGrid>
+            <SectionTitle>{t('reports.inventory.byCrop')}</SectionTitle>
+            {items.length === 0 ? (
+              <Text style={styles.noMatch}>{t('reports.inventory.noMatch')}</Text>
+            ) : (
+              <RowStack>
+                {items.map((item) => (
+                  <DataRow
+                    key={item.cropId}
+                    title={item.name}
+                    value={kg(item.totalQtyKg)}
+                    meta={count('reports.count.batches', item.batchCount)}
+                  />
+                ))}
+              </RowStack>
+            )}
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 3. RECEIVING REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'receiving_report') {
+  if (view === 'receiving_report') {
+    const r = data.receiving;
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Receiving Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {recLoading ? (
-          <AdminLoadingState />
-        ) : recError ? (
-          <AdminErrorState error={recError} onRetry={recRefresh} />
-        ) : !liveReceiving || liveReceiving.totalReceipts === 0 ? (
-          <AdminEmptyState title="No receiving records" subtitle="No goods receipts in the selected date range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL RECEIPTS</Text>
-                <Text style={styles.kpiValue}>{liveReceiving.totalReceipts}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>QC ACCEPTED</Text>
-                <Text style={styles.kpiValue}>
-                  {liveReceiving.byStatusCounts['ACCEPTED'] ?? liveReceiving.byStatusCounts['QC_ACCEPTED'] ?? 0}
-                </Text>
-              </View>
-              <View style={styles.kpiCardFull}>
-                <Text style={styles.kpiLabel}>QC REJECTED</Text>
-                <Text style={styles.kpiValue}>
-                  {liveReceiving.byStatusCounts['REJECTED'] ?? liveReceiving.byStatusCounts['QC_REJECTED'] ?? 0}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Receipts by Day & Status</Text>
-            <View style={styles.cardStack}>
-              {liveReceiving.byDay.map((row, idx) => (
-                <View key={`${row.date}-${row.status}-${idx}`} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{row.date}</Text>
-                    <View style={styles.tagPill}>
-                      <Text style={styles.tagPillText}>{row.status}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.rowMetaText}>{row.count} receipts</Text>
-                </View>
+      <ReportView
+        title={t('reports.card.receiving.title')}
+        subtitle={rangeSubtitle}
+        onBack={toMain}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.totalReceipts > 0}
+        emptyTitle={t('reports.receiving.empty.title')}
+        emptySubtitle={t('reports.receiving.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.receiving.kpi.total')} value={String(r.data.totalReceipts)} />
+              <KpiTile label={t('reports.receiving.kpi.accepted')} value={String(r.data.acceptedCount)} />
+              <KpiTile label={t('reports.receiving.kpi.rejected')} value={String(r.data.rejectedCount)} />
+            </KpiGrid>
+            <SectionTitle>{t('reports.receiving.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((row) => (
+                <DataRow
+                  key={`${row.date}-${row.status}`}
+                  title={row.date}
+                  value={reportStatusLabel('grn', row.status)}
+                  meta={count('reports.count.receipts', row.count)}
+                />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 4. CUSTOMER REPORT (COUNTS ONLY, BR-64d)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'customer_report') {
+  if (view === 'customer_report') {
+    const r = data.customers;
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Customer Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {custLoading ? (
-          <AdminLoadingState />
-        ) : custError ? (
-          <AdminErrorState error={custError} onRetry={custRefresh} />
-        ) : !liveCustomers || (liveCustomers.customersWithOrders === 0 && liveCustomers.newCustomers === 0) ? (
-          <AdminEmptyState title="No customer activity" subtitle="No customer records in the selected date range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>ORDERING CUSTOMERS</Text>
-                <Text style={styles.kpiValue}>{liveCustomers.customersWithOrders}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>NEW CUSTOMERS</Text>
-                <Text style={styles.kpiValue}>{liveCustomers.newCustomers}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Ordering Customers by Day</Text>
-            <View style={styles.cardStack}>
-              {liveCustomers.byDay.map((d) => (
-                <View key={d.date} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{d.date}</Text>
-                    <Text style={styles.rowAmountText}>{d.count} customers</Text>
-                  </View>
-                </View>
+      <ReportView
+        title={t('reports.card.customers.title')}
+        subtitle={rangeSubtitle}
+        onBack={toMain}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && (r.data.customersWithOrders > 0 || r.data.newCustomers > 0)}
+        emptyTitle={t('reports.customers.empty.title')}
+        emptySubtitle={t('reports.customers.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.customers.kpi.ordering')} value={String(r.data.customersWithOrders)} />
+              <KpiTile label={t('reports.customers.kpi.new')} value={String(r.data.newCustomers)} />
+            </KpiGrid>
+            <SectionTitle>{t('reports.customers.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((d) => (
+                <DataRow key={d.date} title={d.date} value={count('reports.count.customers', d.count)} />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 5. CASH TOP-UP REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'cash_topup_report') {
+  if (view === 'cash_topup_report') {
+    const r = data.cashTopups;
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Cash Top-Up Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {topupLoading ? (
-          <AdminLoadingState />
-        ) : topupError ? (
-          <AdminErrorState error={topupError} onRetry={topupRefresh} />
-        ) : !liveCashTopups || liveCashTopups.count === 0 ? (
-          <AdminEmptyState title="No cash top-ups" subtitle="No cash wallet top-ups in the selected range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL TOP-UPS</Text>
-                <Text style={styles.kpiValue}>{liveCashTopups.count}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL AMOUNT</Text>
-                <Text style={styles.kpiValue}>{liveCashTopups.totalFormatted}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Daily Top-Ups</Text>
-            <View style={styles.cardStack}>
-              {liveCashTopups.byDay.map((d) => (
-                <View key={d.date} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{d.date}</Text>
-                    <Text style={styles.rowAmountText}>{d.totalFormatted}</Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{d.count} top-ups</Text>
-                </View>
+      <ReportView
+        title={t('reports.card.cashTopup.title')}
+        subtitle={rangeSubtitle}
+        onBack={toMain}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.count > 0}
+        emptyTitle={t('reports.cashTopup.empty.title')}
+        emptySubtitle={t('reports.cashTopup.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.cashTopup.kpi.count')} value={String(r.data.count)} />
+              <KpiTile label={t('reports.cashTopup.kpi.amount')} value={r.data.totalFormatted} />
+            </KpiGrid>
+            <SectionTitle>{t('reports.cashTopup.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((d) => (
+                <DataRow key={d.date} title={d.date} value={d.totalFormatted} meta={count('reports.count.topups', d.count)} />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 6. REVENUE REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'revenue_report') {
-    const revTotalFormatted = liveRevenue
-      ? formatPaise(parseRupeesToPaise(String(liveRevenue.totalAmount)) ?? 0)
-      : '₹0';
-
+  if (view === 'revenue_report' || view === 'expense_report') {
+    const isRevenue = view === 'revenue_report';
+    const r = isRevenue ? data.revenue : data.expense;
+    const countKey = isRevenue ? 'reports.count.transactions' : 'reports.count.expenses';
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Revenue Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {revLoading ? (
-          <AdminLoadingState />
-        ) : revError ? (
-          <AdminErrorState error={revError} onRetry={revRefresh} />
-        ) : !liveRevenue || liveRevenue.count === 0 ? (
-          <AdminEmptyState title="No revenue records" subtitle="No revenue recorded in this date range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL REVENUE</Text>
-                <Text style={styles.kpiValue}>{revTotalFormatted}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
-                <Text style={styles.kpiValue}>{liveRevenue.count}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Revenue by Channel</Text>
-            <View style={styles.cardStack}>
-              {liveRevenue.byChannel.map((c) => (
-                <View key={c.channel} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{c.channel}</Text>
-                    <Text style={styles.rowAmountText}>
-                      {formatPaise(parseRupeesToPaise(String(c.totalAmount)) ?? 0)}
-                    </Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{c.count} orders</Text>
-                </View>
+      <ReportView
+        title={t(isRevenue ? 'reports.card.revenue.title' : 'reports.card.expense.title')}
+        subtitle={financeSubtitle}
+        onBack={toMain}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.count > 0}
+        emptyTitle={t(isRevenue ? 'reports.revenue.empty.title' : 'reports.expense.empty.title')}
+        emptySubtitle={t(isRevenue ? 'reports.revenue.empty.subtitle' : 'reports.expense.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile
+                label={t(isRevenue ? 'reports.revenue.kpi.total' : 'reports.expense.kpi.total')}
+                value={formatPaise(r.data.totalPaise)}
+              />
+              <KpiTile label={t(isRevenue ? 'reports.revenue.kpi.count' : 'reports.expense.kpi.count')} value={String(r.data.count)} />
+            </KpiGrid>
+            <SectionTitle>{t(isRevenue ? 'reports.revenue.byChannel' : 'reports.expense.byCategory')}</SectionTitle>
+            <RowStack>
+              {r.data.byGroup.map((g) => (
+                <DataRow key={g.label} title={g.label} value={formatPaise(g.totalPaise)} meta={count(countKey, g.count)} />
               ))}
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Revenue by Payment Method</Text>
-            <View style={styles.cardStack}>
-              {liveRevenue.byPaymentMethod.map((pm) => (
-                <View key={pm.paymentMethod} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{pm.paymentMethod}</Text>
-                    <Text style={styles.rowAmountText}>
-                      {formatPaise(parseRupeesToPaise(String(pm.totalAmount)) ?? 0)}
-                    </Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{pm.count} transactions</Text>
-                </View>
+            </RowStack>
+            <SectionTitle>{t(isRevenue ? 'reports.revenue.byPayment' : 'reports.expense.byPayment')}</SectionTitle>
+            <RowStack>
+              {r.data.byPaymentMethod.map((p) => (
+                <DataRow key={p.label} title={p.label} value={formatPaise(p.totalPaise)} meta={count(countKey, p.count)} />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+            <SectionTitle>{t(isRevenue ? 'reports.revenue.byDay' : 'reports.expense.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((d) => (
+                <DataRow key={d.date} title={d.date} value={formatPaise(d.totalPaise)} meta={count(countKey, d.count)} />
+              ))}
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 7. EXPENSE REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'expense_report') {
-    const expTotalFormatted = liveExpense
-      ? formatPaise(parseRupeesToPaise(String(liveExpense.totalAmount)) ?? 0)
-      : '₹0';
-
+  if (view === 'returns_report') {
+    const r = data.returns;
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Expense Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {expLoading ? (
-          <AdminLoadingState />
-        ) : expError ? (
-          <AdminErrorState error={expError} onRetry={expRefresh} />
-        ) : !liveExpense || liveExpense.count === 0 ? (
-          <AdminEmptyState title="No expenses recorded" subtitle="No expense vouchers in this date range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL EXPENSES</Text>
-                <Text style={styles.kpiValue}>{expTotalFormatted}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>VOUCHERS</Text>
-                <Text style={styles.kpiValue}>{liveExpense.count}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Expenses by Category</Text>
-            <View style={styles.cardStack}>
-              {liveExpense.byCategory.map((cat) => (
-                <View key={cat.categoryId} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{cat.categoryName}</Text>
-                    <Text style={styles.rowAmountText}>
-                      {formatPaise(parseRupeesToPaise(String(cat.totalAmount)) ?? 0)}
-                    </Text>
-                  </View>
-                  <Text style={styles.rowMetaText}>{cat.count} vouchers</Text>
-                </View>
+      <ReportView
+        title={t('reports.card.returns.title')}
+        subtitle={rangeSubtitle}
+        onBack={toMain}
+        isLoading={r.isLoading}
+        error={r.error}
+        onRetry={r.refresh}
+        hasData={r.data !== null && r.data.totalReturns > 0}
+        emptyTitle={t('reports.returns.empty.title')}
+        emptySubtitle={t('reports.returns.empty.subtitle')}
+      >
+        {r.data ? (
+          <>
+            <KpiGrid>
+              <KpiTile label={t('reports.returns.kpi.total')} value={String(r.data.totalReturns)} />
+              <KpiTile label={t('reports.returns.kpi.refunded')} value={r.data.refundedTotalFormatted} />
+            </KpiGrid>
+            <SectionTitle>{t('reports.returns.byStatus')}</SectionTitle>
+            <RowStack>
+              {r.data.byStatus.map((s) => (
+                <DataRow key={s.status} title={reportStatusLabel('return', s.status)} value={String(s.count)} />
               ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
+            </RowStack>
+            <SectionTitle>{t('reports.returns.byDay')}</SectionTitle>
+            <RowStack>
+              {r.data.byDay.map((d) => (
+                <DataRow key={d.date} title={d.date} value={count('reports.count.returns', d.count)} />
+              ))}
+            </RowStack>
+          </>
+        ) : null}
+      </ReportView>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 8. RETURNS REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'returns_report') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Returns Report</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
-
-        {retLoading ? (
-          <AdminLoadingState />
-        ) : retError ? (
-          <AdminErrorState error={retError} onRetry={retRefresh} />
-        ) : !liveReturns || liveReturns.totalReturns === 0 ? (
-          <AdminEmptyState title="No returns found" subtitle="No return requests recorded in this range." />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>TOTAL RETURNS</Text>
-                <Text style={styles.kpiValue}>{liveReturns.totalReturns}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>REFUNDED AMOUNT</Text>
-                <Text style={styles.kpiValue}>{liveReturns.refundedTotalFormatted}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Returns by Status</Text>
-            <View style={styles.cardStack}>
-              {liveReturns.byStatus.map((s) => (
-                <View key={s.status} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{s.status}</Text>
-                    <Text style={styles.rowValueBadge}>{s.count}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Daily Returns</Text>
-            <View style={styles.cardStack}>
-              {liveReturns.byDay.map((d) => (
-                <View key={d.date} style={styles.dataRowCard}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.rowTitleText}>{d.date}</Text>
-                    <Text style={styles.rowAmountText}>{d.count} returns</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
-    );
+  if (view === 'summary_report') {
+    return <SummaryView data={data} subtitle={rangeSubtitle} onBack={toMain} />;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 9. SUMMARY REPORT
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'summary_report') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('main')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Daily / Monthly Summary</Text>
-          </View>
-          <Text style={styles.headerSubtitleText}>
-            {warehouseLabel} · {reportFrom} to {reportTo}
-          </Text>
-        </View>
+  // ─── Hub ──────────────────────────────────────────────────────────────────
 
-        {hubLoading ? (
-          <AdminLoadingState />
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.sectionHeaderTitle}>Sales</Text>
-            <View style={styles.dataRowCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.rowTitleText}>Total Sales</Text>
-                <Text style={styles.rowAmountText}>{liveSales?.totalFormatted ?? '₹0'}</Text>
-              </View>
-              <Text style={styles.rowMetaText}>
-                {liveSales?.count ?? 0} orders · Avg {liveSales?.averageOrderValueFormatted ?? '₹0'}
-              </Text>
-            </View>
+  const hubParts = enabledReports(data, ['sales', 'inventory', 'receiving', 'customers', 'cashTopups', 'revenue', 'expense', 'returns']);
+  const hubLoading = hubParts.some((p) => p.isLoading);
+  const kpis = hubKpis(data);
+  const warehouseChoices: ChipOption<string>[] = [
+    { value: ALL, label: allLabel },
+    ...options
+      .filter((o): o is WarehouseScope & { warehouseId: string } => o.warehouseId !== undefined)
+      .map((o) => ({ value: o.warehouseId, label: o.warehouseName ?? o.warehouseCode ?? o.warehouseId })),
+  ];
 
-            <Text style={styles.sectionHeaderTitle}>Stock & Receiving</Text>
-            <View style={styles.dataRowCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.rowTitleText}>Inventory Balance</Text>
-                <Text style={styles.rowAmountText}>{liveInventory?.totalQtyKg ?? '0'} kg</Text>
-              </View>
-              <Text style={styles.rowMetaText}>{liveInventory?.totalBatchCount ?? 0} active batches</Text>
-            </View>
-            <View style={styles.dataRowCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.rowTitleText}>Goods Received</Text>
-                <Text style={styles.rowAmountText}>{liveReceiving?.totalReceipts ?? 0} receipts</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>Cash & Returns</Text>
-            <View style={styles.dataRowCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.rowTitleText}>Cash Top-Ups</Text>
-                <Text style={styles.rowAmountText}>{liveCashTopups?.totalFormatted ?? '₹0'}</Text>
-              </View>
-              <Text style={styles.rowMetaText}>{liveCashTopups?.count ?? 0} top-ups</Text>
-            </View>
-            <View style={styles.dataRowCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.rowTitleText}>Returns</Text>
-                <Text style={styles.rowAmountText}>{liveReturns?.refundedTotalFormatted ?? '₹0'}</Text>
-              </View>
-              <Text style={styles.rowMetaText}>{liveReturns?.totalReturns ?? 0} returns</Text>
-            </View>
-          </ScrollView>
-        )}
-      </SafeAreaView>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 10. MAIN REPORTS HUB
-  // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={reportStyles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={styles.headerBanner}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerLeftGroup}>
+      <View style={reportStyles.headerBanner}>
+        <View style={reportStyles.headerTopRow}>
+          <View style={reportStyles.headerLeftGroup}>
             {onBack ? (
-              <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.75}>
-                <ArrowBackIcon size={22} color={adminColors.onBrand} />
+              <TouchableOpacity
+                style={reportStyles.backButton}
+                onPress={onBack}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={t('reports.a11y.back')}
+              >
+                <ArrowBackIcon />
               </TouchableOpacity>
             ) : null}
             <ReportDocHeaderIcon />
-            <Text style={styles.headerTitleText}>Reports</Text>
+            <Text style={reportStyles.headerTitleText}>{t('reports.title')}</Text>
           </View>
           {onNavigateToNotifications ? (
-            <TouchableOpacity style={styles.headerBellBtn} onPress={onNavigateToNotifications} activeOpacity={0.75}>
+            <TouchableOpacity
+              style={reportStyles.headerBellBtn}
+              onPress={onNavigateToNotifications}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={t('reports.a11y.notifications')}
+            >
               <BellHeaderIcon />
             </TouchableOpacity>
           ) : null}
         </View>
-
         <View style={styles.warehouseBadgeRow}>
-          {isMain ? (
-            <TouchableOpacity
-              style={styles.warehouseBadge}
-              onPress={() => {
-                setPendingWarehouseId(selectedWarehouseId);
-                setShowWarehousePicker(true);
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.warehouseBadgeText}>{warehouseLabel} ▾</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.warehouseBadge}>
-              <LockBadgeIcon />
-              <Text style={styles.warehouseBadgeText}>{warehouseLabel}</Text>
-            </View>
-          )}
+          <View style={styles.warehouseBadge}>
+            {isMain ? null : <LockBadgeIcon />}
+            <Text style={styles.warehouseBadgeText}>{warehouseLabel}</Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.timeFilterRow}>
-        {(['Today', 'Week', 'Month'] as const).map((preset) => (
-          <TouchableOpacity
-            key={preset}
-            style={[styles.filterChip, timeFilter === preset && styles.filterChipActive]}
-            onPress={() => setTimeFilter(preset)}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterChipText, timeFilter === preset && styles.filterChipTextActive]}>
-              {preset}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {pickerAllowed ? (
+        live.isLoading ? (
+          <View style={styles.pickerLoading}>
+            <ActivityIndicator size="small" color={adminColors.brand} />
+          </View>
+        ) : live.error ? (
+          <AdminErrorState error={live.error} onRetry={live.refresh} />
+        ) : (
+          <ChipRow options={warehouseChoices} value={selectedWarehouseId} onChange={setSelectedWarehouseId} />
+        )
+      ) : null}
 
-      {hubError ? (
-        <AdminErrorState error={hubError} onRetry={hubRefresh} />
+      <ChipRow
+        options={PRESETS.map((p) => ({ value: p, label: t(`reports.preset.${p}`) }))}
+        value={preset}
+        onChange={setPreset}
+      />
+
+      {sections.length === 0 ? (
+        <AdminEmptyState title={t('reports.hub.empty.title')} subtitle={t('reports.hub.empty.subtitle')} />
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kpiHorizontalScroll}>
-            {hubLoading ? (
-              <View style={styles.hubLoadingWrap}>
-                <ActivityIndicator size="small" color={adminColors.brand} />
-              </View>
-            ) : (
-              liveHubKpis.map((kpi) => (
-                <View key={kpi.label} style={styles.hubKpiTile}>
-                  <Text style={styles.hubKpiLabel}>{kpi.label}</Text>
-                  <Text style={styles.hubKpiValue}>{kpi.value}</Text>
+        <ScrollView style={reportStyles.scroll} contentContainerStyle={reportStyles.scrollContent}>
+          {kpis.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kpiStrip}>
+              {hubLoading ? (
+                <View style={styles.pickerLoading}>
+                  <ActivityIndicator size="small" color={adminColors.brand} />
                 </View>
-              ))
-            )}
-          </ScrollView>
+              ) : (
+                kpis.map((kpi) => (
+                  <View key={kpi.label} style={styles.hubKpiTile}>
+                    <Text style={styles.hubKpiLabel}>{kpi.label}</Text>
+                    <Text style={styles.hubKpiValue}>{kpi.value}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          ) : null}
 
-          {visibleSections.map((section) => (
+          {sections.map((section) => (
             <View key={section.category} style={styles.sectionWrap}>
-              <Text style={styles.sectionHeading}>{section.category}</Text>
-              <View style={styles.cardStack}>
+              <Text style={styles.sectionHeading}>{t(section.labelKey)}</Text>
+              <RowStack>
                 {section.reports.map((report) => (
                   <TouchableOpacity
                     key={report.code}
                     style={styles.reportCardBtn}
-                    onPress={() => handleOpenReport(report.code)}
+                    onPress={() => openReport(report.code)}
                     activeOpacity={0.75}
+                    accessibilityRole="button"
                   >
                     <View style={styles.reportCardTextWrap}>
-                      <Text style={styles.reportCardTitle}>{report.title}</Text>
-                      <Text style={styles.reportCardSubtitle}>{report.subtitle}</Text>
+                      <Text style={styles.reportCardTitle}>{t(report.titleKey)}</Text>
+                      <Text style={styles.reportCardSubtitle}>{t(report.subtitleKey)}</Text>
                     </View>
-                    <ChevronRightIcon size={20} color={adminColors.muted} />
+                    <ChevronRightIcon size={20} />
                   </TouchableOpacity>
                 ))}
-              </View>
+              </RowStack>
             </View>
           ))}
         </ScrollView>
       )}
-
-      {/* Warehouse Selector Modal for Main Admin */}
-      {isMain ? (
-        <Modal
-          visible={showWarehousePicker}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowWarehousePicker(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Warehouse</Text>
-              <TouchableOpacity
-                style={[styles.modalOption, pendingWarehouseId === undefined && styles.modalOptionActive]}
-                onPress={() => setPendingWarehouseId(undefined)}
-              >
-                <Text style={styles.modalOptionText}>All Warehouses</Text>
-              </TouchableOpacity>
-              {warehouseOptions.map((opt) => (
-                <TouchableOpacity
-                  key={opt.warehouseId}
-                  style={[styles.modalOption, pendingWarehouseId === opt.warehouseId && styles.modalOptionActive]}
-                  onPress={() => setPendingWarehouseId(opt.warehouseId)}
-                >
-                  <Text style={styles.modalOptionText}>{opt.warehouseName}</Text>
-                </TouchableOpacity>
-              ))}
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowWarehousePicker(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalConfirmBtn}
-                  onPress={() => {
-                    setSelectedWarehouseId(pendingWarehouseId);
-                    setShowWarehousePicker(false);
-                  }}
-                >
-                  <Text style={styles.modalConfirmText}>Apply</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }
 
+/** Hub KPI tiles: one per report the viewer may read and that has answered. */
+function hubKpis(data: ReportsData): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  if (data.sales.data) out.push({ label: t('reports.hub.kpi.sales'), value: data.sales.data.totalFormatted });
+  if (data.inventory.data) out.push({ label: t('reports.hub.kpi.inventory'), value: kg(data.inventory.data.totalQtyKg) });
+  if (data.receiving.data) out.push({ label: t('reports.hub.kpi.received'), value: String(data.receiving.data.totalReceipts) });
+  if (data.customers.data) out.push({ label: t('reports.hub.kpi.customers'), value: String(data.customers.data.customersWithOrders) });
+  if (data.cashTopups.data) out.push({ label: t('reports.hub.kpi.cashTopup'), value: data.cashTopups.data.totalFormatted });
+  if (data.revenue.data) out.push({ label: t('reports.hub.kpi.revenue'), value: formatPaise(data.revenue.data.totalPaise) });
+  if (data.expense.data) out.push({ label: t('reports.hub.kpi.expenses'), value: formatPaise(data.expense.data.totalPaise) });
+  if (data.returns.data) out.push({ label: t('reports.hub.kpi.returns'), value: String(data.returns.data.totalReturns) });
+  return out;
+}
+
+/** The summary: totals of the reports the viewer may read, from the same queries. */
+function SummaryView({ data, subtitle, onBack }: { data: ReportsData; subtitle: string; onBack: () => void }) {
+  const parts = enabledReports(data, ['sales', 'inventory', 'receiving', 'revenue', 'expense', 'cashTopups', 'returns']);
+  const isLoading = parts.some((p) => p.isLoading);
+  const failed = parts.find((p) => p.error !== null && p.error !== undefined);
+  const { sales, inventory, receiving, revenue, expense, cashTopups, returns } = data;
+  const hasData = parts.length > 0 && !isLoading && failed === undefined;
+  return (
+    <ReportView
+      title={t('reports.card.summary.title')}
+      subtitle={subtitle}
+      onBack={onBack}
+      isLoading={isLoading}
+      error={failed?.error}
+      onRetry={() => parts.forEach((p) => p.refresh())}
+      hasData={hasData}
+      emptyTitle={t('reports.hub.empty.title')}
+      emptySubtitle={t('reports.hub.empty.subtitle')}
+    >
+      {sales.data ? (
+        <>
+          <SectionTitle>{t('reports.summary.section.sales')}</SectionTitle>
+          <DataRow
+            title={t('reports.summary.totalSales')}
+            value={sales.data.totalFormatted}
+            meta={t('reports.summary.salesMeta', { count: sales.data.count, average: sales.data.averageOrderValueFormatted })}
+          />
+        </>
+      ) : null}
+      {inventory.data || receiving.data ? (
+        <>
+          <SectionTitle>{t('reports.summary.section.stock')}</SectionTitle>
+          <RowStack>
+            {inventory.data ? (
+              <DataRow
+                title={t('reports.summary.inventory')}
+                value={kg(inventory.data.totalQtyKg)}
+                meta={count('reports.count.batches', inventory.data.totalBatchCount)}
+              />
+            ) : null}
+            {receiving.data ? (
+              <DataRow title={t('reports.summary.received')} value={count('reports.count.receipts', receiving.data.totalReceipts)} />
+            ) : null}
+          </RowStack>
+        </>
+      ) : null}
+      {revenue.data || expense.data ? (
+        <>
+          <SectionTitle>{t('reports.summary.section.finance')}</SectionTitle>
+          <RowStack>
+            {revenue.data ? (
+              <DataRow
+                title={t('reports.summary.revenue')}
+                value={formatPaise(revenue.data.totalPaise)}
+                meta={count('reports.count.transactions', revenue.data.count)}
+              />
+            ) : null}
+            {expense.data ? (
+              <DataRow
+                title={t('reports.summary.expenses')}
+                value={formatPaise(expense.data.totalPaise)}
+                meta={count('reports.count.expenses', expense.data.count)}
+              />
+            ) : null}
+          </RowStack>
+        </>
+      ) : null}
+      {cashTopups.data || returns.data ? (
+        <>
+          <SectionTitle>{t('reports.summary.section.cashReturns')}</SectionTitle>
+          <RowStack>
+            {cashTopups.data ? (
+              <DataRow
+                title={t('reports.summary.cashTopups')}
+                value={cashTopups.data.totalFormatted}
+                meta={count('reports.count.topups', cashTopups.data.count)}
+              />
+            ) : null}
+            {returns.data ? (
+              <DataRow
+                title={t('reports.summary.returns')}
+                value={returns.data.refundedTotalFormatted}
+                meta={count('reports.count.returns', returns.data.totalReturns)}
+              />
+            ) : null}
+          </RowStack>
+        </>
+      ) : null}
+    </ReportView>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
-  },
-  headerBanner: {
-    backgroundColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-  },
-  backButton: {
-    padding: adminSpacing.xs,
-    marginRight: adminSpacing.xs,
-  },
-  headerTitleText: {
-    ...adminType.title,
-    color: adminColors.onBrand,
-  },
-  headerSubtitleText: {
-    ...adminType.caption,
-    color: adminColors.brandTint,
-    marginTop: adminSpacing.xs,
-  },
-  headerBellBtn: {
-    padding: adminSpacing.sm,
-  },
-  warehouseBadgeRow: {
-    marginTop: adminSpacing.sm,
-  },
+  warehouseBadgeRow: { marginTop: adminSpacing.sm },
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1030,80 +673,24 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: adminSpacing.xs,
   },
-  warehouseBadgeText: {
-    ...adminType.caption,
-    color: adminColors.onBrand,
-  },
-  timeFilterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    backgroundColor: adminColors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-    gap: adminSpacing.sm,
-  },
-  filterChipRow: {
-    flexDirection: 'row',
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  filterChip: {
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.canvas,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  filterChipActive: {
-    backgroundColor: adminColors.brandTint,
-    borderColor: adminColors.brand,
-  },
-  filterChipText: {
-    ...adminType.caption,
-    color: adminColors.muted,
-  },
-  filterChipTextActive: {
-    color: adminColors.brandDeep,
-  },
+  warehouseBadgeText: { ...adminType.caption, color: adminColors.onBrand },
+  pickerLoading: { padding: adminSpacing.md, alignItems: 'center' },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: adminSpacing.lg,
     marginTop: adminSpacing.md,
     paddingHorizontal: adminSpacing.md,
-    height: 42,
+    paddingVertical: adminSpacing.sm,
     borderRadius: adminRadius.md,
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
     gap: adminSpacing.sm,
   },
-  searchInput: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.ink,
-    paddingVertical: 0,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: adminSpacing.lg,
-    paddingBottom: adminSpacing.xxl,
-  },
-  kpiHorizontalScroll: {
-    flexDirection: 'row',
-    marginBottom: adminSpacing.lg,
-  },
-  hubLoadingWrap: {
-    padding: adminSpacing.lg,
-  },
+  searchInput: { flex: 1, ...adminType.body, color: adminColors.ink, paddingVertical: 0 },
+  noMatch: { ...adminType.rowMeta, color: adminColors.muted },
+  kpiStrip: { flexDirection: 'row', marginBottom: adminSpacing.lg },
   hubKpiTile: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -1111,35 +698,16 @@ const styles = StyleSheet.create({
     marginRight: adminSpacing.sm,
     borderWidth: 1,
     borderColor: adminColors.border,
-    minWidth: 120,
     ...adminShadow.sm,
   },
-  hubKpiLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
-  },
-  hubKpiValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-  },
-  sectionWrap: {
-    marginBottom: adminSpacing.lg,
-  },
+  hubKpiLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  hubKpiValue: { ...adminType.kpiValue, color: adminColors.ink },
+  sectionWrap: { marginBottom: adminSpacing.lg },
   sectionHeading: {
     ...adminType.sectionHead,
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
     textTransform: 'uppercase',
-  },
-  sectionHeaderTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-    marginTop: adminSpacing.lg,
-    marginBottom: adminSpacing.sm,
-  },
-  cardStack: {
-    gap: adminSpacing.sm,
   },
   reportCardBtn: {
     flexDirection: 'row',
@@ -1151,142 +719,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     ...adminShadow.sm,
   },
-  reportCardTextWrap: {
-    flex: 1,
-  },
-  reportCardTitle: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    marginBottom: 2,
-  },
-  reportCardSubtitle: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
-  },
-  kpiCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  kpiCardFull: {
-    width: '100%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  kpiLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
-  },
-  kpiValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-  },
-  dataRowCard: {
-    backgroundColor: adminColors.card,
-    padding: adminSpacing.md,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rowTitleText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  rowAmountText: {
-    ...adminType.rowTitle,
-    color: adminColors.brandDeep,
-  },
-  rowMetaText: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: 2,
-  },
-  rowValueBadge: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  tagPill: {
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTint,
-  },
-  tagPillText: {
-    ...adminType.caption,
-    color: adminColors.brandDeep,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: adminColors.ink,
-    justifyContent: 'center',
-    padding: adminSpacing.lg,
-  },
-  modalCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    padding: adminSpacing.lg,
-  },
-  modalTitle: {
-    ...adminType.title,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.md,
-  },
-  modalOption: {
-    paddingVertical: adminSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  modalOptionActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  modalOptionText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: adminSpacing.sm,
-    marginTop: adminSpacing.lg,
-  },
-  modalCancelBtn: {
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-  },
-  modalCancelText: {
-    ...adminType.body,
-    color: adminColors.muted,
-  },
-  modalConfirmBtn: {
-    backgroundColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.md,
-  },
-  modalConfirmText: {
-    ...adminType.body,
-    color: adminColors.onBrand,
-  },
+  reportCardTextWrap: { flex: 1 },
+  reportCardTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  reportCardSubtitle: { ...adminType.rowMeta, color: adminColors.muted },
 });

@@ -13,10 +13,11 @@
  * Gates (docs/rbac.json; the server re-checks every action, CLAUDE.md 2.1):
  *   - Pack: `order.mark_packed`; mark ready: `order.dispatch`; verify pickup:
  *     `order.pickup_otp.verify`. Without the code the button is not rendered.
- *   - Check Stock, Report Issue, Cancel Order and View Invoice are hidden: no
- *     stock-check endpoint, no admin issue or cancel route (docs/rbac.json has
- *     no order-cancel permission either), and order invoices are phase 7
- *     (availability.ts).
+ *   - View Invoice (menu, M5S18): `invoice.view_own`, and only when the order
+ *     carries an invoice id (orderInvoiceEntry); otherwise it is not rendered.
+ *   - Check Stock, Report Issue and Cancel Order are hidden: no stock-check
+ *     endpoint, no admin issue or cancel route (docs/rbac.json has no
+ *     order-cancel permission either) (availability.ts).
  *   - This screen has no warehouse assign / reassign control, so
  *     `order.warehouse.assign` is not consulted.
  */
@@ -29,7 +30,7 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '
 import { t, type TranslationKey } from '../../../i18n';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { nextOrderAction } from './mappers';
+import { nextOrderAction, orderInvoiceEntry } from './mappers';
 import type { OrderDetailView, OrderNextAction, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
 
 export interface OrderDetailScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
@@ -152,6 +153,8 @@ export function OrderDetailScreen({
     : order.otpRequired
       ? t('orders.detail.otpRequired')
       : t('orders.detail.otpNotSet');
+
+  const invoiceEntry = orderInvoiceEntry(order, can);
 
   const openFromMenu = (screen: string) => {
     setShowMenu(false);
@@ -359,7 +362,12 @@ export function OrderDetailScreen({
             <View style={styles.menuSheet}>
               <Text style={styles.menuTitle}>Order Actions</Text>
 
-              {/* View Invoice (phase 7) and Cancel Order (no admin cancel route) are hidden. */}
+              {/* Cancel Order is hidden (no admin cancel route). View Invoice only with an invoice id and invoice.view_own. */}
+              {invoiceEntry !== undefined ? (
+                <TouchableOpacity style={styles.modalOption} onPress={() => openFromMenu('M5S18')}>
+                  <Text style={styles.modalOptionText}>{t('orders.menu.viewInvoice')}</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={[styles.modalOption, styles.modalOptionLast]} onPress={() => openFromMenu('M5S15')}>
                 <Text style={styles.modalOptionText}>Status History</Text>
               </TouchableOpacity>

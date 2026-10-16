@@ -1,269 +1,276 @@
 // Design id: M11-S08
 /**
- * Daily Cash (cash ledger + end-of-day reconciliation): opening cash, cash in
- * (direct sales, cash top-ups), cash out (expenses), expected closing, the
- * physical count and the transaction breakdown. Reached from the finance
- * screens (Finance Reports "Daily" card, Finance hub) and the wallet daily
- * summary.
+ * Daily Cash: today's cash figures for one warehouse and the end-of-day close
+ * (BR-74). Reached from the finance hub/reports and the wallet daily summary.
  *
- * Gate: rbac.json has NO code for the daily cash ledger (FINAL_LIST #32,
- * SPEC_GAPS W4i-3). Until one exists the screen renders only for an admin who
- * holds can('finance.sales_income.view') || can('finance.expense.log') (the
- * two finance codes whose data it combines). Submit Reconciliation has no
- * code either and is ungated; the server must own it.
+ * Live:
+ *   GET  /admin/finance/daily-summary  (useDailyCashSummary)
+ *   POST /admin/finance/cash-close     (useCreateCashCloseMutation, Idempotency-Key)
+ * Both need finance.cash_close.manage; `can` only decides what to render, the
+ * server re-checks the code and the warehouse scope (CLAUDE.md 2.1).
  *
- * Scope: Sub sees its own warehouse (locked pill with the date); Main sees the
- * all-warehouses header and selector (pair_table M11-S08: "MWA All Warehouses
- * header w/ fixed expectedClosing"). The expected closing is computed
- * server-side and never manually overridable; the mock figure is fixed.
+ * Why the figures are never computed here: the expected closing is the
+ * server's computation from the ledger (opening = the latest earlier close's
+ * counted cash). The client only previews counted minus expected while typing;
+ * the stored difference is the server's. No tolerance is applied to a
+ * difference, so a short or over count is always submitted (BR-74c).
  *
- * Absorbs dashboard/MainWarehouseDailyCashScreen: the all-warehouses header is
- * the Main view; its formula note and "Cash reconciled" confirmation are shown
- * for both roles.
+ * Scope (BR-30): a Sub admin is pinned to its own warehouse; a Main admin is
+ * not assigned to one, and the API requires it to name the warehouse, so the
+ * screen waits for a pick.
+ *
+ * A day is closed once (BR-74d): when the summary already carries a close it
+ * is shown read-only and no form is offered.
  */
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { adminErrorKey } from '../../../api/errors';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { formatPaise } from '../../../money/paise';
-import { expectedClosingPaise, reconcileCash } from './cashMath';
-import { CASH_LEDGER, SAMPLE_DATE, WALLET_WAREHOUSES, warehouseNameOf } from './fixtures';
-import type { CashLedgerEntry, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { formatAdminDate, formatAdminDay } from '../../../utils/datetime';
+import { FINANCE_CODES, FinanceNotAvailable, useFinanceWarehousePicker, type FinanceWarehousePicker } from '../finance-expenses/FinanceParts';
 import {
-  AmountRow,
-  Card,
-  CashIcon,
-  ChipGroup,
-  EmptyState,
-  ScopeHeader,
-  SectionTitle,
-  StoreIcon,
-  WalletButton,
-  WalletScreen,
-  formatRupees,
-  inScope,
-  isAllWarehouses,
-  walletLayout,
-} from './WalletParts';
+  buildCashCloseBody,
+  cashDifferencePaise,
+  formatSignedPaise,
+  istToday,
+  mapCashClose,
+  type CashCloseMapped,
+  type DailyCashSummaryMapped,
+} from '../finance-expenses/mappers';
+import type { PermissionCheck, WarehouseScope, WarehouseTab } from '../finance-expenses/types';
+import { useCreateCashCloseMutation, useDailyCashSummary } from '../finance-expenses/useFinanceData';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { AmountRow, Card, InfoNote, ScopeHeader, SectionTitle, StatusBadge, WalletButton, WalletScreen, walletLayout } from './WalletParts';
 
-export interface DailyCashScreenProps extends WarehouseScreenBaseProps {
-  date?: string | undefined;
-  entries?: readonly CashLedgerEntry[] | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
+export interface DailyCashScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
 }
 
-/** Mock day figures (whole rupees) until the cash ledger API exists. */
-const OPENING_CASH = 15000;
-const DIRECT_SALES = 8500;
-const CASH_TOP_UPS = 5000;
-const EXPENSES = 6420;
-// Fixtures are whole rupees; converted to paise once here and kept as integers.
-const EXPECTED_CLOSING_PAISE = expectedClosingPaise({
-  openingRupees: OPENING_CASH,
-  directSalesRupees: DIRECT_SALES,
-  cashTopUpsRupees: CASH_TOP_UPS,
-  expensesRupees: EXPENSES,
-});
-
-type Breakdown = 'Cash In' | 'Cash Out';
-const BREAKDOWNS: readonly Breakdown[] = ['Cash In', 'Cash Out'];
-
-export function DailyCashScreen({
-  scope,
-  can,
-  onBack,
-  date = SAMPLE_DATE,
-  entries = CASH_LEDGER,
-  warehouseOptions = WALLET_WAREHOUSES,
-}: DailyCashScreenProps) {
-  const [actualCash, setActualCash] = useState('21,980');
-  const [differenceReason, setDifferenceReason] = useState('');
-  const [breakdown, setBreakdown] = useState<Breakdown>('Cash In');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-
-  // NO CODE for the daily cash ledger yet (SPEC_GAPS W4i-3): show it only to
-  // admins who can see the finance data it is built from.
-  const visible = can('finance.sales_income.view') || can('finance.expense.log');
-  if (!visible) {
-    return (
-      <WalletScreen title="Daily Cash Summary" onBack={onBack}>
-        <EmptyState title="Daily cash is not available" subtitle="Your role does not include warehouse finance data." />
-      </WalletScreen>
-    );
+export function DailyCashScreen({ scope, can, onBack }: DailyCashScreenProps) {
+  const picker = useFinanceWarehousePicker(scope, can);
+  if (!can(FINANCE_CODES.cashClose)) {
+    return <FinanceNotAvailable title={t('dailyCash.notAvailableTitle')} message={t('finance.notAvailable.message')} onBack={onBack} />;
   }
-
-  // Typed value is decimal rupees ("21,980.50"); difference is computed in integer paise.
-  const { differencePaise: difference } = reconcileCash(actualCash, EXPECTED_CLOSING_PAISE);
-  const rows = entries.filter((e) => e.type === breakdown && inScope(scope, e.warehouseId, selectedWarehouseId));
-  const headerLabel = isAllWarehouses(scope)
-    ? undefined
-    : `${scope.warehouseName ?? scope.warehouseId} · ${date}`;
-
-  const handleSubmit = () => {
-    // No rbac code covers reconciliation (SPEC_GAPS W4i-3); the server must own it.
-    Alert.alert(
-      'Reconciliation Submitted',
-      `Daily Cash Reconciliation for ${date} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatPaise(Math.abs(difference))}`,
-      [{ text: 'OK', onPress: onBack }],
-    );
-  };
-
   return (
-    <WalletScreen
-      title="Daily Cash Summary"
-      subtitle={isAllWarehouses(scope) ? date : undefined}
-      onBack={onBack}
-      headerExtra={
-        <ScopeHeader
-          scope={scope}
-          label={headerLabel}
-          warehouseOptions={warehouseOptions}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
-      }
-    >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {isAllWarehouses(scope) && selectedWarehouseId !== undefined ? (
-          <Text style={styles.selectedNote}>Showing {warehouseNameOf(selectedWarehouseId)}</Text>
-        ) : null}
-
-        <SectionTitle>Opening Balance</SectionTitle>
-        <Card>
-          <Text style={styles.cardLabel}>Opening Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(OPENING_CASH)}</Text>
-        </Card>
-
-        <SectionTitle>Cash In</SectionTitle>
-        <Card>
-          <AmountRow label="Direct Sales" value={formatRupees(DIRECT_SALES)} />
-          <AmountRow divider label="Cash Top-Ups" value={formatRupees(CASH_TOP_UPS)} />
-          <AmountRow divider label="Total Cash In" value={formatRupees(DIRECT_SALES + CASH_TOP_UPS)} emphasis="total" />
-        </Card>
-
-        <SectionTitle>Cash Out</SectionTitle>
-        <Card>
-          <AmountRow label="Expenses" value={formatRupees(EXPENSES)} />
-          <AmountRow divider label="Total Cash Out" value={formatRupees(EXPENSES)} emphasis="total" />
-        </Card>
-
-        <SectionTitle>Closing Balance</SectionTitle>
-        <Card>
-          <Text style={styles.cardLabel}>Expected Closing Cash</Text>
-          <Text style={styles.cardBigValue}>{formatPaise(EXPECTED_CLOSING_PAISE)}</Text>
-        </Card>
-
-        <SectionTitle>Cash Reconciliation</SectionTitle>
-        <Card>
-          <AmountRow label="Expected Cash" value={formatPaise(EXPECTED_CLOSING_PAISE)} />
-          <View style={styles.actualInputWrap}>
-            <Text style={styles.currencySymbol}>₹</Text>
-            <TextInput
-              style={styles.actualInput}
-              value={actualCash}
-              onChangeText={setActualCash}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={adminColors.placeholder}
-              accessibilityLabel="Actual physical cash"
-            />
-          </View>
-          <AmountRow
-            label="Difference"
-            value={`${difference < 0 ? '-' : '+'}${formatPaise(Math.abs(difference))}`}
-            emphasis={difference < 0 ? 'debit' : 'credit'}
-          />
-        </Card>
-        {difference === 0 ? (
-          <View style={styles.reconciledBox}>
-            <Text style={styles.reconciledAmount}>₹0</Text>
-            <Text style={styles.reconciledText}>Cash reconciled.</Text>
-          </View>
-        ) : null}
-
-        <SectionTitle>Difference Reason</SectionTitle>
-        <TextInput
-          style={styles.textArea}
-          value={differenceReason}
-          onChangeText={setDifferenceReason}
-          placeholder="Reason for the difference, if any"
-          placeholderTextColor={adminColors.placeholder}
-          multiline
-          numberOfLines={2}
-          textAlignVertical="top"
-        />
-        <View style={styles.submitWrap}>
-          <WalletButton label="Submit Reconciliation" onPress={handleSubmit} />
-        </View>
-
-        <SectionTitle>Transaction Breakdown</SectionTitle>
-        <ChipGroup options={BREAKDOWNS} value={breakdown} onChange={setBreakdown} />
-        <View style={styles.breakdownCard}>
-          <Card>
-            {rows.length === 0 ? (
-              <EmptyState title={`No ${breakdown.toLowerCase()}`} />
-            ) : (
-              rows.map((tx, index) => {
-                const cashIn = tx.type === 'Cash In';
-                return (
-                  <React.Fragment key={tx.id}>
-                    {index > 0 ? <View style={styles.divider} /> : null}
-                    <View style={styles.txRow}>
-                      <View style={styles.txIcon}>
-                        {cashIn ? <StoreIcon /> : <CashIcon size={18} color={adminColors.brandDeep} />}
-                      </View>
-                      <View style={styles.txInfo}>
-                        <Text style={styles.txTitle}>{tx.title}</Text>
-                        <Text style={styles.txMeta}>{tx.ref}</Text>
-                      </View>
-                      <View style={styles.txAmountCol}>
-                        <Text style={[styles.txAmount, cashIn ? styles.credit : styles.debit]}>
-                          {cashIn ? '+' : '-'}
-                          {formatRupees(tx.amount)}
-                        </Text>
-                        <Text style={styles.txMeta}>{tx.time}</Text>
-                      </View>
-                    </View>
-                  </React.Fragment>
-                );
-              })
-            )}
-          </Card>
-        </View>
-      </ScrollView>
+    <WalletScreen title={t('dailyCash.title')} subtitle={formatAdminDay(istToday())} onBack={onBack} headerExtra={<DailyCashScopeHeader scope={scope} picker={picker} />}>
+      <DailyCashWarehouseGate picker={picker}>
+        {/* Keyed by warehouse so a new pick starts with an empty form and no stale result. */}
+        <DailyCashBody key={picker.warehouseId} scope={scope} warehouseId={picker.warehouseId} />
+      </DailyCashWarehouseGate>
     </WalletScreen>
   );
 }
 
-const TX_ICON = 36;
-const TEXT_AREA_MIN_HEIGHT = 64;
+function DailyCashBody({ scope, warehouseId }: { scope: WarehouseScope; warehouseId: string | undefined }) {
+  const date = istToday();
+  const daily = useDailyCashSummary(warehouseId, date, true);
+  const mutation = useCreateCashCloseMutation();
+  const idem = useIdempotencyKey();
+  const [countedText, setCountedText] = useState('');
+  const [note, setNote] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const [justClosed, setJustClosed] = useState<CashCloseMapped | undefined>(undefined);
+
+  if (daily.isLoading) return <AdminLoadingState />;
+  if (daily.error !== null && daily.error !== undefined && daily.summary === undefined) {
+    return <AdminErrorState error={daily.error} onRetry={daily.refresh} />;
+  }
+  const summary = daily.summary;
+  if (summary === undefined) return <AdminEmptyState title={t('async.empty.title')} />;
+
+  const close = justClosed ?? summary.closed;
+  const preview = cashDifferencePaise(countedText, summary.expectedClosingPaise);
+
+  const submit = () => {
+    const body = buildCashCloseBody({ date, countedText, note, warehouseId }, scope);
+    if (body === null) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    mutation.mutate(
+      { body, idempotencyKey: idem.keyFor(body) },
+      {
+        onSuccess: (result) => {
+          idem.reset();
+          setJustClosed(mapCashClose(result));
+        },
+        // A 409 means the day was closed elsewhere: refetch so the stored close shows.
+        onError: () => daily.refresh(),
+      },
+    );
+  };
+
+  return (
+    <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+      <DailyCashFigures summary={summary} />
+
+      <SectionTitle right={<StatusBadge label={close ? t('dailyCash.status.closed') : t('dailyCash.status.open')} tone={close ? 'success' : 'warning'} />}>
+        {t('dailyCash.section.close')}
+      </SectionTitle>
+      {close ? (
+        <CashCloseCard close={close} />
+      ) : (
+        <>
+          <Card>
+            <AmountRow label={t('dailyCash.expectedClosing')} value={formatPaise(summary.expectedClosingPaise)} />
+            <Text style={styles.inputLabel}>{t('dailyCash.countLabel')}</Text>
+            <TextInput
+              style={styles.input}
+              value={countedText}
+              onChangeText={(text) => {
+                setCountedText(text);
+                setInvalid(false);
+              }}
+              keyboardType="decimal-pad"
+              placeholder={t('dailyCash.countPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              accessibilityLabel={t('dailyCash.countLabel')}
+              editable={!mutation.isPending}
+            />
+            {preview !== null ? (
+              <AmountRow
+                divider
+                label={t('dailyCash.difference')}
+                value={formatSignedPaise(preview)}
+                emphasis={preview < 0 ? 'debit' : preview > 0 ? 'credit' : 'normal'}
+              />
+            ) : null}
+          </Card>
+          {invalid ? <Text style={styles.errorText}>{t('dailyCash.invalidCount')}</Text> : null}
+          <InfoNote tone="info">{t('dailyCash.differenceHint')}</InfoNote>
+
+          <Text style={styles.inputLabel}>{t('dailyCash.noteLabel')}</Text>
+          <TextInput
+            style={styles.textArea}
+            value={note}
+            onChangeText={setNote}
+            placeholder={t('dailyCash.notePlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
+            accessibilityLabel={t('dailyCash.noteLabel')}
+            multiline
+            textAlignVertical="top"
+            editable={!mutation.isPending}
+          />
+          {mutation.error ? <Text style={styles.errorText}>{t(adminErrorKey(mutation.error))}</Text> : null}
+          <View style={styles.submitWrap}>
+            <WalletButton
+              label={mutation.isPending ? t('dailyCash.submitting') : t('dailyCash.submit')}
+              onPress={submit}
+              disabled={mutation.isPending || countedText.trim() === ''}
+            />
+          </View>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Pieces shared with DailyCashSummaryScreen ───────────────────────────────
+
+/** Sub: locked pill. Main: the live warehouse selector (FinanceParts picker). */
+export function DailyCashScopeHeader({ scope, picker }: { scope: WarehouseScope; picker: FinanceWarehousePicker }) {
+  return (
+    <ScopeHeader
+      scope={scope}
+      warehouseOptions={picker.options}
+      selectedWarehouseId={picker.selectedId}
+      onSelectWarehouse={picker.isMain ? picker.setSelectedId : undefined}
+    />
+  );
+}
+
+/** Renders `children` only once there is a warehouse to read (a Main admin must pick one). */
+export function DailyCashWarehouseGate({ picker, children }: { picker: FinanceWarehousePicker; children: React.ReactNode }) {
+  if (picker.warehouseId !== undefined) return <>{children}</>;
+  if (picker.isLoading) return <AdminLoadingState />;
+  if (picker.error !== null && picker.error !== undefined) {
+    return <AdminErrorState error={picker.error} message={t('finance.picker.loadError')} onRetry={picker.refresh} />;
+  }
+  return <AdminEmptyState title={t('finance.picker.pickWarehouse')} />;
+}
+
+/** The server's figures for the day, read-only (BR-74: never recomputed here). */
+export function DailyCashFigures({ summary }: { summary: DailyCashSummaryMapped }) {
+  return (
+    <>
+      <SectionTitle>{t('dailyCash.section.opening')}</SectionTitle>
+      <Card>
+        <AmountRow label={t('dailyCash.openingCash')} value={formatPaise(summary.openingCashPaise)} />
+        <Text style={styles.meta}>
+          {summary.openingFrom ? t('dailyCash.openingFrom', { date: formatAdminDay(summary.openingFrom) }) : t('dailyCash.openingNone')}
+        </Text>
+      </Card>
+
+      <SectionTitle>{t('dailyCash.section.cashIn')}</SectionTitle>
+      <Card>
+        <AmountRow label={t('dailyCash.cashSales')} value={formatPaise(summary.cashSalesPaise)} />
+        <AmountRow divider label={t('dailyCash.cashTopUps')} value={formatPaise(summary.cashTopUpsPaise)} />
+      </Card>
+
+      <SectionTitle>{t('dailyCash.section.cashOut')}</SectionTitle>
+      <Card>
+        <AmountRow label={t('dailyCash.cashExpenses')} value={formatPaise(summary.cashExpensesPaise)} />
+      </Card>
+
+      <SectionTitle>{t('dailyCash.section.closing')}</SectionTitle>
+      <Card>
+        <AmountRow label={t('dailyCash.expectedClosing')} value={formatPaise(summary.expectedClosingPaise)} emphasis="total" />
+      </Card>
+      <InfoNote tone="info">{t('dailyCash.serverNote')}</InfoNote>
+    </>
+  );
+}
+
+/** A stored close, exactly as the server recorded it (it can never be changed, BR-74i). */
+export function CashCloseCard({ close }: { close: CashCloseMapped }) {
+  const diff = close.differencePaise;
+  return (
+    <>
+      <Card>
+        <AmountRow label={t('dailyCash.expectedClosing')} value={formatPaise(close.expectedClosingPaise)} />
+        <AmountRow divider label={t('dailyCash.counted')} value={formatPaise(close.countedCashPaise)} />
+        <AmountRow
+          divider
+          label={t('dailyCash.difference')}
+          value={formatSignedPaise(diff)}
+          emphasis={diff < 0 ? 'debit' : diff > 0 ? 'credit' : 'normal'}
+        />
+        {close.note ? (
+          <>
+            <Text style={styles.inputLabel}>{t('dailyCash.note')}</Text>
+            <Text style={styles.body}>{close.note}</Text>
+          </>
+        ) : null}
+        {/* closedBy is a user uuid (CashClose has no name), so only the time is shown. */}
+        <AmountRow divider label={t('dailyCash.closedAt')} value={formatAdminDate(close.createdAt, new Date())} />
+      </Card>
+      <InfoNote tone="success">{t('dailyCash.closedNote')}</InfoNote>
+    </>
+  );
+}
 
 const styles = StyleSheet.create({
-  selectedNote: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  cardLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  // Was a 22-24px figure; nearest admin style is kpiValue (19).
-  cardBigValue: { ...adminType.kpiValue, color: adminColors.ink, marginTop: adminSpacing.xs },
-  actualInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
+  meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  body: { ...adminType.body, color: adminColors.ink, marginTop: adminSpacing.xs },
+  inputLabel: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.md, marginBottom: adminSpacing.xs },
+  input: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    borderWidth: 1,
     borderColor: adminColors.brand,
     borderRadius: adminRadius.md,
     paddingHorizontal: adminSpacing.md,
-    marginVertical: adminSpacing.sm,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
   },
-  currencySymbol: { ...adminType.sectionHead, color: adminColors.muted, marginRight: adminSpacing.xs },
-  actualInput: { ...adminType.sectionHead, flex: 1, color: adminColors.ink, paddingVertical: adminSpacing.sm },
-  reconciledBox: {
-    backgroundColor: adminColors.success.bg,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.lg,
-    alignItems: 'center',
-    marginTop: adminSpacing.md,
-  },
-  reconciledAmount: { ...adminType.kpiValue, color: adminColors.success.text },
-  reconciledText: { ...adminType.rowTitle, color: adminColors.success.text, marginTop: adminSpacing.xs },
   textArea: {
     ...adminType.body,
     color: adminColors.ink,
@@ -272,25 +279,8 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
-    minHeight: TEXT_AREA_MIN_HEIGHT,
+    minHeight: adminSpacing.page + adminSpacing.lg,
   },
+  errorText: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.sm },
   submitWrap: { marginTop: adminSpacing.md },
-  breakdownCard: { marginTop: adminSpacing.sm },
-  divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.sm },
-  txRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
-  txIcon: {
-    width: TX_ICON,
-    height: TX_ICON,
-    borderRadius: adminRadius.xs,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txInfo: { flex: 1 },
-  txTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  txMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  txAmountCol: { alignItems: 'flex-end' },
-  txAmount: { ...adminType.rowTitle },
-  credit: { color: adminColors.success.text },
-  debit: { color: adminColors.danger.text },
 });

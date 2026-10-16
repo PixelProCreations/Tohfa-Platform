@@ -13,6 +13,13 @@
  *     enforces every one of these again (CLAUDE.md 2.1); `can` only decides
  *     what is worth rendering.
  */
+import type { Paise } from '@tohfa/shared-types';
+import type {
+  ExpensePaymentMethod,
+  ExpenseStatus,
+  RevenueChannel,
+  RevenuePaymentMethod,
+} from '../../../api/finance';
 
 /** Which warehouse a screen is scoped to. `warehouseId` undefined = all warehouses (Main). */
 export interface WarehouseScope {
@@ -45,112 +52,79 @@ export interface WarehouseScreenBaseProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
 }
 
-/** One row of the combined revenue + expense history. */
-export interface FinanceHistoryItem {
-  id: string;
-  type: 'Revenue' | 'Expense';
-  title: string;
-  amount: number;
-  time: string;
-}
-
-/** One report card on the finance reports screen. */
-export interface FinanceReportItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  iconType: 'revenue' | 'expense' | 'daily' | 'monthly' | 'category' | 'voucher';
-}
-
-/** One row of the expenses list. */
+/** One row of the expenses list: a live `Expense` (docs/openapi.yaml), money in integer paise. */
 export interface ExpenseRecord {
+  /** The expense uuid (GET /admin/expenses/{id} and its voucher take it). */
   id: string;
-  categoryRef: string;
-  amount: number;
-  timestamp: string;
-  status: 'Recorded' | 'Approved' | 'Rejected';
+  categoryName: string;
+  description: string | null;
+  vendor: string | null;
+  amountPaise: Paise;
+  /** YYYY-MM-DD, the expense date the admin recorded. */
+  expenseDate: string;
+  /** Translated "25 Sep 2026". */
+  dateLabel: string;
+  paymentMethod: ExpensePaymentMethod | null;
+  /** Translated payment method, '' when the legacy row carries none. */
+  paymentMethodLabel: string;
+  status: ExpenseStatus;
+  statusLabel: string;
+  warehouseId: string | null;
+  recordedBy: string;
+  createdAt: string;
 }
 
-/**
- * One revenue (sales income) row. Was declared twice, as RevenueRecord in both
- * SubWarehouseRevenueScreen and MainWarehouseRevenueScreen. `warehouseId`
- * lets a Sub scope show only its own rows (finance.sales_income.view is `own`
- * for SUB_WH_ADMIN, `all` for MAIN_WH_ADMIN).
- */
+/** One revenue row: a completed, paid order (BR-63), money in integer paise. */
 export interface RevenueRecord {
+  /** The order uuid (GET /admin/finance/revenue/{id}). */
   id: string;
-  orderRef: string;
-  category: 'Orders' | 'Direct Sales' | 'Other';
-  amount: number;
-  paymentMethod: string;
-  timestamp: string;
-  status: 'Completed' | 'Pending' | 'Refunded';
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
+  channel: RevenueChannel;
+  channelLabel: string;
+  paymentMethod: RevenuePaymentMethod;
+  paymentMethodLabel: string;
+  amountPaise: Paise;
+  gstPaise: Paise;
+  completedAt: string;
+  /** Translated "Today · 08:05 AM". */
+  dateLabel: string;
+  warehouseId: string;
 }
 
-/** What the revenue detail screen shows; every field optional (deep links carry only some). */
-export interface RevenueDetail {
-  revenueId?: string | undefined;
-  orderId?: string | undefined;
-  invoiceId?: string | undefined;
-  customer?: string | undefined;
-  salesChannel?: string | undefined;
-  quantity?: string | undefined;
-  product?: string | undefined;
-  /** Display amount without the rupee sign, e.g. '3,450'. */
-  finalAmount?: string | undefined;
-  paymentMethod?: string | undefined;
-  paymentStatus?: string | undefined;
-  transactionDate?: string | undefined;
-  warehouseName?: string | undefined;
+/** The revenue detail screen: a revenue row plus its invoice (null when none). */
+export interface RevenueDetail extends RevenueRecord {
+  invoiceNumber: string | null;
+  invoiceStatus: string | null;
+  paymentStatus: string;
+  orderStatus: string;
+  placedAt: string;
 }
 
-/** Voucher types. No rbac code covers vouchers; each type is gated by the code of its data (SPEC_GAPS). */
-export type VoucherType = 'Expense' | 'Revenue';
-
-/** One voucher row (was VoucherRecord in SubWarehouseVouchersScreen). */
+/** An expense voucher (BR-75), derived by the server from one expense. */
 export interface VoucherRecord {
-  id: string;
-  type: VoucherType;
-  title: string;
-  amount: number;
-  referenceId: string;
-  date: string;
-  status: 'Recorded' | 'Pending' | 'Completed';
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
-  createdBy?: string | undefined;
-  paymentMethod?: string | undefined;
-  notes?: string | undefined;
+  voucherNumber: string;
+  expenseId: string;
+  warehouseName: string | null;
+  warehouseCode: string | null;
+  categoryName: string;
+  amountPaise: Paise;
+  expenseDate: string;
+  dateLabel: string;
+  paymentMethodLabel: string;
+  vendor: string | null;
+  description: string | null;
+  statusLabel: string;
+  recordedByName: string;
 }
 
-/** One expense category (read-only: no rbac code covers category management). */
+/** One expense category (read-only: GET /admin/expense-categories lists active ones only). */
 export interface ExpenseCategoryItem {
   id: string;
   name: string;
-  status: 'Active' | 'Inactive';
-  usedCount: number;
-}
-
-/** Expense fields a host or the history list can hand the expense detail screen. */
-export interface ExpenseDetailParams {
-  expenseId?: string | undefined;
-  amount?: number | string | undefined;
-  category?: string | undefined;
-  date?: string | undefined;
-  description?: string | undefined;
-  paymentMethod?: string | undefined;
-  vendorPayee?: string | undefined;
-  warehouse?: string | undefined;
-  createdBy?: string | undefined;
-  status?: string | undefined;
 }
 
 /**
  * Routes of FinanceFlow (the finance hub and everything reached from it).
- * The old App.tsx keys map onto these (FINANCE_ROUTE_ENTRY in App.tsx).
- * Daily Cash renders the wallet-cashtopup DailyCashScreen (W4i).
+ * Daily Cash renders the wallet-cashtopup DailyCashScreen (live BR-74 close).
  */
 export type FinanceRoute =
   | 'FinanceHub'
@@ -166,25 +140,10 @@ export type FinanceRoute =
   | 'FinanceReports'
   | 'DailyCash';
 
-/** Params a FinanceFlow route can carry. */
+/** Params a FinanceFlow route can carry: ids only, every screen reads its own record. */
 export interface FinanceRouteParams {
-  revenue?: RevenueDetail | undefined;
-  expense?: ExpenseDetailParams | undefined;
-  /** Prefills the add-expense form (edit mode). Absent = a new expense. */
-  expenseDraft?: ExpenseDraft | undefined;
-  voucher?: VoucherRecord | undefined;
-  isReceiptView?: boolean | undefined;
-  /** Compact detail layout (Main opens details from history this way). */
-  isShortVersion?: boolean | undefined;
-}
-
-/** An expense being edited (prefills the add-expense form). */
-export interface ExpenseDraft {
-  expenseId: string;
-  amount: string;
-  category: string;
-  date: string;
-  description: string;
-  paymentMethod: 'Cash' | 'UPI' | 'Bank';
-  vendorPayee: string;
+  /** Order uuid for RevenueDetail. */
+  orderId?: string | undefined;
+  /** Expense uuid for ExpenseDetail and VoucherDetail. */
+  expenseId?: string | undefined;
 }

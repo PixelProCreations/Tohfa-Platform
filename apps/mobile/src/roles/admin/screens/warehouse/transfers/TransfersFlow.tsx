@@ -1,14 +1,13 @@
 /**
  * In-module navigator for the inter-warehouse transfer screens.
  *
- *   Transfers -> Transfer Detail -> Transfer Receiving -> Transfer Inspection
- *   Transfers -> Initiate New Transfer
- *   (Transfer Receiving can also be the entry, from the Receiving tab)
+ *   Transfers -> Transfer Detail -> Transfer Inspection (receive)
+ *   Transfers -> Initiate New Transfer -> Transfer Detail (of the new transfer)
+ *   Transfer Receiving -> Transfer Inspection (the Receiving tab entry)
  *
- * The screens used to be stitched by the Main shell (whSubView / receiving
- * sub-views with a shell-held transfer list) and by App.tsx keys, none of
- * which passed `scope` / `can`. This flow owns the stack and the (mock)
- * transfer list, so every step gets the viewer's scope and `can`.
+ * Every screen reads the live /warehouse-transfers API through
+ * ./useTransfersData.ts; writes invalidate the lists, so going back shows the
+ * new state. The flow only owns the stack.
  *
  * Gate: InitiateNewTransfer needs `transfer.inter_warehouse.initiate` (MAIN
  * all, SUB none, BR-26); navigate() refuses it without the code and the screen
@@ -18,24 +17,20 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
-import { TRANSFERS } from './fixtures';
 import { InitiateNewTransferScreen } from './InitiateNewTransferScreen';
 import { InterWarehouseTransferScreen } from './InterWarehouseTransferScreen';
 import { TransferDetailScreen } from './TransferDetailScreen';
-import { TRANSFER_CODES } from './TransferParts';
+import { canOpenTransferRoute } from './mappers';
 import { TransferReceivingInspectionScreen } from './TransferReceivingInspectionScreen';
 import { TransferReceivingScreen } from './TransferReceivingScreen';
-import type { PermissionCheck, TransferItem, TransferRoute, TransferRouteParams, WarehouseScope } from './types';
+import type { PermissionCheck, TransferRoute, TransferRouteParams, WarehouseScope } from './types';
 
 interface TransferStackEntry {
   screen: TransferRoute;
   params?: TransferRouteParams | undefined;
 }
 
-/** True when `can` allows opening `route` (Initiate needs transfer.inter_warehouse.initiate). */
-export function canOpenTransferRoute(route: TransferRoute, can: PermissionCheck): boolean {
-  return route !== 'InitiateNewTransfer' || can(TRANSFER_CODES.initiate);
-}
+export { canOpenTransferRoute };
 
 export interface TransfersFlowProps {
   scope: WarehouseScope;
@@ -48,7 +43,6 @@ export interface TransfersFlowProps {
 
 export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initialParams, onBack }: TransfersFlowProps) {
   const [stack, setStack] = useState<TransferStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [transfers, setTransfers] = useState<readonly TransferItem[]>(TRANSFERS);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do (keyed on the value, not the params object).
@@ -83,7 +77,10 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
     else onBack();
   };
 
-  const common = { scope, can, onBack: back, transfers };
+  const common = { scope, can, onBack: back };
+  /** Replace the top screen (after a create, the new transfer's detail). */
+  const replace = (screen: TransferRoute, nextParams?: TransferRouteParams) =>
+    setStack((prev) => [...prev.slice(0, -1), { screen, params: nextParams }]);
 
   switch (current.screen) {
     case 'Transfers':
@@ -99,21 +96,12 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
         <TransferDetailScreen
           {...common}
           transferId={params.transferId}
-          onTrackReceiving={() => navigate('TransferReceiving')}
-          onCancelTransfer={(id) => setTransfers((prev) => prev.filter((t) => t.id !== id))}
+          onReceiveTransfer={(id) => navigate('TransferInspection', { transferId: id })}
           onBackToTransfers={backToList}
         />
       );
     case 'InitiateNewTransfer':
-      return (
-        <InitiateNewTransferScreen
-          {...common}
-          onSubmitTransfer={(t) => {
-            setTransfers((prev) => [t, ...prev]);
-            back();
-          }}
-        />
-      );
+      return <InitiateNewTransferScreen {...common} onTransferCreated={(t) => replace('TransferDetail', { transferId: t.id })} />;
     case 'TransferReceiving':
       return (
         <TransferReceivingScreen
@@ -122,22 +110,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
         />
       );
     case 'TransferInspection':
-      return (
-        <TransferReceivingInspectionScreen
-          {...common}
-          transferId={params.transferId}
-          onCompleteTransfer={(id, receivedKg) => {
-            setTransfers((prev) =>
-              prev.map((t) =>
-                t.id === id
-                  ? { ...t, status: 'Completed', receivedKg, qtyMismatch: receivedKg !== t.quantityKg, eta: undefined }
-                  : t,
-              ),
-            );
-            back();
-          }}
-        />
-      );
+      return <TransferReceivingInspectionScreen {...common} transferId={params.transferId} onCompleteTransfer={() => back()} />;
     default:
       return null;
   }

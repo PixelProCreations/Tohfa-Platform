@@ -1,7 +1,21 @@
+/**
+ * Payment step of a direct / market sale (design M6-S06): pick the method,
+ * then POST /admin/sales with the server quote's total echoed back (BR-89).
+ *
+ * - Taking a payment needs both sales.sale.create and payment.record (BR-85g).
+ * - Wallet is offered only to a registered customer (BR-86), against the
+ *   balance the customer lookup returned; there is no default balance.
+ * - Cash / card / wallet sales complete at once; a UPI sale is created pending
+ *   (BR-94) and the PendingUpiPanel replaces the method picker until the
+ *   cashier confirms the UPI reference or cancels the sale.
+ * - The checks here (checkSalePayment) are UX only; the server re-checks all
+ *   of them and its 409 / 422 render inline.
+ * - One Idempotency-Key per request body (root CLAUDE.md 2.4): retrying the
+ *   same body after a timeout replays the same key, so it creates one sale.
+ */
 import React, { useState } from 'react';
 import {
-  Alert,
-  Modal,
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,23 +26,33 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminErrorKey } from '../../../api/errors';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import {
+  buildSaleCreateRequest,
+  checkSalePayment,
+  isPendingUpiSale,
+  SALE_PAYMENT_METHODS,
+  type CartLine,
+  type SaleBuyerInput,
+  type SaleDetailView,
+  type SalePaymentInput,
+  type SaleQuoteView,
+} from './mappers';
+import { PendingUpiPanel } from './PendingUpiPanel';
+import { PAYMENT_BLOCK_KEY, PAYMENT_METHOD_KEY } from './salesLabels';
 import type { SalePaymentMethod, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminType, adminShadow } from '../../../theme';
-import { formatPaise, rupeesNumberToPaise } from '../../../money/paise';
-import { evaluatePayment } from './salesMath';
+import { useCreateSaleMutation } from './useSalesData';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -66,18 +90,15 @@ function CardIcon({ size = 20, color = adminColors.muted }: { size?: number; col
 function WalletIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 14h.01M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
       <Path
-        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+        d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 14h.01M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -87,380 +108,308 @@ function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size
   );
 }
 
-function CheckmarkOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 13l4 4L19 7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 6L6 18M6 6l12 12"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-type PaymentMethod = SalePaymentMethod;
+const METHOD_ICON: Record<SalePaymentMethod, (p: { size?: number; color?: string }) => React.JSX.Element> = {
+  CASH: CashIcon,
+  UPI: UpiIcon,
+  CARD: CardIcon,
+  WALLET: WalletIcon,
+};
 
 // Design id: M6-S06
-// No direct-sale / payment-collection code exists in docs/rbac.json (SPEC_GAPS
-// "Sales Direct" #111): the screen is scope-locked but ungated. The Wallet
-// method is not gated on a wallet code either; none covers paying from a wallet
-// at a counter, and inventing one is not allowed (noted in SPEC_GAPS).
 export interface PaymentScreenProps extends WarehouseScreenBaseProps {
-  amountDue?: number | undefined;
-  /** Wallet balance of the sale's customer (Wallet method). */
-  walletBalance?: number | undefined;
-  onPaymentConfirmed: (method: PaymentMethod) => void;
+  channel: 'DIRECT' | 'MARKET';
+  /** The selling warehouse (a Sub admin's own; a Main admin's pick). */
+  saleWarehouseId: string | undefined;
+  cart: CartLine[];
+  /** The server quote from the summary step; its total is what is charged (BR-89). */
+  quote: SaleQuoteView | null;
+  buyer: SaleBuyerInput | null;
+  onChangeBuyer: () => void;
+  /** The completed (or, for UPI, confirmed / cancelled) sale. */
+  onCompleted: (sale: SaleDetailView) => void;
 }
 
 export function PaymentScreen({
-  amountDue = 320,
-  walletBalance = 1250,
+  can,
   onBack,
-  onPaymentConfirmed,
-}: PaymentScreenProps) {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
-  const [receivedAmount, setReceivedAmount] = useState<string>('');
-  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  channel,
+  saleWarehouseId,
+  cart,
+  quote,
+  buyer,
+  onChangeBuyer,
+  onCompleted,
+}: PaymentScreenProps): React.JSX.Element {
+  const [pickedMethod, setPickedMethod] = useState<SalePaymentMethod>('CASH');
+  const [cashText, setCashText] = useState('');
+  const [cardRef, setCardRef] = useState('');
+  // A UPI sale the server created pending; it is confirmed or cancelled in place.
+  const [pendingSale, setPendingSale] = useState<SaleDetailView | null>(null);
+  const idem = useIdempotencyKey();
+  const createSale = useCreateSaleMutation();
 
-  // UPI State
-  const [upiStatus] = useState<'Waiting' | 'Received'>('Waiting');
-  const [upiRef] = useState<string>('—');
+  const allowed = can('sales.sale.create') && can('payment.record');
+  // Wallet only for a registered customer (BR-86).
+  const methods = SALE_PAYMENT_METHODS.filter((m) => m !== 'WALLET' || buyer?.kind === 'CUSTOMER');
+  const method: SalePaymentMethod = methods.includes(pickedMethod) ? pickedMethod : 'CASH';
 
-  // Card State
-  const [cardStatus] = useState<'Processing' | 'Approved'>('Processing');
+  const payment: SalePaymentInput =
+    method === 'CASH'
+      ? { method, receivedInput: cashText }
+      : method === 'CARD'
+        ? { method, cardRef }
+        : { method };
+  const check = buyer ? checkSalePayment({ cart, quote, buyer, payment }) : null;
+  const body = buyer
+    ? buildSaleCreateRequest({ channel, warehouseId: saleWarehouseId, cart, quote, buyer, payment })
+    : null;
+  const canSubmit = body !== null && !createSale.isPending;
 
-  // All comparisons in integer paise (CLAUDE.md 2.2). BR-17: a wallet shortfall
-  // disables confirm; cash needs a valid received amount covering the due.
-  const amountDuePaise = rupeesNumberToPaise(amountDue);
-  const { canConfirm, shortfallPaise, balanceAfterPaise, changePaise } = evaluatePayment({
-    method: selectedMethod,
-    amountDuePaise,
-    walletBalancePaise: rupeesNumberToPaise(walletBalance),
-    receivedInput: receivedAmount,
-  });
-
-  const handleConfirm = () => {
-    if (!canConfirm) return;
-    if (showConfirmPopup) {
-      handleFinalConfirm();
-    } else {
-      setShowConfirmPopup(true);
-    }
+  const handleSelectMethod = (next: SalePaymentMethod) => {
+    setPickedMethod(next);
+    createSale.reset();
   };
 
-  const handleFinalConfirm = () => {
-    // The inline popup stays open while the amount can still be edited; re-check.
-    if (!canConfirm) {
-      setShowConfirmPopup(false);
-      return;
-    }
-    setShowConfirmPopup(false);
-    onPaymentConfirmed(selectedMethod);
+  const handleSubmit = () => {
+    if (body === null || createSale.isPending) return;
+    createSale.mutate(
+      { body, idempotencyKey: idem.keyFor(body) },
+      {
+        onSuccess: (sale) => {
+          idem.reset();
+          if (isPendingUpiSale(sale)) setPendingSale(sale);
+          else onCompleted(sale);
+        },
+      },
+    );
   };
+
+  // With a pending UPI sale on screen, going back must not lead to the summary
+  // (continuing from there would create a second sale): it hands the pending
+  // sale on, and the confirmation step points to its detail.
+  const handleBack = () => {
+    if (pendingSale) onCompleted(pendingSale);
+    else onBack();
+  };
+
+  const header = (
+    <View style={styles.headerBanner}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('sales.common.back')}
+        >
+          <ArrowBackIcon size={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} accessibilityRole="header">
+          {t('sales.payment.title')}
+        </Text>
+      </View>
+    </View>
+  );
+
+  if (!allowed) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <View style={styles.scrollContent}>
+          <Text style={styles.note}>{t('sales.common.noPermission')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (pendingSale) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <PendingUpiPanel
+            sale={pendingSale}
+            can={can}
+            onUpdated={(s) => (s.status === 'PICKED_UP' || s.status === 'CANCELLED' ? onCompleted(s) : setPendingSale(s))}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (!buyer) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <View style={styles.scrollContent}>
+          <Text style={styles.note}>{t('sales.payment.noBuyer')}</Text>
+          <TouchableOpacity style={styles.confirmBtn} onPress={onChangeBuyer} accessibilityRole="button" activeOpacity={0.85}>
+            <Text style={styles.confirmBtnText}>{t('sales.payment.chooseBuyer')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const blockKey = check?.block ? PAYMENT_BLOCK_KEY[check.block] : null;
+  const submitLabel = createSale.isPending
+    ? t('sales.payment.submitting')
+    : method === 'UPI'
+      ? t('sales.payment.submitUpi')
+      : t('sales.payment.submit');
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      {header}
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Payment</Text>
-        </View>
-      </View>
-
-      {/* ─── Main Content ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* ─── 1. Amount Due Card ─── */}
-        <View style={styles.amountDueCard}>
-          <Text style={styles.amountDueValue}>₹{amountDue}</Text>
-          <Text style={styles.amountDueLabel}>AMOUNT DUE</Text>
+        {/* Amount due: the server quote's total, never recomputed here (BR-89). */}
+        {quote ? (
+          <View style={styles.amountDueCard}>
+            <Text style={styles.amountDueValue}>{formatPaise(quote.totalPaise)}</Text>
+            <Text style={styles.amountDueLabel}>{t('sales.payment.amountDue')}</Text>
+            <Text style={styles.amountDueMeta}>
+              {t('sales.payment.gstIncluded', {
+                subtotal: formatPaise(quote.subtotalPaise),
+                gst: formatPaise(quote.gstPaise),
+              })}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Buyer */}
+        <View style={styles.buyerCard}>
+          <View style={styles.flex}>
+            <Text style={styles.detailLabel}>{t('sales.payment.buyer')}</Text>
+            <Text style={styles.detailValue}>
+              {buyer.kind === 'CUSTOMER'
+                ? buyer.customer.name
+                : t('sales.payment.walkInBuyer', { name: buyer.name.trim() })}
+            </Text>
+            {buyer.kind === 'CUSTOMER' ? <Text style={styles.detailMeta}>{buyer.customer.customerCode}</Text> : null}
+          </View>
+          <TouchableOpacity onPress={onChangeBuyer} accessibilityRole="button" activeOpacity={0.7}>
+            <Text style={styles.linkText}>{t('sales.payment.changeBuyer')}</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ─── 2. Payment Method Selector ─── */}
+        {/* Method picker */}
+        <Text style={styles.sectionHeading}>{t('sales.payment.method')}</Text>
         <View style={styles.paymentMethodsRow}>
-          {/* Cash */}
-          <TouchableOpacity
-            style={[
-              styles.methodBtn,
-              selectedMethod === 'Cash' && styles.methodBtnSelected,
-            ]}
-            onPress={() => setSelectedMethod('Cash')}
-            activeOpacity={0.8}
-          >
-            <CashIcon
-              size={22}
-              color={selectedMethod === 'Cash' ? adminColors.onBrand : adminColors.muted}
-            />
-            <Text
-              style={[
-                styles.methodBtnText,
-                selectedMethod === 'Cash' && styles.methodBtnTextSelected,
-              ]}
-            >
-              Cash
-            </Text>
-          </TouchableOpacity>
-
-          {/* UPI */}
-          <TouchableOpacity
-            style={[
-              styles.methodBtn,
-              selectedMethod === 'UPI' && styles.methodBtnSelected,
-            ]}
-            onPress={() => setSelectedMethod('UPI')}
-            activeOpacity={0.8}
-          >
-            <UpiIcon
-              size={22}
-              color={selectedMethod === 'UPI' ? adminColors.onBrand : adminColors.muted}
-            />
-            <Text
-              style={[
-                styles.methodBtnText,
-                selectedMethod === 'UPI' && styles.methodBtnTextSelected,
-              ]}
-            >
-              UPI
-            </Text>
-          </TouchableOpacity>
-
-          {/* Card */}
-          <TouchableOpacity
-            style={[
-              styles.methodBtn,
-              selectedMethod === 'Card' && styles.methodBtnSelected,
-            ]}
-            onPress={() => setSelectedMethod('Card')}
-            activeOpacity={0.8}
-          >
-            <CardIcon
-              size={22}
-              color={selectedMethod === 'Card' ? adminColors.onBrand : adminColors.muted}
-            />
-            <Text
-              style={[
-                styles.methodBtnText,
-                selectedMethod === 'Card' && styles.methodBtnTextSelected,
-              ]}
-            >
-              Card
-            </Text>
-          </TouchableOpacity>
-
-          {/* Wallet */}
-          <TouchableOpacity
-            style={[
-              styles.methodBtn,
-              selectedMethod === 'Wallet' && styles.methodBtnSelected,
-            ]}
-            onPress={() => setSelectedMethod('Wallet')}
-            activeOpacity={0.8}
-          >
-            <WalletIcon
-              size={22}
-              color={selectedMethod === 'Wallet' ? adminColors.onBrand : adminColors.muted}
-            />
-            <Text
-              style={[
-                styles.methodBtnText,
-                selectedMethod === 'Wallet' && styles.methodBtnTextSelected,
-              ]}
-            >
-              Wallet
-            </Text>
-          </TouchableOpacity>
+          {methods.map((m) => {
+            const selected = m === method;
+            const Icon = METHOD_ICON[m];
+            return (
+              <TouchableOpacity
+                key={m}
+                style={[styles.methodBtn, selected && styles.methodBtnSelected]}
+                onPress={() => handleSelectMethod(m)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Icon size={22} color={selected ? adminColors.onBrand : adminColors.muted} />
+                <Text style={[styles.methodBtnText, selected && styles.methodBtnTextSelected]}>
+                  {t(PAYMENT_METHOD_KEY[m])}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* ─── 3. DYNAMIC CONTENT BASED ON SELECTED METHOD ─── */}
-
-        {/* ── Option A: Cash ── */}
-        {selectedMethod === 'Cash' && (
+        {method === 'CASH' ? (
           <View>
-            <Text style={styles.sectionHeading}>Amount Received</Text>
-            <View style={styles.receivedInputCard}>
-              <TextInput
-                style={styles.receivedInput}
-                value={receivedAmount}
-                onChangeText={setReceivedAmount}
-                keyboardType="numeric"
-                placeholder=""
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <Text style={styles.currencySymbol}>₹</Text>
-            </View>
-
-            <View style={styles.changeCard}>
-              <Text style={styles.changeLabel}>Change</Text>
-              <Text style={styles.changeValue}>{formatPaise(changePaise)}</Text>
-            </View>
-
-            {/* Payment Summary */}
-            <Text style={styles.paymentSummaryHeading}>Payment Summary</Text>
-            <View style={styles.paymentSummaryCard}>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Amount</Text>
-                <Text style={styles.summaryValue}>₹{amountDue}</Text>
+            <Text style={styles.sectionHeading}>{t('sales.payment.cashReceived')}</Text>
+            <TextInput
+              style={styles.input}
+              value={cashText}
+              onChangeText={setCashText}
+              keyboardType="decimal-pad"
+              placeholder={t('sales.payment.cashPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              editable={!createSale.isPending}
+              accessibilityLabel={t('sales.payment.cashReceived')}
+            />
+            {check && check.block === null ? (
+              <View style={styles.detailCard}>
+                <Text style={styles.detailLabel}>{t('sales.payment.change')}</Text>
+                <Text style={[styles.detailValue, styles.successText]}>{formatPaise(check.changePaise)}</Text>
               </View>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Method</Text>
-                <Text style={styles.summaryValue}>cash</Text>
-              </View>
-            </View>
-
-            {/* Inline Confirm Payment Card (Image 5) */}
-            {showConfirmPopup && (
-              <View style={styles.inlineConfirmCard}>
-                <View style={styles.inlineConfirmHeader}>
-                  <QuestionCircleIcon size={20} color="#854F0B" />
-                  <Text style={styles.inlineConfirmTitle}>Confirm Payment?</Text>
-                </View>
-
-                <View style={styles.inlineConfirmSubBox}>
-                  <View style={styles.inlineConfirmSubCol}>
-                    <Text style={styles.inlineConfirmSubLabel}>Amount</Text>
-                    <Text style={styles.inlineConfirmSubVal}>₹{amountDue}</Text>
-                  </View>
-                  <View style={styles.inlineConfirmSubCol}>
-                    <Text style={styles.inlineConfirmSubLabel}>Method</Text>
-                    <Text style={styles.inlineConfirmSubVal}>{selectedMethod}</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.inlineConfirmBtn}
-                  onPress={handleFinalConfirm}
-                  activeOpacity={0.8}
-                >
-                  <CheckmarkOutlineIcon size={18} color="#059669" />
-                  <Text style={styles.inlineConfirmBtnText}>Confirm Payment</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.inlineCancelBtn}
-                  onPress={() => setShowConfirmPopup(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.inlineCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            ) : null}
           </View>
-        )}
+        ) : null}
 
-        {/* ── Option B: UPI ── */}
-        {selectedMethod === 'UPI' && (
+        {method === 'CARD' ? (
           <View>
-            <View style={styles.statusDetailCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.detailLabel}>Payment Status</Text>
-                <Text
-                  style={[
-                    styles.detailValue,
-                    upiStatus === 'Received' && { color: adminColors.success.text },
-                  ]}
-                >
-                  {upiStatus === 'Received' ? 'Received ✓' : 'Waiting for payment...'}
-                </Text>
-              </View>
-
-              <View style={{ flex: 1, paddingLeft: 12 }}>
-                <Text style={styles.detailLabel}>Transaction Reference</Text>
-                <Text style={styles.detailValue}>{upiRef}</Text>
-              </View>
-            </View>
+            <Text style={styles.sectionHeading}>{t('sales.payment.cardRef')}</Text>
+            <TextInput
+              style={styles.input}
+              value={cardRef}
+              onChangeText={setCardRef}
+              placeholder={t('sales.payment.cardRefPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={120}
+              editable={!createSale.isPending}
+              accessibilityLabel={t('sales.payment.cardRef')}
+            />
           </View>
-        )}
+        ) : null}
 
-        {/* ── Option C: Card ── */}
-        {selectedMethod === 'Card' && (
-          <View>
-            <View style={styles.statusDetailCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.detailLabel}>Payment Status</Text>
-                <Text style={styles.detailValue}>{cardStatus}</Text>
-              </View>
-            </View>
+        {method === 'UPI' ? (
+          <View style={styles.detailCard}>
+            <Text style={styles.body}>{t('sales.payment.upiNote')}</Text>
           </View>
-        )}
+        ) : null}
 
-        {/* ── Option D: Wallet ── */}
-        {selectedMethod === 'Wallet' && (
-          <View>
-            <View style={styles.walletDetailCard}>
-              <View style={styles.walletRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.detailLabel}>Wallet Available</Text>
-                  <Text style={styles.detailValue}>{formatPaise(rupeesNumberToPaise(walletBalance))}</Text>
-                </View>
-
-                <View style={{ flex: 1, paddingLeft: 12 }}>
-                  <Text style={styles.detailLabel}>Sale Amount</Text>
-                  <Text style={styles.detailValue}>₹{amountDue}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.walletRow, { marginTop: 14 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.detailLabel}>Balance After Payment</Text>
-                  <Text style={styles.detailValue}>{formatPaise(balanceAfterPaise)}</Text>
-                </View>
-              </View>
-              {shortfallPaise > 0 ? (
-                <View style={[styles.walletRow, { marginTop: 14 }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.detailLabel}>Shortfall: top up the wallet first</Text>
-                    <Text style={styles.detailValue}>{formatPaise(shortfallPaise)}</Text>
-                  </View>
-                </View>
-              ) : null}
-            </View>
+        {method === 'WALLET' && buyer.kind === 'CUSTOMER' ? (
+          <View style={styles.detailCard}>
+            <Text style={styles.detailLabel}>{t('sales.payment.walletBalance')}</Text>
+            <Text style={styles.detailValue}>{formatPaise(buyer.customer.walletBalancePaise)}</Text>
+            {check && check.shortfallPaise > 0 ? (
+              <>
+                <Text style={[styles.detailLabel, styles.spaced]}>{t('sales.payment.walletShortfall')}</Text>
+                <Text style={[styles.detailValue, styles.dangerText]}>{formatPaise(check.shortfallPaise)}</Text>
+              </>
+            ) : null}
           </View>
-        )}
+        ) : null}
 
-        <View style={{ height: 20 }} />
+        {blockKey ? <Text style={styles.blockText}>{t(blockKey)}</Text> : null}
+
+        {createSale.error ? (
+          <View style={styles.errorCard} accessibilityLiveRegion="polite">
+            <Text style={styles.errorText}>{t(adminErrorKey(createSale.error))}</Text>
+            <Text style={styles.detailMeta}>{t('sales.payment.errorHint')}</Text>
+            <TouchableOpacity onPress={onBack} accessibilityRole="button" activeOpacity={0.7}>
+              <Text style={[styles.linkText, styles.spaced]}>{t('sales.payment.backToSummary')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
 
-      {/* ─── Bottom Action Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.confirmBtn, !canConfirm && styles.confirmBtnDisabled]}
-          onPress={handleConfirm}
-          disabled={!canConfirm}
-          accessibilityState={{ disabled: !canConfirm }}
+          style={[styles.confirmBtn, !canSubmit && styles.confirmBtnDisabled]}
+          onPress={handleSubmit}
+          disabled={!canSubmit}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canSubmit, busy: createSale.isPending }}
           activeOpacity={0.85}
         >
-          <CashIcon size={20} color={adminColors.onBrand} />
-          <Text style={styles.confirmBtnText}>Confirm Payment</Text>
+          {createSale.isPending ? <ActivityIndicator color={adminColors.onBrand} /> : null}
+          <Text style={styles.confirmBtnText}>{submitLabel}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -472,9 +421,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
+  flex: {
+    flex: 1,
+  },
   headerBanner: {
     backgroundColor: adminColors.brand,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: 14,
     paddingBottom: 18,
     borderBottomLeftRadius: 20,
@@ -483,45 +435,73 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   backBtn: {
-    padding: 4,
+    padding: adminSpacing.xs,
     marginLeft: -4,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: 0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  note: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
   },
   amountDueCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 18,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: 26,
+    paddingVertical: adminSpacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   amountDueValue: {
-    ...adminType.title,
+    ...adminType.kpiValue,
     color: adminColors.ink,
-    letterSpacing: -0.5,
     marginBottom: 6,
   },
   amountDueLabel: {
     ...adminType.caption,
     color: adminColors.muted,
-    letterSpacing: 0.8,
+  },
+  amountDueMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+  },
+  buyerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    gap: adminSpacing.md,
+  },
+  linkText: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+  },
+  sectionHeading: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
   },
   paymentMethodsRow: {
     flexDirection: 'row',
@@ -531,7 +511,7 @@ const styles = StyleSheet.create({
   methodBtn: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingVertical: 14,
@@ -549,122 +529,75 @@ const styles = StyleSheet.create({
   },
   methodBtnTextSelected: {
     color: adminColors.onBrand,
-    fontWeight: '700',
   },
-  sectionHeading: {
-    ...adminType.sectionHead,
+  input: {
+    ...adminType.title,
     color: adminColors.ink,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  receivedInputCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 0,
     height: 52,
     marginBottom: 14,
   },
-  receivedInput: {
-    flex: 1,
-    ...adminType.title,
-    color: adminColors.ink,
-    paddingVertical: 0,
-  },
-  currencySymbol: {
-    ...adminType.title,
-    color: adminColors.muted,
-  },
-  changeCard: {
+  detailCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
-  },
-  changeLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  changeValue: {
-    ...adminType.title,
-    color: adminColors.success.text,
-  },
-  statusDetailCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    padding: adminSpacing.lg,
     marginBottom: 14,
   },
   detailLabel: {
     ...adminType.caption,
     color: adminColors.muted,
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   detailValue: {
     ...adminType.sectionHead,
     color: adminColors.ink,
   },
-  walletDetailCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 14,
+  detailMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
   },
-  walletRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  simulateBtn: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  simulateBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-  },
-  walletNoticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginBottom: 14,
-  },
-  walletNoticeText: {
-    flex: 1,
+  body: {
     ...adminType.body,
-    color: adminColors.brandDeep,
-    lineHeight: 17,
+    color: adminColors.ink,
+  },
+  spaced: {
+    marginTop: adminSpacing.md,
+  },
+  successText: {
+    color: adminColors.success.text,
+  },
+  dangerText: {
+    color: adminColors.danger.text,
+  },
+  blockText: {
+    ...adminType.body,
+    color: adminColors.warning.text,
+    marginBottom: adminSpacing.md,
+  },
+  errorCard: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+  },
+  errorText: {
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
   bottomBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 20,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    paddingBottom: adminSpacing.input,
     backgroundColor: adminColors.canvas,
   },
   confirmBtn: {
@@ -672,199 +605,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.brand,
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 8,
+    borderRadius: adminRadius.lg,
+    height: ADMIN_BUTTON_HEIGHT,
+    gap: adminSpacing.sm,
   },
   confirmBtnDisabled: {
     opacity: 0.5,
   },
   confirmBtnText: {
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
-    ...adminType.title,
-  },
-  modalOverlay: {
-    flex: 1,
-    // Was a translucent black scrim; no translucent token, so a solid canvas scrim (card raised by adminShadow.lg).
-    backgroundColor: adminColors.canvas,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  popupCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    padding: 20,
-    ...adminShadow.lg,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  popupTitle: {
-    ...adminType.title,
-    color: adminColors.brandDeep,
-  },
-  popupSummaryBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginTop: 14,
-    backgroundColor: adminColors.card,
-  },
-  popupSummaryCol: {
-    flex: 1,
-  },
-  popupSummaryLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  popupSummaryVal: {
-    ...adminType.title,
-    color: adminColors.ink,
-  },
-  popupConfirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: adminColors.success.text,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: 16,
-    backgroundColor: adminColors.card,
-  },
-  popupConfirmBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.success.text,
-  },
-  popupCancelBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: 10,
-    backgroundColor: adminColors.card,
-  },
-  popupCancelBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-  },
-  paymentSummaryHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#854F0B',
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  paymentSummaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  summaryCol: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#18181B',
-  },
-  inlineConfirmCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#D97706',
-    padding: 16,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  inlineConfirmHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  inlineConfirmTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#854F0B',
-  },
-  inlineConfirmSubBox: {
-    backgroundColor: '#F6F4EE',
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-  },
-  inlineConfirmSubCol: {
-    flex: 1,
-  },
-  inlineConfirmSubLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  inlineConfirmSubVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#18181B',
-  },
-  inlineConfirmBtn: {
-    borderWidth: 1.5,
-    borderColor: '#059669',
-    borderRadius: 12,
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-    backgroundColor: '#FFFFFF',
-    gap: 8,
-  },
-  inlineConfirmBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  inlineCancelBtn: {
-    borderWidth: 1.5,
-    borderColor: '#D97706',
-    borderRadius: 12,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  inlineCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#854F0B',
   },
 });

@@ -1,19 +1,34 @@
 /**
- * Transfer Detail: route, transfer information and the progress timeline of
- * one transfer.
+ * Transfer Detail: route, information, lines and the progress timeline of one
+ * live transfer (GET /warehouse-transfers/{id}).
  *
- * Gate (FINAL_LIST 144): Shared and scope-locked; a transfer outside the
- * scope (Sub: not arriving at its warehouse) renders "not found", no 403 leak.
- * 'Cancel Transfer Request' needs `transfer.inter_warehouse.initiate` (MAIN
- * all, SUB none); 'Receive at Destination' (Track Receiving) needs
- * `transfer.inter_warehouse.receive` (all).
+ * Gate: `transfer.inter_warehouse.view`; a transfer outside the scope (or an
+ * unknown id) is the server's 404, shown as "not found", never a 403 leak.
+ * Actions (display only; the server enforces each again):
+ *   - Approve: `transfer.high_value.approve` (SA only) on PENDING_APPROVAL; it
+ *     dispatches the transfer. Sends an Idempotency-Key. The initiator cannot
+ *     approve their own transfer (403 SELF_APPROVAL_FORBIDDEN, shown as text).
+ *   - Cancel: `transfer.inter_warehouse.initiate` (MAIN all, SUB none) on
+ *     PENDING_APPROVAL, with a required reason.
+ *   - Receive at Destination: `transfer.inter_warehouse.receive` on IN_TRANSIT,
+ *     only for a destination the scope covers.
+ * There is no dispatch step to press: a transfer below the threshold is
+ * dispatched when it is created, a high-value one when it is approved.
  */
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { ApiError } from '../../../../../shell/api/client';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { formatKg } from '../../../money/quantity';
+import { formatAdminDate } from '../../../utils/datetime';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { formatTransferThreshold } from '../../../config/businessThresholds';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
+  CheckIcon,
   EmptyState,
   InfoCard,
   InfoNote,
@@ -24,173 +39,257 @@ import {
   WalletFooter,
   WalletScreen,
   walletLayout,
-  CheckIcon,
 } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS, transferWarehouseLabel } from './fixtures';
+import { cancelReasonOf, CANCEL_REASON_MAX, transferActions } from './mappers';
+import { RouteArrowIcon, transferRouteLabel } from './TransferParts';
 import {
-  formatTransferKg,
-  RouteArrowIcon,
-  TRANSFER_CODES,
-  TRANSFER_STATUS_TONE,
-  transferInScope,
-  transferRouteLabel,
-} from './TransferParts';
-import type { TransferItem, TransferStatus, WarehouseScreenBaseProps } from './types';
-
-const STEPS = [
-  'Transfer Requested',
-  'Super Admin Approval',
-  'Dispatched from Source',
-  'In Transit',
-  'Arrived at Destination',
-  'Received & Ledger Updated',
-] as const;
-
-/** Last completed step of the timeline for each status. */
-const STEP_INDEX: Record<TransferStatus, number> = {
-  'Pending SA Approval': 1,
-  'In Transit': 3,
-  Arrived: 4,
-  Completed: 5,
-};
+  useApproveTransferMutation,
+  useCancelTransferMutation,
+  useTransferDetail,
+  useTransferWarehouses,
+} from './useTransfersData';
+import type { TransferDetailView, TransferLineView, WarehouseScreenBaseProps } from './types';
 
 export interface TransferDetailScreenProps extends WarehouseScreenBaseProps {
   transferId?: string | undefined;
-  transfers?: readonly TransferItem[] | undefined;
-  /** Open Transfer Receiving for this transfer. */
-  onTrackReceiving?: ((transferId: string) => void) | undefined;
-  /** The request was cancelled (the host removes it / returns to the list). */
-  onCancelTransfer?: ((transferId: string) => void) | undefined;
+  /** Open the receiving inspection for this transfer. */
+  onReceiveTransfer?: ((transferId: string) => void) | undefined;
   onBackToTransfers?: (() => void) | undefined;
 }
 
-export function TransferDetailScreen({
-  scope,
-  can,
-  onBack,
-  transferId,
-  transfers = TRANSFERS,
-  onTrackReceiving,
-  onCancelTransfer,
-  onBackToTransfers,
-}: TransferDetailScreenProps) {
-  const transfer = transfers.find((t) => t.id === transferId && transferInScope(scope, t));
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.problem.code === 'NOT_FOUND';
+}
+
+function LineRow({ line }: { line: TransferLineView }) {
+  return (
+    <View style={styles.lineRow}>
+      <View style={styles.lineText}>
+        <Text style={styles.lineTitle}>{line.batchCode}</Text>
+        <Text style={styles.lineMeta}>{line.gradeLabel}</Text>
+      </View>
+      <View style={styles.lineQty}>
+        <Text style={styles.lineTitle}>{t('transfers.detail.line.sent', { qty: formatKg(line.sentGrams) })}</Text>
+        {line.receivedGrams !== null ? (
+          <Text style={styles.lineMeta}>{t('transfers.detail.line.received', { qty: formatKg(line.receivedGrams) })}</Text>
+        ) : null}
+        {line.varianceGrams !== null && line.varianceGrams !== 0 ? (
+          <Text style={styles.lineShort}>{t('transfers.detail.line.variance', { qty: formatKg(line.varianceGrams) })}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function Body({ transfer }: { transfer: TransferDetailView }) {
+  const now = new Date();
+  const lastDone = transfer.timeline.reduce((acc, step, idx) => (step.done ? idx : acc), -1);
+  return (
+    <>
+      <View style={styles.card}>
+        <View style={styles.routeRow}>
+          <View style={styles.routeCol}>
+            <Text style={styles.routeLabel}>{t('transfers.detail.from')}</Text>
+            <Text style={styles.routeValue}>{transfer.sourceName}</Text>
+          </View>
+          <View style={styles.routeArrow}>
+            <RouteArrowIcon size={18} />
+          </View>
+          <View style={[styles.routeCol, styles.routeColEnd]}>
+            <Text style={styles.routeLabel}>{t('transfers.detail.to')}</Text>
+            <Text style={styles.routeValue}>{transfer.destinationName}</Text>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.statusRow}>
+          <StatusBadge label={transfer.statusLabel} tone={transfer.statusTone} />
+          {transfer.hasDiscrepancy ? <StatusBadge label={t('transfers.row.discrepancy')} tone="danger" /> : null}
+        </View>
+      </View>
+
+      <SectionTitle>{t('transfers.detail.info')}</SectionTitle>
+      <InfoCard
+        rows={[
+          [
+            { label: t('transfers.detail.number'), value: transfer.code },
+            { label: t('transfers.detail.quantity'), value: formatKg(transfer.sentGrams) },
+          ],
+          [
+            { label: t('transfers.detail.vehicle'), value: transfer.vehicleNumber ?? t('transfers.detail.vehicleNone') },
+            { label: t('transfers.detail.value'), value: formatPaise(transfer.totalValuePaise) },
+          ],
+          [{ label: t('transfers.detail.created'), value: formatAdminDate(transfer.createdAt, now) }],
+        ]}
+      />
+      {transfer.hasUnvaluedLines ? <InfoNote tone="warning">{t('transfers.detail.unvalued')}</InfoNote> : null}
+      {transfer.notes ? <InfoNote tone="info">{t('transfers.detail.notes', { text: transfer.notes })}</InfoNote> : null}
+      {transfer.receiptNote ? (
+        <InfoNote tone="warning">{t('transfers.detail.receiptNote', { text: transfer.receiptNote })}</InfoNote>
+      ) : null}
+      {transfer.cancelReason ? (
+        <InfoNote tone="danger">{t('transfers.detail.cancelReason', { text: transfer.cancelReason })}</InfoNote>
+      ) : null}
+
+      <SectionTitle>{t('transfers.detail.lines')}</SectionTitle>
+      <View style={styles.card}>
+        {transfer.lines.map((line) => (
+          <LineRow key={line.id} line={line} />
+        ))}
+      </View>
+
+      <SectionTitle>{t('transfers.detail.progress')}</SectionTitle>
+      <View style={styles.card}>
+        {transfer.timeline.map((step, idx) => {
+          const isLast = idx === transfer.timeline.length - 1;
+          return (
+            <View key={step.key} style={styles.stepRow}>
+              <View style={styles.stepRail}>
+                <View style={[styles.stepDot, step.done ? styles.stepDotDone : styles.stepDotPending]}>
+                  {step.done ? <CheckIcon size={11} /> : null}
+                </View>
+                {!isLast ? <View style={[styles.stepLine, step.done && idx < lastDone && styles.stepLineDone]} /> : null}
+              </View>
+              <View style={styles.stepTextCol}>
+                <Text style={[styles.stepText, step.done && styles.stepTextDone]}>{step.label}</Text>
+                {step.at ? <Text style={styles.lineMeta}>{formatAdminDate(step.at, now)}</Text> : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      {transfer.status === 'PENDING_APPROVAL' ? <InfoNote tone="brandSoft">{t('transfers.detail.pendingNote')}</InfoNote> : null}
+    </>
+  );
+}
+
+export function TransferDetailScreen({ scope, can, onBack, transferId, onReceiveTransfer, onBackToTransfers }: TransferDetailScreenProps) {
+  const { nameOf } = useTransferWarehouses(scope, can);
+  const detail = useTransferDetail(scope, transferId, nameOf);
+  const approve = useApproveTransferMutation();
+  const cancel = useCancelTransferMutation();
+  const approveKey = useIdempotencyKey();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [actionError, setActionError] = useState<unknown>(null);
+
+  const transfer = detail.transfer;
+  const header = <ScopeHeader scope={scope} label={scope.warehouseId === undefined ? t('transfers.scope.all') : undefined} />;
 
   if (transfer === undefined) {
+    const notFound = transferId === undefined || isNotFound(detail.error);
     return (
-      <WalletScreen title="Transfer Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Transfer not found" subtitle="This transfer is not available in your warehouse." />
+      <WalletScreen title={t('transfers.detail.title')} onBack={onBack} headerExtra={header}>
+        {detail.isLoading ? <AdminLoadingState /> : null}
+        {!detail.isLoading && notFound ? (
+          <EmptyState title={t('transfers.detail.notFound.title')} subtitle={t('transfers.detail.notFound.subtitle')} />
+        ) : null}
+        {!detail.isLoading && !notFound && detail.error ? <AdminErrorState error={detail.error} onRetry={detail.refresh} /> : null}
       </WalletScreen>
     );
   }
 
-  const stepIndex = STEP_INDEX[transfer.status];
-  const canCancel = can(TRANSFER_CODES.initiate) && transfer.status === 'Pending SA Approval';
-  const canTrack =
-    can(TRANSFER_CODES.receive) &&
-    onTrackReceiving !== undefined &&
-    (transfer.status === 'In Transit' || transfer.status === 'Arrived');
+  const actions = transferActions(scope, can, transfer);
+  const busy = approve.isPending || cancel.isPending;
+  const validReason = cancelReasonOf(reason);
 
-  const handleCancel = () => {
-    Alert.alert('Cancel Transfer', `Cancel ${transfer.code}? This request will be withdrawn.`, [
-      { text: 'Keep', style: 'cancel' },
+  const runApprove = () => {
+    setActionError(null);
+    approve.mutate(
+      { id: transfer.id, idempotencyKey: approveKey.keyFor({ action: 'approve', id: transfer.id }) },
       {
-        text: 'Cancel Transfer',
-        style: 'destructive',
-        onPress: () => {
-          onCancelTransfer?.(transfer.id);
+        onSuccess: () => {
+          approveKey.reset();
+          Alert.alert(t('transfers.detail.approved.title'), t('transfers.detail.approved.body', { code: transfer.code }));
+        },
+        onError: setActionError,
+      },
+    );
+  };
+
+  const confirmApprove = () => {
+    Alert.alert(t('transfers.detail.approve.confirmTitle'), t('transfers.detail.approve.confirmBody', { code: transfer.code }), [
+      { text: t('transfers.common.keep'), style: 'cancel' },
+      { text: t('transfers.detail.approve'), onPress: runApprove },
+    ]);
+  };
+
+  const submitCancel = () => {
+    if (validReason === null) return;
+    setActionError(null);
+    cancel.mutate(
+      { id: transfer.id, body: { reason: validReason } },
+      {
+        onSuccess: () => {
+          setCancelOpen(false);
+          setReason('');
           (onBackToTransfers ?? onBack)();
         },
+        onError: setActionError,
       },
-    ]);
+    );
   };
 
   return (
     <WalletScreen
-      title="Transfer Detail"
-      subtitle={`${transfer.code} · ${transferRouteLabel(transfer)}`}
+      title={t('transfers.detail.title')}
+      subtitle={t('transfers.detail.subtitle', { code: transfer.code, route: transferRouteLabel(transfer) })}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} />}
+      headerExtra={header}
       footer={
         <WalletFooter>
-          {canTrack ? (
-            <WalletButton label="Receive at Destination" onPress={() => onTrackReceiving?.(transfer.id)} />
+          {actions.receive && onReceiveTransfer ? (
+            <WalletButton label={t('transfers.detail.receive')} onPress={() => onReceiveTransfer(transfer.id)} />
           ) : null}
-          {canCancel ? (
+          {actions.approve ? (
+            <WalletButton label={t('transfers.detail.approve')} icon={<CheckIcon />} disabled={busy} onPress={confirmApprove} />
+          ) : null}
+          {actions.cancel && !cancelOpen ? (
             <TouchableOpacity
               style={styles.dangerButton}
-              onPress={handleCancel}
+              onPress={() => setCancelOpen(true)}
+              disabled={busy}
               activeOpacity={0.85}
               accessibilityRole="button"
             >
-              <Text style={styles.dangerButtonText}>Cancel Transfer Request</Text>
+              <Text style={styles.dangerButtonText}>{t('transfers.detail.cancel')}</Text>
             </TouchableOpacity>
           ) : null}
-          <WalletButton label="Back to All Transfers" variant="outline" onPress={onBackToTransfers ?? onBack} />
+          <WalletButton label={t('transfers.detail.backToList')} variant="outline" onPress={onBackToTransfers ?? onBack} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <View style={styles.routeRow}>
-            <View style={styles.routeCol}>
-              <Text style={styles.routeLabel}>FROM</Text>
-              <Text style={styles.routeValue}>{transferWarehouseLabel(transfer.sourceWarehouseId)}</Text>
-            </View>
-            <View style={styles.routeArrow}>
-              <RouteArrowIcon size={18} />
-            </View>
-            <View style={[styles.routeCol, styles.routeColEnd]}>
-              <Text style={styles.routeLabel}>TO</Text>
-              <Text style={styles.routeValue}>{transferWarehouseLabel(transfer.destinationWarehouseId)}</Text>
+        {actionError ? <InfoNote tone="danger">{t(adminErrorKey(actionError))}</InfoNote> : null}
+        {actions.cancel && cancelOpen ? (
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>{t('transfers.detail.cancelReasonLabel')}</Text>
+            <TextInput
+              style={styles.input}
+              value={reason}
+              onChangeText={setReason}
+              maxLength={CANCEL_REASON_MAX}
+              multiline
+              placeholder={t('transfers.detail.cancelReasonPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              accessibilityLabel={t('transfers.detail.cancelReasonLabel')}
+            />
+            <View style={styles.cancelActions}>
+              <WalletButton label={t('transfers.common.keep')} variant="outline" flex onPress={() => setCancelOpen(false)} />
+              <TouchableOpacity
+                style={[styles.dangerButton, styles.flex, (validReason === null || busy) && styles.disabled]}
+                onPress={submitCancel}
+                disabled={validReason === null || busy}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: validReason === null || busy }}
+              >
+                <Text style={styles.dangerButtonText}>{t('transfers.detail.cancelConfirm')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.statusRow}>
-            <StatusBadge label={transfer.status} tone={TRANSFER_STATUS_TONE[transfer.status]} />
-            {transfer.eta ? <Text style={styles.eta}>{transfer.eta}</Text> : null}
-          </View>
-        </View>
-
-        <SectionTitle>Transfer Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Transfer ID', value: transfer.code },
-              { label: 'Produce', value: `${transfer.produce} — ${formatTransferKg(transfer.quantityKg)}` },
-            ],
-            [
-              { label: 'Vehicle', value: transfer.vehicle ?? 'Not dispatched' },
-              { label: 'Initiated By', value: transfer.initiatedBy ?? '—' },
-            ],
-          ]}
-        />
-
-        <SectionTitle>Transfer Progress</SectionTitle>
-        <View style={styles.card}>
-          {STEPS.map((label, idx) => {
-            const done = idx <= stepIndex;
-            const isLast = idx === STEPS.length - 1;
-            return (
-              <View key={label} style={styles.stepRow}>
-                <View style={styles.stepRail}>
-                  <View style={[styles.stepDot, done ? styles.stepDotDone : styles.stepDotPending]}>
-                    {done ? <CheckIcon size={11} /> : null}
-                  </View>
-                  {!isLast ? <View style={[styles.stepLine, done && idx < stepIndex && styles.stepLineDone]} /> : null}
-                </View>
-                <Text style={[styles.stepText, done && styles.stepTextDone]}>{label}</Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {transfer.status === 'Pending SA Approval' ? (
-          <InfoNote tone="brandSoft">
-            This transfer is at or above {formatTransferThreshold()} and is awaiting Super Admin dual-key sign-off before a
-            dispatch manifest is issued.
-          </InfoNote>
         ) : null}
+        <Body transfer={transfer} />
       </ScrollView>
     </WalletScreen>
   );
@@ -224,7 +323,18 @@ const styles = StyleSheet.create({
   routeLabel: { ...adminType.caption, color: adminColors.muted },
   routeValue: { ...adminType.title, color: adminColors.ink, marginTop: 2 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
-  eta: { ...adminType.rowMeta, color: adminColors.muted },
+  lineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  lineText: { flex: 1 },
+  lineQty: { alignItems: 'flex-end' },
+  lineTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  lineMeta: { ...adminType.rowMeta, color: adminColors.muted },
+  lineShort: { ...adminType.rowMeta, color: adminColors.danger.text },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   stepRail: { alignItems: 'center', width: STEP_DOT + 2, marginRight: adminSpacing.md },
   stepDot: { width: STEP_DOT, height: STEP_DOT, borderRadius: adminRadius.full, alignItems: 'center', justifyContent: 'center' },
@@ -232,8 +342,24 @@ const styles = StyleSheet.create({
   stepDotPending: { backgroundColor: adminColors.card, borderWidth: 2, borderColor: adminColors.border },
   stepLine: { width: 2, height: STEP_LINE, backgroundColor: adminColors.border },
   stepLineDone: { backgroundColor: adminColors.brand },
+  stepTextCol: { flex: 1 },
   stepText: { ...adminType.body, color: adminColors.muted, paddingTop: 1 },
   stepTextDone: { ...adminType.sectionHead, color: adminColors.ink },
+  fieldLabel: { ...adminType.rowTitle, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  input: {
+    ...adminType.body,
+    color: adminColors.ink,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    minHeight: ADMIN_BUTTON_HEIGHT * 2,
+    textAlignVertical: 'top',
+  },
+  cancelActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
+  flex: { flex: 1 },
+  disabled: { opacity: 0.5 },
   dangerButton: {
     height: ADMIN_BUTTON_HEIGHT,
     borderRadius: adminRadius.md,

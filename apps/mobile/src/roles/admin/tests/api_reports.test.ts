@@ -179,5 +179,13 @@ describe('roles/admin/api/reports.ts (HTTP contract, BR-64)', () => {
       expect(reportsWarehouseFilter(MAIN_SCOPE, FOREIGN_WAREHOUSE)).toBe(FOREIGN_WAREHOUSE);
       expect(reportsWarehouseFilter(MAIN_SCOPE, undefined)).toBeUndefined();
     });
+
+    it('BR-64b: a fixture id selection is never sent (no warehouseId query param, so no 400)', async () => {
+      vi.mocked(request).mockResolvedValueOnce({} as never);
+      await getSalesReport({ from: '2026-10-01', to: '2026-10-13', warehouseId: reportsWarehouseFilter(MAIN_SCOPE, 'WH-OOTY') });
+      const path = String(vi.mocked(request).mock.calls.at(-1)?.[0] ?? '');
+      expect(path).not.toContain('warehouseId');
+      expect(path).not.toContain('WH-OOTY');
+    });
   });
 });

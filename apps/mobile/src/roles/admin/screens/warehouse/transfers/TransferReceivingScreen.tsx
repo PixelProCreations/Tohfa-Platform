@@ -1,17 +1,20 @@
 /**
- * Transfer Receiving: inter-warehouse arrivals at the destination (counts and
- * the incoming list).
+ * Transfer Receiving: the live transfers in transit to the scope's warehouse
+ * (Sub: its own, as destination; Main: every warehouse) and the counts.
  *
- * Gate (FINAL_LIST 145): Shared. Sub sees only arrivals whose destination is
- * its own warehouse; Main sees every warehouse's. Start Inspection (the card
- * tap and the bottom action) needs `transfer.inter_warehouse.receive` (all).
- * The header no longer names 'Coonoor ← Kotagiri': routes come from the rows.
+ * Gate: `transfer.inter_warehouse.view` for the list. Opening the receiving
+ * inspection (the card tap) needs `transfer.inter_warehouse.receive` (all) on
+ * an IN_TRANSIT transfer whose destination the scope covers. There is no
+ * separate "arrived" state on the server: a transfer is IN_TRANSIT until it is
+ * received.
  */
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ScrollView } from 'react-native';
 
+import { t } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
-  EmptyState,
   KpiRow,
   PermissionNote,
   ScopeHeader,
@@ -21,47 +24,33 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS } from './fixtures';
-import { PlayCircleIcon, TRANSFER_CODES, TransferRow, transferInScope } from './TransferParts';
-import type { TransferItem, WarehouseScreenBaseProps } from './types';
+import { TRANSFER_CODES, transferActions } from './mappers';
+import { TransferRow } from './TransferParts';
+import { useTransferList, useTransferStatusCounts, useTransferWarehouses } from './useTransfersData';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface TransferReceivingScreenProps extends WarehouseScreenBaseProps {
-  transfers?: readonly TransferItem[] | undefined;
   onStartTransferInspection?: ((transferId: string) => void) | undefined;
 }
 
-export function TransferReceivingScreen({
-  scope,
-  can,
-  onBack,
-  transfers = TRANSFERS,
-  onStartTransferInspection,
-}: TransferReceivingScreenProps) {
+export function TransferReceivingScreen({ scope, can, onBack, onStartTransferInspection }: TransferReceivingScreenProps) {
   const canReceive = can(TRANSFER_CODES.receive);
-  const incoming = useMemo(
-    () => transfers.filter((t) => transferInScope(scope, t) && t.status !== 'Pending SA Approval'),
-    [transfers, scope],
-  );
-  const awaiting = incoming.filter((t) => t.status === 'In Transit' || t.status === 'Arrived');
-  const firstArrived = incoming.find((t) => t.status === 'Arrived');
-  const count = (pred: (t: TransferItem) => boolean) => String(incoming.filter(pred).length);
-
+  const { nameOf } = useTransferWarehouses(scope, can);
+  const list = useTransferList(scope, 'IN_TRANSIT', nameOf);
+  const counts = useTransferStatusCounts(scope);
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
   const start = canReceive ? onStartTransferInspection : undefined;
 
   return (
     <WalletScreen
-      title="Transfer Receiving"
-      subtitle="Inter-warehouse arrivals"
+      title={t('transfers.receiving.title')}
+      subtitle={t('transfers.receiving.subtitle')}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} />}
+      headerExtra={<ScopeHeader scope={scope} label={scope.warehouseId === undefined ? t('transfers.scope.all') : undefined} />}
       footer={
-        start && firstArrived ? (
+        !canReceive ? (
           <WalletFooter>
-            <WalletButton label="Start Inspection" icon={<PlayCircleIcon />} onPress={() => start(firstArrived.id)} />
-          </WalletFooter>
-        ) : !canReceive ? (
-          <WalletFooter>
-            <PermissionNote>Receiving a transfer needs transfer receive permission.</PermissionNote>
+            <PermissionNote>{t('transfers.receiving.noPermission')}</PermissionNote>
           </WalletFooter>
         ) : undefined
       }
@@ -69,28 +58,28 @@ export function TransferReceivingScreen({
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <KpiRow
           items={[
-            { value: count((t) => t.status === 'In Transit'), label: 'IN TRANSIT', tone: 'info' },
-            { value: count((t) => t.status === 'Arrived'), label: 'ARRIVED', tone: 'brandSoft' },
+            { value: counts.IN_TRANSIT === undefined ? t('transfers.kpi.unknown') : String(counts.IN_TRANSIT), label: t('transfers.kpi.inTransit'), tone: 'info' },
+            { value: counts.RECEIVED === undefined ? t('transfers.kpi.unknown') : String(counts.RECEIVED), label: t('transfers.kpi.received'), tone: 'success' },
           ]}
         />
-        <KpiRow
-          items={[
-            { value: count((t) => t.status === 'Completed'), label: 'RECEIVED', tone: 'success' },
-            { value: count((t) => t.qtyMismatch === true), label: 'QTY MISMATCH', tone: 'danger' },
-          ]}
-        />
-        <SectionTitle>Incoming Transfer List</SectionTitle>
-        {awaiting.length === 0 ? (
-          <EmptyState title="No incoming transfers" subtitle="Nothing is in transit to this warehouse." />
-        ) : (
-          awaiting.map((t) => (
-            <TransferRow
-              key={t.id}
-              transfer={t}
-              onPress={start && t.status === 'Arrived' ? () => start(t.id) : undefined}
-            />
-          ))
-        )}
+        <SectionTitle>{t('transfers.receiving.section')}</SectionTitle>
+        {view === 'loading' ? <AdminLoadingState /> : null}
+        {view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
+        {view === 'empty' ? (
+          <AdminEmptyState title={t('transfers.receiving.empty.title')} subtitle={t('transfers.receiving.empty.subtitle')} />
+        ) : null}
+        {view === 'ready'
+          ? list.items.map((item) => (
+              <TransferRow
+                key={item.id}
+                transfer={item}
+                onPress={start && transferActions(scope, can, item).receive ? () => start(item.id) : undefined}
+              />
+            ))
+          : null}
+        {view === 'ready' && list.hasMore ? (
+          <WalletButton label={t('transfers.list.loadMore')} variant="outline" onPress={list.loadMore} />
+        ) : null}
       </ScrollView>
     </WalletScreen>
   );

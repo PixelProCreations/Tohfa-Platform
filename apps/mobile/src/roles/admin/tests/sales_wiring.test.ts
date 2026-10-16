@@ -1,21 +1,29 @@
 /**
- * Live sales screens hook integration tests (BR-17, BR-86, BR-88, BR-89, BR-94, BR-98).
+ * Sales wiring: the client -> mapper -> request-builder chain the screens use
+ * (BR-86, BR-88, BR-89, BR-94, BR-98), plus a static guard that the sales area
+ * no longer carries the fixtures and fabricated fallbacks it used to.
  */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import type * as ShellClient from '../../../shell/api/client';
+
+const PRODUCT = '33333333-3333-4333-8333-333333333333';
+const SALE = '22222222-2222-4222-8222-222222222222';
 
 vi.mock('../../../shell/api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shell/api/client')>();
+  const actual = await importOriginal<typeof ShellClient>();
   return {
     ...actual,
-    request: vi.fn(async (path: string) => {
-      if (path.includes('/products')) {
+    request: vi.fn(async (p: string) => {
+      if (p.includes('/products')) {
         return {
           items: [
             {
-              productId: 'p-1',
+              productId: PRODUCT,
               name: 'Ooty Carrot',
-              categoryId: 'c-1',
-              grade: 'Grade 1',
+              categoryId: '66666666-6666-4666-8666-666666666666',
+              grade: 'GRADE_1',
               unitPrice: '45.00',
               availableQtyKg: '25.000',
               unit: 'kg',
@@ -25,26 +33,16 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
               storageLocation: 'BIN-1',
             },
           ],
+          page: { nextCursor: null, hasMore: false },
         };
       }
-      if (path.includes('/quote')) {
+      if (p.includes('/quote')) {
         return {
           channel: 'DIRECT',
-          lines: [],
+          lines: [{ productId: PRODUCT, name: 'Ooty Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '45.00', lineTotal: '90.00' }],
           totals: { subtotal: '90.00', gst: '4.50', total: '94.50' },
-          gstRatePercent: '5.00',
+          gstRatePercent: '5',
           quotedAt: '2026-10-13T10:00:00Z',
-        };
-      }
-      if (path.includes('/summary')) {
-        return {
-          from: '2026-10-01',
-          to: '2026-10-13',
-          count: 15,
-          revenue: '12450.00',
-          byChannel: [],
-          byPaymentMethod: [],
-          needsAttention: { paymentPending: 1, stockIssues: 0, failedSales: 0, invoiceIssues: 0 },
         };
       }
       return { items: [], page: { nextCursor: null, hasMore: false } };
@@ -53,76 +51,111 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 });
 
 import { request } from '../../../shell/api/client';
+import { createSale, listSaleProducts, quoteSale } from '../api/sales';
 import {
-  createSale,
-  confirmSaleUpiPayment,
-  getSalesSummary,
-  listSaleProducts,
-  quoteSale,
-} from '../api/sales';
-import { mapSaleProduct, mapSaleQuote } from '../screens/warehouse/sales-direct/mappers';
+  buildQuoteRequest,
+  buildSaleCreateRequest,
+  mapSaleProduct,
+  mapSaleQuote,
+  setCartQty,
+} from '../screens/warehouse/sales-direct/mappers';
 
 const requestMock = vi.mocked(request);
 
-describe('Sales module hook & mapper wiring', () => {
-  it('loads products and maps quantity and paise without float drift', async () => {
-    const res = await listSaleProducts({ warehouseId: 'wh-1' });
-    expect(res.items.length).toBe(1);
-    const mapped = mapSaleProduct(res.items[0]!);
-    expect(mapped.availableGrams).toBe(25000);
-    expect(mapped.unitPricePaise).toBe(4500);
-    expect(mapped.pricePerKgText).toBe('₹45');
-  });
+describe('sales wiring: products -> cart -> quote -> create', () => {
+  it('BR-89, BR-98: the create body echoes the server quote total and carries Money, never floats', async () => {
+    const products = await listSaleProducts({ channel: 'DIRECT' });
+    const product = mapSaleProduct(products.items[0]!);
+    const cart = setCartQty([], product, 2000);
 
-  it('quotes sale and preserves server calculated GST (BR-89, BR-98)', async () => {
-    const quoteRes = await quoteSale({
+    const quote = mapSaleQuote(await quoteSale(buildQuoteRequest('DIRECT', cart, undefined)));
+    expect(quote.totalPaise).toBe(9450);
+
+    const body = buildSaleCreateRequest({
       channel: 'DIRECT',
-      warehouseId: 'wh-1',
-      items: [{ productId: 'p-1', grade: 'Grade 1', qtyKg: '2.000' }],
+      warehouseId: undefined,
+      cart,
+      quote,
+      buyer: { kind: 'WALK_IN', name: 'Asha' },
+      payment: { method: 'CASH', receivedInput: '100' },
     });
-    const mapped = mapSaleQuote(quoteRes);
-    expect(mapped.subtotalPaise).toBe(9000);
-    expect(mapped.gstPaise).toBe(450);
-    expect(mapped.totalPaise).toBe(9450);
-  });
-
-  it('creates sale with Idempotency-Key (BR-88)', async () => {
-    await createSale(
-      {
-        channel: 'DIRECT',
-        warehouseId: 'wh-1',
-        walkIn: { name: 'Customer A' },
-        items: [{ productId: 'p-1', grade: 'Grade 1', qtyKg: '2.000' }],
+    expect(body).not.toBeNull();
+    await createSale(body!, 'idem-1');
+    const call = requestMock.mock.calls.find(([p]) => p === '/admin/sales');
+    expect(call?.[1]).toMatchObject({
+      method: 'POST',
+      idempotencyKey: 'idem-1',
+      body: {
         expectedTotal: '94.50',
+        items: [{ productId: PRODUCT, grade: 'GRADE_1', qtyKg: '2.000' }],
         payment: { method: 'CASH', amountReceived: '100.00' },
+        walkIn: { name: 'Asha' },
       },
-      'key-sale-1',
-    );
-    expect(requestMock).toHaveBeenCalledWith(
-      '/admin/sales',
-      expect.objectContaining({
-        method: 'POST',
-        idempotencyKey: 'key-sale-1',
-      }),
-    );
+    });
   });
 
-  it('confirms UPI payment with separate Idempotency-Key (BR-94, BR-88g)', async () => {
-    await confirmSaleUpiPayment('sale-123', { upiTxnRef: 'UPI-987' }, 'key-upi-1');
-    expect(requestMock).toHaveBeenCalledWith(
-      '/admin/sales/sale-123/payments/upi/confirm',
-      expect.objectContaining({
-        method: 'POST',
-        idempotencyKey: 'key-upi-1',
-        body: { upiTxnRef: 'UPI-987' },
+  it('BR-94: a UPI sale is created without any reference; the confirm needs the typed one', () => {
+    const product = mapSaleProduct({
+      productId: PRODUCT,
+      name: 'x',
+      categoryId: SALE,
+      grade: 'GRADE_2',
+      unitPrice: '1.00',
+      availableQtyKg: '1.000',
+      unit: 'kg',
+      photos: [],
+      certificationBadges: [],
+      batchCode: null,
+      storageLocation: null,
+    });
+    const body = buildSaleCreateRequest({
+      channel: 'MARKET',
+      warehouseId: undefined,
+      cart: setCartQty([], product, 500),
+      quote: mapSaleQuote({
+        channel: 'MARKET',
+        lines: [],
+        totals: { subtotal: '0.50', gst: '0.00', total: '0.50' },
+        gstRatePercent: '0',
+        quotedAt: '2026-10-13T10:00:00Z',
       }),
-    );
+      buyer: { kind: 'WALK_IN', name: 'Asha' },
+      payment: { method: 'UPI' },
+    });
+    expect(body?.payment).toEqual({ method: 'UPI' });
+  });
+});
+
+describe('sales area carries no fixtures or fabricated fallbacks', () => {
+  const dir = path.resolve(__dirname, '../screens/warehouse/sales-direct');
+  const files = fs.readdirSync(dir).filter((n) => /\.tsx?$/.test(n));
+  const FORBIDDEN: readonly [RegExp, string][] = [
+    [/SALE-00251|INV-00251/, 'sample sale / invoice number'],
+    [/'WH-[A-Z]+'|'prod-1'|'CUS-WALKIN'/, 'fixture id that is not a uuid'],
+    [/Walk-in Customer/, 'fabricated walk-in name'],
+    [/UPI-\$\{Date\.now\(\)\}/, 'fabricated UPI reference'],
+    [/\.toFixed\(/, 'float money / quantity formatting'],
+    [/from '\.\/fixtures'|from '\.\/salesMath'|WALLET_WAREHOUSES|MOCK_[A-Z_]+|SAMPLE_CART|INITIAL_SALES_DATA|CHANNEL_(?:ORDERS|KPIS|FALLBACK_ORDER)/, 'fixture data'],
+  ];
+
+  it('has no fixture module left', () => {
+    expect(files).not.toContain('fixtures.ts');
+    expect(files).not.toContain('salesMath.ts');
   });
 
-  it('fetches sales summary for dashboard (BR-96)', async () => {
-    const summary = await getSalesSummary({ from: '2026-10-01', to: '2026-10-13', warehouseId: 'wh-1' });
-    expect(summary.count).toBe(15);
-    expect(summary.revenue).toBe('12450.00');
-    expect(summary.needsAttention.paymentPending).toBe(1);
-  });
+  for (const [re, what] of FORBIDDEN) {
+    it(`no ${what}`, () => {
+      const hits: string[] = [];
+      for (const f of files) {
+        fs.readFileSync(path.join(dir, f), 'utf8')
+          .split('\n')
+          .forEach((line, i) => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('*') || trimmed.startsWith('//')) return;
+            if (re.test(line)) hits.push(`${f}:${i + 1} ${trimmed}`);
+          });
+      }
+      expect(hits).toEqual([]);
+    });
+  }
 });

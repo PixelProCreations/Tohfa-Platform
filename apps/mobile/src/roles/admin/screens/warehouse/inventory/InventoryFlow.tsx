@@ -21,11 +21,17 @@
  * uuid (BR-30), the Main view the warehouse picked in its selector (held here
  * so it survives moving between screens), or none for all warehouses.
  *
- * Stock counts (M3S10-M3S12) and stock adjustments (M3S13, M3S14, M3S17) have
- * no server route (availability.ts). The flow refuses to open them, whatever
- * the deep link, and renders the dashboard instead; the screens stay in the
- * code. M3S15 / M3S18 (movement detail / receipt) are design screens with
- * sample data and no per-row API, so the live ledger no longer opens them.
+ * Stock counts (M3S10-M3S12, BR-107: /admin/stock-verifications) and stock
+ * adjustments (M3S13, M3S14, M3S17, BR-37: /admin/stock-adjustments) are live.
+ * They are gated by permission (availability.ts): counts on
+ * inventory.stock_verification.perform, adjustments on
+ * inventory.stock_adjustment.create. Without the code the flow refuses the
+ * route, whatever the deep link, and renders the dashboard instead. Approve
+ * and Reject inside M3S17 need inventory.stock_adjustment.approve (a Sub admin
+ * never holds it, BR-37a). M3S17 opened without an `adjustmentId` (the Main
+ * dashboard's "stock adjustment approval" link) shows the history on PENDING.
+ * M3S15 / M3S18 (movement detail / receipt) are design screens with sample
+ * data and no per-row API, so the live ledger no longer opens them.
  */
 import React, { useEffect, useState } from 'react';
 import { inventoryRouteArea, isAreaAvailable } from '../availability';
@@ -53,6 +59,7 @@ import { VarianceReviewScreen } from './VarianceReviewScreen';
 import { profileWarehouseId } from '../profile-settings/mappers';
 import { LiveStorageInfo } from '../profile-settings/ProfileFlow';
 import type { Grade } from '../../../api/inventory';
+import { adjustmentFilterOf } from './adjustmentMappers';
 import { inventoryWarehouseFilter } from './mappers';
 import type {
   InventoryProductRef,
@@ -120,7 +127,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * the API can look up, so the screen shows "not found" instead of a 422.
  */
 function batchIdParam(params: InventoryRouteParams): string | undefined {
-  const value = stringParam(params, 'batchId');
+  return uuidParam(params, 'batchId');
+}
+
+/** A uuid route param (`verificationId`, `adjustmentId`, ...), or undefined for anything else. */
+function uuidParam(params: InventoryRouteParams, key: string): string | undefined {
+  const value = stringParam(params, key);
   return value !== undefined && UUID_RE.test(value) ? value : undefined;
 }
 
@@ -306,7 +318,7 @@ export function InventoryFlow({
   // scope ignores it; inventoryWarehouseFilter always sends its own warehouse.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const warehouseId = inventoryWarehouseFilter(scope, selectedWarehouseId);
-  /** False for a route of an area with no API (stock counts, adjustments). */
+  /** False for a route of an area hidden from this viewer (no API, or no permission). */
   const isRouteAvailable = (screen: string): boolean => {
     const area = inventoryRouteArea(screen);
     return area === undefined || isAreaAvailable(area, can);
@@ -385,21 +397,25 @@ export function InventoryFlow({
       case 'M3S09':
         return <LiveLowStockRoute {...live} onInitiateTransfer={onInitiateTransfer} />;
       case 'M3S10':
-        return <StockVerificationScreen {...common} />;
+        return <StockVerificationScreen {...live} />;
       case 'M3S11':
-        return <PhysicalCountScreen {...common} />;
+        return <PhysicalCountScreen {...live} presetBatchId={batchIdParam(params)} />;
       case 'M3S12':
-        return <VarianceReviewScreen {...common} />;
+        return <VarianceReviewScreen {...live} verificationId={uuidParam(params, 'verificationId')} />;
       case 'M3S13':
-        return <StockAdjustmentRequestScreen {...common} />;
+        return <StockAdjustmentRequestScreen {...live} presetBatchId={batchIdParam(params)} />;
       case 'M3S14':
-        return <AdjustmentHistoryScreen {...common} />;
+        return <AdjustmentHistoryScreen {...live} initialFilter={adjustmentFilterOf(params?.status)} />;
       case 'M3S15':
         return <StockMovementDetailScreen {...common} />;
       case 'M3S16':
         return <InventoryFiltersScreen {...common} />;
-      case 'M3S17':
-        return <AdjustmentDetailScreen {...common} />;
+      case 'M3S17': {
+        const adjustmentId = uuidParam(params, 'adjustmentId');
+        // No id (the Main dashboard's approval link): the approval queue.
+        if (adjustmentId === undefined) return <AdjustmentHistoryScreen {...live} initialFilter="PENDING" />;
+        return <AdjustmentDetailScreen {...live} adjustmentId={adjustmentId} />;
+      }
       case 'M3S18':
         return <StockMovementReceiptScreen {...common} />;
       default: {

@@ -106,6 +106,29 @@ describe('roles/admin/api/finance', () => {
       });
     });
 
+    it('BR-62a: createExpense sends only ExpenseCreate fields (the server body is strict; no receipt field exists)', async () => {
+      await createExpense(
+        {
+          categoryId: CATEGORY_ID,
+          amount: '10.00',
+          expenseDate: '2026-10-13',
+          paymentMethod: 'UPI',
+          vendor: 'Nilgiri Freight',
+          // A stray field from a caller must not ride along (would be a 422).
+          ...({ receiptStorageKey: 'uploads/x.jpg', referenceNumber: 'R-1' } as object),
+        },
+        'k',
+      );
+      const [, init] = lastCall();
+      expect(init.body).toEqual({
+        categoryId: CATEGORY_ID,
+        amount: '10.00',
+        expenseDate: '2026-10-13',
+        paymentMethod: 'UPI',
+        vendor: 'Nilgiri Freight',
+      });
+    });
+
     it('getExpense requests GET /admin/expenses/{id}', async () => {
       await getExpense(EXPENSE_ID);
       const [path, init] = lastCall();
@@ -142,7 +165,7 @@ describe('roles/admin/api/finance', () => {
       await listFinanceRevenue({
         from: '2026-10-01',
         to: '2026-10-13',
-        channel: 'DIRECT',
+        channel: 'MARKET',
         paymentMethod: 'CASH',
       });
 
@@ -150,7 +173,7 @@ describe('roles/admin/api/finance', () => {
       expect(path).toContain('/admin/finance/revenue?');
       expect(path).toContain('from=2026-10-01');
       expect(path).toContain('to=2026-10-13');
-      expect(path).toContain('channel=DIRECT');
+      expect(path).toContain('channel=MARKET');
       expect(path).toContain('paymentMethod=CASH');
       expect(init.method).toBe('GET');
     });

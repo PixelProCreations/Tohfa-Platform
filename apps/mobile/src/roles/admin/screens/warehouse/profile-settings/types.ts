@@ -237,35 +237,6 @@ export interface WarehouseContactInfo {
   emergency?: ContactPerson | undefined;
 }
 
-export type DocumentCategory = 'Registration' | 'Compliance' | 'License' | 'Other';
-
-/** One warehouse document (Warehouse Documents, M15-S05). */
-export interface WarehouseDocItem {
-  id: string;
-  warehouseId: string;
-  name: string;
-  code: string;
-  category: DocumentCategory;
-  status: 'Active' | 'Expiring Soon';
-  dateNote: string;
-  /** Expiry for the detail view ('31 Dec 2026'); undefined when the document does not expire. */
-  expiry?: string | undefined;
-}
-
-/** Threshold and operating configuration of one warehouse (Warehouse Settings, M15-S05T). */
-export interface WarehouseSettingsValues {
-  warehouseId: string;
-  capacityKg: number;
-  lowStockThresholdPercent: number;
-  operatingHours: string;
-  assignedStaff: number;
-  autoAssignment: boolean;
-  lowStockAlerts: boolean;
-  discrepancyEscalation: boolean;
-  /** Quantity-mismatch share above which the escalation rule fires (display; server-owned). */
-  escalationThresholdPercent: number;
-}
-
 // ─── Live warehouse views (plan phase 8, ./mappers.ts) ───────────────────────
 
 /** GET /warehouses/{id} as the warehouse-facing screens show it (BR-66). */

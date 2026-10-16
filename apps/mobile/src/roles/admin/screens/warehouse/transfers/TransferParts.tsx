@@ -1,51 +1,26 @@
 /**
  * Building blocks shared by the transfer screens, on the admin theme. The
  * frame, cards, chips and buttons come from wallet-cashtopup/WalletParts like
- * the other warehouse areas; this file adds the permission codes, the scope
- * rule, the status tones, the transfer icons and the transfer row.
+ * the other warehouse areas; this file adds the transfer icons and the
+ * transfer row. Permission codes, status labels/tones and the scope rule live
+ * in ./mappers.ts (pure, tested) and are re-exported here for the screens.
  */
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { formatAdminDay } from '../../../utils/datetime';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { StatusBadge } from '../wallet-cashtopup/WalletParts';
-import { transferWarehouseLabel } from './fixtures';
-import type { TransferItem, TransferStatus, WarehouseScope } from './types';
+import type { TransferListItem } from './types';
 
-/** docs/rbac.json codes the transfer screens check (grants in types.ts). */
-export const TRANSFER_CODES = {
-  /** Initiate / cancel a transfer. SA all, MAIN all, SUB none (BR-26). */
-  initiate: 'transfer.inter_warehouse.initiate',
-  /** Receive an incoming transfer. SA, TOHFA, MAIN, SUB all. */
-  receive: 'transfer.inter_warehouse.receive',
-  /** Approve a high-value transfer. SA only. */
-  highValueApprove: 'transfer.high_value.approve',
-} as const;
-
-/**
- * True when `transfer` is visible in `scope`: Main (no warehouseId) sees every
- * transfer, Sub only those arriving at its own warehouse.
- */
-export function transferInScope(scope: WarehouseScope, transfer: TransferItem): boolean {
-  return scope.warehouseId === undefined || transfer.destinationWarehouseId === (scope.warehouseCode ?? scope.warehouseId);
-}
-
-export const TRANSFER_STATUS_TONE: Record<TransferStatus, AdminTone> = {
-  'Pending SA Approval': 'warning',
-  'In Transit': 'info',
-  Arrived: 'brandSoft',
-  Completed: 'success',
-};
-
-/** '300 kg' */
-export function formatTransferKg(kg: number): string {
-  return `${kg.toLocaleString('en-IN')} kg`;
-}
+export { TRANSFER_CODES } from './mappers';
 
 /** 'Kotagiri → Coonoor' */
-export function transferRouteLabel(transfer: TransferItem): string {
-  return `${transferWarehouseLabel(transfer.sourceWarehouseId)} → ${transferWarehouseLabel(transfer.destinationWarehouseId)}`;
+export function transferRouteLabel(transfer: { sourceName: string; destinationName: string }): string {
+  return t('transfers.route', { from: transfer.sourceName, to: transfer.destinationName });
 }
 
 interface IconProps {
@@ -119,8 +94,8 @@ export function TransferChevronIcon({ size = 16, color = adminColors.muted }: Ic
   );
 }
 
-/** One transfer card: route, code + produce, status and ETA. */
-export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onPress?: (() => void) | undefined }) {
+/** One transfer card: route, number + value, status and the day it was raised. */
+export function TransferRow({ transfer, onPress }: { transfer: TransferListItem; onPress?: (() => void) | undefined }) {
   const content = (
     <>
       <View style={styles.topRow}>
@@ -129,19 +104,20 @@ export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onP
         </View>
         <View style={styles.textCol}>
           <View style={styles.routeRow}>
-            <Text style={styles.whName}>{transferWarehouseLabel(transfer.sourceWarehouseId)}</Text>
+            <Text style={styles.whName}>{transfer.sourceName}</Text>
             <RouteArrowIcon />
-            <Text style={styles.whName}>{transferWarehouseLabel(transfer.destinationWarehouseId)}</Text>
+            <Text style={styles.whName}>{transfer.destinationName}</Text>
           </View>
           <Text style={styles.meta}>
-            {transfer.code} · {transfer.produce} — {formatTransferKg(transfer.quantityKg)}
+            {t('transfers.row.meta', { code: transfer.code, value: formatPaise(transfer.totalValuePaise) })}
           </Text>
         </View>
         {onPress ? <TransferChevronIcon /> : null}
       </View>
       <View style={styles.bottomRow}>
-        <StatusBadge label={transfer.status} tone={TRANSFER_STATUS_TONE[transfer.status]} />
-        {transfer.eta ? <Text style={styles.eta}>{transfer.eta}</Text> : null}
+        <StatusBadge label={transfer.statusLabel} tone={transfer.statusTone} />
+        {transfer.hasDiscrepancy ? <StatusBadge label={t('transfers.row.discrepancy')} tone="danger" /> : null}
+        <Text style={styles.eta}>{formatAdminDay(transfer.createdAt)}</Text>
       </View>
     </>
   );
@@ -152,7 +128,7 @@ export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onP
       onPress={onPress}
       activeOpacity={0.8}
       accessibilityRole="button"
-      accessibilityLabel={`${transfer.code} ${transferRouteLabel(transfer)}`}
+      accessibilityLabel={t('transfers.row.a11y', { code: transfer.code, route: transferRouteLabel(transfer) })}
     >
       {content}
     </TouchableOpacity>

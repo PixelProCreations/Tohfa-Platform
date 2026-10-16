@@ -1,20 +1,33 @@
 /**
- * Manage Sub Warehouse Admins: the SWA list, one SWA's detail and the Create
- * Sub Warehouse Admin wizard (information, warehouse assignment, review,
- * confirm, success).
+ * Manage Sub Warehouse Admins: the live SWA list, one SWA's detail and the
+ * Create Sub Warehouse Admin wizard (information, warehouse assignment,
+ * review, success).
  *
- * Gate (FINAL_LIST 155): Main-only. The screen AND the Create SWA wizard need
- * `admin.sub_wh_admin.create` (MAIN all, SUB none); without it a
- * not-available note renders and WarehouseAdminFlow refuses the route.
- * BR-25: a SUB_WH_ADMIN must have a warehouse, so the wizard cannot reach
- * Review without one. Creation is a local mock (no SWA create call is wired;
- * SPEC_GAPS W4x-3). Assignment options are the seeded warehouses with no SWA,
- * not the old hard-coded 'Gudalur Market'.
+ * Gate (FINAL_LIST 155): Main-only. Both GET and POST
+ * /admin/sub-warehouse-admins need `admin.sub_wh_admin.create` (MAIN all, SUB
+ * none); without it a not-available note renders, nothing is fetched, the
+ * create action is not offered and WarehouseAdminFlow refuses the route.
+ *
+ * BR-25: a SUB_WH_ADMIN has exactly one warehouse, so the wizard cannot reach
+ * Review without one; the picker sends the server uuid from GET /warehouses.
+ * The per-warehouse cap is `system_config.sub_wh_admin_max_per_warehouse`,
+ * which the client cannot read, so the picker offers every active warehouse
+ * and the server's 409 is shown as "this warehouse is full".
+ *
+ * SPEC GAP: there is no update, deactivate or delete endpoint (the server's
+ * sub-admins routes say so), so the old edit / status / responsibility items
+ * were removed: the detail is read-only. The list carries no mobile.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import type { CreatedSubAdminDto, SubAdminDto } from '../../../api/subAdmins';
+import { warehouseOptionName } from '../../../api/warehouseList';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { formatAdminDay } from '../../../utils/datetime';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   Card,
   ChipGroup,
@@ -24,68 +37,80 @@ import {
   KpiRow,
   ScopeHeader,
   SectionTitle,
+  StatusBadge,
   SuccessCircleIcon,
   WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { adminWarehouseLabel, adminWarehouseName, SUB_WAREHOUSE_ADMINS, WAREHOUSE_ADMIN_ROWS } from './fixtures';
+import {
+  countLabel,
+  createSubAdminErrorKey,
+  figureLabel,
+  hasDraftErrors,
+  normalizeMobile,
+  subAdminStatusLabel,
+  subAdminStatusTone,
+  toCreateSubAdminBody,
+  validateSubAdminDraft,
+  warehousesWithoutSubAdmin,
+  type SubAdminDraft,
+} from './mappers';
+import { useCreateSubAdmin, useSubAdmins } from './useWarehouseAdminData';
 import { AddUserIcon, UserIcon, WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
-import type { SubWarehouseAdminItem, WarehouseAdminRow, WarehouseScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
 
-type Step = 'list' | 'info' | 'assign' | 'review' | 'confirm' | 'success' | 'detail';
+type Step = 'list' | 'info' | 'assign' | 'review' | 'success' | 'detail';
 
-const TITLE: Record<Step, string> = {
-  list: 'Sub Warehouse Admins',
-  info: 'Create Sub Warehouse Admin',
-  assign: 'Create Sub Warehouse Admin',
-  review: 'Create Sub Warehouse Admin',
-  confirm: 'Create Sub Warehouse Admin',
-  success: 'Admin Created',
-  detail: 'Sub Warehouse Admin',
-};
-
-/** Back from each step (list and detail leave / return to the list). */
+/** Back from each step (list leaves the screen). */
 const PREVIOUS: Record<Step, Step | null> = {
   list: null,
   info: 'list',
   assign: 'info',
   review: 'assign',
-  confirm: 'review',
   success: 'list',
   detail: 'list',
 };
 
-export interface ManageSubWarehouseAdminsScreenProps extends WarehouseScreenBaseProps {
-  admins?: readonly SubWarehouseAdminItem[] | undefined;
-  warehouses?: readonly WarehouseAdminRow[] | undefined;
-}
+const EMPTY_DRAFT: SubAdminDraft = { fullName: '', mobile: '', warehouseId: '' };
 
-export function ManageSubWarehouseAdminsScreen({
-  scope,
-  can,
-  onBack,
-  admins = SUB_WAREHOUSE_ADMINS,
-  warehouses = WAREHOUSE_ADMIN_ROWS,
-}: ManageSubWarehouseAdminsScreenProps) {
-  const [step, setStep] = useState<Step>('list');
-  const [list, setList] = useState<readonly SubWarehouseAdminItem[]>(admins);
-  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
-  const [adminName, setAdminName] = useState('');
-  const [warehouseId, setWarehouseId] = useState<string>('');
+export type ManageSubWarehouseAdminsScreenProps = WarehouseScreenBaseProps;
 
-  if (!can(WAREHOUSE_ADMIN_CODES.swaCreate)) {
+export function ManageSubWarehouseAdminsScreen(props: ManageSubWarehouseAdminsScreenProps) {
+  if (!props.can(WAREHOUSE_ADMIN_CODES.swaCreate)) {
     return (
-      <WalletScreen title="Sub Warehouse Admins" onBack={onBack}>
-        <EmptyState title="Not available" subtitle="Managing Sub Warehouse Admins needs admin.sub_wh_admin.create." />
+      <WalletScreen title={t('warehouseAdmin.swa.title')} onBack={props.onBack}>
+        <EmptyState title={t('warehouseAdmin.notAvailable.title')} subtitle={t('warehouseAdmin.swa.notAvailable')} />
       </WalletScreen>
     );
   }
+  return <ManageSubWarehouseAdminsContent {...props} />;
+}
 
-  const assigned = new Set(list.map((a) => a.warehouseId));
-  const openWarehouses = warehouses.filter((w) => !assigned.has(w.warehouseId)).map((w) => w.warehouseId);
-  const selected = list.find((a) => a.id === selectedId);
+function titleOf(step: Step): string {
+  if (step === 'list') return t('warehouseAdmin.swa.title');
+  if (step === 'success') return t('warehouseAdmin.swa.success.title');
+  if (step === 'detail') return t('warehouseAdmin.swa.detail.title');
+  return t('warehouseAdmin.swa.create.title');
+}
+
+function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWarehouseAdminsScreenProps) {
+  const [step, setStep] = useState<Step>('list');
+  const [selected, setSelected] = useState<SubAdminDto | undefined>(undefined);
+  const [draft, setDraft] = useState<SubAdminDraft>(EMPTY_DRAFT);
+  const [showErrors, setShowErrors] = useState(false);
+  const [created, setCreated] = useState<CreatedSubAdminDto | undefined>(undefined);
+
+  const admins = useSubAdmins(true);
+  const warehouses = useWarehouseOptions({ enabled: can(WAREHOUSE_ADMIN_CODES.allView) });
+  const activeOptions = useMemo(() => warehouses.options.filter((o) => o.isActive), [warehouses.options]);
+  const create = useCreateSubAdmin();
+
+  const list = admins.data ?? [];
+  const unstaffed = admins.data === undefined ? [] : warehousesWithoutSubAdmin(warehouses.options, admins.data);
+  const errors = validateSubAdminDraft(draft);
+  const nameOf = (warehouseId: string) => warehouseOptionName(warehouses.options, warehouseId) ?? t('warehouseAdmin.figure.unavailable');
 
   const back = () => {
     const prev = PREVIOUS[step];
@@ -93,53 +118,79 @@ export function ManageSubWarehouseAdminsScreen({
     else setStep(prev);
   };
   const startCreate = () => {
-    setAdminName('');
-    setWarehouseId(openWarehouses[0] ?? '');
+    setDraft({ ...EMPTY_DRAFT, warehouseId: unstaffed[0]?.warehouseId ?? '' });
+    setShowErrors(false);
+    setCreated(undefined);
+    create.reset();
     setStep('info');
   };
-  const create = () => {
-    const id = `SWA-${String(list.length + 1).padStart(3, '0')}`;
-    setList((prev) => [
-      ...prev,
-      { id, name: adminName.trim() || 'New Admin', warehouseId, status: 'Pending', responsibilities: ['Goods Receiving', 'Inventory', 'Orders'] },
-    ]);
-    setStep('success');
+  const goNext = (next: Step, fields: readonly (keyof SubAdminDraft)[]) => {
+    if (hasDraftErrors(errors, fields)) {
+      setShowErrors(true);
+      return;
+    }
+    setShowErrors(false);
+    setStep(next);
+  };
+  const submit = () => {
+    if (hasDraftErrors(errors, ['fullName', 'mobile', 'warehouseId'])) {
+      setShowErrors(true);
+      return;
+    }
+    create.mutate(toCreateSubAdminBody(draft), {
+      onSuccess: (row) => {
+        setCreated(row);
+        setStep('success');
+      },
+    });
+  };
+  const fieldError = (field: keyof SubAdminDraft) => {
+    const key = errors[field];
+    return showErrors && key !== undefined ? <Text style={styles.fieldError}>{t(key)}</Text> : null;
   };
 
   const footer = (() => {
     switch (step) {
       case 'list':
-        return (
+        return admins.data !== undefined ? (
           <WalletFooter>
-            <WalletButton label="Create Sub Warehouse Admin" icon={<AddUserIcon />} onPress={startCreate} disabled={openWarehouses.length === 0} />
+            <WalletButton label={t('warehouseAdmin.swa.create.action')} icon={<AddUserIcon />} onPress={startCreate} />
           </WalletFooter>
-        );
+        ) : undefined;
       case 'info':
         return (
           <WalletFooter>
-            <WalletButton label="Next: Warehouse Assignment" onPress={() => setStep('assign')} disabled={adminName.trim() === ''} />
-            <WalletButton label="Cancel" variant="neutral" onPress={() => setStep('list')} />
+            <WalletButton label={t('warehouseAdmin.swa.create.nextAssign')} onPress={() => goNext('assign', ['fullName', 'mobile'])} />
+            <WalletButton label={t('warehouseAdmin.swa.create.cancel')} variant="neutral" onPress={() => setStep('list')} />
           </WalletFooter>
         );
       case 'assign':
         return (
           <WalletFooter>
             {/* BR-25: no SWA without a warehouse. */}
-            <WalletButton label="Next: Review" onPress={() => setStep('review')} disabled={warehouseId === ''} />
-            <WalletButton label="Back" variant="neutral" onPress={back} />
+            <WalletButton
+              label={t('warehouseAdmin.swa.create.nextReview')}
+              onPress={() => goNext('review', ['warehouseId'])}
+              disabled={draft.warehouseId === ''}
+            />
+            <WalletButton label={t('warehouseAdmin.swa.create.back')} variant="neutral" onPress={back} />
           </WalletFooter>
         );
       case 'review':
         return (
           <WalletFooter>
-            <WalletButton label="Create" onPress={() => setStep('confirm')} />
-            <WalletButton label="Back" variant="neutral" onPress={back} />
+            <WalletButton
+              label={create.isPending ? t('warehouseAdmin.swa.create.submitting') : t('warehouseAdmin.swa.create.submit')}
+              onPress={submit}
+              disabled={create.isPending}
+            />
+            <WalletButton label={t('warehouseAdmin.swa.create.back')} variant="neutral" onPress={back} disabled={create.isPending} />
           </WalletFooter>
         );
       case 'success':
         return (
           <WalletFooter>
-            <WalletButton label="Back to Sub Warehouse Admins" onPress={() => setStep('list')} />
+            <WalletButton label={t('warehouseAdmin.swa.success.back')} onPress={() => setStep('list')} />
           </WalletFooter>
         );
       default:
@@ -148,135 +199,172 @@ export function ManageSubWarehouseAdminsScreen({
   })();
 
   return (
-    <WalletScreen title={TITLE[step]} onBack={back} headerExtra={<ScopeHeader scope={scope} />} footer={footer}>
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {step === 'list' ? (
-          <>
-            <KpiRow
-              items={[
-                { value: String(list.length), label: 'TOTAL SWAs' },
-                { value: String(list.filter((a) => a.status === 'Pending').length), label: 'PENDING', tone: 'warning' },
-                { value: String(openWarehouses.length), label: 'UNASSIGNED', tone: 'danger' },
-              ]}
-            />
-            {list.map((a) => (
-              <TouchableOpacity
-                key={a.id}
-                style={styles.row}
-                onPress={() => {
-                  setSelectedId(a.id);
-                  setStep('detail');
-                }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-              >
+    <WalletScreen title={titleOf(step)} onBack={back} headerExtra={<ScopeHeader scope={scope} label={t('warehouseAdmin.scope.all')} />} footer={footer}>
+      {step === 'list' && admins.data === undefined ? (
+        admins.isLoading ? (
+          <AdminLoadingState />
+        ) : (
+          <AdminErrorState error={admins.error} onRetry={admins.refresh} />
+        )
+      ) : null}
+      {step !== 'list' || admins.data !== undefined ? (
+        <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {step === 'list' ? (
+            <>
+              <KpiRow
+                items={[
+                  { value: countLabel(list.length), label: t('warehouseAdmin.swa.kpi.total') },
+                  {
+                    value: figureLabel({ data: warehouses.isLoading ? undefined : unstaffed, isLoading: warehouses.isLoading, error: warehouses.error }, (rows) =>
+                      countLabel(rows.length),
+                    ),
+                    label: t('warehouseAdmin.swa.kpi.unassigned'),
+                    tone: 'danger',
+                  },
+                ]}
+              />
+              {list.length === 0 ? <EmptyState title={t('warehouseAdmin.swa.empty.title')} subtitle={t('warehouseAdmin.swa.empty.subtitle')} /> : null}
+              {list.map((a) => (
+                <TouchableOpacity
+                  key={`${a.userId}-${a.warehouseId}`}
+                  style={styles.row}
+                  onPress={() => {
+                    setSelected(a);
+                    setStep('detail');
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.avatar}>
+                    <UserIcon />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.rowTitle}>{a.fullName}</Text>
+                    <Text style={styles.rowMeta}>
+                      {t('warehouseAdmin.swa.rowMeta', {
+                        code: a.adminCode ?? t('warehouseAdmin.figure.unavailable'),
+                        warehouse: nameOf(a.warehouseId),
+                      })}
+                    </Text>
+                  </View>
+                  <StatusBadge label={subAdminStatusLabel(a.status)} tone={subAdminStatusTone(a.status)} />
+                </TouchableOpacity>
+              ))}
+              {unstaffed.map((w) => (
+                <View key={w.warehouseId} style={styles.row}>
+                  <View style={[styles.avatar, styles.avatarMuted]}>
+                    <UserIcon color={adminColors.muted} crossed />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={[styles.rowTitle, styles.mutedText]}>{t('warehouseAdmin.swa.unassigned')}</Text>
+                    <Text style={styles.rowMeta}>{t('warehouseAdmin.swa.unassignedMeta', { warehouse: w.warehouseName })}</Text>
+                  </View>
+                </View>
+              ))}
+              <InfoNote tone="info">{t('warehouseAdmin.swa.noEditNote')}</InfoNote>
+            </>
+          ) : null}
+
+          {step === 'info' ? (
+            <>
+              <SectionTitle>{t('warehouseAdmin.swa.create.infoSection')}</SectionTitle>
+              <Text style={styles.inputLabel}>{t('warehouseAdmin.swa.field.name')}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t('warehouseAdmin.swa.field.namePlaceholder')}
+                placeholderTextColor={adminColors.placeholder}
+                value={draft.fullName}
+                onChangeText={(fullName) => setDraft((d) => ({ ...d, fullName }))}
+                accessibilityLabel={t('warehouseAdmin.swa.field.name')}
+              />
+              {fieldError('fullName')}
+              <Text style={[styles.inputLabel, styles.inputSpaced]}>{t('warehouseAdmin.swa.field.mobile')}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t('warehouseAdmin.swa.field.mobilePlaceholder')}
+                placeholderTextColor={adminColors.placeholder}
+                value={draft.mobile}
+                onChangeText={(mobile) => setDraft((d) => ({ ...d, mobile }))}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                accessibilityLabel={t('warehouseAdmin.swa.field.mobile')}
+              />
+              {fieldError('mobile')}
+              <Text style={styles.hint}>{t('warehouseAdmin.swa.field.passwordHint')}</Text>
+            </>
+          ) : null}
+
+          {step === 'assign' ? (
+            <>
+              <SectionTitle>{t('warehouseAdmin.swa.create.assignSection')}</SectionTitle>
+              {warehouses.isLoading ? <AdminLoadingState /> : null}
+              {!warehouses.isLoading && warehouses.error ? <AdminErrorState error={warehouses.error} onRetry={warehouses.refresh} /> : null}
+              {!warehouses.isLoading && !warehouses.error && activeOptions.length === 0 ? (
+                <EmptyState title={t('warehouseAdmin.swa.create.noWarehouses')} />
+              ) : null}
+              {activeOptions.length > 0 ? (
+                <ChipGroup
+                  options={activeOptions.map((o) => o.warehouseId)}
+                  value={draft.warehouseId}
+                  onChange={(warehouseId) => setDraft((d) => ({ ...d, warehouseId }))}
+                  labelOf={nameOf}
+                />
+              ) : null}
+              {fieldError('warehouseId')}
+              <Text style={styles.hint}>{t('warehouseAdmin.swa.create.capHint')}</Text>
+            </>
+          ) : null}
+
+          {step === 'review' ? (
+            <>
+              <SectionTitle>{t('warehouseAdmin.swa.create.reviewSection')}</SectionTitle>
+              <InfoCard
+                rows={[
+                  [
+                    { label: t('warehouseAdmin.swa.field.name'), value: draft.fullName.trim() },
+                    { label: t('warehouseAdmin.swa.field.mobile'), value: normalizeMobile(draft.mobile) },
+                  ],
+                  [{ label: t('warehouseAdmin.swa.field.warehouse'), value: nameOf(draft.warehouseId) }],
+                ]}
+              />
+              {create.error ? <InfoNote tone="danger">{t(createSubAdminErrorKey(create.error))}</InfoNote> : null}
+            </>
+          ) : null}
+
+          {step === 'success' && created ? (
+            <Card centered>
+              <SuccessCircleIcon />
+              <Text style={styles.successTitle}>{t('warehouseAdmin.swa.success.heading')}</Text>
+              <Text style={styles.rowMeta}>
+                {t('warehouseAdmin.swa.success.body', { name: created.fullName, code: created.adminCode, warehouse: nameOf(created.warehouseId) })}
+              </Text>
+              <Text style={styles.hint}>{t('warehouseAdmin.swa.field.passwordHint')}</Text>
+            </Card>
+          ) : null}
+
+          {step === 'detail' && selected ? (
+            <>
+              <Card centered>
                 <View style={styles.avatar}>
                   <UserIcon />
                 </View>
-                <View style={styles.flex}>
-                  <Text style={styles.rowTitle}>{a.name}</Text>
-                  <Text style={styles.rowMeta}>
-                    {a.id} · {adminWarehouseLabel(a.warehouseId)} · {a.status}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {openWarehouses.map((id) => (
-              <View key={id} style={styles.row}>
-                <View style={[styles.avatar, styles.avatarMuted]}>
-                  <UserIcon color={adminColors.muted} crossed />
-                </View>
-                <View style={styles.flex}>
-                  <Text style={[styles.rowTitle, styles.mutedText]}>Unassigned</Text>
-                  <Text style={styles.rowMeta}>{adminWarehouseLabel(id)} · No SWA</Text>
-                </View>
-              </View>
-            ))}
-          </>
-        ) : null}
-
-        {step === 'info' ? (
-          <>
-            <SectionTitle>Admin Information</SectionTitle>
-            <Text style={styles.inputLabel}>Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Full name"
-              placeholderTextColor={adminColors.placeholder}
-              value={adminName}
-              onChangeText={setAdminName}
-              accessibilityLabel="Admin full name"
-            />
-          </>
-        ) : null}
-
-        {step === 'assign' ? (
-          <>
-            <SectionTitle>Warehouse Assignment</SectionTitle>
-            {openWarehouses.length === 0 ? (
-              <EmptyState title="Every warehouse has an SWA" />
-            ) : (
-              <ChipGroup options={openWarehouses} value={warehouseId} onChange={setWarehouseId} labelOf={adminWarehouseLabel} />
-            )}
-          </>
-        ) : null}
-
-        {step === 'review' ? (
-          <>
-            <SectionTitle>Review</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Name', value: adminName.trim() || 'New Admin' },
-                  { label: 'Assigned Warehouse', value: adminWarehouseName(warehouseId) },
-                ],
-              ]}
-            />
-          </>
-        ) : null}
-
-        {step === 'confirm' ? (
-          <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>Create Sub Warehouse Admin?</Text>
-            <WalletButton label="Confirm" variant="outline" onPress={create} />
-          </View>
-        ) : null}
-
-        {step === 'success' ? (
-          <Card centered>
-            <SuccessCircleIcon />
-            <Text style={styles.successTitle}>Sub Warehouse Admin Created</Text>
-          </Card>
-        ) : null}
-
-        {step === 'detail' && selected ? (
-          <>
-            <Card centered>
-              <View style={styles.avatar}>
-                <UserIcon />
-              </View>
-              <Text style={styles.rowTitle}>{selected.name}</Text>
-              <Text style={styles.rowMeta}>
-                Admin ID: {selected.id} · {selected.status}
-              </Text>
-            </Card>
-            <SectionTitle>Warehouse Assignment</SectionTitle>
-            <InfoCard rows={[[{ label: 'Assigned Warehouse', value: adminWarehouseName(selected.warehouseId) }]]} />
-            <SectionTitle>Responsibility Summary</SectionTitle>
-            <View style={styles.pillRow}>
-              {selected.responsibilities.map((r) => (
-                <View key={r} style={styles.pill}>
-                  <Text style={styles.pillText}>{r}</Text>
-                </View>
-              ))}
-            </View>
-            <InfoNote tone="warning">
-              This summarizes the SWA&apos;s existing warehouse scope, not new permissions granted from here.
-            </InfoNote>
-            <InfoNote tone="danger">No status-changing action here beyond what the permission matrix confirms.</InfoNote>
-          </>
-        ) : null}
-      </ScrollView>
+                <Text style={styles.rowTitle}>{selected.fullName}</Text>
+                <StatusBadge label={subAdminStatusLabel(selected.status)} tone={subAdminStatusTone(selected.status)} />
+              </Card>
+              <InfoCard
+                rows={[
+                  [
+                    { label: t('warehouseAdmin.swa.field.adminCode'), value: selected.adminCode ?? t('warehouseAdmin.figure.unavailable') },
+                    { label: t('warehouseAdmin.swa.field.warehouse'), value: nameOf(selected.warehouseId) },
+                  ],
+                  [{ label: t('warehouseAdmin.swa.field.assignedOn'), value: formatAdminDay(selected.assignedAt) || t('warehouseAdmin.figure.unavailable') }],
+                ]}
+              />
+              <InfoNote tone="warning">{t('warehouseAdmin.swa.noEditNote')}</InfoNote>
+            </>
+          ) : null}
+        </ScrollView>
+      ) : null}
     </WalletScreen>
   );
 }
@@ -306,9 +394,10 @@ const styles = StyleSheet.create({
   },
   avatarMuted: { backgroundColor: adminColors.canvas },
   rowTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  rowMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  rowMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   mutedText: { color: adminColors.muted },
   inputLabel: { ...adminType.rowTitle, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  inputSpaced: { marginTop: adminSpacing.md },
   input: {
     ...adminType.body,
     color: adminColors.ink,
@@ -319,25 +408,7 @@ const styles = StyleSheet.create({
     height: ADMIN_BUTTON_HEIGHT,
     paddingHorizontal: adminSpacing.md,
   },
-  confirmCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.brand,
-    padding: adminSpacing.lg,
-    gap: adminSpacing.lg,
-    marginTop: adminSpacing.md,
-  },
-  confirmTitle: { ...adminType.sectionHead, color: adminColors.brandDeep },
+  fieldError: { ...adminType.caption, color: adminColors.danger.text, marginTop: adminSpacing.xs },
+  hint: { ...adminType.caption, color: adminColors.muted, marginTop: adminSpacing.md },
   successTitle: { ...adminType.sectionHead, color: adminColors.ink, marginTop: adminSpacing.md },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
-  pill: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-  },
-  pillText: { ...adminType.caption, color: adminColors.ink },
 });

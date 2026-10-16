@@ -66,7 +66,10 @@ export interface BillingFlowProps {
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Kept for hosts that still pass it; the invoice API cannot filter by warehouse. */
+  /**
+   * Main warehouse choices for the (deep-link only) invoice filters. Omitted =
+   * the live GET /warehouses list, fetched by InvoiceFiltersScreen itself.
+   */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
@@ -172,8 +175,6 @@ export function LiveInvoiceDetail({ invoiceId: requested, ...base }: LiveInvoice
 
 // ─── Flow ────────────────────────────────────────────────────────────────────
 
-const NO_WAREHOUSES: readonly WarehouseScope[] = [];
-
 export function BillingFlow({
   scope,
   can,
@@ -182,7 +183,7 @@ export function BillingFlow({
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  warehouseOptions = NO_WAREHOUSES,
+  warehouseOptions,
 }: BillingFlowProps) {
   const [stack, setStack] = useState<BillingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 

@@ -10,10 +10,10 @@
  */
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
-import type { AttendanceStatus, StaffType } from './types';
 
 interface IconProps {
   size?: number;
@@ -22,34 +22,7 @@ interface IconProps {
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
-// ─── Status ──────────────────────────────────────────────────────────────────
-
-/** Theme tone of an attendance status (Present green, Absent red, On Leave amber). */
-export function attendanceTone(status: AttendanceStatus): AdminTone {
-  switch (status) {
-    case 'Present':
-      return 'success';
-    case 'Absent':
-      return 'danger';
-    case 'On Leave':
-      return 'warning';
-    default:
-      return 'info';
-  }
-}
-
 // ─── Icons ───────────────────────────────────────────────────────────────────
-
-export function TruckIcon({ size = 20, color = '#F0562A' }: IconProps) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-    </Svg>
-  );
-}
 
 export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: IconProps) {
   return (
@@ -60,7 +33,7 @@ export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: Ic
   );
 }
 
-export function PersonIcon({ size = 20, color = '#F0562A' }: IconProps) {
+export function PersonIcon({ size = 20, color = adminColors.brand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -79,7 +52,7 @@ export function StaffGroupIcon({ size = 22, color = adminColors.onBrand }: IconP
   );
 }
 
-export function HistoryIcon({ size = 20, color = '#F0562A' }: IconProps) {
+export function HistoryIcon({ size = 20, color = adminColors.brand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -149,26 +122,26 @@ export function ChevronDownIcon({ size = 18, color = adminColors.muted }: IconPr
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-/** Round avatar with the driver truck or the warehouse-staff person, tinted by attendance. */
-export function StaffAvatar({ type, tone, large = false }: { type?: StaffType | undefined; tone?: AdminTone | undefined; large?: boolean }) {
-  const color = tone ? adminColors[tone].text : '#F0562A';
-  const bgColor = tone !== undefined ? adminColors[tone].bg : '#FFF1EB';
-  const size = large ? 28 : 22;
+/** Round avatar with a person, tinted by attendance tone. */
+export function StaffAvatar({ tone, large = false }: { tone?: AdminTone | undefined; large?: boolean }) {
+  const color = tone !== undefined ? adminColors[tone].text : adminColors.brand;
+  const bgColor = tone !== undefined ? adminColors[tone].bg : adminColors.brandTint;
+  const size = large ? AVATAR_ICON_LARGE : AVATAR_ICON;
   return (
     <View style={[styles.avatar, large && styles.avatarLarge, { backgroundColor: bgColor }]}>
-      {type === 'driver' ? <TruckIcon size={size} color={color} /> : <PersonIcon size={size} color={color} />}
+      <PersonIcon size={size} color={color} />
     </View>
   );
 }
 
 /** Coloured dot + status text (+ optional time lines) on the right of an attendance row. */
-export function AttendanceStatusText({ status, lines = [] }: { status: AttendanceStatus; lines?: readonly (string | undefined)[] }) {
-  const tone = adminColors[attendanceTone(status)];
+export function AttendanceStatusText({ label, tone, lines = [] }: { label: string; tone: AdminTone; lines?: readonly (string | null | undefined)[] }) {
+  const colors = adminColors[tone];
   return (
     <View style={styles.statusCol}>
       <View style={styles.statusRow}>
-        <View style={[styles.statusDot, { backgroundColor: tone.text }]} />
-        <Text style={[styles.statusText, { color: tone.text }]}>{status}</Text>
+        <View style={[styles.statusDot, { backgroundColor: colors.text }]} />
+        <Text style={[styles.statusText, { color: colors.text }]}>{label}</Text>
       </View>
       {lines.filter((l): l is string => !!l).map((line) => (
         <Text key={line} style={styles.statusMeta}>
@@ -254,29 +227,46 @@ export function DateNavigator({
 }: {
   label: string;
   onPrev?: (() => void) | undefined;
+  /** undefined disables the arrow (no day after today). */
   onNext?: (() => void) | undefined;
   onPressLabel?: (() => void) | undefined;
 }) {
   return (
     <View style={styles.dateNav}>
-      <TouchableOpacity onPress={onPrev} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel="Previous day">
+      <TouchableOpacity onPress={onPrev} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel={t('staff.date.previous')}>
         <ChevronLeftIcon />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onPressLabel} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Select date">
+      <TouchableOpacity onPress={onPressLabel} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('staff.date.select')}>
         <Text style={styles.dateNavText}>{label}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onNext} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel="Next day">
+      <TouchableOpacity
+        onPress={onNext}
+        disabled={onNext === undefined}
+        hitSlop={HIT_SLOP}
+        accessibilityRole="button"
+        accessibilityLabel={t('staff.date.next')}
+        accessibilityState={{ disabled: onNext === undefined }}
+        style={onNext === undefined ? styles.disabled : undefined}
+      >
         <ChevronRightIcon />
       </TouchableOpacity>
     </View>
   );
 }
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const WEEKDAY_KEYS = [
+  'staff.date.weekday.0',
+  'staff.date.weekday.1',
+  'staff.date.weekday.2',
+  'staff.date.weekday.3',
+  'staff.date.weekday.4',
+  'staff.date.weekday.5',
+  'staff.date.weekday.6',
+] as const;
 
 /**
- * Month calendar sheet (absorbed from Main's Attendance, M14-S03). Picks a day
- * of the shown month; Apply hands it back.
+ * Month calendar sheet. Picks a day of the shown month; Apply hands it back.
+ * Days after `maxDay` (today, in the current month) cannot be picked.
  */
 export function DatePickerModal({
   visible,
@@ -284,7 +274,10 @@ export function DatePickerModal({
   daysInMonth,
   firstWeekday,
   selectedDay,
+  maxDay,
   onSelectDay,
+  onPrevMonth,
+  onNextMonth,
   onApply,
   onClose,
 }: {
@@ -293,7 +286,11 @@ export function DatePickerModal({
   daysInMonth: number;
   firstWeekday: number;
   selectedDay: number;
+  maxDay?: number | undefined;
   onSelectDay: (day: number) => void;
+  onPrevMonth?: (() => void) | undefined;
+  /** undefined: no later month (the current month). */
+  onNextMonth?: (() => void) | undefined;
   onApply: () => void;
   onClose: () => void;
 }) {
@@ -302,16 +299,31 @@ export function DatePickerModal({
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Date</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel="Close">
+            <Text style={styles.modalTitle}>{t('staff.date.select')}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel={t('staff.common.close')}>
               <CloseIcon />
             </TouchableOpacity>
           </View>
-          <Text style={styles.calendarMonth}>{monthLabel}</Text>
+          <View style={styles.monthRow}>
+            <TouchableOpacity onPress={onPrevMonth} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel={t('staff.date.previousMonth')}>
+              <ChevronLeftIcon color={adminColors.brandDeep} />
+            </TouchableOpacity>
+            <Text style={styles.calendarMonth}>{monthLabel}</Text>
+            <TouchableOpacity
+              onPress={onNextMonth}
+              disabled={onNextMonth === undefined}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel={t('staff.date.nextMonth')}
+              style={onNextMonth === undefined ? styles.disabled : undefined}
+            >
+              <ChevronRightIcon color={adminColors.brandDeep} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.calendarGrid}>
-            {WEEKDAYS.map((day, index) => (
-              <View key={`wd-${index}`} style={styles.calendarCell}>
-                <Text style={styles.calendarWeekday}>{day}</Text>
+            {WEEKDAY_KEYS.map((key) => (
+              <View key={key} style={styles.calendarCell}>
+                <Text style={styles.calendarWeekday}>{t(key)}</Text>
               </View>
             ))}
             {Array.from({ length: firstWeekday }).map((_, index) => (
@@ -320,13 +332,15 @@ export function DatePickerModal({
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
               const active = day === selectedDay;
+              const disabled = maxDay !== undefined && day > maxDay;
               return (
                 <TouchableOpacity
                   key={day}
-                  style={[styles.calendarCell, active && styles.calendarCellActive]}
+                  style={[styles.calendarCell, active && styles.calendarCellActive, disabled && styles.disabled]}
                   onPress={() => onSelectDay(day)}
+                  disabled={disabled}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={{ selected: active, disabled }}
                 >
                   <Text style={[styles.calendarDay, active && styles.calendarDayActive]}>{day}</Text>
                 </TouchableOpacity>
@@ -334,7 +348,7 @@ export function DatePickerModal({
             })}
           </View>
           <TouchableOpacity style={styles.applyButton} onPress={onApply} activeOpacity={0.85} accessibilityRole="button">
-            <Text style={styles.applyButtonText}>Apply</Text>
+            <Text style={styles.applyButtonText}>{t('staff.common.apply')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -343,6 +357,9 @@ export function DatePickerModal({
 }
 
 const AVATAR = 40;
+const AVATAR_ICON = 22;
+const AVATAR_ICON_LARGE = 28;
+const DISABLED_OPACITY = 0.35;
 const AVATAR_LARGE = 56;
 const STATUS_DOT = 8;
 const RING = 16;
@@ -429,7 +446,9 @@ const styles = StyleSheet.create({
   },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modalTitle: { ...adminType.title, color: adminColors.ink },
-  calendarMonth: { ...adminType.sectionHead, color: adminColors.brandDeep, textAlign: 'center', marginVertical: adminSpacing.md },
+  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: adminSpacing.md },
+  calendarMonth: { ...adminType.sectionHead, color: adminColors.brandDeep, textAlign: 'center' },
+  disabled: { opacity: DISABLED_OPACITY },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calendarCell: { width: CALENDAR_CELL, height: CALENDAR_CELL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   calendarCellActive: { backgroundColor: adminColors.brand, borderRadius: adminRadius.full },

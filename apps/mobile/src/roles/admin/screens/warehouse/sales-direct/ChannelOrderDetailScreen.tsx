@@ -1,15 +1,21 @@
 /**
  * Channel Order Detail — one B2B or HORECA order, read-only.
  *
- * Replaces the SubWarehouseB2BDetailScreen / SubWarehouseHorecaDetailScreen
- * twins; the channel difference is the `channel` prop plus CHANNEL_COPY.
+ * What it shows, and from where:
+ *   - The list row the host passes as `order` (GET /admin/sales/horeca | b2b):
+ *     order number, business, status, payment status, item count, total, date.
+ *   - With `order.list.view_all`, the general admin order detail
+ *     (GET /admin/orders/{orderId}, BR-99): warehouse name, line items,
+ *     subtotal / GST / total, and the order's invoice when one exists. The
+ *     sales API has no channel-order detail of its own.
  *
- * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
- *   - GSTIN row: B2B only, and only with `customer.gst_details.manage`
- *     (MAIN_WH_ADMIN=view, SUB_WH_ADMIN=none). HORECA never had a GSTIN row.
- *   - View Invoice: `invoice.generate`.
- *   - The screen itself is ungated: there is no per-channel view code yet
- *     (SPEC_GAPS.md #5).
+ * The API carries no contact person, phone or GSTIN for a channel order, so
+ * none is shown. Nothing here edits the order (BR-13: channel orders are not
+ * created or changed from this app).
+ *
+ * Invoice: only an invoice uuid the server returned is ever opened; it goes to
+ * the host's onViewInvoice, or renders LiveInvoiceDetail inline (gated on
+ * invoice.view_own). Status history only through the host's onViewStatus.
  */
 import React, { useState } from 'react';
 import {
@@ -23,12 +29,18 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { InvoiceDetailScreen } from '../billing-invoices';
-import { OrderStatusHistoryScreen } from '../orders';
+import type { Grade } from '../../../api/sales';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { formatAdminDate } from '../../../utils/datetime';
+import { LiveInvoiceDetail } from '../billing-invoices';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
-import { CHANNEL_COPY, CHANNEL_FALLBACK_ORDER, invoiceIdForOrder } from './fixtures';
-import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { CHANNEL_ORDER_STATUS_KEY, GRADE_KEY, PAYMENT_STATUS_KEY } from './salesLabels';
+import type { ChannelOrderItem, SalesChannel } from './types';
+import { useChannelOrderDetail, useSalesWarehouseOptions } from './useSalesData';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -80,21 +92,25 @@ function FlagStatusIcon({ size = 18, color = adminColors.brand }: { size?: numbe
   );
 }
 
-/** Splits order lines into rows of two for the two-column item grid. */
-function pairs(lines: ChannelOrderLine[]): ChannelOrderLine[][] {
-  const rows: ChannelOrderLine[][] = [];
-  for (let i = 0; i < lines.length; i += 2) rows.push(lines.slice(i, i + 2));
-  return rows;
+const TITLE_KEY = {
+  HORECA: 'sales.channelOrder.title.HORECA',
+  B2B: 'sales.channelOrder.title.B2B',
+} as const;
+
+/** The detail's grade is a plain string; label it only when it is a known Grade code. */
+function gradeLabel(grade: string): string | undefined {
+  const key = GRADE_KEY[grade as Grade] as (typeof GRADE_KEY)[Grade] | undefined;
+  return key ? t(key) : undefined;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface ChannelOrderDetailScreenProps extends WarehouseScreenBaseProps {
   channel: SalesChannel;
-  /** Order to show; the channel's fallback order when absent. */
+  /** The list row to show; without one the screen shows an empty state. */
   order?: ChannelOrderItem | null | undefined;
-  /** Host navigation to the invoice; renders inline when absent. */
+  /** Host navigation to the invoice (a real invoice uuid); renders inline when absent. */
   onViewInvoice?: ((invoiceId: string) => void) | undefined;
-  /** Host navigation to the status history; renders inline when absent. */
+  /** Host navigation to the status history; the button is hidden when absent. */
   onViewStatus?: ((orderId: string) => void) | undefined;
 }
 
@@ -102,79 +118,84 @@ export function ChannelOrderDetailScreen({
   scope,
   can,
   onBack,
-  onNavigate,
+  onTabChange,
   channel,
   order,
   onViewInvoice,
   onViewStatus,
 }: ChannelOrderDetailScreenProps): React.JSX.Element {
-  const [currentSubView, setCurrentSubView] = useState<'detail' | 'invoice' | 'status'>('detail');
+  const [inlineInvoiceId, setInlineInvoiceId] = useState<string | null>(null);
 
-  const copy = CHANNEL_COPY[channel];
-  const displayOrder: ChannelOrderItem = order ?? CHANNEL_FALLBACK_ORDER[channel];
-  const invoiceId = invoiceIdForOrder(displayOrder);
-  const showGstin = channel === 'B2B' && can('customer.gst_details.manage');
-  const showInvoice = can('invoice.generate');
+  const canViewDetail = can('order.list.view_all');
+  const detailQuery = useChannelOrderDetail(order?.id, { enabled: canViewDetail && Boolean(order) });
+  const detail = detailQuery.order;
+  const warehouses = useSalesWarehouseOptions(scope, can);
 
-  const handleInvoicePress = () => {
-    if (onViewInvoice) {
-      onViewInvoice(invoiceId);
-    } else {
-      setCurrentSubView('invoice');
-    }
-  };
-
-  const handleStatusPress = () => {
-    if (onViewStatus) {
-      onViewStatus(displayOrder.id);
-    } else {
-      setCurrentSubView('status');
-    }
-  };
-
-  if (currentSubView === 'invoice') {
+  if (inlineInvoiceId) {
     return (
-      <InvoiceDetailScreen scope={scope} can={can} invoiceId={invoiceId} onBack={() => setCurrentSubView('detail')} />
-    );
-  }
-
-  if (currentSubView === 'status') {
-    return (
-      <OrderStatusHistoryScreen
+      <LiveInvoiceDetail
         scope={scope}
         can={can}
-        orderId={displayOrder.id}
-        onNavigate={(screen, params) => onNavigate?.(screen, params)}
-        onBack={() => setCurrentSubView('detail')}
+        invoiceId={inlineInvoiceId}
+        onBack={() => setInlineInvoiceId(null)}
+        onTabChange={onTabChange}
       />
     );
   }
 
-  // Subtotal is the sum of the lines; GST is whatever the order total carries
-  // above it. (The twins hard-coded GST as 1000 / 500; their fallback orders
-  // give exactly those figures this way.)
-  const lines = displayOrder.items ?? [];
-  const total = displayOrder.amount;
-  const subtotal = lines.length > 0 ? lines.reduce((sum, l) => sum + l.lineTotal, 0) : total;
-  const gst = Math.max(0, total - subtotal);
-  const warehouseName = displayOrder.warehouseName ?? scope.warehouseName ?? '—';
+  const header = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={onBack}
+        activeOpacity={0.8}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel={t('sales.channelOrder.backA11y')}
+      >
+        <ArrowBackIcon size={24} color={adminColors.onBrand} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle} accessibilityRole="header">
+        {t(TITLE_KEY[channel])}
+      </Text>
+    </View>
+  );
+
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <View style={styles.content}>
+          <AdminEmptyState
+            title={t('sales.channelOrder.missingTitle')}
+            subtitle={t('sales.channelOrder.missingSubtitle')}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const businessName =
+    order.businessName ?? detail?.buyerName ?? order.customerCode ?? t('sales.channelSales.unknownBusiness');
+  const customerCode = order.customerCode ?? detail?.customerCode ?? null;
+  const warehouseName = detail?.warehouseName ?? warehouses.nameOf(order.warehouseId);
+
+  const invoiceId = detail?.invoiceId ?? null;
+  const canOpenInvoice = invoiceId !== null && (onViewInvoice !== undefined || can('invoice.view_own'));
+  const handleInvoicePress = () => {
+    if (invoiceId === null) return;
+    if (onViewInvoice) {
+      onViewInvoice(invoiceId);
+    } else {
+      setInlineInvoiceId(invoiceId);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-      {/* ─── Header ─── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <ArrowBackIcon size={24} color={adminColors.onBrand} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{copy.detailTitle}</Text>
-      </View>
+      {header}
 
       <ScrollView
         style={styles.content}
@@ -182,102 +203,155 @@ export function ChannelOrderDetailScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ─── 1. Business ─── */}
-        <Text style={styles.sectionHeading}>{copy.businessSection}</Text>
+        <Text style={styles.sectionHeading}>{t('sales.channelOrder.businessSection')}</Text>
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{copy.businessLabel}</Text>
-              <Text style={styles.fieldValue}>{displayOrder.businessName}</Text>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.business')}</Text>
+              <Text style={styles.fieldValue}>{businessName}</Text>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{copy.contactLabel}</Text>
-              <Text style={styles.fieldValue}>XXXX</Text>
-            </View>
-          </View>
-          <View style={[styles.row, styles.rowGap]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              <Text style={styles.fieldValue}>XXXX</Text>
-            </View>
-            {showGstin && (
+            {customerCode ? (
               <View style={styles.col}>
-                <Text style={styles.fieldLabel}>GSTIN</Text>
-                <Text style={styles.fieldValue}>XXXX</Text>
+                <Text style={styles.fieldLabel}>{t('sales.channelOrder.customerCode')}</Text>
+                <Text style={styles.fieldValue}>{customerCode}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
         {/* ─── 2. Order ─── */}
-        <Text style={styles.sectionHeading}>{copy.orderSection}</Text>
+        <Text style={styles.sectionHeading}>{t('sales.channelOrder.orderSection')}</Text>
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Order ID</Text>
-              <Text style={styles.fieldValue}>{displayOrder.id}</Text>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.orderNumber')}</Text>
+              <Text style={styles.fieldValue}>{order.orderNumber}</Text>
+            </View>
+            {warehouseName ? (
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>{t('sales.channelOrder.warehouse')}</Text>
+                <Text style={styles.fieldValue}>{warehouseName}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={[styles.row, styles.rowGap]}>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.placedAt')}</Text>
+              <Text style={styles.fieldValue}>{formatAdminDate(order.placedAt, new Date())}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Warehouse</Text>
-              <Text style={styles.fieldValue}>{warehouseName}</Text>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.status')}</Text>
+              <Text style={styles.fieldValue}>{t(CHANNEL_ORDER_STATUS_KEY[order.status])}</Text>
             </View>
           </View>
           <View style={[styles.row, styles.rowGap]}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Order Date</Text>
-              <Text style={styles.fieldValue}>{displayOrder.dateText}</Text>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.paymentStatus')}</Text>
+              <Text style={styles.fieldValue}>{t(PAYMENT_STATUS_KEY[order.paymentStatus])}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <Text style={styles.fieldValue}>{displayOrder.status}</Text>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.items')}</Text>
+              <Text style={styles.fieldValue}>{t('sales.common.itemCount', { count: order.itemCount })}</Text>
             </View>
           </View>
-        </View>
-
-        {/* ─── 3. Items ─── */}
-        <Text style={styles.sectionHeading}>{copy.itemsSection}</Text>
-        <View style={styles.card}>
-          {pairs(lines).map((row, rowIndex) => (
-            <View key={rowIndex} style={[styles.row, rowIndex > 0 && styles.rowGap]}>
-              {row.map((line) => (
-                <View key={`${line.batch}-${line.name}`} style={styles.col}>
-                  <Text style={styles.fieldLabel}>{line.name}</Text>
-                  <Text style={styles.fieldValue}>{line.qtyText}</Text>
-                </View>
-              ))}
+          {detail?.invoiceNumber ? (
+            <View style={[styles.row, styles.rowGap]}>
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>{t('sales.channelOrder.invoiceNumber')}</Text>
+                <Text style={styles.fieldValue}>{detail.invoiceNumber}</Text>
+              </View>
             </View>
-          ))}
+          ) : null}
         </View>
 
-        {/* ─── 4. Amount ─── */}
-        <Text style={styles.sectionHeading}>{copy.amountSection}</Text>
-        <View style={styles.card}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>₹{subtotal.toLocaleString('en-IN')}</Text>
-          </View>
-          <View style={[styles.summaryRow, styles.summaryGap]}>
-            <Text style={styles.summaryLabel}>GST</Text>
-            <Text style={styles.summaryValue}>₹{gst.toLocaleString('en-IN')}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹{total.toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
+        {/* ─── 3. Items + 4. Amount (GET /admin/orders/{id}) ─── */}
+        {!canViewDetail ? (
+          <>
+            <Text style={styles.sectionHeading}>{t('sales.channelOrder.amountSection')}</Text>
+            <View style={styles.card}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.totalLabel}>{t('sales.channelOrder.total')}</Text>
+                <Text style={styles.totalValue}>{formatPaise(order.totalPaise)}</Text>
+              </View>
+            </View>
+            <Text style={styles.noteText}>{t('sales.channelOrder.detailNoPermission')}</Text>
+          </>
+        ) : detailQuery.isLoading ? (
+          <AdminLoadingState />
+        ) : detailQuery.error || !detail ? (
+          <AdminErrorState error={detailQuery.error} onRetry={detailQuery.refresh} />
+        ) : (
+          <>
+            <Text style={styles.sectionHeading}>{t('sales.channelOrder.itemsSection')}</Text>
+            <View style={styles.card}>
+              {detail.items.length === 0 ? (
+                <Text style={styles.summaryLabel}>{t('sales.channelOrder.noItems')}</Text>
+              ) : (
+                detail.items.map((line, index) => {
+                  const grade = gradeLabel(line.grade);
+                  return (
+                    <View key={`${line.productId}-${line.grade}-${index}`} style={[styles.lineRow, index > 0 && styles.lineDivider]}>
+                      <View style={styles.col}>
+                        <Text style={styles.fieldValue}>{grade ? `${line.name} · ${grade}` : line.name}</Text>
+                        <Text style={styles.fieldLabel}>
+                          {t('sales.channelOrder.lineQty', {
+                            qty: formatKg(line.qtyGrams),
+                            price: formatPaise(line.unitPricePaise),
+                          })}
+                        </Text>
+                      </View>
+                      <Text style={styles.summaryValue}>{formatPaise(line.lineTotalPaise)}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
 
-        {/* ─── Actions (read-only views) ─── */}
-        {showInvoice && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleInvoicePress} activeOpacity={0.85}>
-            <InvoiceDocIcon size={18} color={adminColors.onBrand} />
-            <Text style={styles.primaryBtnText}>View Invoice</Text>
-          </TouchableOpacity>
+            <Text style={styles.sectionHeading}>{t('sales.channelOrder.amountSection')}</Text>
+            <View style={styles.card}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{t('sales.channelOrder.subtotal')}</Text>
+                <Text style={styles.summaryValue}>{formatPaise(detail.subtotalPaise)}</Text>
+              </View>
+              <View style={[styles.summaryRow, styles.summaryGap]}>
+                <Text style={styles.summaryLabel}>{t('sales.channelOrder.gst')}</Text>
+                <Text style={styles.summaryValue}>{formatPaise(detail.gstPaise)}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.totalLabel}>{t('sales.channelOrder.total')}</Text>
+                <Text style={styles.totalValue}>{formatPaise(detail.totalPaise)}</Text>
+              </View>
+            </View>
+
+            {canOpenInvoice ? (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={handleInvoicePress}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+              >
+                <InvoiceDocIcon size={18} color={adminColors.onBrand} />
+                <Text style={styles.primaryBtnText}>{t('sales.channelOrder.viewInvoice')}</Text>
+              </TouchableOpacity>
+            ) : invoiceId === null ? (
+              <Text style={styles.noteText}>{t('sales.channelOrder.noInvoice')}</Text>
+            ) : null}
+          </>
         )}
 
-        <TouchableOpacity style={styles.secondaryBtn} onPress={handleStatusPress} activeOpacity={0.8}>
-          <FlagStatusIcon size={18} color={adminColors.brand} />
-          <Text style={styles.secondaryBtnText}>View Status</Text>
-        </TouchableOpacity>
+        {/* ─── Status history (host route only) ─── */}
+        {onViewStatus ? (
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => onViewStatus(order.id)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <FlagStatusIcon size={18} color={adminColors.brand} />
+            <Text style={styles.secondaryBtnText}>{t('sales.channelOrder.viewStatus')}</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -351,6 +425,17 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     color: adminColors.ink,
   },
+  lineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  lineDivider: {
+    marginTop: adminSpacing.sm,
+    paddingTop: adminSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -379,6 +464,11 @@ const styles = StyleSheet.create({
   totalValue: {
     ...adminType.kpiValue,
     color: adminColors.ink,
+  },
+  noteText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
   },
   primaryBtn: {
     flexDirection: 'row',

@@ -2,47 +2,47 @@
  * In-module navigator for the wallet & cash top-up screens (design module M8,
  * plus the M11-S08 daily cash ledger).
  *
- * The wallet flows (hub -> customer search -> wallet -> cash top-up -> fiscal
- * tag -> confirm -> success -> details; hub -> history -> details; hub ->
- * needs attention; hub -> daily summary -> daily cash) used to be stitched
- * four times: the W2b hub's own sub-screen state machine, twelve App.tsx route
- * keys, `show*` state in the Sub shell, and nested screens (Confirm drew
- * Success and Details itself, History drew Details, Customer Wallet drew
- * Transaction Detail). They live here now and take `scope` + `can`, so every
- * host renders the same flow: the Sub shell / App.tsx with the Sub warehouse
- * scope, the Main shell with MAIN_WAREHOUSE_SCOPE (all warehouses).
+ * Flows: hub -> Find Customer -> Customer Wallet -> cash top-up -> fiscal tag
+ * -> confirm -> success -> Transaction Detail; hub -> Daily Cash Summary ->
+ * Daily Cash. They take `scope` + `can`, so every host renders the same flow:
+ * the Sub shell / App.tsx with the Sub warehouse scope, the Main shell with
+ * MAIN_WAREHOUSE_SCOPE (all warehouses).
  *
  * Route keys are the old App.tsx keys without the 'SubWarehouse' / 'Warehouse'
- * prefix (WalletRoute). TransactionDetail is TopUpDetailsScreen's
- * 'transaction' variant (SubWarehouseTransactionDetailScreen was absorbed).
+ * prefix (WalletRoute). TransactionDetail is TopUpDetailsScreen (live ledger
+ * rows only).
  *
- * Customer Wallet is live when the customer carries its uuid (opened from the
- * live customer screens, plan phase 6, or the live lookup, phase 9): the
- * summary and the ledger come from GET /admin/customers/{id}/wallet[/transactions]
- * (read-only, BR-93), and a ledger row opens as a live Transaction Detail.
+ * Everything here is live; there is no fixture path:
+ *  - Customer Wallet needs the customer uuid (from the live customer screens or
+ *    the lookup): GET /admin/customers/{id}/wallet[/transactions] (read-only,
+ *    BR-93). Opened without one, it starts at the counter lookup.
+ *  - The cash top-up wizard: 'CashTopUp' with a customer uuid opens the amount
+ *    step; without one it opens the counter lookup first
+ *    (GET /admin/wallets/cash-topup/customers/lookup, wallet.cash_topup.process,
+ *    BR-91i). Confirm posts through useCashTopupSubmit, held here so the
+ *    Idempotency-Key survives going back a step (root CLAUDE.md 2.4); success
+ *    shows the server's ledger row (BR-18).
+ *  - The Main admin's collecting-warehouse picker is GET /warehouses
+ *    (useWarehouseOptions, warehouse.all.view), uuids only; a Sub admin never
+ *    gets a picker: it collects at scope.warehouseId (BR-30).
  *
- * The cash top-up wizard is live (plan phase 9). 'CashTopUp' with a customer
- * uuid (from Customer Details or the wallet) opens the amount step; without
- * one (the dashboard, the wallet hub) it opens the counter lookup first
- * (GET /admin/sales/customers/lookup), and so does 'CustomerSearch' (to the
- * live wallet). Confirm posts the top-up through useCashTopupSubmit, held
- * here so the Idempotency-Key survives going back a step (root CLAUDE.md
- * 2.4); success shows the server's ledger row (BR-18).
+ * Removed (no backend): Top-Up History, the 'topUp' Top-Up Details opened from
+ * it, and Wallet Needs Attention. No endpoint lists cash top-up rows or feeds
+ * wallet issues; the hub's numbers are GET /admin/reports/cash-topups.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { t } from '../../../i18n';
-import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
 import { customerIdParam, toWalletScreenTransaction } from '../customers/mappers';
 import { useCustomerWallet, useCustomerWalletTxns } from '../customers/useCustomersData';
 import { CashTopUpScreen } from './CashTopUpScreen';
 import { ConfirmCashTopUpScreen } from './ConfirmCashTopUpScreen';
+import { CustomerLookupScreen } from './CustomerLookupScreen';
 import { CustomerWalletScreen } from './CustomerWalletScreen';
 import { DailyCashScreen } from './DailyCashScreen';
 import { DailyCashSummaryScreen } from './DailyCashSummaryScreen';
 import { FiscalTagScreen } from './FiscalTagScreen';
-import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER, WALLET_WAREHOUSES } from './fixtures';
 import {
   buildCashTopupBody,
   cashTopupErrorKey,
@@ -54,9 +54,8 @@ import {
   type TopUpCustomer,
 } from './mappers';
 import { TopUpDetailsScreen } from './TopUpDetailsScreen';
-import { TopUpHistoryScreen } from './TopUpHistoryScreen';
 import { TopUpSuccessScreen } from './TopUpSuccessScreen';
-import { useCashTopupSubmit, useCustomerLookup, type LiveCashTopupSubmit } from './useWalletData';
+import { useCashTopupSubmit, useCustomerLookup, useWalletWarehouseScopes, type LiveCashTopupSubmit } from './useWalletData';
 import type {
   CashTopUpDraft,
   PermissionCheck,
@@ -68,7 +67,6 @@ import type {
   WarehouseScope,
   WarehouseTab,
 } from './types';
-import { WalletAttentionScreen } from './WalletAttentionScreen';
 import { WalletOperationsScreen } from './WalletOperationsScreen';
 import { EmptyState, WalletScreen } from './WalletParts';
 
@@ -88,8 +86,6 @@ export interface WalletFlowProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selectors (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
 /** The cash top-up wizard steps; finishing it drops them from the back stack. */
@@ -122,12 +118,6 @@ export function walletParamsForCustomer(customer?: {
       customerUuid,
     },
   };
-}
-
-/** The wallet hub's sample customer behind every field a deep link left out (plan phase 9 replaces it). */
-function withSampleCustomer(customer: WalletCustomer | undefined): WalletCustomer {
-  const known = Object.fromEntries(Object.entries(customer ?? {}).filter(([, value]) => value !== undefined));
-  return { ...SAMPLE_WALLET_CUSTOMER, ...known };
 }
 
 interface LiveCustomerWalletRouteProps {
@@ -173,7 +163,7 @@ function LiveCustomerWalletRoute({ base, customer, customerUuid, onCashTopUp, on
 
 type BaseRouteProps = LiveCustomerWalletRouteProps['base'];
 
-/** The counter lookup (live Customer Search): picks the customer for the wallet or a top-up. */
+/** The counter lookup (Find Customer, live): picks the customer for the wallet or a top-up. */
 function LiveCustomerLookupRoute({ base, onSelect }: { base: BaseRouteProps; onSelect: (customer: TopUpCustomer) => void }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -189,17 +179,15 @@ function LiveCustomerLookupRoute({ base, onSelect }: { base: BaseRouteProps; onS
     itemCount: lookup.customers.length,
   });
   return (
-    <CustomerSearchScreen
+    <CustomerLookupScreen
       {...base}
-      live={{
-        query,
-        onQueryChange: setQuery,
-        customers: lookup.customers,
-        view,
-        error: lookup.error,
-        onRetry: lookup.refresh,
-        onSelect,
-      }}
+      query={query}
+      onQueryChange={setQuery}
+      customers={lookup.customers}
+      view={view}
+      error={lookup.error}
+      onRetry={lookup.refresh}
+      onSelect={onSelect}
     />
   );
 }
@@ -209,16 +197,15 @@ function LiveCashTopUpRoute({
   base,
   customer,
   draft,
-  warehouseOptions,
   onContinue,
 }: {
   base: BaseRouteProps;
   customer: TopUpCustomer;
   draft: CashTopUpDraft | undefined;
-  warehouseOptions: readonly WarehouseScope[];
   onContinue: (draft: CashTopUpDraft) => void;
 }) {
   const wallet = useCustomerWallet(base.scope.warehouseId, customer.customerUuid);
+  const warehouseOptions = useWalletWarehouseScopes(base.scope, base.can);
   const currentBalancePaise = wallet.wallet?.balancePaise ?? customer.balancePaise;
   return (
     <CashTopUpScreen
@@ -284,7 +271,6 @@ export function WalletFlow({
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
-  warehouseOptions = WALLET_WAREHOUSES,
 }: WalletFlowProps) {
   const [stack, setStack] = useState<WalletStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // The top-up write and its Idempotency-Key live as long as the flow (see useCashTopupSubmit).
@@ -344,7 +330,8 @@ export function WalletFlow({
 
   const common = { scope, can, onBack: back, onTabChange };
   const startTopUp = (customer?: WalletCustomer) => navigate('CashTopUp', { customer: customer ?? params.customer });
-  const openTopUpDetails = (transaction: WalletTransactionRecord) => navigate('TopUpDetails', { transaction });
+  /** Daily Cash Summary is the cash close's screen (BR-74): only with its code; the server re-checks. */
+  const canDailyCash = can('finance.cash_close.manage');
 
   switch (current.screen) {
     case 'WalletOperations':
@@ -355,10 +342,7 @@ export function WalletFlow({
           onNavigateToProfile={onNavigateToProfile}
           onNavigateToCashTopUp={() => startTopUp()}
           onNavigateToCustomerSearch={() => navigate('CustomerSearch')}
-          onNavigateToTopUpHistory={() => navigate('TopUpHistory')}
-          onNavigateToDailySummary={() => navigate('DailyCashSummary')}
-          onNavigateToAttention={(category) => navigate('WalletAttention', { category })}
-          onOpenCustomerWallet={(customer) => navigate('CustomerWallet', { customer })}
+          onNavigateToDailySummary={canDailyCash ? () => navigate('DailyCashSummary') : undefined}
         />
       );
     case 'CustomerSearch':
@@ -372,17 +356,15 @@ export function WalletFlow({
             customer={params.customer}
             customerUuid={customerUuid}
             onCashTopUp={(customer) => startTopUp(customer)}
-            onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction, liveTransaction: true })}
+            onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
           />
         );
       }
+      // No live customer (no uuid): find one first; there is no sample wallet.
       return (
-        <CustomerWalletScreen
-          {...common}
-          customer={withSampleCustomer(params.customer)}
-          transactions={CUSTOMER_WALLET_TRANSACTIONS}
-          onCashTopUp={(customer) => startTopUp(customer)}
-          onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
+        <LiveCustomerLookupRoute
+          base={common}
+          onSelect={(c) => navigate('CustomerWallet', { customer: walletCustomerOf(c) })}
         />
       );
     }
@@ -397,7 +379,6 @@ export function WalletFlow({
           base={common}
           customer={customer}
           draft={params.draft}
-          warehouseOptions={warehouseOptions}
           onContinue={(draft) => advance('FiscalTag', { draft, customer: params.customer })}
         />
       );
@@ -431,35 +412,16 @@ export function WalletFlow({
           transaction={params.transaction}
           onDone={done}
           // The server's ledger row: the live Transaction Detail shows only what it sent.
-          onViewTransaction={(transaction) => navigate('TransactionDetail', { transaction, liveTransaction: true })}
+          onViewTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
         />
       );
-    case 'TopUpDetails':
-      return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="topUp" />;
     case 'TransactionDetail':
-      return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="transaction" live={params.liveTransaction} />;
-    case 'TopUpHistory':
-      return <TopUpHistoryScreen {...common} warehouseOptions={warehouseOptions} onSelectTransaction={openTopUpDetails} />;
+      return <TopUpDetailsScreen {...common} transaction={params.transaction} />;
     case 'DailyCashSummary':
-      return (
-        <DailyCashSummaryScreen
-          {...common}
-          onViewTopUpHistory={() => navigate('TopUpHistory')}
-          onNavigateToDailyCash={() => navigate('DailyCash')}
-        />
-      );
+      // The finance area owns these two screens (live BR-74 close); they pick their own warehouse.
+      return <DailyCashSummaryScreen {...common} onNavigateToDailyCash={() => navigate('DailyCash')} />;
     case 'DailyCash':
-      return <DailyCashScreen {...common} warehouseOptions={warehouseOptions} />;
-    case 'WalletAttention':
-      return (
-        <WalletAttentionScreen
-          {...common}
-          initialCategory={params.category}
-          onRetryTopUp={() => startTopUp()}
-          onOpenDailyCash={() => navigate('DailyCashSummary')}
-          onReviewTransaction={openTopUpDetails}
-        />
-      );
+      return <DailyCashScreen {...common} />;
     default:
       return null;
   }

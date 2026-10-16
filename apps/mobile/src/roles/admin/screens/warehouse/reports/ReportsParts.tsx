@@ -1,62 +1,23 @@
 /**
- * Icons for ReportsScreen (design module M12), moved out of the screen file so
- * the screen holds the views only. Colours come from the admin theme; callers
- * pass `color` where an icon sits on a coloured surface.
+ * Icons and layout pieces for ReportsScreen (design module M12), so the screen
+ * holds the views only. Colours, spacing and type come from the admin theme;
+ * every string arrives already translated from the caller.
  */
 import React from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors } from '../../../theme';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 
-export function TimelineDotIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={adminColors.success.text} strokeWidth="2.2" fill={adminColors.success.bg} />
-      <Circle cx="12" cy="12" r="4" fill={adminColors.success.text} />
-    </Svg>
-  );
-}
+// ─── Icons ──────────────────────────────────────────────────────────────────
 
 export function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-export function RadioCircleIcon({ selected }: { selected: boolean }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke={selected ? adminColors.brand : adminColors.placeholder}
-        strokeWidth="2"
-        fill={selected ? adminColors.brand : 'none'}
-      />
-      {selected && <Circle cx="12" cy="12" r="3.5" fill={adminColors.onBrand} />}
-    </Svg>
-  );
-}
-
-export function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 12h14M12 5l7 7-7 7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -71,13 +32,7 @@ export function ReportDocHeaderIcon({ size = 22, color = adminColors.onBrand }: 
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path
-        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -114,116 +69,222 @@ export function SearchIcon({ size = 16, color = adminColors.muted }: { size?: nu
   );
 }
 
-export function FilterIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 export function ChevronRightIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export function ShoppingBagIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+// ─── Layout ─────────────────────────────────────────────────────────────────
+
+/** One option of a chip row. */
+export interface ChipOption<V extends string> {
+  value: V;
+  label: string;
+}
+
+export function ChipRow<V extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly ChipOption<V>[];
+  value: V;
+  onChange: (value: V) => void;
+}) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 6h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow} style={styles.chipBar}>
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.chip, active && styles.chipActive]}
+            onPress={() => onChange(opt.value)}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+          >
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 }
 
-export function InvoiceDocumentIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+export function KpiGrid({ children }: { children: React.ReactNode }) {
+  return <View style={styles.kpiGrid}>{children}</View>;
+}
+
+export function KpiTile({ label, value }: { label: string; value: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 3 2 3-2 3 2 3-2 3 2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 13h8M8 17h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={styles.kpiCard}>
+      <Text style={styles.kpiLabel}>{label}</Text>
+      <Text style={styles.kpiValue}>{value}</Text>
+    </View>
   );
 }
 
-export function StorePickupIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
+export function SectionTitle({ children }: { children: string }) {
+  return <Text style={styles.sectionHeaderTitle}>{children}</Text>;
+}
+
+/** A row of a breakdown list: title, right-hand value, optional meta line. */
+export function DataRow({ title, value, meta }: { title: string; value: string; meta?: string | undefined }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M3 7l2-4h14l2 4M5 21V10.85M19 21V10.85M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={styles.dataRowCard}>
+      <View style={styles.rowBetween}>
+        <Text style={styles.rowTitleText}>{title}</Text>
+        <Text style={styles.rowAmountText}>{value}</Text>
+      </View>
+      {meta !== undefined ? <Text style={styles.rowMetaText}>{meta}</Text> : null}
+    </View>
   );
 }
 
-export function DeliveryTruckIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
+export function RowStack({ children }: { children: React.ReactNode }) {
+  return <View style={styles.cardStack}>{children}</View>;
+}
+
+/**
+ * The frame of one report view: brand header with back, then the shared
+ * loading / error / empty state, or the report body when it has data.
+ */
+export function ReportView({
+  title,
+  subtitle,
+  onBack,
+  toolbar,
+  isLoading,
+  error,
+  onRetry,
+  hasData,
+  emptyTitle,
+  emptySubtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onBack: () => void;
+  toolbar?: React.ReactNode;
+  isLoading: boolean;
+  error: unknown;
+  onRetry: () => void;
+  hasData: boolean;
+  emptyTitle: string;
+  emptySubtitle: string;
+  children: React.ReactNode;
+}) {
+  const state = queryViewState({ isLoading, error, itemCount: hasData ? 1 : 0 });
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-    </Svg>
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <View style={styles.headerBanner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={t('reports.a11y.back')}
+          >
+            <ArrowBackIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitleText}>{title}</Text>
+        </View>
+        <Text style={styles.headerSubtitleText}>{subtitle}</Text>
+      </View>
+      {toolbar}
+      {state === 'loading' ? (
+        <AdminLoadingState />
+      ) : state === 'error' ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : state === 'empty' ? (
+        <AdminEmptyState title={emptyTitle} subtitle={emptySubtitle} />
+      ) : (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          {children}
+        </ScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
-export function ExcelFileIcon({ size = 26, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
-      <Path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </Svg>
-  );
-}
+export const reportStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: adminColors.canvas },
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
+  },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeftGroup: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  backButton: { padding: adminSpacing.xs, marginRight: adminSpacing.xs },
+  headerTitleText: { ...adminType.title, color: adminColors.onBrand },
+  headerSubtitleText: { ...adminType.caption, color: adminColors.brandTint, marginTop: adminSpacing.xs },
+  headerBellBtn: { padding: adminSpacing.sm },
+  scroll: { flex: 1 },
+  scrollContent: { padding: adminSpacing.lg, paddingBottom: adminSpacing.xxl },
+});
 
-export function CsvFileIcon({ size = 26, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M8 13h8M8 17h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-export function PdfFileIcon({ size = 26, color = adminColors.danger.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Rect x="7" y="12" width="10" height="7" rx="1.5" stroke={color} strokeWidth="1.5" />
-    </Svg>
-  );
-}
-
-export function SparklesIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4L12 2zM19 17l1.2 2.8L23 21l-2.8 1.2L19 25l-1.2-2.8L15 21l2.8-1.2L19 17z" fill={color} />
-    </Svg>
-  );
-}
-
-export function DownloadIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-export function ReadyCheckIcon({ size = 32, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.2" />
-      <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+const styles = StyleSheet.create({
+  ...reportStyles,
+  chipBar: {
+    flexGrow: 0,
+    backgroundColor: adminColors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  chipRow: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    gap: adminSpacing.sm,
+  },
+  chip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  chipActive: { backgroundColor: adminColors.brandTint, borderColor: adminColors.brand },
+  chipText: { ...adminType.caption, color: adminColors.muted },
+  chipTextActive: { color: adminColors.brandDeep },
+  sectionHeaderTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+  },
+  cardStack: { gap: adminSpacing.sm },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
+  kpiCard: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  kpiLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  kpiValue: { ...adminType.kpiValue, color: adminColors.ink },
+  dataRowCard: {
+    backgroundColor: adminColors.card,
+    padding: adminSpacing.md,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: adminSpacing.sm },
+  rowTitleText: { ...adminType.rowTitle, color: adminColors.ink, flexShrink: 1 },
+  rowAmountText: { ...adminType.rowTitle, color: adminColors.brandDeep },
+  rowMetaText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+});

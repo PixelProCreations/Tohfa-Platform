@@ -1,45 +1,42 @@
 // Design id: M1-S05 (Sub side; the Main all-warehouses overview is warehouse-admin/WarehouseOverviewScreen)
 /**
- * Warehouse Snapshot: the read-only single-warehouse dashboard (identity,
- * today's snapshot, location, contact, operating hours, storage summary and
- * shortcuts). Was SubWarehouseOverviewScreen ("Warehouse Overview"); renamed
- * because warehouse-admin/WarehouseOverviewScreen is the Main all-warehouses
- * screen of the same title (FINAL_LIST 29 flags the clash).
+ * Warehouse Snapshot: the read-only single-warehouse dashboard, live.
  *
- * Gate (FINAL_LIST 29): Shared, read-only, scope-locked to scope.warehouseId
- * (the old 'Coonoor Warehouse' / 'COO-WH-001' defaults are gone). Main uses the
- * all-warehouses overview instead, so an all-warehouses scope renders a note.
- * Stock, receipts and the storage summary need `inventory.batch.view`; the
- * order tiles and View Orders need `order.list.view_all` (MAIN all, SUB own).
- * Identity, location, contact and hours come from the profile-settings
- * warehouse fixtures; stock from warehouse-admin rows; today's counts from
- * WAREHOUSE_TODAY_COUNTS. No dashboard summary endpoint exists yet.
+ *   Identity, location, contact   GET /warehouses/{id}                (warehouse.own.view)
+ *   Stock + storage summary       GET /warehouses/{id}/capacity        (BR-66b, ACTIVE batches)
+ *   Storage location counts       GET /warehouses/{id}/storage-locations `total` (all / active)
+ *   Open work                     GET /admin/tasks/summary             (BR-77)
+ *   Today's receipts / orders     GET /warehouses/{id}/performance     (BR-80; warehouse.all.view,
+ *                                 so only a Main admin viewing one warehouse gets these tiles)
+ *
+ * Dropped because no endpoint carries them: warehouse email, operating hours
+ * (the stored JSON has no specified read format) and the old "pending
+ * fulfilment" fixture map.
+ *
+ * Gate (FINAL_LIST 29): Shared, read-only, scope-locked to scope.warehouseId.
+ * An all-warehouses scope renders a note (Main uses the overview instead).
+ * Stock / storage need `inventory.batch.view`; order figures `order.list.view_all`.
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import {
-  Card,
-  EmptyState,
-  InfoCard,
-  SectionTitle,
-  WalletScreen,
-  WarehouseTabBar,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
-import {
-  OPERATING_INFO,
-  STORAGE_LOCATIONS,
-  WAREHOUSE_CONTACTS,
-  WAREHOUSE_PROFILES,
-} from '../profile-settings/warehouseFixtures';
-import { WAREHOUSE_ADMIN_ROWS } from '../warehouse-admin/fixtures';
-import { CapacityBar, formatAdminKg, ViewTile, ViewTileGrid } from '../warehouse-admin/WarehouseAdminParts';
-import { WAREHOUSE_TODAY_COUNTS } from './fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { Card, EmptyState, InfoCard, SectionTitle, WalletScreen, WarehouseTabBar, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { CapacityBar, ViewTile, ViewTileGrid } from '../warehouse-admin/WarehouseAdminParts';
 import { HOME_CODES } from './HomeParts';
+import { snapshotCapacity, snapshotToday } from './mappers_dashboardHome';
+import { summarizeTaskCounts } from './mappers_tasks';
 import type { WarehouseScreenBaseProps } from './types';
+import {
+  useStorageLocationTotals,
+  useTaskSummary,
+  useTodayPerformance,
+  useWarehouseCapacity,
+  useWarehouseProfile,
+} from './useDashboardHomeData';
 
 function MapPinIcon({ size = 16 }: { size?: number }) {
   const color = adminColors.brand;
@@ -128,173 +125,173 @@ export function WarehouseSnapshotScreen({
   onNavigateToOperations,
 }: WarehouseSnapshotScreenProps) {
   const [showMap, setShowMap] = useState(false);
-  const warehouseId = scope.warehouseCode ?? scope.warehouseId;
+  const warehouseId = scope.warehouseId;
+  const canStock = can(HOME_CODES.batchView);
+  const canOrders = can(HOME_CODES.orderList);
+  const canPerformance = can(HOME_CODES.allView);
+
+  const profile = useWarehouseProfile(warehouseId);
+  const capacity = useWarehouseCapacity(canStock ? warehouseId : undefined);
+  const storage = useStorageLocationTotals(warehouseId, canStock);
+  const taskSummary = useTaskSummary(scope);
+  const performance = useTodayPerformance(warehouseId, canPerformance);
+
   const footer = onTabChange !== undefined ? <WarehouseTabBar activeTab="Home" onTabChange={onTabChange} onBack={onBack} /> : undefined;
+  const title = t('dashboardHome.snapshot.title');
 
   if (warehouseId === undefined) {
     return (
-      <WalletScreen title="Warehouse Overview" onBack={onBack} footer={footer}>
-        <EmptyState
-          title="Single-warehouse view"
-          subtitle="This overview is locked to one warehouse. The all-warehouses view is on the Main warehouse login."
-        />
+      <WalletScreen title={title} onBack={onBack} footer={footer}>
+        <EmptyState title={t('dashboardHome.snapshot.singleOnly.title')} subtitle={t('dashboardHome.snapshot.singleOnly.subtitle')} />
+      </WalletScreen>
+    );
+  }
+  if (profile.isPending) {
+    return (
+      <WalletScreen title={title} onBack={onBack} footer={footer}>
+        <AdminLoadingState />
+      </WalletScreen>
+    );
+  }
+  if (profile.error || profile.data === undefined) {
+    return (
+      <WalletScreen title={title} onBack={onBack} footer={footer}>
+        <AdminErrorState error={profile.error} onRetry={() => void profile.refetch()} />
       </WalletScreen>
     );
   }
 
-  const profile = WAREHOUSE_PROFILES.find((w) => w.warehouseId === warehouseId);
-  const row = WAREHOUSE_ADMIN_ROWS.find((w) => w.warehouseId === warehouseId);
-  const contact = WAREHOUSE_CONTACTS.find((w) => w.warehouseId === warehouseId);
-  const operating = OPERATING_INFO.find((w) => w.warehouseId === warehouseId);
-  const today = WAREHOUSE_TODAY_COUNTS[warehouseId];
-  const locations = STORAGE_LOCATIONS.filter((l) => l.warehouseId === warehouseId);
-  const activeLocations = locations.filter((l) => l.status === 'Active').length;
-  const usedKg = locations.reduce((sum, l) => sum + l.currentKg, 0);
-  const capacityKg = locations.reduce((sum, l) => sum + l.capacityKg, 0);
-  const usedPercent = capacityKg > 0 ? Math.round((usedKg / capacityKg) * 100) : 0;
-  const name = profile?.warehouseName ?? scope.warehouseName ?? warehouseId;
-  const statusLabel = operating?.status ?? 'Operational';
-
-  const canStock = can(HOME_CODES.batchView);
-  const canOrders = can(HOME_CODES.orderList);
+  const wh = profile.data;
+  const none = t('dashboardHome.noValue');
+  const cap = snapshotCapacity(capacity.data);
+  const today = snapshotToday(performance.data);
+  const tasks = taskSummary.data === undefined ? undefined : summarizeTaskCounts(taskSummary.data);
+  const statusLabel = t(wh.isActive ? 'dashboardHome.snapshot.active' : 'dashboardHome.snapshot.inactive');
+  const address = [wh.address, wh.city, wh.pincode].filter((p): p is string => typeof p === 'string' && p !== '').join(', ');
+  const hasCoordinates = typeof wh.latitude === 'number' && typeof wh.longitude === 'number';
 
   return (
-    <WalletScreen title="Warehouse Overview" subtitle={`${name} · ${statusLabel}`} onBack={onBack} footer={footer}>
+    <WalletScreen title={title} subtitle={`${wh.name} · ${statusLabel}`} onBack={onBack} footer={footer}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>Warehouse Identity</SectionTitle>
+        <SectionTitle>{t('dashboardHome.snapshot.identity')}</SectionTitle>
         <InfoCard
           rows={[
             [
-              { label: 'Warehouse Name', value: name },
-              { label: 'Warehouse ID', value: profile?.code ?? warehouseId },
+              { label: t('dashboardHome.snapshot.name'), value: wh.name },
+              { label: t('dashboardHome.snapshot.code'), value: wh.code },
             ],
             [
-              { label: 'Warehouse Type', value: profile?.kind ?? '—' },
-              { label: 'Status', value: statusLabel },
+              { label: t('dashboardHome.snapshot.type'), value: t(wh.type === 'MAIN' ? 'dashboardHome.snapshot.typeMain' : 'dashboardHome.snapshot.typeSub') },
+              { label: t('dashboardHome.snapshot.status'), value: statusLabel },
             ],
           ]}
         />
 
-        {canStock || canOrders ? (
-          <>
-            <SectionTitle>Current Snapshot</SectionTitle>
-            <View style={styles.snapshotGrid}>
-              {canStock ? (
-                <>
-                  <SnapshotTile value={row ? formatAdminKg(row.stockKg) : '—'} label="TOTAL STOCK" onPress={onNavigateToInventory} />
-                  <SnapshotTile value={today ? String(today.receipts) : '—'} label="TODAY'S RECEIPTS" onPress={onNavigateToReceiving} />
-                </>
-              ) : null}
+        <SectionTitle>{t('dashboardHome.snapshot.current')}</SectionTitle>
+        <View style={styles.snapshotGrid}>
+          {canStock ? (
+            <>
+              <SnapshotTile value={cap.stock} label={t('dashboardHome.snapshot.totalStock')} onPress={onNavigateToInventory} />
+              <SnapshotTile value={cap.utilization} label={t('dashboardHome.snapshot.capacityUsed')} onPress={onNavigateToInventory} />
+            </>
+          ) : null}
+          <SnapshotTile
+            value={tasks === undefined ? none : String(tasks.qcPending)}
+            label={t('dashboardHome.snapshot.qcPending')}
+            onPress={onNavigateToReceiving}
+          />
+          {canOrders ? (
+            <SnapshotTile
+              value={tasks === undefined ? none : String(tasks.ordersActionable)}
+              label={t('dashboardHome.snapshot.ordersToAction')}
+              onPress={onNavigateToOrders}
+            />
+          ) : null}
+          {canPerformance ? (
+            <>
+              <SnapshotTile value={today.receipts} label={t('dashboardHome.snapshot.receiptsToday')} onPress={onNavigateToReceiving} />
               {canOrders ? (
-                <>
-                  <SnapshotTile value={today ? String(today.ordersToday) : '—'} label="TODAY'S ORDERS" onPress={onNavigateToOrders} />
-                  <SnapshotTile
-                    value={today ? String(today.pendingFulfilment) : '—'}
-                    label="PENDING FULFILLMENT"
-                    onPress={onNavigateToOrders}
-                  />
-                </>
+                <SnapshotTile value={today.ordersPlaced} label={t('dashboardHome.snapshot.ordersToday')} onPress={onNavigateToOrders} />
               ) : null}
-            </View>
-          </>
-        ) : null}
+            </>
+          ) : null}
+        </View>
 
-        <SectionTitle>Location</SectionTitle>
+        <SectionTitle>{t('dashboardHome.snapshot.location')}</SectionTitle>
         <Card>
-          <Text style={styles.fieldLabel}>Address</Text>
-          <Text style={styles.fieldValue}>{contact?.address ?? profile?.address ?? '—'}</Text>
-          {profile !== undefined ? (
+          <Text style={styles.fieldLabel}>{t('dashboardHome.snapshot.address')}</Text>
+          <Text style={styles.fieldValue}>{address === '' ? none : address}</Text>
+          {hasCoordinates ? (
             <TouchableOpacity style={styles.mapButton} onPress={() => setShowMap(true)} activeOpacity={0.75} accessibilityRole="button">
               <MapPinIcon />
-              <Text style={styles.mapButtonText}>View on Map</Text>
+              <Text style={styles.mapButtonText}>{t('dashboardHome.snapshot.viewOnMap')}</Text>
             </TouchableOpacity>
           ) : null}
         </Card>
 
-        {contact !== undefined ? (
+        {wh.contactPhone ? (
           <>
-            <SectionTitle>Warehouse Contact</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Warehouse Contact', value: contact.phone },
-                  { label: 'Warehouse Email', value: contact.email },
-                ],
-              ]}
-            />
-          </>
-        ) : null}
-
-        {operating !== undefined ? (
-          <>
-            <SectionTitle>Operating Information</SectionTitle>
-            <Card>
-              {operating.week.map((d, index) => (
-                <View key={d.day} style={[styles.operatingRow, index > 0 && styles.operatingDivider]}>
-                  <Text style={styles.operatingDay}>{d.day}</Text>
-                  <Text style={styles.operatingTime}>{d.hours ?? 'Closed'}</Text>
-                </View>
-              ))}
-            </Card>
+            <SectionTitle>{t('dashboardHome.snapshot.contact')}</SectionTitle>
+            <InfoCard rows={[[{ label: t('dashboardHome.snapshot.phone'), value: wh.contactPhone }]]} />
           </>
         ) : null}
 
         {canStock ? (
           <>
-            <SectionTitle>Storage Summary</SectionTitle>
+            <SectionTitle>{t('dashboardHome.snapshot.storage')}</SectionTitle>
             <Card>
               <View style={styles.storageRow}>
                 <View style={styles.flex}>
-                  <Text style={styles.fieldLabel}>Storage Locations</Text>
-                  <Text style={styles.storageNumber}>{locations.length}</Text>
+                  <Text style={styles.fieldLabel}>{t('dashboardHome.snapshot.locations')}</Text>
+                  <Text style={styles.storageNumber}>{storage.data === undefined ? none : String(storage.data.total)}</Text>
                 </View>
                 <View style={styles.flex}>
-                  <Text style={styles.fieldLabel}>Active</Text>
-                  <Text style={styles.storageNumber}>{activeLocations}</Text>
+                  <Text style={styles.fieldLabel}>{t('dashboardHome.snapshot.activeLocations')}</Text>
+                  <Text style={styles.storageNumber}>{storage.data === undefined ? none : String(storage.data.active)}</Text>
                 </View>
               </View>
               <View style={styles.barGap} />
-              <CapacityBar percent={usedPercent} />
+              <CapacityBar percent={cap.percent} warning={cap.overCapacity} />
               <View style={styles.storageMetaRow}>
-                <Text style={styles.storageMeta}>{formatAdminKg(usedKg)} Occupied</Text>
-                <Text style={styles.storageMeta}>{formatAdminKg(Math.max(0, capacityKg - usedKg))} Available</Text>
+                <Text style={styles.storageMeta}>{t('dashboardHome.snapshot.occupied', { value: cap.occupied })}</Text>
+                <Text style={styles.storageMeta}>{t('dashboardHome.snapshot.available', { value: cap.available })}</Text>
               </View>
             </Card>
           </>
         ) : null}
 
-        <SectionTitle>Quick Actions</SectionTitle>
+        <SectionTitle>{t('dashboardHome.snapshot.quickActions')}</SectionTitle>
         <ViewTileGrid>
           {canStock && onNavigateToInventory !== undefined ? (
-            <ViewTile label="View Inventory" icon={<InventoryActionIcon />} onPress={onNavigateToInventory} />
+            <ViewTile label={t('dashboardHome.snapshot.viewInventory')} icon={<InventoryActionIcon />} onPress={onNavigateToInventory} />
           ) : null}
           {onNavigateToReceiving !== undefined ? (
-            <ViewTile label="View Receiving" icon={<ReceivingActionIcon />} onPress={onNavigateToReceiving} />
+            <ViewTile label={t('dashboardHome.snapshot.viewReceiving')} icon={<ReceivingActionIcon />} onPress={onNavigateToReceiving} />
           ) : null}
           {canOrders && onNavigateToOrders !== undefined ? (
-            <ViewTile label="View Orders" icon={<OrdersActionIcon />} onPress={onNavigateToOrders} />
+            <ViewTile label={t('dashboardHome.snapshot.viewOrders')} icon={<OrdersActionIcon />} onPress={onNavigateToOrders} />
           ) : null}
           {onNavigateToOperations !== undefined ? (
-            <ViewTile label="View Operations" icon={<OperationsActionIcon />} onPress={onNavigateToOperations} />
+            <ViewTile label={t('dashboardHome.snapshot.viewOperations')} icon={<OperationsActionIcon />} onPress={onNavigateToOperations} />
           ) : null}
         </ViewTileGrid>
       </ScrollView>
 
-      {profile !== undefined ? (
+      {hasCoordinates ? (
         <Modal visible={showMap} transparent animationType="fade" onRequestClose={() => setShowMap(false)}>
           <Pressable style={styles.modalBackdrop} onPress={() => setShowMap(false)}>
             <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
-              <Text style={styles.modalTitle}>Warehouse Location</Text>
-              <Text style={styles.modalName}>
-                {profile.warehouseName} ({profile.code})
-              </Text>
-              <Text style={styles.modalAddress}>{profile.mapAddress}</Text>
+              <Text style={styles.modalTitle}>{t('dashboardHome.snapshot.mapTitle')}</Text>
+              <Text style={styles.modalName}>{t('dashboardHome.snapshot.mapName', { name: wh.name, code: wh.code })}</Text>
+              <Text style={styles.modalAddress}>{address}</Text>
               <View style={styles.mapPlaceholder}>
                 <MapPinIcon size={32} />
-                <Text style={styles.modalAddress}>{profile.coordinates}</Text>
+                <Text style={styles.modalAddress}>
+                  {t('dashboardHome.snapshot.coordinates', { lat: String(wh.latitude), lng: String(wh.longitude) })}
+                </Text>
               </View>
               <TouchableOpacity style={styles.modalClose} onPress={() => setShowMap(false)} accessibilityRole="button">
-                <Text style={styles.modalCloseText}>Close</Text>
+                <Text style={styles.modalCloseText}>{t('dashboardHome.close')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -330,10 +327,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   mapButtonText: { ...adminType.sectionHead, color: adminColors.brand },
-  operatingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: adminSpacing.sm },
-  operatingDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
-  operatingDay: { ...adminType.body, color: adminColors.ink },
-  operatingTime: { ...adminType.sectionHead, color: adminColors.ink },
   storageRow: { flexDirection: 'row' },
   storageNumber: { ...adminType.title, color: adminColors.ink, marginTop: adminSpacing.xs },
   barGap: { height: adminSpacing.md },
@@ -362,9 +355,9 @@ const styles = StyleSheet.create({
   modalClose: {
     height: ADMIN_BUTTON_HEIGHT,
     borderRadius: adminRadius.md,
-    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: adminColors.brand,
   },
   modalCloseText: { ...adminType.sectionHead, color: adminColors.onBrand },
 });

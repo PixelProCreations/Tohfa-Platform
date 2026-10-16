@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager, RefreshControl } from 'react-native';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors } from '../../../theme';
+import { adminColors, adminSpacing } from '../../../theme';
 import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
@@ -59,8 +59,10 @@ export function BatchDetailScreen({
 }: BatchDetailScreenProps) {
   // The batch carries only a warehouse uuid; the name is the viewer's own scope's.
   const warehouse = scope.warehouseName?.replace(' Warehouse', '') ?? t('inventory.noValue');
-  // Stock verification has no server API (availability.ts), so its action is hidden.
+  // Counting (BR-107) and adjusting (BR-37) this batch are shown only with their
+  // permission (availability.ts); the server checks each again.
   const canVerify = isAreaAvailable('stockCounts', can);
+  const canAdjust = isAreaAvailable('stockAdjustments', can);
   const view = queryViewState({ isLoading, error, itemCount: batch === undefined ? 0 : 1 });
 
   return (
@@ -185,11 +187,21 @@ export function BatchDetailScreen({
           {canVerify ? (
           <TouchableOpacity
             style={[styles.actionBtn, { marginBottom: 0 }]}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S10'))}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S11', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <VerifyIcon />
             <Text style={styles.actionBtnText}>Verify Stock</Text>
+          </TouchableOpacity>
+          ) : null}
+          {canAdjust ? (
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnSpaced]}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S13', { batchId: batch.id }))}
+            activeOpacity={0.7}
+          >
+            <LedgerIcon />
+            <Text style={styles.actionBtnText}>{t('stockAdj.batch.adjust')}</Text>
           </TouchableOpacity>
           ) : null}
         </View>
@@ -297,6 +309,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.brand,
     gap: 8,
   },
+  actionBtnSpaced: { marginTop: adminSpacing.sm, marginBottom: 0 },
   actionBtnText: {
     fontSize: 14,
     fontWeight: '700',

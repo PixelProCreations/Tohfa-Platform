@@ -16,8 +16,9 @@
  * server enforces the cap and returns CASH_LIMIT_EXCEEDED.
  *
  * BR-30: a Sub scope collects at its own warehouse. The all-warehouses (Main)
- * scope picks one, and only a warehouse uuid can be sent: with no uuid option
- * (the Main hosts still pass sample codes) Continue stays off and says why.
+ * scope picks one from GET /warehouses (WalletFlow useWalletWarehouseScopes),
+ * and only a warehouse uuid can be sent: with no uuid option (still loading,
+ * or no warehouse.all.view) Continue stays off and says why.
  * The current balance is the live wallet read, for the preview only; the
  * new balance shown after the top-up is the server's.
  */
@@ -93,7 +94,8 @@ export function CashTopUpScreen({
   const noValue = t('customers.noValue');
   const amount = parseTopUpAmount(amountText);
   const amountPaise = amount.ok ? amount.paise : null;
-  const warehouseId = topUpWarehouseId(scope, collectedAt);
+  // The options load after the first render (GET /warehouses): fall back to the first one until a pick.
+  const warehouseId = topUpWarehouseId(scope, collectedAt ?? uuidOptions[0]?.warehouseId);
   const warehouseName = isAllWarehouses(scope)
     ? (uuidOptions.find((w) => w.warehouseId === warehouseId)?.warehouseName ?? noValue)
     : (scope.warehouseName ?? scope.warehouseCode ?? noValue);

@@ -15,12 +15,25 @@ import { ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { warehouseVisible } from '../../rbac/warehouseScope.js';
+import { isWarehouseConfinable, warehouseVisible } from '../../rbac/warehouseScope.js';
 
 export function confineToAssignedWarehouses(scope: ResolvedScope): ResolvedScope {
   const widened = scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL;
   if (widened && scope.warehouseIds.length > 0) return { ...scope, level: ScopeLevel.OWN };
   return scope;
+}
+
+/**
+ * The warehouse ids a list must be narrowed to, or null for "every warehouse". The SQL twin of
+ * `warehouseVisible` for an already-confined scope: a scope that is not a warehouse admin's (farmer,
+ * customer, Farmer Admin; decided by rbac.json `scopeDimension`) sees nothing, an
+ * `all`/`conditional` scope everything, an `own` scope its assigned warehouses (none assigned on a
+ * warehouse-admin `own` grant means all four, as `warehouseScopeFilter`).
+ */
+export function visibleWarehouseIds(confined: ResolvedScope): string[] | null {
+  if (!isWarehouseConfinable(confined)) return [];
+  if (confined.level === ScopeLevel.ALL || confined.level === ScopeLevel.CONDITIONAL) return null;
+  return confined.warehouseIds.length > 0 ? confined.warehouseIds : null;
 }
 
 export function warehouseNotFound(warehouseId: string): AppError {

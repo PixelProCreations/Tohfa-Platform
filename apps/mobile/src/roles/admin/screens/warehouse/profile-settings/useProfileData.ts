@@ -65,7 +65,7 @@ export interface LiveQueryState {
   isRefreshing: boolean;
 }
 
-function queryState(query: { isPending: boolean; error: unknown; refetch: () => unknown; isRefetching: boolean }): LiveQueryState {
+export function queryState(query: { isPending: boolean; error: unknown; refetch: () => unknown; isRefetching: boolean }): LiveQueryState {
   return {
     isLoading: query.isPending,
     error: query.error,
@@ -85,7 +85,7 @@ export interface LiveWrite<TBody> {
   reset: () => void;
 }
 
-function useWrite<TBody, TResult>(mutationFn: (body: TBody) => Promise<TResult>, invalidates: readonly QueryKey[]): LiveWrite<TBody> {
+export function useWrite<TBody, TResult>(mutationFn: (body: TBody) => Promise<TResult>, invalidates: readonly QueryKey[]): LiveWrite<TBody> {
   const { mutate, isPending, error, reset } = useAdminMutation<TBody, TResult>({ mutationFn, invalidates });
   return useMemo(
     () => ({

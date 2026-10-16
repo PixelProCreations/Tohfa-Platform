@@ -52,8 +52,19 @@ import { UserProfileScreen } from './UserProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
-import { PROFILE_WAREHOUSES } from './warehouseFixtures';
-import { profileWarehouseId, toOperatingWeek } from './mappers';
+import { isMainScope, profileWarehouseId, toOperatingWeek } from './mappers';
+import { filterParam, type DocumentStatusFilter, type DocumentTypeFilter } from './mappers_documents';
+import { pickWarehouseId } from './mappers_settings';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import {
+  useArchiveWarehouseDocument,
+  useOpenWarehouseDocument,
+  useUpdateWarehouseDocument,
+  useWarehouseDocumentDetail,
+  useWarehouseDocumentList,
+} from './useWarehouseDocuments';
+import { useSaveCapacity, useSaveWarehouseProfile } from './useWarehouseSettings';
+import { singleWarehouseId } from './WarehouseProfileParts';
 import type {
   FaqCategory,
   PermissionCheck,
@@ -332,6 +343,144 @@ function LiveContactRoute({ base, selection, warehouseId }: LiveWarehouseProps) 
   );
 }
 
+// ─── Documents and Warehouse Settings: real warehouse uuids ─────────────────
+// These two pick from the REAL warehouse list (GET /warehouses, Main only) and
+// never send the flow's sample selector codes. A Sub scope is always its own
+// warehouse (BR-30, pickWarehouseId).
+
+interface RealWarehousePick {
+  warehouseId: string | undefined;
+  /** The uuid the header shows: Sub its scope id/code (locked pill), Main the pick. */
+  headerWarehouseId: string | undefined;
+  options: WarehouseScope[];
+  onSelect: ((warehouseId: string | undefined) => void) | undefined;
+  isLoading: boolean;
+  error: unknown;
+  refresh: () => void;
+}
+
+function useRealWarehousePick(base: WarehouseScreenBaseProps, selection: WarehouseSelectionProps): RealWarehousePick {
+  const isMain = isMainScope(base.scope);
+  const list = useWarehouseOptions({ enabled: isMain && base.can('warehouse.all.view') });
+  const options = useMemo<WarehouseScope[]>(
+    () => list.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName })),
+    [list.options],
+  );
+  const warehouseId = pickWarehouseId(base.scope, options, selection.selectedWarehouseId);
+  return {
+    warehouseId,
+    headerWarehouseId: isMain ? warehouseId : singleWarehouseId(base.scope, undefined, options),
+    options,
+    onSelect: isMain ? selection.onSelectWarehouse : undefined,
+    isLoading: list.isLoading,
+    error: list.error,
+    refresh: list.refresh,
+  };
+}
+
+function LiveDocumentsRoute({ base, selection }: { base: WarehouseScreenBaseProps; selection: WarehouseSelectionProps }) {
+  const pick = useRealWarehousePick(base, selection);
+  const warehouseId = pick.warehouseId;
+  const [statusFilter, setStatusFilter] = useState<DocumentStatusFilter>('ALL');
+  const [typeFilter, setTypeFilter] = useState<DocumentTypeFilter>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openDocumentId, setOpenDocumentId] = useState<string | undefined>(undefined);
+  const list = useWarehouseDocumentList(warehouseId, {
+    status: filterParam(statusFilter),
+    docType: filterParam(typeFilter),
+    q: searchQuery,
+  });
+  const detail = useWarehouseDocumentDetail(warehouseId, openDocumentId);
+  const openFile = useOpenWarehouseDocument(warehouseId);
+  const edit = useUpdateWarehouseDocument(warehouseId);
+  const archive = useArchiveWarehouseDocument(warehouseId);
+  const optionsFailed = warehouseId === undefined && pick.error !== null && pick.error !== undefined;
+  return (
+    <DocumentsScreen
+      {...base}
+      warehouseOptions={pick.options}
+      selectedWarehouseId={warehouseId}
+      onSelectWarehouse={pick.onSelect}
+      headerWarehouseId={pick.headerWarehouseId}
+      unavailable={warehouseId === undefined && !optionsFailed}
+      documents={list.documents}
+      total={list.total}
+      isLoading={pick.isLoading || list.isLoading}
+      error={optionsFailed ? pick.error : list.error}
+      onRetry={optionsFailed ? pick.refresh : list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+      statusFilter={statusFilter}
+      onStatusFilterChange={setStatusFilter}
+      typeFilter={typeFilter}
+      onTypeFilterChange={setTypeFilter}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      openDocumentId={openDocumentId}
+      onOpenDocument={(id) => {
+        openFile.reset();
+        archive.reset();
+        setOpenDocumentId(id);
+      }}
+      detail={detail.document}
+      detailLoading={detail.isLoading}
+      detailError={detail.error}
+      onRetryDetail={detail.refresh}
+      onOpenFile={openFile.run}
+      isOpeningFile={openFile.isPending}
+      openFileError={openFile.error}
+      onSaveEdit={(documentId, body, onDone) => edit.run({ documentId, body }, onDone)}
+      isSavingEdit={edit.isPending}
+      saveEditError={edit.error}
+      onResetEdit={edit.reset}
+      onArchive={(documentId) => archive.run(documentId)}
+      isArchiving={archive.isPending}
+      archiveError={archive.error}
+    />
+  );
+}
+
+function LiveWarehouseSettingsRoute({ base, selection }: { base: WarehouseScreenBaseProps; selection: WarehouseSelectionProps }) {
+  const pick = useRealWarehousePick(base, selection);
+  const warehouseId = pick.warehouseId;
+  const warehouse = useWarehouseProfile(warehouseId);
+  const capacity = useWarehouseCapacity(warehouseId);
+  const saveCapacity = useSaveCapacity(warehouseId);
+  const saveProfile = useSaveWarehouseProfile(warehouseId);
+  const optionsFailed = warehouseId === undefined && pick.error !== null && pick.error !== undefined;
+  return (
+    <WarehouseSettingsScreen
+      {...base}
+      warehouseOptions={pick.options}
+      selectedWarehouseId={warehouseId}
+      onSelectWarehouse={pick.onSelect}
+      headerWarehouseId={pick.headerWarehouseId}
+      unavailable={warehouseId === undefined && !optionsFailed}
+      profile={warehouse.warehouse}
+      operatingHours={warehouse.operatingHours}
+      capacity={capacity.capacity}
+      isLoading={pick.isLoading || warehouse.isLoading}
+      error={optionsFailed ? pick.error : warehouse.error}
+      onRetry={optionsFailed ? pick.refresh : warehouse.refresh}
+      onRefresh={() => {
+        warehouse.refresh();
+        capacity.refresh();
+      }}
+      isRefreshing={warehouse.isRefreshing}
+      onSaveCapacity={saveCapacity.run}
+      isSavingCapacity={saveCapacity.isPending}
+      capacityError={saveCapacity.error}
+      onResetCapacity={saveCapacity.reset}
+      onSaveProfile={saveProfile.run}
+      isSavingProfile={saveProfile.isPending}
+      profileError={saveProfile.error}
+      onResetProfile={saveProfile.reset}
+    />
+  );
+}
+
 export function ProfileFlow({
   scope,
   can,
@@ -340,7 +489,7 @@ export function ProfileFlow({
   onLogout,
   onReportIssue,
   onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions,
   initialWarehouseId,
   onSelectStorageLocation,
 }: ProfileFlowProps) {
@@ -348,7 +497,23 @@ export function ProfileFlow({
   // Main's selector pick, shared by the warehouse-facing screens of the flow.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const [reportCategory, setReportCategory] = useState<FaqCategory>('Warehouse Operations');
-  const [submittedTicketId, setSubmittedTicketId] = useState<string>('SUP-00246');
+  // Set by the report form before IssueSubmitted opens; never a sample ticket number.
+  const [submittedTicketId, setSubmittedTicketId] = useState<string>('');
+  // Main's selector lists the REAL warehouses (GET /warehouses, warehouse.all.view); a
+  // Sub scope never picks (BR-30). A host may still pass its own list.
+  const liveWarehouses = useWarehouseOptions({ enabled: warehouseOptions === undefined && isMainScope(scope) && can('warehouse.all.view') });
+  const liveOptions = useMemo<WarehouseScope[]>(
+    () => liveWarehouses.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName })),
+    [liveWarehouses.options],
+  );
+  const resolvedOptions = warehouseOptions ?? liveOptions;
+  // Main without a pick reads the first REAL warehouse (the header already shows it).
+  const firstWarehouseId = resolvedOptions[0]?.warehouseId;
+  useEffect(() => {
+    if (isMainScope(scope) && selectedWarehouseId === undefined && firstWarehouseId !== undefined) {
+      setSelectedWarehouseId(firstWarehouseId);
+    }
+  }, [scope, selectedWarehouseId, firstWarehouseId]);
 
   // A host that re-targets the open module restarts the stack, as the other area flows do.
   useEffect(() => {
@@ -370,8 +535,12 @@ export function ProfileFlow({
   });
 
   const common: WarehouseScreenBaseProps = { scope, can, onBack: back, onTabChange };
-  const selection: WarehouseSelectionProps = { warehouseOptions, selectedWarehouseId, onSelectWarehouse: setSelectedWarehouseId };
-  // BR-30: the warehouse every warehouse-facing route reads.
+  const selection: WarehouseSelectionProps = {
+    warehouseOptions: resolvedOptions,
+    selectedWarehouseId,
+    onSelectWarehouse: setSelectedWarehouseId,
+  };
+  // BR-30: the warehouse every warehouse-facing route reads (uuid-guarded).
   const warehouseId = profileWarehouseId(scope, selectedWarehouseId);
 
   switch (current) {
@@ -449,11 +618,12 @@ export function ProfileFlow({
     case 'Contact':
       return <LiveContactRoute base={common} selection={selection} warehouseId={warehouseId} />;
     case 'Documents':
-      return <DocumentsScreen {...common} {...selection} />;
+      return <LiveDocumentsRoute base={common} selection={selection} />;
     case 'WarehouseSettings':
-      // Main-only: the screen itself is route-guarded on warehouse.capacity.set
-      // (a permission note without it), so every host gets the same guard.
-      return <WarehouseSettingsScreen {...common} {...selection} />;
+      // Main-only: the screen shows a permission note without
+      // warehouse.capacity.set and warehouse.profile.edit, so every host gets
+      // the same guard.
+      return <LiveWarehouseSettingsRoute base={common} selection={selection} />;
     default:
       return null;
   }

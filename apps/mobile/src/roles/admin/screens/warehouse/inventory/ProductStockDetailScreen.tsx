@@ -84,7 +84,7 @@ export function ProductStockDetailScreen({
   onRefresh,
   isRefreshing = false,
 }: ProductStockDetailScreenProps) {
-  // Stock verification has no server API (availability.ts), so its action is hidden.
+  // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: product === undefined ? 0 : 1 });
   const channel = (key: AllocationChannelKey) => {

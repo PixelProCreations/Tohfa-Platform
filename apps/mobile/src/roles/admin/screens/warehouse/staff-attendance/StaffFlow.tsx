@@ -1,24 +1,22 @@
 /**
  * In-module navigator for the warehouse staff & attendance screens (design
- * module M14).
+ * module M14), live against /admin/warehouse-staff and /admin/staff-attendance.
  *
  *   Staff -> Staff Detail -> Edit Staff Profile (form / confirm / success)
- *                         -> Attendance History (attendance summary tap)
- *   Staff -> Attendance -> Attendance Detail
+ *                         -> Attendance History (this member)
+ *         -> Add Staff (Edit Staff Profile in create mode)
+ *   Staff -> Attendance -> Attendance Detail ({ staffId, date })
  *                       -> Attendance History
  *
- * The screens used to be stitched three times (App.tsx keys, the Sub shell's
- * show* flags and Main's own nested MainWarehouseStaff* / MainWarehouseAttendance
- * screens), none of which passed `scope` / `can`. This flow owns the stack, so
- * every step gets the viewer's scope and `can`.
+ * Gate (docs/rbac.json; BR-83: a Sub Warehouse Admin holds none of these):
+ *   Staff, StaffDetail                         admin.staff.list_view
+ *   EditStaffProfile                           admin.staff.manage
+ *   Attendance, AttendanceDetail, History      admin.staff.attendance.view
+ * navigate() refuses a route without its code and each screen renders a
+ * not-available note if opened directly; the server enforces all of it again.
  *
- * Gate: the roster routes (Staff, StaffDetail, EditStaffProfile) need
- * `warehouse.staff.list_view` (MAIN all, SUB own). navigate() refuses them
- * without it and the screens render a not-available note if opened directly.
- * Attendance has no code (ungated, SPEC_GAPS W4t-3).
- *
- * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix; the
- * old 'SubWarehouseTodayAttendance' key opens Attendance on the 'All' chip.
+ * `onAssignDelivery` is accepted for host compatibility but unused: the staff
+ * record has no driver type and no delivery assignment exists in the API.
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
@@ -28,7 +26,8 @@ import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
 import { AttendanceScreen } from './AttendanceScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
-import { STAFF_ROSTER_CODE, StaffScreen } from './StaffScreen';
+import { canOpenStaffRoute } from './mappers';
+import { StaffScreen } from './StaffScreen';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StaffStackEntry {
@@ -36,13 +35,7 @@ interface StaffStackEntry {
   params?: StaffRouteParams | undefined;
 }
 
-/** Routes that show the warehouse roster and need STAFF_ROSTER_CODE. */
-const ROSTER_ROUTES: readonly StaffRoute[] = ['Staff', 'StaffDetail', 'EditStaffProfile'];
-
-/** True when `can` allows opening `route` (roster routes need warehouse.staff.list_view). */
-export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck): boolean {
-  return !ROSTER_ROUTES.includes(route) || can(STAFF_ROSTER_CODE);
-}
+export { canOpenStaffRoute };
 
 export interface StaffFlowProps {
   scope: WarehouseScope;
@@ -52,6 +45,7 @@ export interface StaffFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
+  /** Unused (no delivery assignment in the API); kept so existing hosts still compile. */
   onAssignDelivery?: ((driver?: StaffMember) => void) | undefined;
 }
 
@@ -62,14 +56,13 @@ export function StaffFlow({
   initialParams,
   onBack,
   onTabChange,
-  onAssignDelivery,
 }: StaffFlowProps) {
   const [stack, setStack] = useState<StaffStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
   // builds the params inline does not reset it on every render.
-  const presetKey = `${initialParams?.staff?.id ?? ''}|${initialParams?.record?.id ?? ''}|${initialParams?.attendanceFilter ?? ''}`;
+  const presetKey = `${initialParams?.staff?.id ?? ''}|${initialParams?.record?.staffId ?? ''}|${initialParams?.record?.date ?? ''}|${initialParams?.attendanceFilter ?? ''}|${initialParams?.historyStaffId ?? ''}`;
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
     // initialParams is read through presetKey on purpose (see above).
@@ -108,6 +101,7 @@ export function StaffFlow({
         <StaffScreen
           {...common}
           onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
+          onAddStaff={() => navigate('EditStaffProfile', {})}
           onNavigateToAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onNavigateToHistory={() => navigate('AttendanceHistory')}
         />
@@ -118,8 +112,7 @@ export function StaffFlow({
           {...common}
           staff={params.staff}
           onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
-          onViewAttendanceHistory={() => navigate('AttendanceHistory')}
-          onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}
+          onViewAttendanceHistory={(staff) => navigate('AttendanceHistory', { historyStaffId: staff.id, historyStaffName: staff.name })}
         />
       );
     case 'EditStaffProfile':
@@ -139,6 +132,8 @@ export function StaffFlow({
       return (
         <AttendanceHistoryScreen
           {...common}
+          staffId={params.historyStaffId}
+          staffName={params.historyStaffName}
           onNavigateToToday={() => {
             // Back to the overview when History was opened from it; otherwise open it.
             const prev = stack[stack.length - 2];

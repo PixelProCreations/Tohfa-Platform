@@ -9619,16 +9619,52 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/stock-adjustments:
+    get:
+      tags: [Inventory]
+      operationId: listStockAdjustments
+      summary: List manual stock adjustments
+      description: |
+        Newest first (`createdAt` DESC, then id). Requires `inventory.stock_adjustment.create`
+        (rbac.json has no separate view code; everyone who raises or decides adjustments holds it).
+        Super, TOHFA and Main Warehouse Admin see every warehouse; a Sub Warehouse Admin only its own,
+        and a `warehouseId` of another warehouse is an empty page, never 403 (BR-30). Filters:
+        `status`, `warehouseId`, `batchId`, `adjustmentType`. Strict query.
+      x-permission: inventory.stock_adjustment.create
+      x-business-rules: [BR-30, BR-37]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/StockAdjustmentStatus' } }
+        - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+        - { name: batchId, in: query, schema: { type: string, format: uuid } }
+        - { name: adjustmentType, in: query, schema: { $ref: '#/components/schemas/StockAdjustmentType' } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of adjustments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Inventory]
       operationId: createStockAdjustment
-      summary: Adjust stock on a batch
+      summary: Request a manual stock adjustment on a batch
       description: |
-        Appends a signed `ADJUSTMENT` row to the ledger; the batch balance is recomputed,
-        never edited in place (BR-37). A Sub Warehouse Admin may only adjust batches in
-        their own warehouse (BR-30) and their adjustments require approval.
+        Records a `PENDING` adjustment. It moves NO stock: the quantity changes only when a different
+        admin approves it, by inserting one `ADJUSTMENT` ledger row (BR-37b). Requires
+        `inventory.stock_adjustment.create` and an `Idempotency-Key` (a replay returns the original 201
+        response; the same key with another body is 409 `IDEMPOTENCY_KEY_REUSED`).
+
+        A Sub Warehouse Admin may only adjust batches in its own warehouse; a batch it cannot reach is
+        the same 404 as an unknown batch (BR-30). `qtyDeltaKg` is signed and never zero; `DAMAGE`,
+        `SHRINKAGE` and `EXPIRY` may only remove stock (negative), only `COUNT_CORRECTION` may add
+        (422 otherwise). A removal larger than the batch's current balance is 409
+        `STOCK_UNAVAILABLE`. One masked `inventory.stock_adjustment.create` audit row (never the reason).
       x-permission: inventory.stock_adjustment.create
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-35, BR-37]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -9642,13 +9678,229 @@ paths:
               reason: Moisture loss over 3 days in cold store.
       responses:
         '201':
-          description: Adjustment recorded.
+          description: Adjustment recorded as `PENDING`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StockAdjustment' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-adjustments/{id}:
+    get:
+      tags: [Inventory]
+      operationId: getStockAdjustment
+      summary: Read one stock adjustment
+      description: |
+        Requires `inventory.stock_adjustment.create`. An adjustment of another warehouse (for a Sub
+        Warehouse Admin) and an unknown id are the same 404 (BR-30).
+      x-permission: inventory.stock_adjustment.create
+      x-business-rules: [BR-30, BR-37]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The adjustment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-adjustments/{id}/approve:
+    post:
+      tags: [Inventory]
+      operationId: approveStockAdjustment
+      summary: Approve a pending stock adjustment, which moves the stock
+      description: |
+        Requires `inventory.stock_adjustment.approve` (Super Admin, TOHFA Admin, Main Warehouse Admin;
+        a Sub Warehouse Admin holds `none` and gets 403 `FORBIDDEN` from the permission gate, BR-37a)
+        and an `Idempotency-Key`. Only a `PENDING` adjustment (else 409 `INVALID_STATE_TRANSITION`).
+        The admin who raised it may not approve it: 403 `SELF_APPROVAL_FORBIDDEN` (BR-37a; also a DB
+        CHECK), and it stays `PENDING`. In ONE transaction: one `ADJUSTMENT` row is inserted into
+        `stock_ledger` (`refType` `stock_adjustment`, `refId` = the adjustment; the trigger moves the
+        batch balance and refuses a negative one, 409 `STOCK_UNAVAILABLE`, nothing written), the
+        adjustment becomes `APPROVED` with `approvedBy`/`approvedAt`/`ledgerEntryId`, and one masked
+        `inventory.stock_adjustment.approve` audit row is written (BR-37b). No request body.
+      x-permission: inventory.stock_adjustment.approve
+      x-business-rules: [BR-35, BR-37]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: The adjustment, now `APPROVED`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-adjustments/{id}/reject:
+    post:
+      tags: [Inventory]
+      operationId: rejectStockAdjustment
+      summary: Reject a pending stock adjustment
+      description: |
+        Requires `inventory.stock_adjustment.approve`. Only a `PENDING` adjustment (else 409
+        `INVALID_STATE_TRANSITION`); the admin who raised it may not reject it either (403
+        `SELF_APPROVAL_FORBIDDEN`; also a DB CHECK). Moves no stock. Records `rejectedBy`,
+        `rejectedAt` and `rejectionReason`; a decided adjustment can never change again (DB trigger).
+        One masked `inventory.stock_adjustment.reject` audit row (never the reason).
+      x-permission: inventory.stock_adjustment.approve
+      x-business-rules: [BR-35, BR-37]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockAdjustmentReject' }
+      responses:
+        '200':
+          description: The adjustment, now `REJECTED`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-verifications:
+    get:
+      tags: [Inventory]
+      operationId: listStockVerifications
+      summary: List physical stock counts
+      description: |
+        Newest first (`verifiedAt` DESC, then id). Requires `inventory.stock_verification.perform`
+        (no separate view code exists). A Sub Warehouse Admin sees only its warehouse; a `warehouseId`
+        of another warehouse is an empty page, never 403 (BR-30, BR-107). Filters: `status`,
+        `warehouseId`, `batchId`, `hasVariance`. Strict query.
+      x-permission: inventory.stock_verification.perform
+      x-business-rules: [BR-30, BR-107]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/StockVerificationStatus' } }
+        - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+        - { name: batchId, in: query, schema: { type: string, format: uuid } }
+        - { name: hasVariance, in: query, schema: { type: string, enum: ['true', 'false'] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: One page of counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockVerificationList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Inventory]
+      operationId: createStockVerification
+      summary: Record a physical count of a batch against the system figure
+      description: |
+        Requires `inventory.stock_verification.perform` and an `Idempotency-Key`. The server
+        snapshots the batch's ledger-derived balance as `systemQtyKg` (under a share lock); the
+        database derives `varianceKg` = counted - system. A count NEVER moves stock. A count equal to
+        the system figure is `RECONCILED` at once; any other is `RECORDED`, and its variance can be
+        handed to the adjustment workflow with `POST /admin/stock-verifications/{id}/adjustment`
+        (BR-107). A batch outside the caller's warehouse is the same 404 as an unknown batch. One
+        masked `inventory.stock_verification.perform` audit row (never the notes).
+      x-permission: inventory.stock_verification.perform
+      x-business-rules: [BR-30, BR-35, BR-107]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockVerificationCreate' }
+            example:
+              batchId: 4d3c2b1a-0f9e-4d8c-8b7a-6f5e4d3c2b1a
+              countedQtyKg: '37.500'
+              notes: Rack B3, two crates.
+      responses:
+        '201':
+          description: The recorded count.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockVerification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-verifications/{id}:
+    get:
+      tags: [Inventory]
+      operationId: getStockVerification
+      summary: Read one physical count
+      description: |
+        Requires `inventory.stock_verification.perform`. A count of another warehouse (for a Sub
+        Warehouse Admin) and an unknown id are the same 404.
+      x-permission: inventory.stock_verification.perform
+      x-business-rules: [BR-30, BR-107]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The count.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockVerification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/stock-verifications/{id}/adjustment:
+    post:
+      tags: [Inventory]
+      operationId: raiseStockVerificationAdjustment
+      summary: Raise a COUNT_CORRECTION stock adjustment for a count's variance
+      description: |
+        Requires `inventory.stock_adjustment.create` (what it creates is a stock adjustment) and an
+        `Idempotency-Key`. Only a `RECORDED` count with a non-zero variance and no adjustment yet
+        (else 409 `INVALID_STATE_TRANSITION`). In ONE transaction it creates a `PENDING`
+        `COUNT_CORRECTION` adjustment with `qtyDeltaKg` = `varianceKg` (same checks as
+        `POST /admin/stock-adjustments`, including 409 `STOCK_UNAVAILABLE` when stock has since left
+        the batch), links it as `adjustmentId` and marks the count `RECONCILED`. No stock moves until a
+        different admin approves the adjustment (BR-37). `reason` is optional; a default naming the
+        count is used. Audit rows: `inventory.stock_adjustment.create` and
+        `inventory.stock_verification.reconcile`.
+      x-permission: inventory.stock_adjustment.create
+      x-business-rules: [BR-30, BR-37, BR-107]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockVerificationRaiseAdjustment' }
+      responses:
+        '201':
+          description: The reconciled count and the pending adjustment it raised.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockVerificationAdjustmentRaised' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -18613,30 +18865,132 @@ components:
         performedAt: { type: string, format: date-time }
         remarks: { type: [string, 'null'] }
 
+    StockAdjustmentType:
+      type: string
+      enum: [DAMAGE, SHRINKAGE, COUNT_CORRECTION, EXPIRY]
+      description: DAMAGE, SHRINKAGE and EXPIRY only remove stock; only COUNT_CORRECTION may add.
+
+    StockAdjustmentStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
     StockAdjustmentCreate:
       type: object
+      additionalProperties: false
       required: [batchId, adjustmentType, qtyDeltaKg, reason]
       properties:
         batchId: { type: string, format: uuid }
-        adjustmentType: { type: string, enum: [DAMAGE, SHRINKAGE, COUNT_CORRECTION, EXPIRY] }
-        qtyDeltaKg: { $ref: '#/components/schemas/Quantity' }
+        adjustmentType: { $ref: '#/components/schemas/StockAdjustmentType' }
+        qtyDeltaKg:
+          $ref: '#/components/schemas/Quantity'
+          description: Signed, never zero; negative removes stock. Must be negative for DAMAGE, SHRINKAGE and EXPIRY.
         reason: { type: string, minLength: 5, maxLength: 500 }
+
+    StockAdjustmentReject:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
 
     StockAdjustment:
       type: object
-      required: [id, batchId, adjustmentType, qtyDeltaKg, status, adjustedAt]
+      description: |
+        A manual stock correction (BR-37). Creating one moves no stock; approval by an admin other
+        than `createdBy` inserts the ledger row named by `ledgerEntryId`.
+      required: [id, batchId, batchCode, warehouseId, cropId, grade, adjustmentType, qtyDeltaKg, reason, status, createdBy, createdAt, approvedBy, approvedAt, rejectedBy, rejectedAt, rejectionReason, ledgerEntryId, verificationId, updatedAt]
       properties:
         id: { type: string, format: uuid }
         batchId: { type: string, format: uuid }
+        batchCode: { type: string }
         warehouseId: { type: string, format: uuid }
-        adjustmentType: { type: string, enum: [DAMAGE, SHRINKAGE, COUNT_CORRECTION, EXPIRY] }
-        qtyDeltaKg: { $ref: '#/components/schemas/Quantity' }
+        cropId: { type: string, format: uuid }
+        grade: { $ref: '#/components/schemas/Grade' }
+        adjustmentType: { $ref: '#/components/schemas/StockAdjustmentType' }
+        qtyDeltaKg: { $ref: '#/components/schemas/Quantity', description: 'Signed: negative removes stock.' }
         reason: { type: string }
-        status: { type: string, enum: [PENDING_APPROVAL, APPROVED, REJECTED] }
-        ledgerEntryId: { type: [string, 'null'], format: uuid }
-        adjustedBy: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/StockAdjustmentStatus' }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
         approvedBy: { type: [string, 'null'], format: uuid }
-        adjustedAt: { type: string, format: date-time }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        rejectedBy: { type: [string, 'null'], format: uuid }
+        rejectedAt: { type: [string, 'null'], format: date-time }
+        rejectionReason: { type: [string, 'null'] }
+        ledgerEntryId: { type: [string, 'null'], format: uuid, description: 'The stock_ledger row the approval inserted (BR-37b).' }
+        verificationId: { type: [string, 'null'], format: uuid, description: 'The BR-107 count this adjustment was raised from, if any.' }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    StockAdjustmentList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/StockAdjustment' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    StockVerificationStatus:
+      type: string
+      enum: [RECORDED, RECONCILED, DISPUTED]
+      description: DISPUTED is a legal stored value but nothing in the API writes it yet (BR-107).
+
+    StockVerificationCreate:
+      type: object
+      additionalProperties: false
+      required: [batchId, countedQtyKg]
+      properties:
+        batchId: { type: string, format: uuid }
+        countedQtyKg:
+          type: string
+          pattern: '^[0-9]{1,9}(\.[0-9]{1,3})?$'
+          description: The physically counted weight in kg; zero allowed.
+        notes: { type: string, minLength: 1, maxLength: 1000 }
+
+    StockVerificationRaiseAdjustment:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 500 }
+
+    StockVerification:
+      type: object
+      description: A physical count against the ledger figure (BR-107). Never moves stock.
+      required: [id, warehouseId, batchId, batchCode, cropId, grade, systemQtyKg, countedQtyKg, varianceKg, status, notes, verifiedBy, verifiedAt, adjustmentId, adjustmentStatus, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        batchId: { type: string, format: uuid }
+        batchCode: { type: string }
+        cropId: { type: string, format: uuid }
+        grade: { $ref: '#/components/schemas/Grade' }
+        systemQtyKg: { $ref: '#/components/schemas/Quantity', description: 'Ledger balance snapshotted at the count.' }
+        countedQtyKg: { $ref: '#/components/schemas/Quantity' }
+        varianceKg: { $ref: '#/components/schemas/Quantity', description: 'counted - system; negative means stock is missing.' }
+        status: { $ref: '#/components/schemas/StockVerificationStatus' }
+        notes: { type: [string, 'null'] }
+        verifiedBy: { type: string, format: uuid }
+        verifiedAt: { type: string, format: date-time }
+        adjustmentId: { type: [string, 'null'], format: uuid }
+        adjustmentStatus: { type: [string, 'null'], enum: [PENDING, APPROVED, REJECTED, null] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    StockVerificationList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/StockVerification' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    StockVerificationAdjustmentRaised:
+      type: object
+      required: [verification, adjustment]
+      properties:
+        verification: { $ref: '#/components/schemas/StockVerification' }
+        adjustment: { $ref: '#/components/schemas/StockAdjustment' }
 
     Allocation:
       type: object

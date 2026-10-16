@@ -1,149 +1,108 @@
 /**
- * Task / Action Center: the warehouse's open tasks (QC follow-ups, pickups),
- * with counts, filter chips, search and a Start Task action for the selected
- * task.
+ * Task / Action Center: the warehouse's live work items (BR-77), derived by
+ * the server from existing records: QC of a goods receipt, packing / dispatch
+ * / pickup of an order, inspection / approval of a return.
  *
- * Gate (FINAL_LIST 27): NO rbac code exists for tasks (SPEC_GAPS W4z-3). Interim
- * rule: visible to any authenticated warehouse admin, scope-locked (Sub sees
- * only its own warehouse's tasks; Main all four, warehouse shown per card).
- * The counts are computed from the tasks in view (they were fixed 24/12/7/5).
- * Tapping or starting a task opens its detail, or for an order task hands the
- * order id to the host's order detail. There is no task endpoint yet.
+ * Data: GET /admin/tasks?state=open|done (cursor paged) and GET
+ * /admin/tasks/summary for the KPI tiles, both scoped to scope.warehouseId (a
+ * Sub admin its own warehouse, BR-30; Main the whole scope, warehouse named on
+ * each card). Permission `task.own.view` is checked by the server.
+ *
+ * The server knows only OPEN and DONE: there is no priority, assignee or "in
+ * progress" state, so the screen offers none. Tapping a task opens its detail.
  */
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
+import { t, type TranslationKey } from '../../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { ChipGroup, KpiRow, SearchBar, StatusBadge, WalletButton, WalletScreen, isAllWarehouses, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { HOME_CODES } from './HomeParts';
 import {
-  ChipGroup,
-  EmptyState,
-  KpiRow,
-  SearchBar,
-  StatusBadge,
-  WalletButton,
-  WalletFooter,
-  WalletScreen,
-  inScope,
-  isAllWarehouses,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
-import type { TaskPriority, TaskRecord, TaskStatus, WarehouseScreenBaseProps } from './types';
+  TASK_STATE_FILTERS,
+  filterTaskRows,
+  taskKpis,
+  warehouseLabel,
+  type TaskRow,
+  type TaskStateFilter,
+} from './mappers_dashboardHome';
+import type { WarehouseScreenBaseProps } from './types';
+import { useTaskRows, useTaskSummary } from './useDashboardHomeData';
 
-type TaskFilter = 'All' | 'My Tasks' | 'Pending' | 'Completed';
-const FILTERS: readonly TaskFilter[] = ['All', 'My Tasks', 'Pending', 'Completed'];
-
-export const TASK_PRIORITY_TONE: Record<TaskPriority, AdminTone> = { HIGH: 'danger', MEDIUM: 'brandSoft', LOW: 'info' };
-export const TASK_STATUS_TONE: Record<TaskStatus, AdminTone> = { Pending: 'brandSoft', 'In Progress': 'info', Completed: 'success' };
-
-function PlayCircleIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM10 8l6 4-6 4V8z"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+const FILTER_LABEL: Record<TaskStateFilter, TranslationKey> = {
+  open: 'dashboardHome.task.filter.open',
+  done: 'dashboardHome.task.filter.done',
+};
 
 export interface TaskActionCenterScreenProps extends WarehouseScreenBaseProps {
-  tasks: readonly TaskRecord[];
-  /** Open a task (its detail, or the order it is about). */
-  onOpenTask: (task: TaskRecord) => void;
+  /** Open a task's detail. */
+  onOpenTask: (task: TaskRow) => void;
 }
 
-export function TaskActionCenterScreen({ scope, onBack, tasks, onOpenTask }: TaskActionCenterScreenProps) {
-  const [activeFilter, setActiveFilter] = useState<TaskFilter>('All');
+export function TaskActionCenterScreen({ scope, can, onBack, onOpenTask }: TaskActionCenterScreenProps) {
+  const [filter, setFilter] = useState<TaskStateFilter>('open');
   const [searchQuery, setSearchQuery] = useState('');
-  const inView = tasks.filter((t) => inScope(scope, t.warehouseId));
-  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>(inView[0]?.id);
   const allWarehouses = isAllWarehouses(scope);
+  const tasks = useTaskRows(scope, filter);
+  const summary = useTaskSummary(scope);
+  const { options } = useWarehouseOptions({ enabled: allWarehouses && can(HOME_CODES.allView) });
 
-  const query = searchQuery.trim().toLowerCase();
-  const filtered = inView.filter((t) => {
-    if (activeFilter === 'My Tasks' && !t.mine) return false;
-    if (activeFilter === 'Pending' && t.status === 'Completed') return false;
-    if (activeFilter === 'Completed' && t.status !== 'Completed') return false;
-    if (!query) return true;
-    return (
-      t.title.toLowerCase().includes(query) ||
-      t.referenceId.toLowerCase().includes(query) ||
-      t.id.toLowerCase().includes(query) ||
-      t.description.toLowerCase().includes(query)
-    );
-  });
-  const selected = inView.find((t) => t.id === selectedTaskId);
+  const kpis = taskKpis(summary.data);
+  const visible = filterTaskRows(tasks.items, searchQuery);
+  const state = queryViewState({ isLoading: tasks.isLoading, error: tasks.error, itemCount: tasks.items.length });
 
   return (
-    <WalletScreen
-      title="Task / Action Center"
-      onBack={onBack}
-      footer={
-        selected !== undefined && selected.status !== 'Completed' ? (
-          <WalletFooter>
-            <WalletButton label="Start Task" icon={<PlayCircleIcon />} onPress={() => onOpenTask(selected)} />
-          </WalletFooter>
-        ) : undefined
-      }
-    >
+    <WalletScreen title={t('dashboardHome.task.title')} onBack={onBack}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.gap} />
-        <KpiRow
-          items={[
-            { label: 'ALL TASKS', value: String(inView.length) },
-            { label: 'PENDING', value: String(inView.filter((t) => t.status !== 'Completed').length) },
-          ]}
+        <KpiRow items={kpis.slice(0, 2)} />
+        <KpiRow items={kpis.slice(2, 4)} />
+        <ChipGroup
+          options={TASK_STATE_FILTERS}
+          value={filter}
+          onChange={setFilter}
+          labelOf={(f) => t(FILTER_LABEL[f])}
         />
-        <KpiRow
-          items={[
-            { label: 'DUE TODAY', value: String(inView.filter((t) => t.dueToday && t.status !== 'Completed').length) },
-            { label: 'COMPLETED', value: String(inView.filter((t) => t.status === 'Completed').length) },
-          ]}
-        />
-        <ChipGroup options={FILTERS} value={activeFilter} onChange={setActiveFilter} />
         <View style={styles.gap} />
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Task ID, Order ID, GR ID, RMA ID..." />
+        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={t('dashboardHome.task.searchPlaceholder')} />
         <View style={styles.gap} />
 
-        {filtered.length === 0 ? (
-          <EmptyState title="No tasks" subtitle="No task matches this filter." />
+        {state === 'loading' ? (
+          <AdminLoadingState />
+        ) : state === 'error' ? (
+          <AdminErrorState error={tasks.error} onRetry={tasks.refresh} />
+        ) : state === 'empty' || visible.length === 0 ? (
+          <AdminEmptyState title={t('dashboardHome.task.empty.title')} subtitle={t('dashboardHome.task.empty.subtitle')} />
         ) : (
-          filtered.map((task) => {
-            const isSelected = task.id === selectedTaskId;
-            return (
-              <TouchableOpacity
-                key={task.id}
-                style={[styles.taskCard, isSelected && styles.taskCardSelected]}
-                onPress={() => {
-                  setSelectedTaskId(task.id);
-                  onOpenTask(task);
-                }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={`${task.title} ${task.referenceId}`}
-              >
-                <View style={styles.rowBetween}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
-                  <StatusBadge label={task.priority} tone={TASK_PRIORITY_TONE[task.priority]} />
-                </View>
-                <Text style={styles.taskRef}>
-                  {task.referenceId}
-                  {allWarehouses ? ` · ${warehouseNameOf(task.warehouseId)}` : ''}
-                </Text>
-                <Text style={styles.taskDesc}>{task.description}</Text>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.taskMeta}>{task.dueTime}</Text>
-                  <StatusBadge label={task.status} tone={TASK_STATUS_TONE[task.status]} />
-                </View>
-              </TouchableOpacity>
-            );
-          })
+          visible.map((task) => (
+            <TouchableOpacity
+              key={task.itemKey}
+              style={styles.taskCard}
+              onPress={() => onOpenTask(task)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={task.title}
+            >
+              <View style={styles.rowBetween}>
+                <Text style={styles.taskTitle}>{task.title}</Text>
+                <StatusBadge
+                  label={t(task.done ? 'dashboardHome.task.state.done' : 'dashboardHome.task.state.open')}
+                  tone={task.done ? 'success' : 'brandSoft'}
+                />
+              </View>
+              {allWarehouses ? <Text style={styles.taskRef}>{warehouseLabel(options, task.warehouseId)}</Text> : null}
+              {task.details !== null ? <Text style={styles.taskDesc}>{task.details}</Text> : null}
+              <View style={styles.rowBetween}>
+                <Text style={styles.taskMeta}>{task.dueLabel ?? task.createdLabel}</Text>
+                {task.dueToday && !task.done ? <StatusBadge label={t('dashboardHome.task.dueToday')} tone="warning" /> : null}
+              </View>
+            </TouchableOpacity>
+          ))
         )}
+        {tasks.hasMore ? <WalletButton label={t('dashboardHome.loadMore')} variant="outline" onPress={tasks.loadMore} /> : null}
       </ScrollView>
     </WalletScreen>
   );
@@ -161,7 +120,6 @@ const styles = StyleSheet.create({
     gap: adminSpacing.xs,
     ...adminShadow.sm,
   },
-  taskCardSelected: { borderColor: adminColors.brand, borderWidth: 1.5 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: adminSpacing.sm },
   taskTitle: { ...adminType.sectionHead, color: adminColors.ink, flex: 1 },
   taskRef: { ...adminType.rowTitle, color: adminColors.brandDeep },

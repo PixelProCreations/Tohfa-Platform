@@ -18,6 +18,14 @@ export const WAREHOUSE_ADMIN_CODES = {
   swaCreate: 'admin.sub_wh_admin.create',
   /** Warehouse Settings (route-guarded by profile-settings on the same code). MAIN all, SUB none. */
   capacitySet: 'warehouse.capacity.set',
+  /** Open-issue counts on Overview and City Detail (GET /warehouses/{id}/issues, BR-103). MAIN all, SUB own. */
+  issueView: 'warehouse.issue.view',
+  /** Open-task count on City Detail (GET /admin/tasks/summary, BR-77). MAIN all, SUB own. */
+  taskView: 'task.own.view',
+  /** Staff roster view (admin.staff.list_view). MAIN all, SUB none. */
+  staffView: 'admin.staff.list_view',
+  /** Staff attendance view (admin.staff.attendance.view). MAIN all, SUB none. */
+  attendanceView: 'admin.staff.attendance.view',
 } as const;
 
 interface IconProps {
@@ -133,16 +141,6 @@ export function ViewTile({ label, icon, onPress }: { label: string; icon: React.
 
 export function ViewTileGrid({ children }: { children: React.ReactNode }) {
   return <View style={styles.tileGrid}>{children}</View>;
-}
-
-/** Occupancy percent, rounded; 0 when the capacity is unknown. */
-export function utilizationPercent(stockKg: number, capacityKg: number): number {
-  return capacityKg > 0 ? Math.round((stockKg / capacityKg) * 100) : 0;
-}
-
-/** '3,420 kg' */
-export function formatAdminKg(kg: number): string {
-  return `${kg.toLocaleString('en-IN')} kg`;
 }
 
 /** Capacity bar; the warning tone marks a warehouse whose data says it is near capacity. */
