@@ -13,32 +13,33 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
+// ─── Design Tokens Mapped to Admin Theme ──────────────────────────────────
 const PALETTE = {
-  primary: '#F0562A',       // Exact requested brand orange
-  primaryLight: '#FDF3F0',  // Soft peach/orange tint
-  primaryBorder: '#EEDCD3', // Soft orange border
-  primaryDark: '#D4451C',   // Pressed/darker orange
+  primary: adminColors.brand,
+  primaryLight: adminColors.brandTint,
+  primaryBorder: adminColors.border,
+  primaryDark: adminColors.brandDeep,
 
-  pageBg: '#F3EFE9',        // App canvas soft cream
-  cardBg: '#FFFFFF',        // Pure white card surfaces
-  ink: '#1A1A1A',           // Deep charcoal/black text
-  labelMuted: '#5F5E5A',    // Secondary muted gray-brown
-  border: '#EEDCD3',        // Soft divider border
-  borderLight: '#F5F2EC',   // Subtle card inner border
-  inputBg: '#FFFFFF',       // Form input background
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  ink: adminColors.ink,
+  labelMuted: adminColors.muted,
+  border: adminColors.border,
+  borderLight: adminColors.border,
+  inputBg: adminColors.card,
 
-  green: '#16A34A',
-  greenLight: '#EAF5EA',
-  amber: '#D97706',
-  amberLight: '#FEF3C7',
-  blue: '#2563EB',
-  blueLight: '#EBF3FA',
-  purple: '#7C3AED',
-  purpleLight: '#F3E8FF',
-  danger: '#DC2626',
-  dangerLight: '#FEE2E2',
+  green: adminColors.success.text,
+  greenLight: adminColors.success.bg,
+  amber: adminColors.warning.text,
+  amberLight: adminColors.warning.bg,
+  blue: adminColors.info.text,
+  blueLight: adminColors.info.bg,
+  purple: adminColors.purple.text,
+  purpleLight: adminColors.purple.bg,
+  danger: adminColors.danger.text,
+  dangerLight: adminColors.danger.bg,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ function SlidersIcon({ size = 20, color = PALETTE.primary }: { size?: number; co
   );
 }
 
-function ChevronRightIcon({ color = '#B8B2A9' }: { color?: string }) {
+function ChevronRightIcon({ color = adminColors.muted }: { color?: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18L15 12L9 6" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
@@ -453,7 +454,7 @@ export function AdminProfileScreen({
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 1: EDIT PERSONAL INFO (100% FULL SCREEN - #F0562A)
+  // SUB-SCREEN
   // ════════════════════════════════════════════════════════════════════════════
   if (currentView === 'edit') {
     return (
@@ -481,7 +482,7 @@ export function AdminProfileScreen({
               value={fullName}
               onChangeText={setFullName}
               placeholder="Enter administrator full name"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <Text style={styles.inputLabel}>Official Contact Phone</Text>
@@ -491,7 +492,7 @@ export function AdminProfileScreen({
               onChangeText={setPhone}
               keyboardType="phone-pad"
               placeholder="+91 XXXXX XXXXX"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <Text style={styles.inputLabel}>Official System Email Address</Text>
@@ -502,7 +503,7 @@ export function AdminProfileScreen({
               keyboardType="email-address"
               autoCapitalize="none"
               placeholder="admin@tohfa.test"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <Text style={styles.inputLabel}>Assigned Hub / Center Location</Text>
@@ -511,7 +512,7 @@ export function AdminProfileScreen({
               value={hubLocation}
               onChangeText={setHubLocation}
               placeholder="e.g. Coonoor Sub-Hub"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
           </View>
 
@@ -531,7 +532,7 @@ export function AdminProfileScreen({
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 2: ROLE & MODULE PERMISSIONS (100% FULL SCREEN - #F0562A)
+  // SUB-SCREEN 2: ROLE & MODULE PERMISSIONS (100% FULL SCREEN - brand)
   // ════════════════════════════════════════════════════════════════════════════
   if (currentView === 'permissions') {
     return (
@@ -599,7 +600,7 @@ export function AdminProfileScreen({
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 3: SECURITY & ACCESS (100% FULL SCREEN - #F0562A)
+  // SUB-SCREEN 3: SECURITY & ACCESS (100% FULL SCREEN - brand)
   // ════════════════════════════════════════════════════════════════════════════
   if (currentView === 'security') {
     return (
@@ -625,8 +626,8 @@ export function AdminProfileScreen({
               <Switch
                 value={biometricsEnabled}
                 onValueChange={setBiometricsEnabled}
-                trackColor={{ false: '#E2DCD5', true: PALETTE.primary }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: adminColors.border, true: PALETTE.primary }}
+                thumbColor={adminColors.onBrand}
               />
             </View>
             <View style={styles.rowDivider} />
@@ -639,8 +640,8 @@ export function AdminProfileScreen({
               <Switch
                 value={twoFactorEnabled}
                 onValueChange={setTwoFactorEnabled}
-                trackColor={{ false: '#E2DCD5', true: PALETTE.primary }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: adminColors.border, true: PALETTE.primary }}
+                thumbColor={adminColors.onBrand}
               />
             </View>
           </View>
@@ -655,7 +656,7 @@ export function AdminProfileScreen({
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="Enter current administrative password"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <Text style={styles.inputLabel}>New Secure Password</Text>
@@ -665,7 +666,7 @@ export function AdminProfileScreen({
               value={newPassword}
               onChangeText={setNewPassword}
               placeholder="Minimum 8 characters with numbers & symbols"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <Text style={styles.inputLabel}>Confirm New Password</Text>
@@ -675,7 +676,7 @@ export function AdminProfileScreen({
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-enter new secure password"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
             />
 
             <TouchableOpacity
@@ -765,8 +766,8 @@ export function AdminProfileScreen({
                   <Switch
                     value={alertToggles[alertItem.key] ?? alertItem.defaultVal}
                     onValueChange={() => handleToggleAlert(alertItem.key)}
-                    trackColor={{ false: '#E2DCD5', true: PALETTE.primary }}
-                    thumbColor="#FFFFFF"
+                    trackColor={{ false: adminColors.border, true: PALETTE.primary }}
+                    thumbColor={adminColors.onBrand}
                   />
                 </View>
                 {idx < spec.alertTypes.length - 1 && <View style={styles.rowDivider} />}
@@ -783,7 +784,7 @@ export function AdminProfileScreen({
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 5: HELPDESK & DIAGNOSTICS (100% FULL SCREEN - #F0562A)
+  // SUB-SCREEN 5: HELPDESK & DIAGNOSTICS (100% FULL SCREEN - brand)
   // ════════════════════════════════════════════════════════════════════════════
   if (currentView === 'support') {
     return (
@@ -892,7 +893,7 @@ export function AdminProfileScreen({
               activeOpacity={0.8}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={adminColors.onBrand} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </TouchableOpacity>
           </View>
@@ -900,7 +901,7 @@ export function AdminProfileScreen({
           <Text style={styles.heroName}>{fullName}</Text>
           <Text style={styles.heroEmail}>{email}</Text>
 
-          {/* Role Pill in #F0562A */}
+          {/* Role Pill in brand */}
           <View style={styles.roleBadge}>
             <ShieldCheckIcon size={14} color={PALETTE.primary} />
             <Text style={styles.roleBadgeText}>{spec.badgeLabel}</Text>
@@ -1135,7 +1136,7 @@ const styles = StyleSheet.create({
   headerActionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   scroll: {
     flex: 1,
@@ -1153,7 +1154,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#1A1412',
+    ...adminShadow.sm,
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -1251,7 +1253,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#1A1412',
+    ...adminShadow.sm,
+    shadowColor: adminColors.ink,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 4,
@@ -1339,7 +1342,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   signOutButton: {
@@ -1348,7 +1351,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: PALETTE.dangerLight,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: adminColors.danger.border,
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,

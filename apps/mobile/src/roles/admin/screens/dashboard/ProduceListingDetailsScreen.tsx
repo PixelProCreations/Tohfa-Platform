@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   // ─── Section Typography ───
   sectionTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     letterSpacing: -0.2,
     marginTop: 6,
     marginBottom: 10,

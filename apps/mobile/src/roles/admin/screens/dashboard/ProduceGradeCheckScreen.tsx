@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginBottom: adminSpacing.md,
   },
   stepperRow: {

@@ -341,12 +341,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginBottom: adminSpacing.md,
   },
   sectionHeaderTitle: {
     ...adminType.sectionHead,
-    color: adminColors.rustDeep,
+    color: adminColors.brandDeep,
     marginTop: adminSpacing.lg,
     marginBottom: adminSpacing.sm,
   },
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.sm,
   },
   warningBox: {
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,

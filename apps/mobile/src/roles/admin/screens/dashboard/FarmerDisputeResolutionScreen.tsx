@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
     borderBottomColor: adminColors.border,
   },
   pickerOptionRowActive: {
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
   },
   pickerOptionText: {
     ...adminType.body,

@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
 
   // ─── Notice Box ───
   noticeBox: {
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,

@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTintWarm,
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
     borderColor: adminColors.border,
     alignItems: 'center',
