@@ -26,20 +26,6 @@ function StorefrontIcon({ size = 22, color = adminColors.onBrand }: { size?: num
   );
 }
 
-function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -54,7 +40,21 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function PriceCheckIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function PriceCheckIcon({ size = 28, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 -960 960 960">
       <Path
@@ -65,34 +65,43 @@ function PriceCheckIcon({ size = 26, color = adminColors.brand }: { size?: numbe
   );
 }
 
-function CategoryShapesIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function CategoryShapesIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="m260-520 220-360 220 360H260ZM700-80q-75 0-127.5-52.5T520-260q0-75 52.5-127.5T700-440q75 0 127.5 52.5T880-260q0 75-52.5 127.5T700-80Zm-580-20v-320h320v320H120Zm580-60q42 0 71-29t29-71q0-42-29-71t-71-29q-42 0-71 29t-29 71q0 42 29 71t71 29Zm-500-20h160v-160H200v160Zm202-420h156l-78-126-78 126Zm78 0ZM360-340Zm340 80Z"
-        fill={color}
+        d="M12 3l4.5 7.5h-9L12 3zM6 15a3 3 0 100 6 3 3 0 000-6zM15 15h5v5h-5v-5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
-function HistoryClockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function PriceHistoryIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M480-120q-138 0-240.5-91.5T122-440h82q14 104 92.5 172T480-200q117 0 198.5-81.5T760-480q0-117-81.5-198.5T480-760q-69 0-129 32t-101 88h110v80H120v-240h80v94q51-64 124.5-99T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-120Zm112-192L440-464v-216h80v184l128 128-56 56Z"
-        fill={color}
+        d="M12 8v4l3 3M3.05 11a9 9 0 11.5 4m-.5 5v-5h5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
-function PriceTagIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function RetailPricingIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M856-390 570-104q-12 12-27 18t-30 6q-15 0-30-6t-27-18L103-457q-11-11-17-25.5T80-513v-287q0-33 23.5-56.5T160-880h287q16 0 31 6.5t26 17.5l352 353q12 12 17.5 27t5.5 30q0 15-5.5 29.5T856-390ZM513-160l286-286-353-354H160v286l353 354ZM260-640q25 0 42.5-17.5T320-700q0-25-17.5-42.5T260-760q-25 0-42.5 17.5T200-700q0 25 17.5 42.5T260-640Zm220 160Z"
-        fill={color}
+        d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -101,8 +110,8 @@ function PriceTagIcon({ size = 24, color = adminColors.brand }: { size?: number;
 function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" />
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -110,7 +119,7 @@ function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: numb
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface MarketPricingHomeScreenProps {
-  onBack: () => void;
+  onBack?: (() => void) | undefined;
   onNavigateToFairPrice: () => void;
   onNavigateToCategories?: (() => void) | undefined;
   onNavigateToPriceHistory?: (() => void) | undefined;
@@ -127,8 +136,6 @@ export function MarketPricingHomeScreen({
   onNavigateToPriceHistory,
   onNavigateToRetailPricing,
   onOpenNotifications,
-  onNavigateToMarketDay,
-  onNavigateToListingApproval,
 }: MarketPricingHomeScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
@@ -138,14 +145,16 @@ export function MarketPricingHomeScreen({
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={onBack}
-              activeOpacity={0.7}
-              accessibilityLabel={t('marketPricingHome.backLabel')}
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            {onBack ? (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                accessibilityLabel="Go back"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+            ) : null}
 
             <StorefrontIcon size={22} color={adminColors.onBrand} />
             <Text style={styles.headerTitle}>{t('marketPricingHome.title')}</Text>
@@ -161,7 +170,9 @@ export function MarketPricingHomeScreen({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.headerSubtitle}>{t('marketPricingHome.subtitle')}</Text>
+        <Text style={[styles.headerSubtitle, onBack ? { paddingLeft: 34 } : null]}>
+          {t('marketPricingHome.subtitle')}
+        </Text>
       </View>
 
       {/* ─── Scroll Container ─── */}
@@ -170,37 +181,74 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
+        {/* KPI Cards (2x2 Grid) */}
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ACTIVE FAIR PRICES</Text>
+              <Text style={styles.kpiValue}>124</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PRODUCT CATEGORIES</Text>
+              <Text style={styles.kpiValue}>12</Text>
+            </View>
+          </View>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PRICE UPDATES</Text>
+              <Text style={styles.kpiValue}>18</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>RETAIL PRICE RECORDS</Text>
+              <Text style={styles.kpiValue}>124</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Section 1: Current Market Snapshot */}
         <Text style={styles.sectionHeading}>{t('marketPricingHome.section.snapshot')}</Text>
 
         <View style={styles.snapshotCard}>
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.activeListings')}</Text>
-            <Text style={styles.snapshotValue}>124</Text>
+            <Text style={styles.snapshotLabel}>Crop</Text>
+            <Text style={styles.snapshotValue}>Carrot</Text>
           </View>
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.pendingReview')}</Text>
-            <Text style={styles.snapshotValue}>18</Text>
+            <Text style={styles.snapshotLabel}>Grade</Text>
+            <Text style={styles.snapshotValue}>Grade 1</Text>
           </View>
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.fairPriceCeilings')}</Text>
-            <Text style={styles.snapshotValue}>32 active</Text>
+            <Text style={styles.snapshotLabel}>Fair Price Ceiling</Text>
+            <Text style={styles.snapshotValue}>₹100/kg</Text>
           </View>
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>{t('marketPricingHome.label.retailPricesActive')}</Text>
-            <Text style={styles.snapshotValue}>28 active</Text>
+            <Text style={styles.snapshotLabel}>Retail Price</Text>
+            <Text style={styles.snapshotValue}>₹120/kg</Text>
+          </View>
+          <View style={styles.snapshotDivider} />
+
+          <View style={styles.snapshotRow}>
+            <Text style={styles.snapshotLabel}>Effective Date</Text>
+            <Text style={styles.snapshotValue}>30 Sep 2026</Text>
+          </View>
+          <View style={styles.snapshotDivider} />
+
+          <View style={styles.snapshotRow}>
+            <Text style={styles.snapshotLabel}>Price Status</Text>
+            <Text style={[styles.snapshotValue, styles.statusActiveText]}>Active</Text>
           </View>
         </View>
 
         {/* Section 2: Recently Updated Prices */}
         <Text style={styles.sectionHeading}>{t('marketPricingHome.section.recentPrices')}</Text>
 
+        {/* Card 1: Carrot · Grade 1 */}
         <View style={styles.recentPriceCard}>
           <View style={styles.recentCardHeader}>
             <Text style={styles.recentCropTitle}>Carrot · Grade 1</Text>
@@ -211,16 +259,41 @@ export function MarketPricingHomeScreen({
 
           <View style={styles.priceColsRow}>
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Fair Price Ceiling</Text>
-              <Text style={styles.priceColValue}>₹100.00/kg</Text>
+              <Text style={styles.priceColLabel}>Fair Price</Text>
+              <Text style={styles.priceColValue}>₹100/kg</Text>
             </View>
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Effective Date</Text>
-              <Text style={styles.priceColValue}>30 Sep 2026</Text>
+              <Text style={styles.priceColLabel}>Retail Price</Text>
+              <Text style={styles.priceColValue}>₹120/kg</Text>
             </View>
             <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Frequency</Text>
-              <Text style={styles.priceColValue}>Weekly</Text>
+              <Text style={styles.priceColLabel}>Effective</Text>
+              <Text style={styles.priceColValue}>30 Sep</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Card 2: Cabbage · Grade 2 */}
+        <View style={[styles.recentPriceCard, { marginTop: adminSpacing.sm }]}>
+          <View style={styles.recentCardHeader}>
+            <Text style={styles.recentCropTitle}>Cabbage · Grade 2</Text>
+            <View style={styles.activePill}>
+              <Text style={styles.activePillText}>Active</Text>
+            </View>
+          </View>
+
+          <View style={styles.priceColsRow}>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Fair Price</Text>
+              <Text style={styles.priceColValue}>₹60/kg</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Retail Price</Text>
+              <Text style={styles.priceColValue}>₹75/kg</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Effective</Text>
+              <Text style={styles.priceColValue}>29 Sep</Text>
             </View>
           </View>
         </View>
@@ -231,7 +304,7 @@ export function MarketPricingHomeScreen({
           onPress={onNavigateToPriceHistory}
           activeOpacity={0.8}
         >
-          <Text style={styles.viewHistoryBtnText}>{t('marketPricingHome.action.viewHistory')}</Text>
+          <Text style={styles.viewHistoryBtnText}>View History</Text>
         </TouchableOpacity>
 
         {/* Section 3: Quick Actions 2x2 Grid */}
@@ -245,7 +318,7 @@ export function MarketPricingHomeScreen({
               activeOpacity={0.8}
             >
               <PriceCheckIcon size={28} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.fairPrices')}</Text>
+              <Text style={styles.quickCardLabel}>Fair Prices</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -254,7 +327,7 @@ export function MarketPricingHomeScreen({
               activeOpacity={0.8}
             >
               <CategoryShapesIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.categories')}</Text>
+              <Text style={styles.quickCardLabel}>Categories & Grades</Text>
             </TouchableOpacity>
           </View>
 
@@ -264,8 +337,8 @@ export function MarketPricingHomeScreen({
               onPress={onNavigateToPriceHistory}
               activeOpacity={0.8}
             >
-              <HistoryClockIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.priceHistory')}</Text>
+              <PriceHistoryIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>Price History</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -273,8 +346,8 @@ export function MarketPricingHomeScreen({
               onPress={onNavigateToRetailPricing}
               activeOpacity={0.8}
             >
-              <PriceTagIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('marketPricingHome.action.retailPricing')}</Text>
+              <RetailPricingIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickCardLabel}>Retail Pricing</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -283,7 +356,7 @@ export function MarketPricingHomeScreen({
         <View style={styles.disclaimerCard}>
           <BlockCircleIcon size={18} color={adminColors.muted} />
           <Text style={styles.disclaimerText}>
-            {t('marketPricingHome.disclaimer')}
+            Fair-price ceiling setting is Super Admin only. Retail-price setting is not available to Farmer Admin. Nothing in this module can be edited.
           </Text>
         </View>
 
@@ -317,26 +390,30 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    fontSize: 20,
+    fontWeight: '800',
   },
   notificationBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
     ...adminType.caption,
     color: adminColors.onBrand,
-    marginTop: adminSpacing.xs,
-    paddingLeft: 34,
+    marginTop: 4,
+    opacity: 0.95,
   },
   scroll: {
     flex: 1,
@@ -346,9 +423,44 @@ const styles = StyleSheet.create({
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xxl,
   },
-  sectionHeading: {
-    ...adminType.rowTitle,
+
+  // KPI Grid
+  kpiGrid: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  kpiLabel: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: adminColors.muted,
+    letterSpacing: 0.2,
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '900',
     color: adminColors.ink,
+  },
+
+  sectionHeading: {
+    ...adminType.sectionHead,
+    fontSize: 16,
+    color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
     marginTop: adminSpacing.sm,
   },
@@ -366,7 +478,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: adminSpacing.md,
+    paddingVertical: 12,
   },
   snapshotLabel: {
     ...adminType.body,
@@ -377,6 +489,9 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.ink,
+  },
+  statusActiveText: {
+    color: adminColors.success.text,
   },
   snapshotDivider: {
     height: 1,
@@ -398,12 +513,13 @@ const styles = StyleSheet.create({
   },
   recentCropTitle: {
     ...adminType.rowTitle,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   activePill: {
     backgroundColor: adminColors.success.bg,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.sm,
+    borderRadius: 6,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
   activePillText: {
@@ -425,6 +541,7 @@ const styles = StyleSheet.create({
   },
   priceColValue: {
     ...adminType.rowTitle,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   viewHistoryBtn: {
@@ -440,7 +557,8 @@ const styles = StyleSheet.create({
   },
   viewHistoryBtnText: {
     ...adminType.rowTitle,
-    color: adminColors.brand,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
   },
   quickGrid: {
     gap: adminSpacing.sm,
@@ -464,7 +582,8 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   quickCardLabel: {
-    ...adminType.rowTitle,
+    ...adminType.caption,
+    fontWeight: '800',
     color: adminColors.ink,
     textAlign: 'center',
   },
@@ -489,3 +608,4 @@ const styles = StyleSheet.create({
     height: 40,
   },
 });
+

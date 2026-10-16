@@ -305,7 +305,12 @@ export function FarmerAuditsTabScreen({
         </View>
 
         {/* ─── Section: Audit Calendar ─── */}
-        <Text style={styles.sectionHeader}>{t('farmerAuditsTab.section.calendar')}</Text>
+        <TouchableOpacity
+          onPress={() => onNavigateSchedule('field_visit')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.sectionHeader}>{t('farmerAuditsTab.section.calendar')}</Text>
+        </TouchableOpacity>
 
         {/* Segmented View Toggle Buttons: Month | Week | List */}
         <View style={styles.segmentedToggleRow}>
@@ -318,7 +323,12 @@ export function FarmerAuditsTabScreen({
                   styles.toggleBtn,
                   isActive ? styles.toggleBtnActive : styles.toggleBtnInactive,
                 ]}
-                onPress={() => setCalendarView(key)}
+                onPress={() => {
+                  setCalendarView(key);
+                  if (key === 'List') {
+                    onNavigateSchedule('field_visit');
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <Text
@@ -374,12 +384,7 @@ export function FarmerAuditsTabScreen({
                 key={audit.id}
                 style={styles.auditCard}
                 onPress={() =>
-                  onNavigateSchedule(
-                    audit.type === 'Field Visit' || audit.id === 'AUD-2026-0042'
-                      ? 'field_visit'
-                      : 'all',
-                    audit.id
-                  )
+                  onNavigateSchedule('field_visit', audit.id)
                 }
                 activeOpacity={0.85}
               >

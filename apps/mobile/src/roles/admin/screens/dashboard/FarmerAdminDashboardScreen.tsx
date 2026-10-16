@@ -45,9 +45,9 @@ import { CollectionConfirmationScreen } from './CollectionConfirmationScreen';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, type ApprovedInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
-import { PestLibraryScreen } from './PestLibraryScreen';
+import { PestLibraryScreen, type PestItem, SAMPLE_PESTS } from './PestLibraryScreen';
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
-import { FarmerPestIncidentsScreen, type IncidentItem } from './FarmerPestIncidentsScreen';
+import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
 import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
@@ -58,6 +58,7 @@ import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
 import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
+import { FarmerAdminProfileScreen } from './FarmerAdminProfileScreen';
 
 // ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
 export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
@@ -231,6 +232,21 @@ function ExactScalesIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
+// Exact Gavel / Mediation Icon (Matching Screenshot 4 1000%)
+function ExactGavelIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Sound block base at bottom left */}
+      <Rect x="3.5" y="19.2" width="8.8" height="2.2" rx="0.4" fill={color} />
+      {/* Upper slanted mallet block */}
+      <Polygon points="3.0,8.0 9.8,1.2 11.8,3.2 5.0,10.0" fill={color} />
+      {/* Lower slanted mallet block (parallel) */}
+      <Polygon points="5.8,10.8 12.6,4.0 14.6,6.0 7.8,12.8" fill={color} />
+      {/* Mallet handle pointing down-right */}
+      <Polygon points="10.4,10.2 12.0,8.6 19.8,16.4 18.2,18.0" fill={color} />
+    </Svg>
+  );
+}
 function CheckmarkCircleIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -2102,16 +2118,20 @@ export function FarmerAdminDashboardScreen({
   const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
   const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
   const [activeIncidentItem, setActiveIncidentItem] = useState<IncidentItem | undefined>(undefined);
+  const [selectedPestItem, setSelectedPestItem] = useState<PestItem | undefined>(undefined);
+  const [pestIncidentsReturnSubView, setPestIncidentsReturnSubView] = useState<'inputs_pest' | 'application_guide'>('inputs_pest');
   const [selectedRetailItem, setSelectedRetailItem] = useState<RetailPriceItem | undefined>(undefined);
   const [breakdownReturnSubView, setBreakdownReturnSubView] = useState<'retail_pricing' | 'fair_price'>('retail_pricing');
   const [incidentReturnSubView, setIncidentReturnSubView] = useState<'inputs_pest' | 'farmer_pest_incidents'>('inputs_pest');
   const [listingInitialFilter, setListingInitialFilter] = useState<'all' | 'pending' | 'counter'>('all');
-  const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders'>('none');
+  const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders' | 'purchase_order_detail'>('none');
+  const [purchaseOrderDetailReturnSubView, setPurchaseOrderDetailReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
   const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
   const [purchaseOrderReturnSubView, setPurchaseOrderReturnSubView] = useState<'purchase_orders' | 'dispute_detail'>('purchase_orders');
   const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report'>('calendar');
   const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
   const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
+  const [auditReturnSubView, setAuditReturnSubView] = useState<'none' | 'farmer_profile' | 'verification_approval'>('none');
   const [farmerProfileReturnSubView, setFarmerProfileReturnSubView] = useState<'none' | 'audit_schedule' | 'verification_approval'>('none');
 
   // Modal State for details
@@ -2140,7 +2160,10 @@ export function FarmerAdminDashboardScreen({
       <ProduceListingsScreen
         initialFilter={listingInitialFilter}
         onBack={() => {
-          if (produceReturnSubView === 'purchase_orders') {
+          if (produceReturnSubView === 'purchase_order_detail') {
+            setProduceReturnSubView('none');
+            setSubView('purchase_order_detail');
+          } else if (produceReturnSubView === 'purchase_orders') {
             setProduceReturnSubView('none');
             setSubView('purchase_orders');
           } else if (produceReturnSubView === 'purchases') {
@@ -2177,6 +2200,12 @@ export function FarmerAdminDashboardScreen({
         onSubmitSuccess={() => setSubView('none')}
         onViewListing={() => setSubView('product_listings')}
         onViewFarmerProfile={() => setSubView('farmer_profile')}
+        onNavigateAuditHistory={() => {
+          setAuditInitialFilter('history');
+          setAuditInitialView('history');
+          setAuditReturnSubView('verification_approval');
+          setSubView('audit_schedule');
+        }}
       />
     );
   }
@@ -2192,6 +2221,12 @@ export function FarmerAdminDashboardScreen({
           } else {
             setSubView('verification_approval');
           }
+        }}
+        onNavigateAuditHistory={() => {
+          setAuditInitialFilter('history');
+          setAuditInitialView('history');
+          setAuditReturnSubView('farmer_profile');
+          setSubView('audit_schedule');
         }}
       />
     );
@@ -2258,13 +2293,7 @@ export function FarmerAdminDashboardScreen({
           setSubView('none');
           setActiveTab('Audits');
         }}
-        onViewDispute={() => {
-          setSelectedDispute(INITIAL_DISPUTES[0]);
-          setDisputeDetailReturnTo('menu');
-          setSubView('none');
-          setActiveTab('More');
-          setMoreSubScreen('dispute_detail');
-        }}
+        onViewDispute={() => setSubView('disputes')}
         onTabChange={(tab) => {
           setSubView('none');
           setActiveTab(tab);
@@ -2293,18 +2322,24 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // If currently in Profile subview
+
+  // Module 1: Admin Profile subview
   if (subView === 'profile') {
     return (
-      <AdminProfileScreen
-        role="FARMER_ADMIN"
-        onSignOut={onSignOut}
+      <FarmerAdminProfileScreen
         onBack={() => setSubView('none')}
+        onSignOut={onSignOut}
+        onSwitchRole={() =>
+          setModalItem({
+            title: 'Switch Role',
+            content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+          })
+        }
       />
     );
   }
 
-  // If currently in Purchases subview (Image 1)
+  // Module 4: Screen 1 - Purchases (Image 1 Left)
   if (subView === 'purchases') {
     return (
       <FarmerPurchasesScreen
@@ -2313,77 +2348,51 @@ export function FarmerAdminDashboardScreen({
           setActiveTab('More');
         }}
         onNavigatePurchaseOrders={() => setSubView('purchase_orders')}
-        onNavigateReadyForCollection={() => {
-          setActiveOrderId('PO-2026-00119');
-          setConfirmTermsReturnSubView('purchases');
-          setSubView('confirm_purchase_terms');
-        }}
-        onNavigatePurchaseHistory={() => setSubView('purchase_history')}
         onNavigateProduceListings={() => {
           setProduceReturnSubView('purchases');
           setSubView('produce_listings');
         }}
         onViewPurchaseOrder={(orderId) => {
           setActiveOrderId(orderId);
+          setPurchaseOrderDetailReturnSubView('purchases');
           setSubView('purchase_order_detail');
-        }}
-        onProcessHandover={(orderId) => {
-          setActiveOrderId(orderId || 'PO-2026-00124');
-          setSubView('farmer_handover');
-        }}
-        onCollect={(orderId) => {
-          setActiveOrderId(orderId || 'PO-2026-00119');
-          setConfirmTermsReturnSubView('purchases');
-          setSubView('confirm_purchase_terms');
         }}
         onOpenNotifications={() => setSubView('notifications')}
       />
     );
   }
 
-  // If currently in Purchase Orders subview (Image 2)
+  // Module 4: Screen 2 - Purchase Orders (Image 1 Middle)
   if (subView === 'purchase_orders') {
     return (
       <PurchaseOrdersScreen
         onBack={() => setSubView('purchases')}
         onViewOrder={(orderId) => {
           setActiveOrderId(orderId);
+          setPurchaseOrderDetailReturnSubView('purchase_orders');
           setSubView('purchase_order_detail');
         }}
-        onHandover={(orderId) => {
-          setActiveOrderId(orderId);
-          setSubView('farmer_handover');
-        }}
-        onCollect={(orderId) => {
-          setActiveOrderId(orderId);
-          setConfirmTermsReturnSubView('purchase_orders');
-          setSubView('confirm_purchase_terms');
-        }}
-        onViewHistory={() => setSubView('purchase_history')}
       />
     );
   }
 
-  // If currently in Purchase Order Detail subview (Image 3 & 4)
+  // Module 4: Screen 3 - Purchase Order Detail (Image 1 Right & Images 2-3)
   if (subView === 'purchase_order_detail') {
     return (
       <PurchaseOrderDetailScreen
         orderId={activeOrderId}
         onBack={() => {
-          if (purchaseOrderReturnSubView === 'dispute_detail') {
+          if ((purchaseOrderReturnSubView as any) === 'dispute_detail' || (purchaseOrderDetailReturnSubView as any) === 'dispute_detail') {
             setSubView('none');
             setActiveTab('More');
             setMoreSubScreen('dispute_detail');
           } else {
-            setSubView('purchase_orders');
+            setSubView(purchaseOrderDetailReturnSubView || 'purchase_orders');
           }
         }}
         onViewOriginalListing={() => {
-          setProduceReturnSubView('purchase_orders');
+          setProduceReturnSubView('purchase_order_detail');
           setSubView('produce_listings');
-        }}
-        onProcessHandover={() => {
-          setSubView('farmer_handover');
         }}
       />
     );
@@ -2473,9 +2482,12 @@ export function FarmerAdminDashboardScreen({
         }}
         onNavigateApprovedInputs={() => setSubView('approved_inputs')}
         onNavigatePestLibrary={() => setSubView('pest_library')}
-        onNavigateApplicationGuides={() => setSubView('application_guide')}
-        onNavigatePestIncidents={() => setSubView('farmer_pest_incidents')}
+        onNavigatePestIncidents={() => {
+          setPestIncidentsReturnSubView('inputs_pest');
+          setSubView('farmer_pest_incidents');
+        }}
         onViewRecentIncident={() => {
+          setActiveIncidentItem(SAMPLE_INCIDENTS[0]);
           setIncidentReturnSubView('inputs_pest');
           setSubView('pest_incident_detail');
         }}
@@ -2507,32 +2519,44 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // Module 6: Pest & Pesticide Library (Image 5)
+  // Module 6: Pest & Pesticide Library (Flow Screen 1)
   if (subView === 'pest_library') {
     return (
       <PestLibraryScreen
         onBack={() => setSubView('inputs_pest')}
-        onSelectPest={() => setSubView('application_guide')}
+        onSelectPest={(pest) => {
+          setSelectedPestItem(pest);
+          setSubView('application_guide');
+        }}
       />
     );
   }
 
-  // Module 6: Application Guide (Screenshot 1)
+  // Module 6: Application Guide (Flow Screen 2)
   if (subView === 'application_guide') {
     return (
       <ApplicationGuideScreen
-        onBack={() => setSubView('inputs_pest')}
-        onViewIncidents={() => setSubView('farmer_pest_incidents')}
+        pestName={selectedPestItem?.name || 'Aphid'}
+        scientificName={selectedPestItem?.scientificName || 'Aphidoidea'}
+        crop={selectedPestItem?.crop || 'Carrot'}
+        severity={selectedPestItem?.severity || 'Medium'}
+        symptoms={selectedPestItem?.symptoms}
+        treatment={selectedPestItem?.treatment}
+        onBack={() => setSubView('pest_library')}
+        onViewIncidents={() => {
+          setPestIncidentsReturnSubView('application_guide');
+          setSubView('farmer_pest_incidents');
+        }}
         onSelectRelatedInput={() => setSubView('approved_inputs')}
       />
     );
   }
 
-  // Module 6: Farmer Pest Incidents (Screenshot 2 & 3)
+  // Module 6: Farmer Pest Incidents (Flow Screen 3)
   if (subView === 'farmer_pest_incidents') {
     return (
       <FarmerPestIncidentsScreen
-        onBack={() => setSubView('inputs_pest')}
+        onBack={() => setSubView(pestIncidentsReturnSubView)}
         onSelectIncident={(incident) => {
           setActiveIncidentItem(incident);
           setIncidentReturnSubView('farmer_pest_incidents');
@@ -2657,6 +2681,15 @@ export function FarmerAdminDashboardScreen({
             ? (selectedRetailItem.customerDiscount.includes('/kg') ? selectedRetailItem.customerDiscount : `${selectedRetailItem.customerDiscount}/kg`)
             : '₹5.00/kg'
         }
+        expensesSummary={
+          selectedRetailItem?.expensesDetail || 'Freight ₹5 · Loading ₹2 · Unloading ₹3'
+        }
+        finalCustomerPrice="₹93.00/kg"
+        expenseList={[
+          { name: 'Freight', amount: '₹5.00' },
+          { name: 'Loading', amount: '₹2.00' },
+          { name: 'Unloading', amount: '₹3.00' },
+        ]}
       />
     );
   }
@@ -2671,7 +2704,16 @@ export function FarmerAdminDashboardScreen({
         onBack={() => {
           setAuditInitialId(undefined);
           setAuditInitialView(undefined);
-          setSubView('none');
+          setAuditInitialFilter('calendar');
+          if (auditReturnSubView === 'farmer_profile') {
+            setAuditReturnSubView('none');
+            setSubView('farmer_profile');
+          } else if (auditReturnSubView === 'verification_approval') {
+            setAuditReturnSubView('none');
+            setSubView('verification_approval');
+          } else {
+            setSubView('none');
+          }
         }}
         onNavigateFarmerProfile={(farmerId) => {
           setFarmerProfileReturnSubView('audit_schedule');
@@ -2863,12 +2905,7 @@ export function FarmerAdminDashboardScreen({
               {/* Tile 4: Open Disputes */}
               <TouchableOpacity
                 style={styles.kpiCard}
-                onPress={() => {
-                  setActiveTab('More');
-                  setSelectedDispute(INITIAL_DISPUTES[0]);
-                  setDisputeDetailReturnTo('menu');
-                  setMoreSubScreen('dispute_detail');
-                }}
+                onPress={() => setSubView('disputes')}
                 activeOpacity={0.8}
               >
                 <Text style={styles.kpiLabel}>OPEN DISPUTES</Text>
@@ -3198,12 +3235,7 @@ export function FarmerAdminDashboardScreen({
               {/* Row 2, Col 1: Review Disputes */}
               <TouchableOpacity
                 style={styles.quickCard}
-                onPress={() => {
-                  setActiveTab('More');
-                  setSelectedDispute(INITIAL_DISPUTES[0]);
-                  setDisputeDetailReturnTo('menu');
-                  setMoreSubScreen('dispute_detail');
-                }}
+                onPress={() => setSubView('disputes')}
                 activeOpacity={0.75}
               >
                 <ExactScalesIcon size={24} color={adminColors.brand} />
@@ -3240,7 +3272,15 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── Farmers Tab (Matching Screenshot 1) ─── */}
         {activeTab === 'Farmers' && (
-          <FarmersDirectoryScreen onBack={() => setActiveTab('Home')} />
+          <FarmersDirectoryScreen
+            onBack={() => setActiveTab('Home')}
+            onNavigateAuditHistory={() => {
+              setAuditInitialFilter('history');
+              setAuditInitialView('history');
+              setAuditReturnSubView('none');
+              setSubView('audit_schedule');
+            }}
+          />
         )}
 
         {/* ─── Produce Tab (Image 1 Mockup) ─── */}
@@ -3274,17 +3314,11 @@ export function FarmerAdminDashboardScreen({
               );
               setAuditInitialId(auditId);
               setAuditInitialView(
-                preFilter === 'field_visit'
-                  ? 'calendar'
-                  : preFilter === 'report'
+                preFilter === 'report'
                   ? 'audit_report'
-                  : preFilter === 'calendar'
-                  ? 'calendar'
-                  : auditId
-                  ? 'audit_details_m5'
                   : preFilter === 'history'
                   ? 'history'
-                  : undefined
+                  : 'calendar'
               );
               setSubView('audit_schedule');
             }}
@@ -3300,9 +3334,8 @@ export function FarmerAdminDashboardScreen({
             onNavigateInputsPest={() => setSubView('inputs_pest')}
             onNavigateMarketPricing={() => setSubView('market_pricing')}
             onNavigateProduceListings={() => setSubView('produce_listings')}
-            onNavigateDisputes={() => {
-              setMoreSubScreen('disputes');
-            }}
+            onNavigateFarmerRatings={() => setSubView('farmer_ratings')}
+            onNavigateDisputes={() => setSubView('disputes')}
             onNavigateProfile={() => setSubView('profile')}
             onNavigateFarmerSupport={() => setSubView('farmer_support')}
             onNavigateNotifications={() => setSubView('notifications')}
@@ -3320,9 +3353,11 @@ export function FarmerAdminDashboardScreen({
               } else if (title === 'Ratings') {
                 setSubView('farmer_ratings');
               } else if (title === 'Disputes') {
-                setMoreSubScreen('disputes');
+                setSubView('disputes');
               } else if (title === 'Farmer Support') {
                 setSubView('farmer_support');
+              } else if (title === 'Profile') {
+                setSubView('profile');
               } else if (title === 'Community') {
                 setMoreSubScreen('community');
               } else {

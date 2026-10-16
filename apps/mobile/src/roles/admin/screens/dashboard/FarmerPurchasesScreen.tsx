@@ -93,26 +93,22 @@ function ProduceTomatoIcon({ size = 24, color = adminColors.brand }: { size?: nu
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 export interface FarmerPurchasesScreenProps {
-  onBack?: () => void;
+  onBack?: (() => void) | undefined;
   onNavigatePurchaseOrders: () => void;
-  onNavigateReadyForCollection: () => void;
-  onNavigatePurchaseHistory: () => void;
   onNavigateProduceListings: () => void;
-  onViewPurchaseOrder?: (orderId: string) => void;
-  onProcessHandover?: (orderId: string) => void;
-  onCollect?: (orderId: string) => void;
-  onOpenNotifications?: () => void;
+  onNavigateReadyForCollection?: (() => void) | undefined;
+  onNavigatePurchaseHistory?: (() => void) | undefined;
+  onViewPurchaseOrder?: ((orderId: string) => void) | undefined;
+  onProcessHandover?: ((orderId: string) => void) | undefined;
+  onCollect?: ((orderId: string) => void) | undefined;
+  onOpenNotifications?: (() => void) | undefined;
 }
 
 export function FarmerPurchasesScreen({
   onBack,
   onNavigatePurchaseOrders,
-  onNavigateReadyForCollection,
-  onNavigatePurchaseHistory,
   onNavigateProduceListings,
   onViewPurchaseOrder,
-  onProcessHandover,
-  onCollect,
   onOpenNotifications,
 }: FarmerPurchasesScreenProps) {
   return (
@@ -191,70 +187,46 @@ export function FarmerPurchasesScreen({
         <Text style={styles.sectionHeading}>{t('farmerPurchases.section.attention')}</Text>
 
         {/* Attention Card 1 */}
-        <View style={styles.attentionCard}>
+        <TouchableOpacity
+          style={styles.attentionCard}
+          onPress={() => onViewPurchaseOrder?.('PO-2026-00124')}
+          activeOpacity={0.8}
+        >
           <View style={styles.attentionAccentBar} />
           <View style={styles.attentionContent}>
             <View style={styles.attentionHeaderRow}>
-              <ReceiptLongIcon size={20} color={adminColors.brand} />
+              <View style={styles.attentionIconBadge}>
+                <ReceiptLongIcon size={18} color={adminColors.brand} />
+              </View>
               <Text style={styles.attentionOrderTitle}>Purchase PO-2026-00124</Text>
             </View>
 
             <Text style={styles.attentionSubline}>
               Farmer: Ramesh Kumar · Organic Carrot · Grade 1 · 30 kg · ₹45/kg · Awaiting Handover
             </Text>
-
-            <View style={styles.attentionActionRow}>
-              <TouchableOpacity
-                style={styles.attentionBtn}
-                onPress={() => onViewPurchaseOrder?.('PO-2026-00124')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.view')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.attentionBtn}
-                onPress={() => onProcessHandover?.('PO-2026-00124')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.handover')}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Attention Card 2 */}
-        <View style={styles.attentionCard}>
+        <TouchableOpacity
+          style={styles.attentionCard}
+          onPress={() => onViewPurchaseOrder?.('PO-2026-00124')}
+          activeOpacity={0.8}
+        >
           <View style={styles.attentionAccentBar} />
           <View style={styles.attentionContent}>
             <View style={styles.attentionHeaderRow}>
-              <ReceiptLongIcon size={20} color={adminColors.brand} />
-              <Text style={styles.attentionOrderTitle}>Purchase PO-2026-00119</Text>
+              <View style={styles.attentionIconBadge}>
+                <ReceiptLongIcon size={18} color={adminColors.brand} />
+              </View>
+              <Text style={styles.attentionOrderTitle}>Purchase PO-2026-00124</Text>
             </View>
 
             <Text style={styles.attentionSubline}>
-              Farmer: Selvi · Organic Tomato · Grade 2 · 50 kg · ₹38/kg · Ready for Collection
+              Farmer: Ramesh Kumar · Organic Carrot · Grade 1 · 30 kg · ₹45/kg · Awaiting Handover
             </Text>
-
-            <View style={styles.attentionActionRow}>
-              <TouchableOpacity
-                style={styles.attentionBtn}
-                onPress={() => onViewPurchaseOrder?.('PO-2026-00119')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.view')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.attentionBtn}
-                onPress={() => onCollect?.('PO-2026-00119')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.attentionBtnText}>{t('farmerPurchases.action.collect')}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* ─── Section: Quick Actions ─── */}
         <Text style={styles.sectionHeading}>{t('farmerPurchases.section.quickActions')}</Text>
@@ -271,29 +243,7 @@ export function FarmerPurchasesScreen({
               <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.purchaseOrders')}</Text>
             </TouchableOpacity>
 
-            {/* Action 2: Ready for Collection */}
-            <TouchableOpacity
-              style={styles.quickCard}
-              onPress={onNavigateReadyForCollection}
-              activeOpacity={0.8}
-            >
-              <HandshakeIcon size={24} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.readyForCollection')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.quickRow}>
-            {/* Action 3: Purchase History */}
-            <TouchableOpacity
-              style={styles.quickCard}
-              onPress={onNavigatePurchaseHistory}
-              activeOpacity={0.8}
-            >
-              <HistoryClockIcon size={24} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('farmerPurchases.quickAction.purchaseHistory')}</Text>
-            </TouchableOpacity>
-
-            {/* Action 4: Produce Listings */}
+            {/* Action 2: Produce Listings */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={onNavigateProduceListings}
@@ -437,6 +387,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: adminSpacing.sm,
   },
+  attentionIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   attentionOrderTitle: {
     ...adminType.rowTitle,
     color: adminColors.ink,
@@ -446,7 +404,7 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     lineHeight: 18,
     marginTop: 6,
-    marginBottom: adminSpacing.sm,
+    marginBottom: 0,
   },
   attentionActionRow: {
     flexDirection: 'row',

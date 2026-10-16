@@ -347,8 +347,9 @@ export function FarmerHistoryScreen({
             style={styles.outlineActionBtn}
             onPress={() => setSelectedHistory(null)}
             activeOpacity={0.8}
+            accessibilityLabel="Back to History"
           >
-            <Text style={styles.outlineActionBtnText}>{t('farmerHistory.title')}</Text>
+            <Text style={styles.outlineActionBtnText}>Back to History</Text>
           </TouchableOpacity>
 
           <View style={styles.bottomSpacer} />

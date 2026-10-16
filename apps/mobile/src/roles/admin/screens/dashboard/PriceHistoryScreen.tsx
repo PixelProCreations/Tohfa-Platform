@@ -84,10 +84,10 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
     grade: 'Grade 1',
     cropGrade: 'Carrot · G1',
     datePill: '30 Sep',
-    previousPrice: '₹95.00/kg',
-    newPrice: '₹100.00/kg',
+    previousPrice: '₹95.00',
+    newPrice: '₹100.00',
     frequency: 'Weekly',
-    effectiveDate: '30 Sep 2026',
+    effectiveDate: '30 Sep',
     created: '30 Sep 2026, 6:00 AM',
     actor: 'System (SA-configured)',
   },
@@ -97,10 +97,10 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
     grade: 'Grade 1',
     cropGrade: 'Carrot · G1',
     datePill: '23 Sep',
-    previousPrice: '₹90.00/kg',
-    newPrice: '₹95.00/kg',
+    previousPrice: '₹90.00',
+    newPrice: '₹95.00',
     frequency: 'Weekly',
-    effectiveDate: '29 Sep 2026',
+    effectiveDate: '29 Sep',
     created: '23 Sep 2026, 6:00 AM',
     actor: 'System (SA-configured)',
   },
@@ -177,19 +177,6 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
             <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-
-        {!selectedRecord && !showFilters && (
-          <View style={styles.searchBarWrap}>
-            <SearchIcon size={18} color={adminColors.muted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t('priceHistory.searchPlaceholder')}
-              placeholderTextColor={adminColors.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-        )}
       </View>
 
       {/* ─── Main Content ─── */}
@@ -325,7 +312,17 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
         {/* VIEW 3: List View */}
         {!showFilters && !selectedRecord && (
           <View>
-            <Text style={styles.sectionHeading}>{t('priceHistory.section.history')}</Text>
+            {/* Search Bar on Canvas */}
+            <View style={styles.searchBar}>
+              <SearchIcon size={18} color={adminColors.muted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Crop, product, category"
+                placeholderTextColor={adminColors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
 
             {filteredHistory.length === 0 ? (
               <View style={styles.emptyContainer}>
@@ -348,21 +345,21 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
 
                   <View style={styles.historyColsRow}>
                     <View style={styles.historyCol}>
-                      <Text style={styles.colLabel}>{t('priceHistory.label.previousPrice')}</Text>
+                      <Text style={styles.colLabel}>Previous</Text>
                       <Text style={styles.colValue}>{item.previousPrice}</Text>
                     </View>
                     <View style={styles.historyCol}>
-                      <Text style={styles.colLabel}>{t('priceHistory.label.newPrice')}</Text>
+                      <Text style={styles.colLabel}>New</Text>
                       <Text style={styles.colValue}>{item.newPrice}</Text>
                     </View>
                     <View style={styles.historyCol}>
-                      <Text style={styles.colLabel}>{t('priceHistory.label.frequency')}</Text>
+                      <Text style={styles.colLabel}>Frequency</Text>
                       <Text style={styles.colValue}>{item.frequency}</Text>
                     </View>
                   </View>
 
                   <View style={styles.effectiveRow}>
-                    <Text style={styles.effectiveLabel}>{t('priceHistory.label.effectiveDate')}</Text>
+                    <Text style={styles.effectiveLabel}>Effective</Text>
                     <Text style={styles.effectiveValue}>{item.effectiveDate}</Text>
                   </View>
                 </TouchableOpacity>
@@ -373,7 +370,7 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
             <View style={styles.infoBanner}>
               <CircleInfoIcon size={18} color={adminColors.brandDeep} />
               <Text style={styles.infoBannerText}>
-                {t('priceHistory.infoBanner')}
+                Money values are displayed exactly as returned by the API — never recalculated with frontend floating-point arithmetic. Newest changes shown first.
               </Text>
             </View>
           </View>
@@ -428,19 +425,23 @@ const styles = StyleSheet.create({
   filterIconCircleActive: {
     backgroundColor: adminColors.brandDeep,
   },
-  searchBarWrap: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    marginTop: adminSpacing.sm,
+    height: 48,
+    marginBottom: adminSpacing.md,
     gap: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
     ...adminType.body,
+    fontSize: 14,
     color: adminColors.ink,
     padding: 0,
   },
@@ -483,17 +484,19 @@ const styles = StyleSheet.create({
   cropTitleText: {
     ...adminType.rowTitle,
     color: adminColors.ink,
+    fontWeight: '800',
   },
   datePill: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
+    backgroundColor: '#F3EFEA',
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   datePillText: {
     ...adminType.caption,
+    fontSize: 11,
     fontWeight: '700',
-    color: adminColors.brandDeep,
+    color: adminColors.ink,
   },
   historyColsRow: {
     flexDirection: 'row',
@@ -526,10 +529,10 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: adminColors.brandTint,
+    backgroundColor: '#FAF5EE',
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
     marginTop: adminSpacing.xs,
     gap: adminSpacing.sm,
@@ -537,8 +540,9 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     ...adminType.caption,
-    color: adminColors.brandDeep,
+    color: adminColors.ink,
     lineHeight: 18,
+    opacity: 0.85,
   },
   filtersContainer: {
     paddingTop: adminSpacing.xs,

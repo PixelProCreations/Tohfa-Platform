@@ -295,7 +295,7 @@ export function FarmerProductListingsScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('farmerProductListings.title')}</Text>
+          <Text style={styles.headerTitle}>{t('farmerProductListings.title') || 'Farmer Produce Listing'}</Text>
 
           <TouchableOpacity
             style={[styles.filterBtn, showFilterPanel && styles.filterBtnActive]}

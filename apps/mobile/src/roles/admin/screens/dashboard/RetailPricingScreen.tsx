@@ -77,11 +77,11 @@ export const SAMPLE_RETAIL_PRICES: RetailPriceItem[] = [
     cropGrade: 'Carrot · G1',
     category: 'Vegetables',
     grade: 'Grade 1',
-    purchasePrice: '₹80.00/kg',
+    purchasePrice: '₹80.00',
     markup: '10%',
     expenses: '₹10.00',
     expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-    retailPrice: '₹98.00/kg',
+    retailPrice: '₹98.00',
     customerDiscount: '₹5.00',
     status: 'Active',
   },
@@ -91,11 +91,11 @@ export const SAMPLE_RETAIL_PRICES: RetailPriceItem[] = [
     cropGrade: 'Cabbage · G2',
     category: 'Vegetables',
     grade: 'Grade 2',
-    purchasePrice: '₹80.00/kg',
+    purchasePrice: '₹80.00',
     markup: '10%',
     expenses: '₹10.00',
     expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-    retailPrice: '₹98.00/kg',
+    retailPrice: '₹98.00',
     customerDiscount: '₹5.00',
     status: 'Active',
   },
@@ -182,16 +182,9 @@ export function RetailPricingScreen({
         </View>
 
         {!selectedItem && !showFilters && (
-          <View style={styles.searchBarWrap}>
-            <SearchIcon size={18} color={adminColors.muted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t('retailPricing.searchPlaceholder')}
-              placeholderTextColor={adminColors.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+          <Text style={[styles.headerSubtitle, { paddingLeft: 34 }]}>
+            View current retail prices by crop and grade
+          </Text>
         )}
       </View>
 
@@ -336,7 +329,17 @@ export function RetailPricingScreen({
         {/* VIEW 3: List View */}
         {!showFilters && !selectedItem && (
           <View>
-            <Text style={styles.sectionHeading}>{t('retailPricing.section.retailPrices')}</Text>
+            {/* Search Bar on Canvas */}
+            <View style={styles.searchBar}>
+              <SearchIcon size={18} color={adminColors.muted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Crop, product, category"
+                placeholderTextColor={adminColors.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
 
             {filteredItems.length === 0 ? (
               <View style={styles.emptyContainer}>
@@ -431,19 +434,29 @@ const styles = StyleSheet.create({
   filterIconCircleActive: {
     backgroundColor: adminColors.brandDeep,
   },
-  searchBarWrap: {
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    marginTop: 4,
+    opacity: 0.95,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    marginTop: adminSpacing.sm,
+    height: 48,
+    marginBottom: adminSpacing.md,
     gap: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
     ...adminType.body,
+    fontSize: 14,
     color: adminColors.ink,
     padding: 0,
   },
