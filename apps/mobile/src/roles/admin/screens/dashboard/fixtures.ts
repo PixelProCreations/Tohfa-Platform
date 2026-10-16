@@ -15,7 +15,8 @@ export const INSPECTION_SECTIONS: InspectionSectionItem[] = [
   { id: 8, title: 'Documents & Evidence', requiredLeft: 'Not started' },
   { id: 9, title: 'Inspection Observations & Findings', requiredLeft: 'Not started' },
   { id: 10, title: 'Farmer Admin Assessment', requiredLeft: '1 required field left' },
-  { id: 11, title: 'Farmer Rating', requiredLeft: 'Rate the farmer based on the audit inspection.' },
+  { id: 11, title: 'Add External Audit', requiredLeft: 'Not started' },
+  { id: 12, title: 'Farmer Rating', requiredLeft: 'Rate the farmer based on the audit inspection.' },
 ];
 
 export const ALL_CROPS = [
@@ -191,13 +192,27 @@ export const STEP10_RECOMMENDATION_OPTIONS = [
   'Escalate to Senior Auditor',
 ] as const;
 
-// ─── Step 11 Constants (Farmer Rating - Screenshots 1 to 4) ───
+// ─── Step 11 Constants (Add External Audit - Screenshots 1 & 3) ───
+export const STEP11_AUDIT_TYPES = [
+  'Select Audit Type',
+  'NPOP Certification Audit',
+  'PGS-India External Audit',
+  'Third-Party Organic Certification',
+  'GlobalG.A.P. Audit',
+  'Fair Trade Certification',
+  'ISO 22000 Food Safety Audit',
+  'State Agriculture Department Inspection',
+  'Other',
+] as const;
+
+// ─── Step 12 Constants (Farmer Rating - Screenshot 4) ───
 export interface Step11RatingCategory {
   id: string;
   title: string;
   iconName: 'verified' | 'layers' | 'tractor' | 'leaf' | 'fruit' | 'qr' | 'users' | 'landmark' | 'store' | 'lightbulb';
   previousAudit: string;
 }
+export type Step12RatingCategory = Step11RatingCategory;
 
 export const STEP11_RATING_CATEGORIES: Step11RatingCategory[] = [
   { id: 'cert', title: 'Certification & Compliance', iconName: 'verified', previousAudit: '8/10' },
@@ -211,6 +226,8 @@ export const STEP11_RATING_CATEGORIES: Step11RatingCategory[] = [
   { id: 'market', title: 'Market & Buyer Relations', iconName: 'store', previousAudit: '6/10' },
   { id: 'innovation', title: 'Innovation & Improvement', iconName: 'lightbulb', previousAudit: '5/10' },
 ];
+
+export const STEP12_RATING_CATEGORIES = STEP11_RATING_CATEGORIES;
 
 export interface AuditScheduleRecord {
   id: string;

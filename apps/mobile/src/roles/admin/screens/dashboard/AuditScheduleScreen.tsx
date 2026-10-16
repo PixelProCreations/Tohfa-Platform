@@ -41,8 +41,11 @@ import {
   STEP10_OVERALL_ASSESSMENT_OPTIONS,
   STEP10_FOLLOWUP_REQUIRED_OPTIONS,
   STEP10_RECOMMENDATION_OPTIONS,
+  STEP11_AUDIT_TYPES,
   type Step11RatingCategory,
   STEP11_RATING_CATEGORIES,
+  type Step12RatingCategory,
+  STEP12_RATING_CATEGORIES,
   type AuditScheduleRecord,
   INITIAL_SCHEDULE_RECORDS,
 } from './fixtures';
@@ -722,6 +725,52 @@ function LightbulbIcon({ size = 18, color = adminColors.brand }: { size?: number
   );
 }
 
+function GreenLeafOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GreenFileTextOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="16" y1="13" x2="8" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="16" y1="17" x2="8" y2="17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="10" y1="9" x2="8" y2="9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GreenCloudUploadOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 12v9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m16 16-4-4-4 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GreenNotesOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 const CALENDAR_MONTHS = [
   'January',
   'February',
@@ -825,8 +874,6 @@ export function AuditScheduleScreen({
         ? 'audit_report'
         : initialTypeFilter === 'field_visit'
         ? 'calendar'
-        : initialAuditId
-        ? 'audit_details_m5'
         : initialTypeFilter === 'history'
         ? 'history'
         : 'calendar')
@@ -884,6 +931,53 @@ export function AuditScheduleScreen({
   const [draftAuditType, setDraftAuditType] = useState<'All' | 'Internal' | 'External' | 'Field Visit'>(appliedAuditType);
   const [draftStatus, setDraftStatus] = useState<'All' | 'Upcoming' | 'Scheduled' | 'In Progress'>(appliedStatus);
   const [draftDate, setDraftDate] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>(appliedDate);
+  const [showScheduleFilterModal, setShowScheduleFilterModal] = useState(false);
+
+  // Filtered schedule records for List mode
+  const filteredScheduleRecords = useMemo(() => {
+    return records.filter((rec) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = rec.farmerName.toLowerCase().includes(q);
+        const matchId = rec.id.toLowerCase().includes(q);
+        const matchFarmerId = rec.farmerId ? rec.farmerId.toLowerCase().includes(q) : false;
+        const matchFarm = rec.farm.toLowerCase().includes(q);
+        if (!matchName && !matchId && !matchFarmerId && !matchFarm) return false;
+      }
+
+      if (appliedAuditType !== 'All') {
+        if (rec.type !== appliedAuditType) return false;
+      }
+
+      if (appliedStatus !== 'All') {
+        if (rec.badge !== appliedStatus) return false;
+      }
+
+      if (appliedDate !== 'Today') {
+        if (appliedDate === 'This Week') {
+          if (rec.dateBucket !== 'This Week' && rec.dateBucket !== 'Today') return false;
+        } else if (appliedDate === 'This Month') {
+          if (rec.dateBucket !== 'This Month' && rec.dateBucket !== 'This Week' && rec.dateBucket !== 'Today') return false;
+        }
+      }
+
+      return true;
+    });
+  }, [records, searchQuery, appliedAuditType, appliedStatus, appliedDate]);
+
+  const getScheduleRecordBadge = (badge: string) => {
+    switch (badge) {
+      case 'Upcoming':
+        return { wrap: styles.badgeUpcoming, text: styles.badgeUpcomingText };
+      case 'Scheduled':
+        return { wrap: styles.badgeScheduled, text: styles.badgeScheduledText };
+      case 'In Progress':
+        return { wrap: styles.badgeInProgress, text: styles.badgeInProgressText };
+      case 'Completed':
+      default:
+        return { wrap: styles.badgeCompleted, text: styles.badgeCompletedText };
+    }
+  };
 
   // Schedule Field Visit State
   const [visitDate, setVisitDate] = useState<'08 Oct' | '09 Oct' | '10 Oct'>('08 Oct');
@@ -1083,8 +1177,19 @@ export function AuditScheduleScreen({
   const [step10SupportingRemarks, setStep10SupportingRemarks] = useState<string>('');
   const [step10OpenDropdown, setStep10OpenDropdown] = useState<'overall' | 'followUp' | 'recommendation' | null>(null);
 
-  // Step 11 Form state (Farmer Rating - Screenshots 1 to 4)
-  const [step11Scores, setStep11Scores] = useState<Record<string, number | null>>({
+  // Step 11 Form state (Add External Audit - Screenshots 1 & 3)
+  const [step11AuditType, setStep11AuditType] = useState<string>('Select Audit Type');
+  const [step11AuditTypeOpen, setStep11AuditTypeOpen] = useState<boolean>(false);
+  const [step11IssuingOrg, setStep11IssuingOrg] = useState<string>('');
+  const [step11AuditDate, setStep11AuditDate] = useState<string>('');
+  const [step11ReportExpiryDate, setStep11ReportExpiryDate] = useState<string>('');
+  const [step11NextAuditDate, setStep11NextAuditDate] = useState<string>('');
+  const [step11ActiveDateField, setStep11ActiveDateField] = useState<'auditDate' | 'expiryDate' | 'nextAuditDate' | null>(null);
+  const [step11UploadedReport, setStep11UploadedReport] = useState<{ name: string; size: string } | null>(null);
+  const [step11Remarks, setStep11Remarks] = useState<string>('');
+
+  // Step 12 Form state (Farmer Rating - Screenshot 4)
+  const [step12Scores, setStep12Scores] = useState<Record<string, number | null>>({
     cert: null,
     soil: null,
     farm: null,
@@ -1096,15 +1201,23 @@ export function AuditScheduleScreen({
     market: null,
     innovation: null,
   });
-  const [step11ExpandedCategory, setStep11ExpandedCategory] = useState<string | null>(null);
+  const [step12ExpandedCategory, setStep12ExpandedCategory] = useState<string | null>(null);
 
-  const step11RatedCount = useMemo(() => {
-    return Object.values(step11Scores).filter((s) => s !== null).length;
-  }, [step11Scores]);
+  const step12RatedCount = useMemo(() => {
+    return Object.values(step12Scores).filter((s) => s !== null).length;
+  }, [step12Scores]);
 
-  const step11TotalScore = useMemo(() => {
-    return Object.values(step11Scores).reduce<number>((acc, s) => acc + (s || 0), 0);
-  }, [step11Scores]);
+  const step12TotalScore = useMemo(() => {
+    return Object.values(step12Scores).reduce<number>((acc, s) => acc + (s || 0), 0);
+  }, [step12Scores]);
+
+  // Aliases for compatibility
+  const step11Scores = step12Scores;
+  const setStep11Scores = setStep12Scores;
+  const step11ExpandedCategory = step12ExpandedCategory;
+  const setStep11ExpandedCategory = setStep12ExpandedCategory;
+  const step11RatedCount = step12RatedCount;
+  const step11TotalScore = step12TotalScore;
 
   // Generic Step form state (Steps 10 to 11)
   const [stepFieldA, setStepFieldA] = useState<string>('Select...');
@@ -1269,7 +1382,12 @@ export function AuditScheduleScreen({
 
               <TouchableOpacity
                 style={styles.headerFilterCircleBtn}
-                onPress={() => setShowHistoryFilter((prev) => !prev)}
+                onPress={() => {
+                  setDraftAuditType(appliedAuditType);
+                  setDraftStatus(appliedStatus);
+                  setDraftDate(appliedDate);
+                  setShowScheduleFilterModal(true);
+                }}
                 activeOpacity={0.8}
                 accessibilityLabel="Filters"
               >
@@ -1298,80 +1416,55 @@ export function AuditScheduleScreen({
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Card 1: AUD-2026-0042 */}
-            <TouchableOpacity
-              style={styles.scheduleRecordCard}
-              onPress={() => {
-                const rec = records.find((r) => r.id === 'AUD-2026-0042') || records[0]!;
-                setSelectedRecord(rec);
-                setPreviousView('calendar');
-                setCurrentView('audit_details_m5');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.scheduleRecordCardTopRow}>
-                <Text style={styles.scheduleRecordCardId}>AUD-2026-0042</Text>
-                <View style={styles.badgeUpcoming}>
-                  <Text style={styles.badgeUpcomingText}>Upcoming</Text>
-                </View>
-              </View>
-              <Text style={styles.scheduleRecordCardSub}>
-                Ramesh Kumar · Ooty Farm 01 · Internal
-              </Text>
-              <Text style={styles.scheduleRecordCardMeta}>
-                15 Oct 2026 · Assigned Auditor
-              </Text>
-            </TouchableOpacity>
+            {filteredScheduleRecords.map((rec) => {
+              const badgeStyle = getScheduleRecordBadge(rec.badge);
+              return (
+                <TouchableOpacity
+                  key={rec.id}
+                  style={styles.scheduleRecordCard}
+                  onPress={() => {
+                    setSelectedRecord(rec);
+                    setPreviousView('calendar');
+                    setCurrentView('detail');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.scheduleRecordCardTopRow}>
+                    <Text style={styles.scheduleRecordCardId}>{rec.id}</Text>
+                    <View style={badgeStyle.wrap}>
+                      <Text style={badgeStyle.text}>{rec.badge}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.scheduleRecordCardSub}>
+                    {rec.farmerName} · {rec.farm} · {rec.type}
+                  </Text>
+                  <Text style={styles.scheduleRecordCardMeta}>
+                    {rec.date} · {rec.assignedText || 'Assigned Auditor'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
 
-            {/* Card 2: FV-2026-0018 */}
-            <TouchableOpacity
-              style={styles.scheduleRecordCard}
-              onPress={() => {
-                const rec = records.find((r) => r.id === 'FV-2026-0018') || records[2]!;
-                setSelectedRecord(rec);
-                setPreviousView('calendar');
-                setCurrentView('audit_details_m5');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.scheduleRecordCardTopRow}>
-                <Text style={styles.scheduleRecordCardId}>FV-2026-0018</Text>
-                <View style={styles.badgeScheduled}>
-                  <Text style={styles.badgeScheduledText}>Scheduled</Text>
-                </View>
+            {filteredScheduleRecords.length === 0 && (
+              <View style={[styles.infoNoteCard, { marginTop: 14, alignItems: 'center' }]}>
+                <Text style={[styles.infoNoteText, { textAlign: 'center' }]}>
+                  No audit schedules match the selected filters.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAppliedAuditType('All');
+                    setAppliedStatus('All');
+                    setAppliedDate('Today');
+                    setSearchQuery('');
+                  }}
+                  style={{ marginTop: 8 }}
+                >
+                  <Text style={{ ...adminType.caption, fontWeight: '800', color: adminColors.brandDeep }}>
+                    Reset Filters
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.scheduleRecordCardSub}>
-                Selvi · Coonoor Farm · Field Visit
-              </Text>
-              <Text style={styles.scheduleRecordCardMeta}>
-                08 Oct 2026
-              </Text>
-            </TouchableOpacity>
-
-            {/* Card 3: AUD-2026-0039 */}
-            <TouchableOpacity
-              style={styles.scheduleRecordCard}
-              onPress={() => {
-                const rec = records.find((r) => r.id === 'AUD-2026-0039') || records[3]!;
-                setSelectedRecord(rec);
-                setPreviousView('calendar');
-                setCurrentView('audit_details_m5');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.scheduleRecordCardTopRow}>
-                <Text style={styles.scheduleRecordCardId}>AUD-2026-0039</Text>
-                <View style={styles.badgeUpcoming}>
-                  <Text style={styles.badgeUpcomingText}>Upcoming</Text>
-                </View>
-              </View>
-              <Text style={styles.scheduleRecordCardSub}>
-                Kumar · Ooty Farm 03 · External
-              </Text>
-              <Text style={styles.scheduleRecordCardMeta}>
-                20 Oct 2026 · Assigned Auditor
-              </Text>
-            </TouchableOpacity>
+            )}
 
             {/* Info Card (Image 1 Center) */}
             <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
@@ -1389,7 +1482,7 @@ export function AuditScheduleScreen({
                 const rec = records.find((r) => r.id === 'AUD-2026-0042') || records[0]!;
                 setSelectedRecord(rec);
                 setPreviousView('calendar');
-                setCurrentView('audit_details_m5');
+                setCurrentView('detail');
               }}
               activeOpacity={0.85}
             >
@@ -1397,6 +1490,164 @@ export function AuditScheduleScreen({
               <Text style={styles.addScheduleVisitBtnText}>Schedule Field Visit</Text>
             </TouchableOpacity>
           </View>
+
+          {/* ─── FILTERS BOTTOM SHEET MODAL (Image 1) ─── */}
+          <Modal
+            visible={showScheduleFilterModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowScheduleFilterModal(false)}
+          >
+            <View style={styles.filterModalOverlay}>
+              <TouchableOpacity
+                style={styles.filterModalDismissArea}
+                onPress={() => setShowScheduleFilterModal(false)}
+                activeOpacity={1}
+              />
+              <View style={styles.filterModalSheet}>
+                {/* Header: Sliders icon + Filters */}
+                <View style={styles.filterModalHeaderRow}>
+                  <View style={styles.filterModalTitleWrap}>
+                    <FilterSlidersIcon size={20} color={adminColors.brandDeep} />
+                    <Text style={styles.filterModalTitleText}>Filters</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowScheduleFilterModal(false)}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Close"
+                  >
+                    <CloseXIcon size={20} color={adminColors.ink} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.filterModalScroll} showsVerticalScrollIndicator={false}>
+                  {/* Section 1: Audit Type */}
+                  <Text style={styles.filterModalSectionLabel}>Audit Type</Text>
+                  <View style={styles.filterModalPillsRow}>
+                    {(['All', 'Internal', 'External', 'Field Visit'] as const).map((type) => {
+                      const isSel = draftAuditType === type;
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          style={[
+                            styles.filterModalPill,
+                            isSel ? styles.filterModalPillActive : styles.filterModalPillInactive,
+                          ]}
+                          onPress={() => setDraftAuditType(type)}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[
+                              styles.filterModalPillText,
+                              isSel ? styles.filterModalPillTextActive : styles.filterModalPillTextInactive,
+                            ]}
+                          >
+                            {type}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Section 2: Status */}
+                  <Text style={styles.filterModalSectionLabel}>Status</Text>
+                  <View style={styles.filterModalPillsRow}>
+                    {(['All', 'Upcoming', 'Scheduled', 'In Progress'] as const).map((st) => {
+                      const isSel = draftStatus === st;
+                      return (
+                        <TouchableOpacity
+                          key={st}
+                          style={[
+                            styles.filterModalPill,
+                            isSel ? styles.filterModalPillActive : styles.filterModalPillInactive,
+                          ]}
+                          onPress={() => setDraftStatus(st)}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[
+                              styles.filterModalPillText,
+                              isSel ? styles.filterModalPillTextActive : styles.filterModalPillTextInactive,
+                            ]}
+                          >
+                            {st}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Section 3: Date */}
+                  <Text style={styles.filterModalSectionLabel}>Date</Text>
+                  <View style={styles.filterModalPillsRow}>
+                    {(['Today', 'This Week', 'This Month', 'Custom'] as const).map((d) => {
+                      const isSel = draftDate === d;
+                      return (
+                        <TouchableOpacity
+                          key={d}
+                          style={[
+                            styles.filterModalPill,
+                            isSel ? styles.filterModalPillActive : styles.filterModalPillInactive,
+                          ]}
+                          onPress={() => setDraftDate(d)}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[
+                              styles.filterModalPillText,
+                              isSel ? styles.filterModalPillTextActive : styles.filterModalPillTextInactive,
+                            ]}
+                          >
+                            {d}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Bottom Action Buttons */}
+                  <View style={styles.filterModalActionRow}>
+                    <TouchableOpacity
+                      style={styles.filterModalApplyBtn}
+                      onPress={() => {
+                        setAppliedAuditType(draftAuditType);
+                        setAppliedStatus(draftStatus);
+                        setAppliedDate(draftDate);
+                        setShowScheduleFilterModal(false);
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.filterModalApplyBtnText}>Apply Filters</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.filterModalResetBtn}
+                      onPress={() => {
+                        setDraftAuditType('All');
+                        setDraftStatus('All');
+                        setDraftDate('Today');
+                        setAppliedAuditType('All');
+                        setAppliedStatus('All');
+                        setAppliedDate('Today');
+                        setShowScheduleFilterModal(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.filterModalResetBtnText}>Reset</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.filterModalCancelBtn}
+                      onPress={() => setShowScheduleFilterModal(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.filterModalCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
         </SafeAreaView>
       );
     }
@@ -1594,14 +1845,7 @@ export function AuditScheduleScreen({
 
             {/* Audit Card matching Image 1 */}
             {(selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20) && (
-              <TouchableOpacity
-                style={styles.calAuditCard}
-                onPress={() => {
-                  setPreviousView('calendar');
-                  setCurrentView('audit_details_m5');
-                }}
-                activeOpacity={0.9}
-              >
+              <View style={styles.calAuditCard}>
                 <View style={styles.calAuditCardTopRow}>
                   <Text style={styles.calAuditCardTitle}>
                     {selectedCalDay === 8
@@ -1634,6 +1878,8 @@ export function AuditScheduleScreen({
                 <TouchableOpacity
                   style={styles.calViewDetailsBtn}
                   onPress={() => {
+                    const targetRecord = INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!;
+                    setSelectedRecord(targetRecord);
                     setPreviousView('calendar');
                     setCurrentView('audit_details_m5');
                   }}
@@ -1641,7 +1887,7 @@ export function AuditScheduleScreen({
                 >
                   <Text style={styles.calViewDetailsText}>View Audit Details →</Text>
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </View>
             )}
           </View>
         </ScrollView>
@@ -1650,169 +1896,203 @@ export function AuditScheduleScreen({
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: AUDIT DETAILS (Images 2 & 3)
+  // SCREEN: AUDIT DETAILS (Image 1 Right Screen & Image 2)
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'audit_details_m5') {
     const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
 
     return (
-      <SafeAreaView style={styles.calRoot}>
+      <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* ── Terracotta Header (Image 1 Right Screen: M5_003 Audit / Field Visit Detail) ── */}
-        <View style={styles.calHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                setCalendarViewMode('List');
-                setCurrentView('calendar');
-              }}
-              style={styles.headerBackBtn}
-              activeOpacity={0.7}
-              accessibilityLabel="Back"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-
-            <View>
-              <Text style={styles.calHeaderTitle}>Audit {record.id}</Text>
-              <Text style={styles.calHeaderSubtitle}>Status: {record.badge || 'Upcoming'}</Text>
+        {/* Solid Theme Orange Header */}
+        <View style={styles.screenHeader}>
+          <TouchableOpacity
+            style={styles.headerBackBtn}
+            onPress={() => {
+              setCurrentView('calendar');
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.screenHeaderTitle}>Audit Details</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <Text style={{ ...adminType.caption, color: adminColors.onBrand, fontWeight: '600' }}>
+                {record.type || 'Internal'}
+              </Text>
+              <Text style={{ color: adminColors.onBrand, fontWeight: '700' }}>·</Text>
+              <View style={styles.auditDetailsHeaderPill}>
+                <Text style={styles.auditDetailsHeaderPillText}>
+                  {record.badge || 'Upcoming'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 150 }}
+          contentContainerStyle={styles.detailScrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Card 1: Farmer & Farm Info (Image 1 Right) ── */}
-          <View style={styles.detCard}>
-            <View style={styles.detRow}>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Farmer Name</Text>
-                <Text style={styles.detValue}>{record.farmerName}</Text>
+          {/* Section 1: Farmer Information */}
+          <Text style={styles.detailSectionTitle}>Farmer Information</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farmer</Text>
+                <Text style={styles.detailMetaValue}>{record.farmerName || 'Ramesh Kumar'}</Text>
               </View>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Farmer ID</Text>
-                <Text style={styles.detValue}>{record.farmerId || 'FR-00241'}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detRow, { marginTop: 14 }]}>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Farming Type</Text>
-                <Text style={styles.detValue}>{record.farmingType || 'Organic'}</Text>
-              </View>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Years Organic</Text>
-                <Text style={styles.detValue}>{record.yearsOrganic || 6}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ── Card 2: Certification (Image 1 Right) ── */}
-          <Text style={[styles.detSectionHeader, { marginTop: 16 }]}>Certification</Text>
-          <View style={styles.detCard}>
-            {/* PGS Organic */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <CertCheckIcon size={18} color={adminColors.success.text} />
-              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>PGS Organic</Text>
-            </View>
-            <View style={[styles.detRow, { marginTop: 10 }]}>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Status</Text>
-                <Text style={[styles.detValue, { color: adminColors.success.text }]}>{record.pgsOrganic?.status || 'Active'}</Text>
-              </View>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Renewal Date</Text>
-                <Text style={styles.detValue}>{record.pgsOrganic?.renewalDate || '12 Jun 2027'}</Text>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farmer ID</Text>
+                <Text style={styles.detailMetaValue}>{record.farmerId || 'FR-00124'}</Text>
               </View>
             </View>
 
-            <View style={[styles.detDivider, { marginVertical: 14 }]} />
-
-            {/* NPOP */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <CertCheckIcon size={18} color={adminColors.success.text} />
-              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>NPOP</Text>
-            </View>
-            <View style={[styles.detRow, { marginTop: 10 }]}>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Status</Text>
-                <Text style={[styles.detValue, { color: adminColors.success.text }]}>{record.npop?.status || 'Active'}</Text>
-              </View>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Renewal Date</Text>
-                <Text style={styles.detValue}>{record.npop?.renewalDate || '01 Mar 2027'}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ── Card 3: Previous Audit Summary (Score kept as 0/100 until completed) ── */}
-          <Text style={[styles.detSectionHeader, { marginTop: 16 }]}>Previous Audit Summary</Text>
-          <View style={styles.detCard}>
-            <View style={styles.detRow}>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Previous Date</Text>
-                <Text style={styles.detValue}>{record.previousSummary?.date || '15 Jul 2026'}</Text>
-              </View>
-              <View style={styles.detCol}>
-                <Text style={styles.detLabel}>Previous Score</Text>
-                <Text style={[styles.detValue, { color: adminColors.brand, fontWeight: '800' }]}>
-                  {completedInspectionScore !== null ? `${completedInspectionScore}/100` : '0/100'}
-                </Text>
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Zone</Text>
+                <Text style={styles.detailMetaValue}>{(record as any).zone || 'Ooty'}</Text>
               </View>
             </View>
 
-            {/* Outline Button: View Audit History */}
             <TouchableOpacity
-              style={[styles.detViewProfileBtn, { marginTop: 16, marginBottom: 0 }]}
-              onPress={() => setCurrentView('history')}
+              style={styles.outlineOrangeBtn}
+              onPress={() => onNavigateFarmerProfile?.(record.farmerId || 'FR-00124')}
               activeOpacity={0.8}
             >
-              <Text style={styles.detViewProfileBtnText}>View Audit History</Text>
+              <Text style={styles.outlineOrangeBtnText}>View Farmer Profile</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Section 2: Audit Information */}
+          <Text style={styles.detailSectionTitle}>Audit Information</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Audit ID</Text>
+                <Text style={styles.detailMetaValue}>{record.id || 'AUD-2026-0042'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Type</Text>
+                <Text style={styles.detailMetaValue}>{record.type || 'Internal'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Scheduled Date</Text>
+                <Text style={styles.detailMetaValue}>{record.date || '15 Oct 2026'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Status</Text>
+                <Text style={styles.detailMetaValue}>{record.badge || 'Upcoming'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Auditor</Text>
+                <Text style={styles.detailMetaValue}>{record.auditor || 'Priya'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 3: Farm */}
+          <Text style={styles.detailSectionTitle}>Farm</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farm Name</Text>
+                <Text style={styles.detailMetaValue}>{record.farm || 'Ooty Farm 01'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farming Method</Text>
+                <Text style={styles.detailMetaValue}>{record.farmingType || 'Organic'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 4: Documents */}
+          <Text style={styles.detailSectionTitle}>Documents</Text>
+          <TouchableOpacity
+            style={styles.documentRowCard}
+            onPress={() => setCurrentView('pdf_viewer')}
+            activeOpacity={0.8}
+          >
+            <PdfDocIcon size={20} color={adminColors.brand} />
+            <Text style={styles.documentRowTitle}>Checklist.pdf</Text>
+            <ChevronRightIcon size={18} color={adminColors.muted} />
+          </TouchableOpacity>
+
+          {/* Section 5: Audit Checklist */}
+          <Text style={styles.detailSectionTitle}>Audit Checklist</Text>
+          <View style={styles.checklistCard}>
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Farm Documentation</Text>
+              <View style={styles.checklistPendingRow}>
+                <View style={styles.pendingCircleOutline} />
+                <Text style={styles.checklistPendingText}>Pending</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Organic Practices</Text>
+              <View style={styles.checklistPendingRow}>
+                <View style={styles.pendingCircleOutline} />
+                <Text style={styles.checklistPendingText}>Pending</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Crop Management</Text>
+              <View style={styles.checklistPendingRow}>
+                <View style={styles.pendingCircleOutline} />
+                <Text style={styles.checklistPendingText}>Pending</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Input Usage</Text>
+              <View style={styles.checklistPendingRow}>
+                <View style={styles.pendingCircleOutline} />
+                <Text style={styles.checklistPendingText}>Pending</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Info disclaimer note (Image 2) */}
+          <View style={styles.infoNoteCardWithIcon}>
+            <BanSlashIcon size={18} color={adminColors.muted} />
+            <Text style={styles.infoNoteText}>
+              Schedule, Reschedule and Cancel Audit are not Farmer Admin permissions and are not available here.
+            </Text>
+          </View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
-
-        {/* ── Sticky Bottom Actions (Image 1 Right) ── */}
-        <View style={styles.doubleBottomBar}>
-          <TouchableOpacity
-            style={styles.primarySupportAuditBtn}
-            onPress={() => {
-              setPreviousView('audit_details_m5');
-              setCurrentView('inspection');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primarySupportAuditBtnText}>Support Audit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.outlineScheduleVisitBtn}
-            onPress={() => {
-              setPreviousView('audit_details_m5');
-              setCurrentView('schedule_visit');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.outlineScheduleVisitBtnText}>Schedule Field Visit</Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: CHECKLIST PDF VIEWER (Image 4)
+  // SCREEN: CHECKLIST PDF VIEWER (Image 3)
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'pdf_viewer') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.canvas }}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* ── Terracotta Header (Image 4) ── */}
+        {/* ── Terracotta Header (Image 3) ── */}
         <View style={styles.pdfHeader}>
           <TouchableOpacity
             onPress={() => setCurrentView('audit_details_m5')}
@@ -1863,8 +2143,16 @@ export function AuditScheduleScreen({
           </ScrollView>
         </View>
 
-        {/* ── Bottom Bar: Close ── */}
-        <View style={styles.pdfBottomBar}>
+        {/* ── Bottom Bar: Download + Close (Image 3) ── */}
+        <View style={styles.pdfBottomBarRow}>
+          <TouchableOpacity
+            style={styles.pdfDownloadBtn}
+            onPress={() => Alert.alert('Download', 'Downloading Checklist.pdf')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.pdfDownloadBtnText}>Download</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.pdfCloseBtn}
             onPress={() => setCurrentView('audit_details_m5')}
@@ -1878,9 +2166,205 @@ export function AuditScheduleScreen({
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: AUDIT DETAIL SCREEN (Screenshot 2)
+  // SCREEN: AUDIT AUD-2026-0042 DETAIL (Image 2 Right)
   // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'audit_detail' || currentView === 'detail') {
+  if (currentView === 'detail') {
+    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
+
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Solid Theme Orange Header */}
+        <View style={styles.screenHeader}>
+          <TouchableOpacity
+            style={styles.headerBackBtn}
+            onPress={() => {
+              setCalendarViewMode('List');
+              setCurrentView('calendar');
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.screenHeaderTitle}>Audit {record.id || 'AUD-2026-0042'}</Text>
+            <Text style={styles.screenHeaderSub}>Status: {record.badge || 'Upcoming'}</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.detailScrollPad, { paddingBottom: 120 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Section 1: Audit Information */}
+          <Text style={styles.detailSectionTitle}>Audit Information</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Audit ID</Text>
+                <Text style={styles.auditSummaryValBold}>{record.id || 'AUD-2026-0042'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Audit Type</Text>
+                <Text style={styles.auditSummaryValBold}>{record.type || 'Internal'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Scheduled Date</Text>
+                <Text style={styles.auditSummaryValBold}>{record.date || '15 Oct 2026'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farm</Text>
+                <Text style={styles.auditSummaryValBold}>{record.farm || 'Ooty Farm 01'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Auditor</Text>
+                <Text style={styles.auditSummaryValBold}>{record.assignedText || 'Assigned Auditor'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 2: Farmer Information */}
+          <Text style={styles.detailSectionTitle}>Farmer Information</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farmer Name</Text>
+                <Text style={styles.auditSummaryValBold}>{record.farmerName || 'Ramesh Kumar'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farmer ID</Text>
+                <Text style={styles.auditSummaryValBold}>{record.farmerId || 'FR-00241'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farming Type</Text>
+                <Text style={styles.auditSummaryValBold}>{record.farmingType || 'Organic'}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Years Organic</Text>
+                <Text style={styles.auditSummaryValBold}>{record.yearsOrganic || '6'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 3: Certification */}
+          <Text style={styles.detailSectionTitle}>Certification</Text>
+          <View style={{ gap: 12 }}>
+            {/* Card 1: PGS Organic */}
+            <View style={styles.detailCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <CertCheckIcon size={20} color={adminColors.success.text} />
+                <Text style={{ ...adminType.rowTitle, color: adminColors.ink, marginLeft: 8, fontWeight: '700' }}>
+                  PGS Organic
+                </Text>
+              </View>
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailGridCol}>
+                  <Text style={styles.detailMetaLabel}>Status</Text>
+                  <Text style={[styles.auditSummaryValBold, { color: adminColors.success.text }]}>Active</Text>
+                </View>
+                <View style={styles.detailGridCol}>
+                  <Text style={styles.detailMetaLabel}>Renewal Date</Text>
+                  <Text style={styles.auditSummaryValBold}>12 Jun 2027</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Card 2: NPOP */}
+            <View style={styles.detailCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <CertCheckIcon size={20} color={adminColors.success.text} />
+                <Text style={{ ...adminType.rowTitle, color: adminColors.ink, marginLeft: 8, fontWeight: '700' }}>
+                  NPOP
+                </Text>
+              </View>
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailGridCol}>
+                  <Text style={styles.detailMetaLabel}>Status</Text>
+                  <Text style={[styles.auditSummaryValBold, { color: adminColors.success.text }]}>Active</Text>
+                </View>
+                <View style={styles.detailGridCol}>
+                  <Text style={styles.detailMetaLabel}>Renewal Date</Text>
+                  <Text style={styles.auditSummaryValBold}>01 Mar 2027</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 4: Previous Audit Summary matching Image 2 */}
+          <Text style={styles.detailSectionTitle}>Previous Audit Summary</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Previous Date</Text>
+                <Text style={styles.auditSummaryValBold}>15 Jul 2026</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Previous Score</Text>
+                <Text style={styles.auditSummaryValBold}>80/100</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.outlineOrangeBtn}
+              onPress={() => {
+                setPreviousView('detail');
+                setCurrentView('history');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.outlineOrangeBtnText}>View Audit History</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 24 }} />
+        </ScrollView>
+
+        {/* Bottom Action Buttons: Support Audit & Schedule Field Visit (Image 2) */}
+        <View style={styles.detailBottomActionRow}>
+          <TouchableOpacity
+            style={styles.primaryOrangeBtn}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('inspection');
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryOrangeBtnText}>Support Audit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.secondaryWhiteBtn, { borderColor: adminColors.brand }]}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('schedule_visit');
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.secondaryWhiteBtnText, { color: adminColors.brand, fontWeight: '700' }]}>
+              Schedule Field Visit
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: AUDIT DETAIL SCREEN (History & Reports)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'audit_detail') {
     return (
       <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2311,8 +2795,7 @@ export function AuditScheduleScreen({
               if (previousView === 'audit_details_m5') {
                 setCurrentView('audit_details_m5');
               } else {
-                setCalendarViewMode('List');
-                setCurrentView('calendar');
+                setCurrentView('detail');
               }
             }}
             activeOpacity={0.7}
@@ -2371,123 +2854,222 @@ export function AuditScheduleScreen({
             </TouchableOpacity>
           </View>
 
-          {inspectionMode === 'Normal' ? (
-            <>
-              {/* Section 1: Audit Information */}
-              <Text style={styles.detailSectionTitle}>Audit Information</Text>
-              <View style={styles.detailCard}>
-                <View style={styles.detailGridRow}>
-                  <View style={styles.detailGridCol}>
-                    <Text style={styles.detailMetaLabel}>Audit ID</Text>
-                    <Text style={styles.detailMetaValue}>{record.id}</Text>
-                  </View>
-                  <View style={styles.detailGridCol}>
-                    <Text style={styles.detailMetaLabel}>Farm</Text>
-                    <Text style={styles.detailMetaValue}>{record.farm}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-                  <View style={styles.detailGridCol}>
-                    <Text style={styles.detailMetaLabel}>Audit Type</Text>
-                    <Text style={styles.detailMetaValue}>{record.type}</Text>
-                  </View>
-                  <View style={styles.detailGridCol}>
-                    <Text style={styles.detailMetaLabel}>Date</Text>
-                    <Text style={styles.detailMetaValue}>{record.date}</Text>
-                  </View>
-                </View>
-
-                {/* Outline Button: View Inspection Sections */}
-                <TouchableOpacity
-                  style={styles.outlineOrangeBtn}
-                  onPress={() => setCurrentView('audit_inspection')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.outlineOrangeBtnText}>View Inspection Sections</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Section 2: Checklist Results */}
-              <Text style={styles.detailSectionTitle}>Checklist Results</Text>
-              <View style={styles.checklistCard}>
-                <View style={styles.checklistRow}>
-                  <Text style={styles.checklistLabel}>Farm Documentation</Text>
-                  <View style={[styles.statusChip, styles.statusChipGreen]}>
-                    <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
-                  </View>
-                </View>
-
-                <View style={styles.checklistDivider} />
-
-                <View style={styles.checklistRow}>
-                  <Text style={styles.checklistLabel}>Organic Practices</Text>
-                  <View style={[styles.statusChip, styles.statusChipGreen]}>
-                    <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
-                  </View>
-                </View>
-
-                <View style={styles.checklistDivider} />
-
-                <View style={styles.checklistRow}>
-                  <Text style={styles.checklistLabel}>Crop Management</Text>
-                  <View style={[styles.statusChip, styles.statusChipAmber]}>
-                    <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
-                  </View>
-                </View>
-
-                <View style={styles.checklistDivider} />
-
-                <View style={styles.checklistRow}>
-                  <Text style={styles.checklistLabel}>Input Usage</Text>
-                  <View style={[styles.statusChip, styles.statusChipAmber]}>
-                    <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Section 3: Inspection Summary */}
-              <Text style={styles.detailSectionTitle}>Inspection Summary</Text>
-              <View style={styles.summaryKpiRow}>
-                <View style={styles.summaryKpiCard}>
-                  <Text style={styles.summaryKpiLabel}>MAJOR FINDINGS</Text>
-                  <Text style={styles.summaryKpiValueDark}>{record.majorFindings ?? 0}</Text>
-                </View>
-                <View style={styles.summaryKpiCard}>
-                  <Text style={styles.summaryKpiLabel}>MINOR FINDINGS</Text>
-                  <Text style={styles.summaryKpiValueAmber}>{record.minorFindings ?? 1}</Text>
-                </View>
-              </View>
-
-              {/* Section 4: Findings */}
-              <Text style={styles.detailSectionTitle}>Findings</Text>
-              <View style={styles.findingCard}>
-                <Text style={styles.findingTitle}>Pest management issue</Text>
-                <View style={styles.findingBadgesRow}>
-                  <View style={styles.minorBadge}>
-                    <Text style={styles.minorBadgeText}>Minor</Text>
-                  </View>
-                  <View style={styles.openBadge}>
-                    <Text style={styles.openBadgeText}>Open</Text>
-                  </View>
-                </View>
-              </View>
-            </>
-          ) : (
-            <View style={{ marginTop: 10 }}>
-              <View style={styles.redFlagBanner}>
-                <InfoIcon size={20} color={adminColors.danger.text} />
-                <Text style={styles.redFlagBannerText}>
-                  No active red flags escalated for this audit cycle. All minor notations are managed in the checklist section.
-                </Text>
-              </View>
+          {/* Red Flag Alert Banner (Shown when Red Flag mode is active, matching Image 3) */}
+          {inspectionMode === 'Red Flag' && (
+            <View style={styles.redFlagBanner}>
+              <FlagIcon size={18} color={adminColors.danger.text} />
+              <Text style={styles.redFlagBannerText}>
+                Red Flag — major violation threshold breached.
+              </Text>
             </View>
           )}
+
+          {/* Section 1: Audit Information (Button removed per user request) */}
+          <Text style={styles.detailSectionTitle}>Audit Information</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Audit ID</Text>
+                <Text style={styles.detailMetaValue}>{record.id}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Farm</Text>
+                <Text style={styles.detailMetaValue}>{record.farm}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Audit Type</Text>
+                <Text style={styles.detailMetaValue}>{record.type}</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Date</Text>
+                <Text style={styles.detailMetaValue}>{record.date}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 2: Checklist Results */}
+          <Text style={styles.detailSectionTitle}>Checklist Results</Text>
+          <View style={styles.checklistCard}>
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Farm Documentation</Text>
+              <View style={[styles.statusChip, styles.statusChipGreen]}>
+                <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Organic Practices</Text>
+              <View style={[styles.statusChip, styles.statusChipGreen]}>
+                <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Crop Management</Text>
+              <View style={[styles.statusChip, styles.statusChipAmber]}>
+                <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
+              </View>
+            </View>
+
+            <View style={styles.checklistDivider} />
+
+            <View style={styles.checklistRow}>
+              <Text style={styles.checklistLabel}>Input Usage</Text>
+              <View style={[styles.statusChip, styles.statusChipAmber]}>
+                <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 3: Inspection Summary */}
+          <Text style={styles.detailSectionTitle}>Inspection Summary</Text>
+          <View style={styles.summaryKpiRow}>
+            <View style={styles.summaryKpiCard}>
+              <Text style={styles.summaryKpiLabel}>MAJOR FINDINGS</Text>
+              <Text style={[styles.summaryKpiValueDark, { color: adminColors.danger.text }]}>1</Text>
+            </View>
+            <View style={styles.summaryKpiCard}>
+              <Text style={styles.summaryKpiLabel}>MINOR FINDINGS</Text>
+              <Text style={styles.summaryKpiValueAmber}>1</Text>
+            </View>
+          </View>
+
+          {/* Section 4: Findings */}
+          <Text style={styles.detailSectionTitle}>Findings</Text>
+          <View style={styles.findingCard}>
+            <Text style={styles.findingTitle}>Pest management issue</Text>
+            <View style={styles.findingBadgesRow}>
+              <View style={styles.minorBadge}>
+                <Text style={styles.minorBadgeText}>Minor</Text>
+              </View>
+              <View style={styles.openBadge}>
+                <Text style={styles.openBadgeText}>Open</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.findingCard, { marginTop: 10 }]}>
+            <Text style={styles.findingTitle}>Certification issue</Text>
+            <View style={styles.findingBadgesRow}>
+              <View style={styles.majorBadge}>
+                <Text style={styles.majorBadgeText}>Major</Text>
+              </View>
+              <View style={styles.resolvedBadge}>
+                <Text style={styles.resolvedBadgeText}>Resolved</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 5: Violations */}
+          <Text style={styles.detailSectionTitle}>Violations</Text>
+          <View style={styles.findingCard}>
+            <Text style={styles.findingTitle}>NPOP certification documentation</Text>
+            <View style={styles.findingBadgesRow}>
+              <View style={styles.majorBadge}>
+                <Text style={styles.majorBadgeText}>Major</Text>
+              </View>
+              <View style={styles.openBadge}>
+                <Text style={styles.openBadgeText}>Open</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 6: Audit Timeline */}
+          <Text style={styles.detailSectionTitle}>Audit Timeline</Text>
+          <View style={styles.timelineCard}>
+            <View style={styles.timelineRow}>
+              <View style={styles.timelineTileOrange}>
+                <CirclePlayIcon size={16} color={adminColors.brand} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.timelineItemTitle}>Audit Started</Text>
+                <Text style={styles.timelineItemMeta}>15 Oct 2026, 9:40 AM</Text>
+              </View>
+            </View>
+
+            <View style={[styles.checklistDivider, { marginVertical: 12 }]} />
+
+            <View style={styles.timelineRow}>
+              <View style={styles.timelineTileOrange}>
+                <TimelineInspectionIcon size={16} color={adminColors.brand} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.timelineItemTitle}>Inspection</Text>
+                <Text style={styles.timelineItemMeta}>15 Oct 2026, 10:15 AM</Text>
+              </View>
+            </View>
+
+            <View style={[styles.checklistDivider, { marginVertical: 12 }]} />
+
+            <View style={styles.timelineRow}>
+              <View style={styles.timelineTileGray}>
+                <PendingCircleIcon size={16} color={adminColors.muted} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.timelineItemTitle}>Findings Recorded</Text>
+                <Text style={styles.timelineItemMeta}>Pending</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section 7: Supporting Evidence */}
+          <Text style={styles.detailSectionTitle}>Supporting Evidence</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Photos</Text>
+                <Text style={styles.detailMetaValue}>2 attached</Text>
+              </View>
+              <View style={styles.detailGridCol}>
+                <Text style={styles.detailMetaLabel}>Documents</Text>
+                <Text style={styles.detailMetaValue}>1 attached</Text>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.detailMetaLabel}>Notes</Text>
+              <Text style={[styles.detailMetaValue, { marginTop: 4, lineHeight: 20 }]}>
+                Minor pest sighting noted on plot 2, farmer advised on organic treatment.
+              </Text>
+            </View>
+            {/* Disclaimer note under Supporting Evidence matching Image 4 */}
+            <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
+              <Text style={styles.infoNoteText}>
+                Evidence shown here is read-only for this build — Add Evidence appears only if the backend explicitly grants upload permission.
+              </Text>
+            </View>
+          </View>
+
+          {/* Section 8: Audit Rating matching Image 4 */}
+          <Text style={styles.detailSectionTitle}>Audit Rating</Text>
+          <View style={styles.ratingCard}>
+            <View style={styles.ratingNumberWrap}>
+              <Text style={styles.ratingBigScore}>
+                {completedInspectionScore !== null ? completedInspectionScore : 0}
+              </Text>
+              <Text style={styles.ratingTotal}> / 100</Text>
+            </View>
+            <Text style={styles.ratingCaption}>AUDIT SCORE — VIEW ONLY</Text>
+          </View>
+
+          {/* Disclaimer note under Audit Rating matching Image 4 */}
+          <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
+            <Text style={styles.infoNoteText}>
+              No Edit Score, Configure Score Categories, or Configure Rating Tiers — none are Farmer Admin permissions. Audit Score is a different system from Farm Rating (10 categories × 10 points), never merged here.
+            </Text>
+          </View>
 
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Sticky Bottom Action */}
+        {/* Bottom Action matching Image 4 */}
         <View style={styles.singleBottomBar}>
           <TouchableOpacity
             style={styles.startResumeBtn}
@@ -2507,7 +3089,8 @@ export function AuditScheduleScreen({
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'audit_inspection') {
     const completedCount = Object.values(completedSections).filter(Boolean).length;
-    const missingCount = 10 - completedCount;
+    const totalSectionsCount = INSPECTION_SECTIONS.length;
+    const missingCount = Math.max(0, totalSectionsCount - completedCount);
 
     return (
       <SafeAreaView style={styles.rootOrange}>
@@ -2574,24 +3157,24 @@ export function AuditScheduleScreen({
           {/* Progress Card */}
           <View style={[styles.detailCard, { marginTop: 12 }]}>
             <Text style={styles.progressCardTitle}>
-              {completedCount} of 10 sections complete
+              {completedCount} of {totalSectionsCount} sections complete
             </Text>
             <Text style={styles.progressCardSub}>
               {completedCount === 0
-                ? '12 required fields are still missing'
+                ? `${totalSectionsCount} required fields are still missing`
                 : missingCount > 0
                 ? `${missingCount} sections remaining`
                 : 'All sections completed'}
             </Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${(completedCount / 10) * 100}%` }]} />
+              <View style={[styles.progressBarFill, { width: `${(completedCount / totalSectionsCount) * 100}%` }]} />
             </View>
           </View>
 
           {/* Section: Inspection sections */}
           <Text style={styles.inspectionSectionsTitle}>Inspection sections</Text>
 
-          {INSPECTION_SECTIONS.slice(0, 10).map((sec) => {
+          {INSPECTION_SECTIONS.map((sec) => {
             const isDone = !!completedSections[sec.id];
             return (
               <TouchableOpacity
@@ -2621,10 +3204,10 @@ export function AuditScheduleScreen({
             );
           })}
 
-          <View style={{ height: 20 }} />
+          <View style={{ height: 16 }} />
         </ScrollView>
 
-        {/* Sticky Bottom Actions */}
+        {/* Bottom Actions matching Image 1: Review & Submit and Save Draft */}
         <View style={styles.inspectionBottomBar}>
           <TouchableOpacity
             style={styles.primaryOrangeBtn}
@@ -2650,7 +3233,7 @@ export function AuditScheduleScreen({
           <TouchableOpacity
             style={styles.saveDraftBtn}
             onPress={() => {
-              Alert.alert('Draft Saved', 'Your audit inspection progress has been saved as draft. Rating remains 0/100 until form is submitted.');
+              Alert.alert('Draft Saved', 'Your audit inspection progress has been saved as draft.');
               setCurrentView('inspection');
             }}
             activeOpacity={0.85}
@@ -2670,7 +3253,7 @@ export function AuditScheduleScreen({
 
     const handleSaveStep = () => {
       setCompletedSections((prev) => ({ ...prev, [currentStep]: true }));
-      if (currentStep < 11) {
+      if (currentStep < 12) {
         setCurrentStep((prev) => prev + 1);
         setContactDropdownOpen(false);
         setStatusDropdownOpen(false);
@@ -2695,13 +3278,15 @@ export function AuditScheduleScreen({
         setStep9RelatedModalIndex(null);
         setStep9EvidenceRefModalIndex(null);
         setStep10OpenDropdown(null);
-        setStep11ExpandedCategory(null);
+        setStep11AuditTypeOpen(false);
+        setStep11ActiveDateField(null);
+        setStep12ExpandedCategory(null);
         setStepDropdownAOpen(false);
         setStepDropdownBOpen(false);
       } else {
         Alert.alert(
           'Inspection Completed',
-          'All 11 sections have been successfully completed! Returning to Audit Inspection overview.',
+          'All 12 sections have been successfully completed! Returning to Audit Inspection overview.',
           [{ text: 'OK', onPress: () => setCurrentView('audit_inspection') }]
         );
       }
@@ -3007,6 +3592,156 @@ export function AuditScheduleScreen({
       );
     };
 
+    const renderStep11Calendar = () => {
+      if (!step11ActiveDateField) return null;
+
+      const handlePrevMonth = () => {
+        if (calendarMonth === 0) {
+          setCalendarMonth(11);
+          setCalendarYear((y) => y - 1);
+        } else {
+          setCalendarMonth((m) => m - 1);
+        }
+      };
+
+      const handleNextMonth = () => {
+        if (calendarMonth === 11) {
+          setCalendarMonth(0);
+          setCalendarYear((y) => y + 1);
+        } else {
+          setCalendarMonth((m) => m + 1);
+        }
+      };
+
+      const handleSelectDate = (d: number, m: number, y: number) => {
+        const formatted = `${String(d).padStart(2, '0')}-${String(m + 1).padStart(2, '0')}-${y}`;
+        if (step11ActiveDateField === 'auditDate') setStep11AuditDate(formatted);
+        else if (step11ActiveDateField === 'expiryDate') setStep11ReportExpiryDate(formatted);
+        else if (step11ActiveDateField === 'nextAuditDate') setStep11NextAuditDate(formatted);
+
+        setCalendarSelectedDay(d);
+        setCalendarMonth(m);
+        setCalendarYear(y);
+        setStep11ActiveDateField(null);
+      };
+
+      const handleClear = () => {
+        if (step11ActiveDateField === 'auditDate') setStep11AuditDate('');
+        else if (step11ActiveDateField === 'expiryDate') setStep11ReportExpiryDate('');
+        else if (step11ActiveDateField === 'nextAuditDate') setStep11NextAuditDate('');
+        setStep11ActiveDateField(null);
+      };
+
+      const handleToday = () => {
+        const d = 15;
+        const m = 9; // October (0-indexed)
+        const y = 2026;
+        const formatted = '15-10-2026';
+        if (step11ActiveDateField === 'auditDate') setStep11AuditDate(formatted);
+        else if (step11ActiveDateField === 'expiryDate') setStep11ReportExpiryDate(formatted);
+        else if (step11ActiveDateField === 'nextAuditDate') setStep11NextAuditDate(formatted);
+
+        setCalendarSelectedDay(d);
+        setCalendarMonth(m);
+        setCalendarYear(y);
+        setStep11ActiveDateField(null);
+      };
+
+      const matrix = getCalendarMatrix(calendarYear, calendarMonth);
+
+      return (
+        <View style={[styles.calendarDropdownCard, { marginTop: 10, marginBottom: 16 }]}>
+          {/* Header: Month, Year and Navigation arrows */}
+          <View style={styles.calendarHeaderRow}>
+            <View style={styles.calendarMonthPickerBtn}>
+              <Text style={styles.calendarMonthTitle}>
+                {CALENDAR_MONTHS[calendarMonth]}, {calendarYear}
+              </Text>
+              <View style={{ marginLeft: 5, marginTop: 1 }}>
+                <Svg width={8} height={5} viewBox="0 0 10 6" fill="none">
+                  <Path d="M1 1L5 5L9 1" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+            </View>
+
+            <View style={styles.calendarNavArrows}>
+              <TouchableOpacity
+                onPress={handlePrevMonth}
+                style={styles.calendarNavBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
+                <ArrowUpIcon size={16} color={adminColors.ink} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleNextMonth}
+                style={styles.calendarNavBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
+                activeOpacity={0.7}
+              >
+                <ArrowDownIcon size={16} color={adminColors.ink} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Weekday Labels: Su Mo Tu We Th Fr Sa */}
+          <View style={styles.calendarWeekDaysRow}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+              <View key={d} style={styles.calendarWeekDayCell}>
+                <Text style={styles.calendarWeekDayText}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day Grid */}
+          <View style={styles.calendarGridWrap}>
+            {matrix.map((cell, idx) => {
+              const isSelected = cell.isCurrentMonth && cell.day === calendarSelectedDay;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.calendarDayCell}
+                  onPress={() => {
+                    if (cell.isCurrentMonth) {
+                      handleSelectDate(cell.day, calendarMonth, calendarYear);
+                    }
+                  }}
+                  activeOpacity={cell.isCurrentMonth ? 0.7 : 1}
+                >
+                  <View
+                    style={[
+                      styles.calendarDayInner,
+                      isSelected && styles.calendarDaySelectedInner,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.calendarDayNumText,
+                        !cell.isCurrentMonth && styles.calendarDayNumOtherMonth,
+                        isSelected && styles.calendarDayNumSelected,
+                      ]}
+                    >
+                      {cell.day}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Clear & Today Actions */}
+          <View style={styles.calendarBottomRow}>
+            <TouchableOpacity onPress={handleClear} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Text style={styles.calendarBlueActionText}>Clear</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleToday} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Text style={styles.calendarBlueActionText}>Today</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    };
+
     return (
       <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -3039,7 +3774,9 @@ export function AuditScheduleScreen({
               setStep9RelatedModalIndex(null);
               setStep9EvidenceRefModalIndex(null);
               setStep10OpenDropdown(null);
-              setStep11ExpandedCategory(null);
+              setStep11AuditTypeOpen(false);
+              setStep11ActiveDateField(null);
+              setStep12ExpandedCategory(null);
               setStepDropdownAOpen(false);
               setStepDropdownBOpen(false);
               setCurrentView('audit_inspection');
@@ -3055,7 +3792,7 @@ export function AuditScheduleScreen({
               </Text>
               <View style={styles.headerStepPill}>
                 <Text style={styles.headerStepPillText}>
-                  {currentStep === 11 ? 'STEP 11' : `${currentStep}/10`}
+                  {`${currentStep}/12`}
                 </Text>
               </View>
             </View>
@@ -6095,71 +6832,232 @@ export function AuditScheduleScreen({
                 </Text>
               </View>
             </View>
-          ) : (
-            /* ─── Step 11: Farmer Rating (Screenshots 1 to 4) ─── */
+          ) : currentStep === 11 ? (
+            /* ─── Step 11: Add External Audit (Screenshots 1 & 3) ─── */
             <View>
-              {/* Breadcrumb path */}
-              <Text style={styles.step11Breadcrumb}>Audit Inspection → Farmer Rating</Text>
+              {/* Card 1: Farmer & Farm Details */}
+              <View style={styles.step11SectionHeaderRow}>
+                <GreenLeafOutlineIcon size={18} color="#2E7D32" />
+                <Text style={styles.step11SectionHeaderTitle}>Farmer & Farm Details</Text>
+              </View>
 
-              {/* Top Reference Card */}
-              <View style={styles.step11MetaGridCard}>
-                <View style={styles.step11MetaGridRow}>
-                  <View style={styles.step11MetaGridCol}>
-                    <Text style={styles.step11MetaLabel}>Audit</Text>
-                    <Text style={styles.step11MetaValue}>{selectedRecord.id}</Text>
+              <View style={styles.step11WhiteCard}>
+                {/* Row 1: Farmer ID & Farmer Name */}
+                <View style={styles.step11GridRow}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.step11FieldLabel}>Farmer ID</Text>
+                    <View style={styles.step11ReadonlyBox}>
+                      <Text style={styles.step11ReadonlyText}>{selectedRecord.farmerId || 'F-0256'}</Text>
+                    </View>
                   </View>
-                  <View style={styles.step11MetaGridCol}>
-                    <Text style={styles.step11MetaLabel}>Audit Date</Text>
-                    <Text style={styles.step11MetaValue}>{selectedRecord.date}</Text>
+                  <View style={{ flex: 1.4 }}>
+                    <Text style={styles.step11FieldLabel}>Farmer Name</Text>
+                    <View style={styles.step11ReadonlyBox}>
+                      <Text style={styles.step11ReadonlyText}>{selectedRecord.farmerName || 'Ramesh Kumar'}</Text>
+                    </View>
                   </View>
                 </View>
 
-                <View style={[styles.step11MetaGridRow, { marginTop: 12 }]}>
-                  <View style={styles.step11MetaGridCol}>
-                    <Text style={styles.step11MetaLabel}>Farmer</Text>
-                    <Text style={styles.step11MetaValue}>{selectedRecord.farmerName}</Text>
+                {/* Row 2: Zone, Farms, Total Area */}
+                <View style={[styles.step11GridRow, { marginTop: 12 }]}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.step11FieldLabel}>Zone</Text>
+                    <View style={styles.step11ReadonlyBox}>
+                      <Text style={styles.step11ReadonlyText}>Coonoor</Text>
+                    </View>
                   </View>
-                  <View style={styles.step11MetaGridCol}>
-                    <Text style={styles.step11MetaLabel}>Farmer ID</Text>
-                    <Text style={styles.step11MetaValue}>{selectedRecord.farmerId || 'FMR-00124'}</Text>
+                  <View style={{ flex: 0.9, marginRight: 8 }}>
+                    <Text style={styles.step11FieldLabel}>Farms</Text>
+                    <View style={styles.step11ReadonlyBox}>
+                      <Text style={styles.step11ReadonlyText}>3</Text>
+                    </View>
+                  </View>
+                  <View style={{ flex: 1.2 }}>
+                    <Text style={styles.step11FieldLabel}>Total Area</Text>
+                    <View style={styles.step11ReadonlyBox}>
+                      <Text style={styles.step11ReadonlyText}>4.25 Acre</Text>
+                    </View>
                   </View>
                 </View>
+              </View>
 
-                <View style={[styles.step11MetaGridRow, { marginTop: 12 }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.step11MetaLabel}>Farm</Text>
-                    <Text style={styles.step11MetaValue}>
-                      {selectedRecord.farm} · Coonoor, Nilgiris
+              {/* Card 2: External Audit Information */}
+              <View style={styles.step11SectionHeaderRow}>
+                <GreenFileTextOutlineIcon size={18} color={adminColors.success.text} />
+                <Text style={styles.step11SectionHeaderTitle}>External Audit Information</Text>
+              </View>
+
+              {/* Field: Issuing Organization * */}
+              <View style={styles.formFieldGroup}>
+                <Text style={styles.formLabel}>
+                  Issuing Organization <Text style={{ color: adminColors.danger.text }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.step11Input}
+                  value={step11IssuingOrg}
+                  onChangeText={setStep11IssuingOrg}
+                  placeholder="Enter organization name"
+                  placeholderTextColor={adminColors.muted}
+                />
+              </View>
+
+              {/* Field Row: Audit Date * & Report Expiry Date * */}
+              <View style={styles.step11GridRow}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={styles.formLabel}>
+                    Audit Date <Text style={{ color: adminColors.danger.text }}>*</Text>
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.step11DateSelectorBox}
+                    onPress={() =>
+                      setStep11ActiveDateField(step11ActiveDateField === 'auditDate' ? null : 'auditDate')
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <CalendarIcon size={16} color={adminColors.muted} />
+                    <Text
+                      style={[
+                        styles.step11DateText,
+                        !step11AuditDate && { color: adminColors.muted, fontWeight: '400' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {step11AuditDate || 'Select audit date'}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.formLabel}>
+                    Report Expiry Date <Text style={{ color: adminColors.danger.text }}>*</Text>
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.step11DateSelectorBox}
+                    onPress={() =>
+                      setStep11ActiveDateField(step11ActiveDateField === 'expiryDate' ? null : 'expiryDate')
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <CalendarIcon size={16} color={adminColors.muted} />
+                    <Text
+                      style={[
+                        styles.step11DateText,
+                        !step11ReportExpiryDate && { color: adminColors.muted, fontWeight: '400' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {step11ReportExpiryDate || 'Select expiry date'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* OVERALL RATING Card */}
-              <View style={styles.step11OverallCard}>
-                <Text style={styles.step11OverallTitle}>OVERALL RATING</Text>
-                <Text style={[styles.step11OverallScoreText, step11RatedCount === 10 && { color: adminColors.brand }]}>
-                  {step11RatedCount === 10 ? `${step11TotalScore} / 100` : 'Pending'}
+              {/* Field: Next Audit Date * */}
+              <View style={[styles.formFieldGroup, { marginTop: 12 }]}>
+                <Text style={styles.formLabel}>
+                  Next Audit Date <Text style={{ color: adminColors.danger.text }}>*</Text>
                 </Text>
-                <Text style={styles.step11OverallSubtext}>
-                  {step11RatedCount === 10
-                    ? 'All 10 categories rated. Previous overall: 68 / 100.'
-                    : `${step11RatedCount} of 10 categories rated — the overall score appears once all 10 are rated. Previous overall: 68 / 100.`}
-                </Text>
-                <Text style={styles.step11OverallSubtext2}>
-                  Overall = the sum of the category scores. No weights, penalties or thresholds are applied.
-                </Text>
+                <TouchableOpacity
+                  style={styles.step11DateSelectorBox}
+                  onPress={() =>
+                    setStep11ActiveDateField(step11ActiveDateField === 'nextAuditDate' ? null : 'nextAuditDate')
+                  }
+                  activeOpacity={0.8}
+                >
+                  <CalendarIcon size={16} color={adminColors.muted} />
+                  <Text
+                    style={[
+                      styles.step11DateText,
+                      !step11NextAuditDate && { color: adminColors.muted, fontWeight: '400' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {step11NextAuditDate || 'Select next audit date'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Section Header */}
-              <Text style={styles.step8SectionHeader}>Rating categories</Text>
+              {/* Calendar Popup Dropdown if active */}
+              {renderStep11Calendar()}
 
+              {/* Card 3: Audit Report Upload */}
+              <View style={[styles.step11SectionHeaderRow, { marginTop: 8 }]}>
+                <GreenCloudUploadOutlineIcon size={18} color="#2E7D32" />
+                <Text style={styles.step11SectionHeaderTitle}>Audit Report Upload</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.step11UploadDashedBox}
+                onPress={() => {
+                  if (step11UploadedReport) {
+                    Alert.alert('Report Attached', 'Do you want to replace or remove this audit report?', [
+                      { text: 'Remove', style: 'destructive', onPress: () => setStep11UploadedReport(null) },
+                      { text: 'Keep', style: 'cancel' },
+                    ]);
+                  } else {
+                    setStep11UploadedReport({
+                      name: 'External_Audit_Report_2026.pdf',
+                      size: '2.4 MB',
+                    });
+                    Alert.alert('File Uploaded', 'External_Audit_Report_2026.pdf (2.4 MB) uploaded successfully.');
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                {step11UploadedReport ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <GreenFileTextOutlineIcon size={24} color={adminColors.brand} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.step11UploadedFileName}>{step11UploadedReport.name}</Text>
+                      <Text style={styles.step11UploadedFileSize}>{step11UploadedReport.size} · Tap to manage</Text>
+                    </View>
+                    <CertCheckIcon size={20} color={adminColors.success.text} />
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <GreenFileTextOutlineIcon size={28} color={adminColors.muted} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.step11UploadTitle}>Tap to upload audit report</Text>
+                      <Text style={styles.step11UploadSub}>PDF, JPG, PNG (Max 10 MB)</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Card 4: Additional Details */}
+              <View style={[styles.step11SectionHeaderRow, { marginTop: 14 }]}>
+                <GreenNotesOutlineIcon size={18} color="#2E7D32" />
+                <Text style={styles.step11SectionHeaderTitle}>Additional Details</Text>
+              </View>
+
+              <View style={styles.formFieldGroup}>
+                <Text style={styles.formLabel}>Remarks / Notes</Text>
+                <View style={styles.step11TextareaContainer}>
+                  <TextInput
+                    style={styles.step11TextareaInput}
+                    value={step11Remarks}
+                    onChangeText={(val) => {
+                      if (val.length <= 500) setStep11Remarks(val);
+                    }}
+                    placeholder="Enter any remarks or notes (optional)"
+                    placeholderTextColor={adminColors.muted}
+                    multiline
+                    maxLength={500}
+                    textAlignVertical="top"
+                  />
+                  <Text style={styles.step11CounterText}>{step11Remarks.length}/500</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            /* ─── Step 12: Farmer Rating (Screenshot 4) ─── */
+            <View>
               {/* 10 Category Cards */}
-              {STEP11_RATING_CATEGORIES.map((cat) => {
-                const score = step11Scores[cat.id];
-                const isExpanded = step11ExpandedCategory === cat.id;
+              {STEP12_RATING_CATEGORIES.map((cat) => {
+                const score = step12Scores[cat.id];
+                const isExpanded = step12ExpandedCategory === cat.id;
 
-                const renderCategoryIcon = (iconName: Step11RatingCategory['iconName']) => {
+                const renderCategoryIcon = (iconName: Step12RatingCategory['iconName']) => {
                   switch (iconName) {
                     case 'verified':
                       return <VerifiedBadgeIcon size={18} color={adminColors.brand} />;
@@ -6191,7 +7089,7 @@ export function AuditScheduleScreen({
                     <TouchableOpacity
                       style={styles.step11CategoryHeader}
                       onPress={() =>
-                        setStep11ExpandedCategory(isExpanded ? null : cat.id)
+                        setStep12ExpandedCategory(isExpanded ? null : cat.id)
                       }
                       activeOpacity={0.8}
                     >
@@ -6235,7 +7133,7 @@ export function AuditScheduleScreen({
                                   isSelected && styles.step11ScoreNumBtnActive,
                                 ]}
                                 onPress={() => {
-                                  setStep11Scores((prev) => ({
+                                  setStep12Scores((prev) => ({
                                     ...prev,
                                     [cat.id]: prev[cat.id] === num ? null : num,
                                   }));
@@ -6267,7 +7165,7 @@ export function AuditScheduleScreen({
                                   isSelected && styles.step11ScoreNumBtnActive,
                                 ]}
                                 onPress={() => {
-                                  setStep11Scores((prev) => ({
+                                  setStep12Scores((prev) => ({
                                     ...prev,
                                     [cat.id]: prev[cat.id] === num ? null : num,
                                   }));
@@ -6311,27 +7209,32 @@ export function AuditScheduleScreen({
 
         {/* Fixed Bottom Save Action */}
         <View style={styles.stepBottomBar}>
-          {currentStep === 11 ? (
-            <View style={{ gap: 10 }}>
-              <TouchableOpacity
-                style={styles.primaryOrangeBtn}
-                onPress={() => {
-                  setCompletedSections((prev) => ({ ...prev, 11: true }));
-                  Alert.alert('Draft Saved', 'Farmer ratings draft saved successfully.');
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.primaryOrangeBtnText}>Save Draft</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.step11BackBtn}
-                onPress={() => setCurrentView('audit_inspection')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.step11BackBtnText}>Back to Audit Inspection</Text>
-              </TouchableOpacity>
-            </View>
+          {currentStep === 12 ? (
+            <TouchableOpacity
+              style={styles.primaryOrangeBtn}
+              onPress={() => {
+                setCompletedSections((prev) => ({ ...prev, 12: true }));
+                Alert.alert(
+                  'Steps Completed',
+                  'All 12 inspection sections have been completed successfully.',
+                  [{ text: 'OK', onPress: () => setCurrentView('audit_inspection') }]
+                );
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryOrangeBtnText}>Save</Text>
+            </TouchableOpacity>
+          ) : currentStep === 11 ? (
+            <TouchableOpacity
+              style={styles.primaryOrangeBtn}
+              onPress={() => {
+                setCompletedSections((prev) => ({ ...prev, 11: true }));
+                setCurrentStep(12);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryOrangeBtnText}>Save</Text>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.primaryOrangeBtn}
@@ -7648,6 +8551,154 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.info.text,
   },
+  badgeInProgress: {
+    backgroundColor: adminColors.purple.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeInProgressText: {
+    ...adminType.caption,
+    color: adminColors.purple.text,
+  },
+  badgeCompleted: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeCompletedText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+
+  // ─── Filter Bottom Sheet Modal (Image 1) ───
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'flex-end',
+  },
+  filterModalDismissArea: {
+    flex: 1,
+  },
+  filterModalSheet: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    maxHeight: '80%',
+    ...adminShadow.lg,
+  },
+  filterModalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  filterModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterModalTitleText: {
+    ...adminType.sectionHead,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  filterModalScroll: {
+    flexGrow: 0,
+  },
+  filterModalSectionLabel: {
+    ...adminType.rowTitle,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  filterModalPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterModalPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalPillActive: {
+    backgroundColor: adminColors.brand,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+  },
+  filterModalPillInactive: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  filterModalPillText: {
+    ...adminType.body,
+    fontWeight: '700',
+  },
+  filterModalPillTextActive: {
+    color: adminColors.onBrand,
+  },
+  filterModalPillTextInactive: {
+    color: adminColors.ink,
+  },
+  filterModalActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  filterModalApplyBtn: {
+    flex: 2,
+    height: 46,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalApplyBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  filterModalResetBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalResetBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  filterModalCancelBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalCancelBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
   scheduleRecordCardSub: {
     ...adminType.body,
     fontWeight: '500',
@@ -8577,20 +9628,30 @@ const styles = StyleSheet.create({
   },
   ratingNumberWrap: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
   ratingBigScore: {
-    ...adminType.kpiValue,
+    fontSize: 40,
+    lineHeight: 48,
     fontWeight: '900',
-    color: adminColors.warning.text,
+    color: adminColors.brandDeep,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   ratingTotal: {
     ...adminType.title,
+    fontSize: 18,
+    lineHeight: 26,
+    fontWeight: '700',
     color: adminColors.muted,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   ratingCaption: {
     ...adminType.caption,
+    fontWeight: '700',
     color: adminColors.muted,
     letterSpacing: 0.8,
     marginTop: 6,
@@ -8614,6 +9675,105 @@ const styles = StyleSheet.create({
   startResumeBtnText: {
     color: adminColors.onBrand,
     ...adminType.rowTitle,
+  },
+
+  // ─── Audit Details (Images 1 & 2) ───
+  auditDetailsHeaderPill: {
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  auditDetailsHeaderPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  documentRowCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  documentRowTitle: {
+    flex: 1,
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginLeft: 12,
+  },
+  checklistPendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pendingCircleOutline: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+  },
+  checklistPendingText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  infoNoteCardWithIcon: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+  },
+  pdfBottomBarRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    backgroundColor: adminColors.canvas,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  pdfDownloadBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfDownloadBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  pdfCloseBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
 
   // ─── Filter Page Styles (Screenshot 4) ───
@@ -9834,7 +10994,151 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  // ─── Step 11 Styles (Farmer Rating - Screenshots 1 to 4) ───
+  // ─── Step 11 Styles (Add External Audit - Screenshots 1 & 3) ───
+  step11SectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  step11SectionHeaderTitle: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  step11WhiteCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    marginBottom: 14,
+  },
+  step11GridRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  step11FieldLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  step11ReadonlyBox: {
+    backgroundColor: '#F5F2EB',
+    borderRadius: 8,
+    height: 44,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  step11ReadonlyText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  step11SelectorBox: {
+    backgroundColor: adminColors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    height: 48,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  step11SelectorText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  step11Input: {
+    backgroundColor: adminColors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    height: 48,
+    paddingHorizontal: 14,
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  step11DateSelectorBox: {
+    backgroundColor: adminColors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    height: 48,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  step11DateText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 13,
+    flex: 1,
+  },
+  step11UploadDashedBox: {
+    backgroundColor: '#FAF8F5',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#C8E6C9',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  step11UploadTitle: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  step11UploadSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontSize: 12,
+  },
+  step11UploadedFileName: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  step11UploadedFileSize: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  step11TextareaContainer: {
+    backgroundColor: adminColors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+  },
+  step11TextareaInput: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 14,
+    minHeight: 88,
+  },
+  step11CounterText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'right',
+    marginTop: 4,
+    fontSize: 12,
+  },
+
+  // ─── Step 12 Styles (Farmer Rating - Screenshot 4) ───
   step11Breadcrumb: {
     ...adminType.rowMeta,
     color: adminColors.warning.text,
@@ -10170,6 +11474,29 @@ const styles = StyleSheet.create({
   calGridDayTextSelected: {
     color: adminColors.onBrand,
   },
+  calendarDayInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDaySelectedInner: {
+    backgroundColor: adminColors.brand,
+  },
+  calendarDayNumText: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  calendarDayNumOtherMonth: {
+    color: adminColors.muted,
+    opacity: 0.4,
+  },
+  calendarDayNumSelected: {
+    color: adminColors.onBrand,
+    fontWeight: '800',
+  },
   calDotSingle: {
     width: 4,
     height: 4,
@@ -10404,44 +11731,6 @@ const styles = StyleSheet.create({
   pdfPreviewArea: {
     flex: 1,
     backgroundColor: adminColors.card,
-  },
-  pdfBottomBar: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 28,
-    paddingTop: 12,
-    backgroundColor: adminColors.card,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-  },
-  pdfDownloadBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: adminColors.card,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pdfDownloadBtnText: {
-    ...adminType.body,
-    color: adminColors.brand,
-  },
-  pdfCloseBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: adminColors.card,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pdfCloseBtnText: {
-    ...adminType.body,
-    color: adminColors.ink,
   },
 
   // ─── Module 5: Audit Detail Double Bottom Bar Styles (Image 1 Right) ───

@@ -87,8 +87,9 @@ export interface FarmerProfileData {
 }
 
 export interface FarmerProfileDetailScreenProps {
-  farmer?: FarmerProfileData;
+  farmer?: FarmerProfileData | undefined;
   onBack: () => void;
+  onNavigateAuditHistory?: (() => void) | undefined;
 }
 
 type TabKey = 'Overview' | 'Farm' | 'Documents' | 'Audits' | 'Produce' | 'Ratings' | 'Activity' | 'History' | 'Issues';
@@ -107,6 +108,7 @@ export function FarmerProfileDetailScreen({
     auditStatus: '',
   },
   onBack,
+  onNavigateAuditHistory,
 }: FarmerProfileDetailScreenProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('Overview');
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
@@ -574,7 +576,13 @@ export function FarmerProfileDetailScreen({
 
             <TouchableOpacity
               style={styles.outlineActionBtn}
-              onPress={() => setShowHistoryScreen(true)}
+              onPress={() => {
+                if (onNavigateAuditHistory) {
+                  onNavigateAuditHistory();
+                } else {
+                  setShowHistoryScreen(true);
+                }
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.outlineActionBtnText}>View Audit History</Text>
@@ -689,14 +697,6 @@ export function FarmerProfileDetailScreen({
               activeOpacity={0.8}
             >
               <Text style={styles.outlineActionBtnText}>View Activity</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.outlineActionBtn, styles.rowSpacingSm]}
-              onPress={() => setShowHistoryScreen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineActionBtnText}>View Farmer History</Text>
             </TouchableOpacity>
           </>
         )}

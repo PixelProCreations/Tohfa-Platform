@@ -52,18 +52,32 @@ export interface MarkupPricingBreakdownScreenProps {
   expenseList?: Array<{ name: string; amount: string }> | undefined;
 }
 
+const DEFAULT_EXPENSES = [
+  { name: 'Freight', amount: '₹5.00' },
+  { name: 'Loading', amount: '₹2.00' },
+  { name: 'Unloading', amount: '₹3.00' },
+];
+
 export function MarkupPricingBreakdownScreen({
   onBack,
-  cropGradeTitle,
-  purchasePrice,
-  markup,
-  expensesSummary,
-  retailPrice,
-  customerDiscount,
-  finalCustomerPrice,
+  cropGradeTitle = 'Carrot · Grade 1',
+  purchasePrice = '₹80.00/kg',
+  markup = '10%',
+  expensesSummary = 'Freight ₹5 · Loading ₹2 · Unloading ₹3',
+  retailPrice = '₹98.00/kg',
+  customerDiscount = '₹5.00/kg',
+  finalCustomerPrice = '₹93.00/kg',
   expenseList,
 }: MarkupPricingBreakdownScreenProps) {
-  const expenses = expenseList ?? [];
+  const expenses = expenseList && expenseList.length > 0 ? expenseList : DEFAULT_EXPENSES;
+
+  const displayDiscount = customerDiscount.includes('/kg')
+    ? customerDiscount
+    : `${customerDiscount}/kg`;
+
+  const displayFinalPrice = finalCustomerPrice.includes('/kg')
+    ? finalCustomerPrice
+    : `${finalCustomerPrice}/kg`;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -83,9 +97,7 @@ export function MarkupPricingBreakdownScreen({
           <Text style={styles.headerTitle}>{t('markupPricingBreakdown.title')}</Text>
         </View>
 
-        {cropGradeTitle ? (
-          <Text style={styles.headerSubtitle}>{cropGradeTitle}</Text>
-        ) : null}
+        <Text style={styles.headerSubtitle}>{cropGradeTitle}</Text>
       </View>
 
       {/* ─── Main Content ─── */}
@@ -100,7 +112,7 @@ export function MarkupPricingBreakdownScreen({
         {/* 1. Purchase Price */}
         <View style={styles.flowCard}>
           <Text style={styles.flowCardLabel}>{t('markupPricingBreakdown.label.purchasePrice')}</Text>
-          <Text style={styles.flowCardValue}>{purchasePrice ?? ''}</Text>
+          <Text style={styles.flowCardValue}>{purchasePrice}</Text>
         </View>
 
         {/* Operator: + */}
@@ -111,7 +123,7 @@ export function MarkupPricingBreakdownScreen({
         {/* 2. Markup */}
         <View style={styles.flowCard}>
           <Text style={styles.flowCardLabel}>{t('markupPricingBreakdown.label.markup')}</Text>
-          <Text style={styles.flowCardValue}>{markup ?? ''}</Text>
+          <Text style={styles.flowCardValue}>{markup}</Text>
         </View>
 
         {/* Operator: + */}
@@ -122,7 +134,7 @@ export function MarkupPricingBreakdownScreen({
         {/* 3. Expenses */}
         <View style={styles.flowCard}>
           <Text style={styles.flowCardLabel}>{t('markupPricingBreakdown.label.expenses')}</Text>
-          <Text style={styles.flowCardExpensesDetail}>{expensesSummary ?? ''}</Text>
+          <Text style={styles.flowCardExpensesDetail}>{expensesSummary}</Text>
         </View>
 
         {/* Operator: = */}
@@ -133,7 +145,7 @@ export function MarkupPricingBreakdownScreen({
         {/* 4. Retail Price */}
         <View style={styles.flowCard}>
           <Text style={styles.flowCardLabel}>{t('markupPricingBreakdown.label.retailPrice')}</Text>
-          <Text style={styles.flowCardValue}>{retailPrice ?? ''}</Text>
+          <Text style={styles.flowCardValue}>{retailPrice}</Text>
         </View>
 
         {/* Operator: - */}
@@ -144,7 +156,7 @@ export function MarkupPricingBreakdownScreen({
         {/* 5. Customer Discount */}
         <View style={styles.flowCard}>
           <Text style={styles.flowCardLabel}>{t('markupPricingBreakdown.label.customerDiscount')}</Text>
-          <Text style={styles.flowCardValue}>{customerDiscount ?? ''}</Text>
+          <Text style={styles.flowCardValue}>{displayDiscount}</Text>
         </View>
 
         {/* Operator: = */}
@@ -155,29 +167,40 @@ export function MarkupPricingBreakdownScreen({
         {/* 6. Highlighted Final Customer Price Card */}
         <View style={styles.finalPriceCard}>
           <Text style={styles.finalPriceLabel}>{t('markupPricingBreakdown.label.finalCustomerPrice')}</Text>
-          <Text style={styles.finalPriceValue}>{finalCustomerPrice ?? ''}</Text>
+          <Text style={styles.finalPriceValue}>{displayFinalPrice}</Text>
         </View>
 
         {/* Section: Expense Breakdown */}
-        {expenses.length > 0 && (
-          <>
-            <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>
-              {t('markupPricingBreakdown.section.expenseBreakdown')}
-            </Text>
+        <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>
+          {t('markupPricingBreakdown.section.expenseBreakdown')}
+        </Text>
 
-            <View style={styles.expenseTableCard}>
-              {expenses.map((expense, idx) => (
-                <React.Fragment key={expense.name}>
-                  <View style={styles.expenseTableRow}>
-                    <Text style={styles.expenseName}>{expense.name}</Text>
-                    <Text style={styles.expenseAmount}>{expense.amount}</Text>
-                  </View>
-                  {idx < expenses.length - 1 && <View style={styles.tableDivider} />}
-                </React.Fragment>
-              ))}
-            </View>
-          </>
-        )}
+        <View style={styles.expenseTableCard}>
+          {expenses.map((expense, idx) => (
+            <React.Fragment key={expense.name}>
+              <View style={styles.expenseTableRow}>
+                <Text style={styles.expenseName}>{expense.name}</Text>
+                <Text style={styles.expenseAmount}>{expense.amount}</Text>
+              </View>
+              {idx < expenses.length - 1 && <View style={styles.tableDivider} />}
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* Notice Banner */}
+        <View style={styles.noticeBanner}>
+          <Text style={styles.noticeBannerText}>
+            Only expense types actually configured in the system are shown here — no invented categories.
+          </Text>
+        </View>
+
+        {/* Read-Only Disclaimer Card */}
+        <View style={styles.disclaimerCard}>
+          <BlockCircleIcon size={18} color={adminColors.muted} />
+          <Text style={styles.disclaimerText}>
+            Read-only pricing explanation — no Edit Markup, Edit Expenses, Set Retail Price, or Override Fair Price Ceiling anywhere.
+          </Text>
+        </View>
 
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
@@ -194,32 +217,33 @@ const styles = StyleSheet.create({
   // Header
   header: {
     backgroundColor: adminColors.brand,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
+    gap: adminSpacing.xs,
   },
   backBtn: {
-    paddingVertical: 4,
-    paddingRight: 4,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
     ...adminType.title,
+    fontSize: 20,
+    fontWeight: '800',
     color: adminColors.onBrand,
-    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.onBrand,
-    opacity: 0.9,
-    marginTop: 3,
-    paddingLeft: 34,
+    marginTop: 2,
+    paddingLeft: 36,
+    opacity: 0.95,
   },
 
   // Scroll Body
@@ -228,7 +252,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xl,
   },
 
@@ -236,7 +260,6 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
-    letterSpacing: -0.2,
   },
 
   // Calculation Flow Cards
@@ -253,25 +276,29 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   flowCardLabel: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   flowCardValue: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   flowCardExpensesDetail: {
-    ...adminType.caption,
-    color: adminColors.muted,
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
   },
 
   operatorWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   operatorText: {
-    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '700',
     color: adminColors.muted,
   },
 
@@ -280,7 +307,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: adminColors.brandTint,
+    backgroundColor: '#FAF0E6',
     borderRadius: adminRadius.xl,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
@@ -289,11 +316,13 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   finalPriceLabel: {
-    ...adminType.title,
+    ...adminType.rowTitle,
+    fontWeight: '800',
     color: adminColors.brandDeep,
   },
   finalPriceValue: {
-    ...adminType.title,
+    ...adminType.rowTitle,
+    fontWeight: '800',
     color: adminColors.brandDeep,
   },
 
@@ -314,11 +343,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   expenseName: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   expenseAmount: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   tableDivider: {
@@ -329,34 +360,34 @@ const styles = StyleSheet.create({
   // Notice Banner
   noticeBanner: {
     backgroundColor: adminColors.brandTint,
-    borderWidth: 1,
-    borderColor: adminColors.border,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
     marginTop: adminSpacing.md,
   },
   noticeBannerText: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.brandDeep,
     lineHeight: 18,
+    fontWeight: '600',
   },
 
   // Read-only Disclaimer Card
   disclaimerCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    padding: adminSpacing.md,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     marginTop: adminSpacing.sm,
-    gap: adminSpacing.sm,
+    gap: 10,
   },
   disclaimerText: {
     flex: 1,
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 });

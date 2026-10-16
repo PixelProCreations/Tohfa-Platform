@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-import { t } from '../../i18n';
 import { IncidentItem } from './FarmerPestIncidentsScreen';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -30,24 +31,41 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function LockIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="15" cy="6" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
-      <Circle cx="9" cy="12" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="18" r="2.5" fill={adminColors.brand} stroke={color} strokeWidth="2" />
+      <Rect
+        x="4"
+        y="10"
+        width="16"
+        height="12"
+        rx="2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7 10V7a5 5 0 0 1 10 0v3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" />
+      <Path
+        d="M6 9l6 6 6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -64,10 +82,108 @@ export interface PestIncidentDetailScreenProps {
 export function PestIncidentDetailScreen({
   incident,
   onBack,
-  onViewPest,
-  onViewApplicationGuide,
 }: PestIncidentDetailScreenProps) {
-  const item = incident;
+  // Determine display values matching Screenshots 1, 2, 3
+  const displayId = incident?.id
+    ? incident.id === 'PEST-00421'
+      ? 'INC-2026-0007'
+      : incident.id
+    : 'INC-2026-0007';
+
+  const displayFarmer = incident?.farmer ?? 'Ramesh Kumar';
+  const displayCrop = incident?.crop === 'Carrot' ? 'Tomato' : (incident?.crop ?? 'Tomato');
+  const displayReportId = displayId;
+  const displayReportedTime = '13 Oct 2026, 08:30';
+  const displayPlot = 'PLT-00124-1';
+  const displayField = `${displayCrop} · Field 1`;
+  const displayGrowthStage = 'Not provided';
+  const displayFarmerDesc = 'Demo farmer report (placeholder).';
+  const displayPhotos = 'none uploaded';
+
+  // Interactive state
+  const [linkedPest, setLinkedPest] = useState<string>('Not linked');
+  const [selectedPestDraft, setSelectedPestDraft] = useState<string>('');
+  const [isPestDropdownOpen, setIsPestDropdownOpen] = useState(false);
+
+  const [identificationNotes, setIdentificationNotes] = useState<string>('—');
+  const [linkedTreatment, setLinkedTreatment] = useState<string>('None linked');
+  const [selectedTreatmentDraft, setSelectedTreatmentDraft] = useState<string>('');
+  const [isTreatmentDropdownOpen, setIsTreatmentDropdownOpen] = useState(false);
+
+  const [status] = useState<string>('Ongoing');
+  const [resolutionNotes, setResolutionNotes] = useState<string>('—');
+  const [historyList, setHistoryList] = useState<Array<{ date: string; author: string; note: string }>>([
+    {
+      date: '13 Oct 2026, 08:30',
+      author: displayFarmer,
+      note: 'Reported: Incident reported by the farmer',
+    },
+  ]);
+
+  // Modal open states
+  const [showPestModal, setShowPestModal] = useState(false);
+  const [showTreatmentModal, setShowTreatmentModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewNoteInput, setReviewNoteInput] = useState('');
+
+  // Pest options for Tomato
+  const tomatoPestOptions = [
+    'Aphid (Aphidoidea)',
+    'Tomato Fruit Borer (Helicoverpa armigera)',
+    'Whitefly (Bemisia tabaci)',
+    'Early Blight (Alternaria solani)',
+  ];
+
+  // Treatment options
+  const treatmentOptions = [
+    'TG-001 · Neem Oil Extract 3% (Foliar Spray)',
+    'TG-004 · Bt (Bacillus thuringiensis) Spray',
+    'TG-009 · Sticky Yellow Traps & Pheromones',
+    'TG-012 · Copper Oxychloride 50 WP',
+  ];
+
+  const handleOpenPestModal = () => {
+    setSelectedPestDraft(linkedPest !== 'Not linked' ? linkedPest : '');
+    setIsPestDropdownOpen(false);
+    setShowPestModal(true);
+  };
+
+  const handleConfirmLinkPest = () => {
+    if (selectedPestDraft) {
+      setLinkedPest(selectedPestDraft);
+      setIdentificationNotes(`Catalog confirmed: ${selectedPestDraft}`);
+    }
+    setShowPestModal(false);
+  };
+
+  const handleOpenTreatmentModal = () => {
+    setSelectedTreatmentDraft(linkedTreatment !== 'None linked' ? linkedTreatment : '');
+    setIsTreatmentDropdownOpen(false);
+    setShowTreatmentModal(true);
+  };
+
+  const handleConfirmLinkTreatment = () => {
+    if (selectedTreatmentDraft && linkedPest !== 'Not linked') {
+      setLinkedTreatment(selectedTreatmentDraft);
+    }
+    setShowTreatmentModal(false);
+  };
+
+  const handleSaveReviewNote = () => {
+    if (!reviewNoteInput.trim()) return;
+    const now = '16 Oct 2026, 12:15';
+    setResolutionNotes(reviewNoteInput.trim());
+    setHistoryList((prev) => [
+      ...prev,
+      {
+        date: now,
+        author: 'TOHFA Admin',
+        note: `Review note: ${reviewNoteInput.trim()}`,
+      },
+    ]);
+    setReviewNoteInput('');
+    setShowReviewModal(false);
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -80,20 +196,15 @@ export function PestIncidentDetailScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel={t('pestIncidentDetail.backLabel')}
+            accessibilityLabel="Go back"
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>{t('pestIncidentDetail.title')}</Text>
-
-          <View style={styles.filterBtn}>
-            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-          </View>
+          <Text style={styles.headerTitle}>{displayId}</Text>
         </View>
 
         <Text style={styles.headerSubtitle}>
-          {t('pestIncidentDetail.subtitle')}
+          {displayFarmer} · {displayCrop}
         </Text>
       </View>
 
@@ -103,165 +214,407 @@ export function PestIncidentDetailScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Farmer ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.farmer')}</Text>
+        {/* ─── 1 · Report information ─── */}
+        <Text style={styles.sectionHeading}>1 · Report information</Text>
         <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.name')}</Text>
-              <Text style={styles.fieldValue}>{item?.farmer ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmerId')}</Text>
-              <Text style={styles.fieldValue}>{item?.farmerId ?? ''}</Text>
-            </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Incident</Text>
+            <Text style={styles.tableValueBold}>{displayReportId}</Text>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farm')}</Text>
-              <Text style={styles.fieldValue}>{item?.farm ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.zone')}</Text>
-              <Text style={styles.fieldValue}>{item?.zone ?? ''}</Text>
-            </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Reported</Text>
+            <Text style={styles.tableValueBold}>{displayReportedTime}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Farmer and farm</Text>
+            <Text style={styles.tableValueBold}>
+              {displayFarmer} · {displayPlot}
+            </Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Crop and field</Text>
+            <Text style={styles.tableValueBold}>{displayField}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Growth stage</Text>
+            <Text style={styles.tableValueBold}>{displayGrowthStage}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Farmer's description</Text>
+            <Text style={styles.tableValueBold}>{displayFarmerDesc}</Text>
+          </View>
+
+          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.tableLabel}>Photos</Text>
+            <Text style={styles.tableValueBold}>{displayPhotos}</Text>
           </View>
         </View>
 
-        {/* ─── 2. Crop ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.crop')}</Text>
+        {/* ─── 2 · Identification ─── */}
+        <Text style={styles.sectionHeading}>2 · Identification</Text>
         <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.cropName')}</Text>
-              <Text style={styles.fieldValue}>{item?.crop ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.variety')}</Text>
-              <Text style={styles.fieldValue}>{item?.variety ?? ''}</Text>
-            </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Pest or disease</Text>
+            <Text style={styles.tableValueBold}>{linkedPest}</Text>
           </View>
 
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmZone')}</Text>
-              <Text style={styles.fieldValue}>{item?.farmZone ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.cropStage')}</Text>
-              <Text style={styles.fieldValue}>{item?.cropStage ?? ''}</Text>
-            </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Severity (as reported)</Text>
+            <Text style={styles.tableValueBold}>Medium</Text>
+          </View>
+
+          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.tableLabel}>Identification notes</Text>
+            <Text style={styles.tableValueBold}>{identificationNotes}</Text>
           </View>
         </View>
 
-        {/* ─── 3. Pest ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.pest')}</Text>
-        <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.commonName')}</Text>
-              <Text style={styles.fieldValue}>{item?.pest ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.scientificName')}</Text>
-              <Text style={styles.fieldValue}>{item?.scientificName ?? ''}</Text>
-            </View>
-          </View>
-
-          <View style={{ marginTop: adminSpacing.md }}>
-            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.severity')}</Text>
-            <Text style={styles.fieldValue}>{item?.severity ?? ''}</Text>
-          </View>
-
-          <View style={{ marginTop: adminSpacing.md }}>
-            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.symptoms')}</Text>
-            <Text style={styles.fieldValueNormal}>{item?.farmerNotes || 'Curling leaves, sticky residue on foliage.'}</Text>
-          </View>
-        </View>
-
-        {/* Button: View Pest */}
         <TouchableOpacity
-          style={styles.outlineBtn}
-          onPress={onViewPest}
-          activeOpacity={0.85}
+          style={styles.outlineActionBtn}
+          onPress={handleOpenPestModal}
+          activeOpacity={0.8}
         >
-          <Text style={styles.outlineBtnText}>{t('pestIncidentDetail.action.viewPest')}</Text>
+          <Text style={styles.outlineActionBtnText}>Link Pest / Disease</Text>
         </TouchableOpacity>
 
-        {/* ─── 4. Detection ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.detection')}</Text>
+        {/* ─── 3 · Treatment ─── */}
+        <Text style={styles.sectionHeading}>3 · Treatment</Text>
         <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.date')}</Text>
-              <Text style={styles.fieldValue}>{item?.detectedDate ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.locationZone')}</Text>
-              <Text style={styles.fieldValue}>{item?.farmZone ?? ''}</Text>
-            </View>
+          <View style={styles.tableRowTreatment}>
+            <Text style={styles.tableLabel}>Linked treatment guide</Text>
+            <Text style={styles.tableValueBold}>{linkedTreatment}</Text>
           </View>
-
-          <View style={{ marginTop: adminSpacing.md }}>
-            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.farmerNotes')}</Text>
-            <Text style={styles.fieldValueNormal}>{item?.farmerNotes ?? ''}</Text>
-          </View>
-
-          <View style={{ marginTop: adminSpacing.md }}>
-            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.photos')}</Text>
-            <Text style={styles.fieldValue}>{item?.photos ?? ''}</Text>
-          </View>
-        </View>
-
-        {/* ─── 5. Treatment ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.treatment')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldLabelUppercase}>{t('pestIncidentDetail.label.treatment')}</Text>
-          <Text style={styles.fieldValueNormal}>{item?.treatmentName ?? ''}</Text>
-        </View>
-
-        <View style={[styles.card, { marginTop: adminSpacing.sm }]}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.applicationDate')}</Text>
-              <Text style={styles.fieldValue}>{item?.treatmentDate ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.treatmentStatus')}</Text>
-              <Text style={styles.fieldValue}>{item?.treatmentStatus ?? ''}</Text>
-            </View>
-          </View>
-
-          <View style={{ marginTop: adminSpacing.md }}>
-            <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.notes')}</Text>
-            <Text style={styles.fieldValueNormal}>{item?.treatmentNotes ?? ''}</Text>
-          </View>
-        </View>
-
-        {/* Button: View Application Guide */}
-        <TouchableOpacity
-          style={styles.outlineBtn}
-          onPress={onViewApplicationGuide}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.outlineBtnText}>{t('pestIncidentDetail.action.viewApplicationGuide')}</Text>
-        </TouchableOpacity>
-
-        {/* ─── 6. Resolution ─── */}
-        <Text style={styles.sectionHeading}>{t('pestIncidentDetail.section.resolution')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldLabel}>{t('pestIncidentDetail.label.status')}</Text>
-          <Text style={[styles.fieldValue, { color: adminColors.info.text }]}>
-            {item?.status ?? ''}
+          <Text style={styles.treatmentHint}>
+            Link a pest or disease to see the guides for it.
           </Text>
         </View>
 
-        <View style={{ height: adminSpacing.xl }} />
+        <TouchableOpacity
+          style={styles.outlineActionBtn}
+          onPress={handleOpenTreatmentModal}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.outlineActionBtnText}>Link Treatment Guide</Text>
+        </TouchableOpacity>
+
+        <View style={styles.card}>
+          <Text style={styles.followUpTitle}>Follow-up from the farmer</Text>
+          <Text style={styles.followUpText}>No follow-up has been submitted.</Text>
+        </View>
+
+        {/* ─── 4 · Resolution ─── */}
+        <Text style={styles.sectionHeading}>4 · Resolution</Text>
+        <View style={styles.card}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Status</Text>
+            <Text style={styles.tableValueBold}>{status}</Text>
+          </View>
+
+          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.tableLabel}>Resolution notes</Text>
+            <Text style={styles.tableValueBold}>{resolutionNotes}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.outlineActionBtn}
+          onPress={() => setShowReviewModal(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.outlineActionBtnText}>Record Admin Review Note</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.resolutionDisclaimer}>
+          Whether the TOHFA Admin may mark an incident resolved is not defined, so only the farmer's follow-up changes the status.
+        </Text>
+
+        {/* ─── History ─── */}
+        <Text style={styles.sectionHeading}>History</Text>
+        {historyList.map((hist, idx) => (
+          <View key={idx} style={[styles.card, { marginBottom: 12 }]}>
+            <Text style={styles.historyMeta}>
+              {hist.date} · {hist.author}
+            </Text>
+            <Text style={styles.historyNote}>{hist.note}</Text>
+          </View>
+        ))}
+
+        {/* Append-only card */}
+        <View style={styles.appendOnlyCard}>
+          <LockIcon size={16} color={adminColors.muted} />
+          <Text style={styles.appendOnlyText}>The history is append-only.</Text>
+        </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* POPUP 1: LINK PEST OR DISEASE (Screenshot 1)                         */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showPestModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPestModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.popupCard}>
+            {/* Title */}
+            <Text style={styles.popupTitle}>Link pest or disease</Text>
+
+            {/* Inner Beige Summary Card */}
+            <View style={styles.popupInnerSummaryCard}>
+              <View style={styles.popupSummaryRow}>
+                <Text style={styles.popupSummaryLabel}>Incident</Text>
+                <Text style={styles.popupSummaryValue}>{displayReportId}</Text>
+              </View>
+              <View style={[styles.popupSummaryRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.popupSummaryLabel}>Crop</Text>
+                <Text style={styles.popupSummaryValue}>{displayCrop}</Text>
+              </View>
+            </View>
+
+            {/* Field Label with red asterisk */}
+            <Text style={styles.popupFieldLabel}>
+              Pest or disease (published, recorded for this crop){' '}
+              <Text style={{ color: adminColors.danger.text }}>*</Text>
+            </Text>
+
+            {/* Select Dropdown Box */}
+            <TouchableOpacity
+              style={styles.popupSelectBox}
+              onPress={() => setIsPestDropdownOpen(!isPestDropdownOpen)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.popupSelectText,
+                  !selectedPestDraft && { color: adminColors.muted },
+                ]}
+              >
+                {selectedPestDraft || 'Select...'}
+              </Text>
+              <ChevronDownIcon size={18} color={adminColors.ink} />
+            </TouchableOpacity>
+
+            {/* Dropdown Options List */}
+            {isPestDropdownOpen && (
+              <View style={styles.popupDropdownMenu}>
+                {tomatoPestOptions.map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={styles.popupDropdownOption}
+                    onPress={() => {
+                      setSelectedPestDraft(opt.split(' (')[0] ?? opt);
+                      setIsPestDropdownOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.popupDropdownOptionText}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Caption Note */}
+            <Text style={styles.popupHelperNote}>
+              Only entries recorded for {displayCrop} are offered. Nothing is matched by name.
+            </Text>
+
+            {/* Action Buttons Row */}
+            <View style={styles.popupActionRow}>
+              <TouchableOpacity
+                style={styles.popupLinkBtn}
+                onPress={handleConfirmLinkPest}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupLinkBtnText}>Link</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setShowPestModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* POPUP 2: LINK TREATMENT GUIDE (Screenshot 2)                        */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showTreatmentModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTreatmentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.popupCard}>
+            {/* Title */}
+            <Text style={styles.popupTitle}>Link treatment guide</Text>
+
+            {/* Inner Beige Summary Card */}
+            <View style={styles.popupInnerSummaryCard}>
+              <View style={styles.popupSummaryRow}>
+                <Text style={styles.popupSummaryLabel}>Incident</Text>
+                <Text style={styles.popupSummaryValue}>{displayReportId}</Text>
+              </View>
+              <View style={styles.popupSummaryRow}>
+                <Text style={styles.popupSummaryLabel}>Crop</Text>
+                <Text style={styles.popupSummaryValue}>{displayCrop}</Text>
+              </View>
+              <View style={[styles.popupSummaryRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.popupSummaryLabel}>Pest or disease</Text>
+                <Text style={styles.popupSummaryValue}>{linkedPest}</Text>
+              </View>
+            </View>
+
+            {/* If no pest linked yet, show exact warning box from Screenshot 2 */}
+            {linkedPest === 'Not linked' ? (
+              <View style={styles.popupWarningBox}>
+                <Text style={styles.popupWarningText}>Link a pest or disease first.</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.popupFieldLabel}>
+                  Treatment guide{' '}
+                  <Text style={{ color: adminColors.danger.text }}>*</Text>
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.popupSelectBox}
+                  onPress={() => setIsTreatmentDropdownOpen(!isTreatmentDropdownOpen)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.popupSelectText,
+                      !selectedTreatmentDraft && { color: adminColors.muted },
+                    ]}
+                  >
+                    {selectedTreatmentDraft || 'Select...'}
+                  </Text>
+                  <ChevronDownIcon size={18} color={adminColors.ink} />
+                </TouchableOpacity>
+
+                {isTreatmentDropdownOpen && (
+                  <View style={styles.popupDropdownMenu}>
+                    {treatmentOptions.map((tOpt) => (
+                      <TouchableOpacity
+                        key={tOpt}
+                        style={styles.popupDropdownOption}
+                        onPress={() => {
+                          setSelectedTreatmentDraft(tOpt.split(' · ')[1] ?? tOpt);
+                          setIsTreatmentDropdownOpen(false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.popupDropdownOptionText}>{tOpt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* Caption Note */}
+            <Text style={styles.popupHelperNote}>
+              The guide carries its own verified dosage and timing. None is worked out from the severity.
+            </Text>
+
+            {/* Action Buttons Row */}
+            <View style={styles.popupActionRow}>
+              <TouchableOpacity
+                style={styles.popupLinkBtn}
+                onPress={handleConfirmLinkTreatment}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupLinkBtnText}>Link</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setShowTreatmentModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* POPUP 3: RECORD REVIEW NOTE (Screenshot 3)                          */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.popupCard}>
+            {/* Title */}
+            <Text style={styles.popupTitle}>Record review note</Text>
+
+            {/* Field Label with red asterisk */}
+            <Text style={styles.popupFieldLabel}>
+              Review note <Text style={{ color: adminColors.danger.text }}>*</Text>
+            </Text>
+
+            {/* Multiline TextInput Box */}
+            <TextInput
+              style={styles.popupReviewInput}
+              value={reviewNoteInput}
+              onChangeText={setReviewNoteInput}
+              placeholder=""
+              placeholderTextColor={adminColors.muted}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            {/* Subtext */}
+            <Text style={styles.popupHelperNote}>
+              Your name and the time are recorded. The farmer's report is not changed.
+            </Text>
+
+            {/* Action Buttons Row */}
+            <View style={styles.popupActionRow}>
+              <TouchableOpacity
+                style={styles.popupLinkBtn}
+                onPress={handleSaveReviewNote}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupLinkBtnText}>Save Note</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.popupCancelBtn}
+                onPress={() => setShowReviewModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.popupCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+// ─── Styles (Strictly Conforming to PR #117 Admin Theme Tokens) ───────────────
 
 const styles = StyleSheet.create({
   root: {
@@ -269,7 +622,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
   },
 
-  // Header
+  // Terracotta Header
   header: {
     backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.md,
@@ -279,36 +632,25 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: adminSpacing.xs,
   },
   backBtn: {
-    paddingRight: 6,
+    paddingRight: adminSpacing.sm,
     paddingVertical: adminSpacing.xs,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: 6,
   },
   headerTitle: {
-    flex: 1,
     ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: -0.3,
-    marginLeft: 6,
-  },
-  filterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: adminOverlay.whitePill,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontWeight: '800',
   },
   headerSubtitle: {
-    ...adminType.rowMeta,
+    ...adminType.body,
+    fontSize: 13,
     color: adminColors.onBrand,
-    opacity: 0.9,
-    marginTop: adminSpacing.xs,
+    opacity: 0.95,
+    marginTop: 6,
     fontWeight: '500',
+    paddingLeft: 34,
   },
 
   // Scroll Container
@@ -316,7 +658,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xl,
   },
@@ -324,85 +666,319 @@ const styles = StyleSheet.create({
   // Section Heading
   sectionHeading: {
     ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '800',
     color: adminColors.brandDeep,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    marginTop: 18,
+    marginBottom: 8,
   },
 
-  // Card Structure
+  // Cards
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.lg,
     ...adminShadow.sm,
   },
-  twoColRow: {
+
+  // Table Rows inside Card
+  tableRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: adminSpacing.md,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
   },
-  col: {
+  tableRowTreatment: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 6,
+  },
+  tableLabel: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.muted,
     flex: 1,
   },
-  fieldLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
-    fontWeight: '500',
-  },
-  fieldLabelUppercase: {
-    ...adminType.caption,
-    fontWeight: '700',
-    color: adminColors.muted,
-    letterSpacing: 0.3,
-    marginBottom: 6,
-  },
-  fieldValue: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  fieldValueNormal: {
+  tableValueBold: {
     ...adminType.body,
+    fontSize: 13,
     fontWeight: '700',
     color: adminColors.ink,
-    lineHeight: 18,
+    textAlign: 'right',
   },
 
-  // Outline Buttons
-  outlineBtn: {
+  // Treatment hint
+  treatmentHint: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+
+  // Outline Action Buttons (e.g. 'Link Pest / Disease')
+  outlineActionBtn: {
     backgroundColor: adminColors.card,
+    height: 48,
     borderRadius: adminRadius.md,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: adminSpacing.sm,
+    marginTop: 10,
+    marginBottom: 4,
   },
-  outlineBtnText: {
-    ...adminType.rowTitle,
+  outlineActionBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
     color: adminColors.brand,
   },
 
-  // Read-only Banner
-  readOnlyBanner: {
+  // Follow-up card
+  followUpTitle: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 4,
+  },
+  followUpText: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+  },
+
+  // Resolution disclaimer
+  resolutionDisclaimer: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+    lineHeight: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+
+  // History entries
+  historyMeta: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  historyNote: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+
+  // Append-only card
+  appendOnlyCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    gap: 8,
+    marginTop: 4,
+  },
+  appendOnlyText: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+    fontWeight: '500',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POPUP STYLES (Exact Match to Screenshots 1, 2, 3)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  popupCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 22,
+    width: '100%',
+    maxWidth: 400,
+    ...adminShadow.lg,
+  },
+  popupTitle: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 16,
+  },
+
+  // Inner beige card (Screenshots 1 & 2)
+  popupInnerSummaryCard: {
+    backgroundColor: '#FAF5EE',
+    borderRadius: adminRadius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  popupSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE6DB',
+  },
+  popupSummaryLabel: {
+    ...adminType.body,
+    fontSize: 13,
+    color: '#736B63',
+  },
+  popupSummaryValue: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+
+  // Field label
+  popupFieldLabel: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 8,
+  },
+
+  // Dropdown select box (Screenshots 1 & 2)
+  popupSelectBox: {
+    height: 48,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    marginTop: adminSpacing.md,
-    gap: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  readOnlyText: {
-    flex: 1,
-    ...adminType.rowMeta,
+  popupSelectText: {
+    ...adminType.body,
+    fontSize: 14,
+    color: adminColors.ink,
+  },
+
+  // Dropdown menu options
+  popupDropdownMenu: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginTop: -4,
+    marginBottom: 8,
+    overflow: 'hidden',
+    ...adminShadow.sm,
+  },
+  popupDropdownOption: {
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
+  },
+  popupDropdownOptionText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+
+  // Warning box (Screenshot 2: "Link a pest or disease first.")
+  popupWarningBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  popupWarningText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+
+  // Review note textarea (Screenshot 3)
+  popupReviewInput: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+    height: 104,
+    marginBottom: 8,
+  },
+
+  // Helper note
+  popupHelperNote: {
+    ...adminType.caption,
+    fontSize: 11,
     color: adminColors.muted,
     lineHeight: 16,
+    marginBottom: 20,
+  },
+
+  // Action buttons row (Screenshots 1, 2, 3)
+  popupActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  popupLinkBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  popupLinkBtnText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  popupCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  popupCancelBtnText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
 });

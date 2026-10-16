@@ -188,7 +188,9 @@ export function FairPriceCeilingScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('fairPriceCeiling.title')}</Text>
+          <Text style={styles.headerTitle}>
+            {selectedItem ? selectedItem.crop : 'Fair Price'}
+          </Text>
 
           <TouchableOpacity
             style={styles.filterBtn}
@@ -208,7 +210,7 @@ export function FairPriceCeilingScreen({
             ? t('fairPriceCeiling.filters.title')
             : selectedItem
             ? `${selectedItem.crop} · ${selectedItem.grade}`
-            : t('fairPriceCeiling.section.fairPrices')}
+            : 'View current TOHFA fair-price ceilings used for produce listing and purchase decisions'}
         </Text>
       </View>
 
@@ -442,40 +444,43 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: adminColors.brand,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   backBtn: {
-    paddingRight: 6,
-    paddingVertical: 4,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
     flex: 1,
-    ...adminType.sectionHead,
+    ...adminType.title,
+    fontSize: 20,
+    fontWeight: '800',
     color: adminColors.onBrand,
-    marginLeft: 6,
+    marginLeft: 4,
   },
   filterBtn: {
     width: 36,
     height: 36,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminOverlay.whitePill,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerSubtitle: {
     ...adminType.caption,
     color: adminColors.onBrand,
-    marginTop: 4,
+    lineHeight: 18,
+    opacity: 0.95,
   },
   scroll: {
     flex: 1,

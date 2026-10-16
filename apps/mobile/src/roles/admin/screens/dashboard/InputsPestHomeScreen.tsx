@@ -109,10 +109,10 @@ export interface InputsPestHomeScreenProps {
   onBack: () => void;
   onNavigateApprovedInputs: () => void;
   onNavigatePestLibrary: () => void;
-  onNavigateApplicationGuides?: () => void;
-  onNavigatePestIncidents?: () => void;
-  onViewRecentIncident?: () => void;
-  onOpenNotifications?: () => void;
+  onNavigateApplicationGuides?: (() => void) | undefined;
+  onNavigatePestIncidents?: (() => void) | undefined;
+  onViewRecentIncident?: (() => void) | undefined;
+  onOpenNotifications?: (() => void) | undefined;
 }
 
 export function InputsPestHomeScreen({
@@ -170,10 +170,15 @@ export function InputsPestHomeScreen({
         <View style={styles.kpiGrid}>
           {/* Row 1 */}
           <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              onPress={onNavigateApprovedInputs}
+              activeOpacity={0.8}
+              accessibilityLabel={t('inputsPestHome.kpi.approvedInputs')}
+            >
               <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.approvedInputs')}</Text>
               <Text style={styles.kpiValueDark}>48</Text>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.inputCategories')}</Text>
@@ -183,15 +188,25 @@ export function InputsPestHomeScreen({
 
           {/* Row 2 */}
           <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              onPress={onNavigatePestLibrary}
+              activeOpacity={0.8}
+              accessibilityLabel={t('inputsPestHome.kpi.pestLibrary')}
+            >
               <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestLibrary')}</Text>
               <Text style={styles.kpiValueDark}>32</Text>
-            </View>
+            </TouchableOpacity>
 
-            <View style={styles.kpiCard}>
+            <TouchableOpacity
+              style={styles.kpiCard}
+              onPress={onNavigatePestIncidents}
+              activeOpacity={0.8}
+              accessibilityLabel={t('inputsPestHome.kpi.pestIncidents')}
+            >
               <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestIncidents')}</Text>
               <Text style={[styles.kpiValueDark, { color: adminColors.warning.text }]}>12</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -199,7 +214,7 @@ export function InputsPestHomeScreen({
         <Text style={styles.sectionHeading}>{t('inputsPestHome.section.quickActions')}</Text>
 
         <View style={styles.quickGrid}>
-          {/* Row 1 */}
+          {/* Row 1: Approved Inputs & Pest Library */}
           <View style={styles.quickRow}>
             <TouchableOpacity
               style={styles.quickCard}
@@ -220,26 +235,15 @@ export function InputsPestHomeScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Row 2 */}
-          <View style={styles.quickRow}>
-            <TouchableOpacity
-              style={styles.quickCard}
-              onPress={onNavigateApplicationGuides ?? onNavigateApprovedInputs}
-              activeOpacity={0.8}
-            >
-              <BookIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.applicationGuides')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickCard}
-              onPress={onNavigatePestIncidents ?? onNavigatePestLibrary}
-              activeOpacity={0.8}
-            >
-              <WarningTriangleIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.pestIncidents')}</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Row 2: Full-width Pest Incidents */}
+          <TouchableOpacity
+            style={styles.quickCardFull}
+            onPress={onNavigatePestIncidents ?? onNavigatePestLibrary}
+            activeOpacity={0.8}
+          >
+            <WarningTriangleIcon size={26} color={adminColors.brand} />
+            <Text style={styles.quickCardLabel}>{t('inputsPestHome.quickAction.pestIncidents')}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ─── Section: Recent Farmer Pest Activity ─── */}
@@ -397,6 +401,19 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     color: adminColors.ink,
     textAlign: 'center',
+  },
+  quickCardFull: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 20,
+    paddingHorizontal: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.xs,
+    ...adminShadow.sm,
   },
 
   // Recent Farmer Pest Activity Card

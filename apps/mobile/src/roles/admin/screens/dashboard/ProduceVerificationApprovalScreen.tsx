@@ -101,6 +101,7 @@ export interface ProduceVerificationApprovalScreenProps {
   onSubmitSuccess?: (() => void) | undefined;
   onViewFarmerProfile?: (() => void) | undefined;
   onViewListing?: (() => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
 }
 
 export function ProduceVerificationApprovalScreen({
@@ -112,6 +113,7 @@ export function ProduceVerificationApprovalScreen({
   onSubmitSuccess,
   onViewFarmerProfile,
   onViewListing,
+  onNavigateAuditHistory,
 }: ProduceVerificationApprovalScreenProps) {
   const [showFarmerProfile, setShowFarmerProfile] = useState(false);
   const [farmerInfoOpen, setFarmerInfoOpen] = useState(true);
@@ -238,6 +240,7 @@ export function ProduceVerificationApprovalScreen({
           auditStatus: 'Upcoming',
         }}
         onBack={() => setShowFarmerProfile(false)}
+        onNavigateAuditHistory={onNavigateAuditHistory}
       />
     );
   }
