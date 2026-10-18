@@ -9,6 +9,13 @@ import {
   type TextStyle,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../theme';
 
 export interface OverviewDashboardCardProps {
   /** Main stat/number, e.g. "12", "08", "03", "05", "₹24,850" */
@@ -19,12 +26,14 @@ export interface OverviewDashboardCardProps {
   subtitle?: string | undefined;
   /** Built-in icon name or custom React node for the top-right icon badge */
   icon?: 'orders' | 'pickup' | 'receiving' | 'inventory' | 'sales' | 'cash' | 'truck' | 'box' | 'alert' | React.ReactNode;
-  /** Optional custom icon tint or defaults to warm brown/tan #8C5835 */
+  /** Optional custom icon tint or defaults to warm brown/tan from admin theme */
   iconColor?: string;
-  /** Optional custom icon badge background or defaults to warm peach/cream #FCEFE7 */
+  /** Optional custom icon badge background or defaults to warm peach/cream from admin theme */
   iconBgColor?: string;
-  /** If true or 'danger', highlights the value and subtitle with red/coral tone (#C93B2B / #E11D48) */
+  /** If true or 'danger', highlights the value and subtitle with red/coral tone */
   tone?: 'default' | 'danger' | 'warning' | 'success';
+  /** Title placement: 'bottom' (default: value top, title bottom) or 'top' (title top, value middle, subtitle bottom) */
+  titlePosition?: 'top' | 'bottom';
   /** Press handler */
   onPress?: (() => void) | undefined;
   /** Custom outer card container style override */
@@ -36,9 +45,6 @@ export interface OverviewDashboardCardProps {
   /** Whether the card is disabled */
   disabled?: boolean;
 }
-
-const DEFAULT_ICON_COLOR = '#8C5835';
-const DEFAULT_ICON_BG = '#FCEFE7';
 
 function renderBuiltinIcon(type: string, color: string) {
   switch (type) {
@@ -52,7 +58,7 @@ function renderBuiltinIcon(type: string, color: string) {
             strokeLinecap="round"
           />
           <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.9" />
-          <Circle cx="16" cy="16" r="4.5" stroke={color} strokeWidth="1.9" fill="#FFF" />
+          <Circle cx="16" cy="16" r="4.5" stroke={color} strokeWidth="1.9" fill={adminColors.card} />
           <Path d="M16 14.5v1.8l1.3 1.3" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
         </Svg>
       );
@@ -108,7 +114,7 @@ function renderBuiltinIcon(type: string, color: string) {
     case 'sales':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-          <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
+          <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill={adminColors.card} />
           <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
           <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
           <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -135,49 +141,54 @@ function renderBuiltinIcon(type: string, color: string) {
 }
 
 /**
- * Reusable Overview Dashboard Card designed exactly after the reference design:
- * - Crisp white rounded container (#FFFFFF, 16px radius, subtle border #EBE5DF)
- * - Prominent bold statistic / count (19px, weight 800)
- * - Rounded square top-right icon badge with pastel warm tint (#FCEFE7) and warm icon tone (#8C5835)
- * - Clean title (13px, weight 700, #3E3834)
- * - Subtitle / counter (11.5px, #7A726C / danger highlight)
+ * Reusable Overview Dashboard Card designed strictly following the TOHFA Admin design system:
+ * - Surfaces from adminColors.card, border from adminColors.border
+ * - Prominent bold KPI statistic using adminType.kpiValue
+ * - Rounded square top-right icon badge with adminColors.brandTint & adminColors.brandDeep
+ * - Clean title with adminType.rowTitle & adminColors.ink
+ * - Subtitle / counter with adminType.rowMeta & adminColors.muted
+ * - Optional titlePosition='top' to display title on top of value and subtitle below
  */
 export function OverviewDashboardCard({
   value,
   title,
   subtitle,
   icon,
-  iconColor = DEFAULT_ICON_COLOR,
-  iconBgColor = DEFAULT_ICON_BG,
+  iconColor,
+  iconBgColor,
   tone = 'default',
+  titlePosition = 'bottom',
   onPress,
   style,
   valueStyle,
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
+  const effectiveIconColor = iconColor ?? adminColors.brand;
+  const effectiveIconBg = iconBgColor ?? adminColors.brandTint;
+
   const isDanger = tone === 'danger';
   const isWarning = tone === 'warning';
   const isSuccess = tone === 'success';
 
   const toneValueColor = isDanger
-    ? '#C93B2B'
+    ? adminColors.danger.text
     : isWarning
-    ? '#D97706'
+    ? adminColors.warning.text
     : isSuccess
-    ? '#16A34A'
-    : '#1A1817';
+    ? adminColors.success.text
+    : adminColors.ink;
 
   const toneSubColor = isDanger
-    ? '#C93B2B'
+    ? adminColors.danger.text
     : isWarning
-    ? '#D97706'
+    ? adminColors.warning.text
     : isSuccess
-    ? '#16A34A'
-    : '#7A726C';
+    ? adminColors.success.text
+    : adminColors.muted;
 
   const renderedIcon = typeof icon === 'string'
-    ? renderBuiltinIcon(icon, iconColor)
+    ? renderBuiltinIcon(icon, effectiveIconColor)
     : icon;
 
   return (
@@ -189,34 +200,65 @@ export function OverviewDashboardCard({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={accessibilityLabel || `${title}: ${value}${subtitle ? `, ${subtitle}` : ''}`}
     >
-      {/* Top row: Value on left, warm rounded Icon Badge on right */}
-      <View style={styles.topRow}>
-        <Text
-          style={[styles.value, { color: toneValueColor }, valueStyle]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {String(value)}
-        </Text>
-
-        {renderedIcon ? (
-          <View style={[styles.iconBadge, { backgroundColor: iconBgColor }]}>
-            {renderedIcon}
+      {titlePosition === 'top' ? (
+        <>
+          <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
+            <Text style={styles.title} numberOfLines={2}>
+              {title}
+            </Text>
+            {renderedIcon ? (
+              <View style={[styles.iconBadge, { backgroundColor: effectiveIconBg }]}>
+                {renderedIcon}
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
 
-      {/* Title */}
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
+          <Text
+            style={[styles.value, { color: toneValueColor }, valueStyle]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {String(value)}
+          </Text>
 
-      {/* Subtitle / micro text */}
-      {subtitle ? (
-        <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {/* Top row: Value on left, warm rounded Icon Badge on right */}
+          <View style={styles.topRow}>
+            <Text
+              style={[styles.value, { color: toneValueColor }, valueStyle]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {String(value)}
+            </Text>
+
+            {renderedIcon ? (
+              <View style={[styles.iconBadge, { backgroundColor: effectiveIconBg }]}>
+                {renderedIcon}
+              </View>
+            ) : null}
+          </View>
+
+          {/* Title */}
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+
+          {/* Subtitle / micro text */}
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </>
+      )}
     </TouchableOpacity>
   );
 }
@@ -239,57 +281,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 14,
+    rowGap: adminSpacing.md,
   },
   card: {
     width: '48.5%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
-    shadowColor: '#1A1817',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.5,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     justifyContent: 'space-between',
-    minHeight: 114,
+    minHeight: 104,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    minHeight: 32,
+    marginBottom: 4,
+  },
+  topRowWithoutIcon: {
+    minHeight: 0,
+    marginBottom: 2,
   },
   value: {
-    fontSize: 21,
-    lineHeight: 26,
+    ...adminType.kpiValue,
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: '800',
-    color: '#1A1817',
+    color: adminColors.ink,
     letterSpacing: -0.4,
+    marginVertical: 2,
   },
   iconBadge: {
     width: 36,
     height: 36,
-    borderRadius: 11,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
+    ...adminType.rowTitle,
     fontSize: 13.5,
-    lineHeight: 18,
+    lineHeight: 17,
     fontWeight: '700',
-    color: '#38322E',
+    color: adminColors.ink,
     letterSpacing: -0.1,
+    flex: 1,
   },
   subtitle: {
+    ...adminType.rowMeta,
     fontSize: 11.5,
     lineHeight: 15,
-    fontWeight: '500',
-    color: '#7A726C',
-    marginTop: 3,
+    color: adminColors.muted,
+    marginTop: 2,
   },
 });

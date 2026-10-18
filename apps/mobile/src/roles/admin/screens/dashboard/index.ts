@@ -77,3 +77,5 @@ export * from './PestIncidentDetailScreen';
 // Module 5: Audits screens
 export * from './FarmerAuditsTabScreen';
 export * from './AuditScheduleScreen';
+export * from './AdminOperationsOverviewScreen';
+export * from './AdminMoreMenuScreen';
