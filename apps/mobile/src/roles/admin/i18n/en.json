@@ -679,5 +679,10 @@
   "customers.wallet.detail.newBalance": "New Balance",
   "customers.wallet.detail.dateTime": "Date/Time",
   "customers.wallet.detail.warehouse": "Warehouse",
-  "customers.wallet.detail.reference": "Reference ID"
+  "customers.wallet.detail.reference": "Reference ID",
+
+  "mainDashboard.alert.dismiss": "Dismiss for me",
+  "mainDashboard.alert.dismissing": "Dismissing…",
+  "mainDashboard.alert.dismissed.title": "Alert dismissed",
+  "mainDashboard.alert.dismissed.body": "{{title}} is hidden from your list only. Other admins still see it until the condition clears."
 }

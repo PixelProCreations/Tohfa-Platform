@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors } from '../../theme';
+import { adminColors, adminSpacing } from '../../theme';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -57,6 +57,11 @@ import { dismissAlert, listAlerts } from '../../api/alerts';
 import { getTaskSummary, listTasks } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
 import { formatPaise } from '../../money/paise';
+import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
+import { SectionGate, retryFailed, sourceOf } from './MainDashboardParts';
+import { adminErrorKey } from '../../api/errors';
+import { t } from '../../i18n';
+import { figureOrPlaceholder } from './mappers_mainDashboard';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 
 /**
@@ -733,6 +738,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const liveAlerts = alertsQuery.data?.items ?? [];
 
+  // Every query's state, so no section draws a figure the server has not sent.
+  const warehousesSrc = sourceOf(warehousesQuery);
+  const batchesSrc = sourceOf(batchesQuery);
+  const openTasksSrc = sourceOf(openTasksQuery);
+  const salesSrc = sourceOf(salesSummaryQuery);
+  const ordersSrc = sourceOf(ordersQuery);
+  const receiptsSrc = sourceOf(goodsReceiptsQuery);
+  const alertsSrc = sourceOf(alertsQuery);
+  const taskSummarySrc = sourceOf(taskSummaryQuery);
+  const homeKpiSources = [batchesSrc, receiptsSrc, openTasksSrc, ordersSrc, salesSrc, alertsSrc];
+  const inventoryKpiSources = [batchesSrc, receiptsSrc, alertsSrc];
+
   const alertsList: WarehouseAlertItem[] = useMemo(() => {
     return liveAlerts.map((a) => {
       const wh = warehouses.find((w) => w.id === a.warehouseId);
@@ -754,10 +771,26 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     });
   }, [liveAlerts, warehouses]);
 
+  // POST /admin/alerts/{itemKey}/dismiss (alert.own.view) hides the alert from
+  // THIS admin's lists only; other admins keep seeing it (BR-78). So the button
+  // says "Dismiss for me", is offered only with alert.own.view, and reports
+  // success only after the server accepted it.
   const dismissMutation = useAdminMutation({
     mutationFn: (itemKey: string) => dismissAlert(itemKey),
     invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
   });
+  const canDismissAlert = can('alert.own.view');
+  const handleDismissAlert = async (alert: WarehouseAlertItem) => {
+    try {
+      await dismissMutation.mutateAsync(alert.id);
+    } catch {
+      // Not shown as success: the failure renders from dismissMutation.error.
+      return;
+    }
+    Alert.alert(t('mainDashboard.alert.dismissed.title'), t('mainDashboard.alert.dismissed.body', { title: alert.title }));
+    dismissMutation.reset();
+    goBackWh();
+  };
 
   const totalStockKg = useMemo(() => {
     return batches
@@ -1014,6 +1047,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
+          <SectionGate sources={[warehousesSrc, batchesSrc, receiptsSrc, alertsSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
           {warehouses.map((wh) => {
             const whName = wh.name.replace(/ Warehouse$/, '');
             const capKg = Number(wh.capacityKg || 0);
@@ -1067,6 +1102,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </TouchableOpacity>
             );
           })}
+
+          </SectionGate>
 
           <Text style={styles.overviewSectionHeading}>More Views</Text>
 
@@ -1143,6 +1180,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
 
+          <SectionGate sources={[warehousesSrc, batchesSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
           <View style={styles.comparisonCard}>
             {warehouses.map((wh, idx) => {
               const whName = wh.name.replace(/ Warehouse$/, '');
@@ -1163,6 +1202,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               );
             })}
           </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1205,6 +1245,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
 
+          <SectionGate sources={[receiptsSrc, salesSrc, openTasksSrc, taskSummarySrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
@@ -1227,6 +1268,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1269,6 +1311,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
 
+          <SectionGate sources={[warehousesSrc, batchesSrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
@@ -1291,6 +1334,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1318,6 +1362,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
 
+          <SectionGate sources={[warehousesSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
           {warehouses.map((wh) => {
             const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
             const baseName = wh.name.replace(/ Warehouse$/, '');
@@ -1359,6 +1405,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             );
           })}
+
+          </SectionGate>
 
           {can('admin.sub_wh_admin.create') && (
             <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
@@ -1469,11 +1517,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={{ height: 6 }} />
 
           {/* Alerts List */}
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
           {visibleAlerts.map((alert) => (
             <TouchableOpacity
               key={alert.id}
               style={styles.actionCenterAlertCard}
               onPress={() => {
+                dismissMutation.reset();
                 setSelectedAlert(alert);
                 navigateWh('alert_detail');
               }}
@@ -1504,6 +1554,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {visibleAlerts.length === 0 && (
             <EmptyState title="No alerts" subtitle="There are no active alerts matching your filter criteria." />
           )}
+          </SectionGate>
 
           <View style={{ height: 24 }} />
         </ScrollView>
@@ -1588,18 +1639,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <Text style={styles.openRelatedBtnText}>Open Related Record</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.acknowledgeBtn}
-                onPress={() => {
-                  dismissMutation.mutate(selectedAlert.id);
-                  Alert.alert('Alert Acknowledged', `Alert ${selectedAlert.id} has been marked as acknowledged.`);
-                  goBackWh();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.acknowledgeBtnText}>Acknowledge</Text>
-              </TouchableOpacity>
+              {canDismissAlert ? (
+                <TouchableOpacity
+                  style={styles.acknowledgeBtn}
+                  onPress={() => {
+                    void handleDismissAlert(selectedAlert);
+                  }}
+                  disabled={dismissMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.acknowledgeBtnText}>
+                    {dismissMutation.isPending ? t('mainDashboard.alert.dismissing') : t('mainDashboard.alert.dismiss')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
+            {dismissMutation.isError ? (
+              <Text style={styles.dismissErrorText}>{t(adminErrorKey(dismissMutation.error))}</Text>
+            ) : null}
           </View>
 
           <View style={{ height: 24 }} />
@@ -1629,6 +1686,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
+          <SectionGate sources={[warehousesSrc, batchesSrc]}>
           <View style={styles.stockTableCard}>
             {warehouses.map((wh, idx) => {
               const whName = wh.name.replace(/ Warehouse$/, '');
@@ -1651,6 +1709,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.stockTableTotalVal}>{totalStockKg.toLocaleString()} KG</Text>
             </View>
           </View>
+          </SectionGate>
 
           {/* 2. Low Stock & Surplus Section */}
           <View style={styles.overviewSectionHeaderRow}>
@@ -1659,6 +1718,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
           <TouchableOpacity style={styles.lowStockSummaryCard} onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.8}>
             <Text style={styles.lowStockSummaryText}>
               {lowStockItems.length > 0
@@ -1666,6 +1726,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 : 'All warehouse products are within standard stock target levels'}
             </Text>
           </TouchableOpacity>
+          </SectionGate>
 
           {/* 3. Transfers Section */}
           <View style={styles.overviewSectionHeaderRow}>
@@ -1674,6 +1735,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
+          <SectionGate sources={[openTasksSrc, ordersSrc, receiptsSrc, alertsSrc]}>
           <View style={styles.stockTableCard}>
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Pending</Text>
@@ -1703,6 +1765,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </Text>
             </View>
           </View>
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -1758,6 +1821,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </View>
 
           {/* Product Cards */}
+          <SectionGate sources={[batchesSrc, warehousesSrc]}>
           {filteredProducts.map((p) => (
             <View key={p.product} style={styles.consolidatedProductCard}>
               <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
@@ -1781,6 +1845,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {filteredProducts.length === 0 && (
             <EmptyState title="No matching stock" subtitle="No products match your search keyword." />
           )}
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -1821,6 +1886,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Low Stock & Surplus</Text>
 
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
           {lowStockItems.map((item, idx) => (
             <View key={`${item.product}-${item.warehouse}-${idx}`} style={styles.lowStockDetailCard}>
               <View style={styles.alertDetailGridRow}>
@@ -1850,6 +1916,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {lowStockItems.length === 0 && (
             <EmptyState title="No Low Stock" subtitle="All warehouses are stocked within target levels." />
           )}
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -1890,6 +1957,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
+          <SectionGate sources={[openTasksSrc]}>
           <View style={styles.trackingCard}>
             {trackingTransfers.map((t, idx) => {
               const isLast = idx === trackingTransfers.length - 1;
@@ -1935,6 +2003,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <EmptyState title="No Active Transfers" subtitle="There are no transfer tasks currently in progress." />
             )}
           </View>
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -2043,14 +2112,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 {/* Total Stock */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>{totalStockKg.toLocaleString()}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(batchesSrc.status, () => totalStockKg.toLocaleString())}
+                  </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </View>
 
                 {/* Incoming Goods */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>{incomingTodayKg.toLocaleString()}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(receiptsSrc.status, () => incomingTodayKg.toLocaleString())}
+                  </Text>
                   <Text style={styles.kpiSub}>KG today</Text>
                 </View>
 
@@ -2058,7 +2131,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
                   <Text style={styles.kpiValue}>
-                    {openTasks.filter((t) => t.type === 'ORDER_DISPATCH' || t.state === 'OPEN').length}
+                    {figureOrPlaceholder(openTasksSrc.status, () =>
+                      String(openTasks.filter((t) => t.type === 'ORDER_DISPATCH' || t.state === 'OPEN').length),
+                    )}
                   </Text>
                   <Text style={styles.kpiSub}>transfers</Text>
                 </View>
@@ -2066,7 +2141,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 {/* Today's Orders */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>{orders.length}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(ordersSrc.status, () => String(orders.length))}
+                  </Text>
                   <Text style={styles.kpiSub}>orders</Text>
                 </View>
 
@@ -2077,17 +2154,25 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.75}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{salesRevenueText}</Text>
+                  <Text style={styles.kpiValue}>{figureOrPlaceholder(salesSrc.status, () => salesRevenueText)}</Text>
                   <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>{liveAlerts.length}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(alertsSrc.status, () => String(liveAlerts.length))}
+                  </Text>
                   <Text style={styles.kpiSub}>issues</Text>
                 </View>
               </View>
+              {homeKpiSources.some((s) => s.status === 'error') ? (
+                <AdminErrorState
+                  error={homeKpiSources.find((s) => s.status === 'error')?.error}
+                  onRetry={() => retryFailed(homeKpiSources)}
+                />
+              ) : null}
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2103,6 +2188,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
 
               {/* Warehouse Progress Cards */}
+              <SectionGate sources={[warehousesSrc, batchesSrc]}>
+              {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
               {warehouses.slice(0, 4).map((wh) => {
                 const whName = wh.name.replace(/ Warehouse$/, '');
                 const capKg = Number(wh.capacityKg || 0);
@@ -2132,9 +2219,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   </TouchableOpacity>
                 );
               })}
+              </SectionGate>
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
+              <SectionGate sources={[receiptsSrc, ordersSrc, openTasksSrc]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2219,6 +2308,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   </Text>
                 </TouchableOpacity>
               </View>
+              </SectionGate>
 
               {/* ─── 4. Alerts & Pending Actions ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2230,10 +2320,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
+              <SectionGate sources={[alertsSrc, warehousesSrc]}>
               {alertsList.length > 0 ? (
                 <TouchableOpacity
                   style={styles.alertCard}
                   onPress={() => {
+                    dismissMutation.reset();
                     setSelectedAlert(alertsList[0]!);
                     navigateWh('alert_detail');
                   }}
@@ -2260,6 +2352,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   </View>
                 </View>
               )}
+              </SectionGate>
 
               {/* ─── 5. Recent Activity ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2271,6 +2364,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
+              <SectionGate sources={[openTasksSrc]}>
               <View style={styles.recentActivityCard}>
                 {openTasks.slice(0, 2).map((t, idx) => {
                   const isLast = idx === Math.min(openTasks.length, 2) - 1;
@@ -2300,6 +2394,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   </View>
                 )}
               </View>
+              </SectionGate>
 
               {/* ─── 6. Quick Actions ─── */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
@@ -2424,7 +2519,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>{totalStockKg.toLocaleString()} KG</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(batchesSrc.status, () => `${totalStockKg.toLocaleString()} KG`)}
+                  </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
 
@@ -2437,7 +2534,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>{incomingTodayKg.toLocaleString()} KG</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(receiptsSrc.status, () => `${incomingTodayKg.toLocaleString()} KG`)}
+                  </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
 
@@ -2451,11 +2550,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
                   <Text style={styles.kpiValue}>
-                    {batches
-                      .filter((b) => b.status === 'ACTIVE')
-                      .reduce((sum, b) => sum + Number(b.qtyReservedKg || 0), 0)
-                      .toLocaleString()}{' '}
-                    KG
+                    {figureOrPlaceholder(
+                      batchesSrc.status,
+                      () =>
+                        `${batches
+                          .filter((b) => b.status === 'ACTIVE')
+                          .reduce((sum, b) => sum + Number(b.qtyReservedKg || 0), 0)
+                          .toLocaleString()} KG`,
+                    )}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
@@ -2467,10 +2569,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>{liveAlerts.filter((a) => a.type === 'LOW_STOCK').length}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(alertsSrc.status, () =>
+                      String(liveAlerts.filter((a) => a.type === 'LOW_STOCK').length),
+                    )}
+                  </Text>
                   <Text style={styles.kpiSub}>SKUs</Text>
                 </TouchableOpacity>
               </View>
+              {inventoryKpiSources.some((s) => s.status === 'error') ? (
+                <AdminErrorState
+                  error={inventoryKpiSources.find((s) => s.status === 'error')?.error}
+                  onRetry={() => retryFailed(inventoryKpiSources)}
+                />
+              ) : null}
 
               {/* 2. Warehouse Summary */}
               <View style={styles.sectionHeaderRow}>
@@ -2482,6 +2594,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View →</Text>
                 </TouchableOpacity>
               </View>
+              <SectionGate sources={[warehousesSrc, batchesSrc]}>
               <View style={styles.summaryListCard}>
                 {warehouses.map((wh, idx) => {
                   const whName = wh.name.replace(/ Warehouse$/, '');
@@ -2506,6 +2619,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   );
                 })}
               </View>
+              </SectionGate>
 
               {/* 3. Inventory Activity */}
               <View style={styles.sectionHeaderRow}>
@@ -2545,7 +2659,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
                   <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>
-                    {liveAlerts.filter((a) => a.type === 'LOW_STOCK').length}
+                    {figureOrPlaceholder(alertsSrc.status, () =>
+                      String(liveAlerts.filter((a) => a.type === 'LOW_STOCK').length),
+                    )}
                   </Text>
                 </TouchableOpacity>
 
@@ -2558,7 +2674,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
                   <Text style={styles.summaryItemValue}>
-                    {openTasks.filter((t) => t.type === 'RETURN_APPROVAL').length}
+                    {figureOrPlaceholder(openTasksSrc.status, () =>
+                      String(openTasks.filter((t) => t.type === 'RETURN_APPROVAL').length),
+                    )}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -4133,6 +4251,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dismissErrorText: {
+    marginTop: adminSpacing.md,
+    color: adminColors.danger.text,
+    textAlign: 'center',
   },
   acknowledgeBtnText: {
     fontSize: 13,
