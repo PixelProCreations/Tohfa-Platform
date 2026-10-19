@@ -54,3 +54,70 @@ export function listStorageLocations(
     signal,
   );
 }
+
+/** docs/openapi.yaml `Warehouse`. */
+export interface WarehouseDto {
+  id: string;
+  code: string;
+  name: string;
+  type: 'MAIN' | 'SUB';
+  city: string | null;
+  capacityKg: string | null;
+  isActive: boolean;
+  createdAt: string;
+  address?: string | null;
+  pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  contactPhone?: string | null;
+  operatingHours?: unknown;
+  isMarketDayVenue?: boolean;
+  marketDayOfWeek?: number | null;
+}
+
+export interface ListWarehousesParams {
+  q?: string | undefined;
+  type?: 'MAIN' | 'SUB' | undefined;
+  isActive?: boolean | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+}
+
+/** GET /v1/warehouses (requires warehouse.all.view). */
+export function listWarehouses(
+  params: ListWarehousesParams = {},
+  signal?: AbortSignal,
+): Promise<OffsetPage<WarehouseDto>> {
+  return adminGet<OffsetPage<WarehouseDto>>(
+    '/warehouses',
+    {
+      q: params.q,
+      type: params.type,
+      isActive: params.isActive === undefined ? undefined : String(params.isActive),
+      page: params.page,
+      pageSize: params.pageSize,
+    },
+    signal,
+  );
+}
+
+/** docs/openapi.yaml `WarehouseCapacity`. */
+export interface WarehouseCapacityDto {
+  warehouseId: string;
+  capacityKg: string | null;
+  usedKg: string;
+  availableKg: string | null;
+  utilizationPercent: number | null;
+}
+
+/** GET /v1/warehouses/{id}/capacity (requires warehouse.own.view). */
+export function getWarehouseCapacity(
+  warehouseId: string,
+  signal?: AbortSignal,
+): Promise<WarehouseCapacityDto> {
+  return adminGet<WarehouseCapacityDto>(
+    `/warehouses/${encodeURIComponent(warehouseId)}/capacity`,
+    undefined,
+    signal,
+  );
+}

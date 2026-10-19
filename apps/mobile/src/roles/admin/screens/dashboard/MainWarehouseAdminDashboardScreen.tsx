@@ -24,7 +24,7 @@ import {
   type HomeTarget,
 } from '../warehouse/dashboard-home-more';
 import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
-import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
+import { ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
@@ -47,6 +47,17 @@ import {
   useUnreadNotificationCount,
   type NotificationsRoute,
 } from '../warehouse/notifications';
+import { useAdminMutation, useAdminQuery } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
+import { listBatches, type BatchDto } from '../../api/inventory';
+import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
+import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
+import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
+import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
+import { getSalesSummary, type SalesDashboardSummaryDto } from '../../api/sales';
+import { formatPaise } from '../../money/paise';
+import { parseMoney, toPaise } from '@tohfa/shared-types';
 
 /**
  * Receiving tab entry keys. Every key except the transfer ones opens the
@@ -473,61 +484,6 @@ function GearCogIcon({ size = 24, color = PALETTE.primary }: { size?: number; co
   );
 }
 
-const OVERVIEW_WAREHOUSES = [
-  {
-    id: 'wh-ooty',
-    name: 'Ooty',
-    capacityLabel: '82% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
-    progressWidth: '82%' as const,
-    progressColor: PALETTE.goldProgress,
-    stock: '3,420 KG',
-    receipts: '420 KG',
-    issues: '2',
-    comparisonStat: '3,420 KG · 82%',
-  },
-  {
-    id: 'wh-coonoor',
-    name: 'Coonoor',
-    capacityLabel: '68% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
-    progressWidth: '68%' as const,
-    progressColor: PALETTE.greenProgress,
-    stock: '3,180 KG',
-    receipts: '380 KG',
-    issues: '3',
-    comparisonStat: '3,180 KG · 68%',
-  },
-  {
-    id: 'wh-kotagiri',
-    name: 'Kotagiri',
-    capacityLabel: '74% capacity',
-    capacityColor: PALETTE.goldProgress,
-    capacityBg: PALETTE.goldBg,
-    progressWidth: '74%' as const,
-    progressColor: PALETTE.goldProgress,
-    stock: '2,940 KG',
-    receipts: '310 KG',
-    issues: '1',
-    comparisonStat: '2,940 KG · 74%',
-  },
-  {
-    id: 'wh-gudalur',
-    name: 'Gudalur Market',
-    capacityLabel: '61% capacity',
-    capacityColor: PALETTE.greenProgress,
-    capacityBg: PALETTE.greenPillBg,
-    progressWidth: '61%' as const,
-    progressColor: PALETTE.greenProgress,
-    stock: '3,300 KG',
-    receipts: '360 KG',
-    issues: '1',
-    comparisonStat: '3,300 KG · 61%',
-  },
-] as const;
-
 function AlertEscalationIcon({ size = 20, color = PALETTE.red }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -558,45 +514,6 @@ interface WarehouseAlertItem {
   relatedRoute: WarehouseSubView;
 }
 
-const DEFAULT_ALERTS: WarehouseAlertItem[] = [
-  {
-    id: 'ALT-00812',
-    title: 'Coonoor stock below target',
-    category: 'Low Stock',
-    warehouse: 'Coonoor',
-    priority: 'Medium',
-    time: 'Today, 08:30 AM',
-    subtitle: 'Low stock alert · Today 08:30 AM',
-    description: 'Beans Grade 1 stock has fallen below the configured target for Coonoor.',
-    status: 'unread',
-    relatedRoute: 'low_stock_alerts',
-  },
-  {
-    id: 'ALT-00811',
-    title: 'SWA issue escalated — Ooty',
-    category: 'Operational',
-    warehouse: 'Ooty',
-    priority: 'Critical',
-    time: 'Today, 07:15 AM',
-    subtitle: 'Warehouse-level issue · Today 07:15 AM',
-    description: 'Cold storage unit #2 temperature variance reported by SWA in Ooty.',
-    status: 'unread',
-    relatedRoute: 'operational_issues',
-  },
-  {
-    id: 'ALT-00810',
-    title: 'Follow-up: Transfer TRF-00284 variance',
-    category: 'Transfer',
-    warehouse: 'Kotagiri',
-    priority: 'High',
-    time: 'Today, 06:45 AM',
-    subtitle: 'Assigned action · Due today',
-    description: 'Variance of 40 KG noted on transfer from Coonoor to Kotagiri awaiting reconciliation.',
-    status: 'unread',
-    relatedRoute: 'inter_warehouse_transfer',
-  },
-];
-
 function TransferArrowsWhiteIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -614,58 +531,6 @@ function SearchIcon({ size = 18, color = PALETTE.subTextMuted }: { size?: number
   );
 }
 
-const CONSOLIDATED_PRODUCTS = [
-  {
-    product: 'Carrot Grade 1',
-    rows: [
-      { wh: 'Ooty', kg: '850 KG' },
-      { wh: 'Coonoor', kg: '620 KG' },
-      { wh: 'Kotagiri', kg: '490 KG' },
-      { wh: 'Gudalur Market', kg: '710 KG' },
-    ],
-    total: '2,670 KG',
-  },
-  {
-    product: 'Beans Grade 1',
-    rows: [
-      { wh: 'Ooty', kg: '900 KG' },
-      { wh: 'Coonoor', kg: '750 KG' },
-      { wh: 'Kotagiri', kg: '680 KG' },
-      { wh: 'Gudalur Market', kg: '810 KG' },
-    ],
-    total: '3,140 KG',
-  },
-];
-
-const LOW_STOCK_ITEMS = [
-  {
-    product: 'Beans Grade 1',
-    warehouse: 'Ooty',
-    current: '90 KG',
-    target: '300 KG',
-  },
-  {
-    product: 'Carrot Grade 1',
-    warehouse: 'Coonoor',
-    current: '120 KG',
-    target: '250 KG',
-  },
-];
-
-const TRACKING_TRANSFERS = [
-  {
-    id: 'TRF-00284',
-    route: 'Coonoor → Ooty',
-    status: 'In Transit',
-    details: '200 KG · Carrot Grade 1',
-  },
-  {
-    id: 'TRF-00279',
-    route: 'Kotagiri → Gudalur',
-    status: 'Received',
-    details: '150 KG · Cabbage Grade 1',
-  },
-];
 
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
@@ -760,12 +625,6 @@ const MAIN_SALES_ENTRY: Partial<Record<WarehouseSubView, { screen: SalesRoute; p
   direct_sale_new: { screen: 'NewSale' },
 };
 
-/** Seeded warehouse id for a display name like 'Ooty Warehouse' or 'Ooty' (the overview still passes names). */
-function warehouseIdForName(name: string): string | undefined {
-  const key = name.replace(/ Warehouse$/, '').toLowerCase();
-  return PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').toLowerCase().startsWith(key))?.warehouseId;
-}
-
 /**
  * Old transfer sub-views -> shared TransfersFlow entry routes (W4). The detail
  * is only ever opened from the list, which now lives inside the flow.
@@ -819,8 +678,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
-  const [alertsList, setAlertsList] = useState<WarehouseAlertItem[]>(DEFAULT_ALERTS);
-  const [selectedAlert, setSelectedAlert] = useState<WarehouseAlertItem>(DEFAULT_ALERTS[0]!);
+  const [selectedAlert, setSelectedAlert] = useState<WarehouseAlertItem | null>(null);
   const [alertStatusFilter, setAlertStatusFilter] = useState<'All' | 'Unread' | 'Resolved'>('All');
   const [alertPriorityFilter, setAlertPriorityFilter] = useState<'All Priority' | 'Critical'>('All Priority');
   const [alertWhFilter, setAlertWhFilter] = useState('All Warehouses');
@@ -848,11 +706,230 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // The bell badge: the server's unread total; NotificationsFlow owns the list and the read writes.
   const unreadNotifCount = useUnreadNotificationCount();
 
-  // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
-  const WAREHOUSE_OPTIONS = [
-    'All Warehouses',
-    ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
-  ];
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  // Live warehouses query (GET /v1/warehouses)
+  const warehousesQuery = useAdminQuery(
+    adminKeys.scoped('warehouses', undefined, { pageSize: 100 }),
+    (signal) => listWarehouses({ pageSize: 100 }, signal),
+  );
+  const allWarehouses = warehousesQuery.data?.items ?? [];
+  const warehouses = useMemo(() => {
+    const canonical = allWarehouses.filter((w) =>
+      ['WH-OOTY', 'WH-COON', 'WH-KOTA', 'WH-GUDA'].includes(w.code),
+    );
+    return canonical.length > 0 ? canonical : allWarehouses;
+  }, [allWarehouses]);
+
+  const warehouseOptions: readonly WarehouseScope[] = useMemo(() => {
+    return warehouses.map((w) => ({
+      warehouseId: w.id,
+      warehouseName: w.name,
+      warehouseCode: w.code,
+    }));
+  }, [warehouses]);
+
+  const WAREHOUSE_OPTIONS = useMemo(() => {
+    return [
+      'All Warehouses',
+      ...warehouses.map((w) => w.name.replace(/ Warehouse$/, '')),
+    ];
+  }, [warehouses]);
+
+  const warehouseIdForName = (name: string): string | undefined => {
+    const key = name.replace(/ Warehouse$/, '').toLowerCase();
+    return warehouses.find((w) => (w.name ?? '').toLowerCase().startsWith(key))?.id;
+  };
+
+  const selectedWarehouseId = useMemo(() => {
+    if (selectedWHFilter === 'All Warehouses') return undefined;
+    return warehouseIdForName(selectedWHFilter);
+  }, [selectedWHFilter, warehouses]);
+
+  // Live batches query (GET /v1/admin/batches)
+  const batchesQuery = useAdminQuery(
+    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'batches', limit: 100 }),
+    (signal) => listBatches({ warehouseId: selectedWarehouseId, limit: 100 }, signal),
+  );
+  const batches = batchesQuery.data?.items ?? [];
+
+  // Live tasks query & summary (GET /v1/admin/tasks)
+  const taskSummaryQuery = useAdminQuery(
+    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'summary' }),
+    (signal) => getTaskSummary({ warehouseId: selectedWarehouseId }, signal),
+  );
+  const taskSummary = taskSummaryQuery.data;
+
+  const openTasksQuery = useAdminQuery(
+    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'open-tasks' }),
+    (signal) => listTasks({ state: 'open', warehouseId: selectedWarehouseId }, signal),
+  );
+  const openTasks = openTasksQuery.data?.items ?? [];
+
+  // Live sales summary query (GET /v1/admin/sales/summary)
+  const salesSummaryQuery = useAdminQuery(
+    adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: todayIso, to: todayIso }),
+    (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: todayIso, to: todayIso }, signal),
+  );
+  const salesSummary = salesSummaryQuery.data;
+
+  // Live orders query (GET /v1/admin/orders)
+  const ordersQuery = useAdminQuery(
+    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', limit: 50 }),
+    (signal) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: 50 }, signal),
+  );
+  const orders = ordersQuery.data?.items ?? [];
+
+  // Live goods receipts query (GET /v1/admin/goods-receipts)
+  const goodsReceiptsQuery = useAdminQuery(
+    adminKeys.scoped('receiving', selectedWarehouseId, { resource: 'grn', limit: 50 }),
+    (signal) => listGoodsReceipts({ warehouseId: selectedWarehouseId, limit: 50 }, signal),
+  );
+  const goodsReceipts = goodsReceiptsQuery.data?.items ?? [];
+
+  // Live alerts query (GET /v1/admin/alerts)
+  const alertsQuery = useAdminQuery(
+    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'active' }),
+    (signal) => listAlerts({ warehouseId: selectedWarehouseId, state: 'active' }, signal),
+  );
+  const liveAlerts = alertsQuery.data?.items ?? [];
+
+  const alertsList: WarehouseAlertItem[] = useMemo(() => {
+    return liveAlerts.map((a) => {
+      const wh = warehouses.find((w) => w.id === a.warehouseId);
+      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (a.warehouseId || 'Warehouse');
+      const priority = a.type === 'CAPACITY_NEAR_FULL' ? 'Critical' : a.type === 'LOW_STOCK' ? 'High' : 'Medium';
+      const category = a.type === 'LOW_STOCK' ? 'Low Stock' : a.type === 'CAPACITY_NEAR_FULL' ? 'Operational' : 'Transfer';
+      return {
+        id: a.itemKey,
+        title: `${whName}: ${category}`,
+        category,
+        warehouse: whName,
+        priority,
+        time: a.since ? a.since.slice(0, 10) : 'Today',
+        subtitle: `${category} · ${whName}`,
+        description: `${a.type} condition reported for ${whName} warehouse.`,
+        status: a.state === 'ACTIVE' ? 'unread' : 'resolved',
+        relatedRoute: a.type === 'LOW_STOCK' ? 'low_stock_alerts' : 'warehouse_operations',
+      };
+    });
+  }, [liveAlerts, warehouses]);
+
+  const dismissMutation = useAdminMutation({
+    mutationFn: (itemKey: string) => dismissAlert(itemKey),
+    invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
+  });
+
+  const totalStockKg = useMemo(() => {
+    return batches
+      .filter((b) => b.status === 'ACTIVE')
+      .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+  }, [batches]);
+
+  const incomingTodayKg = useMemo(() => {
+    return goodsReceipts
+      .filter((g) => g.receivedAt?.slice(0, 10) === todayIso)
+      .reduce((sum, g) => sum + Number(g.acceptedQtyKg || 0), 0);
+  }, [goodsReceipts, todayIso]);
+
+  const salesRevenueText = useMemo(() => {
+    if (!salesSummary) return '₹0';
+    try {
+      const paise = toPaise(parseMoney(String(salesSummary.revenue || '0')));
+      return formatPaise(paise);
+    } catch {
+      return '₹0';
+    }
+  }, [salesSummary]);
+
+  const totalReceiptsKg = useMemo(() => {
+    return goodsReceipts.reduce((sum, g) => sum + Number(g.acceptedQtyKg || 0), 0);
+  }, [goodsReceipts]);
+
+  const totalCapacityKg = useMemo(() => {
+    return warehouses.reduce((sum, w) => sum + Number(w.capacityKg || 0), 0);
+  }, [warehouses]);
+
+  const availableCapacityKg = useMemo(() => {
+    return Math.max(0, totalCapacityKg - totalStockKg);
+  }, [totalCapacityKg, totalStockKg]);
+
+  const overallUtilizationPct = useMemo(() => {
+    if (totalCapacityKg <= 0) return '0%';
+    return `${Math.min(100, Math.round((totalStockKg / totalCapacityKg) * 100))}%`;
+  }, [totalCapacityKg, totalStockKg]);
+
+  const qualityIssuesCount = useMemo(() => {
+    return (
+      goodsReceipts.filter((g) => Number(g.rejectedQtyKg || 0) > 0 || g.status === 'REJECTED').length +
+      openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').length
+    );
+  }, [goodsReceipts, openTasks]);
+
+  const consolidatedProducts = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const b of batches) {
+      if (b.status !== 'ACTIVE') continue;
+      const crop = b.cropName || 'Produce';
+      if (!map.has(crop)) {
+        map.set(crop, new Map<string, number>());
+      }
+      const whMap = map.get(crop)!;
+      const wh = warehouses.find((w) => w.id === b.warehouseId);
+      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (b.warehouseId || 'Unknown');
+      whMap.set(whName, (whMap.get(whName) || 0) + Number(b.qtyAvailableKg || 0));
+    }
+
+    const result: Array<{
+      product: string;
+      rows: Array<{ wh: string; kg: string }>;
+      total: string;
+    }> = [];
+
+    map.forEach((whMap, product) => {
+      const rows: Array<{ wh: string; kg: string }> = [];
+      let totalKg = 0;
+      whMap.forEach((kg, wh) => {
+        totalKg += kg;
+        rows.push({ wh, kg: `${kg.toLocaleString()} KG` });
+      });
+      result.push({
+        product,
+        rows,
+        total: `${totalKg.toLocaleString()} KG`,
+      });
+    });
+
+    return result;
+  }, [batches, warehouses]);
+
+  const lowStockItems = useMemo(() => {
+    const alerts = liveAlerts.filter((a) => a.type === 'LOW_STOCK');
+    return alerts.map((a) => {
+      const wh = warehouses.find((w) => w.id === a.warehouseId);
+      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (a.warehouseId || 'Warehouse');
+      return {
+        product: a.itemKey || 'Produce Stock',
+        warehouse: whName,
+        current: 'Below Threshold',
+        target: 'Target Level',
+      };
+    });
+  }, [liveAlerts, warehouses]);
+
+  const trackingTransfers = useMemo(() => {
+    return openTasks.map((t) => {
+      const isTransit = t.type === 'ORDER_DISPATCH';
+      return {
+        id: t.itemKey.slice(0, 10).toUpperCase(),
+        route: t.titleKey,
+        status: isTransit ? 'In Transit' : t.state === 'DONE' ? 'Received' : 'Pending',
+        details: `Ref: ${t.refType} · Created: ${t.createdAt ? t.createdAt.slice(0, 10) : 'Today'}`,
+      };
+    });
+  }, [openTasks]);
+
+  const displayName = user?.fullName?.trim() ? user.fullName.split(' ')[0] : 'Admin';
 
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
@@ -886,7 +963,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     if (activeTab !== 'More') setMoreSubScreen(null);
   }, [activeTab]);
 
-  const displayName = 'Suresh';
 
   /** Leave the sub-views for a tab (notification targets that live on a tab). */
   const openTab = (tab: MainWHTab, more?: MainMoreSubScreen) => {
@@ -999,43 +1075,59 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {OVERVIEW_WAREHOUSES.map((wh) => (
-            <TouchableOpacity
-              key={wh.id}
-              style={styles.whOverviewCard}
-              onPress={() => {
-                setSelectedWHName(`${wh.name} Warehouse`);
-                navigateWh('warehouse_city_detail');
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name}</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: wh.capacityBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: wh.capacityColor }]}>{wh.capacityLabel}</Text>
-                </View>
-              </View>
+          {warehouses.map((wh) => {
+            const whName = wh.name.replace(/ Warehouse$/, '');
+            const capKg = Number(wh.capacityKg || 0);
+            const whBatches = batches.filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE');
+            const whStockKg = whBatches.reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+            const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
+            const capLabel = `${util}%`;
+            const capBg = util >= 90 ? PALETTE.redBg : util >= 75 ? PALETTE.amberBg : PALETTE.greenBg;
+            const capColor = util >= 90 ? PALETTE.red : util >= 75 ? PALETTE.amber : PALETTE.greenText;
+            const progColor = util >= 90 ? PALETTE.red : PALETTE.primary;
+            const progWidth = `${Math.min(100, Math.max(0, util))}%` as const;
+            const stockStr = whStockKg >= 1000 ? `${(whStockKg / 1000).toFixed(1)}T` : `${whStockKg} KG`;
+            const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === wh.id).length;
+            const issuesCount = liveAlerts.filter((a) => a.warehouseId === wh.id).length;
 
-              <View style={styles.whProgressBarTrack}>
-                <View style={[styles.whProgressBarFill, { width: wh.progressWidth, backgroundColor: wh.progressColor }]} />
-              </View>
+            return (
+              <TouchableOpacity
+                key={wh.id}
+                style={styles.whOverviewCard}
+                onPress={() => {
+                  setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                  navigateWh('warehouse_city_detail');
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.whOverviewHeaderRow}>
+                  <Text style={styles.whOverviewTitle}>{whName}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: capBg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: capColor }]}>{capLabel}</Text>
+                  </View>
+                </View>
 
-              <View style={styles.whOverviewStatsRow}>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Stock</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.stock}</Text>
+                <View style={styles.whProgressBarTrack}>
+                  <View style={[styles.whProgressBarFill, { width: progWidth, backgroundColor: progColor }]} />
                 </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Receipts</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.receipts}</Text>
+
+                <View style={styles.whOverviewStatsRow}>
+                  <View style={styles.whOverviewStatCol}>
+                    <Text style={styles.whOverviewStatLabel}>Stock</Text>
+                    <Text style={styles.whOverviewStatVal}>{stockStr}</Text>
+                  </View>
+                  <View style={styles.whOverviewStatCol}>
+                    <Text style={styles.whOverviewStatLabel}>Receipts</Text>
+                    <Text style={styles.whOverviewStatVal}>{receiptsCount}</Text>
+                  </View>
+                  <View style={styles.whOverviewStatCol}>
+                    <Text style={styles.whOverviewStatLabel}>Issues</Text>
+                    <Text style={styles.whOverviewStatVal}>{issuesCount}</Text>
+                  </View>
                 </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Issues</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.issues}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
 
           <Text style={styles.overviewSectionHeading}>More Views</Text>
 
@@ -1113,15 +1205,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
 
           <View style={styles.comparisonCard}>
-            {OVERVIEW_WAREHOUSES.map((wh, idx) => (
-              <React.Fragment key={wh.id}>
-                {idx > 0 && <View style={styles.rowDivider} />}
-                <View style={styles.comparisonRow}>
-                  <Text style={styles.comparisonWhName}>{wh.name}</Text>
-                  <Text style={styles.comparisonWhStat}>{wh.comparisonStat}</Text>
-                </View>
-              </React.Fragment>
-            ))}
+            {warehouses.map((wh, idx) => {
+              const whName = wh.name.replace(/ Warehouse$/, '');
+              const capKg = Number(wh.capacityKg || 0);
+              const whStockKg = batches
+                .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
+                .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+              const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
+              const comparisonStat = `${whStockKg.toLocaleString()} KG · ${util}% cap`;
+              return (
+                <React.Fragment key={wh.id}>
+                  {idx > 0 && <View style={styles.rowDivider} />}
+                  <View style={styles.comparisonRow}>
+                    <Text style={styles.comparisonWhName}>{whName}</Text>
+                    <Text style={styles.comparisonWhStat}>{comparisonStat}</Text>
+                  </View>
+                </React.Fragment>
+              );
+            })}
           </View>
 
           <View style={styles.overviewNoticeBox}>
@@ -1168,22 +1269,22 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Receipts (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>68,400 KG</Text>
+                <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
+                <Text style={styles.twoByTwoVal}>{totalReceiptsKg.toLocaleString()} KG</Text>
               </View>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Sales (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>₹1,45,10,000</Text>
+                <Text style={styles.twoByTwoLabel}>Sales Today</Text>
+                <Text style={styles.twoByTwoVal}>{salesRevenueText}</Text>
               </View>
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
-                <Text style={styles.twoByTwoVal}>18</Text>
+                <Text style={styles.twoByTwoVal}>{qualityIssuesCount}</Text>
               </View>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Avg Turnaround</Text>
-                <Text style={styles.twoByTwoVal}>2.4 days</Text>
+                <Text style={styles.twoByTwoLabel}>Open Tasks</Text>
+                <Text style={styles.twoByTwoVal}>{taskSummary?.open ?? openTasks.length}</Text>
               </View>
             </View>
           </View>
@@ -1233,21 +1334,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
-                <Text style={styles.twoByTwoVal}>12,840 KG</Text>
+                <Text style={styles.twoByTwoVal}>{totalStockKg.toLocaleString()} KG</Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
-                <Text style={styles.twoByTwoVal}>4,160 KG</Text>
+                <Text style={styles.twoByTwoVal}>{availableCapacityKg.toLocaleString()} KG</Text>
               </View>
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Storage Areas</Text>
-                <Text style={styles.twoByTwoVal}>28</Text>
+                <Text style={styles.twoByTwoLabel}>Active Warehouses</Text>
+                <Text style={styles.twoByTwoVal}>{warehouses.length}</Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Utilization</Text>
-                <Text style={styles.twoByTwoVal}>75.5%</Text>
+                <Text style={styles.twoByTwoVal}>{overallUtilizationPct}</Text>
               </View>
             </View>
           </View>
@@ -1278,43 +1379,47 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
 
-          {OVERVIEW_WAREHOUSES.map((wh) => (
-            <View key={wh.id} style={styles.whOverviewCard}>
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name} Warehouse</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>Active</Text>
+          {warehouses.map((wh) => {
+            const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
+            const baseName = wh.name.replace(/ Warehouse$/, '');
+            return (
+              <View key={wh.id} style={styles.whOverviewCard}>
+                <View style={styles.whOverviewHeaderRow}>
+                  <Text style={styles.whOverviewTitle}>{displayName}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>{wh.isActive ? 'Active' : 'Inactive'}</Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                {wh.name} Regional Facility · Primary storage and distribution hub
-              </Text>
+                <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
+                  {wh.code} · {wh.address || `${baseName} Regional Facility`}
+                </Text>
 
-              <View style={styles.manageBtnRow}>
-                <TouchableOpacity
-                  style={styles.manageWhActionBtn}
-                  onPress={() => {
-                    setSelectedWHName(`${wh.name} Warehouse`);
-                    navigateWh('warehouse_city_detail');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.manageWhActionText}>View Details</Text>
-                </TouchableOpacity>
-
-                {can('warehouse.capacity.set') && (
+                <View style={styles.manageBtnRow}>
                   <TouchableOpacity
-                    style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
-                    onPress={() => navigateWh('warehouse_settings')}
+                    style={styles.manageWhActionBtn}
+                    onPress={() => {
+                      setSelectedWHName(displayName);
+                      navigateWh('warehouse_city_detail');
+                    }}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                    <Text style={styles.manageWhActionText}>View Details</Text>
                   </TouchableOpacity>
-                )}
+
+                  {can('warehouse.capacity.set') && (
+                    <TouchableOpacity
+                      style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
+                      onPress={() => navigateWh('warehouse_settings')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {can('admin.sub_wh_admin.create') && (
             <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
@@ -1410,7 +1515,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <TouchableOpacity
               style={styles.actionCenterChip}
               onPress={() => {
-                const whs = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur Market'];
+                const whs = WAREHOUSE_OPTIONS;
                 const curIdx = whs.indexOf(alertWhFilter);
                 setAlertWhFilter(whs[(curIdx + 1) % whs.length] ?? 'All Warehouses');
               }}
@@ -1468,6 +1573,22 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertDetailScreen = () => {
+    if (!selectedAlert) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Alert Detail</Text>
+            </View>
+          </View>
+          <EmptyState title="No alert selected" subtitle="Please select an alert from the Alerts & Action Center." />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.subScreenContainer}>
         <View style={styles.subHeaderBanner}>
@@ -1531,9 +1652,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <TouchableOpacity
                 style={styles.acknowledgeBtn}
                 onPress={() => {
-                  setAlertsList((prev) =>
-                    prev.map((a) => (a.id === selectedAlert.id ? { ...a, status: 'resolved' } : a))
-                  );
+                  dismissMutation.mutate(selectedAlert.id);
                   Alert.alert('Alert Acknowledged', `Alert ${selectedAlert.id} has been marked as acknowledged.`);
                   goBackWh();
                 }}
@@ -1572,29 +1691,25 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </TouchableOpacity>
           </View>
           <View style={styles.stockTableCard}>
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Ooty</Text>
-              <Text style={styles.stockTableVal}>3,420 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Coonoor</Text>
-              <Text style={styles.stockTableVal}>3,180 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Kotagiri</Text>
-              <Text style={styles.stockTableVal}>2,940 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Gudalur Market</Text>
-              <Text style={styles.stockTableVal}>3,300 KG</Text>
-            </View>
+            {warehouses.map((wh, idx) => {
+              const whName = wh.name.replace(/ Warehouse$/, '');
+              const whStockKg = batches
+                .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
+                .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+              return (
+                <React.Fragment key={wh.id}>
+                  {idx > 0 && <View style={styles.stockTableRowDivider} />}
+                  <View style={styles.stockTableRow}>
+                    <Text style={styles.stockTableLabel}>{whName}</Text>
+                    <Text style={styles.stockTableVal}>{whStockKg.toLocaleString()} KG</Text>
+                  </View>
+                </React.Fragment>
+              );
+            })}
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableTotalLabel}>Total</Text>
-              <Text style={styles.stockTableTotalVal}>12,840 KG</Text>
+              <Text style={styles.stockTableTotalVal}>{totalStockKg.toLocaleString()} KG</Text>
             </View>
           </View>
 
@@ -1607,7 +1722,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </View>
           <TouchableOpacity style={styles.lowStockSummaryCard} onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.8}>
             <Text style={styles.lowStockSummaryText}>
-              3 products below target · 2 warehouses with surplus available
+              {lowStockItems.length > 0
+                ? `${lowStockItems.length} products flagged with low stock across warehouses`
+                : 'All warehouse products are within standard stock target levels'}
             </Text>
           </TouchableOpacity>
 
@@ -1621,22 +1738,30 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.stockTableCard}>
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Pending</Text>
-              <Text style={styles.stockTableVal}>2</Text>
+              <Text style={styles.stockTableVal}>
+                {openTasks.filter((t) => t.state === 'OPEN').length}
+              </Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>In Transit</Text>
-              <Text style={styles.stockTableVal}>2</Text>
+              <Text style={styles.stockTableVal}>
+                {orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY').length}
+              </Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Received</Text>
-              <Text style={styles.stockTableVal}>1</Text>
+              <Text style={styles.stockTableVal}>
+                {goodsReceipts.filter((g) => g.status === 'ACCEPTED').length}
+              </Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Exceptions</Text>
-              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>1</Text>
+              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
+                {liveAlerts.length}
+              </Text>
             </View>
           </View>
 
@@ -1665,7 +1790,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderConsolidatedStockScreen = () => {
-    const filteredProducts = CONSOLIDATED_PRODUCTS.filter(
+    const filteredProducts = consolidatedProducts.filter(
       (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
     );
 
@@ -1757,7 +1882,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Low Stock & Surplus</Text>
 
-          {LOW_STOCK_ITEMS.map((item, idx) => (
+          {lowStockItems.map((item, idx) => (
             <View key={`${item.product}-${item.warehouse}-${idx}`} style={styles.lowStockDetailCard}>
               <View style={styles.alertDetailGridRow}>
                 <View style={styles.alertDetailGridCol}>
@@ -1782,6 +1907,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           ))}
+
+          {lowStockItems.length === 0 && (
+            <EmptyState title="No Low Stock" subtitle="All warehouses are stocked within target levels." />
+          )}
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -1823,8 +1952,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
           <View style={styles.trackingCard}>
-            {TRACKING_TRANSFERS.map((t, idx) => {
-              const isLast = idx === TRACKING_TRANSFERS.length - 1;
+            {trackingTransfers.map((t, idx) => {
+              const isLast = idx === trackingTransfers.length - 1;
               const isTransit = t.status === 'In Transit';
               return (
                 <View key={t.id}>
@@ -1862,6 +1991,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
               );
             })}
+
+            {trackingTransfers.length === 0 && (
+              <EmptyState title="No Active Transfers" subtitle="There are no transfer tasks currently in progress." />
+            )}
           </View>
 
           <View style={{ height: 90 }} />
@@ -1971,28 +2104,30 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 {/* Total Stock */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840</Text>
+                  <Text style={styles.kpiValue}>{totalStockKg.toLocaleString()}</Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </View>
 
                 {/* Incoming Goods */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>1,240</Text>
+                  <Text style={styles.kpiValue}>{incomingTodayKg.toLocaleString()}</Text>
                   <Text style={styles.kpiSub}>KG today</Text>
                 </View>
 
                 {/* Pending Transfers */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiValue}>
+                    {openTasks.filter((t) => t.type === 'ORDER_DISPATCH' || t.state === 'OPEN').length}
+                  </Text>
                   <Text style={styles.kpiSub}>transfers</Text>
                 </View>
 
                 {/* Today's Orders */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>312</Text>
+                  <Text style={styles.kpiValue}>{orders.length}</Text>
                   <Text style={styles.kpiSub}>orders</Text>
                 </View>
 
@@ -2003,14 +2138,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.75}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>₹1,45,100</Text>
+                  <Text style={styles.kpiValue}>{salesRevenueText}</Text>
                   <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>7</Text>
+                  <Text style={styles.kpiValue}>{liveAlerts.length}</Text>
                   <Text style={styles.kpiSub}>issues</Text>
                 </View>
               </View>
@@ -2028,41 +2163,36 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
               </View>
 
-              {/* Ooty Progress Card */}
-              <TouchableOpacity
-                style={styles.whProgressCard}
-                onPress={() => {
-                  setSelectedWHName('Ooty Warehouse');
-                  navigateWh('warehouse_city_detail');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.whProgressTopRow}>
-                  <Text style={styles.whProgressTitle}>Ooty</Text>
-                  <ChevronRightGrayIcon size={16} />
-                </View>
-                <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: '75%', backgroundColor: PALETTE.goldProgress }]} />
-                </View>
-              </TouchableOpacity>
-
-              {/* Coonoor Progress Card */}
-              <TouchableOpacity
-                style={styles.whProgressCard}
-                onPress={() => {
-                  setSelectedWHName('Coonoor Warehouse');
-                  navigateWh('warehouse_city_detail');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.whProgressTopRow}>
-                  <Text style={styles.whProgressTitle}>Coonoor</Text>
-                  <ChevronRightGrayIcon size={16} />
-                </View>
-                <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: '58%', backgroundColor: PALETTE.greenProgress }]} />
-                </View>
-              </TouchableOpacity>
+              {/* Warehouse Progress Cards */}
+              {warehouses.slice(0, 4).map((wh) => {
+                const whName = wh.name.replace(/ Warehouse$/, '');
+                const capKg = Number(wh.capacityKg || 0);
+                const whStockKg = batches
+                  .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
+                  .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+                const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
+                const fillWidth = `${Math.min(100, Math.max(0, util))}%` as const;
+                const fillColor = util >= 90 ? PALETTE.red : util >= 75 ? PALETTE.goldProgress : PALETTE.greenProgress;
+                return (
+                  <TouchableOpacity
+                    key={wh.id}
+                    style={styles.whProgressCard}
+                    onPress={() => {
+                      setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                      navigateWh('warehouse_city_detail');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.whProgressTopRow}>
+                      <Text style={styles.whProgressTitle}>{whName}</Text>
+                      <ChevronRightGrayIcon size={16} />
+                    </View>
+                    <View style={styles.progressBarTrack}>
+                      <View style={[styles.progressBarFill, { width: fillWidth, backgroundColor: fillColor }]} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
@@ -2079,13 +2209,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>24</Text>
+                      Expected <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => g.status === 'AWAITING_QC').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Arrived <Text style={styles.operationsMetricBold}>19</Text>
+                      Arrived <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => g.status === 'ACCEPTED' || g.status === 'PARTIALLY_ACCEPTED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Discrepancies <Text style={styles.operationsMetricRed}>2</Text>
+                      Discrepancies <Text style={styles.operationsMetricRed}>{goodsReceipts.filter((g) => g.status === 'REJECTED' || Number(g.rejectedQtyKg || 0) > 0).length}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2101,13 +2231,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Order Fulfilment</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>86</Text>
+                      Ready <Text style={styles.operationsMetricBold}>{orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>154</Text>
+                      Dispatched <Text style={styles.operationsMetricBold}>{orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>3</Text>
+                      Exceptions <Text style={styles.operationsMetricRed}>{orders.filter((o) => o.status === 'CANCELLED').length}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2123,13 +2253,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Quality Issues</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Pending <Text style={styles.operationsMetricBold}>6</Text>
+                      Pending <Text style={styles.operationsMetricBold}>{openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Damage <Text style={styles.operationsMetricBold}>3</Text>
+                      Damage <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => Number(g.rejectedQtyKg || 0) > 0).length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Rejected <Text style={styles.operationsMetricRed}>1</Text>
+                      Rejected <Text style={styles.operationsMetricRed}>{goodsReceipts.filter((g) => g.status === 'REJECTED').length}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2144,7 +2274,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
                   <Text style={styles.operationsTimelineSub}>
-                    Goods Received — GR-04512 · Kotagiri · 09:45 AM
+                    {goodsReceipts[0]
+                      ? `Goods Received — ${goodsReceipts[0].grnNumber || goodsReceipts[0].id?.slice(0, 8)} · ${goodsReceipts[0].receivedAt ? goodsReceipts[0].receivedAt.slice(11, 16) : 'Today'}`
+                      : 'No operations recorded yet today'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2159,24 +2291,36 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.alertCard}
-                onPress={() => {
-                  const firstAlert = alertsList[0] ?? DEFAULT_ALERTS[0]!;
-                  setSelectedAlert(firstAlert);
-                  navigateWh('alerts_action_center');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.alertAccentBar} />
-                <View style={styles.alertContentRow}>
-                  <WarningTriangleIcon size={24} color={PALETTE.red} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.alertTitle}>Coonoor stock below target</Text>
-                    <Text style={styles.alertSub}>Warehouse exceptions, escalations and transfer issues</Text>
+              {alertsList.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.alertCard}
+                  onPress={() => {
+                    setSelectedAlert(alertsList[0]!);
+                    navigateWh('alert_detail');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.alertAccentBar} />
+                  <View style={styles.alertContentRow}>
+                    <WarningTriangleIcon size={24} color={PALETTE.red} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.alertTitle}>{alertsList[0]!.title}</Text>
+                      <Text style={styles.alertSub}>{alertsList[0]!.subtitle}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.alertCard}>
+                  <View style={[styles.alertAccentBar, { backgroundColor: PALETTE.green }]} />
+                  <View style={styles.alertContentRow}>
+                    <InfoCircleIcon size={24} color={PALETTE.green} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.alertTitle}>All Warehouses Normal</Text>
+                      <Text style={styles.alertSub}>No active alerts or stock exceptions reported</Text>
+                    </View>
                   </View>
                 </View>
-              </TouchableOpacity>
+              )}
 
               {/* ─── 5. Recent Activity ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2189,42 +2333,33 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
               </View>
               <View style={styles.recentActivityCard}>
-                {/* Activity 1 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.activityIconBox}>
-                    <TruckIcon size={18} color={PALETTE.primary} />
+                {openTasks.slice(0, 2).map((t, idx) => {
+                  const isLast = idx === Math.min(openTasks.length, 2) - 1;
+                  return (
+                    <React.Fragment key={t.itemKey}>
+                      <TouchableOpacity
+                        style={styles.activityItemRow}
+                        onPress={() => navigateWh('activity_timeline_ops')}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.activityIconBox}>
+                          <TruckIcon size={18} color={PALETTE.primary} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.activityTitle}>{t.titleKey}</Text>
+                          <Text style={styles.activitySub}>{t.type} · Ref: {t.refType}</Text>
+                        </View>
+                        <Text style={styles.activityTime}>{t.createdAt ? t.createdAt.slice(11, 16) : 'Today'}</Text>
+                      </TouchableOpacity>
+                      {!isLast && <View style={styles.activityDivider} />}
+                    </React.Fragment>
+                  );
+                })}
+                {openTasks.length === 0 && (
+                  <View style={{ padding: 16 }}>
+                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>No recent activity recorded</Text>
                   </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.activityTitle}>Transfer TRF-00284 in transit</Text>
-                    <Text style={styles.activitySub}>Coonoor → Ooty</Text>
-                  </View>
-                  <Text style={styles.activityTime}>10:20 AM</Text>
-                </TouchableOpacity>
-
-                <View style={styles.activityDivider} />
-
-                {/* Activity 2 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Kotagiri Warehouse');
-                    navigateWh('warehouse_city_detail');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.activityIconBox}>
-                    <InboxReceiveIcon size={18} color={PALETTE.primary} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.activityTitle}>Goods received</Text>
-                    <Text style={styles.activitySub}>Kotagiri warehouse</Text>
-                  </View>
-                  <Text style={styles.activityTime}>09:45 AM</Text>
-                </TouchableOpacity>
+                )}
               </View>
 
               {/* ─── 6. Quick Actions ─── */}
@@ -2345,13 +2480,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <TouchableOpacity
                   style={styles.kpiCard}
                   onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
                     navigateWh('stock_ledger');
                   }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840 KG</Text>
+                  <Text style={styles.kpiValue}>{totalStockKg.toLocaleString()} KG</Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
 
@@ -2359,13 +2493,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <TouchableOpacity
                   style={styles.kpiCard}
                   onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
                     navigateWh('stock_ledger');
                   }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
+                  <Text style={styles.kpiValue}>{incomingTodayKg.toLocaleString()} KG</Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
 
@@ -2373,13 +2506,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <TouchableOpacity
                   style={styles.kpiCard}
                   onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
                     navigateWh('stock_ledger');
                   }}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
+                  <Text style={styles.kpiValue}>
+                    {batches
+                      .filter((b) => b.status === 'ACTIVE')
+                      .reduce((sum, b) => sum + Number(b.qtyReservedKg || 0), 0)
+                      .toLocaleString()}{' '}
+                    KG
+                  </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
 
@@ -2390,7 +2528,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiValue}>{liveAlerts.filter((a) => a.type === 'LOW_STOCK').length}</Text>
                   <Text style={styles.kpiSub}>SKUs</Text>
                 </TouchableOpacity>
               </View>
@@ -2406,31 +2544,28 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
               </View>
               <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Ooty</Text>
-                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Coonoor Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Coonoor</Text>
-                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
-                </TouchableOpacity>
+                {warehouses.map((wh, idx) => {
+                  const whName = wh.name.replace(/ Warehouse$/, '');
+                  const whStockKg = batches
+                    .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
+                    .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+                  return (
+                    <React.Fragment key={wh.id}>
+                      {idx > 0 && <View style={styles.summaryDivider} />}
+                      <TouchableOpacity
+                        style={styles.summaryItemRow}
+                        onPress={() => {
+                          setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                          navigateWh('stock_ledger');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.summaryItemName}>{whName}</Text>
+                        <Text style={styles.summaryItemValue}>{whStockKg.toLocaleString()} KG</Text>
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
               </View>
 
               {/* 3. Inventory Activity */}
@@ -2470,7 +2605,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
+                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>
+                    {liveAlerts.filter((a) => a.type === 'LOW_STOCK').length}
+                  </Text>
                 </TouchableOpacity>
 
                 <View style={styles.summaryDivider} />
@@ -2481,7 +2618,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <Text style={styles.summaryItemValue}>2</Text>
+                  <Text style={styles.summaryItemValue}>
+                    {openTasks.filter((t) => t.type === 'RETURN_APPROVAL').length}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -2529,6 +2668,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <FinanceFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              warehouseOptions={warehouseOptions}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
               onNavigateToNotifications={() => {
@@ -2565,6 +2705,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               can={can}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
+              warehouseOptions={warehouseOptions}
             />
           ) : moreSubScreen === 'staff' ? (
             // Shared staff & attendance flow (W4, M14) replaces the nested
@@ -2794,6 +2935,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 can={can}
                 initialScreen={INVENTORY_ENTRY[whSubView]}
                 initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
                 onTabChange={(tab) => {
@@ -2845,6 +2987,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
@@ -2906,6 +3049,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         can={can}
                         initialScreen="M5S04"
                         initialParams={{ orderId: p.orderId, customerName: p.customer?.name }}
+                        warehouseOptions={warehouseOptions}
                         onBack={nav.back}
                         onViewIssue={() => navigateWh('operational_issues')}
                       />
@@ -2913,7 +3057,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   }
                   if (target === 'RmaDetail') {
                     return (
-                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
+                      <ReturnsFlow
+                        scope={MAIN_WAREHOUSE_SCOPE}
+                        can={can}
+                        initialScreen="ReturnsIssues"
+                        warehouseOptions={warehouseOptions}
+                        onBack={nav.back}
+                      />
                     );
                   }
                   return null;
@@ -2923,6 +3073,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
@@ -2936,6 +3087,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <BillingFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onTabChange={(tab) => {
                   setActiveTab(tab);
