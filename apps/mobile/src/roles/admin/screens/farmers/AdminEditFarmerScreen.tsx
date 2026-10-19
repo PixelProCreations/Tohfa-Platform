@@ -12,31 +12,40 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import type { FarmerDetailTabType } from './AdminFarmerDetailScreen';
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  inputBorder: '#E0DDD7',
-  inputBg: '#FFFFFF',
-  greenBg: '#E8F5E9',
-  greenText: '#2E7D32',
-  redBg: '#FFEBEE',
-  redText: '#D32F2F',
-  amberBg: '#FFF3E0',
-  amberText: '#B25E00',
-  tabActiveBg: '#F0562A',
-  tabActiveText: '#FFFFFF',
-  tabInactiveText: '#4A443F',
-  tabContainerBorder: '#F0ECE6',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  inputBorder: adminColors.border,
+  inputBg: adminColors.card,
+  greenBg: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  redBg: adminColors.danger.bg,
+  redText: adminColors.danger.text,
+  amberBg: adminColors.warning.bg,
+  amberText: adminColors.warning.text,
+  tabActiveBg: adminColors.brand,
+  tabActiveText: adminColors.onBrand,
+  tabInactiveText: adminColors.ink,
+  tabContainerBorder: adminColors.border,
 };
 
 interface Props {
@@ -143,7 +152,7 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -391,7 +400,7 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
                 onPress={onNavigateToEditCategories}
                 activeOpacity={0.85}
               >
-                <Icon name="edit" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Icon name="edit" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
                 <Text style={styles.editCategoriesCardBtnText}>Edit All 10 Category Scores</Text>
               </TouchableOpacity>
             ) : null}
@@ -428,12 +437,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    ...adminShadow.sm,
   },
   headerTitle: {
     fontSize: 18,
@@ -447,13 +456,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   saveHeaderBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14,
     fontWeight: '700',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 20,
     borderRadius: 16,
     padding: 4,
@@ -508,7 +517,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
     borderColor: P.inputBorder,
     borderRadius: 12,
@@ -533,7 +542,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P.inputBorder,
     alignItems: 'center',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
   },
   statusToggleActiveGreen: {
     backgroundColor: P.greenBg,
@@ -564,7 +573,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: P.inputBorder,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
   },
   pillOptionActive: {
     backgroundColor: P.orangeBg,
@@ -589,7 +598,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   editCategoriesCardBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -599,14 +608,10 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   saveBottomBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 15,
     fontWeight: '800',
   },

@@ -14,6 +14,10 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import {
+  FarmerSupportFilterScreen,
+  type SupportFilterValues,
+} from './FarmerSupportFilterScreen';
 
 // ─── SVG Icons Matching Exact Design Mockup ───────────────────────────────────
 
@@ -525,6 +529,7 @@ export interface FarmerSupportScreenProps {
 
 export type FarmerSupportScreenMode =
   | 'list'
+  | 'filters'
   | 'detail'
   | 'farmer_info'
   | 'farmer_profile'
@@ -532,6 +537,15 @@ export type FarmerSupportScreenMode =
   | 'resolution'
   | 'referral'
   | 'history';
+
+export const DEFAULT_SUPPORT_FILTERS: SupportFilterValues = {
+  searchQuery: '',
+  status: 'Any',
+  category: 'Any',
+  submitted: 'Any',
+  farmer: '',
+  assignedTeam: 'Any',
+};
 
 export function FarmerSupportScreen({
   onBack,
@@ -541,6 +555,7 @@ export function FarmerSupportScreen({
 }: FarmerSupportScreenProps) {
   // Screen modes:
   // 'list'           -> M12-S02 · Support Requests
+  // 'filters'        -> Full Screen Search & Filters (Tohfa Theme)
   // 'detail'         -> M12-S04 · Request Detail
   // 'farmer_info'    -> M12-S05 · Farmer Information
   // 'farmer_profile' -> M2-S03 · Farmer Profile
@@ -557,6 +572,7 @@ export function FarmerSupportScreen({
 
   // Search & Filter (List view)
   const [searchQuery, setSearchQuery] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<SupportFilterValues>(DEFAULT_SUPPORT_FILTERS);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'In Progress' | 'Resolved'>('All');
   const [showFilterPills, setShowFilterPills] = useState(false);
   const [sortOrder, setSortOrder] = useState<'Newest first' | 'Oldest first'>('Newest first');
@@ -601,18 +617,53 @@ export function FarmerSupportScreen({
 
   // Filtered & Sorted requests
   const filteredRequests = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const list = requests.filter((item) => {
-      const matchesSearch =
-        q === '' ||
-        item.id.toLowerCase().includes(q) ||
-        item.subject.toLowerCase().includes(q) ||
-        item.farmerName.toLowerCase().includes(q) ||
-        item.farmerId.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q);
+    const q = (appliedFilters.searchQuery || searchQuery).trim().toLowerCase();
+    const farmerQ = (appliedFilters.farmer || '').trim().toLowerCase();
 
-      if (!matchesSearch) return false;
-      if (statusFilter !== 'All' && item.status !== statusFilter) return false;
+    const list = requests.filter((item) => {
+      // 1. Search Query
+      if (q) {
+        const matchesSearch =
+          item.id.toLowerCase().includes(q) ||
+          item.subject.toLowerCase().includes(q) ||
+          item.farmerName.toLowerCase().includes(q) ||
+          item.farmerId.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+
+      // 2. Status
+      if (appliedFilters.status !== 'Any') {
+        if (item.status !== appliedFilters.status) return false;
+      } else if (statusFilter !== 'All') {
+        if (item.status !== statusFilter) return false;
+      }
+
+      // 3. Category
+      if (appliedFilters.category !== 'Any') {
+        if (item.category.toLowerCase() !== appliedFilters.category.toLowerCase()) return false;
+      }
+
+      // 4. Farmer
+      if (farmerQ && farmerQ !== 'any farmer') {
+        const matchesFarmer =
+          item.farmerName.toLowerCase().includes(farmerQ) ||
+          item.farmerId.toLowerCase().includes(farmerQ);
+        if (!matchesFarmer) return false;
+      }
+
+      // 5. Assigned Team
+      if (appliedFilters.assignedTeam !== 'Any') {
+        if (appliedFilters.assignedTeam === 'Unassigned') {
+          if (item.assignedTo !== 'Not assigned') return false;
+        } else {
+          const matchesTeam =
+            item.assignedTo.toLowerCase().includes(appliedFilters.assignedTeam.toLowerCase()) ||
+            (appliedFilters.assignedTeam === 'Farmer Support' && item.assignedTo.includes('Suresh'));
+          if (!matchesTeam) return false;
+        }
+      }
+
       return true;
     });
 
@@ -620,7 +671,15 @@ export function FarmerSupportScreen({
       return [...list].reverse();
     }
     return list;
-  }, [requests, searchQuery, statusFilter, sortOrder]);
+  }, [requests, searchQuery, statusFilter, appliedFilters, sortOrder]);
+
+  const hasActiveFilters =
+    appliedFilters.status !== 'Any' ||
+    appliedFilters.category !== 'Any' ||
+    appliedFilters.submitted !== 'Any' ||
+    (appliedFilters.farmer.trim().length > 0 && appliedFilters.farmer.toLowerCase() !== 'any farmer') ||
+    appliedFilters.assignedTeam !== 'Any' ||
+    appliedFilters.searchQuery.trim().length > 0;
 
   const totalPages = Math.ceil(filteredRequests.length / recordsPerPage) || 1;
   const paginatedRequests = useMemo(() => {
@@ -756,6 +815,34 @@ export function FarmerSupportScreen({
   );
 
   // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: Full Screen Search & Filters (Tohfa Theme)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (screenMode === 'filters') {
+    return (
+      <FarmerSupportFilterScreen
+        initialFilters={{
+          ...appliedFilters,
+          searchQuery: searchQuery || appliedFilters.searchQuery,
+        }}
+        requestsData={requests}
+        onBack={() => setScreenMode('list')}
+        onCancel={() => setScreenMode('list')}
+        onApply={(newFilters) => {
+          setAppliedFilters(newFilters);
+          setSearchQuery(newFilters.searchQuery);
+          setCurrentPage(1);
+          setScreenMode('list');
+        }}
+        onReset={() => {
+          setAppliedFilters(DEFAULT_SUPPORT_FILTERS);
+          setSearchQuery('');
+          setCurrentPage(1);
+        }}
+      />
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // SCREEN 1: Support Requests List (Images 2 & 3: M12-S02)
   // ───────────────────────────────────────────────────────────────────────────
   if (screenMode === 'list') {
@@ -766,18 +853,18 @@ export function FarmerSupportScreen({
         {/* Header: ← Farmer Support */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={onBack}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to More"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to More"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Farmer Support</Text>
-
-            <View style={{ width: 36 }} />
+              <Text style={styles.headerTitle}>Farmer Support</Text>
+            </View>
           </View>
         </View>
 
@@ -800,10 +887,19 @@ export function FarmerSupportScreen({
               placeholder="Search by request ID, farmer, or subject"
               placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setAppliedFilters((prev) => ({ ...prev, searchQuery: text }));
+              }}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  setAppliedFilters((prev) => ({ ...prev, searchQuery: '' }));
+                }}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.clearSearchText}>✕</Text>
               </TouchableOpacity>
             )}
@@ -812,13 +908,15 @@ export function FarmerSupportScreen({
           {/* Action Row: Filters & Sort Dropdown */}
           <View style={styles.filterSortRow}>
             <TouchableOpacity
-              style={[styles.outlineActionBtn, showFilterPills && styles.outlineActionBtnActive]}
-              onPress={() => setShowFilterPills(!showFilterPills)}
+              style={[styles.outlineActionBtn, hasActiveFilters && styles.outlineActionBtnActive]}
+              onPress={() => setScreenMode('filters')}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Open Filters"
             >
-              <FilterSlidersIcon size={16} color={showFilterPills ? adminColors.brandDeep : adminColors.ink} />
-              <Text style={[styles.outlineActionBtnText, showFilterPills && styles.outlineActionBtnTextActive]}>
-                Filters
+              <FilterSlidersIcon size={16} color={hasActiveFilters ? adminColors.brandDeep : adminColors.ink} />
+              <Text style={[styles.outlineActionBtnText, hasActiveFilters && styles.outlineActionBtnTextActive]}>
+                Filters{hasActiveFilters ? ' •' : ''}
               </Text>
             </TouchableOpacity>
 
@@ -832,24 +930,40 @@ export function FarmerSupportScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Filter Pills */}
-          {showFilterPills && (
-            <View style={styles.filterPillsRow}>
-              {(['All', 'Open', 'In Progress', 'Resolved'] as const).map((status) => {
-                const isActive = statusFilter === status;
-                return (
-                  <TouchableOpacity
-                    key={status}
-                    style={[styles.filterPill, isActive && styles.filterPillActive]}
-                    onPress={() => setStatusFilter(status)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
-                      {status}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {/* Active Filter Chips / Clear button (when filters active) */}
+          {hasActiveFilters && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {appliedFilters.status !== 'Any' && (
+                <View style={styles.filterPillActive}>
+                  <Text style={styles.filterPillTextActive}>Status: {appliedFilters.status}</Text>
+                </View>
+              )}
+              {appliedFilters.category !== 'Any' && (
+                <View style={styles.filterPillActive}>
+                  <Text style={styles.filterPillTextActive}>{appliedFilters.category}</Text>
+                </View>
+              )}
+              {appliedFilters.farmer.trim().length > 0 && appliedFilters.farmer.toLowerCase() !== 'any farmer' && (
+                <View style={styles.filterPillActive}>
+                  <Text style={styles.filterPillTextActive}>Farmer: {appliedFilters.farmer}</Text>
+                </View>
+              )}
+              {appliedFilters.assignedTeam !== 'Any' && (
+                <View style={styles.filterPillActive}>
+                  <Text style={styles.filterPillTextActive}>{appliedFilters.assignedTeam}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={() => {
+                  setAppliedFilters(DEFAULT_SUPPORT_FILTERS);
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
+                style={[styles.filterPill, { backgroundColor: adminColors.card }]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterPillText, { color: adminColors.danger.text, fontWeight: '700' }]}>✕ Clear</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1027,7 +1141,7 @@ export function FarmerSupportScreen({
           </Pressable>
         </Modal>
 
-        {renderBottomTabBar()}
+        {/* Modal removed / No bottom bar on inner screens */}
       </SafeAreaView>
     );
   }
@@ -1283,18 +1397,18 @@ export function FarmerSupportScreen({
         {/* Header: ← Farmer Information */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setScreenMode('detail')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Request Detail"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setScreenMode('detail')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Request Detail"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Farmer Information</Text>
-
-            <View style={{ width: 36 }} />
+              <Text style={styles.headerTitle}>Farmer Information</Text>
+            </View>
           </View>
         </View>
 
@@ -1473,18 +1587,18 @@ export function FarmerSupportScreen({
         {/* Header: ← Farmer Profile */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setScreenMode('farmer_info')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Farmer Information"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setScreenMode('farmer_info')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Farmer Information"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Farmer Profile</Text>
-
-            <View style={{ width: 36 }} />
+              <Text style={styles.headerTitle}>Farmer Profile</Text>
+            </View>
           </View>
         </View>
 
@@ -1707,18 +1821,6 @@ export function FarmerSupportScreen({
             </View>
           )}
 
-          {/* View Only Disclaimer Box */}
-          <View style={styles.profileViewOnlyBox}>
-            <Text style={styles.profileViewOnlyText}>
-              View only — no Edit Profile, Disable Account, Delete Farmer, or Change Status anywhere on this profile.
-            </Text>
-          </View>
-
-          {/* Footer Mockup Reference */}
-          <View style={styles.profileFooterCaption}>
-            <Text style={styles.profileFooterCaptionText}>M2-S03 · Farmer Profile</Text>
-          </View>
-
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </SafeAreaView>
@@ -1736,18 +1838,18 @@ export function FarmerSupportScreen({
         {/* Header: ← Communication & Notes */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setScreenMode('detail')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Request Detail"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setScreenMode('detail')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Request Detail"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Communication & Notes</Text>
-
-            <View style={{ width: 36 }} />
+              <Text style={styles.headerTitle}>Communication & Notes</Text>
+            </View>
           </View>
         </View>
 
@@ -2148,18 +2250,18 @@ export function FarmerSupportScreen({
         {/* Header: ← Support History */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setScreenMode('detail')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Request Detail"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setScreenMode('detail')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Request Detail"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Support History</Text>
-
-            <View style={{ width: 36 }} />
+              <Text style={styles.headerTitle}>Support History</Text>
+            </View>
           </View>
         </View>
 
@@ -2231,18 +2333,18 @@ export function FarmerSupportScreen({
       {/* Header: ← Request Resolution */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => setScreenMode('detail')}
-            activeOpacity={0.7}
-            accessibilityLabel="Back to Request Detail"
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
+          <View style={styles.headerLeftGroup}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setScreenMode('detail')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Request Detail"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Request Resolution</Text>
-
-          <View style={{ width: 36 }} />
+            <Text style={styles.headerTitle}>Request Resolution</Text>
+          </View>
         </View>
       </View>
 
@@ -2378,14 +2480,6 @@ export function FarmerSupportScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Warning / Restriction Disclaimer Box */}
-        <View style={styles.restrictionWarningCard}>
-          <SlashCircleIcon size={18} color={adminColors.muted} />
-          <Text style={styles.restrictionWarningText}>
-            This screen cannot issue refunds, authorize payouts, change purchase values, modify financial transactions, edit farmer profiles or approve actions.
-          </Text>
-        </View>
-
         {/* Action Buttons: Review Resolution & Cancel */}
         <View style={{ marginTop: adminSpacing.xl, gap: adminSpacing.md }}>
           <TouchableOpacity
@@ -2489,7 +2583,13 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    flex: 1,
   },
   backBtn: {
     width: 36,

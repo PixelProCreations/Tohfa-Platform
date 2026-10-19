@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -15,7 +16,7 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { IncidentItem } from './FarmerPestIncidentsScreen';
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -74,13 +75,19 @@ function ChevronDownIcon({ size = 18, color = adminColors.ink }: { size?: number
 
 export interface PestIncidentDetailScreenProps {
   incident?: IncidentItem | undefined;
+  linkedPestName?: string | undefined;
+  linkedTreatmentName?: string | undefined;
   onBack: () => void;
+  onViewFarmer?: () => void;
   onViewPest?: () => void;
   onViewApplicationGuide?: () => void;
+  onOpenFilters?: () => void;
 }
 
 export function PestIncidentDetailScreen({
   incident,
+  linkedPestName,
+  linkedTreatmentName,
   onBack,
 }: PestIncidentDetailScreenProps) {
   // Determine display values matching Screenshots 1, 2, 3
@@ -189,7 +196,7 @@ export function PestIncidentDetailScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header ─── */}
+      {/* ─── Header: Matching Screenshots 1 & 2 ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -329,9 +336,7 @@ export function PestIncidentDetailScreen({
           <Text style={styles.outlineActionBtnText}>Record Admin Review Note</Text>
         </TouchableOpacity>
 
-        <Text style={styles.resolutionDisclaimer}>
-          Whether the TOHFA Admin may mark an incident resolved is not defined, so only the farmer's follow-up changes the status.
-        </Text>
+
 
         {/* ─── History ─── */}
         <Text style={styles.sectionHeading}>History</Text>
@@ -350,6 +355,7 @@ export function PestIncidentDetailScreen({
           <Text style={styles.appendOnlyText}>The history is append-only.</Text>
         </View>
 
+        <View style={{ height: 40 }} />
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -625,9 +631,9 @@ const styles = StyleSheet.create({
   // Terracotta Header
   header: {
     backgroundColor: adminColors.brand,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.lg,
+    paddingTop: Platform.OS === 'android' ? 6 : 8,
+    paddingBottom: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -660,7 +666,6 @@ const styles = StyleSheet.create({
   scrollPad: {
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xl,
   },
 
   // Section Heading
@@ -691,7 +696,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE4',
+    borderBottomColor: adminColors.border,
   },
   tableRowTreatment: {
     flexDirection: 'row',
@@ -720,6 +725,12 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginTop: 2,
   },
+  noFollowUpText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13,
+    paddingVertical: 6,
+  },
 
   // Outline Action Buttons (e.g. 'Link Pest / Disease')
   outlineActionBtn: {
@@ -737,6 +748,7 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.brand,
+    fontSize: 14,
   },
 
   // Follow-up card
@@ -828,7 +840,7 @@ const styles = StyleSheet.create({
 
   // Inner beige card (Screenshots 1 & 2)
   popupInnerSummaryCard: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.lg,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -840,12 +852,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE6DB',
+    borderBottomColor: adminColors.border,
   },
   popupSummaryLabel: {
     ...adminType.body,
     fontSize: 13,
-    color: '#736B63',
+    color: adminColors.muted,
   },
   popupSummaryValue: {
     ...adminType.body,
@@ -897,7 +909,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE4',
+    borderBottomColor: adminColors.border,
   },
   popupDropdownOptionText: {
     ...adminType.body,
@@ -908,7 +920,7 @@ const styles = StyleSheet.create({
 
   // Warning box (Screenshot 2: "Link a pest or disease first.")
   popupWarningBox: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderRadius: adminRadius.md,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -918,7 +930,7 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 13,
     fontWeight: '800',
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
 
   // Review note textarea (Screenshot 3)

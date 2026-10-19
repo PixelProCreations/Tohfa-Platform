@@ -13,6 +13,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
   type AdminRoleType,
@@ -20,7 +29,7 @@ import {
 import { type AdminAccountRequest } from './AdminRequestsApprovalScreen';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-function CheckCircleIcon({ color = '#15803D', size = 20 }: { color?: string; size?: number }) {
+function CheckCircleIcon({ color = adminColors.success.text, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -29,7 +38,7 @@ function CheckCircleIcon({ color = '#15803D', size = 20 }: { color?: string; siz
   );
 }
 
-function CrossCircleIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) {
+function CrossCircleIcon({ color = adminColors.danger.text, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -276,7 +285,7 @@ export function AdminRequestDetailScreen({
             onPress={handleApprove}
             activeOpacity={0.85}
           >
-            <CheckCircleIcon color="#FFFFFF" size={18} />
+            <CheckCircleIcon color={adminColors.onBrand} size={18} />
             <Text style={styles.approveBtnText}>Approve & Create Account</Text>
           </TouchableOpacity>
 
@@ -285,7 +294,7 @@ export function AdminRequestDetailScreen({
             onPress={() => setRejectModalVisible(true)}
             activeOpacity={0.85}
           >
-            <CrossCircleIcon color="#DC2626" size={18} />
+            <CrossCircleIcon color={adminColors.danger.text} size={18} />
             <Text style={styles.rejectBtnText}>Decline Request</Text>
           </TouchableOpacity>
         </View>
@@ -383,9 +392,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   statusPill: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.border,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -393,7 +402,7 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#92400E',
+    color: adminColors.warning.text,
     letterSpacing: 0.5,
   },
   requestIdText: {
@@ -408,11 +417,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -488,7 +493,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   reasonBox: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
@@ -516,7 +521,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   approveBtn: {
-    backgroundColor: '#15803D',
+    backgroundColor: adminColors.success.text,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -525,7 +530,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   approveBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -537,23 +542,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#FCA5A5',
+    borderColor: adminColors.danger.border,
     gap: 8,
   },
   rejectBtnText: {
-    color: '#DC2626',
+    color: adminColors.danger.text,
     fontSize: 15,
     fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -580,7 +585,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.textPrimary,
     textAlignVertical: 'top',
     minHeight: 80,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     marginBottom: 16,
   },
   modalBtnRow: {
@@ -599,7 +604,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.textSecondary,
   },
   modalConfirmRejectBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.danger.text,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 8,
@@ -607,6 +612,6 @@ const styles = StyleSheet.create({
   modalConfirmRejectText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 });

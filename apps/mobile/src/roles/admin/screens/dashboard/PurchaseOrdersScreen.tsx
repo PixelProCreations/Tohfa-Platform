@@ -152,16 +152,18 @@ export function PurchaseOrdersScreen({
         {/* ─── Header ─── */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setFilterModalVisible(false)}
-              activeOpacity={0.7}
-              accessibilityLabel={t('purchaseOrders.backLabel')}
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setFilterModalVisible(false)}
+                activeOpacity={0.7}
+                accessibilityLabel={t('purchaseOrders.backLabel')}
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>{t('purchaseOrders.filterPage.title')}</Text>
+              <Text style={styles.headerTitle}>{t('purchaseOrders.filterPage.title')}</Text>
+            </View>
             <View style={styles.headerRightSpacer} />
           </View>
         </View>
@@ -248,16 +250,18 @@ export function PurchaseOrdersScreen({
       {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel={t('purchaseOrders.backLabel')}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel={t('purchaseOrders.backLabel')}
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('purchaseOrders.title')}</Text>
+            <Text style={styles.headerTitle}>{t('purchaseOrders.title')}</Text>
+          </View>
 
           <TouchableOpacity
             style={styles.filterBtn}
@@ -268,8 +272,10 @@ export function PurchaseOrdersScreen({
             <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Search Bar */}
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
         <View style={styles.searchWrap}>
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
@@ -376,7 +382,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.md,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
   },
   backBtn: {
     width: 36,
@@ -385,8 +395,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerRightSpacer: {
     width: 36,
@@ -398,6 +409,11 @@ const styles = StyleSheet.create({
     backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchContainer: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xs,
   },
   searchWrap: {
     flexDirection: 'row',

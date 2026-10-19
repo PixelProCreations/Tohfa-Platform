@@ -11,12 +11,21 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
 } from './CreateAdminAccountScreen';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-function CheckIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
+function CheckIcon({ color = adminColors.onBrand, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -268,11 +277,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -291,7 +296,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   roleBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -299,7 +304,7 @@ const styles = StyleSheet.create({
   roleBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   metaRow: {
     flexDirection: 'row',
@@ -370,16 +375,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: ADMIN_PALETTE.primaryOrange,
     gap: 6,
-    shadowColor: ADMIN_PALETTE.primaryOrange,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   approveBtnText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   emptyContainer: {
     alignItems: 'center',

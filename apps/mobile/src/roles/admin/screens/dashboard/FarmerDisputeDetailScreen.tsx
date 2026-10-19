@@ -608,15 +608,6 @@ export function FarmerDisputeDetailScreen({
           <Text style={styles.actionCardBtnText}>Request Information</Text>
         </TouchableOpacity>
 
-        {/* Disclaimer Card */}
-        <View style={styles.disclaimerBox}>
-          <SlashedProhibitionIcon size={18} color={adminColors.muted} />
-          <Text style={styles.disclaimerText}>
-            The Farmer Admin mediates. Refunds, compensation, penalties, account suspension and
-            binding decisions are not available here.
-          </Text>
-        </View>
-
         {/* ─── Inline Action: Add Note ─── */}
         {activeInlineAction === 'add_note' && (
           <View style={styles.inlineActionCard}>
@@ -812,7 +803,6 @@ export function FarmerDisputeDetailScreen({
             {currentDispute.status === 'Resolved' ? 'Dispute Resolved' : 'Resolve Dispute'}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.screenIdCaption}>M10-S02 · Dispute Detail</Text>
       </View>
 
       {/* ─── Resolve Dispute Modal Fallback ─── */}

@@ -5266,7 +5266,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   choiceBtnAttentionActive: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: adminColors.warning.bg,
     borderColor: adminColors.warning.border,
     borderWidth: 2,
   },

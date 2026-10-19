@@ -19,7 +19,14 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../../theme';
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
@@ -998,7 +1005,7 @@ export function WarehouseEditProfileScreen({
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.holidayDeleteBtn}
                     >
-                      <TrashOutlineRedIcon color="#D32F2F" size={20} />
+                      <TrashOutlineRedIcon color={adminColors.danger.text} size={20} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -1071,22 +1078,22 @@ export function WarehouseEditProfileScreen({
                         [selectedHolidayDate]: {
                           selected: true,
                           selectedColor: adminColors.brand,
-                          selectedTextColor: '#FFFFFF',
+                          selectedTextColor: adminColors.onBrand,
                         },
                       }
                     : {}
                 }
                 theme={{
-                  calendarBackground: '#FFFFFF',
+                  calendarBackground: adminColors.card,
                   todayTextColor: adminColors.brand,
                   arrowColor: adminColors.brand,
-                  monthTextColor: '#1A1816',
+                  monthTextColor: adminColors.ink,
                   textMonthFontWeight: '700',
                   textMonthFontSize: 16,
                   textDayHeaderFontWeight: '600',
                   textDayFontSize: 14,
                   selectedDayBackgroundColor: adminColors.brand,
-                  selectedDayTextColor: '#FFFFFF',
+                  selectedDayTextColor: adminColors.onBrand,
                 }}
               />
             </View>
@@ -1591,18 +1598,14 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
   },
   modalSheet: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    ...adminShadow.lg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1611,19 +1614,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0E6D8',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: adminColors.border,
+    backgroundColor: adminColors.card,
   },
   modalTitle: {
     ...adminType.sectionHead,
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1816',
+    color: adminColors.ink,
   },
   modalCloseText: {
     ...adminType.caption,
     fontWeight: '700',
-    color: '#6B7280',
+    color: adminColors.muted,
     padding: 4,
   },
   calendarContainer: {

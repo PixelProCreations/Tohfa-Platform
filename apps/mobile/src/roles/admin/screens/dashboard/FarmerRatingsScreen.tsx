@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Alert,
   Modal,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -13,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay } from '../../theme';
+import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -167,6 +168,15 @@ function LockIcon({ size = 38, color = adminColors.ink }: { size?: number; color
       <Path d="M8 10V7a4 4 0 1 1 8 0v3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="12" cy="15" r="1.3" fill={color} />
       <Line x1="12" y1="16.3" x2="12" y2="18.2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CheckmarkCircleIcon({ size = 48, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" fill="none" />
+      <Path d="m8.5 12.5 2.5 2.5 5-5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -437,6 +447,7 @@ export interface FarmerRatingsScreenProps {
   onOpenNotifications?: () => void;
   farmerName?: string;
   farmerId?: string;
+  initialView?: 'overview' | 'farmer_rating' | 'list' | 'detail';
 }
 
 export function FarmerRatingsScreen({
@@ -444,6 +455,7 @@ export function FarmerRatingsScreen({
   onOpenNotifications,
   farmerName,
   farmerId,
+  initialView,
 }: FarmerRatingsScreenProps) {
   // Navigation view modes:
   // 'overview' | 'list' | 'filter' | 'detail' | 'history' | 'rating_record' | 'edit_rating' | 'review_rating' | 'permission'
@@ -457,7 +469,11 @@ export function FarmerRatingsScreen({
     | 'edit_rating'
     | 'review_rating'
     | 'permission'
+    | 'updated'
   >('overview');
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [farmQualityScore, setFarmQualityScore] = useState('4.7');
 
   // Currently viewed farmer
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerRecord>(() => {
@@ -607,7 +623,7 @@ export function FarmerRatingsScreen({
   // ───────────────────────────────────────────────────────────────────────────
   // SCREEN: INDIVIDUAL FARMER RATINGS (Matching Image 1 Left Screen from Farmer Profile)
   // ───────────────────────────────────────────────────────────────────────────
-  if (farmerName && currentView === 'overview') {
+  if ((farmerName || farmerId || initialView === 'farmer_rating') && currentView === 'overview') {
     return (
       <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -643,7 +659,7 @@ export function FarmerRatingsScreen({
           <View style={styles.categoriesCard}>
             <View style={styles.categoryRow}>
               <Text style={styles.categoryNameText}>Farm Quality</Text>
-              <Text style={styles.categoryScoreText}>4.7</Text>
+              <Text style={styles.categoryScoreText}>{farmQualityScore}</Text>
             </View>
             <View style={styles.categoryDivider} />
             <View style={styles.categoryRow}>
@@ -669,26 +685,197 @@ export function FarmerRatingsScreen({
           </View>
         </ScrollView>
 
-        {/* Bottom Sticky Dual Bar: Rating History on Left & Edit Rating on Right */}
+        {/* Bottom Sticky Bar: Edit Rating (Matching Screenshot 1) */}
         <View style={styles.detailStickyBottomBar}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity
-              style={styles.detailBottomHistoryBtn}
-              onPress={() => setCurrentView('history')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.detailBottomHistoryBtnText}>Rating History</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.requestToEditBtn}
+            onPress={() => setCurrentView('edit_rating')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.requestToEditBtnText}>Edit Rating</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN 2: EDIT RATING (Image 2)
+  // ───────────────────────────────────────────────────────────────────────────
+  if ((farmerName || farmerId || initialView === 'farmer_rating') && currentView === 'edit_rating') {
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Terracotta Header (Image 2) ── */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity
-              style={styles.detailBottomEditBtn}
-              onPress={() => setCurrentView('edit_rating')}
-              activeOpacity={0.85}
+              onPress={() => setCurrentView('overview')}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back"
             >
-              <PencilEditIcon size={18} color={adminColors.onBrand} />
-              <Text style={styles.detailBottomEditBtnText}>Edit Rating</Text>
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Rating</Text>
           </View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollCanvas}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.inputLabelField}>Farm Quality</Text>
+          <TextInput
+            style={styles.singleInputField}
+            value={farmQualityScore}
+            onChangeText={setFarmQualityScore}
+            keyboardType="decimal-pad"
+            placeholder="4.7"
+            placeholderTextColor={adminColors.muted}
+          />
+        </ScrollView>
+
+        {/* Bottom Button: Review Changes (Image 2) */}
+        <View style={styles.detailStickyBottomBar}>
+          <TouchableOpacity
+            style={styles.requestToEditBtn}
+            onPress={() => setCurrentView('review_rating')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.requestToEditBtnText}>Review Changes</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN 3: REVIEW CHANGES (Image 3) & SCREEN 4: POPUP MODAL (Image 4)
+  // ───────────────────────────────────────────────────────────────────────────
+  if ((farmerName || farmerId || initialView === 'farmer_rating') && currentView === 'review_rating') {
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Terracotta Header (Image 3) ── */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setCurrentView('edit_rating')}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Review Changes</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollCanvas}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Card: Farm Quality & Zone (Image 3) */}
+          <View style={styles.reviewTwoColCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewColLabel}>Farm Quality</Text>
+              <Text style={styles.reviewColValue}>{farmQualityScore}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewColLabel}>Zone</Text>
+              <Text style={styles.reviewColValue}>{selectedFarmer.zone || 'Coonoor'}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Sticky Button: Confirm (Image 3) */}
+        <View style={styles.detailStickyBottomBar}>
+          <TouchableOpacity
+            style={styles.requestToEditBtn}
+            onPress={() => setShowConfirmModal(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.requestToEditBtnText}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Screen 4: Confirmation Popup Modal (Image 4) (Popup modal over screen 3, NOT a full screen) ── */}
+        <Modal
+          visible={showConfirmModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowConfirmModal(false)}
+        >
+          <Pressable
+            style={styles.confirmModalOverlay}
+            onPress={() => setShowConfirmModal(false)}
+          >
+            <Pressable style={styles.confirmModalCardImage4} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.confirmModalTitleImage4}>Confirm Rating Update?</Text>
+
+              <TouchableOpacity
+                style={styles.confirmModalGreenBtn}
+                onPress={() => {
+                  setShowConfirmModal(false);
+                  setCurrentView('updated');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmModalGreenBtnText}>Confirm</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN 5: UPDATED (Image 5)
+  // ───────────────────────────────────────────────────────────────────────────
+  if ((farmerName || farmerId || initialView === 'farmer_rating') && currentView === 'updated') {
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Terracotta Header (Image 5) ── */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setCurrentView('overview')}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Updated</Text>
+          </View>
+        </View>
+
+        <View style={styles.canvasCenter}>
+          <View style={styles.updatedCenterIconWrap}>
+            <View style={styles.updatedIconSoftBg}>
+              <CheckmarkCircleIcon size={34} color={adminColors.success.text} />
+            </View>
+            <Text style={styles.updatedTitleText}>Updated Rating</Text>
+          </View>
+        </View>
+
+        {/* Bottom Button: Done (Image 5) */}
+        <View style={styles.detailStickyBottomBar}>
+          <TouchableOpacity
+            style={styles.requestToEditBtn}
+            onPress={() => setCurrentView('overview')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.requestToEditBtnText}>Done</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -940,48 +1127,119 @@ export function FarmerRatingsScreen({
           </View>
         </ScrollView>
 
-        {/* ── Sticky Bottom Button: Submit Rating (Image 4) ── */}
+        {/* ── Sticky Bottom Button: Review Rating / Confirm (Image 4) ── */}
         <View style={styles.detailStickyBottomBar}>
           <TouchableOpacity
             style={styles.submitRatingBtn}
-            onPress={() => {
-              // Update selected farmer
-              const updatedCategories: CategoryScoreItem[] = DEFAULT_CATEGORIES.map((c) => ({
-                name: c.name,
-                score: `${editCategoryScores[c.name] || 8}/10`,
-              }));
-
-              const newAudit: HistoryAuditRecord = {
-                auditId: `AUD-2026-00${Math.floor(Math.random() * 50 + 50)}`,
-                date: '15 Oct 2026',
-                ratedBy: 'Admin User',
-                score: calculatedTotalScore,
-                categories: updatedCategories,
-              };
-
-              setSelectedFarmer((prev) => ({
-                ...prev,
-                score: calculatedTotalScore,
-                categories: updatedCategories,
-                history: [newAudit, ...prev.history],
-              }));
-
-              Alert.alert(
-                'Rating Submitted',
-                `Farmer rating for ${selectedFarmer.name} updated to ${calculatedTotalScore}/100 and saved to audit history.`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => setCurrentView('history'),
-                  },
-                ],
-                { cancelable: false }
-              );
-            }}
+            onPress={() => setShowConfirmModal(true)}
             activeOpacity={0.85}
           >
-            <Text style={styles.submitRatingBtnText}>Submit Rating</Text>
+            <Text style={styles.submitRatingBtnText}>Confirm</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ── Screen 4: Confirmation Popup Modal (Not a full screen) ── */}
+        <Modal
+          visible={showConfirmModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowConfirmModal(false)}
+        >
+          <Pressable
+            style={styles.confirmModalOverlay}
+            onPress={() => setShowConfirmModal(false)}
+          >
+            <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.confirmModalTitle}>Confirm Rating Update?</Text>
+              <Text style={styles.confirmModalDesc}>
+                Are you sure you want to update this rating for {selectedFarmer.name}? This change will be permanently recorded in the audit history.
+              </Text>
+
+              <View style={styles.confirmModalBtnsRow}>
+                <TouchableOpacity
+                  style={styles.confirmModalCancelBtn}
+                  onPress={() => setShowConfirmModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.confirmModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmModalConfirmBtn}
+                  onPress={() => {
+                    setShowConfirmModal(false);
+                    const updatedCategories: CategoryScoreItem[] = DEFAULT_CATEGORIES.map((c) => ({
+                      name: c.name,
+                      score: `${editCategoryScores[c.name] || 8}/10`,
+                    }));
+
+                    const newAudit: HistoryAuditRecord = {
+                      auditId: `AUD-2026-00${Math.floor(Math.random() * 50 + 50)}`,
+                      date: '19 Oct 2026',
+                      ratedBy: 'Admin User',
+                      score: calculatedTotalScore,
+                      categories: updatedCategories,
+                    };
+
+                    setSelectedFarmer((prev) => ({
+                      ...prev,
+                      score: calculatedTotalScore,
+                      categories: updatedCategories,
+                      history: [newAudit, ...prev.history],
+                    }));
+
+                    setCurrentView('updated');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.confirmModalConfirmText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN 5: UPDATED RATING CONFIRMATION
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'updated') {
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setCurrentView('overview')}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Updated Rating</Text>
+          </View>
+        </View>
+
+        <View style={styles.canvasCenter}>
+          <View style={styles.updatedSuccessCard}>
+            <View style={styles.successCheckCircle}>
+              <CheckmarkCircleIcon size={56} color={adminColors.success.text} />
+            </View>
+            <Text style={styles.updatedSuccessTitle}>Rating Successfully Updated</Text>
+            <Text style={styles.updatedSuccessDesc}>
+              Farmer rating for {selectedFarmer.name} has been updated to {selectedFarmer.score ?? calculatedTotalScore}/100 and permanently recorded in audit history.
+            </Text>
+            <TouchableOpacity
+              style={styles.updatedDoneBtn}
+              onPress={() => setCurrentView('overview')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.updatedDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -999,7 +1257,13 @@ export function FarmerRatingsScreen({
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity
-              onPress={() => setCurrentView('detail')}
+              onPress={() => {
+                if (farmerName || farmerId || initialView === 'farmer_rating') {
+                  setCurrentView('overview');
+                } else {
+                  setCurrentView('detail');
+                }
+              }}
               style={styles.headerBackBtn}
               activeOpacity={0.7}
               accessibilityLabel="Back"
@@ -1882,14 +2146,6 @@ export function FarmerRatingsScreen({
             </View>
             <Text style={styles.distCount}>1</Text>
           </View>
-        </View>
-
-        {/* Info Callout Banner */}
-        <View style={styles.infoBanner}>
-          <InfoCircleIcon size={18} color={adminColors.brand} />
-          <Text style={styles.infoBannerText}>
-            These score bands are only a way to group the chart. They are not official TOHFA rating tiers, which have not been confirmed.
-          </Text>
         </View>
 
         {/* ── Section: Recent rating activity ── */}
@@ -3058,7 +3314,7 @@ const styles = StyleSheet.create({
   overallRatingLabel: {
     ...adminType.caption,
     fontWeight: '800',
-    color: '#8C827A',
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   overallRatingValue: {
@@ -3070,7 +3326,7 @@ const styles = StyleSheet.create({
   sectionHeadingBrown: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#8C5A24',
+    color: adminColors.brandDeep,
     marginTop: 18,
     marginBottom: 8,
   },
@@ -3111,7 +3367,7 @@ const styles = StyleSheet.create({
   },
   historyDateMuted: {
     ...adminType.caption,
-    color: '#8C827A',
+    color: adminColors.muted,
     marginBottom: 4,
   },
   historyScoreText: {
@@ -3141,5 +3397,205 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.onBrand,
+  },
+
+  // ─── Confirmation Popup Modal (Screen 4) ───
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  confirmModalCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: 20,
+    padding: 22,
+    ...adminShadow.md,
+  },
+  confirmModalTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  confirmModalDesc: {
+    ...adminType.body,
+    color: adminColors.muted,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  confirmModalBtnsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmModalCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  confirmModalCancelText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  confirmModalConfirmBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: adminColors.success.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmModalConfirmText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+
+  // ─── Updated Rating Screen (Screen 5) ───
+  updatedSuccessCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '88%',
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  successCheckCircle: {
+    marginBottom: 16,
+  },
+  updatedSuccessTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  updatedSuccessDesc: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  updatedDoneBtn: {
+    backgroundColor: adminColors.brand,
+    height: 46,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updatedDoneBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+
+  // ── Exact Screen 2, 3, 4, 5 Continuous Flow Styles ──
+  inputLabelField: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+    marginBottom: 8,
+  },
+  singleInputField: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    height: ADMIN_BUTTON_HEIGHT,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  reviewTwoColCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  reviewColLabel: {
+    ...adminType.rowMeta,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  reviewColValue: {
+    ...adminType.rowTitle,
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  confirmModalCardImage4: {
+    width: '92%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 18,
+    ...adminShadow.md,
+  },
+  confirmModalTitleImage4: {
+    ...adminType.rowTitle,
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginBottom: 14,
+  },
+  confirmModalGreenBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1.5,
+    borderColor: adminColors.success.text,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmModalGreenBtnText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.success.text,
+  },
+  updatedCenterIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 80,
+  },
+  updatedIconSoftBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: adminColors.success.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  updatedTitleText: {
+    ...adminType.title,
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: adminColors.ink,
   },
 });

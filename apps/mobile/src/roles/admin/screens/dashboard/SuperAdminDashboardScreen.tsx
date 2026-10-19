@@ -13,20 +13,15 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { Icon } from '@tohfa/mobile-ui';
-import { colors } from '../../../farmer/theme';
 import { AdminProfileScreen } from './AdminProfileScreen';
-import {
-  MarketPricingHomeScreen,
-  FairPriceCeilingScreen,
-  UpdateFairPriceScreen,
-  BulkPriceUpdateScreen,
-  PriceHistoryScreen,
-  MarketDayScheduleScreen,
-  AddMarketDayScreen,
-  ListingApprovalQueueScreen,
-  type MarketDay,
-  MOCK_DAYS,
-} from './';
+import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
+import { UpdateFairPriceScreen } from './UpdateFairPriceScreen';
+import { BulkPriceUpdateScreen } from './BulkPriceUpdateScreen';
+import { PriceHistoryScreen } from './PriceHistoryScreen';
+import { MarketDayScheduleScreen, type MarketDay, MOCK_DAYS } from './MarketDayScheduleScreen';
+import { AddMarketDayScreen } from './AddMarketDayScreen';
+import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import {
   AdminAllFarmersScreen,
   AdminFarmerDetailScreen,
@@ -1511,12 +1506,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: colors.danger,
+    borderColor: PALETTE.alertRed,
   },
   signOutText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.danger,
+    color: PALETTE.alertRed,
   },
 
   // Blank Screen for other tabs

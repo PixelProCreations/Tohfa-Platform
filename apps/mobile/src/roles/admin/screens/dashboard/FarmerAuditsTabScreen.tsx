@@ -13,6 +13,7 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -273,36 +274,45 @@ export function FarmerAuditsTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Static KPI Cards Grid ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Tile 1: Upcoming Audits */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.upcoming')}</Text>
-            <Text style={styles.kpiValue}>8</Text>
-          </View>
-
-          {/* Tile 2: Field Visits */}
-          <TouchableOpacity
-            style={styles.kpiCard}
+        {/* ─── 2x2 Static KPI Cards Grid using reusable OverviewDashboardCard ─── */}
+        <OverviewSectionHeader
+          title={t('farmerAuditsTab.title') || 'Audits Overview'}
+          actionLabel="View All"
+          onAction={() => onNavigateSchedule('calendar')}
+          style={{ marginBottom: 12 }}
+        />
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+          <OverviewDashboardCard
+            value="08"
+            title={t('farmerAuditsTab.kpi.upcoming')}
+            subtitle="Scheduled this month"
+            icon="orders"
+            onPress={() => onNavigateSchedule('calendar')}
+          />
+          <OverviewDashboardCard
+            value="03"
+            title={t('farmerAuditsTab.kpi.fieldVisits')}
+            subtitle="Field visits scheduled"
+            icon="truck"
             onPress={() => onNavigateSchedule('field_visit')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.fieldVisits')}</Text>
-            <Text style={styles.kpiValue}>3</Text>
-          </TouchableOpacity>
-
-          {/* Tile 3: Pending Audit Support */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.pendingSupport')}</Text>
-            <Text style={[styles.kpiValue, styles.kpiValueOrange]}>4</Text>
-          </View>
-
-          {/* Tile 4: Completed Audits */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerAuditsTab.kpi.completedAudits')}</Text>
-            <Text style={[styles.kpiValue, styles.kpiValueGreen]}>24</Text>
-          </View>
-        </View>
+          />
+          <OverviewDashboardCard
+            value="04"
+            title={t('farmerAuditsTab.kpi.pendingSupport')}
+            subtitle="Requires attention"
+            icon="alert"
+            tone="warning"
+            onPress={() => onNavigateSchedule('calendar')}
+          />
+          <OverviewDashboardCard
+            value="24"
+            title={t('farmerAuditsTab.kpi.completedAudits')}
+            subtitle="Past 90 days"
+            icon="box"
+            tone="success"
+            onPress={() => onNavigateSchedule('history')}
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Section: Audit Calendar ─── */}
         <TouchableOpacity

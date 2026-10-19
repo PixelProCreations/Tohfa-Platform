@@ -15,19 +15,14 @@ import {
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  orangeText: '#E8562A',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-};
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 
 interface CropItem {
   id: string;
@@ -83,7 +78,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -94,7 +89,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
+          <Icon name="chevron_right" size={20} color={adminColors.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
       </View>
 
@@ -123,7 +118,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isSelected }}
                 >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
+                  {isSelected && <Icon name="check" size={16} color={adminColors.onBrand} />}
                 </View>
                 <View style={styles.cropInfo}>
                   <Text style={styles.cropName}>{crop.name}</Text>
@@ -152,7 +147,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isSelected }}
                 >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
+                  {isSelected && <Icon name="check" size={16} color={adminColors.onBrand} />}
                 </View>
                 <View style={styles.cropInfo}>
                   <Text style={styles.cropName}>{crop.name}</Text>
@@ -181,7 +176,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isSelected }}
                 >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
+                  {isSelected && <Icon name="check" size={16} color={adminColors.onBrand} />}
                 </View>
                 <View style={styles.cropInfo}>
                   <Text style={styles.cropName}>{crop.name}</Text>
@@ -210,7 +205,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isSelected }}
                 >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
+                  {isSelected && <Icon name="check" size={16} color={adminColors.onBrand} />}
                 </View>
                 <View style={styles.cropInfo}>
                   <Text style={styles.cropName}>{crop.name}</Text>
@@ -245,7 +240,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
           disabled={selectedIds.length === 0}
           activeOpacity={0.8}
         >
-          <Icon name="check_circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Icon name="check_circle" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
           <Text style={styles.applyBtnText}>Apply to Selected</Text>
         </TouchableOpacity>
 
@@ -258,163 +253,156 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: P.darkBrown,
+    ...adminType.title,
+    color: adminColors.brandDeep,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
-    fontSize: 13,
-    color: P.lightGray,
-    marginBottom: 20,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropList: {
-    gap: 12,
-    marginBottom: 24,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
   },
   categoryHeader: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.darkBrown,
+    ...adminType.rowTitle,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
     marginBottom: 8,
     marginTop: 0,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
     borderWidth: 2,
-    borderColor: P.border,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   checkboxSelected: {
-    backgroundColor: P.orange,
-    borderColor: P.orange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   cropInfo: {
     flex: 1,
   },
   cropName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropPrice: {
-    fontSize: 12,
-    color: P.lightGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   percentBadge: {
-    backgroundColor: '#FFEBE5',
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
   },
   percentBadgeText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: P.orangeText,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    color: adminColors.brand,
   },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.darkBrown,
-    marginBottom: 16,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   percentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 24,
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
-    borderColor: P.border,
-    marginBottom: 20,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   circleBtn: {
     width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: P.pageBg,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
   },
   btnSymbol: {
     fontSize: 20,
     fontWeight: '400',
-    color: P.darkBrown,
+    color: adminColors.ink,
     lineHeight: 24,
   },
   percentDisplay: {
     fontSize: 36,
-    fontWeight: '700',
-    color: P.darkBrown,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
     lineHeight: 40,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   applyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
   },
   applyBtnDisabled: {
-    backgroundColor: P.muted,
+    backgroundColor: adminColors.muted,
     opacity: 0.5,
   },
   applyBtnText: {
-    fontSize: 15,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

@@ -466,7 +466,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: adminColors.onBrand,
-    marginLeft: 4,
+    marginLeft: 6,
+    letterSpacing: -0.3,
   },
   filterBtn: {
     width: 36,

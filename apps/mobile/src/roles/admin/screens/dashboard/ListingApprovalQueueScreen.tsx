@@ -251,9 +251,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.xl,
   },
   title: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.brandDeep,
     marginBottom: 6,
+    letterSpacing: -0.3,
   },
   subtitle: {
     ...adminType.body,

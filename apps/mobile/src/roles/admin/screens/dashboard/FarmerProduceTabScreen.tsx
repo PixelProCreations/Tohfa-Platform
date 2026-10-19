@@ -11,6 +11,7 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -192,35 +193,45 @@ export function FarmerProduceTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 KPI Grid ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Tile 1: Pending Review */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.pendingReview')}</Text>
-            <Text style={styles.kpiValue}>24</Text>
-          </View>
-
-          {/* Tile 2: Today's Reviews */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.todayReviews')}</Text>
-            <Text style={styles.kpiValue}>18</Text>
-            <Text style={styles.kpiSubMuted}>{t('farmerProduceTab.kpi.todayReviewsBreakdown')}</Text>
-          </View>
-
-          {/* Tile 3: Counter Offers */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.counterOffers')}</Text>
-            <Text style={styles.kpiValue}>06</Text>
-            <Text style={styles.kpiSubBlue}>{t('farmerProduceTab.kpi.awaitingResponse')}</Text>
-          </View>
-
-          {/* Tile 4: Your Listings */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduceTab.kpi.yourListings')}</Text>
-            <Text style={[styles.kpiValue, styles.kpiValueAmber]}>03</Text>
-            <Text style={styles.kpiSubAmber}>{t('farmerProduceTab.kpi.reviewRestricted')}</Text>
-          </View>
-        </View>
+        {/* ─── 2x2 KPI Grid using reusable OverviewDashboardCard ─── */}
+        <OverviewSectionHeader
+          title={t('farmerProduceTab.title') || 'Produce Overview'}
+          actionLabel="View All"
+          onAction={() => onNavigateToListings('all')}
+          style={{ marginBottom: 12 }}
+        />
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+          <OverviewDashboardCard
+            value="24"
+            title={t('farmerProduceTab.kpi.pendingReview')}
+            subtitle="Requires inspection"
+            icon="orders"
+            tone="warning"
+            onPress={() => onNavigateToListings('pending')}
+          />
+          <OverviewDashboardCard
+            value="18"
+            title={t('farmerProduceTab.kpi.todayReviews')}
+            subtitle={t('farmerProduceTab.kpi.todayReviewsBreakdown')}
+            icon="box"
+            onPress={() => onNavigateToListings('all')}
+          />
+          <OverviewDashboardCard
+            value="06"
+            title={t('farmerProduceTab.kpi.counterOffers')}
+            subtitle={t('farmerProduceTab.kpi.awaitingResponse')}
+            icon="truck"
+            onPress={() => onNavigateToListings('counter')}
+          />
+          <OverviewDashboardCard
+            value="03"
+            title={t('farmerProduceTab.kpi.yourListings')}
+            subtitle={t('farmerProduceTab.kpi.reviewRestricted')}
+            icon="alert"
+            tone="danger"
+            onPress={() => onNavigateToListings('all')}
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Section: Needs Your Attention ─── */}
         <Text style={styles.sectionHeader}>{t('farmerProduceTab.section.attention')}</Text>

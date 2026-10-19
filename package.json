@@ -17,6 +17,7 @@
     "dev:api": "pnpm --filter @tohfa/api dev",
     "dev:mobile": "pnpm --filter @tohfa/mobile start",
     "mobile:start": "pnpm --filter @tohfa/mobile start",
+    "mobile:reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000",
     "dev:worker": "pnpm --filter @tohfa/api dev:worker",
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -b tsconfig.json && pnpm --filter @tohfa/admin-web --filter @tohfa/mobile typecheck",

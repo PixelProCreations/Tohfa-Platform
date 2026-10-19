@@ -84,7 +84,7 @@ function CloseIcon({ size = 18, color = adminColors.ink }: { size?: number; colo
   );
 }
 
-function LockIcon({ size = 32, color = '#C47318' }: { size?: number; color?: string }) {
+function LockIcon({ size = 32, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="10" width="16" height="12" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -769,7 +769,7 @@ export function FarmerAdminProfileScreen({
           {/* Card with lock icon, title, subtitle matching Image 3 */}
           <View style={styles.confirmPasswordCard}>
             <View style={styles.lockIconContainer}>
-              <LockIcon size={34} color="#C47318" />
+              <LockIcon size={34} color={adminColors.brand} />
             </View>
 
             <Text style={styles.confirmPasswordTitle}>Confirm your password</Text>

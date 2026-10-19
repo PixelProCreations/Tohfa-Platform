@@ -149,15 +149,6 @@ export function ProduceDamageInspectionScreen({
           </View>
         </View>
 
-        {/* Outstanding Card */}
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceDamageInspection.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         {/* Damaged produce detected? */}
         <Text style={styles.inputLabelBold}>
           {t('produceDamageInspection.label.damageDetected')} <Text style={{ color: adminColors.danger.text }}>*</Text>

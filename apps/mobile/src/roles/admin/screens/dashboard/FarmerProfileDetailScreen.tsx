@@ -94,22 +94,33 @@ export interface FarmerProfileDetailScreenProps {
 
 type TabKey = 'Overview' | 'Farm' | 'Documents' | 'Audits' | 'Produce' | 'Ratings' | 'Activity' | 'History' | 'Issues';
 
+const DEFAULT_FARMER_DATA: FarmerProfileData = {
+  farmerId: 'FR-00241',
+  name: 'Ramesh Kumar',
+  zone: 'Coonoor',
+  farmingMethod: 'Organic',
+  accountStatus: 'Active',
+  certification: 'Certified',
+  farmCount: 1,
+  listingCount: 18,
+  rating: '4.6 ★',
+  auditStatus: 'Upcoming',
+};
+
 export function FarmerProfileDetailScreen({
-  farmer = {
-    farmerId: '',
-    name: '',
-    zone: '',
-    farmingMethod: '',
-    accountStatus: '',
-    certification: '',
-    farmCount: 0,
-    listingCount: 0,
-    rating: '',
-    auditStatus: '',
-  },
+  farmer,
   onBack,
   onNavigateAuditHistory,
 }: FarmerProfileDetailScreenProps) {
+  const activeFarmer: FarmerProfileData = {
+    ...DEFAULT_FARMER_DATA,
+    ...farmer,
+    name: farmer?.name || DEFAULT_FARMER_DATA.name,
+    farmerId: farmer?.farmerId || DEFAULT_FARMER_DATA.farmerId,
+    zone: farmer?.zone || DEFAULT_FARMER_DATA.zone,
+    farmingMethod: farmer?.farmingMethod || DEFAULT_FARMER_DATA.farmingMethod,
+    accountStatus: farmer?.accountStatus || DEFAULT_FARMER_DATA.accountStatus,
+  };
   const [activeTab, setActiveTab] = useState<TabKey>('Overview');
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [showActivityScreen, setShowActivityScreen] = useState<boolean>(false);
@@ -183,8 +194,8 @@ export function FarmerProfileDetailScreen({
   if (showProduceScreen) {
     return (
       <FarmerProduceScreen
-        farmerName={farmer.name}
-        farmerId={farmer.farmerId}
+        farmerName={activeFarmer.name}
+        farmerId={activeFarmer.farmerId}
         onBack={() => setShowProduceScreen(false)}
       />
     );
@@ -193,8 +204,9 @@ export function FarmerProfileDetailScreen({
   if (showRatingsScreen) {
     return (
       <FarmerRatingsScreen
-        farmerName={farmer.name}
-        farmerId={farmer.farmerId}
+        farmerName={activeFarmer.name}
+        farmerId={activeFarmer.farmerId}
+        initialView="farmer_rating"
         onBack={() => setShowRatingsScreen(false)}
       />
     );
@@ -203,8 +215,8 @@ export function FarmerProfileDetailScreen({
   if (showActivityScreen) {
     return (
       <FarmerActivityScreen
-        farmerName={farmer.name}
-        farmerId={farmer.farmerId}
+        farmerName={activeFarmer.name}
+        farmerId={activeFarmer.farmerId}
         onBack={() => setShowActivityScreen(false)}
       />
     );
@@ -213,8 +225,8 @@ export function FarmerProfileDetailScreen({
   if (showHistoryScreen) {
     return (
       <FarmerHistoryScreen
-        farmerName={farmer.name}
-        farmerId={farmer.farmerId}
+        farmerName={activeFarmer.name}
+        farmerId={activeFarmer.farmerId}
         onBack={() => setShowHistoryScreen(false)}
       />
     );
@@ -223,8 +235,8 @@ export function FarmerProfileDetailScreen({
   if (showIssuesScreen) {
     return (
       <FarmerIssuesScreen
-        farmerName={farmer.name}
-        farmerId={farmer.farmerId}
+        farmerName={activeFarmer.name}
+        farmerId={activeFarmer.farmerId}
         onBack={() => setShowIssuesScreen(false)}
       />
     );
@@ -259,12 +271,12 @@ export function FarmerProfileDetailScreen({
           <View style={styles.avatarCircle}>
             <UserAvatarIcon size={34} color={adminColors.brandDeep} />
           </View>
-          <Text style={styles.farmerNameTitle}>{farmer.name}</Text>
+          <Text style={styles.farmerNameTitle}>{activeFarmer.name}</Text>
           <Text style={styles.farmerSubMeta}>
-            {farmer.farmerId} · {farmer.farmingMethod} · {farmer.zone}
+            {activeFarmer.farmerId} · {activeFarmer.farmingMethod} · {activeFarmer.zone}
           </Text>
           <View style={styles.statusBadge}>
-            <Text style={styles.statusBadgeText}>{farmer.accountStatus}</Text>
+            <Text style={styles.statusBadgeText}>{activeFarmer.accountStatus}</Text>
           </View>
         </View>
 
@@ -346,55 +358,55 @@ export function FarmerProfileDetailScreen({
             <View style={styles.rowTwoCol}>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Farmer Name</Text>
-                <Text style={styles.valBold}>{farmer.name}</Text>
+                <Text style={styles.valBold}>{activeFarmer.name}</Text>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Farmer ID</Text>
-                <Text style={styles.valBold}>{farmer.farmerId}</Text>
+                <Text style={styles.valBold}>{activeFarmer.farmerId}</Text>
               </View>
             </View>
 
             <View style={[styles.rowTwoCol, styles.rowSpacing]}>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Zone</Text>
-                <Text style={styles.valBold}>{farmer.zone}</Text>
+                <Text style={styles.valBold}>{activeFarmer.zone}</Text>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Farming Method</Text>
-                <Text style={styles.valBold}>{farmer.farmingMethod}</Text>
+                <Text style={styles.valBold}>{activeFarmer.farmingMethod}</Text>
               </View>
             </View>
 
             <View style={[styles.rowTwoCol, styles.rowSpacing]}>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Account Status</Text>
-                <Text style={styles.valBold}>{farmer.accountStatus}</Text>
+                <Text style={styles.valBold}>{activeFarmer.accountStatus}</Text>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Certification</Text>
-                <Text style={styles.valBold}>{farmer.certification}</Text>
+                <Text style={styles.valBold}>{activeFarmer.certification}</Text>
               </View>
             </View>
 
             <View style={[styles.rowTwoCol, styles.rowSpacing]}>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Farm Count</Text>
-                <Text style={styles.valBold}>{farmer.farmCount}</Text>
+                <Text style={styles.valBold}>{activeFarmer.farmCount}</Text>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Listing Count</Text>
-                <Text style={styles.valBold}>{farmer.listingCount}</Text>
+                <Text style={styles.valBold}>{activeFarmer.listingCount}</Text>
               </View>
             </View>
 
             <View style={[styles.rowTwoCol, styles.rowSpacing]}>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Rating</Text>
-                <Text style={styles.valBold}>{farmer.rating}</Text>
+                <Text style={styles.valBold}>{activeFarmer.rating}</Text>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.labelMuted}>Audit Status</Text>
-                <Text style={styles.valBold}>{farmer.auditStatus}</Text>
+                <Text style={styles.valBold}>{activeFarmer.auditStatus}</Text>
               </View>
             </View>
           </View>

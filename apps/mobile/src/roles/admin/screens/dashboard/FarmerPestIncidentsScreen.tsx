@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -129,14 +129,20 @@ export const SAMPLE_INCIDENTS: IncidentItem[] = [
 export interface FarmerPestIncidentsScreenProps {
   onBack: () => void;
   onSelectIncident: (incident: IncidentItem) => void;
+  initialShowFilters?: boolean;
 }
 
 export function FarmerPestIncidentsScreen({
   onBack,
   onSelectIncident,
+  initialShowFilters = false,
 }: FarmerPestIncidentsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(initialShowFilters);
+
+  useEffect(() => {
+    setShowFilters(initialShowFilters);
+  }, [initialShowFilters]);
 
   // Filter States
   const [selectedCrop, setSelectedCrop] = useState<'All' | 'Carrot' | 'Cabbage'>('All');

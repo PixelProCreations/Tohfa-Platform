@@ -390,13 +390,6 @@ export function FarmerDisputeTimelineScreen({
           })}
         </View>
 
-        {/* ─── Bottom Recorded Notice from screenshot ─── */}
-        <Text style={styles.recordedNotice}>
-          Only events that were actually recorded are shown. Opening this screen adds nothing to the record.
-        </Text>
-
-        {/* ─── M10-S03 Footer Caption ─── */}
-        <Text style={styles.screenCaption}>M10-S03 · Dispute Timeline</Text>
         <View style={styles.bottomSpacer} />
       </ScrollView>
 

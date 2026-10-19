@@ -140,14 +140,54 @@ function renderBuiltinIcon(type: string, color: string) {
   }
 }
 
+export interface OverviewSectionHeaderProps {
+  title?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  style?: StyleProp<ViewStyle>;
+}
+
 /**
- * Reusable Overview Dashboard Card designed strictly following the TOHFA Admin design system:
- * - Surfaces from adminColors.card, border from adminColors.border
- * - Prominent bold KPI statistic using adminType.kpiValue
- * - Rounded square top-right icon badge with adminColors.brandTint & adminColors.brandDeep
- * - Clean title with adminType.rowTitle & adminColors.ink
- * - Subtitle / counter with adminType.rowMeta & adminColors.muted
- * - Optional titlePosition='top' to display title on top of value and subtitle below
+ * Reusable section header matching the reference image ("Today's Overview" / "View All")
+ */
+export function OverviewSectionHeader({
+  title = "Today's Overview",
+  actionLabel = 'View All',
+  onAction,
+  style,
+}: OverviewSectionHeaderProps) {
+  return (
+    <View style={[styles.sectionHeaderRow, style]}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+      {actionLabel && onAction ? (
+        <TouchableOpacity
+          onPress={onAction}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
+          <Text style={styles.sectionHeaderAction}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+export function toSentenceCase(str?: string): string {
+  if (!str) return '';
+  const trimmed = str.trim();
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+/**
+ * Reusable Overview Dashboard Card designed strictly following the TOHFA Admin design system
+ * and the exact design reference image:
+ * - 2-column card layout with pure white background, subtle warm border, smooth 18px corners
+ * - Top row: Prominent bold KPI statistic on left, warm peach rounded icon badge on right
+ * - Bottom block: Clean title (13.5px bold) and subtitle / meta (11.5px) grouped together
+ * - Tone support: 'danger' highlights the stat value & subtitle in red/coral (matching "Low Stock Items")
  */
 export function OverviewDashboardCard({
   value,
@@ -164,7 +204,7 @@ export function OverviewDashboardCard({
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
-  const effectiveIconColor = iconColor ?? adminColors.brand;
+  const effectiveIconColor = iconColor ?? adminColors.brandDeep;
   const effectiveIconBg = iconBgColor ?? adminColors.brandTint;
 
   const isDanger = tone === 'danger';
@@ -191,6 +231,10 @@ export function OverviewDashboardCard({
     ? renderBuiltinIcon(icon, effectiveIconColor)
     : icon;
 
+  const valStr = String(value);
+  const isCurrency = valStr.includes('₹') || valStr.length > 5;
+  const displayTitle = toSentenceCase(title);
+
   return (
     <TouchableOpacity
       style={[styles.card, style]}
@@ -198,13 +242,13 @@ export function OverviewDashboardCard({
       activeOpacity={onPress ? 0.72 : 1}
       disabled={disabled || !onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={accessibilityLabel || `${title}: ${value}${subtitle ? `, ${subtitle}` : ''}`}
+      accessibilityLabel={accessibilityLabel || `${displayTitle}: ${value}${subtitle ? `, ${subtitle}` : ''}`}
     >
       {titlePosition === 'top' ? (
         <>
           <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
             <Text style={styles.title} numberOfLines={2}>
-              {title}
+              {displayTitle}
             </Text>
             {renderedIcon ? (
               <View style={[styles.iconBadge, { backgroundColor: effectiveIconBg }]}>
@@ -214,11 +258,16 @@ export function OverviewDashboardCard({
           </View>
 
           <Text
-            style={[styles.value, { color: toneValueColor }, valueStyle]}
+            style={[
+              styles.value,
+              isCurrency && styles.currencyValue,
+              { color: toneValueColor },
+              valueStyle,
+            ]}
             numberOfLines={1}
             adjustsFontSizeToFit
           >
-            {String(value)}
+            {valStr}
           </Text>
 
           {subtitle ? (
@@ -232,11 +281,16 @@ export function OverviewDashboardCard({
           {/* Top row: Value on left, warm rounded Icon Badge on right */}
           <View style={styles.topRow}>
             <Text
-              style={[styles.value, { color: toneValueColor }, valueStyle]}
+              style={[
+                styles.value,
+                isCurrency && styles.currencyValue,
+                { color: toneValueColor },
+                valueStyle,
+              ]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
-              {String(value)}
+              {valStr}
             </Text>
 
             {renderedIcon ? (
@@ -246,17 +300,18 @@ export function OverviewDashboardCard({
             ) : null}
           </View>
 
-          {/* Title */}
-          <Text style={styles.title} numberOfLines={2}>
-            {title}
-          </Text>
-
-          {/* Subtitle / micro text */}
-          {subtitle ? (
-            <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
-              {subtitle}
+          {/* Group title and subtitle cleanly below */}
+          <View style={styles.bottomBlock}>
+            <Text style={styles.title} numberOfLines={2}>
+              {displayTitle}
             </Text>
-          ) : null}
+
+            {subtitle ? (
+              <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         </>
       )}
     </TouchableOpacity>
@@ -277,31 +332,51 @@ export function OverviewCardsGrid({
 }
 
 const styles = StyleSheet.create({
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  sectionHeaderTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '800',
+    color: adminColors.ink,
+    letterSpacing: -0.3,
+  },
+  sectionHeaderAction: {
+    ...adminType.rowTitle,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: adminSpacing.md,
+    rowGap: 12,
+    columnGap: 10,
   },
   card: {
     width: '48.5%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.md,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
     borderWidth: 1,
     borderColor: adminColors.border,
     ...adminShadow.sm,
     justifyContent: 'space-between',
-    minHeight: 104,
+    minHeight: 112,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    minHeight: 32,
-    marginBottom: 4,
+    minHeight: 36,
   },
   topRowWithoutIcon: {
     minHeight: 0,
@@ -309,19 +384,27 @@ const styles = StyleSheet.create({
   },
   value: {
     ...adminType.kpiValue,
-    fontSize: 26,
+    fontSize: 25,
     lineHeight: 30,
     fontWeight: '800',
     color: adminColors.ink,
     letterSpacing: -0.4,
-    marginVertical: 2,
+    flex: 1,
+    paddingRight: 6,
+  },
+  currencyValue: {
+    fontSize: 21,
+    lineHeight: 26,
   },
   iconBadge: {
     width: 36,
     height: 36,
-    borderRadius: adminRadius.md,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bottomBlock: {
+    marginTop: 10,
   },
   title: {
     ...adminType.rowTitle,
@@ -330,13 +413,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: adminColors.ink,
     letterSpacing: -0.1,
-    flex: 1,
   },
   subtitle: {
     ...adminType.rowMeta,
     fontSize: 11.5,
     lineHeight: 15,
     color: adminColors.muted,
-    marginTop: 2,
+    marginTop: 2.5,
   },
 });

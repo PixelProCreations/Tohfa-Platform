@@ -82,7 +82,7 @@ export function AdminOperationsOverviewScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header Banner in Brand Orange #F0562A */}
+      {/* Header Banner in Brand Orange */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.8}>
@@ -439,7 +439,7 @@ export function AdminOperationsOverviewScreen({
           ))}
         </View>
 
-        {/* ── Export Reports Button in Brand Orange #F0562A ── */}
+        {/* ── Export Reports Button in Brand Orange ── */}
         <View style={styles.exportButtonContainer}>
           <TouchableOpacity style={styles.exportButton} onPress={handleExport} activeOpacity={0.8}>
             <Text style={styles.exportButtonText}>Export reports</Text>

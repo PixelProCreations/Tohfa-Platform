@@ -5,6 +5,7 @@
   "description": "TOHFA mobile. One React Native 0.74 codebase, three shipped flavors (farmer, customer, admin) — see docs/react-native-guidelines.md and this app's CLAUDE.md.",
   "scripts": {
     "start": "react-native start",
+    "reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "typecheck": "tsc -p tsconfig.json --noEmit",

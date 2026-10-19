@@ -99,6 +99,7 @@ import {
   type DisputeStatus,
   INITIAL_DISPUTES,
 } from './fixtures';
+import { FarmerDisputesFilterScreen } from './FarmerDisputesFilterScreen';
 
 export type { DisputeCategory, DisputeItem, DisputeStatus };
 export { INITIAL_DISPUTES };
@@ -128,6 +129,7 @@ export interface FarmerDisputesMediationScreenProps {
   onOpenNotifications?: (() => void) | undefined;
   onViewDetails?: ((dispute: DisputeItem) => void) | undefined;
   onViewTimeline?: ((dispute: DisputeItem) => void) | undefined;
+  onOpenFilters?: (() => void) | undefined;
 }
 
 export function FarmerDisputesMediationScreen({
@@ -135,10 +137,11 @@ export function FarmerDisputesMediationScreen({
   onOpenNotifications,
   onViewDetails,
   onViewTimeline,
+  onOpenFilters,
 }: FarmerDisputesMediationScreenProps) {
   const [disputes, setDisputes] = useState<DisputeItem[]>(INITIAL_DISPUTES);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showFilterScreen, setShowFilterScreen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<'All' | DisputeStatus>('All');
   const [selectedCategory, setSelectedCategory] = useState<'All' | DisputeCategory>('All');
   const [activeDispute, setActiveDispute] = useState<DisputeItem | null>(null);
@@ -209,6 +212,31 @@ export function FarmerDisputesMediationScreen({
     showToast(`Dispute ${disputeId} status updated to ${newStatus}.`);
   };
 
+  if (showFilterScreen) {
+    return (
+      <FarmerDisputesFilterScreen
+        initialFilters={{
+          searchQuery,
+          status: selectedStatus,
+          category: selectedCategory,
+        }}
+        disputeCount={filteredDisputes.length}
+        onBack={() => setShowFilterScreen(false)}
+        onApply={(filters) => {
+          setSearchQuery(filters.searchQuery);
+          setSelectedStatus(filters.status);
+          setSelectedCategory(filters.category);
+          setShowFilterScreen(false);
+        }}
+        onReset={() => {
+          setSearchQuery('');
+          setSelectedStatus('All');
+          setSelectedCategory('All');
+        }}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -275,7 +303,13 @@ export function FarmerDisputesMediationScreen({
         {/* Filters Button */}
         <TouchableOpacity
           style={styles.filterBtn}
-          onPress={() => setShowFilterModal(true)}
+          onPress={() => {
+            if (onOpenFilters) {
+              onOpenFilters();
+            } else {
+              setShowFilterScreen(true);
+            }
+          }}
           activeOpacity={0.75}
           accessibilityLabel="Filter disputes"
         >
@@ -417,114 +451,8 @@ export function FarmerDisputesMediationScreen({
           </View>
         )}
 
-        <Text style={styles.screenIdCaption}>M10-S01 · Dispute List</Text>
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* ─── Filter Selection Modal ─── */}
-      <Modal
-        visible={showFilterModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowFilterModal(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.filterModalCard}>
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Filter Disputes</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowFilterModal(false)}
-                    style={styles.closeBtn}
-                  >
-                    <Text style={styles.closeBtnText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Status Options */}
-                <Text style={styles.filterSectionTitle}>Status</Text>
-                <View style={styles.chipWrap}>
-                  {(
-                    ['All', 'Under Review', 'Awaiting TOHFA', 'Open', 'Escalated', 'Resolved'] as const
-                  ).map((st) => (
-                    <TouchableOpacity
-                      key={st}
-                      style={[
-                        styles.filterChip,
-                        selectedStatus === st && styles.filterChipActive,
-                      ]}
-                      onPress={() => setSelectedStatus(st)}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          selectedStatus === st && styles.filterChipTextActive,
-                        ]}
-                      >
-                        {st}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Category Options */}
-                <Text style={[styles.filterSectionTitle, { marginTop: adminSpacing.md }]}>
-                  Category
-                </Text>
-                <View style={styles.chipWrap}>
-                  {(
-                    [
-                      'All',
-                      'Payment & Payout',
-                      'Purchase & Collection',
-                      'Produce Quality & Rejection',
-                      'Audit & Documentation',
-                    ] as const
-                  ).map((cat) => (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[
-                        styles.filterChip,
-                        selectedCategory === cat && styles.filterChipActive,
-                      ]}
-                      onPress={() => setSelectedCategory(cat)}
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          selectedCategory === cat && styles.filterChipTextActive,
-                        ]}
-                      >
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Modal Footer Buttons */}
-                <View style={styles.modalFooterRow}>
-                  <TouchableOpacity
-                    style={styles.modalResetBtn}
-                    onPress={() => {
-                      setSelectedStatus('All');
-                      setSelectedCategory('All');
-                    }}
-                  >
-                    <Text style={styles.modalResetText}>Reset</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalApplyBtn}
-                    onPress={() => setShowFilterModal(false)}
-                  >
-                    <Text style={styles.modalApplyText}>Apply Filters</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
 
       {/* ─── Detail Case Modal ─── */}
       <Modal
