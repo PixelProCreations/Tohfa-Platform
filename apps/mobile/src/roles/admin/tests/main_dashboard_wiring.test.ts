@@ -14,6 +14,31 @@ const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
 const MAIN = read('roles/admin/screens/dashboard/MainWarehouseAdminDashboardScreen.tsx');
 const EN = JSON.parse(read('roles/admin/i18n/en.json')) as Record<string, string>;
 
+describe('no design samples on the live dashboard', () => {
+  it.each([
+    'OVERVIEW_WAREHOUSES',
+    'DEFAULT_ALERTS',
+    'CONSOLIDATED_PRODUCTS',
+    'LOW_STOCK_ITEMS',
+    'TRACKING_TRANSFERS',
+    'PROFILE_WAREHOUSES',
+    'WAREHOUSE_ADMIN_ROWS',
+    'WALLET_WAREHOUSES',
+    'Suresh',
+  ])('%s does not appear in the Main dashboard', (name) => {
+    expect(MAIN).not.toContain(name);
+  });
+
+  it('imports no fixtures module from the warehouse areas', () => {
+    expect(MAIN).not.toMatch(/from '\.\.\/warehouse\/[^']*\/fixtures'/);
+    expect(MAIN).not.toMatch(/from '\.\.\/warehouse\/[^']*[Ff]ixtures'/);
+  });
+
+  it('every figure goes through the pure module or the view-state gate: no query result is read bare into JSX', () => {
+    expect(MAIN).not.toMatch(/\{(batches|goodsReceipts|liveAlerts|openTasks)\.length\}/);
+  });
+});
+
 describe('every query has a view-state handler (no zeros or "all normal" while loading or failed)', () => {
   const QUERY_SOURCES = [
     'warehousesQuery',
