@@ -1049,7 +1049,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
           </View>
-          <Text style={styles.subHeaderSubtitle}>All 4 warehouses at a glance</Text>
+          <Text style={styles.subHeaderSubtitle}>{t('mainDashboard.overview.subtitle')}</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
@@ -1375,7 +1375,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {warehouses.map((wh) => {
             const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
-            const baseName = wh.name.replace(/ Warehouse$/, '');
             return (
               <View key={wh.id} style={styles.whOverviewCard}>
                 <View style={styles.whOverviewHeaderRow}>
@@ -1386,7 +1385,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
 
                 <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                  {wh.code} · {wh.address || `${baseName} Regional Facility`}
+                  {[wh.code, wh.address ?? wh.city].filter((part): part is string => typeof part === 'string' && part.trim() !== '').join(' · ')}
                 </Text>
 
                 <View style={styles.manageBtnRow}>

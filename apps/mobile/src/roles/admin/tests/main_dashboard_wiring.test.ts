@@ -172,6 +172,11 @@ describe('honest figures: no claim the data does not back', () => {
     expect(MAIN).not.toContain("'Below Threshold'");
   });
 
+  it('no invented copy stands in for data the server did not send (no "Regional Facility", no fixed "4 warehouses")', () => {
+    expect(MAIN).not.toContain('Regional Facility');
+    expect(MAIN).not.toContain('All 4 warehouses');
+  });
+
   it('the greeting follows the hour of day and is not hard-coded', () => {
     expect(MAIN).toContain('greetingKey(now)');
     expect(MAIN).not.toContain('Good morning');
