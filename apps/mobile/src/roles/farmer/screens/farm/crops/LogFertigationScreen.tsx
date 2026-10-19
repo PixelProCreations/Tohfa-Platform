@@ -298,7 +298,7 @@ export function LogFertigationScreen({
   const [quantity, setQuantity] = useState<string>(DEFAULT_INPUT.defaultQty);
   const [unit, setUnit] = useState<string>(DEFAULT_INPUT.unit);
   const [phiDays, setPhiDays] = useState<string>(DEFAULT_INPUT.phiDays);
-  const [nextDate, setNextDate] = useState<string>('31 Jul 2026');
+  const [nextDate] = useState<string>('31 Jul 2026');
 
   // Modals
   const [showCropModal, setShowCropModal] = useState(false);

@@ -1,64 +1,54 @@
 /**
- * Which warehouse areas the app offers at all. Owner decision (API
- * integration plan, decision 2):
+ * Which warehouse areas the app offers at all. One policy:
  *
- *   - Material handling has no server API wired here, so it is hidden for
- *     every warehouse admin. Its screens stay in the code (fixture-backed)
- *     until an API exists; only the entry points (button, row, tile, route)
- *     are hidden.
- *   - Operational issues (/warehouses/{id}/issues, BR-103) and the warehouse
- *     activity feed (GET /warehouses/{id}/activity, BR-104) are live and shown
- *     with `warehouse.issue.view` / `warehouse.activity.view` (MAIN all, SUB
- *     own). Reporting and working an issue need warehouse.issue.manage, which
- *     the issue screens check themselves.
- *   - Inter-warehouse transfers are live (/warehouse-transfers, BR-102) and
- *     shown with `transfer.inter_warehouse.view` (SA/TOHFA/MAIN all, SUB own).
- *   - Warehouse documents are live (GET /warehouses/{id}/documents, BR-105)
- *     and shown only with `warehouse.document.view` (MAIN_WH_ADMIN all,
- *     SUB_WH_ADMIN own). Add / edit / archive need warehouse.document.manage,
- *     which the Documents screen checks itself.
- *   - Staff (roster and attendance) is shown only with `admin.staff.list_view`.
- *     docs/rbac.json grants it MAIN_WH_ADMIN `own` and SUB_WH_ADMIN `none`
- *     (owner decision 2026-10-11, superseding the withdrawn
+ *   - Owner decision (2026-10-14): nothing is hidden for having no server API.
+ *     Invoice generation, order cancellation, order issues and the order stock
+ *     check have no API yet; their screens are fixture-backed and show sample
+ *     data until one exists, and they are offered all the same. The server
+ *     refuses what it has no route for.
+ *   - The only area taken out of the app is order delivery
+ *     (AREAS_WITHOUT_API): the business supports warehouse pickup only, not
+ *     delivery dispatch (BR-21; docs/rules.md open contradiction 3). Its screens
+ *     stay in the code in case delivery is built later -- a hide, not a delete.
+ *     Material handling was dropped as a product decision (2026-10-14); it is
+ *     deleted, so it is no area at all. Marking a pickup order ready still uses
+ *     POST .../dispatch.
+ *   - Areas that now HAVE a live API are offered on the view permission that
+ *     API enforces, the same real permission rule as Staff below. That is not a
+ *     no-API hide, so the policy above does not touch it:
+ *       * operational issues (/warehouses/{id}/issues, BR-103) and the
+ *         warehouse activity feed (GET /warehouses/{id}/activity, BR-104) need
+ *         `warehouse.issue.view` / `warehouse.activity.view` (MAIN all, SUB
+ *         own). Reporting and working an issue need warehouse.issue.manage,
+ *         which the issue screens check themselves.
+ *       * inter-warehouse transfers (/warehouse-transfers, BR-102) need
+ *         `transfer.inter_warehouse.view` (SA/TOHFA/MAIN all, SUB own).
+ *       * warehouse documents (GET /warehouses/{id}/documents, BR-105) need
+ *         `warehouse.document.view` (MAIN_WH_ADMIN all, SUB_WH_ADMIN own).
+ *         Add / edit / archive need warehouse.document.manage, which the
+ *         Documents screen checks itself.
+ *       * stock counts (/admin/stock-verifications, BR-107) need
+ *         `inventory.stock_verification.perform` (SA/TOHFA/MAIN all, SUB own).
+ *       * stock adjustments (/admin/stock-adjustments, BR-37) need
+ *         `inventory.stock_adjustment.create` (SA/TOHFA/MAIN all, SUB own),
+ *         which the server also uses for its reads. Approving or rejecting one
+ *         needs `inventory.stock_adjustment.approve` (SUB none, BR-37a), which
+ *         the adjustment detail checks itself.
+ *       * the order invoice (M5S18, GET /invoices/{id} and its download,
+ *         BR-36) needs `invoice.view_own` (SA/TOHFA/MAIN all, SUB own); the
+ *         order detail also hides the entry when the order has no invoice.
+ *   - Staff (roster and attendance) is offered only with
+ *     `admin.staff.list_view`. docs/rbac.json grants it MAIN_WH_ADMIN `own` and
+ *     SUB_WH_ADMIN `none` (owner decision 2026-10-11, superseding the withdrawn
  *     `warehouse.staff.list_view`).
  *
- *   - Stock counts are live (/admin/stock-verifications, BR-107) and shown
- *     with `inventory.stock_verification.perform` (SA/TOHFA/MAIN all, SUB
- *     own). Stock adjustments are live (/admin/stock-adjustments, BR-37) and
- *     shown with `inventory.stock_adjustment.create` (SA/TOHFA/MAIN all, SUB
- *     own), which the server also uses for its reads. Approving or rejecting
- *     one needs `inventory.stock_adjustment.approve` (SUB none, BR-37a),
- *     which the adjustment detail checks itself.
- *
- *   - Four order areas have no server API either (API integration plan,
- *     phase 5): cancelling an order (no admin cancel route), reporting an
- *     order issue (no admin route), the stock check before packing (no
- *     endpoint), delivery preparation and dispatch to a delivery partner
- *     (delivery is not enabled in Track 1, BR-21 / docs/rules.md open
- *     contradiction 3; there is no delivery-partner list and the admin detail
- *     carries no address). Hidden the same way. Marking a pickup order ready
- *     still uses POST .../dispatch.
- *
- *   - Invoice generation has no server API (plan phase 7): there is no
- *     create-invoice route, because the sale or the order that needs an
- *     invoice issues it. The Generate Invoice picker, the invoice wizard and
- *     its result page are hidden the same way; the invoice list, detail and
- *     download are live.
- *
- *   - The order invoice (M5S18) is live: the admin order detail (GET
- *     /admin/orders/{orderId}) carries its invoice id, and the page renders
- *     that invoice through GET /invoices/{id} and its download (BR-36). Shown
- *     with `invoice.view_own` (SA/TOHFA/MAIN all, SUB own); the order detail
- *     also hides the entry when the order has no invoice.
- *
- * Hiding is display only. The server refuses what it has no route for, and
- * authorises everything else on the caller's token (root CLAUDE.md 2.1).
+ * Hiding is display only. The server authorises everything on the caller's
+ * token (root CLAUDE.md 2.1).
  */
 import type { PermissionCheck } from './finance-expenses/types';
 import type { StorageRoute } from './storage-ops/types';
 
 export type WarehouseArea =
-  | 'materialHandling'
   | 'operationalIssues'
   | 'warehouseActivity'
   | 'warehouseDocuments'
@@ -73,14 +63,8 @@ export type WarehouseArea =
   | 'orderInvoices'
   | 'staff';
 
-export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [
-  'materialHandling',
-  'invoiceGeneration',
-  'orderCancellation',
-  'orderIssues',
-  'orderStockCheck',
-  'orderDelivery',
-];
+/** The areas the app does not offer whatever the permissions: pickup only, no delivery (BR-21). */
+export const AREAS_WITHOUT_API: readonly WarehouseArea[] = ['orderDelivery'];
 
 /** The docs/rbac.json code that lists the warehouse staff roster. */
 export const STAFF_AREA_CODE = 'admin.staff.list_view';
@@ -120,16 +104,13 @@ export function isAreaAvailable(area: WarehouseArea, can: PermissionCheck): bool
 }
 
 /**
- * The area a storage-ops route belongs to (hidden, or gated on its view
+ * The area a storage-ops route belongs to (gated on its view
  * permission: issues and activity stay mapped so StorageFlow refuses them
  * without warehouse.issue.view / warehouse.activity.view). ReportIssue and
  * IssueSubmitted are left out on purpose: Help & Support opens them in
  * 'support' mode, which is not the operational-issues area.
  */
 const STORAGE_ROUTE_AREA: Partial<Record<StorageRoute, WarehouseArea>> = {
-  MaterialHandling: 'materialHandling',
-  MaterialDetail: 'materialHandling',
-  AddMaterial: 'materialHandling',
   OperationalIssues: 'operationalIssues',
   OperationalIssueDetail: 'operationalIssues',
   Activity: 'warehouseActivity',
@@ -156,7 +137,7 @@ export function inventoryRouteArea(route: string): WarehouseArea | undefined {
   return Object.prototype.hasOwnProperty.call(INVENTORY_ROUTE_AREA, route) ? INVENTORY_ROUTE_AREA[route] : undefined;
 }
 
-/** The hidden area a billing route (BillingFlow) belongs to: the three invoice generation routes. */
+/** The area a billing route (BillingFlow) belongs to: the three invoice generation routes. */
 const BILLING_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
   GenerateInvoice: 'invoiceGeneration',
   InvoiceWizard: 'invoiceGeneration',
@@ -167,7 +148,7 @@ export function billingRouteArea(route: string): WarehouseArea | undefined {
   return Object.prototype.hasOwnProperty.call(BILLING_ROUTE_AREA, route) ? BILLING_ROUTE_AREA[route] : undefined;
 }
 
-/** The hidden or permission-gated area an order route (design id, OrdersFlow) belongs to. */
+/** The area an order route (design id, OrdersFlow) belongs to. */
 const ORDERS_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
   M5S05: 'orderStockCheck', // stock check + shortage
   M5S13: 'orderDelivery', // delivery preparation

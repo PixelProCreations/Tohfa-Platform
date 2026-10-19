@@ -1,6 +1,9 @@
 import React from 'react';
-import { Image, ImageStyle, StyleProp } from 'react-native';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import backButtonSource from './backbuton.png';
+import googleIconSource from './googleee.png';
+import facebookIconSource from './facebook.png';
 
 export interface SvgIconProps {
   size?: number;
@@ -13,9 +16,7 @@ export interface ImageIconProps {
   style?: StyleProp<ImageStyle>;
 }
 
-export const backButtonSource = require('./backbuton.png');
-export const googleIconSource = require('./googleee.png');
-export const facebookIconSource = require('./facebook.png');
+export { backButtonSource, googleIconSource, facebookIconSource };
 
 /**
  * BackButton icon using assets/icons/backbuton.png

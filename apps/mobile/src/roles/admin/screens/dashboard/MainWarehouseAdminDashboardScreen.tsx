@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -13,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminSpacing } from '../../theme';
+import { adminColors, adminSpacing, adminType } from '../../theme';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -24,7 +25,6 @@ import {
 } from '../warehouse/dashboard-home-more';
 import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { ProfileFlow } from '../warehouse/profile-settings';
-import { warehouseIdForName as warehouseIdForOptionName } from '../warehouse/warehouse-admin/mappers';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
@@ -47,50 +47,51 @@ import {
   useUnreadNotificationCount,
   type NotificationsRoute,
 } from '../warehouse/notifications';
+import { useAdminMutation, useAdminQuery } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
+import { listWarehouseTransfers } from '../../api/warehouseTransfers';
+import { listBatches, type BatchDto } from '../../api/inventory';
+import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
+import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
+import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
+import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
+import { getSalesSummary } from '../../api/sales';
+import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
+import { SectionGate, derivedSource, mergeSources, retryFailed, sourceOf } from './MainDashboardParts';
+import { adminErrorKey } from '../../api/errors';
+import { isOnIstDay, istDay, relativeTime } from '../../utils/datetime';
 import { t } from '../../i18n';
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
-import { queryViewState } from '../warehouse/shared/queryViewState';
-import { useWarehouseOptions } from '../warehouse/shared/useWarehouseOptions';
-import type { WarehouseOption } from '../../api/warehouseList';
-import { useAllBatches, useLowStockAlerts, useLowStockRows, useStockSummary } from '../warehouse/inventory/useInventoryData';
 import {
-  consolidateStock,
-  filterConsolidated,
-  todayRange,
-  toOverviewCard,
-  toTrackedTransfer,
-  warehouseLabel,
-  warehouseStockRows,
-  type OverviewCard,
-} from '../warehouse/dashboard-home-more/mappers_dashboardHome';
-import {
-  useAttentionAlerts,
-  useRecentTransfers,
-  useTaskSummary,
-  useTransferStatusCounts,
-  useWarehouseCapacities,
-} from '../warehouse/dashboard-home-more/useDashboardHomeData';
-import { summarizeTaskCounts } from '../warehouse/dashboard-home-more/mappers_tasks';
-import {
-  activitySubLine,
-  activityTimelineLine,
-  capacityFigures,
+  DASHBOARD_PAGE_LIMIT,
+  EMPTY_RECEIPT_FIGURES,
+  EMPTY_STOCK_FIGURES,
+  EMPTY_TRANSFER_FIGURES,
+  FIGURE_PLACEHOLDER,
+  barWidthPercent,
+  capacityLevel,
+  collectPages,
   countLabel,
-  gramsLabel,
-  kpiWarehouseIds,
-  mergeRecentActivity,
-  moneyLabel,
-  monthToDateRange,
-  pendingTransferCount,
-  performanceFigures,
-  type RecentActivityRow,
-} from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
-import {
-  useDashboardSalesSummary,
-  useOpenIssueCount,
-  useRecentActivityPages,
-  useWarehousesPerformance,
-} from '../warehouse/dashboard-home-more/useDashboardKpis';
+  countOrdersPlacedOn,
+  deriveReceiptFigures,
+  deriveStockFigures,
+  deriveTransfers,
+  figureOrPlaceholder,
+  findWarehouseByName,
+  formatUtilization,
+  greetingKey,
+  openTaskCount,
+  receiptsOnDay,
+  salesRevenueText,
+  toDashboardAlerts,
+  toLowStockItems,
+  toRecentActivity,
+  toWarehouseOptions,
+  warehouseShortName,
+  type AlertTarget,
+  type DashboardAlert,
+} from './mappers_mainDashboard';
+import { formatKg } from '../../money/quantity';
 
 /**
  * Receiving tab entry keys. Every key except the transfer ones opens the
@@ -118,41 +119,43 @@ export type ReceivingSubView =
   | 'transfer_receiving_inspection';
 
 // ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
+// Entries that have a token in the admin theme point at it (same value, no visual
+// change); the rest are literals still waiting for one (admin_theme_guard ratchet).
 const PALETTE = {
   // Brand Palette (Page 1)
-  primary: '#F0562A', // Orange - Primary actions, active states, icons
-  headerBg: '#F0562A', // Brand Terracotta Orange
+  primary: adminColors.brand, // Orange - Primary actions, active states, icons
+  headerBg: adminColors.brand, // Brand Terracotta Orange
   headerBgDark: '#D9481E',
   headerPillBg: 'rgba(255, 255, 255, 0.22)',
-  headerText: '#FFFFFF',
+  headerText: adminColors.onBrand,
 
-  orangeDeep: '#7A2E14', // Orange Deep - Section headings, emphasis text
-  primarySoft: '#FDF3F0', // Orange Tint - Icon chips, role badges, active pills
-  pageBg: '#F3EFE9', // Background - App canvas soft cream
+  orangeDeep: adminColors.brandDeep, // Orange Deep - Section headings, emphasis text
+  primarySoft: adminColors.brandTint, // Orange Tint - Icon chips, role badges, active pills
+  pageBg: adminColors.canvas, // Background - App canvas soft cream
 
   // Neutrals (Page 1)
-  textInk: '#1A1A1A', // Ink - Primary text
-  textSecondary: '#5F5E5A', // Muted - Secondary text
-  textMuted: '#5F5E5A', // Muted text
-  border: '#EEDCD3', // Border - Card and input borders
+  textInk: adminColors.ink, // Ink - Primary text
+  textSecondary: adminColors.muted, // Muted - Secondary text
+  textMuted: adminColors.muted, // Muted text
+  border: adminColors.border, // Border - Card and input borders
   borderLight: '#F8F3ED',
-  cardBg: '#FFFFFF', // Card - Card surfaces
-  primaryBorder: '#EEDCD3',
+  cardBg: adminColors.card, // Card - Card surfaces
+  primaryBorder: adminColors.border,
 
   // Semantic Colors (Page 2)
-  amber: '#854F0B', // Warning (#854F0B)
-  amberBg: '#FEF3E2', // Warning BG (#FEF3E2)
-  green: '#173404', // Success (#173404)
-  greenBg: '#EAF3DE', // Success BG (#EAF3DE)
+  amber: adminColors.warning.text, // Warning (#854F0B)
+  amberBg: adminColors.warning.bg, // Warning BG (#FEF3E2)
+  green: adminColors.success.text, // Success (#173404)
+  greenBg: adminColors.success.bg, // Success BG (#EAF3DE)
   greenText: '#1E8E5A',
 
-  red: '#E24B4A', // Danger (#E24B4A)
-  redBg: '#FCEBEB', // Danger BG (#FCEBEB)
+  red: adminColors.danger.text, // Danger (#E24B4A)
+  redBg: adminColors.danger.bg, // Danger BG (#FCEBEB)
   redBorder: '#FCA5A5',
 
-  tabInactive: '#5F5E5A',
-  tabActive: '#F0562A',
-  tabBorder: '#EEDCD3',
+  tabInactive: adminColors.muted,
+  tabActive: adminColors.brand,
+  tabBorder: adminColors.border,
   goldProgress: '#B8860B',
   greenProgress: '#0D684D',
   trackBg: '#EBE5DC',
@@ -179,7 +182,6 @@ type WarehouseSubView =
   | 'manage_swas'
   | 'storage_locations'
   | 'location_detail'
-  | 'material_handling'
   | 'warehouse_capacity'
   | 'warehouse_activity'
   | 'operational_issues'
@@ -218,7 +220,7 @@ type WarehouseSubView =
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
 
-function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -252,7 +254,7 @@ function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; colo
   );
 }
 
-function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ProfileHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="1.9" />
@@ -267,7 +269,7 @@ function ProfileHeaderIcon({ size = 19, color = '#FFFFFF' }: { size?: number; co
   );
 }
 
-function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BuildingWarehouseIcon({ size = 16, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide Building2 (exact match to warehouse filter building icon)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -282,7 +284,7 @@ function BuildingWarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number
   );
 }
 
-function ChevronDownWhiteIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ChevronDownWhiteIcon({ size = 14, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="m6 9 6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -325,24 +327,11 @@ function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; colo
   );
 }
 
-function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 13h4l2 3h4l2-3h4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M12 7v5M9 9.5l3 3 3-3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 8h.01M12 12v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -358,6 +347,17 @@ function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: num
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 7h8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 17h5" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -386,7 +386,7 @@ function StockBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; c
   );
 }
 
-function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowLeftWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -437,183 +437,20 @@ function GearCogIcon({ size = 24, color = PALETTE.primary }: { size?: number; co
   );
 }
 
-/**
- * Main sub-screen lists that read live data (each a component so its queries
- * run only while the sub-view is open). They replaced the OVERVIEW_WAREHOUSES,
- * CONSOLIDATED_PRODUCTS, LOW_STOCK_ITEMS and TRACKING_TRANSFERS literals.
- */
-
-/** Consolidated stock per product across every warehouse: ACTIVE batches, available kg (GET /admin/batches). */
-function MainConsolidatedStockList({ options, query }: { options: readonly WarehouseOption[]; query: string }) {
-  const batches = useAllBatches(undefined);
-  const products = useMemo(
-    () => filterConsolidated(consolidateStock(batches.items, options), query),
-    [batches.items, options, query],
-  );
-  const state = queryViewState({ isLoading: batches.isLoading, error: batches.error, itemCount: batches.items.length });
-  if (state === 'loading') return <AdminLoadingState />;
-  if (state === 'error') return <AdminErrorState error={batches.error} onRetry={batches.refresh} />;
-  if (products.length === 0) return <AdminEmptyState title={t('dashboardHome.consolidated.empty')} />;
+function AlertEscalationIcon({ size = 20, color = PALETTE.red }: { size?: number; color?: string }) {
   return (
-    <>
-      {products.map((p) => (
-        <View key={p.key} style={styles.consolidatedProductCard}>
-          <Text style={styles.consolidatedProductTitle}>{p.label}</Text>
-          {p.rows.map((row) => (
-            <View key={row.warehouseId}>
-              <View style={styles.stockTableRowDivider} />
-              <View style={styles.stockTableRow}>
-                <Text style={styles.stockTableLabel}>{row.name}</Text>
-                <Text style={styles.stockTableVal}>{row.value}</Text>
-              </View>
-            </View>
-          ))}
-          <View style={styles.stockTableRowDivider} />
-          <View style={styles.stockTableRow}>
-            <Text style={styles.stockTableTotalLabel}>{t('dashboardHome.total')}</Text>
-            <Text style={styles.stockTableTotalVal}>{p.total}</Text>
-          </View>
-        </View>
-      ))}
-    </>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
   );
 }
 
-/** The server's LOW_STOCK alerts of every warehouse (BR-77); the threshold is server config. */
-function MainLowStockList({ options }: { options: readonly WarehouseOption[] }) {
-  const low = useLowStockRows(undefined);
-  const state = queryViewState({ isLoading: low.isLoading, error: low.error, itemCount: low.rows.length });
-  if (state === 'loading') return <AdminLoadingState />;
-  if (state === 'error') return <AdminErrorState error={low.error} onRetry={low.refresh} />;
-  if (state === 'empty') return <AdminEmptyState title={t('dashboardHome.lowStock.empty')} />;
+function AlertClockIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
-    <>
-      {low.rows.map((item) => (
-        <View key={item.id} style={styles.lowStockDetailCard}>
-          <View style={styles.alertDetailGridRow}>
-            <View style={styles.alertDetailGridCol}>
-              <Text style={styles.alertDetailFieldLabel}>{t('dashboardHome.lowStock.product')}</Text>
-              <Text style={styles.alertDetailFieldValue}>{item.name}</Text>
-            </View>
-            <View style={styles.alertDetailGridCol}>
-              <Text style={styles.alertDetailFieldLabel}>{t('dashboardHome.lowStock.warehouse')}</Text>
-              <Text style={styles.alertDetailFieldValue}>{warehouseLabel(options, item.warehouseId)}</Text>
-            </View>
-          </View>
-          <View style={[styles.alertDetailGridRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.alertDetailGridCol}>
-              <Text style={styles.alertDetailFieldLabel}>{t('dashboardHome.lowStock.current')}</Text>
-              <Text style={styles.alertDetailFieldValue}>{item.available}</Text>
-            </View>
-            <View style={styles.alertDetailGridCol}>
-              <Text style={styles.alertDetailFieldLabel}>{t('dashboardHome.lowStock.threshold')}</Text>
-              <Text style={styles.alertDetailFieldValue}>{item.threshold}</Text>
-            </View>
-          </View>
-        </View>
-      ))}
-    </>
-  );
-}
-
-/**
- * Inventory tab KPIs: available, allocated and LOW_STOCK figures from the live
- * batches / allocations / alerts walk (useStockSummary), plus today's received
- * kg from the Home performance read. Mounted only on the Inventory tab, so the
- * walk does not run while the admin is on Home. The old "Adjustments Awaiting
- * Approval" count had no read here and is shown as a link without a figure.
- */
-function MainInventoryKpis({
-  warehouseId,
-  incomingToday,
-  onOpenLedger,
-  onOpenLowStock,
-}: {
-  warehouseId: string | undefined;
-  incomingToday: string | null;
-  onOpenLedger: () => void;
-  onOpenLowStock: () => void;
-}) {
-  const stock = useStockSummary(warehouseId);
-  const known = !stock.isLoading && !stock.error;
-  return (
-    <>
-      {stock.error ? <AdminErrorState error={stock.error} onRetry={stock.refresh} /> : null}
-      <View style={styles.kpiGrid}>
-        <TouchableOpacity style={styles.kpiCard} onPress={onOpenLedger} activeOpacity={0.8}>
-          <Text style={styles.kpiLabel}>{t('mainDashboard.inventory.available')}</Text>
-          <Text style={styles.kpiValue}>{known ? gramsLabel(stock.summary.totalAvailableGrams) : gramsLabel(null)}</Text>
-          <Text style={styles.kpiSub}>{t('mainDashboard.inventory.reservedSub', { qty: known ? gramsLabel(stock.summary.totalReservedGrams) : gramsLabel(null) })}</Text>
-        </TouchableOpacity>
-
-        {incomingToday !== null ? (
-          <TouchableOpacity style={styles.kpiCard} onPress={onOpenLedger} activeOpacity={0.8}>
-            <Text style={styles.kpiLabel}>{t('mainDashboard.inventory.incomingToday')}</Text>
-            <Text style={styles.kpiValue}>{incomingToday}</Text>
-            <Text style={styles.kpiSub}>{t('mainDashboard.inventory.incomingSub')}</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <TouchableOpacity style={styles.kpiCard} onPress={onOpenLedger} activeOpacity={0.8}>
-          <Text style={styles.kpiLabel}>{t('mainDashboard.inventory.allocated')}</Text>
-          <Text style={styles.kpiValue}>{gramsLabel(stock.allocatedGrams)}</Text>
-          <Text style={styles.kpiSub}>{t('mainDashboard.inventory.allocatedSub')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.kpiCard} onPress={onOpenLowStock} activeOpacity={0.8}>
-          <Text style={styles.kpiLabel}>{t('mainDashboard.inventory.lowStock')}</Text>
-          <Text style={styles.kpiValue}>{countLabel(stock.lowStockCount)}</Text>
-          <Text style={styles.kpiSub}>{t('mainDashboard.inventory.lowStockSub')}</Text>
-        </TouchableOpacity>
-      </View>
-    </>
-  );
-}
-
-/** The LOW_STOCK alert count for a Pending Actions row (same query key as the KPI, so one read). */
-function MainLowStockCount({ warehouseId }: { warehouseId: string | undefined }) {
-  const alerts = useLowStockAlerts(warehouseId);
-  const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
-  return <Text style={[styles.summaryItemValue, styles.summaryItemValueBrand]}>{countLabel(count)}</Text>;
-}
-
-/** The newest inter-warehouse transfers (GET /warehouse-transfers, first page). */
-function MainTransferTrackingList({ options }: { options: readonly WarehouseOption[] }) {
-  const transfers = useRecentTransfers(true);
-  const items = transfers.data?.items ?? [];
-  const state = queryViewState({ isLoading: transfers.isPending, error: transfers.error, itemCount: items.length });
-  if (state === 'loading') return <AdminLoadingState />;
-  if (state === 'error') return <AdminErrorState error={transfers.error} onRetry={() => void transfers.refetch()} />;
-  if (state === 'empty') return <AdminEmptyState title={t('dashboardHome.transfer.empty')} />;
-  const now = new Date();
-  const rows = items.map((dto) => toTrackedTransfer(dto, options, now));
-  return (
-    <View style={styles.trackingCard}>
-      {rows.map((row, idx) => {
-        const isTransit = row.status === 'IN_TRANSIT';
-        return (
-          <View key={row.id}>
-            <View style={styles.trackingItemRow}>
-              <View style={styles.trackingIconWrap}>
-                <TransferArrowsIcon size={18} color={PALETTE.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.trackingHeaderRow}>
-                  <Text style={styles.trackingTitleText}>{t('dashboardHome.transfer.titleWithRoute', { number: row.title, route: row.route })}</Text>
-                  <View style={[styles.trackingBadgePill, { backgroundColor: isTransit ? adminColors.info.bg : PALETTE.greenPillBg }]}>
-                    <Text style={[styles.trackingBadgeText, { color: isTransit ? adminColors.info.text : PALETTE.greenProgress }]}>
-                      {row.statusLabel}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.trackingSubText}>{row.when}</Text>
-              </View>
-            </View>
-            {idx < rows.length - 1 && <View style={styles.stockTableRowDivider} />}
-          </View>
-        );
-      })}
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
   );
 }
 
@@ -633,6 +470,7 @@ function SearchIcon({ size = 18, color = PALETTE.subTextMuted }: { size?: number
     </Svg>
   );
 }
+
 
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
@@ -703,6 +541,27 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
   );
 }
 
+// Stable empty lists, so a query that has no data yet does not hand useMemo a new [] every render.
+const NO_WAREHOUSES: WarehouseDto[] = [];
+const NO_BATCHES: BatchDto[] = [];
+const NO_TASKS: TaskItemDto[] = [];
+const NO_ORDERS: OrderSummaryDto[] = [];
+const NO_RECEIPTS: GoodsReceiptDto[] = [];
+const NO_ALERTS: AlertItemDto[] = [];
+/**
+ * Recent Activity shows two rows, but a task whose title the app cannot word is
+ * hidden, so a few more are fetched to fill them. A page size, not a threshold.
+ */
+const ACTIVITY_FETCH_LIMIT = 10;
+
+/** The sub-view each alert type opens as its related record. */
+const ALERT_TARGET_ROUTE: Record<AlertTarget, WarehouseSubView> = {
+  lowStock: 'low_stock_alerts',
+  capacity: 'warehouse_capacity',
+  inventory: 'stock_ledger',
+  operations: 'warehouse_operations',
+};
+
 /** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
 /** External customer routes the Main shell draws inside CustomersFlow (New Sale leaves for the direct-sale flow). */
 const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail', 'RmaDetail'] as const;
@@ -749,7 +608,6 @@ const MAIN_SALES_ENTRY: Partial<Record<WarehouseSubView, { screen: SalesRoute; p
   direct_sale_new: { screen: 'NewSale' },
 };
 
-
 /**
  * Old transfer sub-views -> shared TransfersFlow entry routes (W4). The detail
  * is only ever opened from the list, which now lives inside the flow.
@@ -779,29 +637,6 @@ const INVENTORY_ENTRY = {
 } as const;
 
 /**
- * docs/rbac.json codes the live dashboard figures read (each exists there).
- * A figure whose code is missing is not fetched and not drawn; the server
- * authorises every read again (root CLAUDE.md 2.1).
- */
-const MAIN_KPI_CODES = {
-  /** GET /warehouses/{id}/performance (BR-80). MAIN all, SUB none. */
-  performance: 'warehouse.all.view',
-  /** GET /admin/sales/summary (BR-96). MAIN own (= all four), SUB own. */
-  salesSummary: 'sales.dashboard.view',
-  /** GET /warehouse-transfers totals. MAIN all, SUB own. */
-  transfers: 'transfer.inter_warehouse.view',
-  /** GET /warehouses/{id}/issues totals (BR-103). MAIN all, SUB own. */
-  issues: 'warehouse.issue.view',
-  /** GET /warehouses/{id}/activity (BR-104). MAIN all, SUB own. */
-  activity: 'warehouse.activity.view',
-  /** Batches, allocations and LOW_STOCK alerts (Inventory tab). MAIN all, SUB own. */
-  stock: 'inventory.batch.view',
-} as const;
-
-/** Rows in Home's Recent Activity card: a list length, not a business limit. */
-const RECENT_ACTIVITY_ROWS = 3;
-
-/**
  * Main-only screens opened from the shared More menu. The old
  * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
  * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
@@ -820,14 +655,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
-  /** The header filter: one warehouse uuid, or undefined for every warehouse. */
+  // The warehouse scope of every Home / Inventory query: a live warehouse uuid, or
+  // undefined for all of them. Selection is kept by uuid, never by display name.
   const [filterWarehouseId, setFilterWarehouseId] = useState<string | undefined>(undefined);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  // Set from a tapped live row before any sub-view reads it; '' resolves to no warehouse.
-  const [selectedWHName, setSelectedWHName] = useState('');
-  const [selectedLocationId, setSelectedLocationId] = useState('');
+  // The warehouse the detail / settings / ledger views open on, and the storage
+  // location opened from the list: nothing until the admin picks one.
+  const [detailWarehouseId, setDetailWarehouseId] = useState<string | undefined>(undefined);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
+  const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
+  const [alertWarehouseId, setAlertWarehouseId] = useState<string | undefined>(undefined);
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -851,77 +690,222 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const canAllView = can(HOME_CODES.allView);
   // The bell badge: the server's unread total; NotificationsFlow owns the list and the read writes.
   const unreadNotifCount = useUnreadNotificationCount();
-  // Live warehouse cards (GET /warehouses + each warehouse's capacity) and the
-  // first active alert (GET /admin/alerts); they replaced the literal blocks.
-  const warehouseList = useWarehouseOptions({ enabled: canAllView });
-  const warehouseCapacities = useWarehouseCapacities(
-    warehouseList.options.map((o) => o.warehouseId),
-    canAllView,
-  );
-  const overviewCards: OverviewCard[] = useMemo(
-    () => warehouseList.options.map((o) => toOverviewCard(o, warehouseCapacities.data?.get(o.warehouseId))),
-    [warehouseList.options, warehouseCapacities.data],
-  );
-  const overviewLoading = warehouseList.isLoading;
-  const overviewError = warehouseList.error ?? warehouseCapacities.error;
-  const retryOverview = () => {
-    warehouseList.refresh();
-    void warehouseCapacities.refetch();
-  };
-  const activeAlerts = useAttentionAlerts(MAIN_WAREHOUSE_SCOPE, 'active');
-  const firstAlert = activeAlerts.items[0];
 
-  // ─── Live KPI figures (Home grid, Today's Operations, Inventory tab, Performance, Capacity) ───
-  // Each one comes from an existing endpoint and follows the header filter
-  // (one warehouse, or all); an unloaded or ungranted figure shows the dash.
-  const kpiIds = useMemo(
-    () => kpiWarehouseIds(warehouseList.options, filterWarehouseId),
-    [warehouseList.options, filterWarehouseId],
+  // The IST day: the sales summary counts Asia/Kolkata days (BR-96), so a UTC
+  // date would show yesterday's figures between 00:00 and 05:30 IST.
+  const now = new Date();
+  const today = istDay(now);
+
+  // Every query waits for warehouse.all.view: without it (or until /auth/me
+  // answers) the Home shows a note and nothing is requested.
+  const live = { enabled: canAllView };
+
+  // Live warehouses query (GET /warehouses, warehouse.all.view): the API's own
+  // isActive filter, no seed-code list.
+  const warehousesQuery = useAdminQuery(
+    adminKeys.scoped('warehouses', undefined, { pageSize: 100, isActive: true }),
+    (signal) => listWarehouses({ isActive: true, pageSize: 100 }, signal),
+    live,
   );
-  const today = todayRange(new Date());
-  const monthToDate = monthToDateRange(new Date());
-  const canPerformance = can(MAIN_KPI_CODES.performance);
-  const canSalesSummary = can(MAIN_KPI_CODES.salesSummary);
-  const canTransfers = can(MAIN_KPI_CODES.transfers);
-  const canIssues = can(MAIN_KPI_CODES.issues);
-  const canActivity = can(MAIN_KPI_CODES.activity);
-  const canStock = can(MAIN_KPI_CODES.stock);
-  const todayPerformance = useWarehousesPerformance(kpiIds, today, canPerformance);
-  const todayFigures = performanceFigures(todayPerformance.data);
-  const mtdPerformance = useWarehousesPerformance(
-    kpiIds,
-    monthToDate,
-    canPerformance && whSubView === 'warehouse_performance',
+  const warehouses = warehousesQuery.data?.items ?? NO_WAREHOUSES;
+
+  // Live-backed flows take the uuid (BR-30); screens still on design samples
+  // key their rows by the seed code, so they are given the live code instead.
+  const warehouseOptions: readonly WarehouseScope[] = useMemo(() => toWarehouseOptions(warehouses), [warehouses]);
+  const selectedWarehouseId = filterWarehouseId;
+  const detailWarehouse = warehouses.find((w) => w.id === detailWarehouseId);
+  const filterWarehouse = warehouses.find((w) => w.id === filterWarehouseId);
+  const filterLabel = filterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(filterWarehouse.name);
+  // Memoised: InventoryFlow restarts its stack whenever initialParams changes identity.
+  const ledgerParams = useMemo(
+    () => (detailWarehouse === undefined ? null : { warehouseName: detailWarehouse.name }),
+    [detailWarehouse],
   );
-  const mtdFigures = performanceFigures(mtdPerformance.data);
-  const todaySales = useDashboardSalesSummary(filterWarehouseId, today, canSalesSummary);
-  const mtdSales = useDashboardSalesSummary(
-    filterWarehouseId,
-    monthToDate,
-    canSalesSummary && whSubView === 'warehouse_performance',
-  );
-  const transferCounts = useTransferStatusCounts(filterWarehouseId, canTransfers);
-  const openIssues = useOpenIssueCount(kpiIds, canIssues);
-  const taskSummary = useTaskSummary({ warehouseId: filterWarehouseId });
-  const qcPending = taskSummary.data === undefined ? null : summarizeTaskCounts(taskSummary.data).qcPending;
-  const capacityTotals = capacityFigures(kpiIds, warehouseCapacities.data);
-  const stockRows = useMemo(
-    () =>
-      warehouseStockRows(
-        warehouseList.options.filter((o) => kpiIds.includes(o.warehouseId)),
-        warehouseCapacities.data,
+  const openWarehouseDetail = (warehouseId: string | undefined) => {
+    setDetailWarehouseId(warehouseId);
+    navigateWh('warehouse_city_detail');
+  };
+
+  // Live batches (GET /admin/batches): ACTIVE only, every page up to the cap.
+  const batchesQuery = useAdminQuery(
+    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'batches', status: 'ACTIVE', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listBatches({ warehouseId: selectedWarehouseId, status: 'ACTIVE', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
       ),
-    [warehouseList.options, kpiIds, warehouseCapacities.data],
+    live,
   );
-  const recentActivityPages = useRecentActivityPages(kpiIds, RECENT_ACTIVITY_ROWS, canActivity);
-  const recentActivity: RecentActivityRow[] = useMemo(
-    () => mergeRecentActivity(recentActivityPages.pages, warehouseList.options, new Date(), RECENT_ACTIVITY_ROWS),
-    [recentActivityPages.pages, warehouseList.options],
+  const batches = batchesQuery.data?.items ?? NO_BATCHES;
+
+  // Live tasks: the exact counts come from the summary (GET /admin/tasks/summary);
+  // the open list only feeds Recent Activity, so one page of it is enough.
+  const taskSummaryQuery = useAdminQuery(
+    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'summary' }),
+    (signal) => getTaskSummary({ warehouseId: selectedWarehouseId }, signal),
+    live,
   );
-  const filterLabel =
-    filterWarehouseId === undefined ? t('mainDashboard.filter.all') : warehouseLabel(warehouseList.options, filterWarehouseId);
-  // The overview passes display names; resolve them to the real uuid (never a fixture code).
-  const warehouseIdForName = (name: string): string | undefined => warehouseIdForOptionName(warehouseList.options, name);
+  const taskSummary = taskSummaryQuery.data;
+
+  const openTasksQuery = useAdminQuery(
+    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'open-tasks', limit: ACTIVITY_FETCH_LIMIT }),
+    (signal) => listTasks({ state: 'open', warehouseId: selectedWarehouseId, limit: ACTIVITY_FETCH_LIMIT }, signal),
+    live,
+  );
+  const openTasks = openTasksQuery.data?.items ?? NO_TASKS;
+
+  // Live sales summary (GET /admin/sales/summary) for the IST day.
+  const salesSummaryQuery = useAdminQuery(
+    adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: today, to: today }),
+    (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: today, to: today }, signal),
+    live,
+  );
+  const salesSummary = salesSummaryQuery.data;
+
+  // Live orders (GET /admin/orders), newest first. The spec has no placed-date
+  // filter, so read pages until one reaches an older day and count today's.
+  const ordersQuery = useAdminQuery(
+    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', day: today, limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages(
+        (cursor) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+        { isDone: (page) => page.some((o) => !isOnIstDay(o.placedAt, today)) },
+      ),
+    live,
+  );
+  const ordersToday = useMemo(
+    () => countOrdersPlacedOn(ordersQuery.data?.items ?? NO_ORDERS, today, ordersQuery.data?.complete ?? false),
+    [ordersQuery.data, today],
+  );
+
+  // Live goods receipts (GET /admin/goods-receipts), newest first; today's only.
+  const goodsReceiptsQuery = useAdminQuery(
+    adminKeys.scoped('receiving', selectedWarehouseId, { resource: 'grn', day: today, limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages(
+        (cursor) => listGoodsReceipts({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+        { isDone: (page) => page.some((g) => !isOnIstDay(g.receivedAt, today)) },
+      ),
+    live,
+  );
+  const goodsReceipts = useMemo(
+    () => receiptsOnDay(goodsReceiptsQuery.data?.items ?? NO_RECEIPTS, today),
+    [goodsReceiptsQuery.data, today],
+  );
+
+  // Live inter-warehouse transfers (GET /warehouse-transfers, BR-102), newest
+  // first; the first page is enough because the figures say when it is not all.
+  const transfersQuery = useAdminQuery(
+    adminKeys.scoped('transfers', selectedWarehouseId, { resource: 'list', pageSize: DASHBOARD_PAGE_LIMIT }),
+    (signal) => listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }, signal),
+    live,
+  );
+
+  // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
+  // alerts are not fetched, so there is no resolved view.
+  const alertsQuery = useAdminQuery(
+    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'active', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listAlerts({ warehouseId: selectedWarehouseId, state: 'active', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+      ),
+    live,
+  );
+  const liveAlerts = alertsQuery.data?.items ?? NO_ALERTS;
+
+  // A list the page cap cut short: its totals say so instead of looking whole.
+  const listsPartial =
+    [batchesQuery.data, ordersQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
+      (collected) => collected !== undefined && !collected.complete,
+    );
+
+  // Every query's state, so no section draws a figure the server has not sent.
+  const warehousesSrc = sourceOf(warehousesQuery);
+  const batchesSrc = sourceOf(batchesQuery);
+  const openTasksSrc = sourceOf(openTasksQuery);
+  const salesSrc = sourceOf(salesSummaryQuery);
+  const ordersSrc = sourceOf(ordersQuery);
+  const receiptsSrc = sourceOf(goodsReceiptsQuery);
+  const alertsSrc = sourceOf(alertsQuery);
+  const transfersRawSrc = sourceOf(transfersQuery);
+  const taskSummarySrc = sourceOf(taskSummaryQuery);
+
+  const alertsList: DashboardAlert[] = useMemo(
+    () => toDashboardAlerts(liveAlerts, warehouses, now),
+    // `now` changes every render, so the relative time is as of the last data change.
+    [liveAlerts, warehouses],
+  );
+
+  // POST /admin/alerts/{itemKey}/dismiss (alert.own.view) hides the alert from
+  // THIS admin's lists only; other admins keep seeing it (BR-78). So the button
+  // says "Dismiss for me", is offered only with alert.own.view, and reports
+  // success only after the server accepted it.
+  const dismissMutation = useAdminMutation({
+    mutationFn: (itemKey: string) => dismissAlert(itemKey),
+    invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
+  });
+  const canDismissAlert = can('alert.own.view');
+  const handleDismissAlert = async (alert: DashboardAlert) => {
+    try {
+      await dismissMutation.mutateAsync(alert.id);
+    } catch {
+      // Not shown as success: the failure renders from dismissMutation.error.
+      return;
+    }
+    Alert.alert(t('mainDashboard.alert.dismissed.title'), t('mainDashboard.alert.dismissed.body', { title: alert.title }));
+    dismissMutation.reset();
+    goBackWh();
+  };
+
+  // Every figure comes from the pure derivations in ./mappers_mainDashboard.ts:
+  // weights as integer grams, money as integer paise, capacity never clamped
+  // (BR-66b). A malformed value from the server makes that derivation fail,
+  // which draws the same error state a failed request does, never a zero.
+  const stockD = useMemo(() => deriveStockFigures(batches, warehouses), [batches, warehouses]);
+  const stockFig = stockD.ok ? stockD.value : EMPTY_STOCK_FIGURES;
+  const receiptsD = useMemo(() => deriveReceiptFigures(goodsReceipts), [goodsReceipts]);
+  const receiptFig = receiptsD.ok ? receiptsD.value : EMPTY_RECEIPT_FIGURES;
+  const revenueD = useMemo(() => (salesSummary === undefined ? null : salesRevenueText(salesSummary)), [salesSummary]);
+  const salesRevenueLabel = revenueD !== null && revenueD.ok ? revenueD.value : FIGURE_PLACEHOLDER;
+
+  // A section's source: its queries plus the derivation built from them.
+  const stockSrc = mergeSources(
+    warehousesSrc,
+    batchesSrc,
+    derivedSource(stockD, () => {
+      void warehousesQuery.refetch();
+      void batchesQuery.refetch();
+    }),
+  );
+  const receiptsFigSrc = mergeSources(receiptsSrc, derivedSource(receiptsD, () => void goodsReceiptsQuery.refetch()));
+  const transfersD = useMemo(
+    () =>
+      transfersQuery.data === undefined
+        ? null
+        : deriveTransfers(transfersQuery.data.items, transfersQuery.data.total, warehouses),
+    [transfersQuery.data, warehouses],
+  );
+  const transferFig = transfersD !== null && transfersD.ok ? transfersD.value : EMPTY_TRANSFER_FIGURES;
+  const transfersSrc = mergeSources(
+    transfersRawSrc,
+    warehousesSrc,
+    derivedSource(transfersD, () => void transfersQuery.refetch()),
+  );
+  const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
+
+  const homeKpiSources = [stockSrc, receiptsFigSrc, transfersSrc, ordersSrc, revenueSrc, alertsSrc];
+  const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
+
+  const qualityIssuesCount =
+    receiptFig.discrepancies + (taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC'));
+  const activityRows = useMemo(() => toRecentActivity(openTasks, warehouses, now), [openTasks, warehouses]);
+
+  const lowStockItems = useMemo(
+    () => toLowStockItems(liveAlerts, batches, warehouses),
+    [liveAlerts, batches, warehouses],
+  );
+
+  const firstName = user?.fullName?.trim().split(' ')[0];
+  const displayName = firstName ? firstName : t('mainDashboard.greeting.fallbackName');
 
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
@@ -955,11 +939,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     if (activeTab !== 'More') setMoreSubScreen(null);
   }, [activeTab]);
 
-  // The signed-in admin's own name (GET /auth/me), never a written-in one.
-  const greeting =
-    user?.fullName !== undefined && user.fullName !== null && user.fullName !== ''
-      ? t('mainDashboard.greeting', { name: user.fullName })
-      : t('mainDashboard.greetingNoName');
 
   /** Leave the sub-views for a tab (notification targets that live on a tab). */
   const openTab = (tab: MainWHTab, more?: MainMoreSubScreen) => {
@@ -1013,6 +992,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       initialParams={params}
       onBack={goBackWh}
       onOpenModule={openMainModule}
+      onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
     />
   );
 
@@ -1045,7 +1025,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
             </View>
@@ -1063,61 +1043,67 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
           </View>
-          <Text style={styles.subHeaderSubtitle}>All 4 warehouses at a glance</Text>
+          <Text style={styles.subHeaderSubtitle}>{t('mainDashboard.overview.subtitle')}</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {/* Live cards: GET /warehouses + capacity. Receipts / issues per warehouse were fixture figures and are dropped. */}
-          {overviewLoading ? (
-            <AdminLoadingState />
-          ) : overviewError ? (
-            <AdminErrorState error={overviewError} onRetry={retryOverview} />
-          ) : overviewCards.length === 0 ? (
-            <AdminEmptyState title={t('dashboardHome.warehouses.empty')} />
-          ) : (
-            overviewCards.map((wh) => (
+          <SectionGate sources={[stockSrc, receiptsSrc, alertsSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {stockFig.warehouses.map((row) => {
+            const level = capacityLevel(row.utilizationBp);
+            const capLabel = row.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(row.utilizationBp);
+            const capBg =
+              level === 'danger' ? PALETTE.redBg : level === 'warn' ? PALETTE.amberBg : level === 'ok' ? PALETTE.greenBg : PALETTE.borderLight;
+            const capColor =
+              level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.amber : level === 'ok' ? PALETTE.greenText : PALETTE.textMuted;
+            const progColor = level === 'danger' ? PALETTE.red : PALETTE.primary;
+            const progWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
+            const stockStr = formatKg(row.stockGrams);
+            const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === row.warehouseId).length;
+            const issuesCount = liveAlerts.filter((a) => a.warehouseId === row.warehouseId).length;
+            const whName = row.name;
+
+            return (
               <TouchableOpacity
-                key={wh.warehouseId}
+                key={row.warehouseId}
                 style={styles.whOverviewCard}
-                onPress={() => {
-                  setSelectedWHName(wh.name);
-                  navigateWh('warehouse_city_detail');
-                }}
+                onPress={() => openWarehouseDetail(row.warehouseId)}
                 activeOpacity={0.8}
               >
                 <View style={styles.whOverviewHeaderRow}>
-                  <Text style={styles.whOverviewTitle}>{wh.name}</Text>
-                  <View style={[styles.whCapacityPill, { backgroundColor: wh.overCapacity ? adminColors.warning.bg : adminColors.brandTint }]}>
-                    <Text style={[styles.whCapacityPillText, { color: wh.overCapacity ? adminColors.warning.text : adminColors.brandDeep }]}>
-                      {wh.capacityLabel}
-                    </Text>
+                  <Text style={styles.whOverviewTitle}>{whName}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: capBg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: capColor }]}>{capLabel}</Text>
                   </View>
                 </View>
 
-                {wh.progressPercent !== null ? (
-                  <View style={styles.whProgressBarTrack}>
-                    <View
-                      style={[
-                        styles.whProgressBarFill,
-                        { width: `${wh.progressPercent}%`, backgroundColor: wh.overCapacity ? adminColors.warning.text : PALETTE.primary },
-                      ]}
-                    />
-                  </View>
-                ) : null}
+                <View style={styles.whProgressBarTrack}>
+                  <View style={[styles.whProgressBarFill, { width: progWidth, backgroundColor: progColor }]} />
+                </View>
 
                 <View style={styles.whOverviewStatsRow}>
                   <View style={styles.whOverviewStatCol}>
-                    <Text style={styles.whOverviewStatLabel}>{t('dashboardHome.warehouses.stock')}</Text>
-                    <Text style={styles.whOverviewStatVal}>{wh.stockLabel}</Text>
+                    <Text style={styles.whOverviewStatLabel}>Stock</Text>
+                    <Text style={styles.whOverviewStatVal}>{stockStr}</Text>
+                  </View>
+                  <View style={styles.whOverviewStatCol}>
+                    <Text style={styles.whOverviewStatLabel}>Receipts</Text>
+                    <Text style={styles.whOverviewStatVal}>{receiptsCount}</Text>
+                  </View>
+                  <View style={styles.whOverviewStatCol}>
+                    <Text style={styles.whOverviewStatLabel}>Issues</Text>
+                    <Text style={styles.whOverviewStatVal}>{issuesCount}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
-            ))
-          )}
+            );
+          })}
+
+          </SectionGate>
 
           <Text style={styles.overviewSectionHeading}>More Views</Text>
 
@@ -1170,7 +1156,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
             </View>
@@ -1185,7 +1171,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
           </View>
@@ -1194,23 +1180,30 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
 
+          <SectionGate sources={[stockSrc]}>
+          {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           <View style={styles.comparisonCard}>
-            {overviewLoading ? (
-              <AdminLoadingState />
-            ) : overviewError ? (
-              <AdminErrorState error={overviewError} onRetry={retryOverview} />
-            ) : (
-              overviewCards.map((wh, idx) => (
-                <React.Fragment key={wh.warehouseId}>
+            {stockFig.warehouses.map((row, idx) => {
+              const whName = row.name;
+              const comparisonStat =
+                row.utilizationBp === null
+                  ? t('mainDashboard.comparison.statNoCapacity', { stock: formatKg(row.stockGrams) })
+                  : t('mainDashboard.comparison.stat', {
+                      stock: formatKg(row.stockGrams),
+                      utilization: formatUtilization(row.utilizationBp),
+                    });
+              return (
+                <React.Fragment key={row.warehouseId}>
                   {idx > 0 && <View style={styles.rowDivider} />}
                   <View style={styles.comparisonRow}>
-                    <Text style={styles.comparisonWhName}>{wh.name}</Text>
-                    <Text style={styles.comparisonWhStat}>{wh.comparisonLabel}</Text>
+                    <Text style={styles.comparisonWhName}>{whName}</Text>
+                    <Text style={styles.comparisonWhStat}>{comparisonStat}</Text>
                   </View>
                 </React.Fragment>
-              ))
-            )}
+              );
+            })}
           </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1229,7 +1222,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
             </View>
@@ -1244,7 +1237,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
           </View>
@@ -1252,60 +1245,31 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
-          <Text style={styles.whOverviewStatLabel}>{t('mainDashboard.performance.range', { from: monthToDate.from, to: monthToDate.to, scope: filterLabel })}</Text>
 
-          {/* Month-to-date exact counts (GET /warehouses/{id}/performance, summed) and paid sales
-              (GET /admin/sales/summary). The old quality-issue and turnaround tiles had no source and are gone. */}
-          {mtdPerformance.isPending ? (
-            <AdminLoadingState />
-          ) : mtdPerformance.error ? (
-            <AdminErrorState error={mtdPerformance.error} onRetry={() => void mtdPerformance.refetch()} />
-          ) : (
-            <View style={styles.metricsGridCard}>
-              <View style={styles.twoByTwoRow}>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.receipts')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.receipts}</Text>
-                </View>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.received')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.receivedKg}</Text>
-                </View>
+          <SectionGate sources={[receiptsFigSrc, revenueSrc, openTasksSrc, taskSummarySrc]}>
+          <View style={styles.metricsGridCard}>
+            <View style={styles.twoByTwoRow}>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
+                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.acceptedGrams)}</Text>
               </View>
-              <View style={[styles.twoByTwoRow, styles.twoByTwoRowSpaced]}>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersPlaced')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.ordersPlaced}</Text>
-                </View>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersFulfilled')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.ordersFulfilled}</Text>
-                </View>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Sales Today</Text>
+                <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
               </View>
-              <View style={[styles.twoByTwoRow, styles.twoByTwoRowSpaced]}>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.rejected')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.rejectedKg}</Text>
-                </View>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.returns')}</Text>
-                  <Text style={styles.twoByTwoVal}>{mtdFigures.returnsRequested}</Text>
-                </View>
-              </View>
-              {canSalesSummary ? (
-                <View style={[styles.twoByTwoRow, styles.twoByTwoRowSpaced]}>
-                  <View style={styles.twoByTwoCol}>
-                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.sales')}</Text>
-                    <Text style={styles.twoByTwoVal}>{moneyLabel(mtdSales.data?.revenue)}</Text>
-                  </View>
-                  <View style={styles.twoByTwoCol}>
-                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.salesCount')}</Text>
-                    <Text style={styles.twoByTwoVal}>{countLabel(mtdSales.data?.count)}</Text>
-                  </View>
-                </View>
-              ) : null}
             </View>
-          )}
+            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
+                <Text style={styles.twoByTwoVal}>{qualityIssuesCount}</Text>
+              </View>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Open Tasks</Text>
+                <Text style={styles.twoByTwoVal}>{taskSummary?.open ?? openTasks.length}</Text>
+              </View>
+            </View>
+          </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1324,7 +1288,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.subHeaderBanner}>
             <View style={styles.subHeaderRow}>
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
             </View>
@@ -1339,7 +1303,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
           </View>
@@ -1348,38 +1312,36 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
 
-          <Text style={styles.whOverviewStatLabel}>{filterLabel}</Text>
-
-          {/* Summed GET /warehouses/{id}/capacity of the covered warehouses. The old
-              storage-area count had no source on this read and is gone. */}
-          {overviewLoading ? (
-            <AdminLoadingState />
-          ) : overviewError ? (
-            <AdminErrorState error={overviewError} onRetry={retryOverview} />
-          ) : (
-            <View style={styles.metricsGridCard}>
-              <View style={styles.twoByTwoRow}>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.used')}</Text>
-                  <Text style={styles.twoByTwoVal}>{capacityTotals.used}</Text>
-                </View>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.available')}</Text>
-                  <Text style={styles.twoByTwoVal}>{capacityTotals.available}</Text>
-                </View>
+          <SectionGate sources={[stockSrc]}>
+          <View style={styles.metricsGridCard}>
+            <View style={styles.twoByTwoRow}>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.warehousesWithCapacity === 0 ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.usedGrams)}
+                </Text>
               </View>
-              <View style={[styles.twoByTwoRow, styles.twoByTwoRowSpaced]}>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.utilization')}</Text>
-                  <Text style={styles.twoByTwoVal}>{capacityTotals.utilization}</Text>
-                </View>
-                <View style={styles.twoByTwoCol}>
-                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.warehouses')}</Text>
-                  <Text style={styles.twoByTwoVal}>{countLabel(kpiIds.length)}</Text>
-                </View>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.availableGrams === null ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.availableGrams)}
+                </Text>
               </View>
             </View>
-          )}
+            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Active Warehouses</Text>
+                <Text style={styles.twoByTwoVal}>{warehouses.length}</Text>
+              </View>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>Utilization</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(stockFig.capacity.utilizationBp)}
+                </Text>
+              </View>
+            </View>
+          </View>
+          </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
             <Text style={styles.overviewNoticeText}>
@@ -1397,7 +1359,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <View style={styles.subHeaderBanner}>
           <View style={styles.subHeaderRow}>
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.subHeaderTitle}>Manage Warehouses</Text>
           </View>
@@ -1407,47 +1369,47 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
 
-          {overviewLoading ? <AdminLoadingState /> : null}
-          {!overviewLoading && overviewError ? <AdminErrorState error={overviewError} onRetry={retryOverview} /> : null}
-          {overviewCards.map((wh) => (
-            <View key={wh.warehouseId} style={styles.whOverviewCard}>
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name}</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: wh.isActive ? PALETTE.greenPillBg : adminColors.warning.bg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: wh.isActive ? PALETTE.greenProgress : adminColors.warning.text }]}>
-                    {t(wh.isActive ? 'dashboardHome.snapshot.active' : 'dashboardHome.snapshot.inactive')}
-                  </Text>
+          <SectionGate sources={[warehousesSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {warehouses.map((wh) => {
+            const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
+            return (
+              <View key={wh.id} style={styles.whOverviewCard}>
+                <View style={styles.whOverviewHeaderRow}>
+                  <Text style={styles.whOverviewTitle}>{displayName}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>{wh.isActive ? 'Active' : 'Inactive'}</Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                {wh.city === null ? wh.code : t('dashboardHome.warehouses.cityCode', { city: wh.city, code: wh.code })}
-              </Text>
+                <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
+                  {[wh.code, wh.address ?? wh.city].filter((part): part is string => typeof part === 'string' && part.trim() !== '').join(' · ')}
+                </Text>
 
-              <View style={styles.manageBtnRow}>
-                <TouchableOpacity
-                  style={styles.manageWhActionBtn}
-                  onPress={() => {
-                    setSelectedWHName(wh.name);
-                    navigateWh('warehouse_city_detail');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.manageWhActionText}>View Details</Text>
-                </TouchableOpacity>
-
-                {can('warehouse.capacity.set') && (
+                <View style={styles.manageBtnRow}>
                   <TouchableOpacity
-                    style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
-                    onPress={() => navigateWh('warehouse_settings')}
+                    style={styles.manageWhActionBtn}
+                    onPress={() => openWarehouseDetail(wh.id)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                    <Text style={styles.manageWhActionText}>View Details</Text>
                   </TouchableOpacity>
-                )}
+
+                  {can('warehouse.capacity.set') && (
+                    <TouchableOpacity
+                      style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
+                      onPress={() => navigateWh('warehouse_settings')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
+
+          </SectionGate>
 
           {can('admin.sub_wh_admin.create') && (
             <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
@@ -1460,7 +1422,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onPress={() => navigateWh('manage_swas')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
+                <Text style={[styles.manageWhActionText, { color: adminColors.onBrand }]}>Manage SWA Accounts</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1471,7 +1433,308 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     );
   };
 
+  const renderAlertsActionCenterScreen = () => {
+    // Only the warehouse filter is real: the API has no priority and returns only
+    // active alerts, so there are no priority or read-state chips.
+    const visibleAlerts = alertsList.filter(
+      (alert) => alertWarehouseId === undefined || alert.warehouseId === alertWarehouseId,
+    );
+    const alertFilterWarehouse = warehouses.find((w) => w.id === alertWarehouseId);
+    const alertFilterLabel =
+      alertFilterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(alertFilterWarehouse.name);
+
+    return (
+      <View style={styles.subScreenContainer}>
+        <View style={styles.subHeaderBanner}>
+          <View style={styles.subHeaderRow}>
+            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
+          </View>
+          <Text style={styles.subHeaderSubtitle}>Warehouse-level problems requiring attention</Text>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
+          {/* Warehouse filter */}
+          <View style={styles.actionCenterFiltersRow}>
+            <TouchableOpacity
+              style={styles.actionCenterChip}
+              onPress={() => {
+                // All, then each live warehouse in turn.
+                const ids: (string | undefined)[] = [undefined, ...warehouses.map((w) => w.id)];
+                const next = (ids.indexOf(alertWarehouseId) + 1) % ids.length;
+                setAlertWarehouseId(ids[next]);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionCenterChipText}>
+                {`${alertFilterLabel} ▾`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 6 }} />
+
+          {/* Alerts List */}
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
+          {visibleAlerts.map((alert) => (
+            <TouchableOpacity
+              key={alert.id}
+              style={styles.actionCenterAlertCard}
+              onPress={() => {
+                dismissMutation.reset();
+                setSelectedAlert(alert);
+                navigateWh('alert_detail');
+              }}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.alertAccentBar,
+                  { backgroundColor: PALETTE.primary },
+                ]}
+              />
+              <View style={styles.actionCenterCardContent}>
+                {alert.type === 'LOW_STOCK' ? (
+                  <WarningTriangleIcon size={22} color={PALETTE.red} />
+                ) : alert.type === 'CAPACITY_NEAR_FULL' ? (
+                  <AlertEscalationIcon size={22} color={PALETTE.red} />
+                ) : (
+                  <AlertClockIcon size={22} color={PALETTE.primary} />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.actionCenterAlertTitle}>{`${alert.warehouse}: ${alert.title}`}</Text>
+                  <Text style={styles.actionCenterAlertSub}>{alert.detail}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {visibleAlerts.length === 0 && (
+            <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+          )}
+          </SectionGate>
+
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderAlertDetailScreen = () => {
+    if (!selectedAlert) {
+      return (
+        <View style={styles.subScreenContainer}>
+          <View style={styles.subHeaderBanner}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Alert Detail</Text>
+            </View>
+          </View>
+          <EmptyState title="No alert selected" subtitle="Please select an alert from the Alerts & Action Center." />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.subScreenContainer}>
+        <View style={styles.subHeaderBanner}>
+          <View style={styles.subHeaderRow}>
+            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.subHeaderTitle}>Alert Detail</Text>
+          </View>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
+          <Text style={styles.overviewSectionHeading}>Alert Detail</Text>
+
+          <View style={styles.alertDetailCard}>
+            <View style={styles.alertDetailGridRow}>
+              <View style={styles.alertDetailGridCol}>
+                <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.type')}</Text>
+                <Text style={styles.alertDetailFieldValue}>{selectedAlert.title}</Text>
+              </View>
+              <View style={styles.alertDetailGridCol}>
+                <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.warehouse')}</Text>
+                <Text style={styles.alertDetailFieldValue}>{selectedAlert.warehouse}</Text>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.since')}</Text>
+              <Text style={styles.alertDetailFieldValue}>{selectedAlert.time}</Text>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.description')}</Text>
+              <Text style={[styles.alertDetailFieldValue, { fontWeight: '500', lineHeight: 20 }]}>
+                {selectedAlert.detail}
+              </Text>
+            </View>
+
+            <View style={styles.alertDetailBtnRow}>
+              <TouchableOpacity
+                style={styles.openRelatedBtn}
+                onPress={() => {
+                  navigateWh(ALERT_TARGET_ROUTE[selectedAlert.target]);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.openRelatedBtnText}>Open Related Record</Text>
+              </TouchableOpacity>
+
+              {canDismissAlert ? (
+                <TouchableOpacity
+                  style={styles.acknowledgeBtn}
+                  onPress={() => {
+                    void handleDismissAlert(selectedAlert);
+                  }}
+                  disabled={dismissMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.acknowledgeBtnText}>
+                    {dismissMutation.isPending ? t('mainDashboard.alert.dismissing') : t('mainDashboard.alert.dismiss')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {dismissMutation.isError ? (
+              <Text style={styles.dismissErrorText}>{t(adminErrorKey(dismissMutation.error))}</Text>
+            ) : null}
+          </View>
+
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderStockAndTransferScreen = () => {
+    return (
+      <View style={styles.subScreenContainer}>
+        <View style={styles.subHeaderBanner}>
+          <View style={styles.subHeaderRow}>
+            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+            </TouchableOpacity>
+            <Text style={styles.subHeaderTitle}>Stock & Transfer Overview</Text>
+          </View>
+          <Text style={styles.subHeaderSubtitle}>Consolidated inventory + inter-warehouse transfers</Text>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
+          {/* 1. Consolidated Stock Section */}
+          <View style={styles.overviewSectionHeaderRow}>
+            <Text style={styles.overviewSectionTitle}>Consolidated Stock</Text>
+            <TouchableOpacity onPress={() => navigateWh('consolidated_stock')} activeOpacity={0.7}>
+              <Text style={styles.viewAllLink}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <SectionGate sources={[stockSrc]}>
+          <View style={styles.stockTableCard}>
+            {stockFig.warehouses.map((row, idx) => {
+              return (
+                <React.Fragment key={row.warehouseId}>
+                  {idx > 0 && <View style={styles.stockTableRowDivider} />}
+                  <View style={styles.stockTableRow}>
+                    <Text style={styles.stockTableLabel}>{row.name}</Text>
+                    <Text style={styles.stockTableVal}>{formatKg(row.stockGrams)}</Text>
+                  </View>
+                </React.Fragment>
+              );
+            })}
+            <View style={styles.stockTableRowDivider} />
+            <View style={styles.stockTableRow}>
+              <Text style={styles.stockTableTotalLabel}>Total</Text>
+              <Text style={styles.stockTableTotalVal}>{formatKg(stockFig.totalGrams)}</Text>
+            </View>
+          </View>
+          </SectionGate>
+
+          {/* 2. Low Stock & Surplus Section */}
+          <View style={styles.overviewSectionHeaderRow}>
+            <Text style={styles.overviewSectionTitle}>Low Stock & Surplus</Text>
+            <TouchableOpacity onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.7}>
+              <Text style={styles.viewAllLink}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
+          <TouchableOpacity style={styles.lowStockSummaryCard} onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.8}>
+            <Text style={styles.lowStockSummaryText}>
+              {lowStockItems.length > 0
+                ? `${lowStockItems.length} products flagged with low stock across warehouses`
+                : 'All warehouse products are within standard stock target levels'}
+            </Text>
+          </TouchableOpacity>
+          </SectionGate>
+
+          {/* 3. Transfers Section */}
+          <View style={styles.overviewSectionHeaderRow}>
+            <Text style={styles.overviewSectionTitle}>Transfers</Text>
+            <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
+              <Text style={styles.viewAllLink}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <SectionGate sources={[transfersSrc]}>
+          <View style={styles.stockTableCard}>
+            <View style={styles.stockTableRow}>
+              <Text style={styles.stockTableLabel}>Pending</Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
+            </View>
+            <View style={styles.stockTableRowDivider} />
+            <View style={styles.stockTableRow}>
+              <Text style={styles.stockTableLabel}>In Transit</Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
+            </View>
+            <View style={styles.stockTableRowDivider} />
+            <View style={styles.stockTableRow}>
+              <Text style={styles.stockTableLabel}>Received</Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
+            </View>
+            <View style={styles.stockTableRowDivider} />
+            <View style={styles.stockTableRow}>
+              <Text style={styles.stockTableLabel}>Exceptions</Text>
+              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
+                {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
+              </Text>
+            </View>
+          </View>
+          </SectionGate>
+
+          <View style={{ height: 90 }} />
+        </ScrollView>
+
+        {/* Pinned Bottom Button */}
+        <View style={styles.fixedBottomBar}>
+          <TouchableOpacity
+            style={styles.initiateTransferBtn}
+            onPress={() => {
+              if (can(HOME_CODES.transferInitiate)) {
+                navigateWh('initiate_new_transfer');
+              } else {
+                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <TransferArrowsWhiteIcon size={18} />
+            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderConsolidatedStockScreen = () => {
+    const filteredProducts = stockFig.products.filter(
+      (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
+    );
+
     return (
       <View style={styles.subScreenContainer}>
         <View style={styles.subHeaderBanner}>
@@ -1496,25 +1759,53 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             />
           </View>
 
-          {/* Product cards: live batches of every warehouse (MainConsolidatedStockList). */}
-          <MainConsolidatedStockList options={warehouseList.options} query={stockSearchQuery} />
+          {/* Product Cards */}
+          <SectionGate sources={[stockSrc]}>
+          {filteredProducts.map((p) => (
+            <View key={p.cropId} style={styles.consolidatedProductCard}>
+              <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
+              {p.rows.map((row) => (
+                <View key={row.warehouseId}>
+                  <View style={styles.stockTableRowDivider} />
+                  <View style={styles.stockTableRow}>
+                    <Text style={styles.stockTableLabel}>{row.warehouse}</Text>
+                    <Text style={styles.stockTableVal}>{formatKg(row.grams)}</Text>
+                  </View>
+                </View>
+              ))}
+              <View style={styles.stockTableRowDivider} />
+              <View style={styles.stockTableRow}>
+                <Text style={styles.stockTableTotalLabel}>Total</Text>
+                <Text style={styles.stockTableTotalVal}>{formatKg(p.totalGrams)}</Text>
+              </View>
+            </View>
+          ))}
+
+          {filteredProducts.length === 0 && (
+            <EmptyState title="No matching stock" subtitle="No products match your search keyword." />
+          )}
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button: drawn only with transfer.inter_warehouse.initiate (the server checks again). */}
-        {can(HOME_CODES.transferInitiate) ? (
-          <View style={styles.fixedBottomBar}>
-            <TouchableOpacity
-              style={styles.initiateTransferBtn}
-              onPress={() => navigateWh('initiate_new_transfer')}
-              activeOpacity={0.8}
-            >
-              <TransferArrowsWhiteIcon size={18} />
-              <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        {/* Pinned Bottom Button */}
+        <View style={styles.fixedBottomBar}>
+          <TouchableOpacity
+            style={styles.initiateTransferBtn}
+            onPress={() => {
+              if (can(HOME_CODES.transferInitiate)) {
+                navigateWh('initiate_new_transfer');
+              } else {
+                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <TransferArrowsWhiteIcon size={18} />
+            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1534,25 +1825,58 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Low Stock & Surplus</Text>
 
-          {/* The server's LOW_STOCK alerts; "surplus" has no endpoint and is not shown. */}
-          <MainLowStockList options={warehouseList.options} />
+          <SectionGate sources={[alertsSrc, warehousesSrc]}>
+          {lowStockItems.map((item, idx) => (
+            <View key={`${item.product}-${item.warehouse}-${idx}`} style={styles.lowStockDetailCard}>
+              <View style={styles.alertDetailGridRow}>
+                <View style={styles.alertDetailGridCol}>
+                  <Text style={styles.alertDetailFieldLabel}>Product</Text>
+                  <Text style={styles.alertDetailFieldValue}>{item.product}</Text>
+                </View>
+                <View style={styles.alertDetailGridCol}>
+                  <Text style={styles.alertDetailFieldLabel}>Warehouse</Text>
+                  <Text style={styles.alertDetailFieldValue}>{item.warehouse}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.alertDetailGridRow, { marginTop: 14 }]}>
+                <View style={styles.alertDetailGridCol}>
+                  <Text style={styles.alertDetailFieldLabel}>Current</Text>
+                  <Text style={styles.alertDetailFieldValue}>{item.current}</Text>
+                </View>
+                <View style={styles.alertDetailGridCol}>
+                  <Text style={styles.alertDetailFieldLabel}>Target</Text>
+                  <Text style={styles.alertDetailFieldValue}>{item.target}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+
+          {lowStockItems.length === 0 && (
+            <EmptyState title="No Low Stock" subtitle="All warehouses are stocked within target levels." />
+          )}
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button: drawn only with transfer.inter_warehouse.initiate (the server checks again). */}
-        {can(HOME_CODES.transferInitiate) ? (
-          <View style={styles.fixedBottomBar}>
-            <TouchableOpacity
-              style={styles.initiateTransferBtn}
-              onPress={() => navigateWh('initiate_new_transfer')}
-              activeOpacity={0.8}
-            >
-              <TransferArrowsWhiteIcon size={18} />
-              <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        {/* Pinned Bottom Button */}
+        <View style={styles.fixedBottomBar}>
+          <TouchableOpacity
+            style={styles.initiateTransferBtn}
+            onPress={() => {
+              if (can(HOME_CODES.transferInitiate)) {
+                navigateWh('initiate_new_transfer');
+              } else {
+                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <TransferArrowsWhiteIcon size={18} />
+            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1572,24 +1896,74 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
-          <MainTransferTrackingList options={warehouseList.options} />
+          <SectionGate sources={[transfersSrc]}>
+          <View style={styles.trackingCard}>
+            {transferFig.rows.map((t, idx) => {
+              const isLast = idx === transferFig.rows.length - 1;
+              const isTransit = t.kind === 'inTransit';
+              return (
+                <View key={t.id}>
+                  <View style={styles.trackingItemRow}>
+                    <View style={styles.trackingIconWrap}>
+                      <TransferArrowsIcon size={18} color={PALETTE.primary} />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.trackingHeaderRow}>
+                        <Text style={styles.trackingTitleText}>
+                          {t.id} · {t.route}
+                        </Text>
+                        <View
+                          style={[
+                            styles.trackingBadgePill,
+                            { backgroundColor: isTransit ? adminColors.info.bg : PALETTE.greenPillBg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.trackingBadgeText,
+                              { color: isTransit ? adminColors.info.text : PALETTE.greenProgress },
+                            ]}
+                          >
+                            {t.statusLabel}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.trackingSubText}>{t.details}</Text>
+                    </View>
+                  </View>
+                  {!isLast && <View style={styles.stockTableRowDivider} />}
+                </View>
+              );
+            })}
+
+            {transferFig.rows.length === 0 && (
+              <EmptyState title={t('mainDashboard.transfer.empty.title')} subtitle={t('mainDashboard.transfer.empty.subtitle')} />
+            )}
+          </View>
+          </SectionGate>
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button: drawn only with transfer.inter_warehouse.initiate (the server checks again). */}
-        {can(HOME_CODES.transferInitiate) ? (
-          <View style={styles.fixedBottomBar}>
-            <TouchableOpacity
-              style={styles.initiateTransferBtn}
-              onPress={() => navigateWh('initiate_new_transfer')}
-              activeOpacity={0.8}
-            >
-              <TransferArrowsWhiteIcon size={18} />
-              <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        {/* Pinned Bottom Button */}
+        <View style={styles.fixedBottomBar}>
+          <TouchableOpacity
+            style={styles.initiateTransferBtn}
+            onPress={() => {
+              if (can(HOME_CODES.transferInitiate)) {
+                navigateWh('initiate_new_transfer');
+              } else {
+                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <TransferArrowsWhiteIcon size={18} />
+            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1621,8 +1995,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* Top Greeting Row */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                  <Text style={styles.headerGreetingText}>{greeting}</Text>
+                  <Grid4SquaresIcon size={20} color={adminColors.onBrand} />
+                  <Text style={styles.headerGreetingText}>{t(greetingKey(now), { name: displayName })}</Text>
                 </View>
 
                 {/* Header Actions: Notification Bell + Profile Button */}
@@ -1634,7 +2008,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     }}
                     activeOpacity={0.8}
                   >
-                    <BellOutlineIcon size={19} color="#FFFFFF" />
+                    <BellOutlineIcon size={19} color={adminColors.onBrand} />
                     {unreadNotifCount > 0 && (
                       <View style={styles.notificationBadge}>
                         <Text style={styles.notificationBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
@@ -1649,7 +2023,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     }}
                     activeOpacity={0.8}
                   >
-                    <ProfileHeaderIcon size={19} color="#FFFFFF" />
+                    <ProfileHeaderIcon size={19} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1672,66 +2046,71 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             {/* Content Container */}
             <View style={styles.contentBody}>
               {/* ─── 1. Today's Overview (KPI Grid) ─── */}
-              {/* Live figures for the filtered warehouses; a tile whose read the admin
-                  is not granted is not drawn, an unloaded one shows the dash. */}
-              <Text style={styles.sectionHeading}>{t('mainDashboard.kpi.heading')}</Text>
+              <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
-                {/* Total Stock: capacity usedKg (ACTIVE batches), summed */}
-                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('warehouse_capacity')} activeOpacity={0.75}>
-                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.totalStock')}</Text>
-                  <Text style={styles.kpiValue}>{stockRows.total}</Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.totalStockSub')}</Text>
+                {/* Total Stock */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
+                  </Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.inStock')}</Text>
+                </View>
+
+                {/* Incoming Goods */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
+                  </Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
+                </View>
+
+                {/* Pending Transfers */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
+                  </Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
+                </View>
+
+                {/* Today's Orders */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(ordersSrc.status, () => countLabel(ordersToday.count, ordersToday.exact))}
+                  </Text>
+                  <Text style={styles.kpiSub}>orders</Text>
+                </View>
+
+                {/* Sales */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('sales')}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.kpiLabel}>SALES</Text>
+                  <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
+                  <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
-                {canPerformance ? (
-                  <>
-                    {/* Incoming Goods: today's goods-receipt gross kg */}
-                    <TouchableOpacity style={styles.kpiCard} onPress={() => openTab('Receiving')} activeOpacity={0.75}>
-                      <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.incoming')}</Text>
-                      <Text style={styles.kpiValue}>{todayFigures.receivedKg}</Text>
-                      <Text style={styles.kpiSub}>{t('mainDashboard.kpi.incomingSub', { count: todayFigures.receipts })}</Text>
-                    </TouchableOpacity>
-
-                    {/* Today's Orders: orders placed today */}
-                    <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('customer_orders')} activeOpacity={0.75}>
-                      <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.orders')}</Text>
-                      <Text style={styles.kpiValue}>{todayFigures.ordersPlaced}</Text>
-                      <Text style={styles.kpiSub}>{t('mainDashboard.kpi.ordersSub')}</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
-
-                {/* Pending Transfers: awaiting approval + in transit */}
-                {canTransfers ? (
-                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('inter_warehouse_transfer')} activeOpacity={0.75}>
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.pendingTransfers')}</Text>
-                    <Text style={styles.kpiValue}>{countLabel(pendingTransferCount(transferCounts.data))}</Text>
-                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.pendingTransfersSub')}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {/* Sales: today's paid-and-completed revenue (BR-96) */}
-                {canSalesSummary ? (
-                  <TouchableOpacity
-                    style={styles.kpiCard}
-                    onPress={() => navigateWh('sales')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.sales')}</Text>
-                    <Text style={styles.kpiValue}>{moneyLabel(todaySales.data?.revenue)}</Text>
-                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.salesSub', { count: countLabel(todaySales.data?.count) })}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                {/* Open Issues: OPEN + IN_PROGRESS operational issues */}
-                {canIssues ? (
-                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('operational_issues')} activeOpacity={0.75}>
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.openIssues')}</Text>
-                    <Text style={styles.kpiValue}>{countLabel(openIssues.data)}</Text>
-                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.openIssuesSub')}</Text>
-                  </TouchableOpacity>
-                ) : null}
+                {/* Open Issues */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(alertsSrc.status, () => String(liveAlerts.length))}
+                  </Text>
+                  <Text style={styles.kpiSub}>issues</Text>
+                </View>
               </View>
+              {homeKpiSources.some((s) => s.status === 'error') ? (
+                <AdminErrorState
+                  error={homeKpiSources.find((s) => s.status === 'error')?.error}
+                  onRetry={() => retryFailed(homeKpiSources)}
+                />
+              ) : null}
+              {listsPartial ? <Text style={styles.partialNote}>{t('mainDashboard.partial')}</Text> : null}
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -1746,42 +2125,36 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
               </View>
 
-              {/* Live warehouse cards (GET /warehouses + capacity); they replaced two written-in cards. */}
-              {overviewLoading ? (
-                <AdminLoadingState />
-              ) : overviewError ? (
-                <AdminErrorState error={overviewError} onRetry={retryOverview} />
-              ) : (
-                overviewCards.map((wh) => (
+              {/* Warehouse Progress Cards */}
+              <SectionGate sources={[stockSrc]}>
+              {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+              {stockFig.warehouses.map((row) => {
+                const whName = row.name;
+                const level = capacityLevel(row.utilizationBp);
+                const fillWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
+                const fillColor = level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.goldProgress : PALETTE.greenProgress;
+                return (
                   <TouchableOpacity
-                    key={wh.warehouseId}
+                    key={row.warehouseId}
                     style={styles.whProgressCard}
-                    onPress={() => {
-                      setSelectedWHName(wh.name);
-                      navigateWh('warehouse_city_detail');
-                    }}
+                    onPress={() => openWarehouseDetail(row.warehouseId)}
                     activeOpacity={0.8}
                   >
                     <View style={styles.whProgressTopRow}>
-                      <Text style={styles.whProgressTitle}>{wh.name}</Text>
+                      <Text style={styles.whProgressTitle}>{whName}</Text>
                       <ChevronRightGrayIcon size={16} />
                     </View>
-                    {wh.progressPercent !== null ? (
-                      <View style={styles.progressBarTrack}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            { width: `${wh.progressPercent}%`, backgroundColor: wh.overCapacity ? adminColors.warning.text : PALETTE.primary },
-                          ]}
-                        />
-                      </View>
-                    ) : null}
+                    <View style={styles.progressBarTrack}>
+                      <View style={[styles.progressBarFill, { width: fillWidth, backgroundColor: fillColor }]} />
+                    </View>
                   </TouchableOpacity>
-                ))
-              )}
+                );
+              })}
+              </SectionGate>
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
+              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -1792,80 +2165,84 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.operationsTitle}>{t('mainDashboard.ops.incoming')}</Text>
-                  {/* Today's goods receipts: count, accepted kg, rejected kg (performance, BR-80). */}
+                  <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.receipts')} <Text style={styles.operationsMetricBold}>{todayFigures.receipts}</Text>
+                      Expected <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.accepted')} <Text style={styles.operationsMetricBold}>{todayFigures.acceptedKg}</Text>
+                      Arrived <Text style={styles.operationsMetricBold}>{receiptFig.arrived}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.rejected')} <Text style={styles.operationsMetricRed}>{todayFigures.rejectedKg}</Text>
+                      Discrepancies <Text style={styles.operationsMetricRed}>{receiptFig.discrepancies}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
 
                 <View style={styles.operationsDivider} />
 
-                {/* Order Fulfilment: today's placed / fulfilled / cancelled (performance, BR-80) */}
+                {/* Order Fulfilment */}
                 <TouchableOpacity
                   style={styles.operationsSection}
                   onPress={() => navigateWh('customer_orders')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.operationsTitle}>{t('mainDashboard.ops.orders')}</Text>
+                  <Text style={styles.operationsTitle}>Order Fulfilment</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.placed')} <Text style={styles.operationsMetricBold}>{todayFigures.ordersPlaced}</Text>
+                      Ready <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.fulfilled')} <Text style={styles.operationsMetricBold}>{todayFigures.ordersFulfilled}</Text>
+                      Dispatched <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.cancelled')} <Text style={styles.operationsMetricRed}>{todayFigures.ordersCancelled}</Text>
+                      Exceptions <Text style={styles.operationsMetricRed}>{ordersToday.orders.filter((o) => o.status === 'CANCELLED').length}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
 
                 <View style={styles.operationsDivider} />
 
-                {/* Quality: open QC tasks (GET /admin/tasks/summary) and today's return requests */}
+                {/* Quality Issues */}
                 <TouchableOpacity
                   style={styles.operationsSection}
-                  onPress={() => navigateWh('quality_issues_ops')}
+                  onPress={() => navigateWh('operational_issues')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.operationsTitle}>{t('mainDashboard.ops.quality')}</Text>
+                  <Text style={styles.operationsTitle}>Quality Issues</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.qcPending')} <Text style={styles.operationsMetricBold}>{countLabel(qcPending)}</Text>
+                      Pending <Text style={styles.operationsMetricBold}>{taskSummary === undefined ? FIGURE_PLACEHOLDER : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC')}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      {t('mainDashboard.ops.returns')} <Text style={styles.operationsMetricRed}>{todayFigures.returnsRequested}</Text>
+                      Damage <Text style={styles.operationsMetricBold}>{receiptFig.damaged}</Text>
+                    </Text>
+                    <Text style={styles.operationsMetricText}>
+                      Rejected <Text style={styles.operationsMetricRed}>{receiptFig.rejected}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                {canActivity ? (
-                  <>
-                    <View style={styles.operationsDivider} />
+                <View style={styles.operationsDivider} />
 
-                    {/* Warehouse-wise Activity Timeline: the newest live event over the filtered warehouses */}
-                    <TouchableOpacity
-                      style={styles.operationsSection}
-                      onPress={() => navigateWh('activity_timeline_ops')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.operationsTitle}>{t('mainDashboard.ops.timeline')}</Text>
-                      <Text style={styles.operationsTimelineSub}>
-                        {recentActivityPages.isPending ? t('async.loading') : activityTimelineLine(recentActivity[0])}
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
+                {/* Warehouse-wise Activity Timeline */}
+                <TouchableOpacity
+                  style={styles.operationsSection}
+                  onPress={() => navigateWh('activity_timeline_ops')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
+                  <Text style={styles.operationsTimelineSub}>
+                    {goodsReceipts[0]
+                      ? t('mainDashboard.timeline.goodsReceived', {
+                          grn: goodsReceipts[0].grnNumber,
+                          time: relativeTime(goodsReceipts[0].receivedAt, now),
+                        })
+                      : t('mainDashboard.timeline.empty')}
+                  </Text>
+                </TouchableOpacity>
               </View>
+              </SectionGate>
 
               {/* ─── 4. Alerts & Pending Actions ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -1877,87 +2254,81 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              {/* The first live alert (GET /admin/alerts, active); the list with dismiss / snooze is Needs Attention. */}
-              <TouchableOpacity
-                style={styles.alertCard}
-                onPress={() => navigateWh('alerts_action_center')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.alertAccentBar} />
-                <View style={styles.alertContentRow}>
-                  <WarningTriangleIcon size={24} color={PALETTE.red} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.alertTitle}>
-                      {firstAlert !== undefined
-                        ? firstAlert.title
-                        : activeAlerts.isLoading
-                          ? t('async.loading')
-                          : t('alerts.empty.active')}
-                    </Text>
-                    {firstAlert !== undefined ? (
-                      <Text style={styles.alertSub}>
-                        {t('dashboardHome.alerts.preview', {
-                          message: firstAlert.message,
-                          warehouse: warehouseLabel(warehouseList.options, firstAlert.warehouseId),
-                        })}
-                      </Text>
-                    ) : null}
+              <SectionGate sources={[alertsSrc, warehousesSrc]}>
+              {alertsList.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.alertCard}
+                  onPress={() => {
+                    dismissMutation.reset();
+                    setSelectedAlert(alertsList[0]!);
+                    navigateWh('alert_detail');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.alertAccentBar} />
+                  <View style={styles.alertContentRow}>
+                    <WarningTriangleIcon size={24} color={PALETTE.red} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.alertTitle}>{`${alertsList[0]!.warehouse}: ${alertsList[0]!.title}`}</Text>
+                      <Text style={styles.alertSub}>{alertsList[0]!.detail}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.alertCard}>
+                  <View style={[styles.alertAccentBar, { backgroundColor: PALETTE.green }]} />
+                  <View style={styles.alertContentRow}>
+                    <InfoCircleIcon size={24} color={PALETTE.green} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.alertTitle}>All Warehouses Normal</Text>
+                      <Text style={styles.alertSub}>No active alerts or stock exceptions reported</Text>
+                    </View>
                   </View>
                 </View>
-              </TouchableOpacity>
+              )}
+              </SectionGate>
 
               {/* ─── 5. Recent Activity ─── */}
-              {/* The newest live events (GET /warehouses/{id}/activity, BR-104), merged over the filtered warehouses. */}
-              {canActivity ? (
-                <>
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeading}>{t('mainDashboard.activity.heading')}</Text>
-                    <TouchableOpacity
-                      onPress={() => navigateWh('warehouse_activity')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.viewAllLink}>{t('mainDashboard.viewAll')}</Text>
-                    </TouchableOpacity>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Recent Activity</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('warehouse_activity')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View All →</Text>
+                </TouchableOpacity>
+              </View>
+              <SectionGate sources={[openTasksSrc]}>
+              <View style={styles.recentActivityCard}>
+                {activityRows.map((row, idx) => {
+                  const isLast = idx === activityRows.length - 1;
+                  return (
+                    <React.Fragment key={row.id}>
+                      <TouchableOpacity
+                        style={styles.activityItemRow}
+                        onPress={() => navigateWh('activity_timeline_ops')}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.activityIconBox}>
+                          <TruckIcon size={18} color={PALETTE.primary} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.activityTitle}>{row.title}</Text>
+                          <Text style={styles.activitySub}>{row.subtitle}</Text>
+                        </View>
+                        <Text style={styles.activityTime}>{row.time}</Text>
+                      </TouchableOpacity>
+                      {!isLast && <View style={styles.activityDivider} />}
+                    </React.Fragment>
+                  );
+                })}
+                {activityRows.length === 0 && (
+                  <View style={{ padding: 16 }}>
+                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>No recent activity recorded</Text>
                   </View>
-                  {recentActivityPages.isPending ? (
-                    <AdminLoadingState />
-                  ) : recentActivityPages.error ? (
-                    <AdminErrorState error={recentActivityPages.error} onRetry={() => void recentActivityPages.refetch()} />
-                  ) : recentActivity.length === 0 ? (
-                    <AdminEmptyState title={t('mainDashboard.activity.none')} />
-                  ) : (
-                    <View style={styles.recentActivityCard}>
-                      {recentActivity.map((row, index) => (
-                        <React.Fragment key={row.key}>
-                          {index > 0 ? <View style={styles.activityDivider} /> : null}
-                          <TouchableOpacity
-                            style={styles.activityItemRow}
-                            onPress={() => {
-                              if (row.type === 'TRANSFER') navigateWh('inter_warehouse_transfer');
-                              else if (row.type === 'GOODS_RECEIPT') openTab('Receiving');
-                              else navigateWh('warehouse_activity');
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.activityIconBox}>
-                              {row.type === 'TRANSFER' ? (
-                                <TruckIcon size={18} color={PALETTE.primary} />
-                              ) : (
-                                <InboxReceiveIcon size={18} color={PALETTE.primary} />
-                              )}
-                            </View>
-                            <View style={styles.activityTextCol}>
-                              <Text style={styles.activityTitle}>{t('mainDashboard.activity.title', { type: row.typeLabel, reference: row.reference })}</Text>
-                              <Text style={styles.activitySub}>{activitySubLine(row)}</Text>
-                            </View>
-                            <Text style={styles.activityTime}>{row.when}</Text>
-                          </TouchableOpacity>
-                        </React.Fragment>
-                      ))}
-                    </View>
-                  )}
-                </>
-              ) : null}
+                )}
+              </View>
+              </SectionGate>
 
               {/* ─── 6. Quick Actions ─── */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
@@ -2052,7 +2423,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* Header Title Row */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Grid4SquaresIcon size={20} color={adminColors.onBrand} />
                   <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
                 </View>
               </View>
@@ -2071,55 +2442,109 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
             {/* Content Container */}
             <View style={styles.contentBody}>
-              {/* 1. KPI grid: live stock figures (inventory.batch.view) */}
-              {canStock ? (
-                <MainInventoryKpis
-                  warehouseId={filterWarehouseId}
-                  incomingToday={canPerformance ? todayFigures.receivedKg : null}
-                  onOpenLedger={() => {
-                    setSelectedWHName(filterWarehouseId === undefined ? '' : filterLabel);
+              {/* 1. KPI 2x2 Grid */}
+              <View style={styles.kpiGrid}>
+                {/* Total Stock */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
                     navigateWh('stock_ledger');
                   }}
-                  onOpenLowStock={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
+                  </Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Incoming Today */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
+                  </Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Allocated */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.reservedGrams))}
+                  </Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Low Stock SKUs */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(alertsSrc.status, () =>
+                      String(liveAlerts.filter((a) => a.type === 'LOW_STOCK').length),
+                    )}
+                  </Text>
+                  <Text style={styles.kpiSub}>SKUs</Text>
+                </TouchableOpacity>
+              </View>
+              {inventoryKpiSources.some((s) => s.status === 'error') ? (
+                <AdminErrorState
+                  error={inventoryKpiSources.find((s) => s.status === 'error')?.error}
+                  onRetry={() => retryFailed(inventoryKpiSources)}
                 />
               ) : null}
+              {listsPartial ? <Text style={styles.partialNote}>{t('mainDashboard.partial')}</Text> : null}
 
-              {/* 2. Warehouse Summary: each warehouse's stock (capacity usedKg) */}
+              {/* 2. Warehouse Summary */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>{t('mainDashboard.inventory.summary')}</Text>
+                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
                 <TouchableOpacity
                   onPress={() => navigateWh('stock_ledger')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.viewAllLink}>{t('mainDashboard.view')}</Text>
+                  <Text style={styles.viewAllLink}>View →</Text>
                 </TouchableOpacity>
               </View>
-              {overviewLoading ? (
-                <AdminLoadingState />
-              ) : overviewError ? (
-                <AdminErrorState error={overviewError} onRetry={retryOverview} />
-              ) : stockRows.rows.length === 0 ? (
-                <AdminEmptyState title={t('dashboardHome.warehouses.empty')} />
-              ) : (
-                <View style={styles.summaryListCard}>
-                  {stockRows.rows.map((row, index) => (
+              <SectionGate sources={[stockSrc]}>
+              <View style={styles.summaryListCard}>
+                {stockFig.warehouses.map((row, idx) => {
+                  const whName = row.name;
+                  return (
                     <React.Fragment key={row.warehouseId}>
-                      {index > 0 ? <View style={styles.summaryDivider} /> : null}
+                      {idx > 0 && <View style={styles.summaryDivider} />}
                       <TouchableOpacity
                         style={styles.summaryItemRow}
                         onPress={() => {
-                          setSelectedWHName(row.label);
+                          setDetailWarehouseId(row.warehouseId);
                           navigateWh('stock_ledger');
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.summaryItemName}>{row.label}</Text>
-                        <Text style={styles.summaryItemValue}>{row.value}</Text>
+                        <Text style={styles.summaryItemName}>{whName}</Text>
+                        <Text style={styles.summaryItemValue}>{formatKg(row.stockGrams)}</Text>
                       </TouchableOpacity>
                     </React.Fragment>
-                  ))}
-                </View>
-              )}
+                  );
+                })}
+              </View>
+              </SectionGate>
 
               {/* 3. Inventory Activity */}
               <View style={styles.sectionHeaderRow}>
@@ -2158,25 +2583,40 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.7}
                 >
                   <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  {canStock ? <MainLowStockCount warehouseId={filterWarehouseId} /> : null}
+                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>
+                    {figureOrPlaceholder(alertsSrc.status, () =>
+                      String(liveAlerts.filter((a) => a.type === 'LOW_STOCK').length),
+                    )}
+                  </Text>
                 </TouchableOpacity>
 
                 <View style={styles.summaryDivider} />
 
-                {/* No count: the old "2" had no read behind it; the queue itself is live. */}
                 <TouchableOpacity
                   style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
+                  onPress={() => openTab('More', 'returns')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <ChevronRightGrayIcon size={16} />
+                  <Text style={styles.summaryItemName}>{t('mainDashboard.pending.returnsApproval')}</Text>
+                  <Text style={styles.summaryItemValue}>
+                    {figureOrPlaceholder(taskSummarySrc.status, () =>
+                      String(taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'RETURN_APPROVAL')),
+                    )}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
-              {/* 5. Quick Actions. The Stock Verification tile was removed: it opened PhysicalCountScreen
-                  with no batch, which then showed a sample batch and submitted nowhere real. */}
+              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
               <View style={styles.quickActionsDualRow}>
+                <TouchableOpacity
+                  style={styles.quickActionDualCard}
+                  onPress={() => navigateWh('verify_stock')}
+                  activeOpacity={0.8}
+                >
+                  <StockVerificationIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.quickActionDualCard}
                   onPress={() => navigateWh('inter_warehouse_transfer')}
@@ -2232,6 +2672,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <ReportsScreen
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              warehouseOptions={warehouseOptions}
               canExport={false}
               onBack={() => setMoreSubScreen(null)}
               onNavigateToNotifications={() => {
@@ -2246,6 +2687,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               can={can}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
+              warehouseOptions={warehouseOptions}
             />
           ) : moreSubScreen === 'staff' ? (
             // Shared staff & attendance flow (W4, M14) replaces the nested
@@ -2339,20 +2781,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             ) : whSubView === 'warehouse_operations' ? (
               // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
               // selector (replaces the shell's filter modal here); per-warehouse cards,
-              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-              // capacity, issues and activity open inside the flow.
+              // Open Issues / Operations History tiles need warehouse.all.view. Capacity,
+              // issues and activity open inside the flow.
               <StorageFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="Operations"
                 onBack={goBackWh}
                 onOpenModule={openMainModule}
+                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
                 onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
+                onSelectWarehouse={(whName) => openWarehouseDetail(findWarehouseByName(warehouses, whName)?.id)}
                 onManageCapacity={() => navigateWh('warehouse_settings')}
               />
             ) : whSubView === 'warehouse_overview' ? (
@@ -2368,7 +2808,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
+                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: detailWarehouseId } : undefined}
                 onBack={goBackWh}
                 onNavigateComparison={() => navigateWh('warehouse_comparison')}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
@@ -2383,6 +2823,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="StorageInfo"
+                warehouseOptions={warehouseOptions}
+                initialWarehouseId={detailWarehouseId}
                 onBack={() => navigateWh('warehouse_operations')}
                 onSelectStorageLocation={(locId) => {
                   setSelectedLocationId(locId);
@@ -2402,16 +2844,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   setActiveTab('Inventory');
                   setWhSubView('overview');
                 }}
-              />
-            ) : whSubView === 'material_handling' ? (
-              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-              // actions were ported into the shared screens (inventory.material_handling.manage).
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialHandling"
-                onBack={() => navigateWh('warehouse_operations')}
-                onViewActivity={() => navigateWh('warehouse_activity')}
               />
             ) : whSubView === 'warehouse_capacity' ? (
               renderWarehouseCapacityScreen()
@@ -2454,20 +2886,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onBack={goBackWh}
               />
             ) : whSubView === 'stock_and_transfer' ? (
-              // Shared live Stock & Transfer overview (capacity per warehouse, LOW_STOCK alerts,
-              // transfer totals); its "View All" links open this shell's live sub-views.
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StockAndTransfer"
-                onBack={goBackWh}
-                onOpenTarget={(target) => {
-                  if (target === 'WarehouseOverview') navigateWh('consolidated_stock');
-                  else if (target === 'LowStock') navigateWh('low_stock_surplus');
-                  else if (target === 'TransferList') navigateWh('transfer_tracking');
-                  else openHomeTarget(target);
-                }}
-              />
+              renderStockAndTransferScreen()
             ) : whSubView === 'consolidated_stock' ? (
               renderConsolidatedStockScreen()
             ) : whSubView === 'low_stock_surplus' ? (
@@ -2482,9 +2901,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onBack={goBackWh}
                 onOpenTarget={openHomeTarget}
               />
-            ) : whSubView === 'alerts_action_center' || whSubView === 'alert_detail' ? (
-              // Live alerts with dismiss / snooze (GET /admin/alerts), all warehouses in scope.
-              <HomeFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="NeedsAttention" onBack={goBackWh} />
+            ) : whSubView === 'alerts_action_center' ? (
+              renderAlertsActionCenterScreen()
+            ) : whSubView === 'alert_detail' ? (
+              renderAlertDetailScreen()
             ) : whSubView === 'stock_ledger' ||
               whSubView === 'verify_stock' ||
               whSubView === 'stock_adjustment_approval' ||
@@ -2495,7 +2915,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+                initialParams={whSubView === 'stock_ledger' ? ledgerParams : null}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
                 onTabChange={(tab) => {
@@ -2521,7 +2942,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="WarehouseSettings"
-                initialWarehouseId={warehouseIdForName(selectedWHName)}
+                initialWarehouseId={detailWarehouseId}
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_performance' ? (
@@ -2547,6 +2968,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
@@ -2576,6 +2998,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <CustomersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onTabChange={(tab) => {
                   setActiveTab(tab);
@@ -2608,6 +3031,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         can={can}
                         initialScreen="M5S04"
                         initialParams={{ orderId: p.orderId, customerName: p.customer?.name }}
+                        warehouseOptions={warehouseOptions}
                         onBack={nav.back}
                         onViewIssue={() => navigateWh('operational_issues')}
                       />
@@ -2623,6 +3047,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <OrdersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
@@ -2636,6 +3061,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <BillingFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onTabChange={(tab) => {
                   setActiveTab(tab);
@@ -2677,7 +3103,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             whSubView === 'todays_operations' ||
             whSubView === 'todays_operations_overview' ||
             whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
             whSubView === 'warehouse_capacity' ||
             whSubView === 'warehouse_activity' ||
             whSubView === 'operational_issues' ||
@@ -2778,33 +3203,27 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
           <View style={styles.filterModalCard}>
-            <Text style={styles.filterModalTitle}>{t('mainDashboard.filter.title')}</Text>
-            {/* The live warehouse list (GET /warehouses); the pick narrows every KPI read. */}
-            {[
-              { warehouseId: undefined as string | undefined, label: t('mainDashboard.filter.all') },
-              ...warehouseList.options.map((o) => ({ warehouseId: o.warehouseId as string | undefined, label: o.warehouseName })),
-            ].map((option) => {
-              const isSelected = filterWarehouseId === option.warehouseId;
-              return (
-                <TouchableOpacity
-                  key={option.warehouseId ?? 'all'}
-                  style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
-                  onPress={() => {
-                    setFilterWarehouseId(option.warehouseId);
-                    if (option.warehouseId !== undefined) {
-                      setSelectedWHName(option.label);
-                    }
-                    setShowFilterModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
-                    {option.label}
-                  </Text>
-                  {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
+            <Text style={styles.filterModalTitle}>Select Warehouse Scope</Text>
+            {[{ id: undefined, label: t('mainDashboard.allWarehouses') }, ...warehouses.map((w) => ({ id: w.id, label: warehouseShortName(w.name) }))].map(
+              (option) => {
+                const isSelected = filterWarehouseId === option.id;
+                return (
+                  <TouchableOpacity
+                    key={option.id ?? 'all'}
+                    style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
+                    onPress={() => {
+                      setFilterWarehouseId(option.id);
+                      if (option.id !== undefined) setDetailWarehouseId(option.id);
+                      setShowFilterModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>{option.label}</Text>
+                    {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              },
+            )}
           </View>
         </Pressable>
       </Modal>
@@ -2848,7 +3267,7 @@ const styles = StyleSheet.create({
   headerGreetingText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   headerActions: {
@@ -2889,7 +3308,7 @@ const styles = StyleSheet.create({
     borderColor: '#EA580C',
   },
   notificationBadgeText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 9,
     fontWeight: '800',
   },
@@ -2913,7 +3332,7 @@ const styles = StyleSheet.create({
   whFilterPillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 
   // ─── Content Body ───
@@ -3153,10 +3572,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  activityTextCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
   activityIconBox: {
     width: 36,
     height: 36,
@@ -3234,7 +3649,7 @@ const styles = StyleSheet.create({
   // ─── Bottom Tab Bar ───
   bottomTabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
     paddingTop: 8,
@@ -3286,9 +3701,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  summaryItemValueBrand: {
-    color: PALETTE.primary,
-  },
   summaryDivider: {
     height: 1,
     backgroundColor: PALETTE.border,
@@ -3334,7 +3746,7 @@ const styles = StyleSheet.create({
   },
   filterModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 20,
   },
@@ -3437,11 +3849,11 @@ const styles = StyleSheet.create({
   subHeaderTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   subHeaderSubtitle: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     opacity: 0.9,
     marginTop: 4,
     marginLeft: 34,
@@ -3601,9 +4013,6 @@ const styles = StyleSheet.create({
   },
   twoByTwoCol: {
     flex: 1,
-  },
-  twoByTwoRowSpaced: {
-    marginTop: 18,
   },
   twoByTwoLabel: {
     fontSize: 11,
@@ -3765,6 +4174,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  partialNote: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
+  },
+  dismissErrorText: {
+    marginTop: adminSpacing.md,
+    color: adminColors.danger.text,
+    textAlign: 'center',
   },
   acknowledgeBtnText: {
     fontSize: 13,

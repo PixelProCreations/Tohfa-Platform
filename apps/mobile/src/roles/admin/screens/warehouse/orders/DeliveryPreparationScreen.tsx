@@ -13,14 +13,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-import {
-  adminColors,
-  adminType,
-  adminRadius,
-  adminSpacing,
-  adminShadow,
-  ADMIN_BUTTON_HEIGHT,
-} from '../../../theme';
+import { adminColors } from '../../../theme';
 import { SAMPLE_DELIVERY_ORDER_ID, SAMPLE_DELIVERY_PREP } from './fixtures';
 import type { OrderScreenBaseProps } from './types';
 

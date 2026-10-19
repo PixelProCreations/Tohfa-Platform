@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { authPalette as P, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';
 import { listFarmAssets, type FarmAssetResponse } from '../../../api/farmAssets';

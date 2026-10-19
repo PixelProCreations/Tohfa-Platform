@@ -10,10 +10,10 @@
  *   - Needs Attention: the newest OPEN issues, and over-capacity when the
  *     capacity read says so (a fact, not a threshold);
  *   - Recent Activity: the newest events of the feed.
- * The old material-item, staff-present, receiving / verification counts and
+ * The old staff-present, receiving / verification counts and
  * per-warehouse cards were fixed numbers and are gone.
  *
- * Areas that can be hidden (../availability.ts) stay gated: tiles into them
+ * Areas gated in ../availability.ts stay gated: tiles into them
  * carry an `area` and are filtered on isAreaAvailable; links drawn outside the
  * tile arrays go through `*Link` aliases that are undefined when the area is
  * hidden; and the data of a hidden area is not fetched at all.
@@ -30,7 +30,6 @@ import { countLabel, toCapacityView, type ActivityRow } from './mappers';
 import {
   AlertCircleIcon,
   ChevronRightIcon,
-  ClipboardIcon,
   DonutIcon,
   HistoryIcon,
   ReceiveGoodsIcon,
@@ -57,7 +56,6 @@ const UNRESOLVED = ['OPEN', 'IN_PROGRESS'] as const;
 
 export interface WarehouseOperationsScreenProps extends WarehouseScreenBaseProps {
   warehouse: StorageWarehouse;
-  onOpenMaterials: () => void;
   onOpenCapacity: () => void;
   onOpenIssues: () => void;
   /** Warehouse Activity on a preset ('Today' = Today's Operational Status). */
@@ -77,7 +75,6 @@ export function WarehouseOperationsScreen({
   onBack,
   onTabChange,
   warehouse,
-  onOpenMaterials,
   onOpenCapacity,
   onOpenIssues,
   onOpenActivity,
@@ -95,12 +92,10 @@ export function WarehouseOperationsScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const materialsAvailable = isAreaAvailable('materialHandling', can);
   const issuesAvailable = isAreaAvailable('operationalIssues', can);
   const activityAvailable = isAreaAvailable('warehouseActivity', can);
   const shown = (item: AreaTagged) => item.area === undefined || isAreaAvailable(item.area, can);
   // Links drawn outside the tile arrays; undefined when the area is hidden.
-  const materialsLink = materialsAvailable ? onOpenMaterials : undefined;
   const issuesLink = issuesAvailable ? onOpenIssues : undefined;
   const activityLink = activityAvailable ? onOpenActivity : undefined;
   const selectActivityLink = activityAvailable ? onSelectActivity : undefined;
@@ -131,9 +126,6 @@ export function WarehouseOperationsScreen({
 
   const quickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: t('storageOps.hub.action.locations'), icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    ...(materialsLink
-      ? [{ label: t('storageOps.hub.action.materials'), icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: materialsLink }]
-      : []),
     { label: t('storageOps.hub.action.capacity'), icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: t('storageOps.hub.action.issues'), icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues, area: 'operationalIssues' },
     { label: t('storageOps.hub.action.receive'), icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },

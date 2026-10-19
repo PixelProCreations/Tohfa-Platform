@@ -1,6 +1,7 @@
 /**
  * Warehouse reference data the admin screens read (docs/openapi.yaml tag
  * Inventory):
+ *   GET /warehouses                          warehouse.all.view   (Main only; Sub = none)
  *   GET /warehouses/{id}                     warehouse.own.view   (BR-30, BR-66; Sub = own)
  *   GET /warehouses/{id}/capacity            warehouse.own.view   (BR-30, BR-66; Sub = own)
  *   GET /warehouses/{id}/storage-locations   inventory.batch.view (BR-30, BR-79; Sub = own)
@@ -14,6 +15,10 @@
  * PATCH .../capacity (warehouse.capacity.set) and the storage-location writes
  * (warehouse.storage_location.manage) are all `none` for a Sub admin, and the
  * Main admin's settings come in a later phase.
+ *
+ * The list pages by number too (`WarehouseList`: items, page, pageSize,
+ * total; pageSize at most 100). It is the Main admin's warehouse selector and
+ * network views; a Sub admin cannot call it.
  *
  * Storage locations page by number (`StorageLocationList`: items, page,
  * pageSize, total), not by cursor. A Sub admin asking for another warehouse
@@ -62,7 +67,11 @@ export interface WarehouseCapacityDto {
   utilizationPercent: number | null;
 }
 
-/** Every problem code the three warehouse read routes document (401, 403, 404, 422, 500). */
+/**
+ * Every problem code the three warehouse read routes document (401, 403, 404,
+ * 422, 500). The list route documents 400 (BAD_REQUEST) instead of 404 and 422;
+ * a screen treats an unknown code as a generic failure.
+ */
 export const ERROR_CODES: readonly GenericProblemCode[] = [
   'UNAUTHENTICATED',
   'FORBIDDEN',
@@ -119,6 +128,32 @@ export function listStorageLocations(
     `${warehousePath(warehouseId)}/storage-locations`,
     {
       q: params.q,
+      isActive: params.isActive === undefined ? undefined : String(params.isActive),
+      page: params.page,
+      pageSize: params.pageSize,
+    },
+    signal,
+  );
+}
+
+export interface ListWarehousesParams {
+  q?: string | undefined;
+  type?: 'MAIN' | 'SUB' | undefined;
+  isActive?: boolean | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+}
+
+/** Every warehouse in the network (GET /warehouses, warehouse.all.view). */
+export function listWarehouses(
+  params: ListWarehousesParams = {},
+  signal?: AbortSignal,
+): Promise<OffsetPage<WarehouseDto>> {
+  return adminGet<OffsetPage<WarehouseDto>>(
+    '/warehouses',
+    {
+      q: params.q,
+      type: params.type,
       isActive: params.isActive === undefined ? undefined : String(params.isActive),
       page: params.page,
       pageSize: params.pageSize,

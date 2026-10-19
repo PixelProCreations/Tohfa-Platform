@@ -1,9 +1,17 @@
 /**
- * Which warehouse areas the app offers at all (owner decision 2 in the API
- * integration plan): the areas in AREAS_WITHOUT_API have no server API, so they are hidden for
- * every warehouse admin; Staff is offered only with `admin.staff.list_view`,
- * which docs/rbac.json grants MAIN_WH_ADMIN (own) and not SUB_WH_ADMIN (none).
- * The grants used here are the ones generated from rbac.json (demoGrants.ts).
+ * Which warehouse areas the app offers at all. Owner decision (2026-10-14):
+ * nothing is hidden for having no server API. The one exception is order
+ * delivery, hidden because the business supports warehouse pickup only
+ * (BR-21; docs/rules.md open contradiction 3). Material handling was deleted
+ * outright (product decision 2026-10-14), so it is no area at all. Invoice
+ * generation, order cancellation, order issues and the order stock check have
+ * no API and are offered like every other area with no API. Areas that now
+ * have a live API (issues, activity, documents, transfers, stock counts, stock
+ * adjustments, the order invoice) are offered on the view permission that API
+ * enforces, as Staff is on `admin.staff.list_view` (docs/rbac.json grants it
+ * MAIN_WH_ADMIN own and SUB_WH_ADMIN none): real permission rules, not
+ * no-API hides. The grants used here are the ones generated from rbac.json
+ * (demoGrants.ts).
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
@@ -33,35 +41,44 @@ const mainCan = makeCan(DEMO_ROLE_PERMISSIONS.MAIN_WH_ADMIN);
 const allowAll = () => true;
 
 describe('AREAS_WITHOUT_API', () => {
-  it('lists exactly the areas the server has no API for (transfers, stock adjustments and stock counts are live now)', () => {
-    expect([...AREAS_WITHOUT_API].sort()).toEqual(
-      [
-        // Phase 7: there is no create-invoice route; sales and orders issue
-        // invoices, so the Generate Invoice picker, wizard and result are hidden.
-        'invoiceGeneration',
-        'materialHandling',
-        // operationalIssues (BR-103) and warehouseActivity (BR-104) are live:
-        // gated on warehouse.issue.view / warehouse.activity.view below.
-        // warehouseDocuments is live (BR-105): gated on warehouse.document.view below.
-        // stockAdjustments (BR-37) and stockCounts (BR-107) are live: gated on
-        // inventory.stock_adjustment.create / inventory.stock_verification.perform below.
-        // Phase 5: there is no admin cancel route, no admin order-issue route, no
-        // stock-check endpoint, delivery dispatch is not enabled in Track 1 (BR-21;
-        // no delivery-partner list, no address in the admin detail).
-        // orderInvoices is live (M5S18): gated on invoice.view_own below.
-        'orderCancellation',
-        'orderIssues',
-        'orderStockCheck',
-        'orderDelivery',
-      ].sort(),
-    );
+  it('hides only order delivery: owner decision 2026-10-14 is to hide nothing for having no server API', () => {
+    expect(AREAS_WITHOUT_API).toEqual(['orderDelivery']);
   });
 
-  it('each is unavailable whatever the permissions, for Sub and Main alike', () => {
-    for (const area of AREAS_WITHOUT_API) {
-      expect({ area, any: isAreaAvailable(area, allowAll) }).toEqual({ area, any: false });
-      expect({ area, sub: isAreaAvailable(area, subCan) }).toEqual({ area, sub: false });
-      expect({ area, main: isAreaAvailable(area, mainCan) }).toEqual({ area, main: false });
+  it('BR-21: order delivery is hidden whatever the permissions, for Sub and Main alike (pickup only)', () => {
+    expect(isAreaAvailable('orderDelivery', allowAll)).toBe(false);
+    expect(isAreaAvailable('orderDelivery', subCan)).toBe(false);
+    expect(isAreaAvailable('orderDelivery', mainCan)).toBe(false);
+  });
+
+  it('every area with no server API is available, for Sub and Main alike', () => {
+    const areasWithNoApi: WarehouseArea[] = [
+      'invoiceGeneration',
+      'orderCancellation',
+      'orderIssues',
+      'orderStockCheck',
+    ];
+    for (const area of areasWithNoApi) {
+      expect({ area, any: isAreaAvailable(area, allowAll) }).toEqual({ area, any: true });
+      expect({ area, sub: isAreaAvailable(area, subCan) }).toEqual({ area, sub: true });
+      expect({ area, main: isAreaAvailable(area, mainCan) }).toEqual({ area, main: true });
+    }
+  });
+
+  it('every area with a live API is available to Sub and Main with the demo grants', () => {
+    const liveAreas: WarehouseArea[] = [
+      'interWarehouseTransfers',
+      'operationalIssues',
+      'warehouseActivity',
+      'warehouseDocuments',
+      'stockAdjustments',
+      'stockCounts',
+      'orderInvoices',
+    ];
+    for (const area of liveAreas) {
+      expect({ area, any: isAreaAvailable(area, allowAll) }).toEqual({ area, any: true });
+      expect({ area, sub: isAreaAvailable(area, subCan) }).toEqual({ area, sub: true });
+      expect({ area, main: isAreaAvailable(area, mainCan) }).toEqual({ area, main: true });
     }
   });
 });
@@ -156,11 +173,8 @@ describe('operational issues and warehouse activity (live, BR-103 / BR-104)', ()
 });
 
 describe('storageRouteArea', () => {
-  it('maps the storage-ops routes of hidden areas to their area', () => {
+  it('maps the storage-ops routes of gated areas to their area', () => {
     const expected: Record<string, WarehouseArea> = {
-      MaterialHandling: 'materialHandling',
-      MaterialDetail: 'materialHandling',
-      AddMaterial: 'materialHandling',
       OperationalIssues: 'operationalIssues',
       OperationalIssueDetail: 'operationalIssues',
       Activity: 'warehouseActivity',
@@ -220,12 +234,13 @@ describe('inventoryRouteArea', () => {
 });
 
 describe('billingRouteArea', () => {
-  it('maps the invoice generation routes (no create-invoice API, phase 7) to invoiceGeneration', () => {
+  it('maps the invoice generation routes to invoiceGeneration, which is offered: owner decision 2026-10-14 hides nothing for having no server API', () => {
     for (const route of ['GenerateInvoice', 'InvoiceWizard', 'InvoiceGenerated']) {
       expect({ route, area: billingRouteArea(route) }).toEqual({ route, area: 'invoiceGeneration' });
     }
-    expect(isAreaAvailable('invoiceGeneration', subCan)).toBe(false);
-    expect(isAreaAvailable('invoiceGeneration', mainCan)).toBe(false);
+    expect(isAreaAvailable('invoiceGeneration', allowAll)).toBe(true);
+    expect(isAreaAvailable('invoiceGeneration', subCan)).toBe(true);
+    expect(isAreaAvailable('invoiceGeneration', mainCan)).toBe(true);
   });
 
   it('leaves the read-only invoice routes with an API ungated', () => {
@@ -236,7 +251,7 @@ describe('billingRouteArea', () => {
 });
 
 describe('ordersRouteArea', () => {
-  it('maps the order routes with no API to their area', () => {
+  it('maps the order routes with no API to their area (all offered except delivery, BR-21)', () => {
     const expected: Record<string, WarehouseArea> = {
       M5S05: 'orderStockCheck', // stock check + shortage
       M5S13: 'orderDelivery', // delivery preparation
@@ -245,11 +260,13 @@ describe('ordersRouteArea', () => {
       M5S17: 'orderCancellation', // cancel order
     };
     for (const [route, area] of Object.entries(expected)) {
+      // Delivery is the one hidden order area (BR-21, pickup only).
+      const offered = area !== 'orderDelivery';
       expect({ route, area: ordersRouteArea(route) }).toEqual({ route, area });
       expect({ route, sub: isAreaAvailable(area, subCan), main: isAreaAvailable(area, mainCan) }).toEqual({
         route,
-        sub: false,
-        main: false,
+        sub: offered,
+        main: offered,
       });
     }
   });

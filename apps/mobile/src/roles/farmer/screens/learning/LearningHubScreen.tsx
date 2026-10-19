@@ -96,20 +96,6 @@ function BookOpenIcon({ size = 20, color = colors.brandGreen }: { size?: number;
   );
 }
 
-function CheckmarkIcon({ size = 13, color = P.greenDeep1 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 6L9 17L4 12"
-        stroke={color}
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -282,50 +268,6 @@ const BLOG_ARTICLES: BlogArticle[] = [
   },
 ];
 
-interface FarmerGroup {
-  id: string;
-  name: string;
-  membersCount: number;
-  activity: string;
-  category: string;
-  isJoined?: boolean;
-}
-
-const INITIAL_GROUPS: FarmerGroup[] = [
-  {
-    id: 'g-1',
-    name: 'Nilgiris Carrot Cultivators',
-    membersCount: 142,
-    activity: '12 messages today',
-    category: 'Root Vegetables',
-    isJoined: true,
-  },
-  {
-    id: 'g-2',
-    name: 'Organic Bio-Fertilizer Makers',
-    membersCount: 89,
-    activity: '5 messages today',
-    category: 'Organic Inputs',
-    isJoined: true,
-  },
-  {
-    id: 'g-3',
-    name: 'Terraced Drip & Irrigation Network',
-    membersCount: 215,
-    activity: '28 messages today',
-    category: 'Water Tech',
-    isJoined: false,
-  },
-  {
-    id: 'g-4',
-    name: 'Pesticide-Free Certification Circle',
-    membersCount: 64,
-    activity: '3 messages yesterday',
-    category: 'Standards',
-    isJoined: false,
-  },
-];
-
 interface TrainingWorkshop {
   id: string;
   title: string;
@@ -386,7 +328,6 @@ interface LearningHubScreenProps {
 export function LearningHubScreen({
   onBack,
   onNavigateToContentDetail,
-  onNavigateToGroups,
   onNavigateToGroupDetail,
 }: LearningHubScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabType>('Videos');

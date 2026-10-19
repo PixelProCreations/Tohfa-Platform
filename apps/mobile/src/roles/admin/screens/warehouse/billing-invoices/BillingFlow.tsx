@@ -23,9 +23,11 @@
  * invoice number gets "not found", not a request.
  *
  * Invoice generation has no API (there is no create-invoice route; sales and
- * orders issue invoices): GenerateInvoice, InvoiceWizard and InvoiceGenerated
- * are refused (availability.ts billingRouteArea, 'invoiceGeneration'), and a
- * host that opens one lands on the hub. The screens stay in the code.
+ * orders issue invoices). GenerateInvoice, InvoiceWizard and InvoiceGenerated
+ * map to the 'invoiceGeneration' area (availability.ts billingRouteArea), which
+ * is offered under the owner decision of 2026-10-14 (nothing is hidden for
+ * having no API); they show sample data. If the area is ever withdrawn, a host
+ * that opens one of them lands on the hub.
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';

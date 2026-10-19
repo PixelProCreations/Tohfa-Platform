@@ -1,6 +1,6 @@
 /**
  * Shared types for the warehouse storage-ops screens (design module M4).
- * Part A: material handling, storage location detail / assignment, capacity
+ * Part A: storage location detail / assignment, capacity
  * and (Main only) warehouse performance. Part B: operational issues, the
  * report-issue form, warehouse activity and the operations hub.
  *
@@ -11,7 +11,6 @@
  * every action again (CLAUDE.md 2.1).
  *
  * Permissions:
- *   - Materials (no API, hidden): `inventory.material_handling.manage`.
  *   - Storage locations: read `inventory.batch.view` (SUB own); create / edit
  *     `warehouse.storage_location.manage` (SUB none).
  *   - Storage location assignment: `inventory.batch.assign` (MAIN all, SUB all).
@@ -30,52 +29,6 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 export type { StorageLocationItem, StorageType } from '../profile-settings/types';
-
-/** Stock state of a material, also the Material Handling filter chips (besides 'All'). */
-export type MaterialStatus = 'Available' | 'Low Stock' | 'Out of Stock';
-
-/** Material Handling filter chips. */
-export type MaterialFilter = 'All' | MaterialStatus;
-
-/** One warehouse material (packaging, crates, labels...). Mock data until an endpoint exists. */
-export interface MaterialItem {
-  id: string;
-  name: string;
-  code: string;
-  category: string;
-  unit: string;
-  warehouseId: string;
-  /** Storage location id (profile-settings STORAGE_LOCATIONS) or a free-text area. */
-  storageLocation: string;
-  current: number;
-  reserved: number;
-  status: MaterialStatus;
-  lastUpdated: string;
-}
-
-/** One movement in a material's history (Issued / Received). */
-export interface MaterialHistoryEntry {
-  id: string;
-  materialId: string;
-  kind: 'Issued' | 'Received';
-  quantity: number;
-  detail: string;
-  by: string;
-  at: string;
-}
-
-/** One option of the Add Material picker. */
-export interface MaterialOption {
-  name: string;
-  category: string;
-}
-
-/** Today's material movement counts of one warehouse (Material Handling KPI tiles). */
-export interface MaterialDaySummary {
-  warehouseId: string;
-  issuedToday: number;
-  receivedToday: number;
-}
 
 /** Severity of an operational issue (absorbed Main Report Operational Issue form). */
 export type IssueSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
@@ -96,7 +49,6 @@ export type ActivityModule =
   | 'receiving'
   | 'storage'
   | 'verification'
-  | 'material_handling'
   | 'operational_issue'
   | 'orders'
   | 'cash'
@@ -108,9 +60,6 @@ export type ActivityPreset = 'Today' | 'All';
 
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
-  | 'MaterialHandling'
-  | 'MaterialDetail'
-  | 'AddMaterial'
   | 'StorageLocationDetail'
   | 'StorageLocationAssignment'
   | 'Capacity'
@@ -139,7 +88,6 @@ export interface StorageRouteParams {
   issueCategory?: string | undefined;
   /** Request Submitted: the id the form returned (an operational issue's number). */
   submittedId?: string | undefined;
-  materialId?: string | undefined;
   locationId?: string | undefined;
   /** Storage Location Assignment: the batch being put away. */
   batchId?: string | undefined;

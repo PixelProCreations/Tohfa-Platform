@@ -11,8 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { colors } from '../../../farmer/theme';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
 
 // ─── Design Tokens (Matching Screen 11 Mockup) ────────────────────────────────
@@ -200,7 +199,6 @@ export interface FarmerAdminDashboardScreenProps {
 
 export function FarmerAdminDashboardScreen({
   onSignOut,
-  onNavigate,
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>('Dashboard');
   const [user, setUser] = useState<UserMe | null>(null);

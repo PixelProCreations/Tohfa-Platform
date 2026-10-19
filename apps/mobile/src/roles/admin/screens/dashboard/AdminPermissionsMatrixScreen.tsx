@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  FlatList,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,11 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
-  AdminRoleType,
 } from './CreateAdminAccountScreen';
 
 function CheckIcon({ color = ADMIN_PALETTE.successText, size = 16 }: { color?: string; size?: number }) {
@@ -60,8 +58,6 @@ export interface AdminPermissionsMatrixScreenProps {
 }
 
 export function AdminPermissionsMatrixScreen({ onBack }: AdminPermissionsMatrixScreenProps) {
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<'ALL' | AdminRoleType>('ALL');
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />

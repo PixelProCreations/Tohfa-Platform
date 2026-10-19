@@ -16,7 +16,7 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
-import { extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
+import { formatErrorMessage } from '../../../../../shell/api/client';
 import {
   createProductionLog,
   listAnimals,

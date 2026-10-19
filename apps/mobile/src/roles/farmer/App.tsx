@@ -377,8 +377,6 @@ export type ScreenName =
   | 'SubWarehouseWarehouseOperations'
   | 'SubWarehouseWarehouseActivity'
   | 'SubWarehouseStorageLocationDetail'
-  | 'SubWarehouseMaterialHandling'
-  | 'SubWarehouseMaterialDetail'
   | 'SubWarehouseCapacity'
   | 'SubWarehouseOperationalIssues'
   | 'SubWarehouseReportIssue'
@@ -544,7 +542,6 @@ export type ScreenName =
   | 'SubWarehouseVoucherDetail'
   | 'SubWarehouseTodayOperations'
   | 'SubWarehouseActivityDetail'
-  | 'SubWarehouseAddMaterial'
   | 'PestManagement'
   | 'PestLibrary'
   | 'TreatmentSchedule'
@@ -659,8 +656,7 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
 /**
  * Legacy Sub storage-ops route keys -> shared StorageFlow routes (W4, M4 part
  * A). `back` is where the old screen's back button went when the key is the
- * first screen of the flow. Add Material needs inventory.material_handling.manage;
- * StorageFlow and the screen check it.
+ * first screen of the flow.
  */
 const STORAGE_ROUTE_ENTRY: Partial<
   Record<
@@ -673,12 +669,9 @@ const STORAGE_ROUTE_ENTRY: Partial<
     }
   >
 > = {
-  // Part B: the Warehouse Operations hub; its materials / capacity / issues /
+  // Part B: the Warehouse Operations hub; its capacity / issues /
   // activity tiles open inside the flow, the rest leave through onOpenModule.
   SubWarehouseWarehouseOperations: { route: 'Operations', back: 'SubWarehouseAdminDashboard', backParams: { initialTab: 'More' } },
-  SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
-  SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
-  SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseStorageLocationDetail: { route: 'StorageLocationDetail', back: 'SubWarehouseStorageInfo' },
   SubWarehouseCapacity: { route: 'Capacity', back: 'SubWarehouseWarehouseOperations' },
   // Part B: operational issues. Report an Issue / Request Submitted need
@@ -954,7 +947,6 @@ export default function App(): React.JSX.Element {
   const storageParams = useMemo<StorageRouteParams>(
     () => ({
       ...STORAGE_ROUTE_ENTRY[screen]?.params,
-      materialId: stringParam(params['materialId']),
       locationId: stringParam(params['locationId']),
       issueId: stringParam(params['issueId']),
       // Old callers passed the whole activity row; the flow wants its id.
@@ -2198,14 +2190,14 @@ export default function App(): React.JSX.Element {
         ) : screen === 'FairPriceCeiling' ? (
           <FairPriceCeilingScreen
             onBack={goBack}
-            onUpdatePrice={(_item) => navigate('UpdateFairPrice')}
+            onUpdatePrice={() => navigate('UpdateFairPrice')}
             onBulkUpdate={() => navigate('BulkPriceUpdate')}
-            onViewHistory={(_item) => navigate('PriceHistory')}
+            onViewHistory={() => navigate('PriceHistory')}
           />
         ) : screen === 'UpdateFairPrice' ? (
           <UpdateFairPriceScreen
             onBack={goBack}
-            onSave={(_newPrice) => {
+            onSave={() => {
               // Save logic here
               goBack();
             }}
@@ -2222,18 +2214,18 @@ export default function App(): React.JSX.Element {
           <MarketDayScheduleScreen
             onBack={goBack}
             onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={(_id, _value) => {
+            onToggle={() => {
               // Handle toggle
             }}
             days={MOCK_DAYS}
-            onDaysChange={(_updatedDays) => {
+            onDaysChange={() => {
               // Handle days change
             }}
           />
         ) : screen === 'AddMarketDay' ? (
           <AddMarketDayScreen
             onBack={goBack}
-            onSave={(_marketDay) => {
+            onSave={() => {
               // Save market day logic here
               navigate('MarketDaySchedule');
             }}
@@ -2241,13 +2233,13 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ListingApprovalQueue' ? (
           <ListingApprovalQueueScreen
             onBack={goBack}
-            onApprove={(_id) => {
+            onApprove={() => {
               // Handle approve
             }}
-            onCounter={(_id) => {
+            onCounter={() => {
               // Handle counter
             }}
-            onReject={(_id) => {
+            onReject={() => {
               // Handle reject
             }}
           />

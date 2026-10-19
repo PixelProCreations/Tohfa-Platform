@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Dimensions,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -140,7 +138,6 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('Last Month');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
-  const categories: AnalyticsCategory[] = ['Farmers', 'Customers', 'Warehouses', 'Sales'];
   const timeframes: TimeframeOption[] = ['Last Month', 'This Quarter', 'FY 2026-27'];
 
   const categoryOptions: {
