@@ -80,3 +80,24 @@ describe('BR-78: dismissing an alert', () => {
     expect(MAIN).not.toContain('Alert Acknowledged');
   });
 });
+
+describe('weights are integers and money is paise (root CLAUDE.md 2.2; BR-66b)', () => {
+  it('the screen does no float weight math: no Number(), parseFloat or toLocaleString on a quantity', () => {
+    expect(MAIN).not.toMatch(/Number\(\s*\w+\.(qty\w*|acceptedQtyKg|rejectedQtyKg|capacityKg)/);
+    expect(MAIN).not.toContain('toLocaleString');
+    expect(MAIN).not.toContain('parseFloat');
+    expect(MAIN).not.toMatch(/\.toFixed\(/);
+  });
+
+  it('BR-66b: capacity is not clamped (no Math.max(0, capacity - used)) and the figures come from deriveStockFigures', () => {
+    expect(MAIN).not.toMatch(/Math\.max\(\s*0,\s*total/);
+    expect(MAIN).toContain('deriveStockFigures(batches, warehouses)');
+    expect(MAIN).toContain('stockFig.capacity.availableGrams');
+  });
+
+  it('a malformed revenue is an error state, never a silent Rs 0', () => {
+    expect(MAIN).not.toContain("'₹0'");
+    expect(MAIN).not.toMatch(/catch \{\s*return '/);
+    expect(MAIN).toContain('derivedSource(revenueD');
+  });
+});

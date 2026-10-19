@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
-import { combineSources, sectionStatus, type QueryLike, type SectionStatus } from './mappers_mainDashboard';
+import { combineSources, sectionStatus, type Derived, type QueryLike, type SectionStatus } from './mappers_mainDashboard';
 
 /** One query a section depends on: its status, what it threw, and how to run it again. */
 export interface SectionSource {
@@ -24,6 +24,29 @@ export function sourceOf(query: QueryLike & { refetch: () => unknown }): Section
     retry: () => {
       void query.refetch();
     },
+  };
+}
+
+/**
+ * A failed derivation (a malformed quantity or amount from the server) as a
+ * source: error, like a failed request, so the figure is never shown as 0.
+ * `retry` reloads the data the figure came from.
+ */
+export function derivedSource(derived: Derived<unknown> | null, retry: () => void): SectionSource {
+  return {
+    status: derived !== null && !derived.ok ? 'error' : 'ready',
+    // Not an ApiError or NetworkError, so adminErrorKey words it as the generic admin error.
+    error: derived !== null && !derived.ok ? new Error('dashboard data') : null,
+    retry,
+  };
+}
+
+/** Several sources as one: ready when all are, error when one failed, Retry on the failed ones. */
+export function mergeSources(...sources: SectionSource[]): SectionSource {
+  return {
+    status: statusOf(sources),
+    error: sources.find((s) => s.status === 'error')?.error ?? null,
+    retry: () => retryFailed(sources),
   };
 }
 

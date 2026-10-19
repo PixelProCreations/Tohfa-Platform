@@ -681,6 +681,12 @@
   "customers.wallet.detail.warehouse": "Warehouse",
   "customers.wallet.detail.reference": "Reference ID",
 
+  "mainDashboard.noWarehouses": "No warehouses",
+  "mainDashboard.kpi.inStock": "in stock",
+  "mainDashboard.kpi.receivedToday": "received today",
+  "mainDashboard.comparison.stat": "{{stock}} · {{utilization}} cap",
+  "mainDashboard.comparison.statNoCapacity": "{{stock}} · capacity not set",
+  "mainDashboard.warehouse.unknown": "Unknown warehouse",
   "mainDashboard.alert.dismiss": "Dismiss for me",
   "mainDashboard.alert.dismissing": "Dismissing…",
   "mainDashboard.alert.dismissed.title": "Alert dismissed",

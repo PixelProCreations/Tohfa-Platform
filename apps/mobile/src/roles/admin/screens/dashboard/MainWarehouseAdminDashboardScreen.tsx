@@ -56,13 +56,23 @@ import { listAdminOrders } from '../../api/orders';
 import { dismissAlert, listAlerts } from '../../api/alerts';
 import { getTaskSummary, listTasks } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
-import { formatPaise } from '../../money/paise';
 import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
-import { SectionGate, retryFailed, sourceOf } from './MainDashboardParts';
+import { SectionGate, derivedSource, mergeSources, retryFailed, sourceOf } from './MainDashboardParts';
 import { adminErrorKey } from '../../api/errors';
 import { t } from '../../i18n';
-import { figureOrPlaceholder } from './mappers_mainDashboard';
-import { parseMoney, toPaise } from '@tohfa/shared-types';
+import {
+  EMPTY_RECEIPT_FIGURES,
+  EMPTY_STOCK_FIGURES,
+  FIGURE_PLACEHOLDER,
+  deriveReceiptFigures,
+  deriveStockFigures,
+  barWidthPercent,
+  capacityLevel,
+  figureOrPlaceholder,
+  formatUtilization,
+  salesRevenueText,
+} from './mappers_mainDashboard';
+import { formatKg } from '../../money/quantity';
 
 /**
  * Receiving tab entry keys. Every key except the transfer ones opens the
@@ -747,8 +757,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
-  const homeKpiSources = [batchesSrc, receiptsSrc, openTasksSrc, ordersSrc, salesSrc, alertsSrc];
-  const inventoryKpiSources = [batchesSrc, receiptsSrc, alertsSrc];
 
   const alertsList: WarehouseAlertItem[] = useMemo(() => {
     return liveAlerts.map((a) => {
@@ -792,88 +800,33 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     goBackWh();
   };
 
-  const totalStockKg = useMemo(() => {
-    return batches
-      .filter((b) => b.status === 'ACTIVE')
-      .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
-  }, [batches]);
+  // Every figure comes from the pure derivations in ./mappers_mainDashboard.ts:
+  // weights as integer grams, money as integer paise, capacity never clamped
+  // (BR-66b). A malformed value from the server makes that derivation fail,
+  // which draws the same error state a failed request does, never a zero.
+  const stockD = useMemo(() => deriveStockFigures(batches, warehouses), [batches, warehouses]);
+  const stockFig = stockD.ok ? stockD.value : EMPTY_STOCK_FIGURES;
+  const receiptsD = useMemo(() => deriveReceiptFigures(goodsReceipts), [goodsReceipts]);
+  const receiptFig = receiptsD.ok ? receiptsD.value : EMPTY_RECEIPT_FIGURES;
+  const revenueD = useMemo(() => (salesSummary === undefined ? null : salesRevenueText(salesSummary)), [salesSummary]);
+  const salesRevenueLabel = revenueD !== null && revenueD.ok ? revenueD.value : FIGURE_PLACEHOLDER;
 
-  const incomingTodayKg = useMemo(() => {
-    return goodsReceipts
-      .filter((g) => g.receivedAt?.slice(0, 10) === todayIso)
-      .reduce((sum, g) => sum + Number(g.acceptedQtyKg || 0), 0);
-  }, [goodsReceipts, todayIso]);
+  // A section's source: its queries plus the derivation built from them.
+  const stockSrc = mergeSources(
+    warehousesSrc,
+    batchesSrc,
+    derivedSource(stockD, () => {
+      void warehousesQuery.refetch();
+      void batchesQuery.refetch();
+    }),
+  );
+  const receiptsFigSrc = mergeSources(receiptsSrc, derivedSource(receiptsD, () => void goodsReceiptsQuery.refetch()));
+  const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
 
-  const salesRevenueText = useMemo(() => {
-    if (!salesSummary) return '₹0';
-    try {
-      const paise = toPaise(parseMoney(String(salesSummary.revenue || '0')));
-      return formatPaise(paise);
-    } catch {
-      return '₹0';
-    }
-  }, [salesSummary]);
+  const homeKpiSources = [stockSrc, receiptsFigSrc, openTasksSrc, ordersSrc, revenueSrc, alertsSrc];
+  const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
 
-  const totalReceiptsKg = useMemo(() => {
-    return goodsReceipts.reduce((sum, g) => sum + Number(g.acceptedQtyKg || 0), 0);
-  }, [goodsReceipts]);
-
-  const totalCapacityKg = useMemo(() => {
-    return warehouses.reduce((sum, w) => sum + Number(w.capacityKg || 0), 0);
-  }, [warehouses]);
-
-  const availableCapacityKg = useMemo(() => {
-    return Math.max(0, totalCapacityKg - totalStockKg);
-  }, [totalCapacityKg, totalStockKg]);
-
-  const overallUtilizationPct = useMemo(() => {
-    if (totalCapacityKg <= 0) return '0%';
-    return `${Math.min(100, Math.round((totalStockKg / totalCapacityKg) * 100))}%`;
-  }, [totalCapacityKg, totalStockKg]);
-
-  const qualityIssuesCount = useMemo(() => {
-    return (
-      goodsReceipts.filter((g) => Number(g.rejectedQtyKg || 0) > 0 || g.status === 'REJECTED').length +
-      openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').length
-    );
-  }, [goodsReceipts, openTasks]);
-
-  const consolidatedProducts = useMemo(() => {
-    const map = new Map<string, Map<string, number>>();
-    for (const b of batches) {
-      if (b.status !== 'ACTIVE') continue;
-      const crop = b.cropName || 'Produce';
-      if (!map.has(crop)) {
-        map.set(crop, new Map<string, number>());
-      }
-      const whMap = map.get(crop)!;
-      const wh = warehouses.find((w) => w.id === b.warehouseId);
-      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (b.warehouseId || 'Unknown');
-      whMap.set(whName, (whMap.get(whName) || 0) + Number(b.qtyAvailableKg || 0));
-    }
-
-    const result: Array<{
-      product: string;
-      rows: Array<{ wh: string; kg: string }>;
-      total: string;
-    }> = [];
-
-    map.forEach((whMap, product) => {
-      const rows: Array<{ wh: string; kg: string }> = [];
-      let totalKg = 0;
-      whMap.forEach((kg, wh) => {
-        totalKg += kg;
-        rows.push({ wh, kg: `${kg.toLocaleString()} KG` });
-      });
-      result.push({
-        product,
-        rows,
-        total: `${totalKg.toLocaleString()} KG`,
-      });
-    });
-
-    return result;
-  }, [batches, warehouses]);
+  const qualityIssuesCount = receiptFig.discrepancies + openTasks.filter((task) => task.type === 'GOODS_RECEIPT_QC').length;
 
   const lowStockItems = useMemo(() => {
     const alerts = liveAlerts.filter((a) => a.type === 'LOW_STOCK');
@@ -1047,29 +1000,28 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <SectionGate sources={[warehousesSrc, batchesSrc, receiptsSrc, alertsSrc]}>
-          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
-          {warehouses.map((wh) => {
-            const whName = wh.name.replace(/ Warehouse$/, '');
-            const capKg = Number(wh.capacityKg || 0);
-            const whBatches = batches.filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE');
-            const whStockKg = whBatches.reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
-            const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
-            const capLabel = `${util}%`;
-            const capBg = util >= 90 ? PALETTE.redBg : util >= 75 ? PALETTE.amberBg : PALETTE.greenBg;
-            const capColor = util >= 90 ? PALETTE.red : util >= 75 ? PALETTE.amber : PALETTE.greenText;
-            const progColor = util >= 90 ? PALETTE.red : PALETTE.primary;
-            const progWidth = `${Math.min(100, Math.max(0, util))}%` as const;
-            const stockStr = whStockKg >= 1000 ? `${(whStockKg / 1000).toFixed(1)}T` : `${whStockKg} KG`;
-            const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === wh.id).length;
-            const issuesCount = liveAlerts.filter((a) => a.warehouseId === wh.id).length;
+          <SectionGate sources={[stockSrc, receiptsSrc, alertsSrc]}>
+          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {stockFig.warehouses.map((row) => {
+            const level = capacityLevel(row.utilizationBp);
+            const capLabel = row.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(row.utilizationBp);
+            const capBg =
+              level === 'danger' ? PALETTE.redBg : level === 'warn' ? PALETTE.amberBg : level === 'ok' ? PALETTE.greenBg : PALETTE.borderLight;
+            const capColor =
+              level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.amber : level === 'ok' ? PALETTE.greenText : PALETTE.textMuted;
+            const progColor = level === 'danger' ? PALETTE.red : PALETTE.primary;
+            const progWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
+            const stockStr = formatKg(row.stockGrams);
+            const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === row.warehouseId).length;
+            const issuesCount = liveAlerts.filter((a) => a.warehouseId === row.warehouseId).length;
+            const whName = row.name;
 
             return (
               <TouchableOpacity
-                key={wh.id}
+                key={row.warehouseId}
                 style={styles.whOverviewCard}
                 onPress={() => {
-                  setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                  setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
                   navigateWh('warehouse_city_detail');
                 }}
                 activeOpacity={0.8}
@@ -1180,19 +1132,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
 
-          <SectionGate sources={[warehousesSrc, batchesSrc]}>
-          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
+          <SectionGate sources={[stockSrc]}>
+          {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           <View style={styles.comparisonCard}>
-            {warehouses.map((wh, idx) => {
-              const whName = wh.name.replace(/ Warehouse$/, '');
-              const capKg = Number(wh.capacityKg || 0);
-              const whStockKg = batches
-                .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
-                .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
-              const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
-              const comparisonStat = `${whStockKg.toLocaleString()} KG · ${util}% cap`;
+            {stockFig.warehouses.map((row, idx) => {
+              const whName = row.name;
+              const comparisonStat =
+                row.utilizationBp === null
+                  ? t('mainDashboard.comparison.statNoCapacity', { stock: formatKg(row.stockGrams) })
+                  : t('mainDashboard.comparison.stat', {
+                      stock: formatKg(row.stockGrams),
+                      utilization: formatUtilization(row.utilizationBp),
+                    });
               return (
-                <React.Fragment key={wh.id}>
+                <React.Fragment key={row.warehouseId}>
                   {idx > 0 && <View style={styles.rowDivider} />}
                   <View style={styles.comparisonRow}>
                     <Text style={styles.comparisonWhName}>{whName}</Text>
@@ -1245,16 +1198,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
 
-          <SectionGate sources={[receiptsSrc, salesSrc, openTasksSrc, taskSummarySrc]}>
+          <SectionGate sources={[receiptsFigSrc, revenueSrc, openTasksSrc, taskSummarySrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
-                <Text style={styles.twoByTwoVal}>{totalReceiptsKg.toLocaleString()} KG</Text>
+                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.acceptedGrams)}</Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Sales Today</Text>
-                <Text style={styles.twoByTwoVal}>{salesRevenueText}</Text>
+                <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
               </View>
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
@@ -1311,16 +1264,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
 
-          <SectionGate sources={[warehousesSrc, batchesSrc]}>
+          <SectionGate sources={[stockSrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
-                <Text style={styles.twoByTwoVal}>{totalStockKg.toLocaleString()} KG</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.warehousesWithCapacity === 0 ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.usedGrams)}
+                </Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
-                <Text style={styles.twoByTwoVal}>{availableCapacityKg.toLocaleString()} KG</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.availableGrams === null ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.availableGrams)}
+                </Text>
               </View>
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
@@ -1330,7 +1287,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Utilization</Text>
-                <Text style={styles.twoByTwoVal}>{overallUtilizationPct}</Text>
+                <Text style={styles.twoByTwoVal}>
+                  {stockFig.capacity.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(stockFig.capacity.utilizationBp)}
+                </Text>
               </View>
             </View>
           </View>
@@ -1363,7 +1322,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
 
           <SectionGate sources={[warehousesSrc]}>
-          {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
+          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {warehouses.map((wh) => {
             const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
             const baseName = wh.name.replace(/ Warehouse$/, '');
@@ -1686,19 +1645,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
-          <SectionGate sources={[warehousesSrc, batchesSrc]}>
+          <SectionGate sources={[stockSrc]}>
           <View style={styles.stockTableCard}>
-            {warehouses.map((wh, idx) => {
-              const whName = wh.name.replace(/ Warehouse$/, '');
-              const whStockKg = batches
-                .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
-                .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+            {stockFig.warehouses.map((row, idx) => {
               return (
-                <React.Fragment key={wh.id}>
+                <React.Fragment key={row.warehouseId}>
                   {idx > 0 && <View style={styles.stockTableRowDivider} />}
                   <View style={styles.stockTableRow}>
-                    <Text style={styles.stockTableLabel}>{whName}</Text>
-                    <Text style={styles.stockTableVal}>{whStockKg.toLocaleString()} KG</Text>
+                    <Text style={styles.stockTableLabel}>{row.name}</Text>
+                    <Text style={styles.stockTableVal}>{formatKg(row.stockGrams)}</Text>
                   </View>
                 </React.Fragment>
               );
@@ -1706,7 +1661,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableTotalLabel}>Total</Text>
-              <Text style={styles.stockTableTotalVal}>{totalStockKg.toLocaleString()} KG</Text>
+              <Text style={styles.stockTableTotalVal}>{formatKg(stockFig.totalGrams)}</Text>
             </View>
           </View>
           </SectionGate>
@@ -1792,7 +1747,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderConsolidatedStockScreen = () => {
-    const filteredProducts = consolidatedProducts.filter(
+    const filteredProducts = stockFig.products.filter(
       (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
     );
 
@@ -1821,23 +1776,23 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </View>
 
           {/* Product Cards */}
-          <SectionGate sources={[batchesSrc, warehousesSrc]}>
+          <SectionGate sources={[stockSrc]}>
           {filteredProducts.map((p) => (
-            <View key={p.product} style={styles.consolidatedProductCard}>
+            <View key={p.cropId} style={styles.consolidatedProductCard}>
               <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
               {p.rows.map((row) => (
-                <View key={row.wh}>
+                <View key={row.warehouseId}>
                   <View style={styles.stockTableRowDivider} />
                   <View style={styles.stockTableRow}>
-                    <Text style={styles.stockTableLabel}>{row.wh}</Text>
-                    <Text style={styles.stockTableVal}>{row.kg}</Text>
+                    <Text style={styles.stockTableLabel}>{row.warehouse}</Text>
+                    <Text style={styles.stockTableVal}>{formatKg(row.grams)}</Text>
                   </View>
                 </View>
               ))}
               <View style={styles.stockTableRowDivider} />
               <View style={styles.stockTableRow}>
                 <Text style={styles.stockTableTotalLabel}>Total</Text>
-                <Text style={styles.stockTableTotalVal}>{p.total}</Text>
+                <Text style={styles.stockTableTotalVal}>{formatKg(p.totalGrams)}</Text>
               </View>
             </View>
           ))}
@@ -2113,18 +2068,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(batchesSrc.status, () => totalStockKg.toLocaleString())}
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG</Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.inStock')}</Text>
                 </View>
 
                 {/* Incoming Goods */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsSrc.status, () => incomingTodayKg.toLocaleString())}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG today</Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
                 </View>
 
                 {/* Pending Transfers */}
@@ -2154,7 +2109,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.75}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{figureOrPlaceholder(salesSrc.status, () => salesRevenueText)}</Text>
+                  <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
                   <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
@@ -2188,23 +2143,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
 
               {/* Warehouse Progress Cards */}
-              <SectionGate sources={[warehousesSrc, batchesSrc]}>
-              {warehouses.length === 0 ? <AdminEmptyState title="No warehouses" /> : null}
-              {warehouses.slice(0, 4).map((wh) => {
-                const whName = wh.name.replace(/ Warehouse$/, '');
-                const capKg = Number(wh.capacityKg || 0);
-                const whStockKg = batches
-                  .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
-                  .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
-                const util = capKg > 0 ? Math.min(100, Math.round((whStockKg / capKg) * 100)) : 0;
-                const fillWidth = `${Math.min(100, Math.max(0, util))}%` as const;
-                const fillColor = util >= 90 ? PALETTE.red : util >= 75 ? PALETTE.goldProgress : PALETTE.greenProgress;
+              <SectionGate sources={[stockSrc]}>
+              {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+              {stockFig.warehouses.map((row) => {
+                const whName = row.name;
+                const level = capacityLevel(row.utilizationBp);
+                const fillWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
+                const fillColor = level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.goldProgress : PALETTE.greenProgress;
                 return (
                   <TouchableOpacity
-                    key={wh.id}
+                    key={row.warehouseId}
                     style={styles.whProgressCard}
                     onPress={() => {
-                      setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                      setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
                       navigateWh('warehouse_city_detail');
                     }}
                     activeOpacity={0.8}
@@ -2223,7 +2174,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsSrc, ordersSrc, openTasksSrc]}>
+              <SectionGate sources={[receiptsFigSrc, ordersSrc, openTasksSrc]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2237,13 +2188,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => g.status === 'AWAITING_QC').length}</Text>
+                      Expected <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Arrived <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => g.status === 'ACCEPTED' || g.status === 'PARTIALLY_ACCEPTED').length}</Text>
+                      Arrived <Text style={styles.operationsMetricBold}>{receiptFig.arrived}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Discrepancies <Text style={styles.operationsMetricRed}>{goodsReceipts.filter((g) => g.status === 'REJECTED' || Number(g.rejectedQtyKg || 0) > 0).length}</Text>
+                      Discrepancies <Text style={styles.operationsMetricRed}>{receiptFig.discrepancies}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2284,10 +2235,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                       Pending <Text style={styles.operationsMetricBold}>{openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Damage <Text style={styles.operationsMetricBold}>{goodsReceipts.filter((g) => Number(g.rejectedQtyKg || 0) > 0).length}</Text>
+                      Damage <Text style={styles.operationsMetricBold}>{receiptFig.damaged}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Rejected <Text style={styles.operationsMetricRed}>{goodsReceipts.filter((g) => g.status === 'REJECTED').length}</Text>
+                      Rejected <Text style={styles.operationsMetricRed}>{receiptFig.rejected}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2520,7 +2471,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(batchesSrc.status, () => `${totalStockKg.toLocaleString()} KG`)}
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
@@ -2535,7 +2486,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsSrc.status, () => `${incomingTodayKg.toLocaleString()} KG`)}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
@@ -2550,14 +2501,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(
-                      batchesSrc.status,
-                      () =>
-                        `${batches
-                          .filter((b) => b.status === 'ACTIVE')
-                          .reduce((sum, b) => sum + Number(b.qtyReservedKg || 0), 0)
-                          .toLocaleString()} KG`,
-                    )}
+                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.reservedGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
@@ -2594,26 +2538,23 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View →</Text>
                 </TouchableOpacity>
               </View>
-              <SectionGate sources={[warehousesSrc, batchesSrc]}>
+              <SectionGate sources={[stockSrc]}>
               <View style={styles.summaryListCard}>
-                {warehouses.map((wh, idx) => {
-                  const whName = wh.name.replace(/ Warehouse$/, '');
-                  const whStockKg = batches
-                    .filter((b) => b.warehouseId === wh.id && b.status === 'ACTIVE')
-                    .reduce((sum, b) => sum + Number(b.qtyAvailableKg || 0), 0);
+                {stockFig.warehouses.map((row, idx) => {
+                  const whName = row.name;
                   return (
-                    <React.Fragment key={wh.id}>
+                    <React.Fragment key={row.warehouseId}>
                       {idx > 0 && <View style={styles.summaryDivider} />}
                       <TouchableOpacity
                         style={styles.summaryItemRow}
                         onPress={() => {
-                          setSelectedWHName(wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`);
+                          setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
                           navigateWh('stock_ledger');
                         }}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.summaryItemName}>{whName}</Text>
-                        <Text style={styles.summaryItemValue}>{whStockKg.toLocaleString()} KG</Text>
+                        <Text style={styles.summaryItemValue}>{formatKg(row.stockGrams)}</Text>
                       </TouchableOpacity>
                     </React.Fragment>
                   );
