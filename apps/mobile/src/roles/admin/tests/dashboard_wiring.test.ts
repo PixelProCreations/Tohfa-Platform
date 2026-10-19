@@ -15,15 +15,15 @@ import * as path from 'node:path';
 const SRC = path.join(__dirname, '..', '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
 
-const DASHBOARD_FILE = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const DASHBOARD_FILE = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 
 describe('Dashboard Wiring & Live Task Actions (BR-77, BR-78)', () => {
   it('BR-77: imports task API and mappers in SubWarehouseAdminDashboardScreen', () => {
-    expect(DASHBOARD_FILE).toContain("from '../../admin/api/tasks'");
+    expect(DASHBOARD_FILE).toContain("from '../../api/tasks'");
     expect(DASHBOARD_FILE).toContain('getTaskSummary');
     expect(DASHBOARD_FILE).toContain('listTasks');
     expect(DASHBOARD_FILE).toContain('markTaskDone');
-    expect(DASHBOARD_FILE).toContain("from '../../admin/screens/warehouse/dashboard-home-more/mappers_tasks'");
+    expect(DASHBOARD_FILE).toContain("from '../warehouse/dashboard-home-more/mappers_tasks'");
     expect(DASHBOARD_FILE).toContain('summarizeTaskCounts');
     expect(DASHBOARD_FILE).toContain('mapTaskDestination');
     expect(DASHBOARD_FILE).toContain('mapTaskBadgeLabel');

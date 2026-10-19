@@ -36,7 +36,7 @@ function moreMenuKeys(): string[] {
   const keys = [...block.matchAll(/navigate\('([A-Za-z]+)'\)/g)].map((m) => m[1] as string);
 
   const shellSource = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'subwarehouse', 'screens', 'SubWarehouseAdminDashboardScreen.tsx'),
+    path.join(__dirname, '..', '..', 'admin', 'screens', 'dashboard', 'SubWarehouseAdminDashboardScreen.tsx'),
     'utf8',
   );
   const shellStart = shellSource.indexOf('<MoreScreen');

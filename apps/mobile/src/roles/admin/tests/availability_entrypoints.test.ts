@@ -17,7 +17,7 @@ import * as path from 'node:path';
 const SRC = path.join(__dirname, '..', '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
 
-const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');
 const ORDER_ISSUE = read('roles/admin/screens/warehouse/orders/OrderIssueScreen.tsx');
 const WAREHOUSE_INFO = read('roles/admin/screens/warehouse/profile-settings/WarehouseInfoScreen.tsx');

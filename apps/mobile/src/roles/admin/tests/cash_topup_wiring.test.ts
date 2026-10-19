@@ -49,7 +49,7 @@ const TYPES = read(`${WALLET}/types.ts`);
 const API = read('roles/admin/api/wallet.ts');
 const DETAILS = read('roles/admin/screens/warehouse/customers/CustomerDetailsScreen.tsx');
 const CUSTOMERS_FLOW = read('roles/admin/screens/warehouse/customers/CustomersFlow.tsx');
-const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');
 
 /** The body of a top-level function declaration (up to the next top-level declaration). */

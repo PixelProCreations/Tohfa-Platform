@@ -13,68 +13,68 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, type UserMe } from '../../farmer/api/auth';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
   ReceivingFlow,
   receivingRouteFor,
   type ReceivingRoute,
   type ReceivingRouteParams,
-} from '../../admin/screens/warehouse/receiving-qc';
+} from '../warehouse/receiving-qc';
 import {
   NotificationsFlow,
   useUnreadNotificationCount,
   type NotificationsRoute,
   type NotificationsRouteParams,
-} from '../../admin/screens/warehouse/notifications';
-import { ReportsScreen } from '../../admin/screens/warehouse/reports';
-import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
-import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
+} from '../warehouse/notifications';
+import { ReportsScreen } from '../warehouse/reports';
+import { SalesFlow } from '../warehouse/sales-direct';
+import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import {
   HOME_CODES,
   HomeFlow,
   MoreScreen,
   type HomeRoute,
   type HomeRouteParams,
-} from '../../admin/screens/warehouse/dashboard-home-more';
+} from '../warehouse/dashboard-home-more';
 import {
   CustomersFlow,
   type CustomersRoute,
   type CustomersRouteParams,
-} from '../../admin/screens/warehouse/customers';
-import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
-import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
+} from '../warehouse/customers';
+import { BillingFlow } from '../warehouse/billing-invoices';
+import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../warehouse/staff-attendance';
 import {
   StorageFlow,
   type ActivityModule,
   type StorageRoute,
   type StorageRouteParams,
-} from '../../admin/screens/warehouse/storage-ops';
+} from '../warehouse/storage-ops';
 import {
   ExpenseDetailScreen,
   FinanceFlow,
   type PermissionCheck,
   type WarehouseScope,
-} from '../../admin/screens/warehouse/finance-expenses';
-import { ProfileFlow, type ProfileRoute } from '../../admin/screens/warehouse/profile-settings';
-import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
-import { OrdersFlow } from '../../admin/screens/warehouse/orders';
+} from '../warehouse/finance-expenses';
+import { ProfileFlow, type ProfileRoute } from '../warehouse/profile-settings';
+import { InventoryFlow } from '../warehouse/inventory';
+import { OrdersFlow } from '../warehouse/orders';
 import {
   ReturnsFlow,
   type ReturnsRoute,
   type ReturnsRouteParams,
   type ReturnsStackEntry,
-} from '../../admin/screens/warehouse/returns-rma';
+} from '../warehouse/returns-rma';
 // Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
-import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
-import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../admin/api/hooks';
-import { adminKeys } from '../../admin/api/queryKeys';
+import { isAreaAvailable } from '../warehouse/availability';
+import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
 import {
   getTaskSummary,
   listTasks,
   markTaskDone,
   type TaskItemDto,
   type TaskType,
-} from '../../admin/api/tasks';
+} from '../../api/tasks';
 import {
   formatTaskDetails,
   formatTaskDue,
@@ -83,26 +83,26 @@ import {
   mapTaskDestination,
   summarizeTaskCounts,
   type SummarizedTaskCounts,
-} from '../../admin/screens/warehouse/dashboard-home-more/mappers_tasks';
-import { getSalesSummary } from '../../admin/api/sales';
-import { getDailyCashSummary } from '../../admin/api/finance';
-import { mapDailyCashSummary } from '../../admin/screens/warehouse/finance-expenses/mappers';
-import { formatPaise } from '../../admin/money/paise';
+} from '../warehouse/dashboard-home-more/mappers_tasks';
+import { getSalesSummary } from '../../api/sales';
+import { getDailyCashSummary } from '../../api/finance';
+import { mapDailyCashSummary } from '../warehouse/finance-expenses/mappers';
+import { formatPaise } from '../../money/paise';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../../admin/screens/warehouse/shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 // Recent Activity (live feed, BR-104): the admin activity client and the shared dashboard mappers.
-import { queryViewState } from '../../admin/screens/warehouse/shared/queryViewState';
+import { queryViewState } from '../warehouse/shared/queryViewState';
 import {
   useWarehouseActivityFeed,
   useWarehouseProfile,
-} from '../../admin/screens/warehouse/dashboard-home-more/useDashboardHomeData';
-import { countLabel, gramsLabel, moneyLabel } from '../../admin/screens/warehouse/dashboard-home-more/mappers_dashboardKpis';
+} from '../warehouse/dashboard-home-more/useDashboardHomeData';
+import { countLabel, gramsLabel, moneyLabel } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
 import {
   useAllocationDashboard,
   useLowStockAlerts,
   useStockSummary,
-} from '../../admin/screens/warehouse/inventory/useInventoryData';
-import { formatAdminDay } from '../../admin/utils/datetime';
+} from '../warehouse/inventory/useInventoryData';
+import { formatAdminDay } from '../../utils/datetime';
 import {
   ACTIVITY_DATE_FILTERS,
   ACTIVITY_DATE_LABEL,
@@ -112,16 +112,16 @@ import {
   istDateString,
   type ActivityDateFilter,
   type ActivityTypeFilter,
-} from '../../admin/screens/warehouse/dashboard-home-more/mappers_dashboardHome';
+} from '../warehouse/dashboard-home-more/mappers_dashboardHome';
 import {
   ChipGroup,
   StatusBadge,
   WalletButton,
   WalletScreen,
   walletLayout,
-} from '../../admin/screens/warehouse/wallet-cashtopup/WalletParts';
-import { t } from '../../admin/i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../admin/theme';
+} from '../warehouse/wallet-cashtopup/WalletParts';
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
