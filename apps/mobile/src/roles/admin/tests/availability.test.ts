@@ -3,11 +3,12 @@
  * nothing is hidden for having no server API. The one exception is order
  * delivery, hidden because the business supports warehouse pickup only
  * (BR-21; docs/rules.md open contradiction 3). Material handling was deleted
- * outright (product decision 2026-10-14), so it is no area at all.
- * Staff is still offered only with `admin.staff.list_view`, which
- * docs/rbac.json grants MAIN_WH_ADMIN (own) and not SUB_WH_ADMIN (none); that
- * is a real permission rule, not a no-API hide. The grants used here are the
- * ones generated from rbac.json (demoGrants.ts).
+ * outright (product decision 2026-10-14), so it is no area at all. Invoice
+ * generation, which has no create-invoice route, is offered like every other
+ * area with no API. Staff is still offered only with `admin.staff.list_view`,
+ * which docs/rbac.json grants MAIN_WH_ADMIN (own) and not SUB_WH_ADMIN (none);
+ * that is a real permission rule, not a no-API hide. The grants used here are
+ * the ones generated from rbac.json (demoGrants.ts).
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
@@ -43,6 +44,7 @@ describe('AREAS_WITHOUT_API', () => {
 
   it('every area but staff and order delivery is available whatever the permissions, for Sub and Main alike', () => {
     const areasWithNoApiPreviously: WarehouseArea[] = [
+      'invoiceGeneration',
       'interWarehouseTransfers',
       'operationalIssues',
       'warehouseActivity',
@@ -137,12 +139,13 @@ describe('inventoryRouteArea', () => {
 });
 
 describe('billingRouteArea', () => {
-  it('maps the invoice generation routes (no create-invoice API, phase 7) to invoiceGeneration', () => {
+  it('maps the invoice generation routes to invoiceGeneration, which is offered: owner decision 2026-10-14 hides nothing for having no server API', () => {
     for (const route of ['GenerateInvoice', 'InvoiceWizard', 'InvoiceGenerated']) {
       expect({ route, area: billingRouteArea(route) }).toEqual({ route, area: 'invoiceGeneration' });
     }
-    expect(isAreaAvailable('invoiceGeneration', subCan)).toBe(false);
-    expect(isAreaAvailable('invoiceGeneration', mainCan)).toBe(false);
+    expect(isAreaAvailable('invoiceGeneration', allowAll)).toBe(true);
+    expect(isAreaAvailable('invoiceGeneration', subCan)).toBe(true);
+    expect(isAreaAvailable('invoiceGeneration', mainCan)).toBe(true);
   });
 
   it('leaves the read-only invoice routes with an API ungated', () => {

@@ -49,13 +49,13 @@ import {
 } from '../warehouse/notifications';
 import { useAdminMutation, useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
-import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
-import { listBatches, type BatchDto } from '../../api/inventory';
-import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
-import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
-import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
-import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
-import { getSalesSummary, type SalesDashboardSummaryDto } from '../../api/sales';
+import { listWarehouses } from '../../api/warehouses';
+import { listBatches } from '../../api/inventory';
+import { listGoodsReceipts } from '../../api/receiving';
+import { listAdminOrders } from '../../api/orders';
+import { dismissAlert, listAlerts } from '../../api/alerts';
+import { getTaskSummary, listTasks } from '../../api/tasks';
+import { getSalesSummary } from '../../api/sales';
 import { formatPaise } from '../../money/paise';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 
@@ -291,24 +291,11 @@ function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; colo
   );
 }
 
-function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 13h4l2 3h4l2-3h4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M12 7v5M9 9.5l3 3 3-3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 8h.01M12 12v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }

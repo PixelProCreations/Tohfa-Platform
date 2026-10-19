@@ -1,7 +1,8 @@
 /**
  * Design samples for the billing screens that have no API: the invoice
- * generation picker, wizard and result (availability.ts 'invoiceGeneration';
- * there is no create-invoice route). The live hub, list and detail read
+ * generation picker, wizard and result (availability.ts 'invoiceGeneration',
+ * offered under the owner decision of 2026-10-14; there is no create-invoice
+ * route). The live hub, list and detail read
  * GET /invoices (plan phase 7) and import nothing from here.
  */
 import type {
