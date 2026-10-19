@@ -712,6 +712,7 @@
   "mainDashboard.transfer.empty.title": "No transfers",
   "mainDashboard.transfer.empty.subtitle": "There are no inter-warehouse transfers yet.",
   "mainDashboard.kpi.notYetReceived": "not yet received",
+  "mainDashboard.allWarehouses": "All Warehouses",
   "mainDashboard.noWarehouses": "No warehouses",
   "mainDashboard.kpi.inStock": "in stock",
   "mainDashboard.kpi.receivedToday": "received today",

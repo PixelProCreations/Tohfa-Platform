@@ -15,6 +15,8 @@ import { TRANSFER_STATUSES, type WarehouseTransferDto } from '../api/warehouseTr
 import type { Page } from '../../../shell/api/pagination';
 import type { WarehouseDto } from '../api/warehouses';
 import { formatKg } from '../money/quantity';
+import { WAREHOUSE_SETTINGS, PROFILE_WAREHOUSES } from '../screens/warehouse/profile-settings/warehouseFixtures';
+import { ADMIN_WAREHOUSES, WAREHOUSE_ADMIN_ROWS } from '../screens/warehouse/warehouse-admin/fixtures';
 import {
   FIGURE_PLACEHOLDER,
   attempt,
@@ -29,10 +31,13 @@ import {
   receiptsOnDay,
   toDashboardAlerts,
   toLowStockItems,
+  toWarehouseOptions,
   toRecentActivity,
   deriveReceiptFigures,
   deriveStockFigures,
   figureOrPlaceholder,
+  findWarehouseByName,
+  fixtureWarehouseId,
   formatUtilization,
   salesRevenueText,
   sectionStatus,
@@ -698,5 +703,78 @@ describe('countLabel: a count that may be partial says so', () => {
     expect(countLabel(12, true)).toBe('12');
     expect(countLabel(12, false)).toBe('12+');
     expect(countLabel(0, true)).toBe('0');
+  });
+});
+
+// ─── Selector flows: live uuids vs the seed codes fixture screens key by ─────
+
+describe('selector ids: a live warehouse resolves on both paths', () => {
+  const OOTY = '5b1f1c1e-0000-4000-8000-000000000001';
+  const COON = '5b1f1c1e-0000-4000-8000-000000000002';
+  const live = [
+    warehouse({ id: OOTY, name: 'Ooty Warehouse', code: 'WH-OOTY' }),
+    warehouse({ id: COON, name: 'Coonoor Warehouse', code: 'WH-COON' }),
+  ];
+
+  it('live-backed flows get the uuid: toWarehouseOptions carries id, name and code, and the selected uuid finds its option', () => {
+    const options = toWarehouseOptions(live);
+    expect(options).toEqual([
+      { warehouseId: OOTY, warehouseName: 'Ooty Warehouse', warehouseCode: 'WH-OOTY' },
+      { warehouseId: COON, warehouseName: 'Coonoor Warehouse', warehouseCode: 'WH-COON' },
+    ]);
+    expect(options.find((o) => o.warehouseId === COON)?.warehouseName).toBe('Coonoor Warehouse');
+  });
+
+  it('fixture-keyed screens get the seed code the live list carries: it resolves in the settings and admin fixtures', () => {
+    const code = fixtureWarehouseId(live.find((w) => w.id === OOTY));
+    expect(code).toBe('WH-OOTY');
+    // WarehouseSettingsScreen: values.find((v) => v.warehouseId === warehouseId)
+    expect(WAREHOUSE_SETTINGS.find((v) => v.warehouseId === code)).toBeDefined();
+    // WarehouseCityDetailScreen: warehouses.find((row) => row.warehouseId === warehouseId)
+    expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === code)).toBeDefined();
+    expect(ADMIN_WAREHOUSES.map((w) => w.warehouseId)).toContain(code);
+  });
+
+  it('regression guard: the uuid does NOT resolve in those fixtures, which is why it must not be passed to them', () => {
+    expect(WAREHOUSE_SETTINGS.find((v) => v.warehouseId === OOTY)).toBeUndefined();
+    expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === OOTY)).toBeUndefined();
+  });
+
+  it('every seed code resolves for every seeded warehouse the fixtures hold', () => {
+    const codes = WAREHOUSE_SETTINGS.map((v) => v.warehouseId);
+    expect(codes.length).toBeGreaterThan(0);
+    for (const [i, code] of codes.entries()) {
+      const w = warehouse({ id: `uuid-${i}`, name: `W${i} Warehouse`, code });
+      expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === fixtureWarehouseId(w))).toBeDefined();
+      expect(PROFILE_WAREHOUSES.find((o) => o.warehouseId === fixtureWarehouseId(w))).toBeDefined();
+    }
+  });
+
+  it('no selected warehouse gives no id', () => {
+    expect(fixtureWarehouseId(undefined)).toBeUndefined();
+  });
+});
+
+describe('findWarehouseByName: StorageFlow hands names back', () => {
+  const live = [
+    warehouse({ id: 'a', name: 'Ooty Warehouse' }),
+    warehouse({ id: 'b', name: 'Gudalur Market Warehouse' }),
+    warehouse({ id: 'c', name: 'Gudalur Warehouse' }),
+  ];
+
+  it('matches the full or the short name, case-insensitively', () => {
+    expect(findWarehouseByName(live, 'Ooty Warehouse')?.id).toBe('a');
+    expect(findWarehouseByName(live, 'ooty')?.id).toBe('a');
+  });
+
+  it('prefers the exact short name over a name that merely starts with it', () => {
+    expect(findWarehouseByName(live, 'Gudalur')?.id).toBe('c');
+    expect(findWarehouseByName(live, 'Gudalur Market')?.id).toBe('b');
+  });
+
+  it('falls back to a prefix match (the labels the storage screens print), and to undefined when nothing matches', () => {
+    expect(findWarehouseByName(live, 'Gud')?.id).toBe('b');
+    expect(findWarehouseByName(live, 'Mettupalayam')).toBeUndefined();
+    expect(findWarehouseByName(live, '')).toBeUndefined();
   });
 });

@@ -25,6 +25,7 @@ import { toBatchRow } from '../warehouse/inventory/mappers';
 import { hasKey, t, type TranslationKey } from '../../i18n';
 import { formatAdminDay, isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
 import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
+import type { WarehouseScope } from '../warehouse/finance-expenses/types';
 import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
 import { queryViewState } from '../warehouse/shared/queryViewState';
 
@@ -666,3 +667,38 @@ export const EMPTY_TRANSFER_FIGURES: TransferFigures = {
   counts: { pendingApproval: 0, inTransit: 0, received: 0, cancelled: 0, unknown: 0, discrepancies: 0, open: 0, exact: true },
   rows: [],
 };
+
+// ─── Warehouse selection ─────────────────────────────────────────────────────
+
+/**
+ * The live warehouses as selector options: the server uuid as `warehouseId`
+ * (what live-backed flows send to the API, BR-30), with its name and code.
+ */
+export function toWarehouseOptions(warehouses: readonly WarehouseDto[]): WarehouseScope[] {
+  return warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name, warehouseCode: w.code }));
+}
+
+/**
+ * The live warehouse a name belongs to, as the storage screens hand names back
+ * ("Ooty Warehouse" or "Ooty"): the exact name first, then the exact short
+ * name, then a prefix of the short name.
+ */
+export function findWarehouseByName(warehouses: readonly WarehouseDto[], name: string): WarehouseDto | undefined {
+  const key = warehouseShortName(name).trim().toLowerCase();
+  if (key === '') return undefined;
+  const exactShort = warehouses.find((w) => warehouseShortName(w.name).toLowerCase() === key);
+  if (exactShort !== undefined) return exactShort;
+  return warehouses.find((w) => warehouseShortName(w.name).toLowerCase().startsWith(key));
+}
+
+/**
+ * The id a fixture-keyed screen expects for a live warehouse. Screens still on
+ * design samples (Warehouse Settings, the City Detail card) key their rows by
+ * the seed code (`WH-OOTY`), not the uuid the API uses, so they are given the
+ * live warehouse's own `code`; the uuid goes only to live-backed flows. A code
+ * the samples do not hold lands on that screen's own not-found state, as any
+ * unknown id does.
+ */
+export function fixtureWarehouseId(warehouse: WarehouseDto | undefined): string | undefined {
+  return warehouse?.code;
+}

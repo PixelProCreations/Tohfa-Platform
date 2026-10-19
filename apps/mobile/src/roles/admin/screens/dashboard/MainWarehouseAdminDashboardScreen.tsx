@@ -68,15 +68,17 @@ import {
   EMPTY_STOCK_FIGURES,
   EMPTY_TRANSFER_FIGURES,
   FIGURE_PLACEHOLDER,
+  barWidthPercent,
+  capacityLevel,
   collectPages,
+  countLabel,
   countOrdersPlacedOn,
   deriveReceiptFigures,
   deriveStockFigures,
   deriveTransfers,
-  barWidthPercent,
-  capacityLevel,
   figureOrPlaceholder,
-  countLabel,
+  findWarehouseByName,
+  fixtureWarehouseId,
   formatUtilization,
   greetingKey,
   openTaskCount,
@@ -85,6 +87,8 @@ import {
   toDashboardAlerts,
   toLowStockItems,
   toRecentActivity,
+  toWarehouseOptions,
+  warehouseShortName,
   type AlertTarget,
   type DashboardAlert,
 } from './mappers_mainDashboard';
@@ -650,14 +654,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
-  const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
+  // The warehouse scope of every Home / Inventory query: a live warehouse uuid, or
+  // undefined for all of them. Selection is kept by uuid, never by display name.
+  const [filterWarehouseId, setFilterWarehouseId] = useState<string | undefined>(undefined);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
-  const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
+  // The warehouse the detail / settings / ledger views open on, and the storage
+  // location opened from the list: nothing until the admin picks one.
+  const [detailWarehouseId, setDetailWarehouseId] = useState<string | undefined>(undefined);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
-  const [alertWhFilter, setAlertWhFilter] = useState('All Warehouses');
+  const [alertWarehouseId, setAlertWarehouseId] = useState<string | undefined>(undefined);
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -700,30 +708,23 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const warehouses = warehousesQuery.data?.items ?? NO_WAREHOUSES;
 
-  const warehouseOptions: readonly WarehouseScope[] = useMemo(() => {
-    return warehouses.map((w) => ({
-      warehouseId: w.id,
-      warehouseName: w.name,
-      warehouseCode: w.code,
-    }));
-  }, [warehouses]);
-
-  const WAREHOUSE_OPTIONS = useMemo(() => {
-    return [
-      'All Warehouses',
-      ...warehouses.map((w) => w.name.replace(/ Warehouse$/, '')),
-    ];
-  }, [warehouses]);
-
-  const warehouseIdForName = (name: string): string | undefined => {
-    const key = name.replace(/ Warehouse$/, '').toLowerCase();
-    return warehouses.find((w) => (w.name ?? '').toLowerCase().startsWith(key))?.id;
+  // Live-backed flows take the uuid (BR-30); screens still on design samples
+  // key their rows by the seed code, so they are given the live code instead.
+  const warehouseOptions: readonly WarehouseScope[] = useMemo(() => toWarehouseOptions(warehouses), [warehouses]);
+  const selectedWarehouseId = filterWarehouseId;
+  const detailWarehouse = warehouses.find((w) => w.id === detailWarehouseId);
+  const detailFixtureId = fixtureWarehouseId(detailWarehouse);
+  const filterWarehouse = warehouses.find((w) => w.id === filterWarehouseId);
+  const filterLabel = filterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(filterWarehouse.name);
+  // Memoised: InventoryFlow restarts its stack whenever initialParams changes identity.
+  const ledgerParams = useMemo(
+    () => (detailWarehouse === undefined ? null : { warehouseName: detailWarehouse.name }),
+    [detailWarehouse],
+  );
+  const openWarehouseDetail = (warehouseId: string | undefined) => {
+    setDetailWarehouseId(warehouseId);
+    navigateWh('warehouse_city_detail');
   };
-
-  const selectedWarehouseId = useMemo(() => {
-    if (selectedWHFilter === 'All Warehouses') return undefined;
-    return warehouseIdForName(selectedWHFilter);
-  }, [selectedWHFilter, warehouses]);
 
   // Live batches (GET /admin/batches): ACTIVE only, every page up to the cap.
   const batchesQuery = useAdminQuery(
@@ -1070,10 +1071,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <TouchableOpacity
                 key={row.warehouseId}
                 style={styles.whOverviewCard}
-                onPress={() => {
-                  setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
-                  navigateWh('warehouse_city_detail');
-                }}
+                onPress={() => openWarehouseDetail(row.warehouseId)}
                 activeOpacity={0.8}
               >
                 <View style={styles.whOverviewHeaderRow}>
@@ -1392,10 +1390,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.manageBtnRow}>
                   <TouchableOpacity
                     style={styles.manageWhActionBtn}
-                    onPress={() => {
-                      setSelectedWHName(displayName);
-                      navigateWh('warehouse_city_detail');
-                    }}
+                    onPress={() => openWarehouseDetail(wh.id)}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.manageWhActionText}>View Details</Text>
@@ -1443,8 +1438,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     // Only the warehouse filter is real: the API has no priority and returns only
     // active alerts, so there are no priority or read-state chips.
     const visibleAlerts = alertsList.filter(
-      (alert) => alertWhFilter === 'All Warehouses' || alert.warehouse === alertWhFilter,
+      (alert) => alertWarehouseId === undefined || alert.warehouseId === alertWarehouseId,
     );
+    const alertFilterWarehouse = warehouses.find((w) => w.id === alertWarehouseId);
+    const alertFilterLabel =
+      alertFilterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(alertFilterWarehouse.name);
 
     return (
       <View style={styles.subScreenContainer}>
@@ -1464,14 +1462,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <TouchableOpacity
               style={styles.actionCenterChip}
               onPress={() => {
-                const whs = WAREHOUSE_OPTIONS;
-                const curIdx = whs.indexOf(alertWhFilter);
-                setAlertWhFilter(whs[(curIdx + 1) % whs.length] ?? 'All Warehouses');
+                // All, then each live warehouse in turn.
+                const ids: (string | undefined)[] = [undefined, ...warehouses.map((w) => w.id)];
+                const next = (ids.indexOf(alertWarehouseId) + 1) % ids.length;
+                setAlertWarehouseId(ids[next]);
               }}
               activeOpacity={0.7}
             >
               <Text style={styles.actionCenterChipText}>
-                {alertWhFilter === 'All Warehouses' ? 'All Warehouses ▾' : `${alertWhFilter} ▾`}
+                {`${alertFilterLabel} ▾`}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2040,7 +2039,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 activeOpacity={0.8}
               >
                 <BuildingWarehouseIcon size={16} color="#FFFFFF" />
-                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
+                <Text style={styles.whFilterPillText}>{filterLabel}</Text>
                 <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -2139,10 +2138,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <TouchableOpacity
                     key={row.warehouseId}
                     style={styles.whProgressCard}
-                    onPress={() => {
-                      setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
-                      navigateWh('warehouse_city_detail');
-                    }}
+                    onPress={() => openWarehouseDetail(row.warehouseId)}
                     activeOpacity={0.8}
                   >
                     <View style={styles.whProgressTopRow}>
@@ -2440,7 +2436,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 activeOpacity={0.8}
               >
                 <BuildingWarehouseIcon size={15} color="#FFFFFF" />
-                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
+                <Text style={styles.whFilterPillText}>{filterLabel}</Text>
                 <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -2537,7 +2533,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                       <TouchableOpacity
                         style={styles.summaryItemRow}
                         onPress={() => {
-                          setSelectedWHName(row.fullName.endsWith('Warehouse') ? row.fullName : `${row.fullName} Warehouse`);
+                          setDetailWarehouseId(row.warehouseId);
                           navigateWh('stock_ledger');
                         }}
                         activeOpacity={0.7}
@@ -2643,6 +2639,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <WalletFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              warehouseOptions={warehouseOptions}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
               onNavigateToNotifications={() => {
@@ -2678,6 +2675,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <ReportsScreen
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              warehouseOptions={warehouseOptions}
               canExport={false}
               onBack={() => setMoreSubScreen(null)}
               onNavigateToNotifications={() => {
@@ -2797,10 +2795,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
                 onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
+                onSelectWarehouse={(whName) => openWarehouseDetail(findWarehouseByName(warehouses, whName)?.id)}
                 onManageCapacity={() => navigateWh('warehouse_settings')}
               />
             ) : whSubView === 'warehouse_overview' ? (
@@ -2816,7 +2811,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
+                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: detailFixtureId } : undefined}
                 onBack={goBackWh}
                 onNavigateComparison={() => navigateWh('warehouse_comparison')}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
@@ -2831,6 +2826,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="StorageInfo"
+                warehouseOptions={warehouseOptions}
+                initialWarehouseId={detailWarehouseId}
                 onBack={() => navigateWh('warehouse_operations')}
                 onSelectStorageLocation={(locId) => {
                   setSelectedLocationId(locId);
@@ -2921,7 +2918,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+                initialParams={whSubView === 'stock_ledger' ? ledgerParams : null}
                 warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
@@ -2948,7 +2945,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="WarehouseSettings"
-                initialWarehouseId={warehouseIdForName(selectedWHName)}
+                initialWarehouseId={detailFixtureId}
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_performance' ? (
@@ -3004,6 +3001,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <CustomersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
+                warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onTabChange={(tab) => {
                   setActiveTab(tab);
@@ -3023,6 +3021,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                       <WalletFlow
                         scope={MAIN_WAREHOUSE_SCOPE}
                         can={can}
+                        warehouseOptions={warehouseOptions}
                         initialScreen={target}
                         initialParams={walletParamsForCustomer(p.customer)}
                         onBack={nav.back}
@@ -3209,28 +3208,26 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
           <View style={styles.filterModalCard}>
             <Text style={styles.filterModalTitle}>Select Warehouse Scope</Text>
-            {WAREHOUSE_OPTIONS.map((wh) => {
-              const isSelected = selectedWHFilter === wh;
-              return (
-                <TouchableOpacity
-                  key={wh}
-                  style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
-                  onPress={() => {
-                    setSelectedWHFilter(wh);
-                    if (wh !== 'All Warehouses') {
-                      setSelectedWHName(`${wh} Warehouse`);
-                    }
-                    setShowFilterModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
-                    {wh}
-                  </Text>
-                  {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
+            {[{ id: undefined, label: t('mainDashboard.allWarehouses') }, ...warehouses.map((w) => ({ id: w.id, label: warehouseShortName(w.name) }))].map(
+              (option) => {
+                const isSelected = filterWarehouseId === option.id;
+                return (
+                  <TouchableOpacity
+                    key={option.id ?? 'all'}
+                    style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
+                    onPress={() => {
+                      setFilterWarehouseId(option.id);
+                      if (option.id !== undefined) setDetailWarehouseId(option.id);
+                      setShowFilterModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>{option.label}</Text>
+                    {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              },
+            )}
           </View>
         </Pressable>
       </Modal>

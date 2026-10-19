@@ -193,3 +193,66 @@ describe('transfers come from GET /warehouse-transfers (BR-102), not from tasks 
     expect(imports.trim()).toBe('listWarehouseTransfers');
   });
 });
+
+describe('warehouse selection: uuids for live flows, the seed code for fixture-keyed screens', () => {
+  /** The opening JSX tag of the first `<Name ... >` in the screen (props run to the first '>' not inside braces). */
+  function openingTag(name: string, from = 0): string {
+    const start = MAIN.indexOf(`<${name}`, from);
+    expect(start).toBeGreaterThan(-1);
+    let depth = 0;
+    for (let i = start; i < MAIN.length; i += 1) {
+      const ch = MAIN[i];
+      if (ch === '{') depth += 1;
+      else if (ch === '}') depth -= 1;
+      else if (ch === '>' && depth === 0 && MAIN[i - 1] !== '=') return MAIN.slice(start, i + 1);
+    }
+    throw new Error(`unterminated <${name}`);
+  }
+
+  it.each(['WalletFlow', 'CustomersFlow', 'ReportsScreen', 'FinanceFlow', 'InventoryFlow', 'OrdersFlow', 'BillingFlow'])(
+    '%s gets the live warehouseOptions (real uuids), not its seed-code defaults',
+    (flow) => {
+      expect(openingTag(flow)).toContain('warehouseOptions={warehouseOptions}');
+    },
+  );
+
+  it("the More menu's ReturnsFlow gets them (IssueReturnFlow opens one return by id and has no selector)", () => {
+    expect(openingTag('ReturnsFlow', MAIN.indexOf("moreSubScreen === 'returns'"))).toContain('warehouseOptions={warehouseOptions}');
+  });
+
+  it('the second WalletFlow (opened from a customer) gets them too', () => {
+    const second = MAIN.indexOf('<WalletFlow', MAIN.indexOf('<WalletFlow') + 1);
+    expect(openingTag('WalletFlow', second)).toContain('warehouseOptions={warehouseOptions}');
+  });
+
+  it('Warehouse Settings and the City Detail card are fixture-keyed, so they get the live warehouse\'s code, never the uuid', () => {
+    expect(MAIN).toContain('initialWarehouseId={detailFixtureId}');
+    expect(MAIN).toContain('{ warehouseId: detailFixtureId }');
+    expect(MAIN).toContain('const detailFixtureId = fixtureWarehouseId(detailWarehouse)');
+  });
+
+  it('the live Storage Info route gets the live options and the selected uuid', () => {
+    const tag = openingTag('ProfileFlow', MAIN.indexOf('initialScreen="StorageInfo"') - 200);
+    expect(tag).toContain('warehouseOptions={warehouseOptions}');
+    expect(tag).toContain('initialWarehouseId={detailWarehouseId}');
+  });
+
+  it('selection is kept by uuid: no name-keyed state and no hard-coded default warehouse or location', () => {
+    expect(MAIN).not.toContain('selectedWHName');
+    expect(MAIN).not.toContain('selectedWHFilter');
+    expect(MAIN).not.toContain('warehouseIdForName');
+    expect(MAIN).not.toContain('WAREHOUSE_OPTIONS');
+    expect(MAIN).not.toContain("'Ooty Warehouse'");
+    expect(MAIN).not.toContain("'CS-C01'");
+    expect(MAIN).toContain('useState<string | undefined>(undefined)');
+  });
+
+  it('the scope of every query is the selected uuid (the warehouse filter), so the cache key and the request agree (BR-30)', () => {
+    expect(MAIN).toContain('const selectedWarehouseId = filterWarehouseId;');
+    expect(MAIN).toContain('listBatches({ warehouseId: selectedWarehouseId');
+  });
+
+  it('Main keeps its own all-warehouses scope: no single warehouse (MAIN_WAREHOUSE_SCOPE = {})', () => {
+    expect(MAIN).toContain('const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};');
+  });
+});
