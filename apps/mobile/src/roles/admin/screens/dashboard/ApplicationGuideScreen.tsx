@@ -32,20 +32,24 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ApplicationGuideScreenProps {
-  pestName?: string;
-  scientificName?: string;
-  crop?: string;
-  severity?: string;
+  pestName?: string | undefined;
+  scientificName?: string | undefined;
+  crop?: string | undefined;
+  severity?: string | undefined;
+  symptoms?: string | undefined;
+  treatment?: string | undefined;
   onBack: () => void;
   onViewIncidents: () => void;
-  onSelectRelatedInput?: () => void;
+  onSelectRelatedInput?: (() => void) | undefined;
 }
 
 export function ApplicationGuideScreen({
-  pestName,
-  scientificName,
-  crop,
-  severity,
+  pestName = 'Aphid',
+  scientificName = 'Aphidoidea',
+  crop = 'Carrot',
+  severity = 'Medium',
+  symptoms,
+  treatment,
   onBack,
   onViewIncidents,
   onSelectRelatedInput,

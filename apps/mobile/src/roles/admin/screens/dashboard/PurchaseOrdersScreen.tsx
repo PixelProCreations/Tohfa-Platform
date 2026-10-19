@@ -107,9 +107,9 @@ const SAMPLE_ORDERS: PurchaseOrderItem[] = [
 export interface PurchaseOrdersScreenProps {
   onBack: () => void;
   onViewOrder: (orderId: string) => void;
-  onHandover: (orderId: string) => void;
+  onHandover?: ((orderId: string) => void) | undefined;
   onCollect?: ((orderId: string) => void) | undefined;
-  onViewHistory: () => void;
+  onViewHistory?: (() => void) | undefined;
 }
 
 export function PurchaseOrdersScreen({
@@ -294,15 +294,6 @@ export function PurchaseOrdersScreen({
         contentContainerStyle={styles.listPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Purchase History Banner */}
-        <TouchableOpacity
-          style={styles.historyBanner}
-          onPress={onViewHistory}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.historyBannerText}>{t('purchaseOrders.action.viewHistory')}</Text>
-        </TouchableOpacity>
-
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>{t('purchaseOrders.empty')}</Text>
@@ -349,9 +340,6 @@ export function PurchaseOrdersScreen({
                   {order.farmer} · {order.produce}
                 </Text>
 
-                {/* Divider */}
-                <View style={styles.cardDivider} />
-
                 {/* Details */}
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Quantity</Text>
@@ -361,37 +349,6 @@ export function PurchaseOrdersScreen({
                 <View style={[styles.detailRow, styles.detailRowSpacing]}>
                   <Text style={styles.detailLabel}>Total</Text>
                   <Text style={styles.detailValue}>{order.total}</Text>
-                </View>
-
-                {/* Action Buttons Row */}
-                <View style={styles.actionBtnRow}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => onViewOrder(order.id)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.actionBtnText}>{t('purchaseOrders.action.viewOrder')}</Text>
-                  </TouchableOpacity>
-
-                  {isAwaiting && (
-                    <TouchableOpacity
-                      style={styles.actionBtn}
-                      onPress={() => onHandover(order.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionBtnText}>{t('purchaseOrders.action.handover')}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {isCollection && onCollect && (
-                    <TouchableOpacity
-                      style={styles.actionBtn}
-                      onPress={() => onCollect(order.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionBtnText}>{t('purchaseOrders.action.collect')}</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -437,6 +394,8 @@ const styles = StyleSheet.create({
   filterBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -444,9 +403,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xs,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: 10,
     gap: adminSpacing.sm,
   },
   searchInput: {
@@ -507,12 +468,13 @@ const styles = StyleSheet.create({
   },
   orderIdText: {
     ...adminType.rowTitle,
-    color: adminColors.brandDeep,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
   statusBadge: {
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   badgeAmber: {
     backgroundColor: adminColors.warning.bg,
@@ -571,15 +533,14 @@ const styles = StyleSheet.create({
   actionBtn: {
     flex: 1,
     backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.sm,
-    paddingVertical: adminSpacing.sm,
+    borderRadius: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
+    borderWidth: 0,
   },
   actionBtnText: {
-    ...adminType.caption,
+    fontSize: 13,
     fontWeight: '700',
     color: adminColors.brandDeep,
   },

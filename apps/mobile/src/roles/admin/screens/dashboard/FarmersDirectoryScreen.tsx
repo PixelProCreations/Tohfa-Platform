@@ -77,11 +77,12 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
 }
 
 export interface FarmersDirectoryScreenProps {
-  onSelectFarmer?: (farmer: FarmerProfileData) => void;
-  onBack?: () => void;
+  onSelectFarmer?: ((farmer: FarmerProfileData) => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
 }
 
-export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirectoryScreenProps) {
+export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAuditHistory }: FarmersDirectoryScreenProps) {
   const [internalView, setInternalView] = useState<'list' | 'search_filter' | 'profile'>('list');
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerProfileData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,6 +201,7 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack }: FarmersDirect
       <FarmerProfileDetailScreen
         farmer={selectedFarmer}
         onBack={() => setInternalView('list')}
+        onNavigateAuditHistory={onNavigateAuditHistory}
       />
     );
   }

@@ -487,6 +487,9 @@ export function FarmerRatingsScreen({
   // Optional notes per category in 'edit_rating'
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
 
+  // Track which farmers have had rating edit permission requested
+  const [requestedPermissions, setRequestedPermissions] = useState<Record<string, boolean>>({});
+
   // Timeframe in Overview: '7 days' | '30 days' | '90 days'
   const [timeframe, setTimeframe] = useState<'7 days' | '30 days' | '90 days'>('7 days');
 
@@ -600,6 +603,96 @@ export function FarmerRatingsScreen({
     }
     setCurrentView('detail');
   };
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: INDIVIDUAL FARMER RATINGS (Matching Image 1 Left Screen from Farmer Profile)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (farmerName && currentView === 'overview') {
+    return (
+      <SafeAreaView style={styles.rootOrange}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Terracotta Header (Image 1 Left Screen) ── */}
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={onBack}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Farmer Profile"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Farmer Ratings</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollCanvas}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Overall Rating Card (Image 1 Left Screen) */}
+          <View style={styles.heroRatingCardCentered}>
+            <Text style={styles.overallRatingLabel}>OVERALL RATING</Text>
+            <Text style={styles.overallRatingValue}>4.6 ★</Text>
+          </View>
+
+          {/* Rating Categories Section (Image 1 Left Screen) */}
+          <Text style={styles.sectionHeadingBrown}>Rating Categories</Text>
+          <View style={styles.categoriesCard}>
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryNameText}>Farm Quality</Text>
+              <Text style={styles.categoryScoreText}>4.7</Text>
+            </View>
+            <View style={styles.categoryDivider} />
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryNameText}>Produce Quality</Text>
+              <Text style={styles.categoryScoreText}>4.5</Text>
+            </View>
+            <View style={styles.categoryDivider} />
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryNameText}>Compliance</Text>
+              <Text style={styles.categoryScoreText}>4.6</Text>
+            </View>
+          </View>
+
+          {/* Rating History Section (Image 1 Left Screen) */}
+          <Text style={styles.sectionHeadingBrown}>Rating History</Text>
+          <View style={styles.historyItemCard}>
+            <Text style={styles.historyDateMuted}>12 Sep 2026</Text>
+            <Text style={styles.historyScoreText}>Rating: 4.6 · Zone: Coonoor</Text>
+          </View>
+          <View style={[styles.historyItemCard, { marginTop: 10 }]}>
+            <Text style={styles.historyDateMuted}>01 Aug 2026</Text>
+            <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Sticky Dual Bar: Rating History on Left & Edit Rating on Right */}
+        <View style={styles.detailStickyBottomBar}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={styles.detailBottomHistoryBtn}
+              onPress={() => setCurrentView('history')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.detailBottomHistoryBtnText}>Rating History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.detailBottomEditBtn}
+              onPress={() => setCurrentView('edit_rating')}
+              activeOpacity={0.85}
+            >
+              <PencilEditIcon size={18} color={adminColors.onBrand} />
+              <Text style={styles.detailBottomEditBtnText}>Edit Rating</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ───────────────────────────────────────────────────────────────────────────
   // SCREEN 9: RATING RECORD (Image 5 from latest prompt)
@@ -879,9 +972,10 @@ export function FarmerRatingsScreen({
                 [
                   {
                     text: 'OK',
-                    onPress: () => setCurrentView('detail'),
+                    onPress: () => setCurrentView('history'),
                   },
-                ]
+                ],
+                { cancelable: false }
               );
             }}
             activeOpacity={0.85}
@@ -1024,6 +1118,8 @@ export function FarmerRatingsScreen({
   // SCREEN 5: PERMISSION REQUIRED
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'permission') {
+    const isPermissionRequested = !!requestedPermissions[selectedFarmer.id];
+
     return (
       <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1057,26 +1153,35 @@ export function FarmerRatingsScreen({
               You can view this farmer&apos;s rating, but editing requires permission from the authorized admin. Submit a request to edit ratings for this farmer.
             </Text>
             <TouchableOpacity
-              style={styles.permissionBackBtn}
+              style={[
+                styles.permissionBackBtn,
+                isPermissionRequested && styles.permissionBackBtnDisabled,
+              ]}
+              disabled={isPermissionRequested}
               onPress={() => {
+                setRequestedPermissions((prev) => ({ ...prev, [selectedFarmer.id]: true }));
                 Alert.alert(
-                  'Request Submitted',
-                  `Your request to edit ratings for ${selectedFarmer.name} has been sent to the authorized admin.`,
+                  'Request Sent',
+                  `Your request for rating edit permission for ${selectedFarmer.name} has been submitted to the authorized admin.`,
                   [
                     {
-                      text: 'Proceed to Edit',
-                      onPress: () => setCurrentView('edit_rating'),
-                    },
-                    {
-                      text: 'Back to Details',
+                      text: 'OK',
                       onPress: () => setCurrentView('detail'),
                     },
-                  ]
+                  ],
+                  { cancelable: false }
                 );
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.permissionBackBtnText}>Send Request</Text>
+              <Text
+                style={[
+                  styles.permissionBackBtnText,
+                  isPermissionRequested && styles.permissionBackBtnTextDisabled,
+                ]}
+              >
+                {isPermissionRequested ? 'Request Sent' : 'Send Request'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1089,6 +1194,7 @@ export function FarmerRatingsScreen({
   // ───────────────────────────────────────────────────────────────────────────
   if (currentView === 'detail') {
     const overallScore = selectedFarmer.score ?? 78;
+    const isPermissionRequested = !!requestedPermissions[selectedFarmer.id];
 
     return (
       <SafeAreaView style={styles.rootOrange}>
@@ -1116,7 +1222,11 @@ export function FarmerRatingsScreen({
 
         <ScrollView
           style={styles.scrollCanvas}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 110 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: isPermissionRequested ? 110 : 40,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {/* ── Big Rating Hero Card ── */}
@@ -1189,23 +1299,17 @@ export function FarmerRatingsScreen({
             onPress={() => setCurrentView('permission')}
             activeOpacity={0.8}
           >
-            <Text style={styles.viewHistoryOutlineBtnText}>Request Edit Permission</Text>
+            <Text style={styles.viewHistoryOutlineBtnText}>
+              {isPermissionRequested ? 'Permission Requested (Pending)' : 'Request Edit Permission'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
 
-        {/* ── Sticky Bottom Dual Bar: Rating History & Edit Rating ── */}
-        <View style={styles.detailStickyBottomBar}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+        {/* ── Sticky Bottom Bar: Edit Rating (visible after permission request is sent) ── */}
+        {isPermissionRequested && (
+          <View style={styles.detailStickyBottomBar}>
             <TouchableOpacity
-              style={styles.detailBottomHistoryBtn}
-              onPress={() => setCurrentView('history')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.detailBottomHistoryBtnText}>Rating History</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.detailBottomEditBtn}
+              style={[styles.detailBottomEditBtn, { flex: 1 }]}
               onPress={() => setCurrentView('edit_rating')}
               activeOpacity={0.85}
             >
@@ -1213,7 +1317,7 @@ export function FarmerRatingsScreen({
               <Text style={styles.detailBottomEditBtnText}>Edit Rating</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -2926,9 +3030,116 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  permissionBackBtnDisabled: {
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+  },
   permissionBackBtnText: {
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.brand,
+  },
+  permissionBackBtnTextDisabled: {
+    color: adminColors.muted,
+  },
+
+  // ── Individual Farmer Ratings Styles (Image 1 Left Screen) ──
+  heroRatingCardCentered: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  overallRatingLabel: {
+    ...adminType.caption,
+    fontWeight: '800',
+    color: '#8C827A',
+    letterSpacing: 0.5,
+  },
+  overallRatingValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: adminColors.ink,
+    marginTop: 8,
+  },
+  sectionHeadingBrown: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#8C5A24',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  categoriesCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  categoryNameText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  categoryScoreText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  categoryDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  historyItemCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  historyDateMuted: {
+    ...adminType.caption,
+    color: '#8C827A',
+    marginBottom: 4,
+  },
+  historyScoreText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  bottomEditRatingBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.canvas,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  editRatingSolidBtn: {
+    backgroundColor: adminColors.brand,
+    height: 48,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editRatingSolidBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
   },
 });

@@ -96,7 +96,7 @@ export function PurchaseOrderDetailScreen({
 
   const subtitleText = orderId
     ? `${orderId} · ${t('purchaseOrderDetail.subtitle')}`
-    : t('purchaseOrderDetail.subtitle');
+    : `PO-2026-00124 · ${t('purchaseOrderDetail.subtitle')}`;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -132,7 +132,7 @@ export function PurchaseOrderDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.orderId')}</Text>
-              <Text style={styles.fieldValue}>{orderId ?? '—'}</Text>
+              <Text style={styles.fieldValue}>{orderId ?? 'PO-2026-00124'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.listingId')}</Text>
@@ -178,23 +178,47 @@ export function PurchaseOrderDetailScreen({
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farm/Location</Text>
-              <Text style={styles.fieldValue}>Coonoor, Nilgiris</Text>
+              <Text style={styles.fieldValue}>Coonoor</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 3. Produce Information */}
+        <Text style={styles.sectionTitle}>Produce Information</Text>
+        <View style={styles.card}>
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Listed Quantity</Text>
+              <Text style={styles.fieldValue}>50 kg</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Agreed Quantity</Text>
+              <Text style={styles.fieldValue}>30 kg</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Contact</Text>
-              <Text style={styles.fieldValue}>+91 98XXX XX045</Text>
+              <Text style={styles.fieldLabel}>Listed Price</Text>
+              <Text style={styles.fieldValue}>₹50/kg</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Verification</Text>
-              <Text style={styles.fieldValue}>Verified</Text>
+              <Text style={styles.fieldLabel}>Agreed Price</Text>
+              <Text style={styles.fieldValue}>₹45/kg</Text>
             </View>
           </View>
         </View>
 
-        {/* 3. Negotiated Terms */}
+        {/* View Original Listing Button */}
+        <TouchableOpacity
+          style={styles.outlineActionBtn}
+          onPress={onViewOriginalListing}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.outlineActionBtnText}>View Original Listing</Text>
+        </TouchableOpacity>
+
+        {/* 4. Negotiation Summary */}
         <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.terms')}</Text>
 
         <View style={styles.chipToggleRow}>
@@ -222,84 +246,77 @@ export function PurchaseOrderDetailScreen({
         {negotiationType === 'Counter Offer' ? (
           <>
             <View style={styles.card}>
-              <Text style={styles.termHeading}>ORIGINAL LISTING TERMS</Text>
-              <Text style={styles.termBody}>₹50/kg · 50 kg listed · Total: ₹2,500</Text>
+              <Text style={styles.termHeading}>ORIGINAL FARMER REQUEST</Text>
+              <Text style={styles.termBody}>Quantity: 50 kg · Price: ₹50/kg</Text>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.termHeading}>COUNTER-OFFER ROUND 1 (BY TOHFA)</Text>
-              <Text style={styles.termBody}>₹45/kg · 30 kg required · Reason: Market alignment</Text>
+              <Text style={styles.termHeading}>TOHFA COUNTER OFFER</Text>
+              <Text style={styles.termBody}>Quantity: 30 kg · Price: ₹45/kg</Text>
             </View>
 
             <View style={[styles.card, styles.finalTermsCard]}>
               <Text style={styles.termHeading}>FINAL AGREED TERMS</Text>
-              <Text style={styles.finalTermBody}>₹45/kg · 30 kg · ₹1,350 Total</Text>
+              <Text style={styles.finalTermBody}>Quantity: 30 kg · Price: ₹45/kg · Total: ₹1,350</Text>
             </View>
           </>
         ) : (
           <View style={[styles.card, styles.finalTermsCard]}>
-            <Text style={styles.termHeading}>DIRECT PURCHASE TERMS</Text>
-            <Text style={styles.finalTermBody}>₹50/kg · 50 kg · ₹2,500 Total</Text>
+            <Text style={styles.termHeading}>DIRECT APPROVAL — NO COUNTER OFFER</Text>
+            <Text style={styles.finalTermBody}>Quantity: 50 kg · Price: ₹100/kg · Total: ₹5,000</Text>
           </View>
         )}
 
-        {/* 4. Order Timeline */}
+        {/* 5. Purchase Timeline */}
         <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.timeline')}</Text>
-        <View style={styles.timelineList}>
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIconBadge}>
-              <TargetPlusIcon size={16} color={adminColors.brandDeep} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Counter-Offer Accepted by Farmer</Text>
-              <Text style={styles.timelineTime}>29 Sep 2026, 14:30</Text>
-            </View>
-          </View>
+        <View style={styles.timelineContainer}>
+          {[
+            {
+              title: 'Listing Created',
+              time: '28 Sep · Farmer',
+              icon: <TargetPlusIcon size={16} color={adminColors.brandDeep} />,
+            },
+            {
+              title: 'Listing Approved',
+              time: '29 Sep · Farmer Admin',
+              icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} />,
+            },
+            {
+              title: 'Purchase Order Created',
+              time: '29 Sep · System',
+              icon: <ReceiptIcon size={16} color={adminColors.brandDeep} />,
+            },
+            {
+              title: 'Terms Confirmed',
+              time: '29 Sep · Farmer Admin',
+              icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} />,
+            },
+            {
+              title: 'Awaiting Handover',
+              time: '30 Sep · Current',
+              icon: <HourglassIcon size={16} color={adminColors.brandDeep} />,
+            },
+          ].map((item, index, arr) => (
+            <View key={item.title} style={styles.timelineRow}>
+              {/* Badge + connecting line */}
+              <View style={styles.timelineIndicatorCol}>
+                <View style={styles.timelineIconBadge}>
+                  {item.icon}
+                </View>
+                {index < arr.length - 1 && <View style={styles.timelineLine} />}
+              </View>
 
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIconBadge}>
-              <CheckCircleIcon size={16} color={adminColors.brandDeep} />
+              {/* Text content */}
+              <View style={styles.timelineTextCol}>
+                <Text style={styles.timelineTitle}>{item.title}</Text>
+                <Text style={styles.timelineTime}>{item.time}</Text>
+              </View>
             </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Counter-Offer Sent by TOHFA</Text>
-              <Text style={styles.timelineTime}>29 Sep 2026, 11:15</Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIconBadge}>
-              <ReceiptIcon size={16} color={adminColors.brandDeep} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Original Listing Submitted</Text>
-              <Text style={styles.timelineTime}>28 Sep 2026, 09:00</Text>
-            </View>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineIconBadge}>
-              <HourglassIcon size={16} color={adminColors.brandDeep} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitle}>Handover Scheduled</Text>
-              <Text style={styles.timelineTime}>30 Sep 2026, 10:00 AM · Coonoor Point</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* ─── Sticky Bottom Bar ─── */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.processHandoverBtn}
-          onPress={() => onProcessHandover?.()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.processHandoverBtnText}>{t('purchaseOrderDetail.action.processHandover')}</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -348,13 +365,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.rowTitle,
+    fontSize: 16,
+    fontWeight: '700',
     color: adminColors.brandDeep,
-    marginTop: adminSpacing.md,
+    marginTop: adminSpacing.lg,
     marginBottom: adminSpacing.sm,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.lg,
@@ -386,9 +405,9 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   chip: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.xl,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -402,96 +421,106 @@ const styles = StyleSheet.create({
   },
   chipText: {
     ...adminType.body,
+    fontSize: 13,
   },
   chipTextActive: {
     color: adminColors.onBrand,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   chipTextInactive: {
     color: adminColors.ink,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   termHeading: {
-    ...adminType.caption,
-    fontWeight: '800',
-    color: adminColors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
     letterSpacing: 0.5,
-    marginBottom: adminSpacing.xs,
+    textTransform: 'uppercase',
+    marginBottom: 6,
   },
   termBody: {
-    ...adminType.body,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   finalTermsCard: {
-    backgroundColor: adminColors.brandTint,
-    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
+    borderColor: adminColors.brand,
   },
   finalTermBody: {
-    ...adminType.rowTitle,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
-  timelineList: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    gap: adminSpacing.lg,
-    marginBottom: adminSpacing.lg,
+  timelineContainer: {
+    paddingLeft: adminSpacing.xs,
+    paddingTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xl,
   },
-  timelineItem: {
+  timelineRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    position: 'relative',
+    minHeight: 52,
+  },
+  timelineIndicatorCol: {
     alignItems: 'center',
-    gap: adminSpacing.md,
+    width: 32,
+    position: 'relative',
   },
   timelineIconBadge: {
     width: 32,
     height: 32,
-    borderRadius: adminRadius.xl,
-    backgroundColor: adminColors.warning.bg,
+    borderRadius: 16,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
-  timelineContent: {
+  timelineLine: {
+    position: 'absolute',
+    top: 32,
+    bottom: -6,
+    width: 2,
+    backgroundColor: adminColors.border,
+    zIndex: 1,
+  },
+  timelineTextCol: {
     flex: 1,
+    paddingLeft: adminSpacing.md,
+    paddingTop: 4,
+    paddingBottom: adminSpacing.md,
   },
   timelineTitle: {
-    ...adminType.body,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   timelineTime: {
-    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '500',
     color: adminColors.muted,
-    marginTop: 1,
+    marginTop: 2,
   },
-  bottomSpacer: {
-    height: 20,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: adminColors.canvas,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.xxl,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-  },
-  processHandoverBtn: {
-    backgroundColor: adminColors.brand,
+  outlineActionBtn: {
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
     borderRadius: adminRadius.xl,
-    paddingVertical: adminSpacing.md,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
+    backgroundColor: adminColors.card,
   },
-  processHandoverBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
+  outlineActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
