@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminSpacing } from '../../theme';
+import { adminColors, adminSpacing, adminType } from '../../theme';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -49,28 +49,40 @@ import {
 } from '../warehouse/notifications';
 import { useAdminMutation, useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
-import { listWarehouses } from '../../api/warehouses';
-import { listBatches } from '../../api/inventory';
-import { listGoodsReceipts } from '../../api/receiving';
-import { listAdminOrders } from '../../api/orders';
-import { dismissAlert, listAlerts } from '../../api/alerts';
-import { getTaskSummary, listTasks } from '../../api/tasks';
+import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
+import { listBatches, type BatchDto } from '../../api/inventory';
+import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
+import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
+import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
+import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
 import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
 import { SectionGate, derivedSource, mergeSources, retryFailed, sourceOf } from './MainDashboardParts';
 import { adminErrorKey } from '../../api/errors';
+import { isOnIstDay, istDay, relativeTime } from '../../utils/datetime';
 import { t } from '../../i18n';
 import {
+  DASHBOARD_PAGE_LIMIT,
   EMPTY_RECEIPT_FIGURES,
   EMPTY_STOCK_FIGURES,
   FIGURE_PLACEHOLDER,
+  collectPages,
+  countOrdersPlacedOn,
   deriveReceiptFigures,
   deriveStockFigures,
   barWidthPercent,
   capacityLevel,
   figureOrPlaceholder,
   formatUtilization,
+  greetingKey,
+  openTaskCount,
+  receiptsOnDay,
   salesRevenueText,
+  toDashboardAlerts,
+  toLowStockItems,
+  toRecentActivity,
+  type AlertTarget,
+  type DashboardAlert,
 } from './mappers_mainDashboard';
 import { formatKg } from '../../money/quantity';
 
@@ -433,19 +445,6 @@ function AlertClockIcon({ size = 20, color = PALETTE.primary }: { size?: number;
   );
 }
 
-interface WarehouseAlertItem {
-  id: string;
-  title: string;
-  category: string;
-  warehouse: string;
-  priority: 'Critical' | 'High' | 'Medium' | 'Low';
-  time: string;
-  subtitle: string;
-  description: string;
-  status: 'unread' | 'resolved';
-  relatedRoute: WarehouseSubView;
-}
-
 function TransferArrowsWhiteIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -532,6 +531,27 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
     </Svg>
   );
 }
+
+// Stable empty lists, so a query that has no data yet does not hand useMemo a new [] every render.
+const NO_WAREHOUSES: WarehouseDto[] = [];
+const NO_BATCHES: BatchDto[] = [];
+const NO_TASKS: TaskItemDto[] = [];
+const NO_ORDERS: OrderSummaryDto[] = [];
+const NO_RECEIPTS: GoodsReceiptDto[] = [];
+const NO_ALERTS: AlertItemDto[] = [];
+/**
+ * Recent Activity shows two rows, but a task whose title the app cannot word is
+ * hidden, so a few more are fetched to fill them. A page size, not a threshold.
+ */
+const ACTIVITY_FETCH_LIMIT = 10;
+
+/** The sub-view each alert type opens as its related record. */
+const ALERT_TARGET_ROUTE: Record<AlertTarget, WarehouseSubView> = {
+  lowStock: 'low_stock_alerts',
+  capacity: 'warehouse_capacity',
+  inventory: 'stock_ledger',
+  operations: 'warehouse_operations',
+};
 
 /** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
 /** External customer routes the Main shell draws inside CustomersFlow (New Sale leaves for the direct-sale flow). */
@@ -632,9 +652,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
-  const [selectedAlert, setSelectedAlert] = useState<WarehouseAlertItem | null>(null);
-  const [alertStatusFilter, setAlertStatusFilter] = useState<'All' | 'Unread' | 'Resolved'>('All');
-  const [alertPriorityFilter, setAlertPriorityFilter] = useState<'All Priority' | 'Critical'>('All Priority');
+  const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [alertWhFilter, setAlertWhFilter] = useState('All Warehouses');
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
@@ -660,20 +678,23 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // The bell badge: the server's unread total; NotificationsFlow owns the list and the read writes.
   const unreadNotifCount = useUnreadNotificationCount();
 
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // The IST day: the sales summary counts Asia/Kolkata days (BR-96), so a UTC
+  // date would show yesterday's figures between 00:00 and 05:30 IST.
+  const now = new Date();
+  const today = istDay(now);
 
-  // Live warehouses query (GET /v1/warehouses)
+  // Every query waits for warehouse.all.view: without it (or until /auth/me
+  // answers) the Home shows a note and nothing is requested.
+  const live = { enabled: canAllView };
+
+  // Live warehouses query (GET /warehouses, warehouse.all.view): the API's own
+  // isActive filter, no seed-code list.
   const warehousesQuery = useAdminQuery(
-    adminKeys.scoped('warehouses', undefined, { pageSize: 100 }),
-    (signal) => listWarehouses({ pageSize: 100 }, signal),
+    adminKeys.scoped('warehouses', undefined, { pageSize: 100, isActive: true }),
+    (signal) => listWarehouses({ isActive: true, pageSize: 100 }, signal),
+    live,
   );
-  const allWarehouses = warehousesQuery.data?.items ?? [];
-  const warehouses = useMemo(() => {
-    const canonical = allWarehouses.filter((w) =>
-      ['WH-OOTY', 'WH-COON', 'WH-KOTA', 'WH-GUDA'].includes(w.code),
-    );
-    return canonical.length > 0 ? canonical : allWarehouses;
-  }, [allWarehouses]);
+  const warehouses = warehousesQuery.data?.items ?? NO_WAREHOUSES;
 
   const warehouseOptions: readonly WarehouseScope[] = useMemo(() => {
     return warehouses.map((w) => ({
@@ -700,53 +721,89 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     return warehouseIdForName(selectedWHFilter);
   }, [selectedWHFilter, warehouses]);
 
-  // Live batches query (GET /v1/admin/batches)
+  // Live batches (GET /admin/batches): ACTIVE only, every page up to the cap.
   const batchesQuery = useAdminQuery(
-    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'batches', limit: 100 }),
-    (signal) => listBatches({ warehouseId: selectedWarehouseId, limit: 100 }, signal),
+    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'batches', status: 'ACTIVE', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listBatches({ warehouseId: selectedWarehouseId, status: 'ACTIVE', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+      ),
+    live,
   );
-  const batches = batchesQuery.data?.items ?? [];
+  const batches = batchesQuery.data?.items ?? NO_BATCHES;
 
-  // Live tasks query & summary (GET /v1/admin/tasks)
+  // Live tasks: the exact counts come from the summary (GET /admin/tasks/summary);
+  // the open list only feeds Recent Activity, so one page of it is enough.
   const taskSummaryQuery = useAdminQuery(
     adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'summary' }),
     (signal) => getTaskSummary({ warehouseId: selectedWarehouseId }, signal),
+    live,
   );
   const taskSummary = taskSummaryQuery.data;
 
   const openTasksQuery = useAdminQuery(
-    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'open-tasks' }),
-    (signal) => listTasks({ state: 'open', warehouseId: selectedWarehouseId }, signal),
+    adminKeys.scoped('tasks', selectedWarehouseId, { resource: 'open-tasks', limit: ACTIVITY_FETCH_LIMIT }),
+    (signal) => listTasks({ state: 'open', warehouseId: selectedWarehouseId, limit: ACTIVITY_FETCH_LIMIT }, signal),
+    live,
   );
-  const openTasks = openTasksQuery.data?.items ?? [];
+  const openTasks = openTasksQuery.data?.items ?? NO_TASKS;
 
-  // Live sales summary query (GET /v1/admin/sales/summary)
+  // Live sales summary (GET /admin/sales/summary) for the IST day.
   const salesSummaryQuery = useAdminQuery(
-    adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: todayIso, to: todayIso }),
-    (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: todayIso, to: todayIso }, signal),
+    adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: today, to: today }),
+    (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: today, to: today }, signal),
+    live,
   );
   const salesSummary = salesSummaryQuery.data;
 
-  // Live orders query (GET /v1/admin/orders)
+  // Live orders (GET /admin/orders), newest first. The spec has no placed-date
+  // filter, so read pages until one reaches an older day and count today's.
   const ordersQuery = useAdminQuery(
-    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', limit: 50 }),
-    (signal) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: 50 }, signal),
+    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', day: today, limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages(
+        (cursor) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+        { isDone: (page) => page.some((o) => !isOnIstDay(o.placedAt, today)) },
+      ),
+    live,
   );
-  const orders = ordersQuery.data?.items ?? [];
+  const ordersToday = useMemo(
+    () => countOrdersPlacedOn(ordersQuery.data?.items ?? NO_ORDERS, today, ordersQuery.data?.complete ?? false),
+    [ordersQuery.data, today],
+  );
 
-  // Live goods receipts query (GET /v1/admin/goods-receipts)
+  // Live goods receipts (GET /admin/goods-receipts), newest first; today's only.
   const goodsReceiptsQuery = useAdminQuery(
-    adminKeys.scoped('receiving', selectedWarehouseId, { resource: 'grn', limit: 50 }),
-    (signal) => listGoodsReceipts({ warehouseId: selectedWarehouseId, limit: 50 }, signal),
+    adminKeys.scoped('receiving', selectedWarehouseId, { resource: 'grn', day: today, limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages(
+        (cursor) => listGoodsReceipts({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+        { isDone: (page) => page.some((g) => !isOnIstDay(g.receivedAt, today)) },
+      ),
+    live,
   );
-  const goodsReceipts = goodsReceiptsQuery.data?.items ?? [];
+  const goodsReceipts = useMemo(
+    () => receiptsOnDay(goodsReceiptsQuery.data?.items ?? NO_RECEIPTS, today),
+    [goodsReceiptsQuery.data, today],
+  );
 
-  // Live alerts query (GET /v1/admin/alerts)
+  // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
+  // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
-    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'active' }),
-    (signal) => listAlerts({ warehouseId: selectedWarehouseId, state: 'active' }, signal),
+    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'active', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listAlerts({ warehouseId: selectedWarehouseId, state: 'active', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+      ),
+    live,
   );
-  const liveAlerts = alertsQuery.data?.items ?? [];
+  const liveAlerts = alertsQuery.data?.items ?? NO_ALERTS;
+
+  // A list the page cap cut short: its totals say so instead of looking whole.
+  const listsPartial =
+    [batchesQuery.data, ordersQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
+      (collected) => collected !== undefined && !collected.complete,
+    );
 
   // Every query's state, so no section draws a figure the server has not sent.
   const warehousesSrc = sourceOf(warehousesQuery);
@@ -758,26 +815,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const alertsSrc = sourceOf(alertsQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
 
-  const alertsList: WarehouseAlertItem[] = useMemo(() => {
-    return liveAlerts.map((a) => {
-      const wh = warehouses.find((w) => w.id === a.warehouseId);
-      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (a.warehouseId || 'Warehouse');
-      const priority = a.type === 'CAPACITY_NEAR_FULL' ? 'Critical' : a.type === 'LOW_STOCK' ? 'High' : 'Medium';
-      const category = a.type === 'LOW_STOCK' ? 'Low Stock' : a.type === 'CAPACITY_NEAR_FULL' ? 'Operational' : 'Transfer';
-      return {
-        id: a.itemKey,
-        title: `${whName}: ${category}`,
-        category,
-        warehouse: whName,
-        priority,
-        time: a.since ? a.since.slice(0, 10) : 'Today',
-        subtitle: `${category} · ${whName}`,
-        description: `${a.type} condition reported for ${whName} warehouse.`,
-        status: a.state === 'ACTIVE' ? 'unread' : 'resolved',
-        relatedRoute: a.type === 'LOW_STOCK' ? 'low_stock_alerts' : 'warehouse_operations',
-      };
-    });
-  }, [liveAlerts, warehouses]);
+  const alertsList: DashboardAlert[] = useMemo(
+    () => toDashboardAlerts(liveAlerts, warehouses, now),
+    // `now` changes every render, so the relative time is as of the last data change.
+    [liveAlerts, warehouses],
+  );
 
   // POST /admin/alerts/{itemKey}/dismiss (alert.own.view) hides the alert from
   // THIS admin's lists only; other admins keep seeing it (BR-78). So the button
@@ -788,7 +830,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
   });
   const canDismissAlert = can('alert.own.view');
-  const handleDismissAlert = async (alert: WarehouseAlertItem) => {
+  const handleDismissAlert = async (alert: DashboardAlert) => {
     try {
       await dismissMutation.mutateAsync(alert.id);
     } catch {
@@ -826,21 +868,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const homeKpiSources = [stockSrc, receiptsFigSrc, openTasksSrc, ordersSrc, revenueSrc, alertsSrc];
   const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
 
-  const qualityIssuesCount = receiptFig.discrepancies + openTasks.filter((task) => task.type === 'GOODS_RECEIPT_QC').length;
+  const qualityIssuesCount =
+    receiptFig.discrepancies + (taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC'));
+  const activityRows = useMemo(() => toRecentActivity(openTasks, warehouses, now), [openTasks, warehouses]);
 
-  const lowStockItems = useMemo(() => {
-    const alerts = liveAlerts.filter((a) => a.type === 'LOW_STOCK');
-    return alerts.map((a) => {
-      const wh = warehouses.find((w) => w.id === a.warehouseId);
-      const whName = wh ? wh.name.replace(/ Warehouse$/, '') : (a.warehouseId || 'Warehouse');
-      return {
-        product: a.itemKey || 'Produce Stock',
-        warehouse: whName,
-        current: 'Below Threshold',
-        target: 'Target Level',
-      };
-    });
-  }, [liveAlerts, warehouses]);
+  const lowStockItems = useMemo(
+    () => toLowStockItems(liveAlerts, batches, warehouses),
+    [liveAlerts, batches, warehouses],
+  );
 
   const trackingTransfers = useMemo(() => {
     return openTasks.map((t) => {
@@ -854,7 +889,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     });
   }, [openTasks]);
 
-  const displayName = user?.fullName?.trim() ? user.fullName.split(' ')[0] : 'Admin';
+  const firstName = user?.fullName?.trim().split(' ')[0];
+  const displayName = firstName ? firstName : t('mainDashboard.greeting.fallbackName');
 
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
@@ -1390,13 +1426,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertsActionCenterScreen = () => {
-    const visibleAlerts = alertsList.filter((alert) => {
-      if (alertStatusFilter === 'Unread' && alert.status !== 'unread') return false;
-      if (alertStatusFilter === 'Resolved' && alert.status !== 'resolved') return false;
-      if (alertPriorityFilter === 'Critical' && alert.priority !== 'Critical') return false;
-      if (alertWhFilter !== 'All Warehouses' && alert.warehouse !== alertWhFilter) return false;
-      return true;
-    });
+    // Only the warehouse filter is real: the API has no priority and returns only
+    // active alerts, so there are no priority or read-state chips.
+    const visibleAlerts = alertsList.filter(
+      (alert) => alertWhFilter === 'All Warehouses' || alert.warehouse === alertWhFilter,
+    );
 
     return (
       <View style={styles.subScreenContainer}>
@@ -1411,53 +1445,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {/* Filter Row 1 */}
+          {/* Warehouse filter */}
           <View style={styles.actionCenterFiltersRow}>
-            {(['All', 'Unread', 'Resolved'] as const).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.actionCenterChip,
-                  alertStatusFilter === status && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertStatusFilter(status)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertStatusFilter === status && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Filter Row 2 */}
-          <View style={styles.actionCenterFiltersRow}>
-            {(['All Priority', 'Critical'] as const).map((prio) => (
-              <TouchableOpacity
-                key={prio}
-                style={[
-                  styles.actionCenterChip,
-                  alertPriorityFilter === prio && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertPriorityFilter(prio)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertPriorityFilter === prio && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {prio}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
             <TouchableOpacity
               style={styles.actionCenterChip}
               onPress={() => {
@@ -1491,27 +1480,27 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <View
                 style={[
                   styles.alertAccentBar,
-                  { backgroundColor: alert.priority === 'Critical' ? PALETTE.red : PALETTE.primary },
+                  { backgroundColor: PALETTE.primary },
                 ]}
               />
               <View style={styles.actionCenterCardContent}>
-                {alert.category === 'Low Stock' ? (
+                {alert.type === 'LOW_STOCK' ? (
                   <WarningTriangleIcon size={22} color={PALETTE.red} />
-                ) : alert.category === 'Operational' ? (
+                ) : alert.type === 'CAPACITY_NEAR_FULL' ? (
                   <AlertEscalationIcon size={22} color={PALETTE.red} />
                 ) : (
                   <AlertClockIcon size={22} color={PALETTE.primary} />
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.actionCenterAlertTitle}>{alert.title}</Text>
-                  <Text style={styles.actionCenterAlertSub}>{alert.subtitle}</Text>
+                  <Text style={styles.actionCenterAlertTitle}>{`${alert.warehouse}: ${alert.title}`}</Text>
+                  <Text style={styles.actionCenterAlertSub}>{alert.detail}</Text>
                 </View>
               </View>
             </TouchableOpacity>
           ))}
 
           {visibleAlerts.length === 0 && (
-            <EmptyState title="No alerts" subtitle="There are no active alerts matching your filter criteria." />
+            <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
           )}
           </SectionGate>
 
@@ -1555,35 +1544,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={styles.alertDetailCard}>
             <View style={styles.alertDetailGridRow}>
               <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Alert ID</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.id}</Text>
+                <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.type')}</Text>
+                <Text style={styles.alertDetailFieldValue}>{selectedAlert.title}</Text>
               </View>
               <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Category</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.category}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.alertDetailGridRow, { marginTop: 14 }]}>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Warehouse</Text>
+                <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.warehouse')}</Text>
                 <Text style={styles.alertDetailFieldValue}>{selectedAlert.warehouse}</Text>
-              </View>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Priority</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.priority}</Text>
               </View>
             </View>
 
             <View style={{ marginTop: 14 }}>
-              <Text style={styles.alertDetailFieldLabel}>Time</Text>
+              <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.since')}</Text>
               <Text style={styles.alertDetailFieldValue}>{selectedAlert.time}</Text>
             </View>
 
             <View style={{ marginTop: 14 }}>
-              <Text style={styles.alertDetailFieldLabel}>Description</Text>
+              <Text style={styles.alertDetailFieldLabel}>{t('mainDashboard.alert.description')}</Text>
               <Text style={[styles.alertDetailFieldValue, { fontWeight: '500', lineHeight: 20 }]}>
-                {selectedAlert.description}
+                {selectedAlert.detail}
               </Text>
             </View>
 
@@ -1591,7 +1569,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <TouchableOpacity
                 style={styles.openRelatedBtn}
                 onPress={() => {
-                  navigateWh(selectedAlert.relatedRoute);
+                  navigateWh(ALERT_TARGET_ROUTE[selectedAlert.target]);
                 }}
                 activeOpacity={0.8}
               >
@@ -1702,7 +1680,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>In Transit</Text>
               <Text style={styles.stockTableVal}>
-                {orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY').length}
+                {ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY').length}
               </Text>
             </View>
             <View style={styles.stockTableRowDivider} />
@@ -2012,7 +1990,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
                   <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                  <Text style={styles.headerGreetingText}>Good morning, {displayName}</Text>
+                  <Text style={styles.headerGreetingText}>{t(greetingKey(now), { name: displayName })}</Text>
                 </View>
 
                 {/* Header Actions: Notification Bell + Profile Button */}
@@ -2086,9 +2064,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(openTasksSrc.status, () =>
-                      String(openTasks.filter((t) => t.type === 'ORDER_DISPATCH' || t.state === 'OPEN').length),
-                    )}
+                    {figureOrPlaceholder(openTasksSrc.status, () => String(openTasks.length))}
                   </Text>
                   <Text style={styles.kpiSub}>transfers</Text>
                 </View>
@@ -2097,7 +2073,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(ordersSrc.status, () => String(orders.length))}
+                    {figureOrPlaceholder(ordersSrc.status, () => `${ordersToday.count}${ordersToday.exact ? '' : '+'}`)}
                   </Text>
                   <Text style={styles.kpiSub}>orders</Text>
                 </View>
@@ -2128,6 +2104,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onRetry={() => retryFailed(homeKpiSources)}
                 />
               ) : null}
+              {listsPartial ? <Text style={styles.partialNote}>{t('mainDashboard.partial')}</Text> : null}
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2174,7 +2151,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsFigSrc, ordersSrc, openTasksSrc]}>
+              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2210,13 +2187,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Order Fulfilment</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>{orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
+                      Ready <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>{orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
+                      Dispatched <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>{orders.filter((o) => o.status === 'CANCELLED').length}</Text>
+                      Exceptions <Text style={styles.operationsMetricRed}>{ordersToday.orders.filter((o) => o.status === 'CANCELLED').length}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2232,7 +2209,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Quality Issues</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Pending <Text style={styles.operationsMetricBold}>{openTasks.filter((t) => t.type === 'GOODS_RECEIPT_QC').length}</Text>
+                      Pending <Text style={styles.operationsMetricBold}>{taskSummary === undefined ? FIGURE_PLACEHOLDER : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC')}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
                       Damage <Text style={styles.operationsMetricBold}>{receiptFig.damaged}</Text>
@@ -2254,8 +2231,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
                   <Text style={styles.operationsTimelineSub}>
                     {goodsReceipts[0]
-                      ? `Goods Received — ${goodsReceipts[0].grnNumber || goodsReceipts[0].id?.slice(0, 8)} · ${goodsReceipts[0].receivedAt ? goodsReceipts[0].receivedAt.slice(11, 16) : 'Today'}`
-                      : 'No operations recorded yet today'}
+                      ? t('mainDashboard.timeline.goodsReceived', {
+                          grn: goodsReceipts[0].grnNumber,
+                          time: relativeTime(goodsReceipts[0].receivedAt, now),
+                        })
+                      : t('mainDashboard.timeline.empty')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2286,8 +2266,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <View style={styles.alertContentRow}>
                     <WarningTriangleIcon size={24} color={PALETTE.red} />
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.alertTitle}>{alertsList[0]!.title}</Text>
-                      <Text style={styles.alertSub}>{alertsList[0]!.subtitle}</Text>
+                      <Text style={styles.alertTitle}>{`${alertsList[0]!.warehouse}: ${alertsList[0]!.title}`}</Text>
+                      <Text style={styles.alertSub}>{alertsList[0]!.detail}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -2317,10 +2297,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
               <SectionGate sources={[openTasksSrc]}>
               <View style={styles.recentActivityCard}>
-                {openTasks.slice(0, 2).map((t, idx) => {
-                  const isLast = idx === Math.min(openTasks.length, 2) - 1;
+                {activityRows.map((row, idx) => {
+                  const isLast = idx === activityRows.length - 1;
                   return (
-                    <React.Fragment key={t.itemKey}>
+                    <React.Fragment key={row.id}>
                       <TouchableOpacity
                         style={styles.activityItemRow}
                         onPress={() => navigateWh('activity_timeline_ops')}
@@ -2330,16 +2310,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                           <TruckIcon size={18} color={PALETTE.primary} />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
-                          <Text style={styles.activityTitle}>{t.titleKey}</Text>
-                          <Text style={styles.activitySub}>{t.type} · Ref: {t.refType}</Text>
+                          <Text style={styles.activityTitle}>{row.title}</Text>
+                          <Text style={styles.activitySub}>{row.subtitle}</Text>
                         </View>
-                        <Text style={styles.activityTime}>{t.createdAt ? t.createdAt.slice(11, 16) : 'Today'}</Text>
+                        <Text style={styles.activityTime}>{row.time}</Text>
                       </TouchableOpacity>
                       {!isLast && <View style={styles.activityDivider} />}
                     </React.Fragment>
                   );
                 })}
-                {openTasks.length === 0 && (
+                {activityRows.length === 0 && (
                   <View style={{ padding: 16 }}>
                     <Text style={[styles.activitySub, { textAlign: 'center' }]}>No recent activity recorded</Text>
                   </View>
@@ -2527,6 +2507,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onRetry={() => retryFailed(inventoryKpiSources)}
                 />
               ) : null}
+              {listsPartial ? <Text style={styles.partialNote}>{t('mainDashboard.partial')}</Text> : null}
 
               {/* 2. Warehouse Summary */}
               <View style={styles.sectionHeaderRow}>
@@ -2610,13 +2591,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
                 <TouchableOpacity
                   style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
+                  onPress={() => openTab('More', 'returns')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
+                  <Text style={styles.summaryItemName}>{t('mainDashboard.pending.returnsApproval')}</Text>
                   <Text style={styles.summaryItemValue}>
-                    {figureOrPlaceholder(openTasksSrc.status, () =>
-                      String(openTasks.filter((t) => t.type === 'RETURN_APPROVAL').length),
+                    {figureOrPlaceholder(taskSummarySrc.status, () =>
+                      String(taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'RETURN_APPROVAL')),
                     )}
                   </Text>
                 </TouchableOpacity>
@@ -4192,6 +4173,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  partialNote: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
   dismissErrorText: {
     marginTop: adminSpacing.md,

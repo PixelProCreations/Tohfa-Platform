@@ -11,13 +11,20 @@
  */
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { BatchDto } from '../../api/inventory';
+import type { AlertItemDto } from '../../api/alerts';
+import type { OrderSummaryDto } from '../../api/orders';
 import type { GoodsReceiptDto } from '../../api/receiving';
+import type { TaskItemDto, TaskSummaryDto, TaskType } from '../../api/tasks';
+import type { Page } from '../../../../shell/api/pagination';
 import type { SalesDashboardSummaryDto } from '../../api/sales';
 import type { WarehouseDto } from '../../api/warehouses';
 import { parseKgToGrams } from '../../money/quantity';
 import { formatPaise } from '../../money/paise';
 import { toBatchRow } from '../warehouse/inventory/mappers';
-import { t } from '../../i18n';
+import { hasKey, t, type TranslationKey } from '../../i18n';
+import { isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
+import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
+import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
 import { queryViewState } from '../warehouse/shared/queryViewState';
 
 // ─── View states ─────────────────────────────────────────────────────────────
@@ -335,3 +342,214 @@ export const EMPTY_RECEIPT_FIGURES: ReceiptFigures = {
   damaged: 0,
   rejected: 0,
 };
+
+// ─── Reading every page of a list ────────────────────────────────────────────
+
+/** The API's largest `limit` for the cursor-paged lists the dashboard reads. */
+export const DASHBOARD_PAGE_LIMIT = 100;
+/**
+ * Pages read per list before giving up: a technical bound on one dashboard
+ * load (10 x 100 rows), not a business threshold. Hitting it makes the result
+ * `complete: false`, which the screen says out loud.
+ */
+export const DASHBOARD_MAX_PAGES = 10;
+
+export interface CollectedPages<T> {
+  items: T[];
+  /** False only when `maxPages` ran out with more pages still on the server. */
+  complete: boolean;
+}
+
+export interface CollectPagesOptions<T> {
+  maxPages?: number | undefined;
+  /** Called with each page's rows; true ends the read as complete (e.g. a newest-first list has reached yesterday). */
+  isDone?: ((pageItems: readonly T[]) => boolean) | undefined;
+}
+
+/**
+ * Follows `page.nextCursor` until the last page, the cap, or `isDone`. A failed
+ * page rejects the whole read: a partial list is never returned as if whole.
+ */
+export async function collectPages<T>(
+  fetchPage: (cursor: string | undefined) => Promise<Page<T>>,
+  options: CollectPagesOptions<T> = {},
+): Promise<CollectedPages<T>> {
+  const maxPages = options.maxPages ?? DASHBOARD_MAX_PAGES;
+  const items: T[] = [];
+  let cursor: string | undefined;
+  for (let n = 0; n < maxPages; n += 1) {
+    const page = await fetchPage(cursor);
+    items.push(...page.items);
+    if (options.isDone?.(page.items) === true || !page.page.hasMore || page.page.nextCursor === null) {
+      return { items, complete: true };
+    }
+    cursor = page.page.nextCursor;
+  }
+  return { items, complete: false };
+}
+
+// ─── Today ───────────────────────────────────────────────────────────────────
+
+/** Goods receipts received on the IST calendar day `day` ("YYYY-MM-DD"). */
+export function receiptsOnDay(receipts: readonly GoodsReceiptDto[], day: string): GoodsReceiptDto[] {
+  return receipts.filter((g) => isOnIstDay(g.receivedAt, day));
+}
+
+export interface OrdersToday {
+  /** The orders placed on the day. */
+  orders: OrderSummaryDto[];
+  count: number;
+  /**
+   * True when the count is the whole day: the list was read to its end, or it
+   * reached an order from another day (the queue is newest first, so nothing
+   * placed today follows). False means more may exist: show "N+".
+   */
+  exact: boolean;
+}
+
+/**
+ * GET /admin/orders has no placed-date filter (`deliveryDate` is the pickup or
+ * delivery date, not when the order was placed), so "today's orders" is read
+ * from `placedAt` of the newest-first list.
+ */
+export function countOrdersPlacedOn(orders: readonly OrderSummaryDto[], day: string, listComplete: boolean): OrdersToday {
+  const today = orders.filter((o) => isOnIstDay(o.placedAt, day));
+  const reachedAnotherDay = orders.some((o) => !isOnIstDay(o.placedAt, day));
+  return { orders: today, count: today.length, exact: listComplete || reachedAnotherDay };
+}
+
+/** The greeting for the IST hour: morning before 12:00, afternoon before 17:00, evening after. */
+export function greetingKey(now: Date): TranslationKey {
+  const hour = istHour(now);
+  if (hour < 12) return 'mainDashboard.greeting.morning';
+  if (hour < 17) return 'mainDashboard.greeting.afternoon';
+  return 'mainDashboard.greeting.evening';
+}
+
+/** Open tasks of one type, exact from GET /admin/tasks/summary (the spec zero-fills, so absent means none). */
+export function openTaskCount(summary: TaskSummaryDto, type: TaskType): number {
+  return summary.byType[type] ?? 0;
+}
+
+// ─── Alerts (the spec carries no priority, read state or resolved state) ─────
+
+/** Which dashboard view an alert type belongs to. */
+export type AlertTarget = 'lowStock' | 'capacity' | 'inventory' | 'operations';
+
+export interface DashboardAlert {
+  /** The alert itemKey, passed back verbatim to dismiss it. */
+  id: string;
+  type: AlertItemDto['type'];
+  /** The type's title from the catalogue. */
+  title: string;
+  warehouseId: string;
+  /** Short warehouse name, or "Unknown warehouse". */
+  warehouse: string;
+  /** Relative time since the condition began ('' for a point-in-time alert). */
+  time: string;
+  /** The server's message key worded through the catalogue, with formatted kg. */
+  detail: string;
+  target: AlertTarget;
+}
+
+function alertTargetOf(type: string): AlertTarget {
+  if (type === 'LOW_STOCK') return 'lowStock';
+  if (type === 'CAPACITY_NEAR_FULL') return 'capacity';
+  if (type === 'BATCH_NEAR_EXPIRY') return 'inventory';
+  return 'operations';
+}
+
+function warehouseLabel(warehouses: readonly WarehouseDto[], id: string): string {
+  const w = warehouses.find((row) => row.id === id);
+  return w === undefined ? t('mainDashboard.warehouse.unknown') : warehouseShortName(w.name);
+}
+
+/**
+ * Alerts as dashboard rows. Titles and wording reuse the Notifications alert
+ * mapper; nothing here ranks them: docs/openapi.yaml AlertItem has a type, not
+ * a priority, so no Critical / High / Medium is invented.
+ */
+export function toDashboardAlerts(
+  alerts: readonly AlertItemDto[],
+  warehouses: readonly WarehouseDto[],
+  now: Date,
+): DashboardAlert[] {
+  return alerts.map((dto) => {
+    const row = toApprovalAlertItem(dto, now);
+    return {
+      id: dto.itemKey,
+      type: dto.type,
+      title: row.title,
+      warehouseId: dto.warehouseId,
+      warehouse: warehouseLabel(warehouses, dto.warehouseId),
+      time: row.timestamp,
+      detail: row.detail,
+      target: alertTargetOf(dto.type),
+    };
+  });
+}
+
+export interface LowStockItem {
+  id: string;
+  /** "Carrot · Grade 1", named from the batches; a neutral label when no batch names the crop. */
+  product: string;
+  warehouse: string;
+  /** The alert's totalQtyKg as "20 kg". */
+  current: string;
+  /** The alert's thresholdKg as "50 kg". */
+  target: string;
+}
+
+/** LOW_STOCK alerts as rows, with the product name joined from the batches (cropId) and the figures the server sent. */
+export function toLowStockItems(
+  alerts: readonly AlertItemDto[],
+  batches: readonly BatchDto[],
+  warehouses: readonly WarehouseDto[],
+): LowStockItem[] {
+  const cropNames = cropNamesOf(batches.map(toBatchRow));
+  return alerts
+    .filter((a) => a.type === 'LOW_STOCK')
+    .map((alert) => {
+      const row = toLowStockRow(alert, cropNames);
+      return {
+        id: row.id,
+        product: row.name,
+        warehouse: warehouseLabel(warehouses, alert.warehouseId),
+        current: row.available,
+        target: row.threshold,
+      };
+    });
+}
+
+// ─── Recent activity ─────────────────────────────────────────────────────────
+
+export interface ActivityRow {
+  id: string;
+  title: string;
+  /** Short warehouse name. */
+  subtitle: string;
+  /** Relative time. */
+  time: string;
+}
+
+/**
+ * Open tasks as activity rows. The server sends a translation key
+ * (`task.<type>.title`); it is worded through the catalogue and a task whose
+ * key the app has no string for is left out, never shown as a raw key.
+ */
+export function toRecentActivity(
+  tasks: readonly TaskItemDto[],
+  warehouses: readonly WarehouseDto[],
+  now: Date,
+  limit = 2,
+): ActivityRow[] {
+  return tasks
+    .filter((task) => task.titleKey.startsWith('task.') && hasKey(task.titleKey))
+    .slice(0, limit)
+    .map((task) => ({
+      id: task.itemKey,
+      title: t(task.titleKey as TranslationKey),
+      subtitle: warehouseLabel(warehouses, task.warehouseId),
+      time: relativeTime(task.createdAt, now),
+    }));
+}

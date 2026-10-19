@@ -6,7 +6,7 @@
  * its time zone.
  */
 import { describe, expect, it } from 'vitest';
-import { formatAdminDate, formatAdminDay, relativeTime } from '../utils/datetime';
+import { formatAdminDate, formatAdminDay, isOnIstDay, istDay, istHour, relativeTime } from '../utils/datetime';
 
 // 25 Sep 2026, 12:00 PM IST.
 const NOW = new Date('2026-09-25T06:30:00Z');
@@ -84,5 +84,31 @@ describe('relativeTime', () => {
 
   it('gives an empty string for an unparseable value', () => {
     expect(relativeTime('garbage', NOW)).toBe('');
+  });
+});
+
+describe('istDay, istHour and isOnIstDay: the IST calendar day, not the UTC one', () => {
+  it('istDay is the Asia/Kolkata date: 18:30 UTC on the 24th is already the 25th in IST', () => {
+    expect(istDay(new Date('2026-09-24T18:29:59Z'))).toBe('2026-09-24');
+    expect(istDay(new Date('2026-09-24T18:30:00Z'))).toBe('2026-09-25');
+  });
+
+  it('istDay differs from toISOString().slice(0, 10) between 00:00 and 05:30 IST (the sales summary uses IST days, BR-96)', () => {
+    const justAfterMidnightIst = new Date('2026-09-24T19:00:00Z');
+    expect(justAfterMidnightIst.toISOString().slice(0, 10)).toBe('2026-09-24');
+    expect(istDay(justAfterMidnightIst)).toBe('2026-09-25');
+  });
+
+  it('istHour is the IST hour of day, 0-23', () => {
+    expect(istHour(new Date('2026-09-25T00:00:00Z'))).toBe(5);
+    expect(istHour(new Date('2026-09-24T18:30:00Z'))).toBe(0);
+    expect(istHour(new Date('2026-09-25T18:29:00Z'))).toBe(23);
+  });
+
+  it('isOnIstDay compares an instant to a YYYY-MM-DD in IST, and is false for a value that is not a date', () => {
+    expect(isOnIstDay('2026-09-24T18:30:00Z', '2026-09-25')).toBe(true);
+    expect(isOnIstDay('2026-09-25T18:29:59Z', '2026-09-25')).toBe(true);
+    expect(isOnIstDay('2026-09-25T18:30:00Z', '2026-09-25')).toBe(false);
+    expect(isOnIstDay('not a date', '2026-09-25')).toBe(false);
   });
 });

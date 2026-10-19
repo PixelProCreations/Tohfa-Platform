@@ -7,13 +7,25 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { BatchDto } from '../api/inventory';
+import type { AlertItemDto } from '../api/alerts';
+import type { OrderSummaryDto } from '../api/orders';
 import type { GoodsReceiptDto } from '../api/receiving';
+import type { TaskItemDto, TaskSummaryDto } from '../api/tasks';
+import type { Page } from '../../../shell/api/pagination';
 import type { WarehouseDto } from '../api/warehouses';
 import { formatKg } from '../money/quantity';
 import {
   FIGURE_PLACEHOLDER,
   attempt,
+  collectPages,
   combineSources,
+  countOrdersPlacedOn,
+  greetingKey,
+  openTaskCount,
+  receiptsOnDay,
+  toDashboardAlerts,
+  toLowStockItems,
+  toRecentActivity,
   deriveReceiptFigures,
   deriveStockFigures,
   figureOrPlaceholder,
@@ -313,5 +325,260 @@ describe('deriveReceiptFigures: accepted weight in integer grams', () => {
   it('an unreadable quantity is a data error, not zero', () => {
     expect(deriveReceiptFigures([receipt({ id: '1', acceptedQtyKg: 'x' })]).ok).toBe(false);
     expect(deriveReceiptFigures([receipt({ id: '1', rejectedQtyKg: 'x' })]).ok).toBe(false);
+  });
+});
+
+// ─── Honest figures ──────────────────────────────────────────────────────────
+
+const TODAY = '2026-10-19';
+const NOW = new Date('2026-10-19T06:30:00Z');
+
+describe('collectPages: every page up to a cap, and whether that was all of them', () => {
+  const pages = (...sets: string[][]) => {
+    const calls: (string | undefined)[] = [];
+    const fetchPage = async (cursor: string | undefined): Promise<Page<string>> => {
+      calls.push(cursor);
+      const i = cursor === undefined ? 0 : Number(cursor);
+      return { items: sets[i] ?? [], page: { nextCursor: i + 1 < sets.length ? String(i + 1) : null, hasMore: i + 1 < sets.length } };
+    };
+    return { fetchPage, calls };
+  };
+
+  it('follows the cursor to the last page and reports it complete', async () => {
+    const { fetchPage, calls } = pages(['a'], ['b'], ['c']);
+    expect(await collectPages(fetchPage)).toEqual({ items: ['a', 'b', 'c'], complete: true });
+    expect(calls).toEqual([undefined, '1', '2']);
+  });
+
+  it('stops at maxPages and says the result is partial, so a total is never presented as complete', async () => {
+    const { fetchPage } = pages(['a'], ['b'], ['c']);
+    expect(await collectPages(fetchPage, { maxPages: 2 })).toEqual({ items: ['a', 'b'], complete: false });
+  });
+
+  it('stops early (and is complete) once a page holds everything wanted, e.g. a newest-first list reaching yesterday', async () => {
+    const { fetchPage, calls } = pages(['today'], ['yesterday'], ['older']);
+    const result = await collectPages(fetchPage, { isDone: (items) => items.includes('yesterday') });
+    expect(result).toEqual({ items: ['today', 'yesterday'], complete: true });
+    expect(calls).toHaveLength(2);
+  });
+
+  it('propagates a failed page instead of returning a partial list as if it were whole', async () => {
+    const fetchPage = async (cursor: string | undefined): Promise<Page<string>> => {
+      if (cursor === undefined) return { items: ['a'], page: { nextCursor: '1', hasMore: true } };
+      throw new Error('boom');
+    };
+    await expect(collectPages(fetchPage)).rejects.toThrow('boom');
+  });
+});
+
+describe('receiptsOnDay: Receipts today must filter by date', () => {
+  const list = [
+    receipt({ id: 'today-morning', receivedAt: '2026-10-19T03:00:00Z' }),
+    receipt({ id: 'today-ist-edge', receivedAt: '2026-10-18T18:30:00Z' }), // 00:00 IST on the 19th
+    receipt({ id: 'yesterday-late', receivedAt: '2026-10-19T18:29:00Z' }), // 23:59 IST on the 19th: still today
+    receipt({ id: 'yesterday', receivedAt: '2026-10-18T18:29:59Z' }), // 23:59 IST on the 18th
+    receipt({ id: 'tomorrow', receivedAt: '2026-10-19T18:30:00Z' }),
+  ];
+
+  it('keeps only receipts received on the IST day, in IST (not UTC) day boundaries', () => {
+    expect(receiptsOnDay(list, TODAY).map((g) => g.id)).toEqual(['today-morning', 'today-ist-edge', 'yesterday-late']);
+  });
+
+  it('drops a receipt whose receivedAt is not a date rather than counting it as today', () => {
+    expect(receiptsOnDay([receipt({ id: 'x', receivedAt: '' })], TODAY)).toEqual([]);
+  });
+
+  it('feeds the incoming-today weight: an old 500 kg receipt no longer inflates today', () => {
+    const f = receiptsOf(
+      receiptsOnDay(
+        [
+          receipt({ id: 'a', receivedAt: '2026-10-19T04:00:00Z', acceptedQtyKg: '20.000' }),
+          receipt({ id: 'b', receivedAt: '2026-10-10T04:00:00Z', acceptedQtyKg: '500.000' }),
+        ],
+        TODAY,
+      ),
+    );
+    expect(f.acceptedGrams).toBe(20000);
+  });
+});
+
+describe("countOrdersPlacedOn: Today's orders must be today's", () => {
+  const order = (id: string, placedAt: string): OrderSummaryDto => ({
+    id,
+    orderNumber: id,
+    status: 'CONFIRMED',
+    totalAmount: '10.00' as OrderSummaryDto['totalAmount'],
+    placedAt,
+  });
+
+  it('counts orders placed on the IST day only', () => {
+    const orders = [order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-19T02:00:00Z'), order('3', '2026-10-17T05:00:00Z')];
+    expect(countOrdersPlacedOn(orders, TODAY, true)).toMatchObject({ count: 2, exact: true });
+    expect(countOrdersPlacedOn(orders, TODAY, true).orders.map((o) => o.id)).toEqual(['1', '2']);
+  });
+
+  it('is exact when the list was read to the end, or when it reached an older order (newest first)', () => {
+    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, true).exact).toBe(true);
+    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-01T05:00:00Z')], TODAY, false).exact).toBe(true);
+  });
+
+  it('is NOT exact when the pages ran out while every order read was still today (more may follow)', () => {
+    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, false)).toMatchObject({ count: 1, exact: false });
+  });
+
+  it('no orders is an exact zero only when the list was complete', () => {
+    expect(countOrdersPlacedOn([], TODAY, true)).toMatchObject({ count: 0, exact: true });
+  });
+});
+
+describe('greetingKey: by IST hour of day, not always "Good morning"', () => {
+  it.each([
+    ['2026-10-19T00:30:00Z', 'mainDashboard.greeting.morning'], // 06:00 IST
+    ['2026-10-19T06:29:00Z', 'mainDashboard.greeting.morning'], // 11:59 IST
+    ['2026-10-19T06:30:00Z', 'mainDashboard.greeting.afternoon'], // 12:00 IST
+    ['2026-10-19T11:29:00Z', 'mainDashboard.greeting.afternoon'], // 16:59 IST
+    ['2026-10-19T11:30:00Z', 'mainDashboard.greeting.evening'], // 17:00 IST
+    ['2026-10-19T17:00:00Z', 'mainDashboard.greeting.evening'], // 22:30 IST
+    ['2026-10-18T22:00:00Z', 'mainDashboard.greeting.morning'], // 03:30 IST: before dawn still reads as morning
+  ])('%s -> %s', (iso, key) => {
+    expect(greetingKey(new Date(iso))).toBe(key);
+  });
+});
+
+describe('openTaskCount: exact from the server summary, not from the loaded page', () => {
+  const summary: TaskSummaryDto = { open: 7, byType: { RETURN_APPROVAL: 3, GOODS_RECEIPT_QC: 4 } };
+
+  it('reads the count of one task type from byType', () => {
+    expect(openTaskCount(summary, 'RETURN_APPROVAL')).toBe(3);
+    expect(openTaskCount(summary, 'GOODS_RECEIPT_QC')).toBe(4);
+  });
+
+  it('a type the summary lacks is 0 (the spec zero-fills, so absent means none)', () => {
+    expect(openTaskCount(summary, 'ORDER_PACK')).toBe(0);
+  });
+});
+
+// ─── Alerts: no invented priority ───────────────────────────────────────────
+
+const alertDto = (over: Partial<AlertItemDto> & Pick<AlertItemDto, 'itemKey' | 'type'>): AlertItemDto => ({
+  messageKey: `alert.${over.type.toLowerCase()}.message`,
+  refType: 'WAREHOUSE',
+  refId: WH_A,
+  warehouseId: WH_A,
+  since: '2026-10-19T04:00:00Z',
+  params: {},
+  state: 'ACTIVE',
+  snoozedUntil: null,
+  ...over,
+});
+
+describe('toDashboardAlerts: the type only, never an invented Critical/High/Medium', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+
+  it('has no priority field and no unread/resolved status: the spec carries neither (docs/openapi.yaml AlertItem)', () => {
+    const [a] = toDashboardAlerts([alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK', params: { grade: 'GRADE_1', totalQtyKg: '20.000', thresholdKg: '50.000' } })], warehouses, NOW);
+    expect(a).toBeDefined();
+    expect(Object.keys(a ?? {})).not.toContain('priority');
+    expect(Object.keys(a ?? {})).not.toContain('status');
+  });
+
+  it('titles each alert by its type from the catalogue, names the warehouse, and words the message with formatted kg', () => {
+    const [low, cap] = toDashboardAlerts(
+      [
+        alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK', params: { grade: 'GRADE_1', totalQtyKg: '20.000', thresholdKg: '50.000' } }),
+        alertDto({ itemKey: 'capacity_near_full:y', type: 'CAPACITY_NEAR_FULL', params: { utilizationPercent: '92.50', usedKg: '9250.000', capacityKg: '10000.000' } }),
+      ],
+      warehouses,
+      NOW,
+    );
+    expect(low).toMatchObject({ id: 'low_stock:x', title: 'Low stock', warehouse: 'Ooty', target: 'lowStock' });
+    expect(low?.detail).toBe('Grade GRADE_1 stock is 20 kg, below 50 kg');
+    expect(cap).toMatchObject({ title: 'Warehouse nearly full', target: 'capacity' });
+    expect(cap?.detail).toBe('92.50% used · 9,250 kg of 10,000 kg');
+  });
+
+  it('an alert type the app does not know gets the generic title, not a raw enum', () => {
+    const [a] = toDashboardAlerts([alertDto({ itemKey: 'new:z', type: 'SOMETHING_NEW' as AlertItemDto['type'], messageKey: 'alert.something_new.message' })], warehouses, NOW);
+    expect(a?.title).toBe('Warehouse alert');
+    expect(a?.target).toBe('operations');
+  });
+
+  it('a warehouse missing from the list is "Unknown warehouse", never a raw uuid', () => {
+    const [a] = toDashboardAlerts([alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK', warehouseId: WH_B })], warehouses, NOW);
+    expect(a?.warehouse).toBe('Unknown warehouse');
+  });
+});
+
+describe('toLowStockItems: the product name, not the raw itemKey', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+  const low = alertDto({
+    itemKey: `low_stock:${WH_A}:${CARROT}:GRADE_1`,
+    type: 'LOW_STOCK',
+    params: { cropId: CARROT, grade: 'GRADE_1', totalQtyKg: '20.000', thresholdKg: '50.000' },
+  });
+
+  it('joins the crop name from the batches by cropId and shows current vs threshold', () => {
+    const [item] = toLowStockItems([low], [batch({ warehouseId: WH_A, qtyAvailableKg: '20.000' })], warehouses);
+    expect(item).toMatchObject({ product: 'Carrot \u00b7 Grade 1', warehouse: 'Ooty', current: '20 kg', target: '50 kg' });
+    expect(item?.product).not.toContain('low_stock');
+  });
+
+  it('with no batch to name the crop it shows the neutral label, never the uuid or the itemKey', () => {
+    const [item] = toLowStockItems([low], [], warehouses);
+    expect(item?.product).not.toContain(CARROT);
+    expect(item?.product).not.toContain('low_stock');
+  });
+
+  it('ignores alerts that are not LOW_STOCK', () => {
+    expect(toLowStockItems([alertDto({ itemKey: 'c:1', type: 'CAPACITY_NEAR_FULL' })], [], warehouses)).toEqual([]);
+  });
+});
+
+// ─── Recent activity: no raw i18n keys ──────────────────────────────────────
+
+const task = (over: Partial<TaskItemDto> & Pick<TaskItemDto, 'itemKey' | 'type' | 'titleKey'>): TaskItemDto => ({
+  refType: 'ORDER',
+  refId: WH_A,
+  warehouseId: WH_A,
+  createdAt: '2026-10-19T05:50:00Z',
+  dueOn: null,
+  params: {},
+  state: 'OPEN',
+  ...over,
+});
+
+describe('toRecentActivity: titles come from the catalogue, unknown keys are hidden', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+
+  it('translates the server titleKey instead of printing it', () => {
+    const [row] = toRecentActivity([task({ itemKey: 'ORDER_PACK:1', type: 'ORDER_PACK', titleKey: 'task.order_pack.title' })], warehouses, NOW);
+    expect(row?.title).toBe('Order to pack');
+    expect(row?.title).not.toContain('task.');
+    expect(row?.subtitle).toBe('Ooty');
+    expect(row?.time).toBe('40 minutes ago');
+  });
+
+  it('hides a task whose titleKey the app has no string for, rather than showing a raw key', () => {
+    const rows = toRecentActivity(
+      [
+        task({ itemKey: 'A', type: 'ORDER_PACK', titleKey: 'task.brand_new.title' }),
+        task({ itemKey: 'B', type: 'GOODS_RECEIPT_QC', titleKey: 'task.goods_receipt_qc.title' }),
+      ],
+      warehouses,
+      NOW,
+    );
+    expect(rows.map((r) => r.id)).toEqual(['B']);
+  });
+
+  it('has a catalogue string for every task type the spec lists', () => {
+    for (const type of ['RETURN_INSPECTION', 'RETURN_APPROVAL', 'GOODS_RECEIPT_QC', 'ORDER_PACK', 'ORDER_DISPATCH', 'ORDER_PICKUP_OTP'] as const) {
+      const rows = toRecentActivity([task({ itemKey: type, type, titleKey: `task.${type.toLowerCase()}.title` })], warehouses, NOW);
+      expect({ type, shown: rows.length }).toEqual({ type, shown: 1 });
+    }
+  });
+
+  it('shows at most the requested number of rows', () => {
+    const many = Array.from({ length: 5 }, (_, i) => task({ itemKey: `K${i}`, type: 'ORDER_PACK', titleKey: 'task.order_pack.title' }));
+    expect(toRecentActivity(many, warehouses, NOW, 2)).toHaveLength(2);
   });
 });

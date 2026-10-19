@@ -101,3 +101,65 @@ describe('weights are integers and money is paise (root CLAUDE.md 2.2; BR-66b)',
     expect(MAIN).toContain('derivedSource(revenueD');
   });
 });
+
+describe('honest figures: no claim the data does not back', () => {
+  it("asks for the IST day, not the UTC one (the sales summary counts Asia/Kolkata days, BR-96)", () => {
+    expect(MAIN).toContain('istDay(now)');
+    expect(MAIN).not.toContain('toISOString()');
+  });
+
+  it("Today's orders is placed-today from placedAt (GET /admin/orders has no placed-date filter), shown as N+ when the pages ran out", () => {
+    expect(MAIN).toContain('countOrdersPlacedOn(');
+    expect(MAIN).toContain("ordersToday.exact ? '' : '+'");
+    expect(MAIN).not.toMatch(/String\(orders\.length\)/);
+  });
+
+  it('Receipts today are the receipts of the IST day (receiptsOnDay), not every receipt the first page held', () => {
+    expect(MAIN).toContain('receiptsOnDay(goodsReceiptsQuery.data');
+  });
+
+  it('the transfers tile does not count every open task as a pending transfer', () => {
+    expect(MAIN).not.toContain("t.type === 'ORDER_DISPATCH' || t.state === 'OPEN'");
+  });
+
+  it('"Adjustments awaiting approval" no longer counts RETURN_APPROVAL tasks; the row says what it counts and opens Returns', () => {
+    expect(MAIN).not.toContain('Adjustments Awaiting Approval');
+    expect(MAIN).toContain("t('mainDashboard.pending.returnsApproval')");
+    expect(MAIN).toContain("openTaskCount(taskSummary, 'RETURN_APPROVAL')");
+  });
+
+  it('alerts carry no invented Critical / High / Medium priority and no Resolved filter (only active alerts are fetched)', () => {
+    expect(MAIN).not.toMatch(/'Critical'|'High'|'Medium'/);
+    expect(MAIN).not.toContain('Resolved');
+    expect(MAIN).not.toContain('alertPriorityFilter');
+    expect(MAIN).not.toContain('alertStatusFilter');
+  });
+
+  it('Recent Activity words titleKey through the catalogue (toRecentActivity) and never renders it raw', () => {
+    expect(MAIN).toContain('toRecentActivity(openTasks, warehouses, now)');
+    expect(MAIN).not.toMatch(/\{\s*t\.titleKey\s*\}/);
+    expect(MAIN).not.toMatch(/\.titleKey\}/);
+  });
+
+  it('low-stock rows are named from the batches, not the raw itemKey', () => {
+    expect(MAIN).toContain('toLowStockItems(liveAlerts, batches, warehouses)');
+    expect(MAIN).not.toContain("a.itemKey || 'Produce Stock'");
+    expect(MAIN).not.toContain("'Below Threshold'");
+  });
+
+  it('the greeting follows the hour of day and is not hard-coded', () => {
+    expect(MAIN).toContain('greetingKey(now)');
+    expect(MAIN).not.toContain('Good morning');
+  });
+
+  it('the warehouse list is the API\'s own isActive list, with no hard-coded seed codes', () => {
+    expect(MAIN).toContain('listWarehouses({ isActive: true, pageSize: 100 }');
+    expect(MAIN).not.toMatch(/WH-OOTY|WH-COON|WH-KOTA|WH-GUDA/);
+  });
+
+  it('every i18n key the screen asks for exists in the admin catalogue', () => {
+    const used = [...MAIN.matchAll(/\bt\('([A-Za-z0-9_.]+)'/g)].map((m) => m[1]!);
+    expect(used.length).toBeGreaterThan(5);
+    for (const key of used) expect({ key, has: key in EN }).toEqual({ key, has: true });
+  });
+});
