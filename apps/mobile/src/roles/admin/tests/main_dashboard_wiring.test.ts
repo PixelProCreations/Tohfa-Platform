@@ -281,3 +281,24 @@ describe('warehouse selection: uuids for live flows, the seed code for fixture-k
     expect(MAIN).toContain('const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};');
   });
 });
+
+describe('theme: the screen takes colours from adminColors where a token exists', () => {
+  it('the brand, ink, canvas, card and semantic colours are tokens, not literals', () => {
+    for (const literal of ["'#F0562A'", "'#7A2E14'", "'#FDF3F0'", "'#F3EFE9'", "'#1A1A1A'", "'#5F5E5A'", "'#EEDCD3'", "'#854F0B'", "'#173404'", "'#E24B4A'", "'#FFFFFF'"]) {
+      expect({ literal, present: MAIN.includes(literal) }).toEqual({ literal, present: false });
+    }
+    expect(MAIN).toContain('primary: adminColors.brand,');
+    expect(MAIN).toContain('amberBg: adminColors.warning.bg,');
+  });
+
+  it('the raw colour count sits at or below the ratchet baseline for this file (admin_theme_guard.baseline.json)', () => {
+    const allowed = read('tests/admin_theme_guard.baseline.json').match(
+      /"screens\/dashboard\/MainWarehouseAdminDashboardScreen\.tsx":\s*(\d+)/,
+    )?.[1];
+    const hex = /(['"`])#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})\1/g;
+    const rgb = /\brgba?\s*\(/g;
+    const count = (MAIN.match(hex)?.length ?? 0) + (MAIN.match(rgb)?.length ?? 0);
+    expect(Number(allowed)).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(Number(allowed));
+  });
+});

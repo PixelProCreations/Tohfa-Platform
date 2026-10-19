@@ -38,7 +38,7 @@
     "screens/dashboard/FairPriceCeilingScreen.tsx": 21,
     "screens/dashboard/FarmerAdminDashboardScreen.tsx": 24,
     "screens/dashboard/ListingApprovalQueueScreen.tsx": 29,
-    "screens/dashboard/MainWarehouseAdminDashboardScreen.tsx": 64,
+    "screens/dashboard/MainWarehouseAdminDashboardScreen.tsx": 32,
     "screens/dashboard/ManageAdminsScreen.tsx": 18,
     "screens/dashboard/MarketDayScheduleScreen.tsx": 19,
     "screens/dashboard/MarketPricingHomeScreen.tsx": 11,
