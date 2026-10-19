@@ -350,11 +350,11 @@ export function SaleTransferCullScreen({
                 style={styles.datePickerInput}
                 activeOpacity={0.8}
                 onPress={() => {
-                  Alert.prompt
-                    ? Alert.prompt('Date', 'Enter event date (DD Mon YYYY):', (val) => {
-                        if (val) setDate(val);
-                      })
-                    : null;
+                  if (Alert.prompt) {
+                    Alert.prompt('Date', 'Enter event date (DD Mon YYYY):', (val) => {
+                      if (val) setDate(val);
+                    });
+                  }
                 }}
               >
                 <Text style={styles.datePickerValText}>{date}</Text>

@@ -1,0 +1,309 @@
+/**
+ * Main Warehouse dashboard wiring (screens/dashboard/MainWarehouseAdminDashboardScreen.tsx),
+ * modelled on dashboard_wiring.test.ts: source-level checks, since the vitest
+ * setup has no DOM. The figures themselves are unit-tested on the pure module
+ * (mappers_mainDashboard.test.ts); this file pins that the screen uses it.
+ */
+import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+const SRC = path.join(__dirname, '..', '..', '..');
+const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+
+const MAIN = read('roles/admin/screens/dashboard/MainWarehouseAdminDashboardScreen.tsx');
+const EN = JSON.parse(read('roles/admin/i18n/en.json')) as Record<string, string>;
+
+describe('no design samples on the live dashboard', () => {
+  it.each([
+    'OVERVIEW_WAREHOUSES',
+    'DEFAULT_ALERTS',
+    'CONSOLIDATED_PRODUCTS',
+    'LOW_STOCK_ITEMS',
+    'TRACKING_TRANSFERS',
+    'PROFILE_WAREHOUSES',
+    'WAREHOUSE_ADMIN_ROWS',
+    'WALLET_WAREHOUSES',
+    'Suresh',
+  ])('%s does not appear in the Main dashboard', (name) => {
+    expect(MAIN).not.toContain(name);
+  });
+
+  it('imports no fixtures module from the warehouse areas', () => {
+    expect(MAIN).not.toMatch(/from '\.\.\/warehouse\/[^']*\/fixtures'/);
+    expect(MAIN).not.toMatch(/from '\.\.\/warehouse\/[^']*[Ff]ixtures'/);
+  });
+
+  it('every figure goes through the pure module or the view-state gate: no query result is read bare into JSX', () => {
+    expect(MAIN).not.toMatch(/\{(batches|goodsReceipts|liveAlerts|openTasks)\.length\}/);
+  });
+});
+
+describe('every query has a view-state handler (no zeros or "all normal" while loading or failed)', () => {
+  const QUERY_SOURCES = [
+    'warehousesQuery',
+    'batchesQuery',
+    'taskSummaryQuery',
+    'openTasksQuery',
+    'salesSummaryQuery',
+    'ordersQuery',
+    'goodsReceiptsQuery',
+    'alertsQuery',
+  ];
+
+  it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
+    expect(MAIN).toMatch(new RegExp(`sourceOf\\(${name}\\)`));
+  });
+
+  it('every sourceOf() result is read by a SectionGate or a figureOrPlaceholder, never left unused', () => {
+    const sources = [...MAIN.matchAll(/const (\w+Src) = sourceOf\(/g)].map((m) => m[1]!);
+    expect(sources.length).toBeGreaterThanOrEqual(QUERY_SOURCES.length);
+    for (const name of sources) {
+      const uses = MAIN.split(name).length - 1;
+      expect({ name, uses: uses > 1 }).toEqual({ name, uses: true });
+    }
+  });
+
+  it('the alerts card and the empty states live inside a SectionGate, so "All Warehouses Normal" needs a successful alerts fetch', () => {
+    const gate = MAIN.indexOf('<SectionGate sources={[alertsSrc, warehousesSrc]}>');
+    const normal = MAIN.indexOf('All Warehouses Normal');
+    expect(gate).toBeGreaterThan(-1);
+    expect(normal).toBeGreaterThan(gate);
+  });
+
+  it('every KPI value goes through figureOrPlaceholder, so a loading tile shows the dash, not 0', () => {
+    for (const bare of [
+      '{totalStockKg.toLocaleString()}</Text>',
+      '{orders.length}</Text>',
+      '{liveAlerts.length}</Text>',
+      '{salesRevenueText}</Text>',
+    ]) {
+      expect(MAIN).not.toContain(`styles.kpiValue}>${bare}`);
+    }
+  });
+});
+
+describe('BR-78: dismissing an alert', () => {
+  it('awaits the mutation and shows success only after it resolved (mutateAsync, never fire-and-forget mutate)', () => {
+    expect(MAIN).toMatch(/await dismissMutation\.mutateAsync\(alert\.id\)/);
+    expect(MAIN).not.toMatch(/dismissMutation\.mutate\(/);
+    const awaited = MAIN.indexOf('await dismissMutation.mutateAsync(alert.id)');
+    const success = MAIN.indexOf("t('mainDashboard.alert.dismissed.title')");
+    expect(success).toBeGreaterThan(awaited);
+  });
+
+  it('a failure returns before the success message and renders from the mutation error', () => {
+    expect(MAIN).toMatch(/catch \{[\s\S]*?return;\s*\}\s*Alert\.alert\(t\('mainDashboard\.alert\.dismissed\.title'\)/);
+    expect(MAIN).toMatch(/dismissMutation\.isError \? \(\s*<Text style=\{styles\.dismissErrorText\}>\{t\(adminErrorKey\(dismissMutation\.error\)\)\}/);
+  });
+
+  it('says it hides the alert for the caller only (spec: other users still see it) and is gated on alert.own.view', () => {
+    expect(EN['mainDashboard.alert.dismiss']).toBe('Dismiss for me');
+    expect(EN['mainDashboard.alert.dismissed.body']).toMatch(/your list only/);
+    expect(MAIN).toContain("can('alert.own.view')");
+    expect(MAIN).not.toMatch(/>Acknowledge</);
+    expect(MAIN).not.toContain('Alert Acknowledged');
+  });
+});
+
+describe('weights are integers and money is paise (root CLAUDE.md 2.2; BR-66b)', () => {
+  it('the screen does no float weight math: no Number(), parseFloat or toLocaleString on a quantity', () => {
+    expect(MAIN).not.toMatch(/Number\(\s*\w+\.(qty\w*|acceptedQtyKg|rejectedQtyKg|capacityKg)/);
+    expect(MAIN).not.toContain('toLocaleString');
+    expect(MAIN).not.toContain('parseFloat');
+    expect(MAIN).not.toMatch(/\.toFixed\(/);
+  });
+
+  it('BR-66b: capacity is not clamped (no Math.max(0, capacity - used)) and the figures come from deriveStockFigures', () => {
+    expect(MAIN).not.toMatch(/Math\.max\(\s*0,\s*total/);
+    expect(MAIN).toContain('deriveStockFigures(batches, warehouses)');
+    expect(MAIN).toContain('stockFig.capacity.availableGrams');
+  });
+
+  it('a malformed revenue is an error state, never a silent Rs 0', () => {
+    expect(MAIN).not.toContain("'₹0'");
+    expect(MAIN).not.toMatch(/catch \{\s*return '/);
+    expect(MAIN).toContain('derivedSource(revenueD');
+  });
+});
+
+describe('honest figures: no claim the data does not back', () => {
+  it("asks for the IST day, not the UTC one (the sales summary counts Asia/Kolkata days, BR-96)", () => {
+    expect(MAIN).toContain('istDay(now)');
+    expect(MAIN).not.toContain('toISOString()');
+  });
+
+  it("Today's orders is placed-today from placedAt (GET /admin/orders has no placed-date filter), shown as N+ when the pages ran out", () => {
+    expect(MAIN).toContain('countOrdersPlacedOn(');
+    expect(MAIN).toContain('countLabel(ordersToday.count, ordersToday.exact)');
+    expect(MAIN).not.toMatch(/String\(orders\.length\)/);
+  });
+
+  it('Receipts today are the receipts of the IST day (receiptsOnDay), not every receipt the first page held', () => {
+    expect(MAIN).toContain('receiptsOnDay(goodsReceiptsQuery.data');
+  });
+
+  it('the transfers tile does not count every open task as a pending transfer', () => {
+    expect(MAIN).not.toContain("t.type === 'ORDER_DISPATCH' || t.state === 'OPEN'");
+  });
+
+  it('"Adjustments awaiting approval" no longer counts RETURN_APPROVAL tasks; the row says what it counts and opens Returns', () => {
+    expect(MAIN).not.toContain('Adjustments Awaiting Approval');
+    expect(MAIN).toContain("t('mainDashboard.pending.returnsApproval')");
+    expect(MAIN).toContain("openTaskCount(taskSummary, 'RETURN_APPROVAL')");
+  });
+
+  it('alerts carry no invented Critical / High / Medium priority and no Resolved filter (only active alerts are fetched)', () => {
+    expect(MAIN).not.toMatch(/'Critical'|'High'|'Medium'/);
+    expect(MAIN).not.toContain('Resolved');
+    expect(MAIN).not.toContain('alertPriorityFilter');
+    expect(MAIN).not.toContain('alertStatusFilter');
+  });
+
+  it('Recent Activity words titleKey through the catalogue (toRecentActivity) and never renders it raw', () => {
+    expect(MAIN).toContain('toRecentActivity(openTasks, warehouses, now)');
+    expect(MAIN).not.toMatch(/\{\s*t\.titleKey\s*\}/);
+    expect(MAIN).not.toMatch(/\.titleKey\}/);
+  });
+
+  it('low-stock rows are named from the batches, not the raw itemKey', () => {
+    expect(MAIN).toContain('toLowStockItems(liveAlerts, batches, warehouses)');
+    expect(MAIN).not.toContain("a.itemKey || 'Produce Stock'");
+    expect(MAIN).not.toContain("'Below Threshold'");
+  });
+
+  it('no invented copy stands in for data the server did not send (no "Regional Facility", no fixed "4 warehouses")', () => {
+    expect(MAIN).not.toContain('Regional Facility');
+    expect(MAIN).not.toContain('All 4 warehouses');
+  });
+
+  it('the greeting follows the hour of day and is not hard-coded', () => {
+    expect(MAIN).toContain('greetingKey(now)');
+    expect(MAIN).not.toContain('Good morning');
+  });
+
+  it('the warehouse list is the API\'s own isActive list, with no hard-coded seed codes', () => {
+    expect(MAIN).toContain('listWarehouses({ isActive: true, pageSize: 100 }');
+    expect(MAIN).not.toMatch(/WH-OOTY|WH-COON|WH-KOTA|WH-GUDA/);
+  });
+
+  it('every i18n key the screen asks for exists in the admin catalogue', () => {
+    const used = [...MAIN.matchAll(/\bt\('([A-Za-z0-9_.]+)'/g)].map((m) => m[1]!);
+    expect(used.length).toBeGreaterThan(5);
+    for (const key of used) expect({ key, has: key in EN }).toEqual({ key, has: true });
+  });
+});
+
+describe('transfers come from GET /warehouse-transfers (BR-102), not from tasks or orders', () => {
+  it('the screen reads the real list through the read-only client and derives counts and rows from it', () => {
+    expect(MAIN).toContain("from '../../api/warehouseTransfers'");
+    expect(MAIN).toContain('listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }');
+    expect(MAIN).toContain('deriveTransfers(transfersQuery.data.items, transfersQuery.data.total, warehouses)');
+  });
+
+  it('transfer_tracking, the stock_and_transfer block and the home tile all read transferFig', () => {
+    expect(MAIN).toContain('transferFig.rows.map(');
+    expect(MAIN).toContain('transferFig.counts.pendingApproval');
+    expect(MAIN).toContain('transferFig.counts.inTransit');
+    expect(MAIN).toContain('transferFig.counts.received');
+    expect(MAIN).toContain('transferFig.counts.discrepancies');
+    expect(MAIN).toContain('transferFig.counts.open');
+  });
+
+  it('no tasks-as-transfers proxy remains: no trackingTransfers, no ORDER_DISPATCH, no dispatched-orders-as-in-transit, no alert count as Exceptions', () => {
+    expect(MAIN).not.toContain('trackingTransfers');
+    expect(MAIN).not.toContain('ORDER_DISPATCH');
+    expect(MAIN).not.toMatch(/In Transit<\/Text>\s*<Text[^>]*>\s*\{ordersToday/);
+    expect(MAIN).not.toMatch(/Exceptions<\/Text>\s*<Text[^>]*>\s*\{liveAlerts/);
+    expect(MAIN).not.toMatch(/Pending<\/Text>\s*<Text[^>]*>\s*\{openTasks/);
+  });
+
+  it('the transfer client is read-only: the screen imports no write helper from it', () => {
+    const imports = /import \{([^}]*)\} from '\.\.\/\.\.\/api\/warehouseTransfers'/.exec(MAIN)?.[1] ?? '';
+    expect(imports.trim()).toBe('listWarehouseTransfers');
+  });
+});
+
+describe('warehouse selection: uuids for live flows, the seed code for fixture-keyed screens', () => {
+  /** The opening JSX tag of the first `<Name ... >` in the screen (props run to the first '>' not inside braces). */
+  function openingTag(name: string, from = 0): string {
+    const start = MAIN.indexOf(`<${name}`, from);
+    expect(start).toBeGreaterThan(-1);
+    let depth = 0;
+    for (let i = start; i < MAIN.length; i += 1) {
+      const ch = MAIN[i];
+      if (ch === '{') depth += 1;
+      else if (ch === '}') depth -= 1;
+      else if (ch === '>' && depth === 0 && MAIN[i - 1] !== '=') return MAIN.slice(start, i + 1);
+    }
+    throw new Error(`unterminated <${name}`);
+  }
+
+  it.each(['WalletFlow', 'CustomersFlow', 'ReportsScreen', 'FinanceFlow', 'InventoryFlow', 'OrdersFlow', 'BillingFlow'])(
+    '%s gets the live warehouseOptions (real uuids), not its seed-code defaults',
+    (flow) => {
+      expect(openingTag(flow)).toContain('warehouseOptions={warehouseOptions}');
+    },
+  );
+
+  it("the More menu's ReturnsFlow gets them (IssueReturnFlow opens one return by id and has no selector)", () => {
+    expect(openingTag('ReturnsFlow', MAIN.indexOf("moreSubScreen === 'returns'"))).toContain('warehouseOptions={warehouseOptions}');
+  });
+
+  it('the second WalletFlow (opened from a customer) gets them too', () => {
+    const second = MAIN.indexOf('<WalletFlow', MAIN.indexOf('<WalletFlow') + 1);
+    expect(openingTag('WalletFlow', second)).toContain('warehouseOptions={warehouseOptions}');
+  });
+
+  it('Warehouse Settings and the City Detail card are fixture-keyed, so they get the live warehouse\'s code, never the uuid', () => {
+    expect(MAIN).toContain('initialWarehouseId={detailFixtureId}');
+    expect(MAIN).toContain('{ warehouseId: detailFixtureId }');
+    expect(MAIN).toContain('const detailFixtureId = fixtureWarehouseId(detailWarehouse)');
+  });
+
+  it('the live Storage Info route gets the live options and the selected uuid', () => {
+    const tag = openingTag('ProfileFlow', MAIN.indexOf('initialScreen="StorageInfo"') - 200);
+    expect(tag).toContain('warehouseOptions={warehouseOptions}');
+    expect(tag).toContain('initialWarehouseId={detailWarehouseId}');
+  });
+
+  it('selection is kept by uuid: no name-keyed state and no hard-coded default warehouse or location', () => {
+    expect(MAIN).not.toContain('selectedWHName');
+    expect(MAIN).not.toContain('selectedWHFilter');
+    expect(MAIN).not.toContain('warehouseIdForName');
+    expect(MAIN).not.toContain('WAREHOUSE_OPTIONS');
+    expect(MAIN).not.toContain("'Ooty Warehouse'");
+    expect(MAIN).not.toContain("'CS-C01'");
+    expect(MAIN).toContain('useState<string | undefined>(undefined)');
+  });
+
+  it('the scope of every query is the selected uuid (the warehouse filter), so the cache key and the request agree (BR-30)', () => {
+    expect(MAIN).toContain('const selectedWarehouseId = filterWarehouseId;');
+    expect(MAIN).toContain('listBatches({ warehouseId: selectedWarehouseId');
+  });
+
+  it('Main keeps its own all-warehouses scope: no single warehouse (MAIN_WAREHOUSE_SCOPE = {})', () => {
+    expect(MAIN).toContain('const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};');
+  });
+});
+
+describe('theme: the screen takes colours from adminColors where a token exists', () => {
+  it('the brand, ink, canvas, card and semantic colours are tokens, not literals', () => {
+    for (const literal of ["'#F0562A'", "'#7A2E14'", "'#FDF3F0'", "'#F3EFE9'", "'#1A1A1A'", "'#5F5E5A'", "'#EEDCD3'", "'#854F0B'", "'#173404'", "'#E24B4A'", "'#FFFFFF'"]) {
+      expect({ literal, present: MAIN.includes(literal) }).toEqual({ literal, present: false });
+    }
+    expect(MAIN).toContain('primary: adminColors.brand,');
+    expect(MAIN).toContain('amberBg: adminColors.warning.bg,');
+  });
+
+  it('the raw colour count sits at or below the ratchet baseline for this file (admin_theme_guard.baseline.json)', () => {
+    const allowed = read('tests/admin_theme_guard.baseline.json').match(
+      /"screens\/dashboard\/MainWarehouseAdminDashboardScreen\.tsx":\s*(\d+)/,
+    )?.[1];
+    const hex = /(['"`])#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})\1/g;
+    const rgb = /\brgba?\s*\(/g;
+    const count = (MAIN.match(hex)?.length ?? 0) + (MAIN.match(rgb)?.length ?? 0);
+    expect(Number(allowed)).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(Number(allowed));
+  });
+});

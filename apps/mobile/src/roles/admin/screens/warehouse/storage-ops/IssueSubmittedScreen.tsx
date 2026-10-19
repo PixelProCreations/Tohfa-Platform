@@ -2,7 +2,6 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminSpacing } from '../../../theme';
 import {
   WalletButton,
   WalletFooter,

@@ -23,7 +23,6 @@ import {
   getTaskSummary,
   listTasks,
   markTaskDone,
-  type TaskType,
 } from '../api/tasks';
 import { hasKey } from '../i18n';
 

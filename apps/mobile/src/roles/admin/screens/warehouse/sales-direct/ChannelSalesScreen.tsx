@@ -15,12 +15,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
 import { CHANNEL_COPY, CHANNEL_KPIS, CHANNEL_ORDERS } from './fixtures';
 import { isAllWarehouses } from './SalesParts';
-import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
+import type { ChannelOrderItem, SalesChannel } from './types';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

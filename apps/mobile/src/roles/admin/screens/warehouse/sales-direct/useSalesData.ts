@@ -17,14 +17,9 @@ import {
   quoteSale,
   type ChannelOrderListItemDto,
   type SaleCreateDto,
-  type SaleCustomerMatchDto,
-  type SaleDto,
   type SaleListItemDto,
-  type SaleProductDto,
-  type SaleQuoteDto,
   type SaleQuoteRequestDto,
   type SalesDashboardSummaryDto,
-  type SalesMarketDayDto,
   type SaleUpiConfirmDto,
 } from '../../../api/sales';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
@@ -35,14 +30,12 @@ import {
   mapSaleCustomerMatch,
   mapSaleListItem,
   mapSaleProduct,
-  mapSaleQuote,
   mapSalesMarketDay,
   type MappedChannelOrderItem,
   type MappedSale,
   type MappedSaleCustomerMatch,
   type MappedSaleListItem,
   type MappedSaleProduct,
-  type MappedSaleQuote,
   type MappedSalesMarketDay,
 } from './mappers';
 

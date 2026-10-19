@@ -26,7 +26,7 @@ import {
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import type { ReportChannel } from '../../../api/reports';
-import { REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './constants';
+import { REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './constants';
 import { getReportPresetDates, reportsWarehouseFilter } from './mappers';
 import type { ReportCode, ReportScreenType } from './types';
 import {
@@ -50,7 +50,6 @@ import {
   ArrowBackIcon,
   BellHeaderIcon,
   ChevronRightIcon,
-  FilterIcon,
   LockBadgeIcon,
   ReportDocHeaderIcon,
   SearchIcon,

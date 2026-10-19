@@ -26,7 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { CUSTOMER_WALLET_TRANSACTIONS } from '../wallet-cashtopup/fixtures';
 import { LOOKUP_NO_MATCH_KEY, type LookupView, type TopUpCustomer } from '../wallet-cashtopup/mappers';
@@ -84,15 +84,6 @@ function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; c
       <Rect x="13" y="8" width="3" height="3" fill={color} />
       <Rect x="8" y="13" width="3" height="3" fill={color} />
       <Rect x="13" y="13" width="3" height="3" fill={color} />
-    </Svg>
-  );
-}
-
-function InfoNoticeIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }

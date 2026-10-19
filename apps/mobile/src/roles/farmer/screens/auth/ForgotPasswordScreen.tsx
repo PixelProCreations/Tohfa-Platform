@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { t } from '../../../../i18n/farmer';
-import { Icon, ErrorState } from '@tohfa/mobile-ui';
+import { ErrorState } from '@tohfa/mobile-ui';
 import { BackButtonIcon, CallIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { requestOtp } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
@@ -40,7 +40,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
       const cleanMobile = mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`;
       const res = await requestOtp({ mobile: cleanMobile, purpose: 'PASSWORD_RESET' });
       if (res._mockCode) {
-        console.log(`[Dev] Mock OTP for ${cleanMobile}: ${res._mockCode}`);
+        console.warn(`[Dev] Mock OTP for ${cleanMobile}: ${res._mockCode}`);
       }
       onNavigate('Otp', {
         mobile: cleanMobile,

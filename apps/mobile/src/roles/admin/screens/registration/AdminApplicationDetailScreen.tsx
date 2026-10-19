@@ -11,9 +11,8 @@ import {
 import { Icon } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import type { PendingApplicationItem } from './AdminPendingApplicationsScreen';
-
-const calendarIconAsset = require('../../assets/images/calendar.png');
-const inboxIconAsset = require('../../assets/images/inbox.png');
+import calendarIconAsset from '../../assets/images/calendar.png';
+import inboxIconAsset from '../../assets/images/inbox.png';
 
 const P = {
   bg: '#FAF8F5',

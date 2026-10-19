@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Pressable,
   SafeAreaView,
@@ -356,22 +355,6 @@ function BrokenCrateIcon() {
   );
 }
 
-function ClockIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#D97706" strokeWidth="2" />
-      <Path d="M12 6v6l4 2" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke="#9E9690" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function HomeTabIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.primary : PALETTE.tabInactive;
@@ -1702,9 +1685,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (storageEntry) {
     return (
       // Shared storage-ops flow (W4, M4 parts A and B), scope-locked to this warehouse:
-      // the Warehouse Operations hub, materials, capacity, activity and operational issues.
-      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own);
-      // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
+      // the Warehouse Operations hub, capacity, activity and operational issues.
+      // Capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
         scope={scope}
         can={can}

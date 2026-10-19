@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -282,7 +282,7 @@ export function AdminSupportScreen({ onBack }: AdminSupportScreenProps) {
   const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'PAYMENT' | 'QUALITY' | 'LOGISTICS' | 'KYC'>('ALL');
-  const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'HIGH'>('ALL');
+  const [priorityFilter] = useState<'ALL' | 'HIGH'>('ALL');
 
   const openCount = tickets.filter((t) => t.status !== 'RESOLVED').length;
   const highPriorityCount = tickets.filter((t) => t.priority === 'HIGH' && t.status !== 'RESOLVED').length;

@@ -39,7 +39,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
-import { StaffFiltersScreen, type StaffFilterValues } from './StaffFiltersScreen';
+import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 /** rbac code for the warehouse roster (not admin.staff.list_view, the admin-account list). */

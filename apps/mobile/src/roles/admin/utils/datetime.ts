@@ -117,3 +117,20 @@ export function relativeTime(iso: string | Date, now: Date): string {
 export function istWeekday(now: Date): number {
   return new Date(now.getTime() + IST_OFFSET_MS).getUTCDay();
 }
+
+/** The IST calendar date of `now` as "YYYY-MM-DD", the day the API's `from`/`to` and `deliveryDate` use. */
+export function istDay(now: Date): string {
+  const p = istParts(now.getTime());
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** The IST hour of `now`, 0-23. */
+export function istHour(now: Date): number {
+  return istParts(now.getTime()).hour;
+}
+
+/** True when the instant `iso` falls on the IST calendar date `day` ("YYYY-MM-DD"); false for a value that is not a date. */
+export function isOnIstDay(iso: string | Date, day: string): boolean {
+  const ms = parseInstant(iso);
+  return ms !== null && istDay(new Date(ms)) === day;
+}

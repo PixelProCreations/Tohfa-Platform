@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing } from '../../../theme';
 import {
   isAllWarehouses,
   ScopeHeader,
@@ -10,7 +10,6 @@ import {
   SectionTitle,
   StatusBadge,
   WalletScreen,
-  walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { WarehouseIcon } from './StorageParts';
 import type { WarehouseScreenBaseProps } from './types';

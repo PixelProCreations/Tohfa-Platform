@@ -86,29 +86,6 @@ function LockIcon({ size = 14, color = adminColors.muted }: { size?: number; col
   );
 }
 
-function PencilIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CancelCircleIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M15 9l-6 6M9 9l6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function EyeIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -141,40 +118,15 @@ export function ExpenseDetailScreen({
   scope,
   can,
   onBack,
-  onEdit,
   onViewVouchers,
 }: ExpenseDetailScreenProps) {
   const isMain = scope.warehouseId === undefined;
   const warehouseLabel = warehouse ?? scope.warehouseName ?? 'All Warehouses';
-  const canLog = can('finance.expense.log');
-
-  const handleEditExpense = () => {
-    if (!canLog) return;
-    if (onEdit) {
-      onEdit();
-    } else {
-      Alert.alert('Edit Expense', 'Expense editing is accessible for authorized supervisor roles.');
-    }
-  };
-
-  const handleCancelExpense = () => {
-    if (!canLog) return;
-    Alert.alert(
-      'Cancel Expense',
-      `Are you sure you want to cancel expense ${expenseId}?`,
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Expense Cancelled', `${expenseId} has been marked as cancelled.`);
-            onBack();
-          },
-        },
-      ]
-    );
-  };
+  // Not read yet — per BR-62, Edit/Cancel are hidden until openapi.yaml has the
+  // endpoints to back them (see the Section 5 comment below), so the handlers
+  // that used this were unreachable dead code. The permission check stays as
+  // the documented gate this file's docblock refers to, for when they return.
+  const _canLog = can('finance.expense.log');
 
   const handleViewReceipt = () => {
     Alert.alert('Receipt Viewer', `Opening supporting document for ${expenseId}...`);

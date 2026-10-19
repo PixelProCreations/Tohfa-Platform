@@ -36,7 +36,10 @@ export type MapboxLocation = any;
 let isMapboxAvailable = false;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // Must stay a require(): this is a runtime-optional native dependency probed
+  // inside try/catch. A static import is hoisted and would throw at module
+  // load when the package isn't installed/linked, defeating the fallback.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rnMapbox = require('@rnmapbox/maps');
   Mapbox = rnMapbox.default || rnMapbox;
   Camera = rnMapbox.Camera;
@@ -410,7 +413,6 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
       };
       // Only ever runs once per mount — `initialCenter` is treated as the
       // value at mount time, matching the "or null to use device GPS" prop contract.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleMapPress = useCallback(

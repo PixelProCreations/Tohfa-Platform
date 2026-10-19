@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { PLStatementScreen } from '../finance/PLStatementScreen';
 import { FarmerPerformanceReportScreen } from './FarmerPerformanceReportScreen';
 import { WarehouseOpsReportScreen } from './WarehouseOpsReportScreen';

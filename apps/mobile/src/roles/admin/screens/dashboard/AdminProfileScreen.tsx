@@ -386,7 +386,7 @@ export function AdminProfileScreen({
 }: AdminProfileScreenProps): React.JSX.Element {
   const spec: RoleProfileSpec = getRoleSpec(role);
 
-  const [user, setUser] = useState<UserMe | null>(null);
+  const [, setUser] = useState<UserMe | null>(null);
   const [currentView, setCurrentView] = useState<InnerScreenView>('main');
 
   // Form state initialized with role spec

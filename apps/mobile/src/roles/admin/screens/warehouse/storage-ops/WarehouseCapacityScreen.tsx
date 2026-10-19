@@ -37,7 +37,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { capacityAlertPercentOf, locationsInScope, STORAGE_LOCATIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { CheckCircleIcon, formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
+import { formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
 import type { CapacityFilter, CapacityState, StorageLocationItem, WarehouseScreenBaseProps } from './types';
 
 const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Occupied', 'Unavailable'];

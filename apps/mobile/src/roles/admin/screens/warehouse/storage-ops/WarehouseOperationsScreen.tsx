@@ -3,8 +3,8 @@
  * today's status, needs attention, recent activity).
  *
  * Gate (FINAL_LIST 141): no view code (SPEC_GAPS W4v-5); scope-locked. Every
- * tile leads to a child that carries its own gate (Material Handling's actions,
- * Capacity's Manage link, Report an Issue, ...). The Main-only parts show only
+ * tile leads to a child that carries its own gate (Capacity's Manage link,
+ * Report an Issue, ...). The Main-only parts show only
  * for the all-warehouses scope (scope.warehouseId undefined) with
  * `warehouse.all.view`: the per-warehouse cards, the Open Issues and Operations
  * History tiles, and the Operations History card / quick action. The warehouse
@@ -18,8 +18,8 @@
  * Receive Goods / Stock Verification always open their own modules. The
  * values come from the warehouses in view instead of fixed numbers.
  *
- * Areas with no API (materials, operational issues, warehouse activity) and
- * Staff without admin.staff.list_view are hidden (../availability.ts): tiles
+ * Hidden areas (../availability.ts), such as Staff without
+ * admin.staff.list_view, are left out: tiles
  * into them carry an `area` and are filtered, the links outside the tile arrays
  * go through `*Link` aliases that are undefined when the area is hidden, and
  * rows that show data but would open a hidden area stop being pressable.
@@ -47,20 +47,13 @@ import {
   CheckCircleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClipboardIcon,
   DonutIcon,
-  GridSquaresIcon,
-  HeaderOperationsTitleIcon,
   HistoryIcon,
-  PeopleIcon,
   ReceiveGoodsIcon,
-  ReceiveIcon,
   ReportIssueIcon,
   STORAGE_CODES,
   ShelfIcon,
   StaffBadgeIcon,
-  StockVerificationIcon,
-  TrendingUpIcon,
   WarehouseIcon,
   WarningTriangleIcon,
 } from './StorageParts';
@@ -72,7 +65,6 @@ type AreaTagged = { area?: WarehouseArea | undefined };
 
 /** The area a Needs Attention card leads to, when it is one that can be hidden. */
 const MODULE_AREA: Partial<Record<ActivityModule, WarehouseArea>> = {
-  material_handling: 'materialHandling',
   operational_issue: 'operationalIssues',
   staff: 'staff',
 };
@@ -81,7 +73,6 @@ const MODULE_AREA: Partial<Record<ActivityModule, WarehouseArea>> = {
 const RECENT_PREVIEW = 2;
 
 export interface WarehouseOperationsScreenProps extends WarehouseScreenBaseProps {
-  onOpenMaterials: () => void;
   onOpenCapacity: () => void;
   onOpenIssues: () => void;
   /** Warehouse Activity on a preset ('Today' = Today's Operational Status). */
@@ -101,7 +92,6 @@ export function WarehouseOperationsScreen({
   can,
   onBack,
   onTabChange,
-  onOpenMaterials,
   onOpenCapacity,
   onOpenIssues,
   onOpenActivity,
@@ -123,12 +113,10 @@ export function WarehouseOperationsScreen({
   }, [onBack]);
 
   const mainView = isAllWarehouses(scope) && can(STORAGE_CODES.allWarehousesView);
-  const materialsAvailable = isAreaAvailable('materialHandling', can);
   const issuesAvailable = isAreaAvailable('operationalIssues', can);
   const activityAvailable = isAreaAvailable('warehouseActivity', can);
   const shown = (item: AreaTagged) => item.area === undefined || isAreaAvailable(item.area, can);
   // Links drawn outside the tile arrays; undefined when the area is hidden.
-  const materialsLink = materialsAvailable ? onOpenMaterials : undefined;
   const issuesLink = issuesAvailable ? onOpenIssues : undefined;
   const activityLink = activityAvailable ? onOpenActivity : undefined;
   const selectActivityLink = activityAvailable ? onSelectActivity : undefined;
@@ -148,7 +136,6 @@ export function WarehouseOperationsScreen({
   const mainKpiTiles: ({ label: string; value: string; sub: string; onPress: () => void } & AreaTagged)[] = [
     { label: 'STORAGE LOCATIONS', value: '4', sub: 'warehouses', onPress: () => onOpenModule('storage') },
     { label: 'OCCUPANCY', value: '64%', sub: 'avg', onPress: onOpenCapacity },
-    { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues, area: 'operationalIssues' },
     { label: 'STAFF PRESENT', value: `${total('staffPresent')}/${total('staffTotal')}`, sub: 'today', onPress: () => onOpenModule('staff'), area: 'staff' },
     { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today'), area: 'warehouseActivity' },
@@ -157,7 +144,6 @@ export function WarehouseOperationsScreen({
   const overviewTiles: ({ label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
     { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff'), area: 'staff' },
     ...(mainView
       ? [
@@ -169,14 +155,12 @@ export function WarehouseOperationsScreen({
 
   const mainQuickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues, area: 'operationalIssues' },
   ];
 
   const quickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
     { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials, area: 'materialHandling' },
     { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues, area: 'operationalIssues' },
     { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
@@ -359,11 +343,6 @@ export function WarehouseOperationsScreen({
                 <Text style={styles.statusRowItemLabel}>Storage</Text>
                 <Text style={styles.statusRowItemValue}>8 activities</Text>
               </TouchableOpacity>
-              <View style={styles.rowDivider} />
-              <TouchableOpacity style={styles.statusRowItem} disabled={!activityLink} onPress={() => activityLink?.('Today')} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.statusRowItemLabel}>Material Handling</Text>
-                <Text style={styles.statusRowItemValue}>6 activities</Text>
-              </TouchableOpacity>
             </View>
 
             <SectionTitle
@@ -442,8 +421,7 @@ export function WarehouseOperationsScreen({
                     style={styles.attentionCard}
                     onPress={() => {
                       // Cards into a hidden area were filtered out of `attention` above.
-                      if (item.module === 'material_handling') materialsLink?.();
-                      else if (item.module === 'operational_issue') issuesLink?.();
+                      if (item.module === 'operational_issue') issuesLink?.();
                       else onOpenModule(item.module);
                     }}
                     activeOpacity={0.75}

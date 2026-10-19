@@ -12,8 +12,6 @@ import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '
 
 /** docs/rbac.json codes the storage-ops screens check (MAIN / SUB grants in types.ts). */
 export const STORAGE_CODES = {
-  /** Add Material, Add Stock, Receive, Issue. MAIN all, SUB own. */
-  materialManage: 'inventory.material_handling.manage',
   /** Storage location detail 'View Stock' link. MAIN all, SUB own. */
   batchView: 'inventory.batch.view',
   /** Confirm Location Assignment. MAIN all, SUB all. */

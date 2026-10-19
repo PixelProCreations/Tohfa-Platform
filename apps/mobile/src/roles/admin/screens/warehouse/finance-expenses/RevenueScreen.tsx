@@ -15,7 +15,7 @@
  * detail; FinanceFlow passes `onSelectRevenue` and pushes the detail instead.
  */
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {

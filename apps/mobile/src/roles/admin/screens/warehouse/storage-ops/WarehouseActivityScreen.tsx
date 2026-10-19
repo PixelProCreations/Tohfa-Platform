@@ -24,7 +24,6 @@ const CATEGORY_CHIPS = [
   'All',
   'Receiving',
   'Storage',
-  'Material Handling',
   'Stock Verification',
   'Staff',
 ] as const;
@@ -56,14 +55,6 @@ const DEFAULT_ACTIVITIES: ActivityRecord[] = [
     status: 'Completed',
     subtitle: 'Tomato moved to Cold Storage · Rack 02',
     when: 'Today · 10:42 AM',
-  },
-  {
-    id: 'ACT-004821',
-    title: 'Material Handling',
-    category: 'Material Handling',
-    status: 'Completed',
-    subtitle: 'Packaging Box issued · 20 units',
-    when: 'Today · 09:50 AM',
   },
   {
     id: 'ACT-004820',

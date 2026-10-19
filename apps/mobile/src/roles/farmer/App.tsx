@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
@@ -252,7 +252,7 @@ import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeil
 import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
 import { BulkPriceUpdateScreen } from '../admin/screens/dashboard/BulkPriceUpdateScreen';
 import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScreen';
-import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
+import { MarketDayScheduleScreen, MOCK_DAYS } from '../admin/screens/dashboard/MarketDayScheduleScreen';
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
@@ -380,8 +380,6 @@ export type ScreenName =
   | 'SubWarehouseWarehouseOperations'
   | 'SubWarehouseWarehouseActivity'
   | 'SubWarehouseStorageLocationDetail'
-  | 'SubWarehouseMaterialHandling'
-  | 'SubWarehouseMaterialDetail'
   | 'SubWarehouseCapacity'
   | 'SubWarehouseOperationalIssues'
   | 'SubWarehouseReportIssue'
@@ -547,7 +545,6 @@ export type ScreenName =
   | 'SubWarehouseVoucherDetail'
   | 'SubWarehouseTodayOperations'
   | 'SubWarehouseActivityDetail'
-  | 'SubWarehouseAddMaterial'
   | 'PestManagement'
   | 'PestLibrary'
   | 'TreatmentSchedule'
@@ -662,8 +659,7 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
 /**
  * Legacy Sub storage-ops route keys -> shared StorageFlow routes (W4, M4 part
  * A). `back` is where the old screen's back button went when the key is the
- * first screen of the flow. Add Material needs inventory.material_handling.manage;
- * StorageFlow and the screen check it.
+ * first screen of the flow.
  */
 const STORAGE_ROUTE_ENTRY: Partial<
   Record<
@@ -676,12 +672,9 @@ const STORAGE_ROUTE_ENTRY: Partial<
     }
   >
 > = {
-  // Part B: the Warehouse Operations hub; its materials / capacity / issues /
+  // Part B: the Warehouse Operations hub; its capacity / issues /
   // activity tiles open inside the flow, the rest leave through onOpenModule.
   SubWarehouseWarehouseOperations: { route: 'Operations', back: 'SubWarehouseAdminDashboard', backParams: { initialTab: 'More' } },
-  SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
-  SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
-  SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseStorageLocationDetail: { route: 'StorageLocationDetail', back: 'SubWarehouseStorageInfo' },
   SubWarehouseCapacity: { route: 'Capacity', back: 'SubWarehouseWarehouseOperations' },
   // Part B: operational issues. Report an Issue / Request Submitted need
@@ -869,7 +862,6 @@ export default function App(): React.JSX.Element {
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
-  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
   // The admin role the last admin sign-in opened (params.adminRole). Warehouse
   // routes reached from the Sub shell do not all carry it, so remember it for
   // the dev-only demo fallback in useWarehousePermissions.
@@ -961,7 +953,6 @@ export default function App(): React.JSX.Element {
   const storageParams = useMemo<StorageRouteParams>(
     () => ({
       ...STORAGE_ROUTE_ENTRY[screen]?.params,
-      materialId: stringParam(params['materialId']),
       locationId: stringParam(params['locationId']),
       issueId: stringParam(params['issueId']),
       // Old callers passed the whole activity row; the flow wants its id.
@@ -2242,14 +2233,14 @@ export default function App(): React.JSX.Element {
         ) : screen === 'FairPriceCeiling' ? (
           <FairPriceCeilingScreen
             onBack={goBack}
-            onUpdatePrice={(item) => navigate('UpdateFairPrice')}
+            onUpdatePrice={() => navigate('UpdateFairPrice')}
             onBulkUpdate={() => navigate('BulkPriceUpdate')}
-            onViewHistory={(item) => navigate('PriceHistory')}
+            onViewHistory={() => navigate('PriceHistory')}
           />
         ) : screen === 'UpdateFairPrice' ? (
           <UpdateFairPriceScreen
             onBack={goBack}
-            onSave={(newPrice) => {
+            onSave={() => {
               // Save logic here
               goBack();
             }}
@@ -2266,18 +2257,18 @@ export default function App(): React.JSX.Element {
           <MarketDayScheduleScreen
             onBack={goBack}
             onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={(id, value) => {
+            onToggle={() => {
               // Handle toggle
             }}
             days={MOCK_DAYS}
-            onDaysChange={(updatedDays) => {
+            onDaysChange={() => {
               // Handle days change
             }}
           />
         ) : screen === 'AddMarketDay' ? (
           <AddMarketDayScreen
             onBack={goBack}
-            onSave={(marketDay) => {
+            onSave={() => {
               // Save market day logic here
               navigate('MarketDaySchedule');
             }}
@@ -2285,13 +2276,13 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ListingApprovalQueue' ? (
           <ListingApprovalQueueScreen
             onBack={goBack}
-            onApprove={(id) => {
+            onApprove={() => {
               // Handle approve
             }}
-            onCounter={(id) => {
+            onCounter={() => {
               // Handle counter
             }}
-            onReject={(id) => {
+            onReject={() => {
               // Handle reject
             }}
           />

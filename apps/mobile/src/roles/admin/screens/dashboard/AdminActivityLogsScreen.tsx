@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
@@ -89,7 +88,7 @@ export interface AdminActivityLogsScreenProps {
   onBack?: (() => void) | undefined;
 }
 
-export function AdminActivityLogsScreen({ adminId, onBack }: AdminActivityLogsScreenProps) {
+export function AdminActivityLogsScreen({ onBack }: AdminActivityLogsScreenProps) {
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
 
   const categories = ['ALL', 'PAYOUT', 'KYC', 'CONFIG', 'WAREHOUSE', 'AUTH'];

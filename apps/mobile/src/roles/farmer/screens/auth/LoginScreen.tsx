@@ -9,7 +9,7 @@ import {
   View,
   Image,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { t, getLocale, setLocale } from '../../../../i18n/farmer';
 import { Button, ErrorState, Icon } from '@tohfa/mobile-ui';
 import {

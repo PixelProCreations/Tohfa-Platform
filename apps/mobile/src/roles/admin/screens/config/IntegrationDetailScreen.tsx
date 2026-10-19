@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,

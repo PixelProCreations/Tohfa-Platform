@@ -16,7 +16,6 @@ import { adminColors, adminType, adminShadow } from '../../../theme';
 
 import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
 import type { SalesChannel, WarehouseScreenBaseProps } from './types';
-import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -328,7 +327,6 @@ export function SalesScreen({
   scope,
   can,
   onBack,
-  onTabChange,
   onNavigateToNotifications,
   onNavigateToNewSale,
   onNavigateToSalesHistory,
