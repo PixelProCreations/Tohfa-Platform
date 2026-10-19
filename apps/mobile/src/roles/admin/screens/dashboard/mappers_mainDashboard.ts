@@ -15,6 +15,7 @@ import type { AlertItemDto } from '../../api/alerts';
 import type { OrderSummaryDto } from '../../api/orders';
 import type { GoodsReceiptDto } from '../../api/receiving';
 import type { TaskItemDto, TaskSummaryDto, TaskType } from '../../api/tasks';
+import type { WarehouseTransferDto } from '../../api/warehouseTransfers';
 import type { Page } from '../../../../shell/api/pagination';
 import type { SalesDashboardSummaryDto } from '../../api/sales';
 import type { WarehouseDto } from '../../api/warehouses';
@@ -22,7 +23,7 @@ import { parseKgToGrams } from '../../money/quantity';
 import { formatPaise } from '../../money/paise';
 import { toBatchRow } from '../warehouse/inventory/mappers';
 import { hasKey, t, type TranslationKey } from '../../i18n';
-import { isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
+import { formatAdminDay, isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
 import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
 import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
 import { queryViewState } from '../warehouse/shared/queryViewState';
@@ -418,6 +419,11 @@ export function countOrdersPlacedOn(orders: readonly OrderSummaryDto[], day: str
   return { orders: today, count: today.length, exact: listComplete || reachedAnotherDay };
 }
 
+/** A count as text: "12", or "12+" when more may exist beyond what was read. */
+export function countLabel(count: number, exact: boolean): string {
+  return `${count}${exact ? '' : '+'}`;
+}
+
 /** The greeting for the IST hour: morning before 12:00, afternoon before 17:00, evening after. */
 export function greetingKey(now: Date): TranslationKey {
   const hour = istHour(now);
@@ -553,3 +559,110 @@ export function toRecentActivity(
       time: relativeTime(task.createdAt, now),
     }));
 }
+
+// ─── Transfers (GET /warehouse-transfers, BR-102) ────────────────────────────
+
+export type TransferKind = 'pendingApproval' | 'inTransit' | 'received' | 'cancelled' | 'unknown';
+
+/**
+ * Every status docs/openapi.yaml WarehouseTransferSummary declares, with its
+ * label. Typed as a record over the API's status union, so adding a status to
+ * the spec type fails the build here until it is mapped.
+ */
+const TRANSFER_STATUS: Record<WarehouseTransferDto['status'], { kind: Exclude<TransferKind, 'unknown'>; label: TranslationKey }> = {
+  PENDING_APPROVAL: { kind: 'pendingApproval', label: 'mainDashboard.transfer.status.pendingApproval' },
+  IN_TRANSIT: { kind: 'inTransit', label: 'mainDashboard.transfer.status.inTransit' },
+  RECEIVED: { kind: 'received', label: 'mainDashboard.transfer.status.received' },
+  CANCELLED: { kind: 'cancelled', label: 'mainDashboard.transfer.status.cancelled' },
+};
+
+function knownTransferStatus(status: string): status is WarehouseTransferDto['status'] {
+  return Object.prototype.hasOwnProperty.call(TRANSFER_STATUS, status);
+}
+
+/** A server status as a kind; one the app does not know is 'unknown', never guessed as pending. */
+export function transferStatusKind(status: string): TransferKind {
+  return knownTransferStatus(status) ? TRANSFER_STATUS[status].kind : 'unknown';
+}
+
+export interface TransferRow {
+  /** The transfer number ("TRF-000001"). */
+  id: string;
+  /** "Ooty \u2192 Coonoor". */
+  route: string;
+  kind: TransferKind;
+  statusLabel: string;
+  /** "Created 18 Oct 2026 \u00b7 \u20b912,000.50"; the value is left out when a line had no cost. */
+  details: string;
+  hasDiscrepancy: boolean;
+}
+
+export interface TransferCounts {
+  pendingApproval: number;
+  inTransit: number;
+  received: number;
+  cancelled: number;
+  unknown: number;
+  /** Received short. */
+  discrepancies: number;
+  /** Not yet received: pending approval plus in transit. */
+  open: number;
+  /** False when the page held fewer transfers than the server reported. */
+  exact: boolean;
+}
+
+export interface TransferFigures {
+  counts: TransferCounts;
+  rows: TransferRow[];
+}
+
+/**
+ * The transfer list as counts and rows. `total` is the server's count of every
+ * transfer, so a page that holds fewer says its counts are not exact. Money
+ * goes through integer paise; a malformed value fails the derivation.
+ */
+export function deriveTransfers(
+  transfers: readonly WarehouseTransferDto[],
+  total: number,
+  warehouses: readonly WarehouseDto[],
+): Derived<TransferFigures> {
+  return attempt(() => {
+    const counts: TransferCounts = {
+      pendingApproval: 0,
+      inTransit: 0,
+      received: 0,
+      cancelled: 0,
+      unknown: 0,
+      discrepancies: 0,
+      open: 0,
+      exact: transfers.length >= total,
+    };
+    const rows = transfers.map((tr): TransferRow => {
+      const kind = transferStatusKind(tr.status);
+      counts[kind] += 1;
+      if (tr.hasDiscrepancy) counts.discrepancies += 1;
+      const date = formatAdminDay(tr.createdAt);
+      const details = tr.hasUnvaluedLines
+        ? t('mainDashboard.transfer.details', { date })
+        : t('mainDashboard.transfer.detailsWithValue', { date, value: formatPaise(toPaise(parseMoney(tr.totalValue))) });
+      return {
+        id: tr.transferNumber,
+        route: t('mainDashboard.transfer.route', {
+          from: warehouseLabel(warehouses, tr.fromWarehouseId),
+          to: warehouseLabel(warehouses, tr.toWarehouseId),
+        }),
+        kind,
+        statusLabel: t(knownTransferStatus(tr.status) ? TRANSFER_STATUS[tr.status].label : 'mainDashboard.transfer.status.unknown'),
+        details,
+        hasDiscrepancy: tr.hasDiscrepancy,
+      };
+    });
+    counts.open = counts.pendingApproval + counts.inTransit;
+    return { counts, rows };
+  });
+}
+
+export const EMPTY_TRANSFER_FIGURES: TransferFigures = {
+  counts: { pendingApproval: 0, inTransit: 0, received: 0, cancelled: 0, unknown: 0, discrepancies: 0, open: 0, exact: true },
+  rows: [],
+};

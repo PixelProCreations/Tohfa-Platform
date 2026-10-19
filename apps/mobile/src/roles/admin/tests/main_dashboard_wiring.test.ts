@@ -110,7 +110,7 @@ describe('honest figures: no claim the data does not back', () => {
 
   it("Today's orders is placed-today from placedAt (GET /admin/orders has no placed-date filter), shown as N+ when the pages ran out", () => {
     expect(MAIN).toContain('countOrdersPlacedOn(');
-    expect(MAIN).toContain("ordersToday.exact ? '' : '+'");
+    expect(MAIN).toContain('countLabel(ordersToday.count, ordersToday.exact)');
     expect(MAIN).not.toMatch(/String\(orders\.length\)/);
   });
 
@@ -161,5 +161,35 @@ describe('honest figures: no claim the data does not back', () => {
     const used = [...MAIN.matchAll(/\bt\('([A-Za-z0-9_.]+)'/g)].map((m) => m[1]!);
     expect(used.length).toBeGreaterThan(5);
     for (const key of used) expect({ key, has: key in EN }).toEqual({ key, has: true });
+  });
+});
+
+describe('transfers come from GET /warehouse-transfers (BR-102), not from tasks or orders', () => {
+  it('the screen reads the real list through the read-only client and derives counts and rows from it', () => {
+    expect(MAIN).toContain("from '../../api/warehouseTransfers'");
+    expect(MAIN).toContain('listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }');
+    expect(MAIN).toContain('deriveTransfers(transfersQuery.data.items, transfersQuery.data.total, warehouses)');
+  });
+
+  it('transfer_tracking, the stock_and_transfer block and the home tile all read transferFig', () => {
+    expect(MAIN).toContain('transferFig.rows.map(');
+    expect(MAIN).toContain('transferFig.counts.pendingApproval');
+    expect(MAIN).toContain('transferFig.counts.inTransit');
+    expect(MAIN).toContain('transferFig.counts.received');
+    expect(MAIN).toContain('transferFig.counts.discrepancies');
+    expect(MAIN).toContain('transferFig.counts.open');
+  });
+
+  it('no tasks-as-transfers proxy remains: no trackingTransfers, no ORDER_DISPATCH, no dispatched-orders-as-in-transit, no alert count as Exceptions', () => {
+    expect(MAIN).not.toContain('trackingTransfers');
+    expect(MAIN).not.toContain('ORDER_DISPATCH');
+    expect(MAIN).not.toMatch(/In Transit<\/Text>\s*<Text[^>]*>\s*\{ordersToday/);
+    expect(MAIN).not.toMatch(/Exceptions<\/Text>\s*<Text[^>]*>\s*\{liveAlerts/);
+    expect(MAIN).not.toMatch(/Pending<\/Text>\s*<Text[^>]*>\s*\{openTasks/);
+  });
+
+  it('the transfer client is read-only: the screen imports no write helper from it', () => {
+    const imports = /import \{([^}]*)\} from '\.\.\/\.\.\/api\/warehouseTransfers'/.exec(MAIN)?.[1] ?? '';
+    expect(imports.trim()).toBe('listWarehouseTransfers');
   });
 });

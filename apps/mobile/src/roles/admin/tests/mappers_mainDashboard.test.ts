@@ -11,6 +11,7 @@ import type { AlertItemDto } from '../api/alerts';
 import type { OrderSummaryDto } from '../api/orders';
 import type { GoodsReceiptDto } from '../api/receiving';
 import type { TaskItemDto, TaskSummaryDto } from '../api/tasks';
+import { TRANSFER_STATUSES, type WarehouseTransferDto } from '../api/warehouseTransfers';
 import type { Page } from '../../../shell/api/pagination';
 import type { WarehouseDto } from '../api/warehouses';
 import { formatKg } from '../money/quantity';
@@ -19,6 +20,9 @@ import {
   attempt,
   collectPages,
   combineSources,
+  deriveTransfers,
+  transferStatusKind,
+  countLabel,
   countOrdersPlacedOn,
   greetingKey,
   openTaskCount,
@@ -580,5 +584,119 @@ describe('toRecentActivity: titles come from the catalogue, unknown keys are hid
   it('shows at most the requested number of rows', () => {
     const many = Array.from({ length: 5 }, (_, i) => task({ itemKey: `K${i}`, type: 'ORDER_PACK', titleKey: 'task.order_pack.title' }));
     expect(toRecentActivity(many, warehouses, NOW, 2)).toHaveLength(2);
+  });
+});
+
+// ─── Transfers (GET /warehouse-transfers, BR-102) ───────────────────────────
+
+const transfer = (over: Partial<WarehouseTransferDto> & Pick<WarehouseTransferDto, 'id' | 'status'>): WarehouseTransferDto => ({
+  transferNumber: `TRF-${over.id}`,
+  fromWarehouseId: WH_A,
+  toWarehouseId: WH_B,
+  totalValue: '12000.00' as WarehouseTransferDto['totalValue'],
+  hasUnvaluedLines: false,
+  requiresApproval: false,
+  hasDiscrepancy: false,
+  vehicleNumber: null,
+  notes: null,
+  receiptNote: null,
+  cancelReason: null,
+  initiatedBy: 'u1',
+  approvedBy: null,
+  approvedAt: null,
+  dispatchedAt: null,
+  receivedBy: null,
+  receivedAt: null,
+  cancelledBy: null,
+  cancelledAt: null,
+  createdAt: '2026-10-18T05:00:00Z',
+  updatedAt: null,
+  ...over,
+});
+
+const whs = [warehouse({ id: WH_A, name: 'Ooty Warehouse' }), warehouse({ id: WH_B, name: 'Coonoor Warehouse' })];
+
+function transfersOf(list: WarehouseTransferDto[], total = list.length) {
+  const d = deriveTransfers(list, total, whs);
+  if (!d.ok) throw new Error('expected derivable transfers');
+  return d.value;
+}
+
+describe('transferStatusKind: an exhaustive mapping of the spec statuses, with a safe fallback', () => {
+  it('maps every status docs/openapi.yaml declares', () => {
+    expect(TRANSFER_STATUSES.map((s) => [s, transferStatusKind(s)])).toEqual([
+      ['PENDING_APPROVAL', 'pendingApproval'],
+      ['IN_TRANSIT', 'inTransit'],
+      ['RECEIVED', 'received'],
+      ['CANCELLED', 'cancelled'],
+    ]);
+  });
+
+  it('a status the app does not know is "unknown", never a throw and never guessed as pending', () => {
+    expect(transferStatusKind('ON_HOLD')).toBe('unknown');
+    expect(transferStatusKind('')).toBe('unknown');
+    expect(transferStatusKind('toString')).toBe('unknown');
+  });
+});
+
+describe('deriveTransfers: counts and rows from the real list, not from tasks', () => {
+  const list = [
+    transfer({ id: '1', status: 'PENDING_APPROVAL' }),
+    transfer({ id: '2', status: 'IN_TRANSIT' }),
+    transfer({ id: '3', status: 'IN_TRANSIT' }),
+    transfer({ id: '4', status: 'RECEIVED', hasDiscrepancy: true }),
+    transfer({ id: '5', status: 'RECEIVED' }),
+    transfer({ id: '6', status: 'CANCELLED' }),
+  ];
+
+  it('counts each status, and the received-short transfers as exceptions', () => {
+    expect(transfersOf(list).counts).toMatchObject({ pendingApproval: 1, inTransit: 2, received: 2, cancelled: 1, unknown: 0, discrepancies: 1 });
+  });
+
+  it('"open" is what is not yet received: pending approval plus in transit, cancelled and received excluded', () => {
+    expect(transfersOf(list).counts.open).toBe(3);
+  });
+
+  it('counts a status the app does not know as unknown, and not as open', () => {
+    const f = transfersOf([transfer({ id: '9', status: 'ON_HOLD' as WarehouseTransferDto['status'] })]);
+    expect(f.counts).toMatchObject({ unknown: 1, open: 0 });
+    expect(f.rows[0]?.statusLabel).toBe('Unknown status');
+  });
+
+  it('is exact only when the page holds every transfer the server reported (total)', () => {
+    expect(transfersOf(list).counts.exact).toBe(true);
+    expect(transfersOf(list, 250).counts.exact).toBe(false);
+  });
+
+  it('builds a row per transfer: number, "from \u2192 to" by warehouse name, status label, and the value through integer paise', () => {
+    const [row] = transfersOf([transfer({ id: '2', status: 'IN_TRANSIT', totalValue: '12000.50' as WarehouseTransferDto['totalValue'] })]).rows;
+    expect(row).toMatchObject({ id: 'TRF-2', route: 'Ooty \u2192 Coonoor', statusLabel: 'In transit', kind: 'inTransit' });
+    expect(row?.details).toBe('Created 18 Oct 2026 \u00b7 \u20b912,000.50');
+  });
+
+  it('leaves the value out when a line had no cost (the total is partial), instead of showing a low number', () => {
+    const [row] = transfersOf([transfer({ id: '2', status: 'PENDING_APPROVAL', hasUnvaluedLines: true })]).rows;
+    expect(row?.details).toBe('Created 18 Oct 2026');
+  });
+
+  it('a warehouse missing from the list is "Unknown warehouse" in the route, never a uuid', () => {
+    const [row] = transfersOf([transfer({ id: '2', status: 'IN_TRANSIT', toWarehouseId: '99999999-9999-4999-8999-999999999999' })]).rows;
+    expect(row?.route).toBe('Ooty \u2192 Unknown warehouse');
+  });
+
+  it('a malformed totalValue is a data error, not a shown zero', () => {
+    expect(deriveTransfers([transfer({ id: '2', status: 'IN_TRANSIT', totalValue: 'lots' as WarehouseTransferDto['totalValue'] })], 1, whs).ok).toBe(false);
+  });
+
+  it('no transfers is an exact zero', () => {
+    expect(transfersOf([]).counts).toMatchObject({ open: 0, exact: true });
+  });
+});
+
+describe('countLabel: a count that may be partial says so', () => {
+  it('shows the number when exact and N+ when more may exist', () => {
+    expect(countLabel(12, true)).toBe('12');
+    expect(countLabel(12, false)).toBe('12+');
+    expect(countLabel(0, true)).toBe('0');
   });
 });

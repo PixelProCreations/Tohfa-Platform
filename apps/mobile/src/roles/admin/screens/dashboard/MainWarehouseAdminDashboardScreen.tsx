@@ -50,6 +50,7 @@ import {
 import { useAdminMutation, useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
 import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
+import { listWarehouseTransfers } from '../../api/warehouseTransfers';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
@@ -65,14 +66,17 @@ import {
   DASHBOARD_PAGE_LIMIT,
   EMPTY_RECEIPT_FIGURES,
   EMPTY_STOCK_FIGURES,
+  EMPTY_TRANSFER_FIGURES,
   FIGURE_PLACEHOLDER,
   collectPages,
   countOrdersPlacedOn,
   deriveReceiptFigures,
   deriveStockFigures,
+  deriveTransfers,
   barWidthPercent,
   capacityLevel,
   figureOrPlaceholder,
+  countLabel,
   formatUtilization,
   greetingKey,
   openTaskCount,
@@ -787,6 +791,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     [goodsReceiptsQuery.data, today],
   );
 
+  // Live inter-warehouse transfers (GET /warehouse-transfers, BR-102), newest
+  // first; the first page is enough because the figures say when it is not all.
+  const transfersQuery = useAdminQuery(
+    adminKeys.scoped('transfers', selectedWarehouseId, { resource: 'list', pageSize: DASHBOARD_PAGE_LIMIT }),
+    (signal) => listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }, signal),
+    live,
+  );
+
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
   // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
@@ -813,6 +825,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const ordersSrc = sourceOf(ordersQuery);
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
+  const transfersRawSrc = sourceOf(transfersQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
 
   const alertsList: DashboardAlert[] = useMemo(
@@ -863,9 +876,22 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     }),
   );
   const receiptsFigSrc = mergeSources(receiptsSrc, derivedSource(receiptsD, () => void goodsReceiptsQuery.refetch()));
+  const transfersD = useMemo(
+    () =>
+      transfersQuery.data === undefined
+        ? null
+        : deriveTransfers(transfersQuery.data.items, transfersQuery.data.total, warehouses),
+    [transfersQuery.data, warehouses],
+  );
+  const transferFig = transfersD !== null && transfersD.ok ? transfersD.value : EMPTY_TRANSFER_FIGURES;
+  const transfersSrc = mergeSources(
+    transfersRawSrc,
+    warehousesSrc,
+    derivedSource(transfersD, () => void transfersQuery.refetch()),
+  );
   const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
 
-  const homeKpiSources = [stockSrc, receiptsFigSrc, openTasksSrc, ordersSrc, revenueSrc, alertsSrc];
+  const homeKpiSources = [stockSrc, receiptsFigSrc, transfersSrc, ordersSrc, revenueSrc, alertsSrc];
   const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
 
   const qualityIssuesCount =
@@ -876,18 +902,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     () => toLowStockItems(liveAlerts, batches, warehouses),
     [liveAlerts, batches, warehouses],
   );
-
-  const trackingTransfers = useMemo(() => {
-    return openTasks.map((t) => {
-      const isTransit = t.type === 'ORDER_DISPATCH';
-      return {
-        id: t.itemKey.slice(0, 10).toUpperCase(),
-        route: t.titleKey,
-        status: isTransit ? 'In Transit' : t.state === 'DONE' ? 'Received' : 'Pending',
-        details: `Ref: ${t.refType} · Created: ${t.createdAt ? t.createdAt.slice(0, 10) : 'Today'}`,
-      };
-    });
-  }, [openTasks]);
 
   const firstName = user?.fullName?.trim().split(' ')[0];
   const displayName = firstName ? firstName : t('mainDashboard.greeting.fallbackName');
@@ -1668,33 +1682,27 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.viewAllLink}>View All →</Text>
             </TouchableOpacity>
           </View>
-          <SectionGate sources={[openTasksSrc, ordersSrc, receiptsSrc, alertsSrc]}>
+          <SectionGate sources={[transfersSrc]}>
           <View style={styles.stockTableCard}>
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Pending</Text>
-              <Text style={styles.stockTableVal}>
-                {openTasks.filter((t) => t.state === 'OPEN').length}
-              </Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>In Transit</Text>
-              <Text style={styles.stockTableVal}>
-                {ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY').length}
-              </Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Received</Text>
-              <Text style={styles.stockTableVal}>
-                {goodsReceipts.filter((g) => g.status === 'ACCEPTED').length}
-              </Text>
+              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
             </View>
             <View style={styles.stockTableRowDivider} />
             <View style={styles.stockTableRow}>
               <Text style={styles.stockTableLabel}>Exceptions</Text>
               <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
-                {liveAlerts.length}
+                {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
               </Text>
             </View>
           </View>
@@ -1890,11 +1898,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
-          <SectionGate sources={[openTasksSrc]}>
+          <SectionGate sources={[transfersSrc]}>
           <View style={styles.trackingCard}>
-            {trackingTransfers.map((t, idx) => {
-              const isLast = idx === trackingTransfers.length - 1;
-              const isTransit = t.status === 'In Transit';
+            {transferFig.rows.map((t, idx) => {
+              const isLast = idx === transferFig.rows.length - 1;
+              const isTransit = t.kind === 'inTransit';
               return (
                 <View key={t.id}>
                   <View style={styles.trackingItemRow}>
@@ -1919,7 +1927,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                               { color: isTransit ? adminColors.info.text : PALETTE.greenProgress },
                             ]}
                           >
-                            {t.status}
+                            {t.statusLabel}
                           </Text>
                         </View>
                       </View>
@@ -1932,8 +1940,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               );
             })}
 
-            {trackingTransfers.length === 0 && (
-              <EmptyState title="No Active Transfers" subtitle="There are no transfer tasks currently in progress." />
+            {transferFig.rows.length === 0 && (
+              <EmptyState title={t('mainDashboard.transfer.empty.title')} subtitle={t('mainDashboard.transfer.empty.subtitle')} />
             )}
           </View>
           </SectionGate>
@@ -2064,16 +2072,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(openTasksSrc.status, () => String(openTasks.length))}
+                    {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
                   </Text>
-                  <Text style={styles.kpiSub}>transfers</Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
                 </View>
 
                 {/* Today's Orders */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(ordersSrc.status, () => `${ordersToday.count}${ordersToday.exact ? '' : '+'}`)}
+                    {figureOrPlaceholder(ordersSrc.status, () => countLabel(ordersToday.count, ordersToday.exact))}
                   </Text>
                   <Text style={styles.kpiSub}>orders</Text>
                 </View>
