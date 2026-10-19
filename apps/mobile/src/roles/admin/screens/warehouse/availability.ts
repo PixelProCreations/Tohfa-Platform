@@ -19,6 +19,13 @@
  *     withdrawn `warehouse.staff.list_view`) -- this is a real permission
  *     rule, not a no-API hide, so it is unaffected by the above.
  *
+ *   - Invoice generation has no server API (plan phase 7): there is no
+ *     create-invoice route, because the sale or the order that needs an
+ *     invoice issues it. The Generate Invoice picker, the invoice wizard and
+ *     its result page are hidden the same way; the invoice list, detail and
+ *     download are live. The order invoice page (M5S18) stays hidden: the
+ *     order detail carries its invoice id, but that page is not wired yet.
+ *
  * Hiding is display only. The server refuses what it has no route for, and
  * authorises everything else on the caller's token (root CLAUDE.md 2.1).
  */
@@ -30,6 +37,7 @@ export type WarehouseArea =
   | 'warehouseActivity'
   | 'warehouseDocuments'
   | 'interWarehouseTransfers'
+  | 'invoiceGeneration'
   | 'stockAdjustments'
   | 'stockCounts'
   | 'orderCancellation'
@@ -80,6 +88,17 @@ const INVENTORY_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
 
 export function inventoryRouteArea(route: string): WarehouseArea | undefined {
   return Object.prototype.hasOwnProperty.call(INVENTORY_ROUTE_AREA, route) ? INVENTORY_ROUTE_AREA[route] : undefined;
+}
+
+/** The hidden area a billing route (BillingFlow) belongs to: the three invoice generation routes. */
+const BILLING_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
+  GenerateInvoice: 'invoiceGeneration',
+  InvoiceWizard: 'invoiceGeneration',
+  InvoiceGenerated: 'invoiceGeneration',
+};
+
+export function billingRouteArea(route: string): WarehouseArea | undefined {
+  return Object.prototype.hasOwnProperty.call(BILLING_ROUTE_AREA, route) ? BILLING_ROUTE_AREA[route] : undefined;
 }
 
 /** The hidden area an order route (design id, OrdersFlow) belongs to. */

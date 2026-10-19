@@ -163,6 +163,7 @@ import {
   type WarehouseScope,
   WarehouseScopeGate,
   isAreaAvailable,
+  billingRouteArea,
   inventoryRouteArea,
   storageRouteArea,
   type WarehouseArea,
@@ -798,6 +799,8 @@ function warehouseAreaForScreen(screen: ScreenName): WarehouseArea | undefined {
   if (screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer') return 'interWarehouseTransfers';
   if (STAFF_ROUTE_ENTRY[screen] !== undefined) return 'staff';
   if (PROFILE_ROUTE_ENTRY[screen] === 'Documents') return 'warehouseDocuments';
+  const billing = BILLING_ROUTE_ENTRY[screen];
+  if (billing !== undefined) return billingRouteArea(billing);
   const inventory = INVENTORY_ROUTE_ENTRY[screen];
   if (inventory !== undefined) return inventoryRouteArea(inventory);
   const storage = STORAGE_ROUTE_ENTRY[screen];
@@ -1600,14 +1603,21 @@ export default function App(): React.JSX.Element {
                     mobile: p.customer?.mobileMasked,
                   });
                 } else if (target === 'CashTopUp') {
-                  navigate('SubWarehouseCashTopUp', { customerName, customerCode });
+                  // Real uuid + masked mobile only: the wizard looks the wallet up by uuid.
+                  navigate('SubWarehouseCashTopUp', {
+                    customerName,
+                    customerCode,
+                    customerUuid: p.customer?.id,
+                    mobile: p.customer?.mobileMasked,
+                  });
                 } else if (target === 'NewSale') {
                   navigate('SubWarehouseNewSale', { customerName });
                 } else if (target === 'OrderDetail') {
                   // The order detail looks the order up by its uuid.
                   navigate('SubWarehouseOrderDetail', { orderId: p.orderId, orderNo: p.orderNo, customerName });
                 } else if (target === 'RmaDetail') {
-                  navigate('SubWarehouseReturnsIssues');
+                  // A customer issue is a return request: open the live return by its uuid.
+                  navigate('SubWarehouseRmaDetail', { returnId: p.issue?.id });
                 }
               }}
               onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}

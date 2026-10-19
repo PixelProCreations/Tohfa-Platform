@@ -37,7 +37,7 @@ const DATA = read(`${CUSTOMERS}/useCustomersData.ts`);
 const DETAILS = read(`${CUSTOMERS}/CustomerDetailsScreen.tsx`);
 const WALLET_SCREEN = read(`${WALLET}/CustomerWalletScreen.tsx`);
 const WALLET_FLOW = read(`${WALLET}/WalletFlow.tsx`);
-const SUB_DASHBOARD = read('roles/subwarehouse/screens/SubWarehouseAdminDashboardScreen.tsx');
+const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const MAIN_DASHBOARD = read('roles/admin/screens/dashboard/MainWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');
 

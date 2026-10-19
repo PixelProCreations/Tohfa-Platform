@@ -12,69 +12,68 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, type UserMe } from '../../farmer/api/auth';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
   ReceivingFlow,
   receivingRouteFor,
   type ReceivingRoute,
   type ReceivingRouteParams,
-} from '../../admin/screens/warehouse/receiving-qc';
+} from '../warehouse/receiving-qc';
 import {
   NotificationsFlow,
   useUnreadNotificationCount,
   type NotificationsRoute,
   type NotificationsRouteParams,
-} from '../../admin/screens/warehouse/notifications';
-import { ReportsScreen } from '../../admin/screens/warehouse/reports';
-import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
-import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
+} from '../warehouse/notifications';
+import { ReportsScreen } from '../warehouse/reports';
+import { SalesFlow } from '../warehouse/sales-direct';
+import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import {
   HOME_CODES,
   HomeFlow,
   MoreScreen,
   type HomeRoute,
   type HomeRouteParams,
-} from '../../admin/screens/warehouse/dashboard-home-more';
+} from '../warehouse/dashboard-home-more';
 import {
   CustomersFlow,
   type CustomersRoute,
   type CustomersRouteParams,
-} from '../../admin/screens/warehouse/customers';
-import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
-import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
+} from '../warehouse/customers';
+import { BillingFlow } from '../warehouse/billing-invoices';
+import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../warehouse/staff-attendance';
 import {
   StorageFlow,
   type ActivityModule,
   type StorageRoute,
   type StorageRouteParams,
-} from '../../admin/screens/warehouse/storage-ops';
+} from '../warehouse/storage-ops';
 import {
   ExpenseDetailScreen,
   FinanceFlow,
   type PermissionCheck,
   type WarehouseScope,
-} from '../../admin/screens/warehouse/finance-expenses';
-import { ProfileFlow, type ProfileRoute } from '../../admin/screens/warehouse/profile-settings';
-import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
-import { OrdersFlow } from '../../admin/screens/warehouse/orders';
+} from '../warehouse/finance-expenses';
+import { ProfileFlow, type ProfileRoute } from '../warehouse/profile-settings';
+import { InventoryFlow } from '../warehouse/inventory';
+import { OrdersFlow } from '../warehouse/orders';
 import {
   ReturnsFlow,
   type ReturnsRoute,
   type ReturnsRouteParams,
   type ReturnsStackEntry,
-  type RmaRecord,
-} from '../../admin/screens/warehouse/returns-rma';
+} from '../warehouse/returns-rma';
 // Areas with no API, and Staff for Sub, are hidden at their entry points (owner decision 2).
-import { isAreaAvailable } from '../../admin/screens/warehouse/availability';
-import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../admin/api/hooks';
-import { adminKeys } from '../../admin/api/queryKeys';
+import { isAreaAvailable } from '../warehouse/availability';
+import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
 import {
   getTaskSummary,
   listTasks,
   markTaskDone,
   type TaskItemDto,
   type TaskType,
-} from '../../admin/api/tasks';
+} from '../../api/tasks';
 import {
   formatTaskDetails,
   formatTaskDue,
@@ -83,13 +82,13 @@ import {
   mapTaskDestination,
   summarizeTaskCounts,
   type SummarizedTaskCounts,
-} from '../../admin/screens/warehouse/dashboard-home-more/mappers_tasks';
-import { getSalesSummary } from '../../admin/api/sales';
-import { getDailyCashSummary } from '../../admin/api/finance';
-import { mapDailyCashSummary } from '../../admin/screens/warehouse/finance-expenses/mappers';
-import { formatPaise } from '../../admin/money/paise';
+} from '../warehouse/dashboard-home-more/mappers_tasks';
+import { getSalesSummary } from '../../api/sales';
+import { getDailyCashSummary } from '../../api/finance';
+import { mapDailyCashSummary } from '../warehouse/finance-expenses/mappers';
+import { formatPaise } from '../../money/paise';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
-import { AdminLoadingState } from '../../admin/screens/warehouse/shared/AsyncStates';
+import { AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -474,11 +473,11 @@ function InventoryModule({
 const ISSUE_RMA_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
 
 /**
- * Opens the shared returns flow on the RMA of a customer issue. The issue is
- * mapped to an RmaRecord (mock mapping, as before the customers wave); the
- * params are memoised because ReturnsFlow restarts its stack when they change.
- * The live customer issue detail no longer offers this (it would show sample
- * fields beside a real issue); plan phase 10 opens the return by the issue id.
+ * Opens the shared returns flow on the return of a customer issue. A customer
+ * issue IS a return request, so its id is the return uuid: the flow reads the
+ * live return by it (plan phase 10; ReturnsFlow passes it through
+ * returnIdParam, so anything that is not a uuid shows "not found"). The params
+ * are memoised because ReturnsFlow restarts its stack when they change.
  */
 function CustomerIssueRmaFlow({
   scope,
@@ -493,36 +492,7 @@ function CustomerIssueRmaFlow({
   onBack: () => void;
   onTabChange: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
 }) {
-  const initialParams = useMemo(() => {
-    const issue = params.issue;
-    const c = params.customer;
-    const rmaId = issue?.reference ?? 'RMA-00231';
-    const rma: RmaRecord = {
-      id: issue?.id ?? rmaId.toLowerCase(),
-      rmaId,
-      orderId: issue?.orderNumber ?? 'ORD-00251',
-      customerName: c?.name ?? 'Rajesh Kumar',
-      customerId: c?.code ?? 'CUS-00291',
-      customerPhone: c?.mobileMasked ?? '+91 98765 43210',
-      orderDate: issue?.createdLabel ?? '24 Sep 2026',
-      salesChannel: 'Direct Sale',
-      paymentStatus: 'Paid',
-      productName: 'Tomato',
-      grade: 'Grade 1',
-      quantityPurchased: '2 KG',
-      unitPrice: '₹100 / KG',
-      lineTotal: '₹200',
-      issueCategory: 'Quality',
-      reportedDate: issue?.createdLabel ?? '24 Sep 2026',
-      timestampText: '24 Sep 2026 · 10:45 AM',
-      description: issue?.reason ?? 'Customer reported quality issue.',
-      ticketId: issue?.reference ?? 'ISSUE-00231',
-      requestedQuantity: '2 KG',
-      requestedResolution: 'Replacement / Refund',
-      status: 'Under Review',
-    };
-    return { rma };
-  }, [params]);
+  const initialParams = useMemo<ReturnsRouteParams>(() => ({ returnId: params.issue?.id }), [params]);
   return (
     <ReturnsFlow
       scope={scope}
@@ -2402,7 +2372,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
-                      onNavigate('WarehouseWalletOperations');
+                      onNavigate('SubWarehouseCashTopUp');
                     } else {
                       setActiveTab('More');
                     }

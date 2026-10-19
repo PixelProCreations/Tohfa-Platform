@@ -197,6 +197,36 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     markListingCounterOffered: async (_tx, _listingId, expectedVersion) => expectedVersion + 1,
     markGoodsReceiptCounterOffered: async () => {},
     recordAudit: async () => 'audit-1',
+    // BR-106 stocking. The real SQL of these runs in goods-receipts.batch.test.ts.
+    findStockingSource: async (_tx, goodsReceiptId) => ({
+      goodsReceiptId,
+      warehouseId: sampleGRN.warehouseId,
+      farmerId: sampleGRN.farmerId,
+      cropId: samplePO.cropId,
+      purchasePricePerKg: samplePO.pricePerKg,
+      grossQtyKg: sampleGRN.grossQtyKg,
+      existingBatchId: null,
+    }),
+    findQualityOfferStocking: async () => null,
+    nextBatchCode: async () => 'BATCH-2026-000001',
+    insertInventoryBatch: async () => 'batch-1',
+    insertReceiptMovement: async () => 'ledger-1',
+    findBatchView: async (_tx, batchId) => ({
+      id: batchId,
+      batchCode: 'BATCH-2026-000001',
+      warehouseId: sampleGRN.warehouseId,
+      cropId: samplePO.cropId,
+      grade: 'GRADE_1',
+      goodsReceiptId: sampleGRN.id,
+      sourceFarmerId: sampleGRN.farmerId,
+      qtyReceivedKg: '250.000',
+      qtyAvailableKg: '250.000',
+      costPerKg: samplePO.pricePerKg,
+      storageLocation: null,
+      receivedOn: '2026-08-28',
+      expiryOn: null,
+      status: 'ACTIVE',
+    }),
     listGoodsReceipts: async () => ({
       items: [sampleGRN],
       nextCursor: null,
@@ -209,8 +239,9 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
   const mockRunTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn(mockTx);
   const mockDb = { query: async () => ({ rows: [] }) } as unknown as Executor;
 
+  const noAllocation = async (): Promise<void> => {};
   const createTestService = (overrides?: Partial<GoodsReceiptsRepo>) =>
-    createGoodsReceiptsService(createMockRepo(overrides), mockRunTx, mockDb);
+    createGoodsReceiptsService(createMockRepo(overrides), mockRunTx, mockDb, noAllocation);
 
   it('BR-30a: Sub Warehouse Admin creates goods receipt for their assigned warehouse', async () => {
     const service = createTestService();
@@ -344,8 +375,128 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     expect(res.qualityCheck).toBeDefined();
     expect(res.qualityCheck.outcome).toBe('ACCEPTED');
     expect(res.qualityCheck.items).toHaveLength(5);
-    expect(res.batch).toBeNull(); // S-26 handles inventory batches
+    // BR-106: accepted goods are stocked; the batch comes back with the check.
+    expect(res.batch).toMatchObject({ id: 'batch-1', batchCode: 'BATCH-2026-000001' });
     expect(capturedStatus).toBe('ACCEPTED');
+  });
+
+  it('BR-106: the batch, its RECEIPT ledger row, the allocation and the audit run on the SAME transaction executor as the quality check', async () => {
+    const txSeen: Record<string, Executor> = {};
+    const record =
+      (name: string) =>
+      (tx: Executor): void => {
+        txSeen[name] = tx;
+      };
+    const outerTx = { query: async () => ({ rows: [] }) } as unknown as Executor;
+    const audits: string[] = [];
+    const repo = createMockRepo({
+      insertQualityCheckWithItems: async (tx, data) => {
+        record('qualityCheck')(tx);
+        return createMockRepo().insertQualityCheckWithItems(tx, data);
+      },
+      insertInventoryBatch: async (tx, data) => {
+        record('batch')(tx);
+        expect(data).toMatchObject({
+          grade: 'GRADE_2', // the inspector's grade, not the listed GRADE_1
+          qtyReceivedKg: '200.000', // accepted only, never the rejected 50 kg
+          costPerKg: '52.00', // the purchase order's price, the -4.00 adjustment NOT applied
+          expiryOn: null,
+          storageLocation: 'A-04-R2',
+          batchCode: 'BATCH-2026-000001',
+        });
+        return 'batch-1';
+      },
+      insertReceiptMovement: async (tx, data) => {
+        record('ledger')(tx);
+        expect(data).toMatchObject({ batchId: 'batch-1', qtyKg: '200.000', goodsReceiptId: sampleGRN.id });
+        return 'ledger-1';
+      },
+      recordAudit: async (tx, entry) => {
+        record(`audit:${entry.actionCode}`)(tx);
+        audits.push(entry.actionCode);
+        return 'audit-1';
+      },
+    });
+    const service = createGoodsReceiptsService(
+      repo,
+      async (fn) => fn(outerTx),
+      mockDb,
+      async (_input, tx) => {
+        record('allocation')(tx);
+      },
+    );
+    const res = await service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, {
+      assignedGrade: 'GRADE_2',
+      outcome: 'PARTIALLY_ACCEPTED',
+      acceptedQtyKg: '200.000',
+      rejectedQtyKg: '50.000',
+      rejectionReason: 'Bruised',
+      items: valid5PointItems,
+      photos: [],
+      priceAdjustment: '-4.00',
+      storageLocation: 'A-04-R2',
+    });
+    expect(res.batch).not.toBeNull();
+    expect(Object.keys(txSeen).sort()).toEqual(
+      ['allocation', 'audit:inventory.batch.assign', 'audit:inventory.quality_check.perform', 'batch', 'ledger', 'qualityCheck'].sort(),
+    );
+    for (const tx of Object.values(txSeen)) expect(tx).toBe(outerTx);
+    expect(audits).toEqual(['inventory.quality_check.perform', 'inventory.batch.assign']);
+  });
+
+  it('BR-106: a failing batch insert fails the whole quality check (the transaction runner sees the error and rolls back)', async () => {
+    let runnerSawError = false;
+    const service = createGoodsReceiptsService(
+      createMockRepo({
+        insertInventoryBatch: async () => {
+          throw new Error('disk full');
+        },
+      }),
+      async (fn) => {
+        try {
+          return await fn(mockTx);
+        } catch (error) {
+          runnerSawError = true;
+          throw error;
+        }
+      },
+      mockDb,
+      noAllocation,
+    );
+    await expect(
+      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, {
+        assignedGrade: 'GRADE_1',
+        outcome: 'ACCEPTED',
+        acceptedQtyKg: '250.000',
+        rejectedQtyKg: '0.000',
+        items: valid5PointItems,
+        photos: [],
+        priceAdjustment: '0.00',
+      }),
+    ).rejects.toThrow('disk full');
+    expect(runnerSawError).toBe(true);
+  });
+
+  it('BR-106: a REJECTED quality check stocks nothing', async () => {
+    let inserted = false;
+    const service = createTestService({
+      insertInventoryBatch: async () => {
+        inserted = true;
+        return 'batch-1';
+      },
+    });
+    const res = await service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, {
+      assignedGrade: 'GRADE_3',
+      outcome: 'REJECTED',
+      acceptedQtyKg: '0.000',
+      rejectedQtyKg: '250.000',
+      rejectionReason: 'Rotten',
+      items: valid5PointItems,
+      photos: [],
+      priceAdjustment: '0.00',
+    });
+    expect(res.batch).toBeNull();
+    expect(inserted).toBe(false);
   });
 
   it('BR-10a: Quality counter-offer surface sets 24-hour expiration window', async () => {

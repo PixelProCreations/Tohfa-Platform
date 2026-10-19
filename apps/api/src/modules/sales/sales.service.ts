@@ -37,6 +37,7 @@ import {
 } from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import { currentTraceId, logger } from '../../logger.js';
+import type { PaymentGateway } from '../../payments/gateway.js';
 import { paymentGateway } from '../../payments/index.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { targetWarehouse } from '../finance/finance.shared.js';
@@ -61,6 +62,7 @@ import type {
   ListSaleProductsQuery,
   ListSaleProductsResponse,
   Sale,
+  SaleCancelBody,
   SaleChannel,
   SaleCreateBody,
   SaleCreateChannel,
@@ -84,6 +86,7 @@ export interface SalesServiceDeps {
   wallet: Pick<WalletService, 'move'>;
   invoices: Pick<InvoicesService, 'issue'>;
   verifyUpi: UpiVerifier;
+  gateway?: PaymentGateway;
   /** Called only after COMMIT (BR-87e). The place a post-sale event/notification belongs. */
   afterCommit?: (sale: Sale) => void;
 }
@@ -119,6 +122,20 @@ export interface SalesService {
     idempotencyKey: string | undefined,
     body: SaleUpiConfirmBody,
   ): Promise<Sale>;
+  /** BR-94i: Cancel an unpaid pending UPI sale and release its batch hold. */
+  cancel(
+    scope: ResolvedScope,
+    saleId: string,
+    idempotencyKey: string | undefined,
+    body?: SaleCancelBody,
+  ): Promise<Sale>;
+  /** BR-94g: Checks that a sale is confirmed/paid; throws 409 PAYMENT_PENDING if still pending. */
+  requirePaid(
+    scope: ResolvedScope,
+    saleId: string,
+  ): Promise<Sale>;
+  /** BR-94i: Expire pending UPI sales older than system_config sales.upi_pending_expiry_minutes. */
+  expirePendingUpi(limit?: number): Promise<{ expiredCount: number }>;
 }
 
 const GST_CONFIG_KEY = 'retail_gst_rate_percent';
@@ -126,6 +143,9 @@ const GST_CONFIG_KEY = 'retail_gst_rate_percent';
 const DEFAULT_GST_BASIS_POINTS = 0;
 const CREATE_OPERATION = 'sales.sale.create';
 const CONFIRM_OPERATION = 'payment.record.upi_confirm';
+const CANCEL_OPERATION = 'sales.sale.cancel';
+const UPI_EXPIRY_CONFIG_KEY = 'sales.upi_pending_expiry_minutes';
+const UPI_REFUND_MODE_CONFIG_KEY = 'sales.upi_refund_mode';
 
 interface PricedLine {
   productId: string;
@@ -168,13 +188,52 @@ function saleNotFound(id: string): AppError {
   return new AppError('NOT_FOUND', { detail: `No sale with id ${id} is visible to you.` });
 }
 
-/** Re-throws Postgres stock/allocation guard violations as the domain conflict they mean. */
+/**
+ * BR-94l: the sale row moved (confirmed, cancelled, refunded) between the caller's read and its
+ * conditional write. Thrown inside the transaction so everything it wrote rolls back.
+ */
+function saleStateChanged(id: string): AppError {
+  return new AppError('CONFLICT', {
+    detail: `Sale ${id} changed while this action was in progress; reload it and try again.`,
+    meta: { reason: 'SALE_STATE_CHANGED' },
+  });
+}
+
+/**
+ * Re-throws a Postgres CHECK violation (23514) raised while drawing stock as the domain conflict it
+ * means. Only the stock-ledger inserts and the allocation consumption run inside the guarded block,
+ * so every 23514 there is a stock guard: INSUFFICIENT_STOCK and allocations_not_oversold_chk, but
+ * also the ledger trigger's hint-less warehouse-mismatch refusal (a batch no longer at the sale's
+ * warehouse). Each of those used to surface as a 500; each means "the stock you priced is not what
+ * is on this shelf now", so each is 409 SALE_STOCK_CHANGED.
+ */
 function mapStockGuard(error: unknown): unknown {
-  const pg = error as { code?: string; hint?: string; constraint?: string };
-  if (pg.code === '23514' && (pg.hint === 'code: INSUFFICIENT_STOCK' || pg.constraint === 'allocations_not_oversold_chk')) {
+  const pg = error as { code?: string };
+  if (pg.code === '23514') {
     return new AppError('SALE_STOCK_CHANGED', { detail: 'Stock changed while the sale was being written. Re-quote and confirm.', cause: error });
   }
   return error;
+}
+
+/** True for a unique violation (23505) on the named constraint or unique index. */
+function isUniqueViolation(error: unknown, constraint: string): boolean {
+  const pg = error as { code?: string; constraint?: string };
+  return pg.code === '23505' && pg.constraint === constraint;
+}
+
+/**
+ * BR-94k / BR-94n / BR-94q, migration 0067: a UPI reference binds one sale payment. Every write that
+ * stores a reference (keeping the verified reference before the confirm transaction, the confirm,
+ * and the REFUND_DUE settle of the stock-conflict cancel) re-throws the index's 23505 as 409
+ * UPI_TXN_REF_ALREADY_USED; anything else passes through unchanged.
+ */
+function mapUpiRefCollision(error: unknown): unknown {
+  if (!isUniqueViolation(error, 'uq_sale_payments_upi_txn_ref')) return error;
+  return new AppError('CONFLICT', {
+    detail: 'This UPI reference has already confirmed another sale. Check the reference; the sale stays pending.',
+    meta: { reason: 'UPI_TXN_REF_ALREADY_USED' },
+    cause: error,
+  });
 }
 
 /** Group order_items (one row per batch drawn) back into one line per product, grade and price. */
@@ -277,6 +336,9 @@ export const gatewayUpiVerifier: UpiVerifier = async (upiTxnRef, expectedAmountP
     if (payment === null || payment.status !== 'captured') return false;
     // The mock gateway returns a fixed amount for any reference, so the amount is only checked
     // against a real provider. Tests inject their own verifier.
+    // The payment cannot be tied to THIS sale here: the counter collects UPI outside a gateway
+    // order, and fetchPayment exposes no notes/receipt that names our sale. That is why the
+    // reference is unique across sale_payments (migration 0067) - one payment, one sale.
     if (paymentGateway.provider !== 'mock' && payment.amountPaise !== expectedAmountPaise) return false;
     return true;
   } catch (error) {
@@ -316,6 +378,21 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
       return DEFAULT_GST_BASIS_POINTS;
     }
     return parsed;
+  }
+
+  async function upiPendingExpiryMinutes(executor: Executor): Promise<number | null> {
+    const raw = await repo.configValue(executor, UPI_EXPIRY_CONFIG_KEY);
+    if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw;
+    if (typeof raw === 'string') {
+      const parsed = parseInt(raw, 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+  }
+
+  async function upiRefundMode(executor: Executor): Promise<'manual' | 'auto'> {
+    const raw = await repo.configValue(executor, UPI_REFUND_MODE_CONFIG_KEY);
+    return raw === 'auto' ? 'auto' : 'manual';
   }
 
   /**
@@ -665,17 +742,31 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
             }
           }
 
-          await repo.insertPayment(tx, {
-            orderId,
-            method,
-            amount: priced.total,
-            amountReceived,
-            changeGiven,
-            cardRef: method === 'CARD' ? (body.payment.cardRef ?? '').trim() : null,
-            status: completed ? 'CONFIRMED' : 'PENDING',
-            idempotencyKey: `sale:${scope.userId}:${key}`,
-            createdBy: scope.userId,
-          });
+          try {
+            await repo.insertPayment(tx, {
+              orderId,
+              method,
+              amount: priced.total,
+              amountReceived,
+              changeGiven,
+              cardRef: method === 'CARD' ? (body.payment.cardRef ?? '').trim() : null,
+              status: completed ? 'CONFIRMED' : 'PENDING',
+              idempotencyKey: `sale:${scope.userId}:${key}`,
+              createdBy: scope.userId,
+            });
+          } catch (error) {
+            // The idempotency claim is only retained 24 hours, but sale_payments keeps the key for
+            // ever. A key replayed after the retention passes the claim and lands here: that sale
+            // was already made, so refuse it (409) rather than 500 or make it twice. The whole
+            // transaction rolls back, including any wallet movement above.
+            if (isUniqueViolation(error, 'uq_sale_payments_idempotency_key')) {
+              throw new AppError('IDEMPOTENCY_KEY_REUSED', {
+                detail: 'This Idempotency-Key already made a sale (more than 24 hours ago). Use a new key for a new sale.',
+                cause: error,
+              });
+            }
+            throw error;
+          }
 
           if (completed) {
             try {
@@ -762,6 +853,26 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
           await recordAttempt(scope, header.warehouseId, error, context);
           throw error;
         }
+
+        // BR-94q: keep the verified reference on the still-PENDING payment NOW, on the pool, before
+        // the confirm transaction. The counter collects UPI outside a gateway order, so sale create
+        // has no gateway call and no reference: this is the earliest point one exists. Written inside
+        // the confirm transaction only, it would vanish with any rollback (lost connection, crash, a
+        // failed invoice step) and leave a captured payment that the manual cancel could mark FAILED
+        // without asking anyone. Only a VERIFIED reference is kept: an unverified one may be another
+        // sale's in-flight payment, and the 0067 unique index would let it block that sale's confirm.
+        // A single conditional UPDATE (PENDING UPI rows only), so no transaction or row lock is held
+        // across the gateway call above. No audit row: the payment's state does not change here; the
+        // confirm's own audit row (payment.record) records the reference's outcome.
+        if (header.paymentId !== null) {
+          try {
+            await repo.recordPendingUpiRef(db, header.paymentId, upiTxnRef);
+          } catch (recordError) {
+            const mapped = mapUpiRefCollision(recordError);
+            await recordAttempt(scope, header.warehouseId, mapped, context);
+            throw mapped;
+          }
+        }
       }
 
       let outcome: { sale: Sale; changed: boolean };
@@ -808,7 +919,14 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
             throw mapStockGuard(error);
           }
           await repo.completeOrder(tx, saleId);
-          await repo.confirmPayment(tx, locked.paymentId, upiTxnRef);
+          try {
+            await repo.confirmPayment(tx, locked.paymentId, upiTxnRef);
+          } catch (error) {
+            // BR-94, migration 0067: a UPI reference confirms one sale. The gateway payment names
+            // no sale of ours, so a captured reference of the same amount would otherwise confirm
+            // every pending sale it is typed into. Everything above rolls back with this throw.
+            throw mapUpiRefCollision(error);
+          }
           await repo.insertStatusHistory(tx, saleId, 'PENDING_PAYMENT', 'PICKED_UP', scope.userId, 'UPI payment confirmed');
 
           const lines = aggregateLines(items);
@@ -840,12 +958,264 @@ export function createSalesService(deps: Partial<SalesServiceDeps> = {}): SalesS
           return { sale, changed: true };
         });
       } catch (error) {
+        if (error instanceof AppError && error.code === 'SALE_STOCK_CHANGED') {
+          // BR-94i: The UPI money was verified/captured, but the stock commit failed.
+          // Cancel the sale (releases the hold), set payment to REFUND_DUE, and attempt auto-refund if configured.
+          let refundStatus: 'REFUND_DUE' | 'REFUNDED' = 'REFUND_DUE';
+          let paymentId: string;
+          try {
+            paymentId = await runTx(async (cancelTx) => {
+              // BR-94l: the confirm transaction above rolled back and released the sale row, so a
+              // concurrent confirm or cancel may have committed since. Decide on the row locked in
+              // THIS transaction, never on `header` (an unlocked read from before the confirm):
+              // cancelling a sale someone else completed would write a false PENDING_PAYMENT ->
+              // CANCELLED history and audit row and, in auto mode, refund a sale that was kept.
+              const locked = await repo.lockSale(cancelTx, saleId, visible);
+              if (locked === null) throw saleNotFound(saleId);
+              if (
+                locked.paymentMethod !== 'UPI' ||
+                locked.status !== 'PENDING_PAYMENT' ||
+                locked.paymentStatusDetail !== 'PENDING' ||
+                locked.paymentId === null
+              ) {
+                throw saleStateChanged(saleId);
+              }
+              // Both UPDATEs are conditional; 0 rows means another writer got there first. The
+              // throw rolls back everything this transaction wrote, so no ledger claims a cancel.
+              if (!(await repo.cancelSale(cancelTx, saleId, { reason: 'Stock unavailable at confirmation', paymentStatus: 'REFUND_DUE' }))) {
+                throw saleStateChanged(saleId);
+              }
+              // BR-94n: the stock guard fires before confirmPayment, so a reference already bound to
+              // another sale first meets the 0067 index here. That payment is not proven to be this
+              // sale's money: roll the cancel back (the sale stays pending) and refund nothing.
+              let settled: boolean;
+              try {
+                settled = await repo.settlePayment(cancelTx, locked.paymentId, 'REFUND_DUE', upiTxnRef);
+              } catch (settleError) {
+                throw mapUpiRefCollision(settleError);
+              }
+              if (!settled) throw saleStateChanged(saleId);
+              await repo.insertStatusHistory(
+                cancelTx,
+                saleId,
+                'PENDING_PAYMENT',
+                'CANCELLED',
+                scope.userId,
+                'Stock unavailable at confirmation; refund due',
+              );
+              await writeAuditLog(cancelTx, {
+                actorId: scope.userId,
+                actorRole: scope.roleCode,
+                actionCode: 'order.cancel',
+                entityType: 'order',
+                entityId: saleId,
+                warehouseId: locked.warehouseId,
+                before: { orderId: saleId, status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
+                after: { orderId: saleId, status: 'CANCELLED', paymentStatus: 'REFUND_DUE' },
+                changedFields: ['status', 'paymentStatus'],
+              });
+              return locked.paymentId;
+            });
+          } catch (cancelError) {
+            // Nothing was cancelled and nothing is refunded: the sale is whatever the other writer left.
+            await recordAttempt(scope, header.warehouseId, cancelError, context);
+            throw cancelError;
+          }
+
+          // Only reached once THIS request's cancel committed: the sale is CANCELLED (terminal) with
+          // a REFUND_DUE payment, so it can no longer be confirmed and the refund is owed exactly once.
+          const mode = await upiRefundMode(db);
+          const activeGateway = deps.gateway ?? paymentGateway;
+          if (mode === 'auto' && activeGateway.refundPayment) {
+            let refundId: string | null = null;
+            try {
+              const refundRes = await activeGateway.refundPayment({
+                gatewayPaymentId: upiTxnRef,
+                amountPaise: toPaise(header.totalAmount),
+                idempotencyKey: `sale_refund:${paymentId}`,
+              });
+              refundId = refundRes.refundId;
+              await runTx(async (refundTx) => {
+                if (!(await repo.markRefunded(refundTx, paymentId, refundRes.refundId))) {
+                  // Rolls back the refund audit row below: the payment is not recorded REFUNDED.
+                  throw saleStateChanged(saleId);
+                }
+                await writeAuditLog(refundTx, {
+                  actorId: scope.userId,
+                  actorRole: scope.roleCode,
+                  actionCode: 'payment.refund',
+                  entityType: 'sale_payments',
+                  entityId: paymentId,
+                  warehouseId: header.warehouseId,
+                  after: { status: 'REFUNDED', refundRef: refundRes.refundId },
+                });
+              });
+              refundStatus = 'REFUNDED';
+            } catch (refundErr) {
+              if (refundId === null) {
+                logger.error({ err: refundErr, saleId }, 'sales: automatic UPI refund failed; keeping REFUND_DUE');
+              } else {
+                // The provider accepted the refund but the row could not be marked: reconcile by
+                // hand against this refund id before anyone refunds the payment again.
+                logger.error({ err: refundErr, saleId, refundId }, 'sales: UPI refund sent but not recorded; payment stays REFUND_DUE, reconcile manually');
+              }
+            }
+          }
+
+          const wrappedError = new AppError('SALE_STOCK_CHANGED', {
+            detail: 'Stock unavailable to complete sale. The sale has been cancelled and payment marked for refund.',
+            meta: { reason: 'UPI_REFUND_DUE', refundStatus },
+            cause: error,
+          });
+          await recordAttempt(scope, header.warehouseId, wrappedError, context);
+          throw wrappedError;
+        }
+
         await recordAttempt(scope, header.warehouseId, error, context);
         throw error;
       }
 
       if (outcome.changed) afterCommit?.(outcome.sale);
       return outcome.sale;
+    },
+
+    async cancel(scope, saleId, rawKey, body) {
+      const key = requireIdempotencyKey(rawKey);
+      const visible = visibleWarehouses(scope);
+      const header = await repo.findSaleHeader(db, saleId, visible);
+      if (header === null) throw saleNotFound(saleId);
+      if (header.paymentMethod !== 'UPI') {
+        throw new AppError('CONFLICT', { detail: 'Only a pending UPI sale can be cancelled.' });
+      }
+
+      // BR-94q: a pending payment that carries a reference (kept by a verified confirm whose
+      // transaction then failed) may be money the customer already paid. Ask the gateway BEFORE
+      // opening the transaction (no row lock across a network call, as in confirmUpi); captured is
+      // 409, never a silent FAILED. With no reference there is nothing the gateway can be asked
+      // about and nothing has been verified as paid, so the cancel proceeds as before. Only the
+      // reference checked here may be cancelled: the transaction below refuses a different one.
+      const checkedRef = header.upiTxnRef;
+      if (header.status === 'PENDING_PAYMENT' && header.paymentStatusDetail === 'PENDING' && checkedRef !== null) {
+        // The shared verifier: "captured, for this sale's amount". A gateway error also answers
+        // false here (see gatewayUpiVerifier), so an unreachable gateway does not block the cancel.
+        if (await verifyUpi(checkedRef, toPaise(header.totalAmount))) {
+          throw new AppError('CONFLICT', {
+            detail:
+              'The gateway reports this sale\'s UPI payment as captured, so it cannot be cancelled as unpaid. Confirm the sale with its reference instead; if the stock is gone, the confirm cancels it and marks the payment for refund.',
+            meta: { reason: 'UPI_PAYMENT_CAPTURED' },
+          });
+        }
+      }
+
+      const reason = body?.reason?.trim() || 'Cancelled by operator';
+      const outcome = await runTx(async (tx) => {
+        const idem = await beginIdempotent<Sale>(idempotency, tx, {
+          actorUserId: scope.userId,
+          key,
+          operation: CANCEL_OPERATION,
+          request: { saleId, reason },
+        });
+        if (idem.replay) return idem.response;
+
+        const locked = await repo.lockSale(tx, saleId, visible);
+        if (locked === null) throw saleNotFound(saleId);
+
+        const load = async (): Promise<Sale> => {
+          const record = await repo.loadSale(tx, saleId);
+          if (record === null) throw saleNotFound(saleId);
+          return toSale(record);
+        };
+
+        if (locked.status === 'CANCELLED') {
+          const sale = await load();
+          await idem.complete(sale);
+          return sale;
+        }
+
+        if (locked.status !== 'PENDING_PAYMENT' || locked.paymentStatusDetail !== 'PENDING' || locked.paymentId === null) {
+          throw new AppError('CONFLICT', { detail: 'This sale is no longer pending payment; it cannot be cancelled.' });
+        }
+        // BR-94q / BR-94l: a reference recorded after the gateway check above was never asked about.
+        if (locked.upiTxnRef !== null && locked.upiTxnRef !== checkedRef) throw saleStateChanged(saleId);
+
+        // BR-94l: conditional UPDATEs; 0 rows rolls the transaction back as a 409.
+        if (!(await repo.cancelSale(tx, saleId, { reason, paymentStatus: 'FAILED' }))) throw saleStateChanged(saleId);
+        if (!(await repo.settlePayment(tx, locked.paymentId, 'FAILED', null))) throw saleStateChanged(saleId);
+        await repo.insertStatusHistory(tx, saleId, 'PENDING_PAYMENT', 'CANCELLED', scope.userId, reason);
+
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'order.cancel',
+          entityType: 'order',
+          entityId: saleId,
+          warehouseId: locked.warehouseId,
+          before: { status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
+          after: { status: 'CANCELLED', paymentStatus: 'FAILED' },
+          changedFields: ['status', 'paymentStatus'],
+        });
+
+        const sale = await load();
+        await idem.complete(sale);
+        return sale;
+      });
+
+      return outcome;
+    },
+
+    async requirePaid(scope, saleId) {
+      const visible = visibleWarehouses(scope);
+      const header = await repo.findSaleHeader(db, saleId, visible);
+      if (header === null) throw saleNotFound(saleId);
+      if (header.status === 'PENDING_PAYMENT' || header.paymentStatusDetail === 'PENDING') {
+        throw new AppError('PAYMENT_PENDING', {
+          detail: 'This sale has an unconfirmed payment; action cannot be performed while payment is pending.',
+          meta: { saleId, paymentStatus: header.paymentStatus },
+        });
+      }
+      const record = await repo.loadSale(db, saleId);
+      if (record === null) throw saleNotFound(saleId);
+      return toSale(record);
+    },
+
+    async expirePendingUpi(limit = 100) {
+      const minutes = await upiPendingExpiryMinutes(db);
+      if (minutes === null) return { expiredCount: 0 };
+
+      const expired = await repo.listExpiredPendingUpi(db, minutes, limit);
+      let expiredCount = 0;
+
+      for (const row of expired) {
+        try {
+          await runTx(async (tx) => {
+            const locked = await repo.lockSale(tx, row.saleId, null);
+            if (locked === null || locked.status !== 'PENDING_PAYMENT' || locked.paymentStatusDetail !== 'PENDING' || locked.paymentId === null) {
+              return;
+            }
+            const reason = `Pending UPI payment expired after ${minutes} minutes`;
+            // BR-94l: 0 rows rolls back (the loop logs it); nothing claims an expiry that did not happen.
+            if (!(await repo.cancelSale(tx, row.saleId, { reason, paymentStatus: 'FAILED' }))) throw saleStateChanged(row.saleId);
+            if (!(await repo.settlePayment(tx, locked.paymentId, 'FAILED', null))) throw saleStateChanged(row.saleId);
+            await repo.insertStatusHistory(tx, row.saleId, 'PENDING_PAYMENT', 'CANCELLED', null, reason);
+            await writeAuditLog(tx, {
+              actorId: null,
+              actorType: 'JOB',
+              actionCode: 'order.cancel',
+              entityType: 'order',
+              entityId: row.saleId,
+              warehouseId: locked.warehouseId,
+              before: { status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
+              after: { status: 'CANCELLED', paymentStatus: 'FAILED' },
+              changedFields: ['status', 'paymentStatus'],
+            });
+            expiredCount++;
+          });
+        } catch (err) {
+          logger.warn({ err, saleId: row.saleId }, 'sales: error expiring pending UPI sale');
+        }
+      }
+
+      return { expiredCount };
     },
   };
 }

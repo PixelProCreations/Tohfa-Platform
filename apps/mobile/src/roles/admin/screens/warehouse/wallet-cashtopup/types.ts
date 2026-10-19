@@ -19,11 +19,14 @@
  * dashboard barrel re-exported all of them with `export *`. They are folded
  * into the few types below, defined once.
  *
- * Amounts in a draft are WHOLE RUPEES (integers: the amount input strips every
- * non-digit), so `* 100` is exact integer paise for BR-19's validator. Display
- * amounts in records are pre-formatted strings from the mock data; nothing here
- * computes money from them (CLAUDE.md 2.2).
+ * Amounts in a cash top-up draft are integer paise (plan phase 9: the wizard
+ * is live). Display amounts in records are pre-formatted strings (from paise for
+ * live rows, from the mock data elsewhere); nothing here computes money from
+ * them (CLAUDE.md 2.2).
  */
+import type { Paise } from '@tohfa/shared-types';
+import type { TopUpCustomer } from './mappers';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -47,32 +50,32 @@ export interface WalletCustomer {
    * With it the wallet reads GET /admin/customers/{id}/wallet (plan phase 6).
    */
   customerUuid?: string | undefined;
+  /** The balance in integer paise, when a live read gave one (the counter lookup, plan phase 9). */
+  balancePaise?: Paise | undefined;
 }
 
-/** A wallet customer with every display field filled (the uuid stays optional). */
-export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'customerUuid'>]-?: string } & {
+/** A wallet customer with every display field filled (the uuid and paise balance stay optional). */
+export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'customerUuid' | 'balancePaise'>]-?: string } & {
   customerUuid?: string | undefined;
+  balancePaise?: Paise | undefined;
 };
 
 /**
  * A cash top-up as it moves through the wizard: Cash Top-Up -> Fiscal Cash Tag
- * -> Confirm. Replaces CashTopUpData / FiscalTagScreenData / ConfirmTopUpDetails.
+ * -> Confirm (plan phase 9, live). Money is integer paise; the customer is the
+ * live one (uuid + masked mobile); the warehouse is a uuid (BR-30).
  */
 export interface CashTopUpDraft {
-  customerName: string;
-  customerCode: string;
-  /** Whole rupees. */
-  currentBalance: number;
-  /** Whole rupees, at most the BR-19 cap (config/businessThresholds). */
-  topUpAmount: number;
-  /** Warehouse where the cash was collected. */
-  warehouseId?: string | undefined;
+  customer: TopUpCustomer;
+  /** At most the BR-19 cap (config/businessThresholds); the server enforces it again. */
+  amountPaise: Paise;
+  /** Warehouse uuid where the cash was collected. */
+  warehouseId: string;
   warehouseName: string;
-  processedBy: string;
-  channel: 'Cash';
+  /** Wallet balance before the top-up, for the preview only; null when unknown. */
+  currentBalancePaise: Paise | null;
+  /** Set by the Fiscal Cash Tag step (BR-18), trimmed and 3..60 characters. */
   fiscalCashTag?: string | undefined;
-  dateStr?: string | undefined;
-  timeStr?: string | undefined;
 }
 
 /**
@@ -170,7 +173,7 @@ export type WalletRoute =
 /** Params carried between wallet routes. */
 export interface WalletRouteParams {
   customer?: WalletCustomer | undefined;
-  draft?: Partial<CashTopUpDraft> | undefined;
+  draft?: CashTopUpDraft | undefined;
   transaction?: WalletTransactionRecord | undefined;
   /** The transaction is a live ledger row: show only what the server sent (no sample fallbacks). */
   liveTransaction?: boolean | undefined;

@@ -6,8 +6,11 @@
  * through a `currentScreen` switch. The children are ProfileFlow routes now;
  * this screen lists them (`onOpen`) and keeps the two states that are really
  * its own:
- *   - the inline change-password form (the working flow: validation and
- *     success). The owner dropped the unreachable Main stub
+ *   - the inline change-password form: POST /auth/me/change-password
+ *     (plan phase 8) through the flow (`onSubmitPassword`). A success ends
+ *     EVERY session of the account on the server, this one included, so the
+ *     screen signs out right away (`onPasswordChanged`, the host's login
+ *     route) instead of leaving a dead session on screen. The owner dropped the unreachable Main stub
  *     (MainWarehouseChangePasswordScreen); Security's "Password" row opens this
  *     same state through the 'ChangePassword' route (initialView).
  *   - the logout confirmation and signed-out state, absorbing
@@ -21,9 +24,11 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { NEW_PASSWORD_MAX_LENGTH, NEW_PASSWORD_MIN_LENGTH, type ChangePasswordBody } from '../../../api/profile';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { Card, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { roleLabelOf, scopeLabelOf } from './fixtures';
+import { Card, InfoNote, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { passwordChangeErrorKey, passwordFormErrorKey, roleLabelFor, scopeLabelFor } from './mappers';
 import {
   AboutIcon,
   BellIcon,
@@ -56,18 +61,35 @@ export interface SettingsScreenProps extends WarehouseScreenBaseProps {
   onOpen?: ((route: SettingsChildRoute) => void) | undefined;
   /** Sign out (host navigates to its login). Without it the signed-out state is shown. */
   onLogout?: (() => void) | undefined;
+  /** POST /auth/me/change-password; `onDone` runs after the server accepted it. Without it the form cannot submit. */
+  onSubmitPassword?: ((body: ChangePasswordBody, onDone: () => void) => void) | undefined;
+  isChangingPassword?: boolean | undefined;
+  /** The last change-password failure (a wrong current password has its own message). */
+  passwordError?: unknown;
+  /** The password changed and every session was revoked: sign out. Without it the signed-out state is shown. */
+  onPasswordChanged?: (() => void) | undefined;
 }
 
 type SettingsView = 'hub' | 'changePassword' | 'signedOut';
 
-export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout }: SettingsScreenProps) {
+export function SettingsScreen({
+  scope,
+  onBack,
+  initialView = 'hub',
+  onOpen,
+  onLogout,
+  onSubmitPassword,
+  isChangingPassword = false,
+  passwordError,
+  onPasswordChanged,
+}: SettingsScreenProps) {
   const [view, setView] = useState<SettingsView>(initialView);
   const [showLogout, setShowLogout] = useState(false);
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
 
-  const accountLabel = `${roleLabelOf(scope)} · ${scopeLabelOf(scope)}`;
+  const accountLabel = `${roleLabelFor(scope)} · ${scopeLabelFor(scope)}`;
 
   const resetPasswordForm = () => {
     setCurrentPass('');
@@ -83,24 +105,19 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
   };
 
   const handleUpdatePassword = () => {
-    if (!currentPass || !newPass || !confirmPass) {
-      Alert.alert('Validation Error', 'Please fill in all password fields.');
+    const invalid = passwordFormErrorKey({ current: currentPass, next: newPass, confirm: confirmPass });
+    if (invalid !== null) {
+      Alert.alert(t('profile.password.invalidTitle'), t(invalid, { min: NEW_PASSWORD_MIN_LENGTH, max: NEW_PASSWORD_MAX_LENGTH }));
       return;
     }
-    if (newPass.length < PASSWORD_MIN_LENGTH) {
-      Alert.alert('Validation Error', `New password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
-      return;
-    }
-    if (newPass !== confirmPass) {
-      Alert.alert('Password Mismatch', 'New password and confirm password do not match.');
-      return;
-    }
-    if (newPass === currentPass) {
-      Alert.alert('Validation Error', 'New password must be different from the current password.');
-      return;
-    }
-    // No change-password endpoint exists yet (SPEC_GAPS W4l-1): mock success.
-    Alert.alert('Success', 'Your password has been changed successfully.', [{ text: 'OK', onPress: closePasswordForm }]);
+    if (!onSubmitPassword || isChangingPassword) return;
+    onSubmitPassword({ currentPassword: currentPass, newPassword: newPass }, () => {
+      resetPasswordForm();
+      // Every session is gone on the server now, this one included: leave for login.
+      Alert.alert(t('profile.password.changedTitle'), t('profile.password.changedBody'));
+      if (onPasswordChanged) onPasswordChanged();
+      else setView('signedOut');
+    });
   };
 
   const handleLogout = () => {
@@ -146,9 +163,22 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
               placeholderTextColor={adminColors.placeholder}
               secureTextEntry
             />
+            {passwordError !== null && passwordError !== undefined ? (
+              <View style={styles.formError}>
+                <InfoNote tone="danger">{t(passwordChangeErrorKey(passwordError))}</InfoNote>
+              </View>
+            ) : null}
             <View style={styles.formActions}>
-              <WalletButton label="Cancel" variant="neutral" flex onPress={closePasswordForm} />
-              <WalletButton label="Update Password" flex onPress={handleUpdatePassword} />
+              <WalletButton label="Cancel" variant="neutral" flex onPress={closePasswordForm} disabled={isChangingPassword} />
+              <WalletButton
+                label={isChangingPassword ? t('profile.password.updating') : 'Update Password'}
+                flex
+                onPress={handleUpdatePassword}
+                disabled={isChangingPassword}
+              />
+            </View>
+            <View style={styles.formError}>
+              <InfoNote tone="info">{t('profile.password.signOutNote')}</InfoNote>
             </View>
           </Card>
         </ScrollView>
@@ -220,7 +250,7 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
       <ConfirmDialog
         visible={showLogout}
         title="Logout?"
-        message={`Are you sure you want to sign out of your ${roleLabelOf(scope)} account?`}
+        message={`Are you sure you want to sign out of your ${roleLabelFor(scope)} account?`}
         confirmLabel="Logout"
         destructive
         icon={<LogoutIcon />}
@@ -244,4 +274,5 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.sm,
   },
   formActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.xl },
+  formError: { marginTop: adminSpacing.md },
 });

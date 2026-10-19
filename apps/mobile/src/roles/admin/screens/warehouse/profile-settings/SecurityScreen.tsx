@@ -11,40 +11,30 @@
  *
  * 2FA is read-only: it is provisioned by policy, and no code lets a warehouse
  * admin change it.
+ *
+ * Hidden (plan phase 8), because no API reports them: the "Security Status"
+ * grid (password / 2FA / session states), the "Login Security" rows (login
+ * methods, trusted device) and the password-changed date. The design showed
+ * fixed values there; the server has no endpoint for any of them.
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { Card, CheckIcon, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { defaultProfile, roleLabelOf } from './fixtures';
-import { BlockIcon, KeyIcon, MenuCard, MenuRow, profileLayout, StatusDot, StatusRow } from './ProfileParts';
-import type { AdminAccountProfile, WarehouseScreenBaseProps } from './types';
+import { Card, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { roleLabelFor } from './mappers';
+import { BlockIcon, KeyIcon, MenuCard, MenuRow, profileLayout, StatusRow } from './ProfileParts';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface SecurityScreenProps extends WarehouseScreenBaseProps {
-  profile?: AdminAccountProfile | undefined;
   onChangePassword?: (() => void) | undefined;
   onViewSessionSecurity?: (() => void) | undefined;
 }
 
-export function SecurityScreen({ scope, onBack, profile, onChangePassword, onViewSessionSecurity }: SecurityScreenProps) {
-  const account = profile ?? defaultProfile(scope);
-
+export function SecurityScreen({ scope, onBack, onChangePassword, onViewSessionSecurity }: SecurityScreenProps) {
   return (
     <WalletScreen title="Security" onBack={onBack}>
       <ScrollView contentContainerStyle={profileLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>SECURITY STATUS</SectionTitle>
-        <Card>
-          <View style={styles.statusGrid}>
-            <StatusCell label="Password" value="Active" color={adminColors.success.text} />
-            <StatusCell label="2FA" value="Not Enabled" color={adminColors.muted} />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.statusGrid}>
-            <StatusCell label="Session" value="Secure" color={adminColors.success.text} />
-          </View>
-        </Card>
-
         {onChangePassword ? (
           <>
             <SectionTitle>PASSWORD</SectionTitle>
@@ -52,7 +42,7 @@ export function SecurityScreen({ scope, onBack, profile, onChangePassword, onVie
               <MenuRow
                 icon={<KeyIcon />}
                 title="Password"
-                subtitle={`Last changed ${account.passwordChanged} · ••••••••••`}
+                subtitle="••••••••••"
                 onPress={onChangePassword}
               />
             </MenuCard>
@@ -66,16 +56,9 @@ export function SecurityScreen({ scope, onBack, profile, onChangePassword, onVie
             <Text style={styles.twoFaTitle}>Two-Factor Authentication — Role Protected</Text>
           </View>
           <Text style={styles.twoFaText}>
-            2FA management is provisioned at the organizational policy level by system administrators for {roleLabelOf(scope)} accounts.
+            2FA management is provisioned at the organizational policy level by system administrators for {roleLabelFor(scope)} accounts.
           </Text>
         </Card>
-
-        <SectionTitle>LOGIN SECURITY</SectionTitle>
-        <MenuCard>
-          <StatusRow label="Login with Password" right={<EnabledPill label="Enabled" />} />
-          <StatusRow label="Login with OTP" right={<EnabledPill label="Available" />} />
-          <StatusRow label="Trusted Device" right={<EnabledPill label="Enabled" />} />
-        </MenuCard>
 
         {onViewSessionSecurity ? (
           <>
@@ -91,27 +74,6 @@ export function SecurityScreen({ scope, onBack, profile, onChangePassword, onVie
   );
 }
 
-function StatusCell({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <View style={styles.statusCell}>
-      <Text style={styles.statusLabel}>{label}</Text>
-      <View style={styles.statusValueRow}>
-        <StatusDot color={color} />
-        <Text style={[styles.statusValue, { color }]}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-function EnabledPill({ label }: { label: string }) {
-  return (
-    <View style={styles.pillRow}>
-      <CheckIcon size={14} color={adminColors.success.text} />
-      <StatusBadge label={label} tone="success" />
-    </View>
-  );
-}
-
 function ViewLink({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
@@ -121,17 +83,9 @@ function ViewLink({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  statusGrid: { flexDirection: 'row' },
-  statusCell: { flex: 1 },
-  statusLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  statusValueRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
-  statusValue: { ...adminType.rowTitle },
-  divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md },
-
   twoFaHeader: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginBottom: adminSpacing.xs },
   twoFaTitle: { ...adminType.rowTitle, color: adminColors.ink, flex: 1 },
   twoFaText: { ...adminType.rowMeta, color: adminColors.muted },
 
-  pillRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
   viewLink: { ...adminType.rowTitle, color: adminColors.brand },
 });

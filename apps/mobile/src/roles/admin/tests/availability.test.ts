@@ -17,6 +17,7 @@ import { DEMO_ROLE_PERMISSIONS } from '../permissions/demoGrants';
 import {
   AREAS_WITHOUT_API,
   STAFF_AREA_CODE,
+  billingRouteArea,
   inventoryRouteArea,
   isAreaAvailable,
   ordersRouteArea,
@@ -131,6 +132,22 @@ describe('inventoryRouteArea', () => {
   it('leaves the read-only inventory routes with an API ungated', () => {
     for (const route of ['M3S01', 'M3S02', 'M3S03', 'M3S04', 'M3S05', 'M3S06', 'M3S07', 'M3S08', 'M3S09']) {
       expect({ route, area: inventoryRouteArea(route) }).toEqual({ route, area: undefined });
+    }
+  });
+});
+
+describe('billingRouteArea', () => {
+  it('maps the invoice generation routes (no create-invoice API, phase 7) to invoiceGeneration', () => {
+    for (const route of ['GenerateInvoice', 'InvoiceWizard', 'InvoiceGenerated']) {
+      expect({ route, area: billingRouteArea(route) }).toEqual({ route, area: 'invoiceGeneration' });
+    }
+    expect(isAreaAvailable('invoiceGeneration', subCan)).toBe(false);
+    expect(isAreaAvailable('invoiceGeneration', mainCan)).toBe(false);
+  });
+
+  it('leaves the read-only invoice routes with an API ungated', () => {
+    for (const route of ['BillingHub', 'InvoiceList', 'InvoiceFilters', 'InvoiceDetail']) {
+      expect({ route, area: billingRouteArea(route) }).toEqual({ route, area: undefined });
     }
   });
 });

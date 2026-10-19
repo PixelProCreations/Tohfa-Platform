@@ -19,15 +19,15 @@ export { WarehouseSettingsScreen, type WarehouseSettingsScreenProps } from './Wa
 export { WAREHOUSE_PROFILE_CODES } from './WarehouseProfileParts';
 export { PROFILE_WAREHOUSES } from './warehouseFixtures';
 export { PASSWORD_MIN_LENGTH, PROFILE_CODES } from './ProfileParts';
-export { defaultProfile, FAQ_ITEMS, roleLabelOf, scopeLabelOf } from './fixtures';
+export { FAQ_ITEMS, roleLabelOf, scopeLabelOf } from './fixtures';
 export type {
   AboutView,
-  AdminAccountProfile,
+  AccountProfileView,
   FaqCategory,
   FaqItem,
   ProfileRoute,
   StorageLocationItem,
-  SupportTicketItem,
+  SessionRowView,
   WarehouseDocItem,
   WarehouseProfileInfo,
   WarehouseSettingsValues,

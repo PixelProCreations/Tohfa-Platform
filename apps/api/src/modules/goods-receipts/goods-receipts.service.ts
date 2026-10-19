@@ -4,14 +4,18 @@ import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
+import { allocationsService, type AllocateBatchInput } from '../allocations/allocations.service.js';
+import type { BatchView } from '../inventory/inventory.schema.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import { confineToAssignedWarehouses, warehouseNotFound } from '../warehouse-ops/scope.js';
 import {
   goodsReceiptsRepo,
   type GoodsReceiptsRepo,
+  type StockingSource,
 } from './goods-receipts.repo.js';
 import {
   qcParameters,
+  type QcOutcome,
   type CreateGoodsReceiptBody,
   type GoodsReceiptResponse,
   type ListGoodsReceiptsQuery,
@@ -34,7 +38,16 @@ export interface GoodsReceiptsService {
     scope: ResolvedScope,
     goodsReceiptId: string,
     input: QualityCheckCreateBody,
-  ): Promise<{ qualityCheck: QualityCheckResponse; batch: null }>;
+  ): Promise<{ qualityCheck: QualityCheckResponse; batch: BatchView | null }>;
+
+  /**
+   * BR-106 hook: the farmer has just accepted counter-offer `offerId`, on transaction `tx`
+   * (counter-offers.service respondAccept). When it is a quality counter-offer whose receipt is not
+   * stocked yet, stock it now; otherwise do nothing. Takes the caller's executor rather than a
+   * scope: it is a consequence of an acceptance already authorised and audited by the caller, and
+   * must commit or roll back with it. Returns the batch it created, or null.
+   */
+  stockAcceptedQualityCounterOffer(tx: Executor, offerId: string): Promise<BatchView | null>;
 
   createQualityCounterOffer(
     actor: Actor,
@@ -58,6 +71,47 @@ export interface GoodsReceiptsService {
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
 
+/** BR-12 channel allocation of a new batch, on the caller's transaction. Injected for unit tests. */
+export type BatchAllocator = (input: AllocateBatchInput, tx: Executor) => Promise<unknown>;
+
+const allocateNewBatch: BatchAllocator = (input, tx) => allocationsService.allocateBatch(input, tx);
+
+/**
+ * BR-106: a quality check stocks its goods when it accepted some (ACCEPTED or PARTIALLY_ACCEPTED,
+ * accepted quantity above zero) at a sellable grade. A REJECT grade is never sellable
+ * (docs/openapi.yaml recordQualityCheck), so it is never stocked.
+ */
+function qualityCheckStocks(outcome: QcOutcome, grade: ProduceGrade, acceptedQtyKg: number): boolean {
+  return (outcome === 'ACCEPTED' || outcome === 'PARTIALLY_ACCEPTED') && grade !== 'REJECT' && acceptedQtyKg > 0;
+}
+
+/** uq_inventory_batches_goods_receipt_id (migration 0070) decided a race the row lock did not see. */
+function isReceiptAlreadyStocked(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const pg = error as { code?: string; constraint?: string };
+  return pg.code === '23505' && pg.constraint === 'uq_inventory_batches_goods_receipt_id';
+}
+
+function receiptAlreadyStocked(goodsReceiptId: string, cause?: unknown): AppError {
+  return new AppError('CONFLICT', {
+    detail: `Goods receipt "${goodsReceiptId}" has already been stocked as an inventory batch.`,
+    ...(cause === undefined ? {} : { cause }),
+  });
+}
+
+interface StockReceiptInput {
+  source: StockingSource;
+  /** The inspector's assigned grade (owner decision 3). */
+  grade: ProduceGrade;
+  qtyKg: string;
+  /** Pass-through of the QC's optional values; NULL when not given (owner decision 4). */
+  expiryOn: string | null;
+  storageLocation: string | null;
+  audit:
+    | { trigger: 'quality_check'; actorId: string; actorRole: string; qualityCheckId: string }
+    | { trigger: 'quality_counter_offer.accepted'; counterOfferId: string };
+}
+
 /*
  * Warehouse confinement (BR-30). docs/rbac.json grants inventory.goods_receipt.record,
  * inventory.quality_check.perform and inventory.quality.counter_offer to SUB_WH_ADMIN at `all`,
@@ -77,7 +131,85 @@ export function createGoodsReceiptsService(
   repo: GoodsReceiptsRepo = goodsReceiptsRepo,
   runTx: TransactionRunner = withTransaction,
   db: Executor = pool,
+  allocate: BatchAllocator = allocateNewBatch,
 ): GoodsReceiptsService {
+  /**
+   * BR-106: stock an accepted receipt as one batch, on the caller's transaction `tx`: the batch
+   * (qty_available 0), one RECEIPT ledger row that fills it through the trigger (never a direct
+   * write, CLAUDE.md 2.3), the BR-12 channel allocation, and one audit row. Any failure rolls back
+   * the decision that accepted the goods with it.
+   *
+   * Cost = the purchase order's agreed price as-is: the QC's priceAdjustment is NOT applied, and a
+   * quality counter-offer's price is NOT used (owner decision 1).
+   */
+  async function stockReceipt(tx: Executor, input: StockReceiptInput): Promise<BatchView> {
+    const { source } = input;
+    const batchCode = await repo.nextBatchCode(tx);
+    let batchId: string;
+    try {
+      batchId = await repo.insertInventoryBatch(tx, {
+        batchCode,
+        warehouseId: source.warehouseId,
+        cropId: source.cropId,
+        grade: input.grade,
+        goodsReceiptId: source.goodsReceiptId,
+        sourceFarmerId: source.farmerId,
+        qtyReceivedKg: input.qtyKg,
+        costPerKg: source.purchasePricePerKg,
+        storageLocation: input.storageLocation,
+        expiryOn: input.expiryOn,
+      });
+    } catch (error) {
+      if (isReceiptAlreadyStocked(error)) throw receiptAlreadyStocked(source.goodsReceiptId, error);
+      throw error;
+    }
+
+    const { audit } = input;
+    // The admin who accepted the goods, or null when the system stocks them after a farmer's
+    // acceptance (that acceptance is audited by counter-offers.service as the farmer's own action;
+    // the stocking that follows is not a farmer exercising an inventory permission).
+    const adminId = audit.trigger === 'quality_check' ? audit.actorId : null;
+    await repo.insertReceiptMovement(tx, {
+      batchId,
+      warehouseId: source.warehouseId,
+      qtyKg: input.qtyKg,
+      goodsReceiptId: source.goodsReceiptId,
+      createdBy: adminId,
+    });
+
+    await allocate(
+      { batchId, warehouseId: source.warehouseId, cropId: source.cropId, qtyReceivedKg: input.qtyKg },
+      tx,
+    );
+
+    const batch = await repo.findBatchView(tx, batchId);
+
+    // Masked image: ids, codes, grade and quantities; no price and no farmer id.
+    await repo.recordAudit(tx, {
+      actorId: adminId,
+      actorType: audit.trigger === 'quality_check' ? 'USER' : 'SYSTEM',
+      ...(audit.trigger === 'quality_check' ? { actorRole: audit.actorRole } : {}),
+      actionCode: 'inventory.batch.assign',
+      entityType: 'batch',
+      entityId: batchId,
+      warehouseId: source.warehouseId,
+      after: {
+        batchCode,
+        goodsReceiptId: source.goodsReceiptId,
+        grade: input.grade,
+        qtyReceivedKg: batch.qtyReceivedKg,
+        expiryOn: batch.expiryOn,
+        storageLocation: batch.storageLocation,
+        trigger: audit.trigger,
+        ...(audit.trigger === 'quality_check'
+          ? { qualityCheckId: audit.qualityCheckId }
+          : { counterOfferId: audit.counterOfferId }),
+      },
+    });
+
+    return batch;
+  }
+
   return {
     async createGoodsReceipt(
       actor: Actor,
@@ -158,6 +290,9 @@ export function createGoodsReceiptsService(
         poNumber: po.poNumber,
         cropName: po.cropName,
         grade: po.grade,
+        // A new receipt awaits its quality check: nothing is stocked yet (BR-106).
+        batchId: null,
+        batchCode: null,
       };
     },
 
@@ -166,7 +301,7 @@ export function createGoodsReceiptsService(
       scope: ResolvedScope,
       goodsReceiptId: string,
       input: QualityCheckCreateBody,
-    ): Promise<{ qualityCheck: QualityCheckResponse; batch: null }> {
+    ): Promise<{ qualityCheck: QualityCheckResponse; batch: BatchView | null }> {
       // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
       const grn = await repo.findGoodsReceiptById(db, goodsReceiptId, confineToAssignedWarehouses(scope));
       if (grn === null) {
@@ -220,8 +355,10 @@ export function createGoodsReceiptsService(
         });
       }
 
-      // 4. Atomic transaction: write quality check & items and update GRN status
-      const result = await runTx(async (tx) => {
+      // 4. Atomic transaction: the quality check & items, the GRN status, the batch the accepted
+      // goods are stocked as (BR-106) and the audit rows commit or roll back together.
+      const acceptedQtyKg = Number(acceptedQty).toFixed(3);
+      return runTx(async (tx) => {
         const qc = await repo.insertQualityCheckWithItems(tx, {
           ...input,
           goodsReceiptId,
@@ -234,39 +371,73 @@ export function createGoodsReceiptsService(
           tx,
           goodsReceiptId,
           input.outcome,
-          Number(acceptedQty).toFixed(3),
+          acceptedQtyKg,
           Number(rejectedQty).toFixed(3),
           input.rejectionReason ?? input.defectNotes,
         );
 
-        // Audit log (BR-35)
-        try {
-          await tx.query(
-            `INSERT INTO audit_log (
-              actor_id, actor_role, action_code, entity_type, entity_id, warehouse_id, outcome, after
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [
-              actor.userId,
-              scope.roleCode,
-              'inventory.quality_check.perform',
-              'quality_check',
-              qc.id,
-              grn.warehouseId,
-              'ALLOWED',
-              JSON.stringify(qc),
-            ],
-          );
-        } catch {
-          // unit test env fallback
+        // Audit log (BR-35), through the shared helper on this transaction. It used to be a raw
+        // INSERT whose failure was swallowed; on PostgreSQL a failed statement aborts the
+        // transaction, so the swallow would have let the batch below fail with a misleading error
+        // (or a COMMIT silently become a ROLLBACK).
+        await repo.recordAudit(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'inventory.quality_check.perform',
+          entityType: 'quality_check',
+          entityId: qc.id,
+          warehouseId: grn.warehouseId,
+          after: qc,
+        });
+
+        // BR-106: accepted goods become stock now, at the inspector's grade, for the accepted
+        // quantity only (never the rejected part). A quality counter-offer sent on this receipt
+        // later finds it stocked and stocks nothing again (stockAcceptedQualityCounterOffer).
+        let batch: BatchView | null = null;
+        if (qualityCheckStocks(input.outcome, input.assignedGrade, acceptedQty)) {
+          const source = await repo.findStockingSource(tx, goodsReceiptId);
+          if (source === null) {
+            throw new AppError('NOT_FOUND', { detail: `Goods receipt "${goodsReceiptId}" was not found.` });
+          }
+          if (source.existingBatchId !== null) throw receiptAlreadyStocked(goodsReceiptId);
+          batch = await stockReceipt(tx, {
+            source,
+            grade: input.assignedGrade,
+            qtyKg: acceptedQtyKg,
+            expiryOn: input.expiryOn ?? null,
+            storageLocation: input.storageLocation ?? null,
+            audit: { trigger: 'quality_check', actorId: actor.userId, actorRole: scope.roleCode, qualityCheckId: qc.id },
+          });
         }
 
-        return qc;
+        return { qualityCheck: qc, batch };
       });
+    },
 
-      return {
-        qualityCheck: result,
-        batch: null, // S-26 handles inventory batches & ledger
-      };
+    async stockAcceptedQualityCounterOffer(tx: Executor, offerId: string): Promise<BatchView | null> {
+      const offer = await repo.findQualityOfferStocking(tx, offerId);
+      // A listing counter-offer (no goods receipt) has no stock to create.
+      if (offer === null) return null;
+
+      const source = await repo.findStockingSource(tx, offer.goodsReceiptId);
+      if (source === null) return null;
+      // Already stocked by its quality check (the check accepted goods before the offer was sent):
+      // one receipt is one batch, so accepting the offer adds nothing (BR-106n).
+      if (source.existingBatchId !== null) return null;
+      // Counter-offered before any quality check: there is no inspector grade to stock it at
+      // (owner decision 3 forbids falling back to the listed grade). UNCONFIRMED gap, BR-106.
+      if (offer.qualityCheck === null) return null;
+      if (offer.qualityCheck.assignedGrade === 'REJECT') return null;
+      if (!(Number(offer.quantityKg) > 0)) return null;
+
+      return stockReceipt(tx, {
+        source,
+        grade: offer.qualityCheck.assignedGrade,
+        qtyKg: offer.quantityKg,
+        expiryOn: offer.qualityCheck.expiryOn,
+        storageLocation: offer.qualityCheck.storageLocation,
+        audit: { trigger: 'quality_counter_offer.accepted', counterOfferId: offerId },
+      });
     },
 
     async createQualityCounterOffer(

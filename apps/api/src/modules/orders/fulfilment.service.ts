@@ -191,14 +191,31 @@ export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDe
   });
 }
 
+export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
+
 export function createFulfilmentService(opts: {
   repo?: FulfilmentRepo;
   db?: Executor;
   emitter?: EventEmitter;
+  runTx?: TransactionRunner;
 } = {}): FulfilmentService {
   const repo = opts.repo ?? fulfilmentRepo;
   const db = opts.db ?? pool;
+  const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
   const emitter = opts.emitter ?? orderEventsEmitter;
+
+  /**
+   * BR-85j: `updateOrderStatus` is conditional on the from-status and reports how many rows it
+   * changed. 0 means another writer moved the order first; throwing inside the transaction rolls
+   * back the audit row, so neither ledger claims a change that did not happen.
+   */
+  function assertOrderUpdated(orderId: string, updated: number): void {
+    if (updated === 0) {
+      throw new AppError('CONFLICT', {
+        detail: `Order ${orderId} changed while this action was in progress; reload it and try again.`,
+      });
+    }
+  }
 
   function validateTransition(from: OrderStatus, to: OrderStatus): void {
     const allowed = ALLOWED_TRANSITIONS[from] || [];
@@ -258,30 +275,47 @@ export function createFulfilmentService(opts: {
         });
       }
 
-      const order = await repo.findOrderForFulfilment(db, orderId);
-      if (!order || !warehouseVisible(scope, order.warehouseId)) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
-        });
-      }
+      // BR-85j: every check below runs on the row locked inside the transaction. Deciding on an
+      // unlocked read let a pack/cancel commit in between: the conditional UPDATE then matched no
+      // row, yet the history and audit rows were still written and the caller got 200.
+      await runTx(async (tx) => {
+        const order = await repo.lockOrderForUpdate(tx, orderId);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
 
-      if (order.status !== 'CONFIRMED' && order.status !== 'PENDING_PAYMENT') {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          status: 409,
-          detail: `Cannot reassign warehouse for order in status ${order.status}.`,
-        });
-      }
+        // BR-85i: a counter sale is made AT a warehouse, from that warehouse's batches. A pending UPI
+        // sale's items already name those batches (the hold, BR-94), so moving it would make the
+        // later confirm write SALE ledger rows for batches at another warehouse (refused by the
+        // ledger trigger) and let a second warehouse see the sale. Completed counter sales are
+        // PICKED_UP and already refused by the status check below; this names the pending case.
+        if (order.channel === 'DIRECT' || order.channel === 'MARKET') {
+          throw new AppError('COUNTER_SALE_NOT_REASSIGNABLE', {
+            detail: `Order ${orderId} is a ${order.channel} counter sale; it stays at the warehouse that made it.`,
+            meta: { channel: order.channel, status: order.status },
+          });
+        }
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+        if (order.status !== 'CONFIRMED' && order.status !== 'PENDING_PAYMENT') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Cannot reassign warehouse for order in status ${order.status}.`,
+          });
+        }
+
+        // With the row locked this cannot match 0 rows; the check stays so that dropping the lock
+        // later fails loudly (and rolls back the audit row) instead of reporting a phantom reassign.
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: order.status,
           actorUserId: actor.userId,
           warehouseId: input.warehouseId,
           note: `Reassigned to warehouse: ${input.warehouseId}${input.reason ? ` - ${input.reason}` : ''}`,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -308,15 +342,15 @@ export function createFulfilmentService(opts: {
 
       validateTransition(order.status, 'PACKED');
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: 'PACKED',
           actorUserId: actor.userId,
           packedAt: new Date(),
           note: `Packed at warehouse ${order.warehouseId}`,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -359,14 +393,14 @@ export function createFulfilmentService(opts: {
           ? 'Ready for customer pickup'
           : 'Dispatched for delivery';
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
           toStatus: targetStatus,
           actorUserId: actor.userId,
           note,
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -446,8 +480,8 @@ export function createFulfilmentService(opts: {
 
       validateTransition(otpHolder.status, targetStatus);
 
-      await withTransaction(async (tx) => {
-        await repo.updateOrderStatus(tx, {
+      await runTx(async (tx) => {
+        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: otpHolder.status,
           toStatus: targetStatus,
@@ -456,7 +490,7 @@ export function createFulfilmentService(opts: {
           otpVerifiedAt: new Date(),
           otpVerifiedBy: actor.userId,
           note: 'Handover verified via OTP',
-        });
+        }));
 
         await writeAuditLog(tx, {
           actorId: actor.userId,

@@ -7,16 +7,9 @@
  * check that only decides what to render; the server enforces every action
  * again, CLAUDE.md 2.1).
  *
- * RmaRecord / ReturnHistoryRecord used to be declared inside the Sub screens
- * (SubWarehouseReturnsIssuesScreen / SubWarehouseReturnHistoryDetailScreen) and
- * imported sideways by every other RMA screen; they live here now.
- *
- * Folded designs (W3b's ReturnResultScreen and its `variant` prop are gone):
- *   - The Main "Inspection Saved" page (MainWarehouseInspectionSavedScreen, then
- *     ReturnResultScreen variant 'INSPECTION_SAVED') is InspectProductScreen
- *     step 'saved'.
- *   - The Main "Return Approved" page (MainWarehouseReturnApprovedScreen, then
- *     ReturnResultScreen variant 'RETURN_APPROVED') is ReturnApprovedScreen.
+ * Live since plan phase 10: the screens draw the views below, built from the
+ * returns API by ./mappers.ts. The sample RmaRecord / ReturnHistoryRecord
+ * shapes are gone with their fixtures.
  */
 import type { WarehouseScreenBaseProps } from '../finance-expenses/types';
 
@@ -28,104 +21,73 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
-/** Issue category a customer picks when reporting a problem. */
-export type RmaIssueCategory = 'Damaged' | 'Quality' | 'Quantity' | 'Missing' | 'Wrong' | 'Late';
-
-/** Workflow status of an open RMA. */
-export type RmaStatus = 'New' | 'Under Review' | 'Approved' | 'Pending Resolution';
-
-/** One return (RMA) request. Mock until the RMA endpoints are wired (SPEC_GAPS W4e). */
-export interface RmaRecord {
-  id: string;
-  rmaId: string;
-  orderId: string;
-  customerName: string;
-  customerId: string;
-  customerPhone: string;
-  orderDate: string;
-  salesChannel: string;
-  paymentStatus: string;
-  productName: string;
-  grade: string;
-  quantityPurchased: string;
-  unitPrice: string;
-  lineTotal: string;
-  issueCategory: RmaIssueCategory;
-  reportedDate: string;
-  timestampText: string;
-  description: string;
-  ticketId: string;
-  requestedQuantity: string;
-  requestedResolution: string;
-  status: RmaStatus;
-  /**
-   * Warehouse that owns the order. Optional until the API returns it; when set,
-   * a Sub scope only lists / approves RMAs of its own warehouse.
-   */
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
-}
-
-/** One step of an RMA / refund timeline. */
-export interface ReturnTimelineItem {
-  id: string;
-  title: string;
-  time?: string | undefined;
-}
-
-/** A closed RMA in the return history. */
-export interface ReturnHistoryRecord {
-  rmaId: string;
-  orderId: string;
-  customerName: string;
-  reasonTag: string;
-  status: 'Completed' | 'Rejected' | 'Approved';
-  date: string;
-  customerId?: string | undefined;
-  orderDate?: string | undefined;
-  salesChannel?: string | undefined;
-  warehouseName?: string | undefined;
-  ticketId?: string | undefined;
-  issueCategory?: string | undefined;
-  reportedDate?: string | undefined;
-  description?: string | undefined;
-  refundAmount?: string | undefined;
-  inspectionResult?: string | undefined;
-  returnedQuantity?: string | undefined;
-  inspectionNotes?: string | undefined;
-  decision?: string | undefined;
-  decisionDate?: string | undefined;
-  processedBy?: string | undefined;
-  refundStatus?: string | undefined;
-  refundMethod?: string | undefined;
-  refundReference?: string | undefined;
-  timeline?: ReturnTimelineItem[] | undefined;
-  warehouseId?: string | undefined;
-}
-
-/** Product condition picked on the inspection form. */
+/** Product condition picked on the inspection form (the API's GOOD / DAMAGED / SPOILED). */
 export type InspectionCondition = 'Acceptable' | 'Damaged' | 'Spoiled';
-
-/** What InspectProductScreen hands to the review step. */
-export interface InspectionResultData {
-  rma: RmaRecord;
-  receivedQty: string;
-  condition: InspectionCondition;
-  result: string;
-  notes: string;
-}
 
 /** InspectProductScreen steps (M10-S03 form, then the folded "Inspection Saved" page). */
 export type InspectStep = 'form' | 'saved';
 
-/** Props every RMA screen that works on one request takes. */
-export interface RmaScreenBaseProps extends WarehouseScreenBaseProps {
-  rma: RmaRecord;
+// ─── Live views (./mappers.ts) ───────────────────────────────────────────────
+
+/** One return of the queue (GET /admin/returns). */
+export interface ReturnRowView {
+  /** The return uuid. */
+  id: string;
+  /** 'RET-7A7A7A7A': a display label (docs/rules.md BR-91h), not a key. */
+  reference: string;
+  orderId: string;
+  /** The API status, kept as sent (unknown values included) for returnActions. */
+  status: string;
+  statusLabel: string;
+  statusTone: 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'brandSoft';
+  reason: string;
+  note: string | null;
+  created: string;
+}
+
+/** One returned order item in integer grams. accepted / damaged / condition are null until inspected. */
+export interface ReturnItemView {
+  orderItemId: string;
+  requestedGrams: number;
+  acceptedGrams: number | null;
+  damagedGrams: number | null;
+  condition: InspectionCondition | null;
+}
+
+/** One return with its items (GET /admin/returns/{id}). */
+export interface ReturnDetailView extends ReturnRowView {
+  customerId: string;
+  items: readonly ReturnItemView[];
+}
+
+/** One status change (GET /admin/returns/{id}/history), oldest first. */
+export interface ReturnTimelineEntry {
+  id: string;
+  title: string;
+  time: string;
+  note: string | null;
+}
+
+/** What a live screen needs to pick an AsyncState and to refresh. */
+export interface ReturnsLiveStateProps {
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+}
+
+/** A write in flight on a screen: its pending flag and last failure (shown with returnWriteErrorKey). */
+export interface ReturnsWriteStateProps {
+  isSubmitting?: boolean | undefined;
+  submitError?: unknown;
 }
 
 /**
  * Route keys of ReturnsFlow. They are the old App.tsx keys without the
- * 'SubWarehouse' prefix, so App.tsx maps a legacy key by stripping it.
+ * 'SubWarehouse' prefix, so App.tsx maps a legacy key by stripping it. There
+ * is no bank refund route: rma.refund.bank_process is `none` for both
+ * warehouse roles (BR-61).
  */
 export type ReturnsRoute =
   | 'ReturnsIssues'
@@ -142,14 +104,22 @@ export type ReturnsRoute =
   | 'ReturnHistory'
   | 'ReturnHistoryDetail';
 
+/** The refund the server confirmed, carried to the Refund Completed page. */
+export interface ReturnRefundParams {
+  /** Integer paise; null when the server amount was not Money. */
+  amountPaise: number | null;
+  amountLabel: string | null;
+  walletTransactionId: string | null;
+  reference: string;
+}
+
 /** Params carried between ReturnsFlow routes. All optional: a deep link may carry none. */
 export interface ReturnsRouteParams {
-  rma?: RmaRecord | undefined;
-  record?: ReturnHistoryRecord | undefined;
-  inspectedQty?: string | undefined;
-  notes?: string | undefined;
-  reason?: string | undefined;
-  refundAmount?: string | undefined;
-  transactionId?: string | undefined;
+  /** The return uuid; anything else shows "not found" without a request. */
+  returnId?: string | undefined;
+  refund?: ReturnRefundParams | undefined;
   step?: InspectStep | undefined;
 }
+
+/** Props every live RMA screen takes. */
+export type ReturnsScreenBaseProps = WarehouseScreenBaseProps;

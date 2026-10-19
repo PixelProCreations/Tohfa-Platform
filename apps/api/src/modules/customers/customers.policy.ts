@@ -6,11 +6,13 @@
  *                      role check, so a role granted `own` later inherits it (BR-92d).
  *  - `maskMobile`      BR-92 / openapi `MaskedMobile`.
  *  - `buildRedactor`   BR-97: strips farmer identity from support text for `own` actors and
- *                      refuses replies that would carry it into a customer-facing thread.
+ *                      refuses replies that would carry it into a customer-facing thread. Also
+ *                      masks the customer's own stored mobile / e-mail in ticket text (BR-92a).
  *  - keyset cursors    opaque base64url JSON; anything not produced here is a 422.
  */
 import { ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
+import { isMicroTimestamp } from '../../http/microTimestamp.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
 
@@ -61,6 +63,14 @@ const MIN_TERM_LENGTH = 3;
 const MIN_NAME_PART_LENGTH = 4;
 /** Two decimal coordinates with at least four decimals each: a GPS position (BR-16 lists GPS). */
 const GPS_PAIR = /-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}/g;
+/**
+ * BR-92a: an `own` actor may see at most FOUR consecutive digits of a stored mobile. So any run of
+ * five or more digits that shares a five-digit window with a protected number is redacted whole.
+ * Matching on digit runs (not on the number as stored) catches every way it gets typed:
+ * `9876543210`, `+91 98765 43210`, `98765-43210`. This is the rule's own definition, not a tunable.
+ */
+const PHONE_WINDOW = 5;
+const DIGIT_RUN = /\d{5,}/g;
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -70,7 +80,14 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\
  * "Ramesh" more often than "Ramesh Kumar". Farm names are not split: "Green Valley Farm" must not
  * redact the word "farm" from every message.
  */
-export function buildRedactor(terms: readonly string[], personNames: readonly string[]): Redactor {
+export interface RedactorOptions {
+  /** Phone numbers (any format); see PHONE_WINDOW. */
+  phones?: readonly string[];
+  /** E-mail addresses, matched case-insensitively as written. */
+  emails?: readonly string[];
+}
+
+export function buildRedactor(terms: readonly string[], personNames: readonly string[], options: RedactorOptions = {}): Redactor {
   const all = new Set<string>();
   const add = (raw: string, min: number): void => {
     const term = raw.trim();
@@ -86,9 +103,33 @@ export function buildRedactor(terms: readonly string[], personNames: readonly st
   const termPattern =
     sorted.length === 0 ? null : new RegExp(`(?<![\\p{L}\\p{N}])(?:${sorted.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 
+  const phoneWindows = new Set<string>();
+  for (const phone of options.phones ?? []) {
+    const digits = phone.replace(/\D/g, '');
+    for (let i = 0; i + PHONE_WINDOW <= digits.length; i += 1) phoneWindows.add(digits.slice(i, i + PHONE_WINDOW));
+  }
+  const sharesPhoneWindow = (run: string): boolean => {
+    for (let i = 0; i + PHONE_WINDOW <= run.length; i += 1) if (phoneWindows.has(run.slice(i, i + PHONE_WINDOW))) return true;
+    return false;
+  };
+  const emails = (options.emails ?? []).map((e) => e.trim()).filter((e) => e.length >= MIN_TERM_LENGTH);
+  const emailPattern = emails.length === 0 ? null : new RegExp(emails.map(escapeRegExp).join('|'), 'gi');
+
   const redact = (text: string): { text: string; changed: boolean } => {
     let out = text.replace(GPS_PAIR, REDACTED);
+    if (emailPattern !== null) out = out.replace(emailPattern, REDACTED);
+    if (phoneWindows.size > 0) out = out.replace(DIGIT_RUN, (run) => (sharesPhoneWindow(run) ? REDACTED : run));
     if (termPattern !== null) out = out.replace(termPattern, REDACTED);
+    return { text: out, changed: out !== text };
+  };
+  return { redact, matches: (text) => redact(text).changed };
+}
+
+/** Apply several redactors in order, as one. */
+export function composeRedactors(...redactors: readonly Redactor[]): Redactor {
+  const redact = (text: string): { text: string; changed: boolean } => {
+    let out = text;
+    for (const r of redactors) out = r.redact(out).text;
     return { text: out, changed: out !== text };
   };
   return { redact, matches: (text) => redact(text).changed };
@@ -108,7 +149,6 @@ export interface TimeKey {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MICRO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 function invalidCursor(): never {
   throw new AppError('VALIDATION_FAILED', {
@@ -153,6 +193,7 @@ export function encodeTimeKey(key: TimeKey): string {
 
 export function decodeTimeKey(raw: string): TimeKey {
   const [ts, id] = decodeParts(raw, 't');
-  if (!MICRO_TS.test(ts) || !UUID.test(id)) invalidCursor();
+  // A real instant, not just the shape: `2026-99-99T...` used to reach the ::timestamptz cast (500).
+  if (!isMicroTimestamp(ts) || !UUID.test(id)) invalidCursor();
   return { ts, id };
 }

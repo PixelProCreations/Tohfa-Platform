@@ -11,10 +11,12 @@
  * here because
  *  - SUB_WH_ADMIN with a non-`all` scope and no warehouse never gets this far: requirePermission
  *    throws WAREHOUSE_SCOPE_VIOLATION for it, and
- *  - a scope that carries a farmer or customer id is never widened (it fails closed).
+ *  - a scope whose winning role is not a warehouse admin or above is never widened (it fails
+ *    closed), see `isWarehouseConfinable` below.
  * Use this ONLY for endpoints whose permission is granted to warehouse admins.
  */
 import { ScopeLevel } from '@tohfa/shared-types';
+import { loadRbac } from './loadRbac.js';
 import type { ResolvedScope } from './requirePermission.js';
 
 export interface WarehouseScopeFilter {
@@ -23,8 +25,24 @@ export interface WarehouseScopeFilter {
   nextIndex: number;
 }
 
-function isOwnerScoped(scope: ResolvedScope): boolean {
-  return scope.farmerId !== undefined || scope.customerId !== undefined;
+/**
+ * May this scope be read as "a warehouse admin or above"? Decided by the WINNING role's
+ * `scopeDimension` in docs/rbac.json, never by a role name: `null` (Super, TOHFA, Main) and
+ * `warehouse_id` (Sub) are warehouse-shaped; `zone_id`, `farmer_id` and `customer_id` are not,
+ * and such a scope fails closed here whatever its level.
+ *
+ * Why not just "has a customerId / farmerId": a self-registered customer has no customers row,
+ * so its token carries customerId = null and resolveScope leaves the key off. Keying the fail-closed
+ * on the id's PRESENCE let exactly that customer fall through to TRUE and read every order on
+ * GET /admin/orders (while CUSTOMER held `own` on order.list.view_all; it now holds `none`, BR-101a).
+ * The role dimension is always there.
+ * The id checks stay as a belt-and-braces second condition.
+ */
+function isWarehouseConfinable(scope: ResolvedScope): boolean {
+  if (scope.farmerId !== undefined || scope.customerId !== undefined) return false;
+  const role = loadRbac().rolesByCode.get(scope.roleCode);
+  if (role === undefined) return false;
+  return role.scopeDimension === null || role.scopeDimension === 'warehouse_id';
 }
 
 export function warehouseScopeFilter(
@@ -32,7 +50,7 @@ export function warehouseScopeFilter(
   column: string,
   startIndex = 1,
 ): WarehouseScopeFilter {
-  if (isOwnerScoped(scope)) return { sql: 'FALSE', params: [], nextIndex: startIndex };
+  if (!isWarehouseConfinable(scope)) return { sql: 'FALSE', params: [], nextIndex: startIndex };
   if (scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL) {
     return { sql: 'TRUE', params: [], nextIndex: startIndex };
   }
@@ -48,7 +66,7 @@ export function warehouseScopeFilter(
 
 /** Row-level twin of `warehouseScopeFilter`, for a row that was already loaded by id. */
 export function warehouseVisible(scope: ResolvedScope, warehouseId: string | null): boolean {
-  if (isOwnerScoped(scope)) return false;
+  if (!isWarehouseConfinable(scope)) return false;
   if (scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL) return true;
   if (scope.warehouseIds.length > 0) return warehouseId !== null && scope.warehouseIds.includes(warehouseId);
   return true;

@@ -10,6 +10,9 @@ import type { OrderStatus, ProduceGrade, SalesChannel, FulfillmentType, Delivery
 import { parseMoney, type Money } from '@tohfa/shared-types';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
+import { AppError } from '../../http/problem.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
+import { decodeAdminOrderCursor, encodeAdminOrderCursor } from './fulfilment.cursor.js';
 import type {
   AdminOrderChannel,
   AdminOrderFulfilmentType,
@@ -116,6 +119,8 @@ interface FulfilmentOrderRow {
   paymentStatus: string;
   deliveryDate: string | null;
   placedAt: string | Date;
+  /** Microsecond UTC text of placed_at, for the keyset cursor only (never in a response). */
+  placedAtCursor: string;
 }
 
 interface FulfilmentOrderDetailRow {
@@ -158,7 +163,8 @@ export interface FulfilmentRepo {
    * BR-101 / BR-30: the warehouse scope is an explicit SQL predicate built from the RESOLVED scope
    * (`warehouseScopeFilter`), and `query.warehouseId` is ANDed on top of it. So a Sub admin naming
    * another warehouse gets an empty page (never 403), and a scope carrying a customer or farmer id
-   * (CUSTOMER is `own` on `order.list.view_all`) fails closed to an empty page.
+   * fails closed to an empty page (belt and braces: CUSTOMER now holds `none` on
+   * `order.list.view_all` and is refused 403 before this runs, BR-101a).
    */
   listAdminOrders(
     db: Executor,
@@ -185,6 +191,21 @@ export interface FulfilmentRepo {
     warehouseId: string;
   } | null>;
 
+  /**
+   * BR-85j: the order row locked with SELECT ... FOR UPDATE, for a caller that must decide on the
+   * row's CURRENT status/channel/warehouse inside its own transaction (a concurrent pack or cancel
+   * then waits, or is waited for, instead of interleaving). Null when the order does not exist.
+   */
+  lockOrderForUpdate(
+    db: Executor,
+    orderId: string,
+  ): Promise<{ id: string; status: OrderStatus; channel: SalesChannel; warehouseId: string } | null>;
+
+  /**
+   * Conditional on `fromStatus`. Returns the number of order rows updated (0 or 1). On 0 nothing is
+   * appended to order_status_history: an append-only ledger must not record a change that did not
+   * happen. The caller decides what 0 means (BR-85j: a 409 that rolls the transaction back).
+   */
   updateOrderStatus(
     db: Executor,
     params: {
@@ -200,7 +221,7 @@ export interface FulfilmentRepo {
       otpVerifiedBy?: string;
       cancellationReason?: string;
     },
-  ): Promise<void>;
+  ): Promise<number>;
 
   incrementOtpAttempts(db: Executor, orderId: string): Promise<number>;
 
@@ -250,17 +271,18 @@ export const fulfilmentRepo: FulfilmentRepo = {
       values.push(query.deliveryDate);
     }
 
-    if (query.cursor) {
-      try {
-        const decoded = Buffer.from(query.cursor, 'base64').toString('utf8');
-        const [placedAt, id] = decoded.split('|');
-        if (placedAt && id) {
-          conditions.push(`(o.placed_at, o.id) < ($${idx++}, $${idx++})`);
-          values.push(new Date(placedAt), id);
-        }
-      } catch {
-        // Invalid cursor ignored
+    if (query.cursor !== undefined) {
+      // The route validated the cursor (adminOrdersQuerySchema). A caller that skipped validation
+      // still never reaches the ::timestamptz cast with a value we did not produce.
+      const after = decodeAdminOrderCursor(query.cursor);
+      if (after === null) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'cursor is not a value returned by this endpoint.',
+          errors: { 'query.cursor': ['Invalid cursor.'] },
+        });
       }
+      conditions.push(`(o.placed_at, o.id) < ($${idx++}::timestamptz, $${idx++}::uuid)`);
+      values.push(after.ts, after.id);
     }
 
     const limit = query.limit || 20;
@@ -271,6 +293,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
              o.fulfilment_type AS "fulfillmentType", o.warehouse_id AS "warehouseId",
              o.total_amount::text AS "totalAmount", o.payment_status AS "paymentStatus",
              o.delivery_date::text AS "deliveryDate", o.placed_at AS "placedAt",
+             ${MICRO_TS_SQL('o.placed_at')} AS "placedAtCursor",
              (SELECT count(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS "itemCount"
         FROM orders o
        WHERE ${conditions.join(' AND ')}
@@ -297,9 +320,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
     let nextCursor: string | null = null;
     if (hasMore && items.length > 0) {
       const last = res.rows[limit - 1]!;
-      nextCursor = Buffer.from(
-        `${new Date(last.placedAt).toISOString()}|${last.id}`,
-      ).toString('base64');
+      nextCursor = encodeAdminOrderCursor({ ts: last.placedAtCursor, id: last.id });
     }
 
     return { items, nextCursor, hasMore };
@@ -411,9 +432,22 @@ export const fulfilmentRepo: FulfilmentRepo = {
     };
   },
 
+  async lockOrderForUpdate(db, orderId) {
+    const res = await db.query<{ id: string; status: OrderStatus; channel: SalesChannel; warehouse_id: string }>(
+      `SELECT id, status, channel, warehouse_id
+         FROM orders
+        WHERE id = $1
+          FOR UPDATE`,
+      [orderId],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return { id: row.id, status: row.status, channel: row.channel, warehouseId: row.warehouse_id };
+  },
+
   async updateOrderStatus(db, params) {
     // 1. Update orders table
-    await db.query(
+    const updated = await db.query(
       `UPDATE orders
           SET status = $1,
               warehouse_id = COALESCE($2, warehouse_id),
@@ -436,8 +470,10 @@ export const fulfilmentRepo: FulfilmentRepo = {
         params.fromStatus,
       ],
     );
+    const rowCount = updated.rowCount ?? 0;
+    if (rowCount === 0) return 0;
 
-    // 2. Append to order_status_history
+    // 2. Append to order_status_history (only for a change that actually happened)
     await db.query(
       `INSERT INTO order_status_history (
          order_id, from_status, to_status, changed_by, note, created_at
@@ -451,6 +487,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
         params.note ?? null,
       ],
     );
+    return rowCount;
   },
 
   async incrementOtpAttempts(db, orderId) {

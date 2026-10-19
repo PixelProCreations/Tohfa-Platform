@@ -10,6 +10,7 @@ export {
 // stock adjustments and stock counts have no API either (phase 3).
 export {
   AREAS_WITHOUT_API,
+  billingRouteArea,
   inventoryRouteArea,
   isAreaAvailable,
   storageRouteArea,

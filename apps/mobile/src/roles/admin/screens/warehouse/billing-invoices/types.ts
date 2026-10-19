@@ -23,6 +23,9 @@
  *   - The GST Invoice restricted notice is dropped (invoice.gst.generate is
  *     none/none for both warehouse roles, SPEC_GAPS W4g).
  */
+import type { Paise } from '@tohfa/shared-types';
+import type { AdminTone } from '../../../theme';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -109,6 +112,88 @@ export interface InvoiceDetailRecord {
   generatedAt?: string | undefined;
   linkedAt?: string | undefined;
   downloadAvailable?: boolean | undefined;
+}
+
+// ─── Live invoice views (GET /invoices, GET /invoices/{id}; plan phase 7) ────
+
+/**
+ * docs/openapi.yaml Invoice.status as the screens show it (./mappers.ts
+ * INVOICE_STATUS_TABLE), plus 'unknown' for a value the app does not know yet.
+ */
+export type InvoiceUiStatus = 'issued' | 'draft' | 'cancelled' | 'creditNoted' | 'unknown';
+
+/** One invoice row of the live list and the hub's recent card. */
+export interface InvoiceRow {
+  /** The invoice uuid: the only key and the only id the detail and download take. */
+  id: string;
+  /** The human invoice number (a label, never a key). */
+  invoiceNumber: string;
+  typeLabel: string;
+  status: InvoiceUiStatus;
+  statusLabel: string;
+  tone: AdminTone;
+  /** Integer paise; null when the server sent no valid amount (shown as "no value", never 0). */
+  amountPaise: Paise | null;
+  amountLabel: string;
+  /** The issue date as sent (`YYYY-MM-DD`); the history layout groups by it. */
+  issueDate: string;
+  issueDateLabel: string;
+}
+
+/** One line of the live invoice detail. */
+export interface InvoiceLineView {
+  key: string;
+  description: string;
+  hsnCode: string | null;
+  /** Integer grams; null when the quantity is not a valid kg value. */
+  qtyGrams: number | null;
+  qtyLabel: string;
+  unitPricePaise: Paise | null;
+  unitPriceLabel: string;
+  totalPaise: Paise | null;
+  totalLabel: string;
+}
+
+/** One tax component the invoice carries (only those the server sent and that are not zero). */
+export interface InvoiceTaxRow {
+  key: 'cgst' | 'sgst' | 'igst';
+  label: string;
+  paise: Paise;
+  amountLabel: string;
+}
+
+/** Everything the live invoice detail shows: what GET /invoices/{id} returns, nothing more. */
+export interface InvoiceDetailView extends InvoiceRow {
+  placeOfSupply: string | null;
+  gstApplicable: boolean;
+  gstInclusive: boolean;
+  lines: InvoiceLineView[];
+  taxablePaise: Paise | null;
+  taxableLabel: string;
+  taxRows: InvoiceTaxRow[];
+  totalPaise: Paise | null;
+  totalLabel: string;
+}
+
+/** A day of the history layout. */
+export interface InvoiceDayGroup {
+  day: string;
+  label: string;
+  rows: InvoiceRow[];
+}
+
+/** The history layout's chips; each is the server `type` filter (./mappers.ts historyTypeFilter). */
+export type InvoiceHistoryChip = 'All' | 'Retail' | 'B2B';
+
+/** The loading / error / refresh / paging state a live billing screen draws (./useBillingData.ts). */
+export interface BillingLiveStateProps {
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
 }
 
 /** Filter state of the invoice list (both layouts). */

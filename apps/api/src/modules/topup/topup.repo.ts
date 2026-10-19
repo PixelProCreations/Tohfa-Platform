@@ -1,5 +1,6 @@
-import type { Money } from '@tohfa/shared-types';
+import { parseMoney, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
+import type { CustomerMatchRow } from '../sales/sales.repo.js';
 import type { TopupMode } from './topup.schema.js';
 
 export interface PaymentRecord {
@@ -134,7 +135,15 @@ export interface TopupRepo {
     db: Executor,
     targetDate: string,
   ): Promise<{ warehouseId: string; topupTotal: string; ledgerTotal: string; count: number }[]>;
+
+  /**
+   * BR-91i: an EXACT mobile or customer-code match, with no warehouse visibility predicate. Only
+   * the cash top-up lookup may call this; every other customer read keeps BR-91's predicate.
+   */
+  lookupCashTopupCustomers(db: Executor, match: CashTopupCustomerMatch): Promise<CustomerMatchRow[]>;
 }
+
+export type CashTopupCustomerMatch = { kind: 'mobile'; digits: string } | { kind: 'code'; code: string };
 
 export const topupRepo: TopupRepo = {
   async createTopupIntent(db, params) {
@@ -356,5 +365,39 @@ export const topupRepo: TopupRepo = {
       [targetDate],
     );
     return res.rows;
+  },
+
+  async lookupCashTopupCustomers(db, match) {
+    // Same matching as the sales counter lookup (sales.repo.ts lookupCustomers), minus its
+    // customerVisibility() predicate (BR-91i): mobile on the last 10 digits, code
+    // case-insensitive exact. No partial or name match exists here by design.
+    const matchSql =
+      match.kind === 'mobile'
+        ? `right(regexp_replace(u.mobile, '[^0-9]', '', 'g'), 10) = $1`
+        : `lower(c.customer_code) = lower($1)`;
+    const param = match.kind === 'mobile' ? match.digits.slice(-10) : match.code;
+    const res = await db.query<{
+      customer_id: string;
+      customer_code: string;
+      full_name: string;
+      mobile: string;
+      balance: string | null;
+    }>(
+      `SELECT c.id AS customer_id, c.customer_code, u.full_name, u.mobile, w.balance::text AS balance
+         FROM customers c
+         JOIN users u ON u.id = c.user_id
+         LEFT JOIN wallets w ON w.customer_id = c.id AND w.owner_type = 'CUSTOMER'
+        WHERE c.deleted_at IS NULL AND ${matchSql}
+        ORDER BY u.full_name, c.id
+        LIMIT 20`,
+      [param],
+    );
+    return res.rows.map((row) => ({
+      customerId: row.customer_id,
+      customerCode: row.customer_code,
+      name: row.full_name,
+      mobile: row.mobile,
+      walletBalance: parseMoney(row.balance ?? '0.00'),
+    }));
   },
 };

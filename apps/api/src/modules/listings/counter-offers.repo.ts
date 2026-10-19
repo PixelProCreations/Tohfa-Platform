@@ -25,6 +25,8 @@ export type CounterOfferStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COUNTERE
 export interface CounterOfferRow {
   id: string;
   listingId: string;
+  /** Set only on a quality counter-offer sent at goods receipt (db/migrations/0058; BR-10, BR-106). */
+  goodsReceiptId: string | null;
   round: number;
   actor: CounterActor;
   actorUserId: string;
@@ -108,7 +110,7 @@ export interface ExpiredPendingOffer {
 }
 
 const OFFER_COLUMNS = `
-  id, listing_id AS "listingId", round, actor, actor_user_id AS "actorUserId",
+  id, listing_id AS "listingId", goods_receipt_id AS "goodsReceiptId", round, actor, actor_user_id AS "actorUserId",
   price_per_kg AS "pricePerKg", quantity_kg AS "quantityKg", message, status,
   expires_at AS "expiresAt", responded_at AS "respondedAt", responded_by AS "respondedBy",
   created_at AS "createdAt", updated_at AS "updatedAt"

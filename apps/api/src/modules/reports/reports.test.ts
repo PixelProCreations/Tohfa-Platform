@@ -577,7 +577,8 @@ describeIfDatabase('Reports (PostgreSQL)', () => {
       const sub = subScope(ScopeLevel.OWN, w.coon, 'order.list.view_all');
       await expectAppError(service.sales(sub, { ...RANGE, warehouseId: w.kota }), 'NOT_FOUND', 404);
 
-      // docs/rbac.json grants CUSTOMER `own` on order.list.view_all; the filter fails closed.
+      // CUSTOMER holds `none` on order.list.view_all (403 at the route); should a customer-owned
+      // scope ever reach the service, the filter still fails closed.
       const customer = aScope({
         level: ScopeLevel.OWN,
         roleCode: RoleCode.CUSTOMER,

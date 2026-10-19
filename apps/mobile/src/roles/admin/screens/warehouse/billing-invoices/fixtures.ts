@@ -1,12 +1,11 @@
 /**
- * Mock data for the warehouse billing & invoice screens until the invoice
- * endpoints exist in docs/openapi.yaml (SPEC_GAPS W4g). Rows carry the seeded
- * warehouse ids (db/seed/001_reference.sql) so a Sub scope can be filtered to
- * its own warehouse and the Main selector has something to select.
+ * Design samples for the billing screens that have no API: the invoice
+ * generation picker, wizard and result (availability.ts 'invoiceGeneration';
+ * there is no create-invoice route). The live hub, list and detail read
+ * GET /invoices (plan phase 7) and import nothing from here.
  */
 import type {
   InvoiceDetailRecord,
-  InvoiceFilterState,
   InvoiceRecord,
   InvoiceTransactionRecord,
   WarehouseScope,
@@ -24,21 +23,6 @@ export const BILLING_WAREHOUSES: readonly WarehouseScope[] = [
   { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
   { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
 ];
-
-export const DEFAULT_INVOICE_FILTERS: InvoiceFilterState = {
-  searchQuery: '',
-  status: 'All',
-  invoiceType: 'All',
-  datePreset: 'All Time',
-  startDate: '',
-  endDate: '',
-  customer: '',
-  orderId: '',
-  minAmount: '',
-  maxAmount: '',
-  sortBy: 'Newest First',
-  warehouseId: undefined,
-};
 
 export const INITIAL_INVOICES: readonly InvoiceRecord[] = [
   {

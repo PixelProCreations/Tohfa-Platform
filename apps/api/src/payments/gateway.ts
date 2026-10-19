@@ -32,10 +32,30 @@ export interface WebhookEvent {
   rawPayload: Record<string, unknown>;
 }
 
+export interface RefundPaymentParams {
+  gatewayPaymentId: string;
+  amountPaise: number;
+  /**
+   * Stable per payment (e.g. `sale_refund:<sale_payments.id>`). Sent to the provider as the refund
+   * receipt so a provider-side lookup can find it; the caller's own state machine is what makes the
+   * refund at-most-once (BR-94i), not this value.
+   */
+  idempotencyKey: string;
+  notes?: Record<string, string>;
+}
+
+export interface RefundResult {
+  refundId: string;
+  status: string;
+}
+
 export interface PaymentGateway {
   readonly provider: 'mock' | 'razorpay';
   createOrder(params: CreateOrderParams): Promise<GatewayOrderResult>;
   verifyWebhookSignature(rawBody: Buffer | string, signature: string, secret: string): boolean;
   parseEvent(rawBody: Buffer | string): WebhookEvent;
   fetchPayment?(gatewayPaymentId: string): Promise<PaymentCapturedPayload | null>;
+  /** Refunds a captured payment. Optional: a gateway without it cannot refund automatically. */
+  refundPayment?(params: RefundPaymentParams): Promise<RefundResult>;
 }
+

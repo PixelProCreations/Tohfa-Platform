@@ -283,11 +283,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     deadline?.dispose();
   }
 
-  // Handle mid-session 401 token expiry with collapsed refresh and single retry
+  // Handle mid-session 401 token expiry with collapsed refresh and single retry.
+  // On these endpoints a 401 means bad credentials, not an expired token, so a refresh
+  // and resend would only repeat the failure. change-password answers a wrong CURRENT
+  // password with 401: retrying it resent the same wrong password (two rate-limiter
+  // strikes for one typo) and could sign the user out if the refresh then failed.
   const isAuthEndpoint =
     path.includes('/auth/login') ||
     path.includes('/auth/refresh') ||
-    path.includes('/auth/otp');
+    path.includes('/auth/otp') ||
+    path.includes('/auth/me/change-password');
 
   if (response.status === 401 && !options._isRetry && !isAuthEndpoint) {
     const newAccessToken = await refreshAuthTokens();
