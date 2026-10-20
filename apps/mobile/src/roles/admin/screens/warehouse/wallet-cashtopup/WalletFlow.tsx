@@ -4,7 +4,8 @@
  *
  * Flows: hub -> Find Customer -> Customer Wallet -> cash top-up -> fiscal tag
  * -> confirm -> success -> Transaction Detail; hub -> Daily Cash Summary ->
- * Daily Cash. They take `scope` + `can`, so every host renders the same flow:
+ * Daily Cash; hub -> Top-Up History -> details; hub -> Needs Attention (sample
+ * screens, see below). They take `scope` + `can`, so every host renders the same flow:
  * the Sub shell / App.tsx with the Sub warehouse scope, the Main shell with
  * MAIN_WAREHOUSE_SCOPE (all warehouses).
  *
@@ -12,7 +13,7 @@
  * prefix (WalletRoute). TransactionDetail is TopUpDetailsScreen (live ledger
  * rows only).
  *
- * Everything here is live; there is no fixture path:
+ * Everything here is live except the two sample screens named at the end:
  *  - Customer Wallet needs the customer uuid (from the live customer screens or
  *    the lookup): GET /admin/customers/{id}/wallet[/transactions] (read-only,
  *    BR-93). Opened without one, it starts at the counter lookup.
@@ -26,9 +27,13 @@
  *    (useWarehouseOptions, warehouse.all.view), uuids only; a Sub admin never
  *    gets a picker: it collects at scope.warehouseId (BR-30).
  *
- * Removed (no backend): Top-Up History, the 'topUp' Top-Up Details opened from
- * it, and Wallet Needs Attention. No endpoint lists cash top-up rows or feeds
- * wallet issues; the hub's numbers are GET /admin/reports/cash-topups.
+ * Sample screens (no backend): Top-Up History and Wallet Needs Attention. No
+ * endpoint lists cash top-up rows or feeds wallet issues, and by the owner
+ * decision of 2026-10-14 nothing is hidden for having no server API, so both
+ * stay reachable from the hub and show their sample rows (fixtures.ts) until an
+ * API exists. A history row opens the live Transaction Detail view with the
+ * sample row's fields ('TopUpDetails' route; the old sectioned variant is not
+ * restored). The hub's numbers are GET /admin/reports/cash-topups.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
@@ -54,6 +59,7 @@ import {
   type TopUpCustomer,
 } from './mappers';
 import { TopUpDetailsScreen } from './TopUpDetailsScreen';
+import { TopUpHistoryScreen } from './TopUpHistoryScreen';
 import { TopUpSuccessScreen } from './TopUpSuccessScreen';
 import { useCashTopupSubmit, useCustomerLookup, useWalletWarehouseScopes, type LiveCashTopupSubmit } from './useWalletData';
 import type {
@@ -67,6 +73,7 @@ import type {
   WarehouseScope,
   WarehouseTab,
 } from './types';
+import { WalletAttentionScreen } from './WalletAttentionScreen';
 import { WalletOperationsScreen } from './WalletOperationsScreen';
 import { EmptyState, WalletScreen } from './WalletParts';
 
@@ -332,6 +339,7 @@ export function WalletFlow({
   const startTopUp = (customer?: WalletCustomer) => navigate('CashTopUp', { customer: customer ?? params.customer });
   /** Daily Cash Summary is the cash close's screen (BR-74): only with its code; the server re-checks. */
   const canDailyCash = can('finance.cash_close.manage');
+  const openTopUpDetails = (transaction: WalletTransactionRecord) => navigate('TopUpDetails', { transaction });
 
   switch (current.screen) {
     case 'WalletOperations':
@@ -343,6 +351,8 @@ export function WalletFlow({
           onNavigateToCashTopUp={() => startTopUp()}
           onNavigateToCustomerSearch={() => navigate('CustomerSearch')}
           onNavigateToDailySummary={canDailyCash ? () => navigate('DailyCashSummary') : undefined}
+          onNavigateToTopUpHistory={() => navigate('TopUpHistory')}
+          onNavigateToAttention={(category) => navigate('WalletAttention', { category })}
         />
       );
     case 'CustomerSearch':
@@ -415,13 +425,27 @@ export function WalletFlow({
           onViewTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
         />
       );
+    case 'TopUpDetails':
+      return <TopUpDetailsScreen {...common} transaction={params.transaction} />;
     case 'TransactionDetail':
       return <TopUpDetailsScreen {...common} transaction={params.transaction} />;
+    case 'TopUpHistory':
+      return <TopUpHistoryScreen {...common} onSelectTransaction={openTopUpDetails} />;
     case 'DailyCashSummary':
       // The finance area owns these two screens (live BR-74 close); they pick their own warehouse.
       return <DailyCashSummaryScreen {...common} onNavigateToDailyCash={() => navigate('DailyCash')} />;
     case 'DailyCash':
       return <DailyCashScreen {...common} />;
+    case 'WalletAttention':
+      return (
+        <WalletAttentionScreen
+          {...common}
+          initialCategory={params.category}
+          onRetryTopUp={() => startTopUp()}
+          onOpenDailyCash={canDailyCash ? () => navigate('DailyCashSummary') : undefined}
+          onReviewTransaction={openTopUpDetails}
+        />
+      );
     default:
       return null;
   }

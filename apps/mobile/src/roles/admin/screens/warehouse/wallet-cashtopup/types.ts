@@ -23,8 +23,10 @@
  * Display amounts in records are pre-formatted strings, formatted from the
  * server's paise; nothing here computes money from them (CLAUDE.md 2.2).
  *
- * TopUpHistoryRow, AttentionCategory/AttentionIssue and CashLedgerEntry went
- * with the fixture screens they typed (no backend lists those rows).
+ * TopUpHistoryRow and AttentionCategory/AttentionIssue type the two sample
+ * screens that have no backend (Top-Up History, Wallet Needs Attention); they
+ * are kept for them by the owner decision of 2026-10-14. CashLedgerEntry went
+ * with the Daily Cash fixture (that screen is live).
  */
 import type { Paise } from '@tohfa/shared-types';
 import type { TopUpCustomer } from './mappers';
@@ -106,6 +108,43 @@ export interface WalletTransactionRecord {
   warehouseName?: string | undefined;
 }
 
+/** Status of a top-up row (sample data: no endpoint lists top-up rows). */
+export type TopUpStatus = 'Completed' | 'Pending' | 'Failed';
+
+/** One row of the Top-Up History sample. */
+export interface TopUpHistoryRow {
+  id: string;
+  customerName: string;
+  customerId: string;
+  fiscalTag: string;
+  amount: string;
+  date: string;
+  time: string;
+  status: TopUpStatus;
+  warehouseId: string;
+}
+
+/** Needs-attention filter (the hub opens the list unfiltered or on one category). */
+export type AttentionCategory = 'all' | 'pending' | 'failed' | 'fiscal' | 'reconciliation';
+
+/** One item on the Needs Attention sample. */
+export interface AttentionIssue {
+  id: string;
+  category: Exclude<AttentionCategory, 'all'>;
+  badgeLabel: string;
+  severity: 'warning' | 'error';
+  title: string;
+  customer: string;
+  customerId: string;
+  amount: string;
+  time: string;
+  description: string;
+  diagnostics: string;
+  primaryAction: string;
+  secondaryAction?: string | undefined;
+  warehouseId: string;
+}
+
 /** Route keys of WalletFlow (old App.tsx keys without the 'SubWarehouse' / 'Warehouse' prefix). */
 export type WalletRoute =
   | 'WalletOperations'
@@ -115,9 +154,12 @@ export type WalletRoute =
   | 'FiscalTag'
   | 'ConfirmCashTopUp'
   | 'TopUpSuccess'
+  | 'TopUpDetails'
   | 'TransactionDetail'
+  | 'TopUpHistory'
   | 'DailyCashSummary'
-  | 'DailyCash';
+  | 'DailyCash'
+  | 'WalletAttention';
 
 /** Params carried between wallet routes. */
 export interface WalletRouteParams {
@@ -125,4 +167,6 @@ export interface WalletRouteParams {
   draft?: CashTopUpDraft | undefined;
   /** A live ledger row (the wallet's or the top-up's 201); Transaction Detail shows only what the server sent. */
   transaction?: WalletTransactionRecord | undefined;
+  /** Needs Attention opens on this filter (the hub's entry); undefined is 'all'. */
+  category?: AttentionCategory | undefined;
 }

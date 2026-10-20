@@ -14,10 +14,13 @@
  * (finance.cash_close.manage). Hiding is presentation only; the server
  * re-checks every code (CLAUDE.md 2.1).
  *
- * Removed with the fixture data they drew (no backend feeds them): the recent
- * top-ups list, the per-warehouse wallet summaries, the pending / failed /
- * fiscal / reconciliation "needs attention" tiles, Top-Up History, and the
- * Alert-only Export and Select Date actions.
+ * Top-Up History and Needs Attention are entries to two sample screens (no
+ * endpoint lists top-up rows or feeds wallet issues). By the owner decision of
+ * 2026-10-14 nothing is hidden for having no server API, so both are always
+ * offered; the hub shows no number from them. Removed with the fixture data they
+ * drew: the recent top-ups list, the per-warehouse wallet summaries, the
+ * per-category attention counts, and the Alert-only Export and Select Date
+ * actions.
  */
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,16 +30,17 @@ import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { financeWarehouseFilter } from '../finance-expenses/mappers';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
-import type { WarehouseScreenBaseProps } from './types';
+import type { AttentionCategory, WarehouseScreenBaseProps } from './types';
 import { useCashTopupKpis, useWalletWarehouseScopes } from './useWalletData';
 import {
   BellRingIcon,
   Card,
   CashIcon,
-  EmptyState,
   HeaderIconButton,
+  InfoIcon,
   InfoNote,
   KpiRow,
+  ReceiptIcon,
   ScopeHeader,
   SearchIcon,
   SectionTitle,
@@ -52,6 +56,10 @@ export interface WalletOperationsScreenProps extends WarehouseScreenBaseProps {
   onNavigateToCustomerSearch: () => void;
   /** Daily Cash Summary; undefined hides the entry (the flow passes it only with finance.cash_close.manage). */
   onNavigateToDailySummary?: (() => void) | undefined;
+  /** Top-Up History (sample screen, no backend). */
+  onNavigateToTopUpHistory: () => void;
+  /** Wallet Needs Attention (sample screen, no backend), opened on a category. */
+  onNavigateToAttention: (category: AttentionCategory) => void;
 }
 
 function ActionRow({ icon, title, hint, onPress }: { icon: React.ReactNode; title: string; hint: string; onPress: () => void }) {
@@ -75,6 +83,8 @@ export function WalletOperationsScreen({
   onNavigateToCashTopUp,
   onNavigateToCustomerSearch,
   onNavigateToDailySummary,
+  onNavigateToTopUpHistory,
+  onNavigateToAttention,
 }: WalletOperationsScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const canTopUp = can('wallet.cash_topup.process');
@@ -84,7 +94,6 @@ export function WalletOperationsScreen({
   const report = useCashTopupKpis(warehouseId, canTopUp);
   const noValue = t('customers.noValue');
   const money = (paise: number | null) => (paise === null ? noValue : formatPaise(paise));
-  const hasAnyAction = canTopUp || onNavigateToDailySummary !== undefined;
 
   return (
     <WalletScreen
@@ -118,8 +127,6 @@ export function WalletOperationsScreen({
           ) : undefined
         }
       >
-        {!hasAnyAction ? <EmptyState title={t('wallet.hub.noAccess')} /> : null}
-
         {canTopUp ? (
           <>
             <SectionTitle>{t('wallet.hub.summary')}</SectionTitle>
@@ -147,41 +154,51 @@ export function WalletOperationsScreen({
           </>
         ) : null}
 
-        {hasAnyAction ? (
-          <>
-            <SectionTitle>{t('wallet.hub.actions')}</SectionTitle>
-            <Card>
-              {canTopUp ? (
-                <>
-                  <ActionRow
-                    icon={<CashIcon color={adminColors.brand} />}
-                    title={t('wallet.hub.action.cashTopUp')}
-                    hint={t('wallet.hub.action.cashTopUpHint')}
-                    onPress={onNavigateToCashTopUp}
-                  />
-                  <View style={styles.divider} />
-                  <ActionRow
-                    icon={<SearchIcon color={adminColors.brand} />}
-                    title={t('wallet.hub.action.customerWallet')}
-                    hint={t('wallet.hub.action.customerWalletHint')}
-                    onPress={onNavigateToCustomerSearch}
-                  />
-                </>
-              ) : null}
-              {onNavigateToDailySummary === undefined ? null : (
-                <>
-                  {canTopUp ? <View style={styles.divider} /> : null}
-                  <ActionRow
-                    icon={<CashIcon color={adminColors.brandDeep} />}
-                    title={t('wallet.hub.action.dailyCash')}
-                    hint={t('wallet.hub.action.dailyCashHint')}
-                    onPress={onNavigateToDailySummary}
-                  />
-                </>
-              )}
-            </Card>
-          </>
-        ) : null}
+        <SectionTitle>{t('wallet.hub.actions')}</SectionTitle>
+        <Card>
+          {canTopUp ? (
+            <>
+              <ActionRow
+                icon={<CashIcon color={adminColors.brand} />}
+                title={t('wallet.hub.action.cashTopUp')}
+                hint={t('wallet.hub.action.cashTopUpHint')}
+                onPress={onNavigateToCashTopUp}
+              />
+              <View style={styles.divider} />
+              <ActionRow
+                icon={<SearchIcon color={adminColors.brand} />}
+                title={t('wallet.hub.action.customerWallet')}
+                hint={t('wallet.hub.action.customerWalletHint')}
+                onPress={onNavigateToCustomerSearch}
+              />
+              <View style={styles.divider} />
+            </>
+          ) : null}
+          {onNavigateToDailySummary === undefined ? null : (
+            <>
+              <ActionRow
+                icon={<CashIcon color={adminColors.brandDeep} />}
+                title={t('wallet.hub.action.dailyCash')}
+                hint={t('wallet.hub.action.dailyCashHint')}
+                onPress={onNavigateToDailySummary}
+              />
+              <View style={styles.divider} />
+            </>
+          )}
+          <ActionRow
+            icon={<ReceiptIcon color={adminColors.brand} />}
+            title={t('wallet.hub.action.topUpHistory')}
+            hint={t('wallet.hub.action.topUpHistoryHint')}
+            onPress={onNavigateToTopUpHistory}
+          />
+          <View style={styles.divider} />
+          <ActionRow
+            icon={<InfoIcon color={adminColors.warning.text} />}
+            title={t('wallet.hub.action.attention')}
+            hint={t('wallet.hub.action.attentionHint')}
+            onPress={() => onNavigateToAttention('all')}
+          />
+        </Card>
       </ScrollView>
     </WalletScreen>
   );

@@ -9,7 +9,9 @@ export { DailyCashScreen, type DailyCashScreenProps } from './DailyCashScreen';
 export { DailyCashSummaryScreen, type DailyCashSummaryScreenProps } from './DailyCashSummaryScreen';
 export { FiscalTagScreen, type FiscalTagScreenProps } from './FiscalTagScreen';
 export { TopUpDetailsScreen, type TopUpDetailsScreenProps } from './TopUpDetailsScreen';
+export { TopUpHistoryScreen, type TopUpHistoryScreenProps } from './TopUpHistoryScreen';
 export { TopUpSuccessScreen, type TopUpSuccessScreenProps } from './TopUpSuccessScreen';
+export { WalletAttentionScreen, type WalletAttentionScreenProps } from './WalletAttentionScreen';
 export { WalletOperationsScreen, type WalletOperationsScreenProps } from './WalletOperationsScreen';
 export {
   WalletFlow,
@@ -19,7 +21,11 @@ export {
 } from './WalletFlow';
 export { WALLET_WAREHOUSES } from './fixtures';
 export type {
+  AttentionCategory,
+  AttentionIssue,
   CashTopUpDraft,
+  TopUpHistoryRow,
+  TopUpStatus,
   WalletCustomer,
   WalletRoute,
   WalletRouteParams,

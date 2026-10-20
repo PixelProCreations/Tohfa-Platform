@@ -18,6 +18,8 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { ATTENTION_ISSUES, TOP_UP_HISTORY, WALLET_WAREHOUSES } from '../screens/warehouse/wallet-cashtopup/fixtures';
+
 const SRC = path.join(__dirname, '..', '..', '..');
 /** Line endings normalised: a checkout with CRLF must not change what the scans match. */
 const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -38,6 +40,7 @@ const LIVE_WALLET_FILES = [
   'types.ts',
 ];
 
+const EN = JSON.parse(read('roles/admin/i18n/en.json')) as Record<string, string>;
 const FLOW = read(`${WALLET}/WalletFlow.tsx`);
 const DATA = read(`${WALLET}/useWalletData.ts`);
 const CONFIRM = code(read(`${WALLET}/ConfirmCashTopUpScreen.tsx`));
@@ -167,19 +170,75 @@ describe('the wallet flow has no fixture path', () => {
   });
 });
 
-describe('no screen without a backend', () => {
-  it('Top-Up History, the history Top-Up Details and Wallet Needs Attention are gone: files, routes and entry points', () => {
+// Owner decision (2026-10-14, availability.ts): nothing is hidden for having no server API. Top-Up
+// History (no warehouse-wide top-up list endpoint) and Wallet Needs Attention (no needs-attention
+// list endpoint) are restored on their design samples and stay reachable from the wallet hub until
+// an API exists. They replace the earlier "no screen without a backend" removal.
+describe('screens without a backend stay reachable on sample data (owner decision 2026-10-14)', () => {
+  const HISTORY = read(`${WALLET}/TopUpHistoryScreen.tsx`);
+  const ATTENTION = read(`${WALLET}/WalletAttentionScreen.tsx`);
+  const FIXTURES = read(`${WALLET}/fixtures.ts`);
+  const INDEX = code(read(`${WALLET}/index.ts`));
+
+  it('Top-Up History and Wallet Needs Attention exist and read their rows from the sample fixtures', () => {
     for (const file of ['TopUpHistoryScreen.tsx', 'WalletAttentionScreen.tsx']) {
-      expect(fs.existsSync(path.join(SRC, WALLET, file)), file).toBe(false);
+      expect(fs.existsSync(path.join(SRC, WALLET, file)), file).toBe(true);
     }
-    for (const route of ['TopUpHistory', 'TopUpDetails', 'WalletAttention']) {
-      expect(TYPES).not.toMatch(new RegExp(`'${route}'`));
-      expect(FLOW).not.toMatch(new RegExp(`'${route}'`));
-    }
-    expect(HUB).not.toMatch(/TopUpHistory|Attention/);
-    expect(code(TYPES)).not.toMatch(/AttentionIssue|TopUpHistoryRow|CashLedgerEntry/);
+    expect(HISTORY).toMatch(/rows = TOP_UP_HISTORY/);
+    expect(ATTENTION).toMatch(/issues: sourceIssues = ATTENTION_ISSUES/);
+    expect(FIXTURES).toMatch(/export const TOP_UP_HISTORY: readonly TopUpHistoryRow\[\]/);
+    expect(FIXTURES).toMatch(/export const ATTENTION_ISSUES: readonly AttentionIssue\[\]/);
   });
 
+  it('WalletFlow routes TopUpHistory, TopUpDetails and WalletAttention to them', () => {
+    for (const route of ['TopUpHistory', 'TopUpDetails', 'WalletAttention']) {
+      expect(TYPES).toMatch(new RegExp(`'${route}'`));
+      expect(FLOW).toMatch(new RegExp(`case '${route}'`));
+    }
+    expect(FLOW).toMatch(/<TopUpHistoryScreen \{\.\.\.common\} onSelectTransaction=\{openTopUpDetails\} \/>/);
+    expect(FLOW).toMatch(/<WalletAttentionScreen/);
+    expect(FLOW).toMatch(/initialCategory=\{params\.category\}/);
+    expect(FLOW).toMatch(/onRetryTopUp=\{\(\) => startTopUp\(\)\}/);
+    // A history row opens the live Transaction Detail view (present fields only), not a second details screen.
+    expect(FLOW).toMatch(/case 'TopUpDetails':\s*return <TopUpDetailsScreen \{\.\.\.common\} transaction=\{params\.transaction\} \/>/);
+  });
+
+  it('the wallet hub opens both: a Top-Up History entry and a Needs Attention entry, worded through the catalogue and not gated on a code the server does not have', () => {
+    expect(HUB).toMatch(/onNavigateToTopUpHistory: \(\) => void/);
+    expect(HUB).toMatch(/onNavigateToAttention: \(category: AttentionCategory\) => void/);
+    expect(HUB).toMatch(/title=\{t\('wallet\.hub\.action\.topUpHistory'\)\}[\s\S]{0,200}onPress=\{onNavigateToTopUpHistory\}/);
+    expect(HUB).toMatch(/title=\{t\('wallet\.hub\.action\.attention'\)\}[\s\S]{0,200}onPress=\{\(\) => onNavigateToAttention\('all'\)\}/);
+    expect(FLOW).toMatch(/onNavigateToTopUpHistory=\{\(\) => navigate\('TopUpHistory'\)\}/);
+    expect(FLOW).toMatch(/onNavigateToAttention=\{\(category\) => navigate\('WalletAttention', \{ category \}\)\}/);
+    for (const key of ['wallet.hub.action.topUpHistory', 'wallet.hub.action.topUpHistoryHint', 'wallet.hub.action.attention', 'wallet.hub.action.attentionHint']) {
+      expect({ key, has: key in EN }).toEqual({ key, has: true });
+    }
+  });
+
+  it('the barrel exports both screens and their row types; the live wizard still imports no sample', () => {
+    expect(INDEX).toMatch(/export \{ TopUpHistoryScreen, type TopUpHistoryScreenProps \} from '\.\/TopUpHistoryScreen'/);
+    expect(INDEX).toMatch(/export \{ WalletAttentionScreen, type WalletAttentionScreenProps \} from '\.\/WalletAttentionScreen'/);
+    for (const file of LIVE_WIZARD_FILES) {
+      expect(read(`${WALLET}/${file}`), file).not.toMatch(/from '\.\/fixtures'/);
+    }
+  });
+
+  it('every sample row belongs to a sample warehouse and every attention category has an item, so the screens render from sample data', () => {
+    const warehouseIds = new Set(WALLET_WAREHOUSES.map((w) => w.warehouseId));
+    expect(TOP_UP_HISTORY.length).toBeGreaterThan(0);
+    for (const row of TOP_UP_HISTORY) expect(warehouseIds.has(row.warehouseId), row.id).toBe(true);
+    for (const item of ATTENTION_ISSUES) expect(warehouseIds.has(item.warehouseId), item.id).toBe(true);
+    expect([...new Set(ATTENTION_ISSUES.map((item) => item.category))].sort()).toEqual(['failed', 'fiscal', 'pending', 'reconciliation']);
+    expect(new Set(TOP_UP_HISTORY.map((row) => row.status))).toEqual(new Set(['Completed', 'Pending']));
+  });
+
+  it('Wallet Needs Attention never offers a cash refund and gates its actions on the wallet codes', () => {
+    expect(ATTENTION).toMatch(/NEVER_RENDERED = new Set\(\['Refund Cash to Customer'\]\)/);
+    expect(ATTENTION).toMatch(/can\('wallet\.cash_topup\.fiscal_tag'\)/);
+  });
+});
+
+describe('no screen without a backend: the live paths carry no sample', () => {
   it('Transaction Detail shows only the server row: no sample fallback, no variant', () => {
     const detail = code(read(`${WALLET}/TopUpDetailsScreen.tsx`));
     expect(detail).not.toMatch(/variant|SAMPLE_|\?\? '/);
