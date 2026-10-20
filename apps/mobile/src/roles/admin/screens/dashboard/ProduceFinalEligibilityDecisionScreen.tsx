@@ -146,15 +146,6 @@ export function ProduceFinalEligibilityDecisionScreen({
           </View>
         </View>
 
-        {/* Outstanding Card */}
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceFinalEligibilityDecision.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         {/* Verification Summary */}
         <Text style={styles.sectionHeaderTitle}>{t('produceFinalEligibilityDecision.section.summary')}</Text>
         <View style={styles.summaryCard}>
@@ -236,17 +227,9 @@ export function ProduceFinalEligibilityDecisionScreen({
             </View>
           ))}
         </View>
-        <Text style={styles.checklistFootnote}>
-          {t('produceFinalEligibilityDecision.checklistFootnote')}
-        </Text>
 
         {/* Decision Section */}
         <Text style={styles.sectionHeaderTitle}>{t('produceFinalEligibilityDecision.section.decision')}</Text>
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>
-            {t('produceFinalEligibilityDecision.warningText')}
-          </Text>
-        </View>
 
         {/* Action Buttons Stack */}
         <TouchableOpacity

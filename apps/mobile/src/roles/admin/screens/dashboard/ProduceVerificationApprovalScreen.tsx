@@ -535,14 +535,6 @@ export function ProduceVerificationApprovalScreen({
           </View>
         </View>
 
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceVerificationApproval.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         <View style={styles.qtyCard}>
           <View style={styles.qtyRow}>
             <View style={styles.qtyCol}>
@@ -695,8 +687,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     ...adminType.caption,

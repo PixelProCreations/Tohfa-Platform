@@ -12,6 +12,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Exact Google Material Symbols ───────────────────────────────────────────
 
@@ -166,49 +167,30 @@ export function InputsPestHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Metric KPI Grid ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Row 1 */}
-          <View style={styles.kpiRow}>
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={onNavigateApprovedInputs}
-              activeOpacity={0.8}
-              accessibilityLabel={t('inputsPestHome.kpi.approvedInputs')}
-            >
-              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.approvedInputs')}</Text>
-              <Text style={styles.kpiValueDark}>48</Text>
-            </TouchableOpacity>
-
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.inputCategories')}</Text>
-              <Text style={styles.kpiValueDark}>8</Text>
-            </View>
-          </View>
-
-          {/* Row 2 */}
-          <View style={styles.kpiRow}>
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={onNavigatePestLibrary}
-              activeOpacity={0.8}
-              accessibilityLabel={t('inputsPestHome.kpi.pestLibrary')}
-            >
-              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestLibrary')}</Text>
-              <Text style={styles.kpiValueDark}>32</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={onNavigatePestIncidents}
-              activeOpacity={0.8}
-              accessibilityLabel={t('inputsPestHome.kpi.pestIncidents')}
-            >
-              <Text style={styles.kpiLabel}>{t('inputsPestHome.kpi.pestIncidents')}</Text>
-              <Text style={[styles.kpiValueDark, { color: adminColors.warning.text }]}>12</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* ─── 2x2 Metric KPI Grid (Static) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="48"
+            title={t('inputsPestHome.kpi.approvedInputs')}
+            icon="box"
+          />
+          <OverviewDashboardCard
+            value="8"
+            title={t('inputsPestHome.kpi.inputCategories')}
+            icon="orders"
+          />
+          <OverviewDashboardCard
+            value="32"
+            title={t('inputsPestHome.kpi.pestLibrary')}
+            icon="alert"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title={t('inputsPestHome.kpi.pestIncidents')}
+            icon="alert"
+            tone="warning"
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Section: Quick Actions ─── */}
         <Text style={styles.sectionHeading}>{t('inputsPestHome.section.quickActions')}</Text>

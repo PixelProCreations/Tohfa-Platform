@@ -14,18 +14,14 @@ import {
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-};
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 
 interface UpdateFairPriceScreenProps {
   onBack: () => void;
@@ -49,7 +45,7 @@ export function UpdateFairPriceScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -60,7 +56,7 @@ export function UpdateFairPriceScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
+          <Icon name="chevron_right" size={20} color={adminColors.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
       </View>
 
@@ -95,7 +91,7 @@ export function UpdateFairPriceScreen({
             onPress={() => onSave(price)}
             activeOpacity={0.8}
           >
-            <Icon name="check_circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Icon name="check_circle" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
             <Text style={styles.saveBtnText}>Save New Ceiling</Text>
           </TouchableOpacity>
         </View>
@@ -107,73 +103,72 @@ export function UpdateFairPriceScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: P.darkBrown,
+    ...adminType.title,
+    color: adminColors.brandDeep,
     marginBottom: 4,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
-    fontSize: 13,
-    color: P.lightGray,
-    marginBottom: 20,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
   },
   priceCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.darkBrown,
-    marginBottom: 16,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   circleBtn: {
     width: 44,
     height: 44,
-    borderRadius: 8,
-    backgroundColor: P.pageBg,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
   },
   btnSymbol: {
     fontSize: 20,
     fontWeight: '400',
-    color: P.darkBrown,
+    color: adminColors.ink,
     lineHeight: 24,
   },
   priceDisplay: {
@@ -182,29 +177,26 @@ const styles = StyleSheet.create({
   },
   priceAmount: {
     fontSize: 40,
-    fontWeight: '700',
-    color: P.darkBrown,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
     marginBottom: 2,
     lineHeight: 44,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   currentText: {
-    fontSize: 12,
-    color: P.lightGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
   },
   saveBtnText: {
-    fontSize: 15,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

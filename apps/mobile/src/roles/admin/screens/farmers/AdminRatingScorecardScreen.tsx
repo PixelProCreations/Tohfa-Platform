@@ -10,22 +10,31 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  amberDark: '#9C5808',
-  progressBarBg: '#EFE7DE',
-  barOrange: '#F0562A',
-  barAmber: '#8C5E24',
-  tipCardBorder: '#E0AA3E',
-  tipBg: '#FFFFFF',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  amberDark: adminColors.warning.text,
+  progressBarBg: adminColors.border,
+  barOrange: adminColors.brand,
+  barAmber: adminColors.brandDeep,
+  tipCardBorder: adminColors.warning.border,
+  tipBg: adminColors.card,
 };
 
 const CATEGORIES = [
@@ -66,7 +75,7 @@ export const AdminRatingScorecardScreen: React.FC<Props> = ({
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -176,7 +185,7 @@ export const AdminRatingScorecardScreen: React.FC<Props> = ({
           activeOpacity={0.85}
           onPress={onEditCategories}
         >
-          <Icon name="edit" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Icon name="edit" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
           <Text style={styles.editBtnText}>Edit All Categories</Text>
         </TouchableOpacity>
 
@@ -200,16 +209,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   container: {
@@ -258,7 +263,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   tierCapsuleText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -316,16 +321,12 @@ const styles = StyleSheet.create({
     backgroundColor: P.tipBg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F0ECE4',
+    borderColor: adminColors.border,
     borderLeftWidth: 4,
     borderLeftColor: P.tipCardBorder,
     padding: 14,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   tipIconColumn: {
     marginRight: 10,
@@ -353,15 +354,11 @@ const styles = StyleSheet.create({
     backgroundColor: P.orange,
     borderRadius: 16,
     height: 52,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   editBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 15,
     fontWeight: '800',
   },

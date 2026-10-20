@@ -149,16 +149,18 @@ export function PurchaseHistoryScreen({
         {/* ─── Header ─── */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setFilterModalVisible(false)}
-              activeOpacity={0.7}
-              accessibilityLabel={t('purchaseHistory.backLabel')}
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setFilterModalVisible(false)}
+                activeOpacity={0.7}
+                accessibilityLabel={t('purchaseHistory.backLabel')}
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>{t('purchaseHistory.filterPage.title')}</Text>
+              <Text style={styles.headerTitle}>{t('purchaseHistory.filterPage.title')}</Text>
+            </View>
             <View style={styles.headerRightSpacer} />
           </View>
         </View>
@@ -268,16 +270,18 @@ export function PurchaseHistoryScreen({
       {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel={t('purchaseHistory.backLabel')}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel={t('purchaseHistory.backLabel')}
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('purchaseHistory.title')}</Text>
+            <Text style={styles.headerTitle}>{t('purchaseHistory.title')}</Text>
+          </View>
 
           <TouchableOpacity
             style={styles.filterBtn}
@@ -384,6 +388,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: adminSpacing.md,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+  },
   backBtn: {
     width: 36,
     height: 36,
@@ -391,8 +400,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerRightSpacer: {
     width: 36,
@@ -400,6 +410,8 @@ const styles = StyleSheet.create({
   filterBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },

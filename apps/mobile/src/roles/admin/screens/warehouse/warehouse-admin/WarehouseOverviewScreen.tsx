@@ -19,7 +19,13 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminSpacing } from '../../../theme';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../../theme';
 import {
   EmptyState,
   WalletScreen,
@@ -75,9 +81,9 @@ export function WarehouseOverviewScreen({
           const pct = utilizationPercent(w.stockKg, w.capacityKg);
           // Ooty (82%) and Kotagiri (74%) are amber/warning tones; Coonoor (68%) and Gudalur (61%) are green/teal tones
           const isAmber = pct >= 70;
-          const barColor = isAmber ? '#B45309' : '#047857';
-          const pillBg = isAmber ? '#FEF3C7' : '#D1FAE5';
-          const pillText = isAmber ? '#B45309' : '#047857';
+          const barColor = isAmber ? adminColors.warning.text : adminColors.success.text;
+          const pillBg = isAmber ? adminColors.warning.bg : adminColors.success.bg;
+          const pillText = isAmber ? adminColors.warning.text : adminColors.success.text;
 
           return (
             <TouchableOpacity
@@ -132,7 +138,7 @@ export function WarehouseOverviewScreen({
             accessibilityRole="button"
             accessibilityLabel="Comparison"
           >
-            <ScaleIcon size={26} color="#D97706" />
+            <ScaleIcon size={26} color={adminColors.brand} />
             <Text style={styles.tileLabel}>Comparison</Text>
           </TouchableOpacity>
 
@@ -143,7 +149,7 @@ export function WarehouseOverviewScreen({
             accessibilityRole="button"
             accessibilityLabel="Performance"
           >
-            <TrendIcon size={26} color="#D97706" />
+            <TrendIcon size={26} color={adminColors.brand} />
             <Text style={styles.tileLabel}>Performance</Text>
           </TouchableOpacity>
 
@@ -154,7 +160,7 @@ export function WarehouseOverviewScreen({
             accessibilityRole="button"
             accessibilityLabel="Capacity Summary"
           >
-            <RefreshIcon size={26} color="#D97706" />
+            <RefreshIcon size={26} color={adminColors.brand} />
             <Text style={styles.tileLabel}>Capacity Summary</Text>
           </TouchableOpacity>
 
@@ -165,7 +171,7 @@ export function WarehouseOverviewScreen({
             accessibilityRole="button"
             accessibilityLabel="Manage Warehouses"
           >
-            <GearIcon size={26} color="#D97706" />
+            <GearIcon size={26} color={adminColors.brand} />
             <Text style={styles.tileLabel}>Manage Warehouses</Text>
           </TouchableOpacity>
         </View>
@@ -186,18 +192,14 @@ const styles = StyleSheet.create({
     paddingBottom: adminSpacing.xxl,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#F0E6D8',
+    borderColor: adminColors.border,
     paddingHorizontal: 20,
     paddingVertical: 18,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -206,23 +208,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   whName: {
+    ...adminType.rowTitle,
     fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1816',
+    color: adminColors.ink,
   },
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
   },
   badgeText: {
+    ...adminType.caption,
     fontSize: 11,
     fontWeight: '700',
   },
   track: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EBE5DF',
+    backgroundColor: adminColors.border,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -238,20 +241,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
+    ...adminType.caption,
     fontSize: 11,
     fontWeight: '500',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginBottom: 4,
   },
   statValue: {
+    ...adminType.rowTitle,
     fontSize: 15,
-    fontWeight: '800',
-    color: '#1A1816',
+    color: adminColors.ink,
   },
   sectionTitle: {
+    ...adminType.sectionHead,
     fontSize: 15,
-    fontWeight: '800',
-    color: '#6E4822',
+    color: adminColors.brandDeep,
     marginTop: 8,
     marginBottom: 14,
   },
@@ -263,25 +267,21 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#F0E6D8',
+    borderColor: adminColors.border,
     paddingVertical: 22,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   tileLabel: {
+    ...adminType.rowTitle,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1A1816',
+    color: adminColors.ink,
     textAlign: 'center',
   },
 });

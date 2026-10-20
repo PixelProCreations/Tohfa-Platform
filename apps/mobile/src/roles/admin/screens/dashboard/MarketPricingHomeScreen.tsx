@@ -12,6 +12,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -181,32 +182,32 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* KPI Cards (2x2 Grid) */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>ACTIVE FAIR PRICES</Text>
-              <Text style={styles.kpiValue}>124</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRODUCT CATEGORIES</Text>
-              <Text style={styles.kpiValue}>12</Text>
-            </View>
-          </View>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRICE UPDATES</Text>
-              <Text style={styles.kpiValue}>18</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>RETAIL PRICE RECORDS</Text>
-              <Text style={styles.kpiValue}>124</Text>
-            </View>
-          </View>
-        </View>
+        {/* KPI Cards (2x2 Grid - Static) */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="124"
+            title="Active fair prices"
+            icon="sales"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Product categories"
+            icon="box"
+          />
+          <OverviewDashboardCard
+            value="18"
+            title="Price updates"
+            icon="receiving"
+          />
+          <OverviewDashboardCard
+            value="124"
+            title="Retail price records"
+            icon="cash"
+          />
+        </OverviewCardsGrid>
 
         {/* Section 1: Current Market Snapshot */}
-        <Text style={styles.sectionHeading}>{t('marketPricingHome.section.snapshot')}</Text>
+        <Text style={styles.sectionHeading}>Current Market Snapshot</Text>
 
         <View style={styles.snapshotCard}>
           <View style={styles.snapshotRow}>
@@ -241,12 +242,12 @@ export function MarketPricingHomeScreen({
 
           <View style={styles.snapshotRow}>
             <Text style={styles.snapshotLabel}>Price Status</Text>
-            <Text style={[styles.snapshotValue, styles.statusActiveText]}>Active</Text>
+            <Text style={[styles.snapshotValue, { color: adminColors.success.text }]}>Active</Text>
           </View>
         </View>
 
         {/* Section 2: Recently Updated Prices */}
-        <Text style={styles.sectionHeading}>{t('marketPricingHome.section.recentPrices')}</Text>
+        <Text style={styles.sectionHeading}>Recently Updated Prices</Text>
 
         {/* Card 1: Carrot · Grade 1 */}
         <View style={styles.recentPriceCard}>
@@ -298,14 +299,29 @@ export function MarketPricingHomeScreen({
           </View>
         </View>
 
-        {/* View History Button */}
-        <TouchableOpacity
-          style={styles.viewHistoryBtn}
-          onPress={onNavigateToPriceHistory}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.viewHistoryBtnText}>View History</Text>
-        </TouchableOpacity>
+        <View style={[styles.recentPriceCard, { marginTop: adminSpacing.md }]}>
+          <View style={styles.recentCardHeader}>
+            <Text style={styles.recentCropTitle}>Cabbage · Grade 2</Text>
+            <View style={styles.activePill}>
+              <Text style={styles.activePillText}>Active</Text>
+            </View>
+          </View>
+
+          <View style={styles.priceColsRow}>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Fair Price</Text>
+              <Text style={styles.priceColValue}>₹60/kg</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Retail Price</Text>
+              <Text style={styles.priceColValue}>₹75/kg</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceColLabel}>Effective</Text>
+              <Text style={styles.priceColValue}>29 Sep</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Section 3: Quick Actions 2x2 Grid */}
         <Text style={styles.sectionHeading}>{t('marketPricingHome.section.quickActions')}</Text>
@@ -352,13 +368,7 @@ export function MarketPricingHomeScreen({
           </View>
         </View>
 
-        {/* Section 4: Read-Only Disclaimer Banner */}
-        <View style={styles.disclaimerCard}>
-          <BlockCircleIcon size={18} color={adminColors.muted} />
-          <Text style={styles.disclaimerText}>
-            Fair-price ceiling setting is Super Admin only. Retail-price setting is not available to Farmer Admin. Nothing in this module can be edited.
-          </Text>
-        </View>
+
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -400,6 +410,7 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     fontSize: 20,
     fontWeight: '800',
+    letterSpacing: -0.3,
   },
   notificationBtn: {
     width: 36,
@@ -462,7 +473,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
-    marginTop: adminSpacing.sm,
+    marginTop: adminSpacing.md,
   },
   snapshotCard: {
     backgroundColor: adminColors.card,

@@ -16,19 +16,14 @@ import {
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-  red: '#E8562A',
-};
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 
 interface MarketDay {
   id: string;
@@ -82,7 +77,7 @@ export function MarketDayScheduleScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -93,7 +88,7 @@ export function MarketDayScheduleScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
+          <Icon name="chevron_right" size={20} color={adminColors.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
       </View>
 
@@ -119,9 +114,9 @@ export function MarketDayScheduleScreen({
               <Switch
                 value={day.isActive}
                 onValueChange={(value) => handleToggle(day.id, value)}
-                trackColor={{ false: P.border, true: P.orangeBg }}
-                thumbColor={day.isActive ? P.orange : P.muted}
-                ios_backgroundColor={P.border}
+                trackColor={{ false: adminColors.border, true: adminColors.brandTint }}
+                thumbColor={day.isActive ? adminColors.brand : adminColors.muted}
+                ios_backgroundColor={adminColors.border}
               />
             </View>
           ))}
@@ -129,7 +124,7 @@ export function MarketDayScheduleScreen({
 
         {/* Add Button */}
         <TouchableOpacity style={styles.addMarketBtn} onPress={onAddMarketDay} activeOpacity={0.8}>
-          <Icon name="add" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Icon name="add" size={22} color={adminColors.onBrand} style={{ marginRight: 8 }} />
           <Text style={styles.addMarketBtnText}>Add Market Day</Text>
         </TouchableOpacity>
 
@@ -142,119 +137,106 @@ export function MarketDayScheduleScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.lg,
   },
   title: {
+    ...adminType.title,
     fontSize: 20,
-    fontWeight: '700',
-    color: P.darkBrown,
+    color: adminColors.brandDeep,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
-    fontSize: 13,
-    color: P.lightGray,
-    marginBottom: 20,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dayList: {
-    gap: 12,
-    marginBottom: 20,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   dayCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: P.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   dateBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: adminSpacing.md,
     minWidth: 44,
     height: 44,
-    borderRadius: 10,
-    backgroundColor: '#FDF3F0',
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
   },
   dateNum: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#5D2510',
+    fontWeight: '800',
+    color: adminColors.brandDeep,
     lineHeight: 22,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dateMonth: {
+    ...adminType.caption,
     fontSize: 10,
-    fontWeight: '700',
-    color: P.red,
+    fontWeight: '800',
+    color: adminColors.brand,
     letterSpacing: 0.5,
     marginTop: 1,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dayInfo: {
     flex: 1,
   },
   warehouseName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 2,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   timeRange: {
-    fontSize: 12.5,
-    fontWeight: '400',
-    color: '#1A1A1A',
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 17.6,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   addMarketBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 14,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
+    ...adminShadow.md,
   },
   addMarketBtnText: {
-    fontSize: 16,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

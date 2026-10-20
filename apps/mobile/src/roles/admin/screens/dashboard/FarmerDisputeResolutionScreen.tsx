@@ -63,15 +63,15 @@ function InfoCircleIcon({ size = 18, color = adminColors.warning.text }: { size?
   );
 }
 
-function CheckmarkCircleSuccessIcon({ size = 48 }: { size?: number }) {
+function CheckmarkCircleSuccessIcon({ size = 56 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <Circle cx="24" cy="24" r="23" fill={adminColors.success.bg} />
-      <Circle cx="24" cy="24" r="16" stroke={adminColors.success.text} strokeWidth="2" />
+    <Svg width={size} height={size} viewBox="0 0 56 56" fill="none">
+      <Circle cx="28" cy="28" r="27" fill={adminColors.success.bg} />
+      <Circle cx="28" cy="28" r="19" stroke={adminColors.success.text} strokeWidth="2.2" />
       <Path
-        d="M17 24l5 5 10-10"
+        d="M20 28.5l5.5 5.5 11-11"
         stroke={adminColors.success.text}
-        strokeWidth="2.5"
+        strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -213,8 +213,8 @@ export function FarmerDisputeResolutionScreen({
             <Text style={styles.successTitle}>Resolution Saved Successfully</Text>
             <Text style={styles.successSub}>Confirmed by the server</Text>
 
-            {/* Summary Confirmation Card */}
-            <View style={styles.card}>
+            {/* Summary Confirmation Card (Full Width Record Box) */}
+            <View style={styles.successCard}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.fieldLabel}>Dispute</Text>
@@ -231,14 +231,6 @@ export function FarmerDisputeResolutionScreen({
                 <Text style={styles.fieldValueRegular}>{outcome}</Text>
               </View>
             </View>
-
-            {/* Resolved Not Closed Notice Card */}
-            <View style={styles.noticeBoxWarm}>
-              <InfoCircleIcon size={18} color={adminColors.warning.text} />
-              <Text style={styles.noticeTextWarm}>
-                The dispute is Resolved, not Closed. Closing is a separate step that needs a confirmed rule.
-              </Text>
-            </View>
           </ScrollView>
 
           {/* Fixed Bottom Button in Success State */}
@@ -252,7 +244,6 @@ export function FarmerDisputeResolutionScreen({
             >
               <Text style={styles.primaryBtnText}>Back to Disputes</Text>
             </TouchableOpacity>
-            <Text style={styles.screenCaption}>M10-S04 · Dispute Resolution</Text>
           </View>
         </View>
       ) : (
@@ -452,14 +443,6 @@ export function FarmerDisputeResolutionScreen({
               </TouchableOpacity>
             </View>
 
-            {/* Authority Disclaimer Card */}
-            <View style={styles.noticeBoxWarm}>
-              <InfoCircleIcon size={18} color={adminColors.warning.text} />
-              <Text style={styles.noticeTextWarm}>
-                Refunds, payouts, amount changes and other financial adjustments are outside the Farmer Admin&apos;s authority. Non-binding mediation only.
-              </Text>
-            </View>
-
             {validationError && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>{validationError}</Text>
@@ -490,7 +473,6 @@ export function FarmerDisputeResolutionScreen({
             >
               <Text style={styles.secondaryBtnText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.screenCaption}>M10-S04 · Dispute Resolution</Text>
           </View>
         </View>
       )}
@@ -954,10 +936,21 @@ const styles = StyleSheet.create({
   successSub: {
     ...adminType.rowMeta,
     color: adminColors.muted,
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: 'center',
     marginTop: 3,
     marginBottom: adminSpacing.xl,
+  },
+  successCard: {
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    ...adminShadow.sm,
   },
 
   // Options Picker Modals

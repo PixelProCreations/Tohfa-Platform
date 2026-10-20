@@ -25,7 +25,7 @@ import { ManageSubWarehouseAdminsScreen } from './ManageSubWarehouseAdminsScreen
 import { WarehouseCityDetailScreen } from './WarehouseCityDetailScreen';
 import { WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
 import { WarehouseOverviewScreen } from './WarehouseOverviewScreen';
-import { WarehousePerformanceScreen } from './WarehousePerformanceScreen';
+import { WarehousePerformanceScreen } from '../storage-ops/WarehousePerformanceScreen';
 import { WarehouseCapacitySummaryScreen } from './WarehouseCapacitySummaryScreen';
 import type { PermissionCheck, WarehouseAdminRoute, WarehouseAdminRouteParams, WarehouseScope } from './types';
 

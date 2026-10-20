@@ -9,21 +9,30 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  infoBannerBg: '#E8F1FC',
-  infoBannerText: '#1565C0',
-  mapBg: '#3F4F34',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  infoBannerBg: adminColors.info.bg,
+  infoBannerText: adminColors.info.text,
+  mapBg: 'rgb(63, 79, 52)',
 };
 
 interface Props {
@@ -48,7 +57,7 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -79,34 +88,34 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
 
             {/* Zone Pin 1 */}
             <Circle cx={65} cy={55} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={65} cy={55} r={11} fill="#F0562A" />
+            <Circle cx={65} cy={55} r={11} fill={adminColors.brand} />
             <Path
               d="M 65 49 C 63 53 61 56 61 57.5 C 61 59.7 62.8 61.5 65 61.5 C 67.2 61.5 69 59.7 69 57.5 C 69 56 67 53 65 49 Z"
-              fill="#FFFFFF"
+              fill={adminColors.onBrand}
             />
 
             {/* Zone Pin 2 */}
             <Circle cx={132} cy={118} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={132} cy={118} r={11} fill="#F0562A" />
+            <Circle cx={132} cy={118} r={11} fill={adminColors.brand} />
             <Path
               d="M 132 112 C 130 116 128 119 128 120.5 C 128 122.7 129.8 124.5 132 124.5 C 134.2 124.5 136 122.7 136 120.5 C 136 119 134 116 132 112 Z"
-              fill="#FFFFFF"
+              fill={adminColors.onBrand}
             />
 
             {/* Zone Pin 3 */}
             <Circle cx={208} cy={82} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={208} cy={82} r={11} fill="#F0562A" />
+            <Circle cx={208} cy={82} r={11} fill={adminColors.brand} />
             <Path
               d="M 208 76 C 206 80 204 83 204 84.5 C 204 86.7 205.8 88.5 208 88.5 C 210.2 88.5 212 86.7 212 84.5 C 212 83 210 80 208 76 Z"
-              fill="#FFFFFF"
+              fill={adminColors.onBrand}
             />
 
             {/* Water Source Pin (Blue) */}
             <Circle cx={255} cy={148} r={17} fill="rgba(21, 101, 192, 0.35)" />
-            <Circle cx={255} cy={148} r={12} fill="#1565C0" />
+            <Circle cx={255} cy={148} r={12} fill={adminColors.info.text} />
             <Path
               d="M 255 142 C 253 146 251 149 251 150.5 C 251 152.7 252.8 154.5 255 154.5 C 257.2 154.5 259 152.7 259 150.5 C 259 149 257 146 255 142 Z"
-              fill="#FFFFFF"
+              fill={adminColors.onBrand}
             />
           </Svg>
 
@@ -157,7 +166,7 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.contextIcon}>
             <Path
               d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-              stroke="#1565C0"
+              stroke={adminColors.info.text}
               strokeWidth="2"
             />
           </Svg>
@@ -187,16 +196,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   container: {
@@ -253,17 +258,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 15,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   zoneBadge: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#FFF1EC',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
-    color: '#204060',
+    color: adminColors.ink,
   },
   contextTextBold: {
     fontWeight: '700',

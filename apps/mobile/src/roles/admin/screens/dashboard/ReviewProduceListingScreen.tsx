@@ -164,8 +164,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     ...adminType.caption,

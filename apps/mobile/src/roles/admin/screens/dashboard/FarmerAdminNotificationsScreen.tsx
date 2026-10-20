@@ -710,114 +710,9 @@ export function FarmerAdminNotificationsScreen({
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Sub-Render: Bottom Tab Bar (as shown in all mockups)
-  // ───────────────────────────────────────────────────────────────────────────
-  const renderBottomTabBar = () => (
-    <View style={styles.tabBar}>
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onTabChange?.('Home')}
-        accessibilityRole="tab"
-        accessibilityLabel="Home"
-      >
-        <TabHomeIcon active={false} />
-        <Text style={styles.tabLabel}>Home</Text>
-      </Pressable>
-
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onTabChange?.('Farmers')}
-        accessibilityRole="tab"
-        accessibilityLabel="Farmers"
-      >
-        <TabFarmersIcon active={false} />
-        <Text style={styles.tabLabel}>Farmers</Text>
-      </Pressable>
-
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onTabChange?.('Produce')}
-        accessibilityRole="tab"
-        accessibilityLabel="Produce"
-      >
-        <TabProduceIcon active={false} />
-        <Text style={styles.tabLabel}>Produce</Text>
-      </Pressable>
-
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onTabChange?.('Audits')}
-        accessibilityRole="tab"
-        accessibilityLabel="Audits"
-      >
-        <TabAuditsIcon active={false} />
-        <Text style={styles.tabLabel}>Audits</Text>
-      </Pressable>
-
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => {
-          if (viewMode !== 'center') {
-            setViewMode('center');
-          } else {
-            onBack();
-          }
-        }}
-        accessibilityRole="tab"
-        accessibilityLabel="More"
-      >
-        <TabMoreIcon active={true} />
-        <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-      </Pressable>
-    </View>
-  );
-
-  // ───────────────────────────────────────────────────────────────────────────
   // Sub-Render: Quick View Switcher Segmented Bar
   // ───────────────────────────────────────────────────────────────────────────
-  const renderQuickModeSwitcher = () => (
-    <View style={styles.segmentedContainer}>
-      <TouchableOpacity
-        style={[styles.segmentBtn, viewMode === 'center' && styles.segmentBtnActive]}
-        onPress={() => setViewMode('center')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.segmentBtnText, viewMode === 'center' && styles.segmentBtnTextActive]}>
-          Notifications ({unreadCount})
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.segmentBtn, viewMode === 'alerts' && styles.segmentBtnActive]}
-        onPress={() => setViewMode('alerts')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.segmentBtnText, viewMode === 'alerts' && styles.segmentBtnTextActive]}>
-          System Alerts (2)
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.segmentBtn,
-          (viewMode === 'reports' || viewMode === 'report_config' || viewMode === 'report_preview') &&
-            styles.segmentBtnActive,
-        ]}
-        onPress={() => setViewMode('reports')}
-        activeOpacity={0.8}
-      >
-        <Text
-          style={[
-            styles.segmentBtnText,
-            (viewMode === 'reports' || viewMode === 'report_config' || viewMode === 'report_preview') &&
-              styles.segmentBtnTextActive,
-          ]}
-        >
-          Reports
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderQuickModeSwitcher = () => null;
 
   // ───────────────────────────────────────────────────────────────────────────
   // Sub-Render: Generic Picker Modal
@@ -934,18 +829,8 @@ export function FarmerAdminNotificationsScreen({
               <BellOutlineIcon size={22} color={adminColors.onBrand} />
               <Text style={styles.headerTitle}>Notifications Center</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.headerShortcutBtn}
-              onPress={() => setViewMode('alerts')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.headerShortcutText}>Alerts (2)</Text>
-            </TouchableOpacity>
           </View>
         </View>
-
-        {renderQuickModeSwitcher()}
 
         <ScrollView
           style={styles.scroll}
@@ -1072,8 +957,6 @@ export function FarmerAdminNotificationsScreen({
             )}
           </View>
         </ScrollView>
-
-        {renderBottomTabBar()}
       </SafeAreaView>
     );
   }
@@ -1088,16 +971,18 @@ export function FarmerAdminNotificationsScreen({
 
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setViewMode('center')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Notifications Center"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setViewMode('center')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Notifications Center"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>System Alerts</Text>
+              <Text style={styles.headerTitle}>System Alerts</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.headerShortcutBtn}
@@ -1182,8 +1067,6 @@ export function FarmerAdminNotificationsScreen({
             )}
           </View>
         </ScrollView>
-
-        {renderBottomTabBar()}
       </SafeAreaView>
     );
   }
@@ -1198,16 +1081,18 @@ export function FarmerAdminNotificationsScreen({
 
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setViewMode('center')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Notifications Center"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setViewMode('center')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Notifications Center"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Reports</Text>
+              <Text style={styles.headerTitle}>Reports</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.headerShortcutBtn}
@@ -1299,7 +1184,6 @@ export function FarmerAdminNotificationsScreen({
         </ScrollView>
 
         {renderPickerModal()}
-        {renderBottomTabBar()}
       </SafeAreaView>
     );
   }
@@ -1315,16 +1199,18 @@ export function FarmerAdminNotificationsScreen({
         {/* Header: ← Report Configuration (Image 1) */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setViewMode('reports')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Reports Catalogue"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
+            <View style={styles.headerLeftGroup}>
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => setViewMode('reports')}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Reports Catalogue"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
 
-            <Text style={styles.headerTitle}>Report Configuration</Text>
+              <Text style={styles.headerTitle}>Report Configuration</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.headerShortcutBtn}
@@ -1498,7 +1384,6 @@ export function FarmerAdminNotificationsScreen({
         </ScrollView>
 
         {renderPickerModal()}
-        {renderBottomTabBar()}
       </SafeAreaView>
     );
   }
@@ -1762,7 +1647,6 @@ export function FarmerAdminNotificationsScreen({
       </ScrollView>
 
       {renderPickerModal()}
-      {renderBottomTabBar()}
     </SafeAreaView>
   );
 }
@@ -1790,6 +1674,12 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    flex: 1,
   },
   headerTitleGroup: {
     flexDirection: 'row',

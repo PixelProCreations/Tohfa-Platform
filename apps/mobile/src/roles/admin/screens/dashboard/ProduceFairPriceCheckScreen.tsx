@@ -144,15 +144,6 @@ export function ProduceFairPriceCheckScreen({
           </View>
         </View>
 
-        {/* Outstanding Card */}
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceFairPriceCheck.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         {/* Grade & Fair Price Reference Summary Card */}
         <View style={styles.priceSummaryCard}>
           <View style={styles.priceCol}>

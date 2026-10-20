@@ -9,10 +9,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 
-function NavDashboardIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function NavDashboardIcon({ color = adminColors.muted, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
@@ -23,7 +31,7 @@ function NavDashboardIcon({ color = '#9CA3AF', size = 22 }: { color?: string; si
   );
 }
 
-function NavFarmersIcon({ color = '#D9532F', size = 22 }: { color?: string; size?: number }) {
+function NavFarmersIcon({ color = adminColors.brand, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -53,7 +61,7 @@ function NavFarmersIcon({ color = '#D9532F', size = 22 }: { color?: string; size
   );
 }
 
-function NavSalesIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function NavSalesIcon({ color = adminColors.muted, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2.2" />
@@ -62,7 +70,7 @@ function NavSalesIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?:
   );
 }
 
-function NavReportsIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function NavReportsIcon({ color = adminColors.muted, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 20h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -73,7 +81,7 @@ function NavReportsIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size
   );
 }
 
-function NavProfileIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function NavProfileIcon({ color = adminColors.muted, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.2" />
@@ -90,33 +98,33 @@ function NavProfileIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size
 }
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  inputBg: '#FFFFFF',
-  inputBorder: '#EDE7DF',
-  placeholder: '#BDB6AF',
-  pillBorder: '#E8E1D7',
-  pillActiveBg: '#F0562A',
-  pillActiveText: '#FFFFFF',
-  pillInactiveBg: '#FFFFFF',
-  pillInactiveText: '#4A443F',
-  ratingAmberBg: '#FFF3E0',
-  ratingAmberText: '#E08000',
-  ratingBlueBg: '#E3F2FD',
-  ratingBlueText: '#1565C0',
-  ratingPurpleBg: '#EDE7F6',
-  ratingPurpleText: '#7C4DFF',
-  ratingMutedBg: '#F5F5F5',
-  ratingMutedText: '#9E9E9E',
-  dotGreen: '#2E7D32',
-  dotRed: '#F0562A',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  inputBg: adminColors.card,
+  inputBorder: adminColors.border,
+  placeholder: adminColors.muted,
+  pillBorder: adminColors.border,
+  pillActiveBg: adminColors.brand,
+  pillActiveText: adminColors.onBrand,
+  pillInactiveBg: adminColors.card,
+  pillInactiveText: adminColors.ink,
+  ratingAmberBg: adminColors.warning.bg,
+  ratingAmberText: adminColors.warning.text,
+  ratingBlueBg: adminColors.info.bg,
+  ratingBlueText: adminColors.info.text,
+  ratingPurpleBg: adminColors.brandTint,
+  ratingPurpleText: adminColors.brandDeep,
+  ratingMutedBg: adminColors.canvas,
+  ratingMutedText: adminColors.muted,
+  dotGreen: adminColors.success.text,
+  dotRed: adminColors.danger.text,
 };
 
 export interface FarmerListItem {
@@ -260,7 +268,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
-                stroke="#2B2523"
+                stroke={adminColors.ink}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -286,14 +294,14 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
             <Path
               d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
             <Path
               d="M21 21L16.65 16.65"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -431,7 +439,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             }}
             activeOpacity={0.7}
           >
-            <NavDashboardIcon color="#9CA3AF" />
+            <NavDashboardIcon color={adminColors.muted} />
             <Text style={styles.navTabLabel}>Dashboard</Text>
           </TouchableOpacity>
 
@@ -440,7 +448,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             style={styles.navTabItem}
             activeOpacity={0.7}
           >
-            <NavFarmersIcon color="#D9532F" />
+            <NavFarmersIcon color={adminColors.brand} />
             <Text style={[styles.navTabLabel, styles.navTabLabelActive]}>Farmers</Text>
           </TouchableOpacity>
 
@@ -450,7 +458,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             onPress={() => onNavigateTab?.('Sales')}
             activeOpacity={0.7}
           >
-            <NavSalesIcon color="#9CA3AF" />
+            <NavSalesIcon color={adminColors.muted} />
             <Text style={styles.navTabLabel}>Sales</Text>
           </TouchableOpacity>
 
@@ -460,7 +468,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             onPress={() => onNavigateTab?.('Reports')}
             activeOpacity={0.7}
           >
-            <NavReportsIcon color="#9CA3AF" />
+            <NavReportsIcon color={adminColors.muted} />
             <Text style={styles.navTabLabel}>Reports</Text>
           </TouchableOpacity>
 
@@ -470,7 +478,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             onPress={() => onNavigateTab?.('Profile')}
             activeOpacity={0.7}
           >
-            <NavProfileIcon color="#9CA3AF" />
+            <NavProfileIcon color={adminColors.muted} />
             <Text style={styles.navTabLabel}>Profile</Text>
           </TouchableOpacity>
         </View>
@@ -486,9 +494,9 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE6',
+    borderTopColor: adminColors.border,
     paddingTop: 10,
     paddingBottom: 12,
     justifyContent: 'space-around',
@@ -502,11 +510,11 @@ const styles = StyleSheet.create({
   navTabLabel: {
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#9CA3AF',
+    color: adminColors.muted,
     marginTop: 4,
   },
   navTabLabelActive: {
-    color: '#D9532F',
+    color: adminColors.brand,
     fontWeight: '700',
   },
   header: {
@@ -518,16 +526,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   container: {
@@ -613,11 +617,7 @@ const styles = StyleSheet.create({
     borderColor: P.cardBorder,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   cardDisabled: {
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.orangeBg,
   },
   avatarCircleDisabled: {
-    backgroundColor: '#F0ECE6',
+    backgroundColor: adminColors.canvas,
   },
   avatarText: {
     fontSize: 14,

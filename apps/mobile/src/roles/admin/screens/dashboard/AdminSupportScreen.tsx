@@ -12,26 +12,36 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#662208',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  orangePrimary: '#D9532F',
-  orangeLight: '#FFF1EB',
-  borderSoft: '#F0ECE6',
-  borderCard: '#ECE5DC',
-  greenSuccess: '#166534',
-  greenLight: '#EAF7EE',
-  redAlert: '#DC2626',
-  redLight: '#FDF2F0',
-  amberWarn: '#B45309',
-  amberLight: '#FEF3C7',
-  blueInfo: '#1D4ED8',
-  blueLight: '#EFF6FF',
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textHeading: adminColors.brandDeep,
+  textPrimary: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  orangePrimary: adminColors.brand,
+  orangeLight: adminColors.brandTint,
+  borderSoft: adminColors.border,
+  borderCard: adminColors.border,
+  greenSuccess: adminColors.success.text,
+  greenLight: adminColors.success.bg,
+  redAlert: adminColors.danger.text,
+  redLight: adminColors.danger.bg,
+  amberWarn: adminColors.warning.text,
+  amberLight: adminColors.warning.bg,
+  blueInfo: adminColors.info.text,
+  blueLight: adminColors.info.bg,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -40,7 +50,7 @@ function BackChevronIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1F2937"
+        stroke={adminColors.ink}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -52,8 +62,8 @@ function BackChevronIcon() {
 function SearchIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke="#9CA3AF" strokeWidth="2" />
-      <Path d="M20 20l-3.5-3.5" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="11" cy="11" r="7" stroke={adminColors.muted} strokeWidth="2" />
+      <Path d="M20 20l-3.5-3.5" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -601,7 +611,7 @@ export function AdminSupportScreen({ onBack }: AdminSupportScreenProps) {
         {/* Emergency Field Escalation Card */}
         <View style={styles.hotlineCard}>
           <View style={styles.hotlineHeader}>
-            <PhoneIcon color="#B45309" />
+            <PhoneIcon color={adminColors.warning.text} />
             <Text style={styles.hotlineTitle}>Tohfa Nilgiris Field Ops Escalation</Text>
           </View>
           <Text style={styles.hotlineBody}>
@@ -689,7 +699,7 @@ const styles = StyleSheet.create({
   kpiValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1D2420',
+    color: PALETTE.textPrimary,
     lineHeight: 22,
     letterSpacing: -0.2,
     marginBottom: 2,
@@ -741,7 +751,7 @@ const styles = StyleSheet.create({
     color: PALETTE.textSecondary,
   },
   filterTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   ticketListContainer: {
@@ -762,7 +772,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ticketIdBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -854,18 +864,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   batchTag: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: adminColors.border,
     alignSelf: 'flex-start',
     marginBottom: 12,
   },
   batchTagText: {
     fontSize: 11,
-    color: '#4B5563',
+    color: PALETTE.textSecondary,
     fontWeight: '500',
   },
   cardActionsRow: {
@@ -873,7 +883,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: adminColors.border,
   },
   resolveBtn: {
     flex: 1,
@@ -910,7 +920,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     paddingVertical: 8,
     borderRadius: 8,
     gap: 5,
@@ -940,7 +950,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.warning.border,
   },
   hotlineHeader: {
     flexDirection: 'row',
@@ -951,11 +961,11 @@ const styles = StyleSheet.create({
   hotlineTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#92400E',
+    color: adminColors.warning.text,
   },
   hotlineBody: {
     fontSize: 12,
-    color: '#78350F',
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
 });

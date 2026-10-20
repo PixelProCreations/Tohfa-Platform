@@ -13,32 +13,42 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const ADMIN_PALETTE = {
-  primaryOrange: '#F0562A',
-  primaryOrangeLight: '#FFF1EB',
-  primaryOrangeBorder: '#FAD9CC',
-  pageBg: '#FAF7F2',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#1F1714',
-  textSecondary: '#786F68',
-  textMuted: '#9C938C',
-  borderSoft: '#EDE7DE',
-  blueBg: '#EBF3FA',
-  blueText: '#1D6399',
-  blueBorder: '#BFDBFE',
-  dangerBg: '#FEE2E2',
-  dangerText: '#DC2626',
-  dangerBorder: '#FECACA',
-  successBg: '#DCFCE7',
-  successText: '#15803D',
-  inactivePillBg: '#F5F1EB',
-  inactivePillText: '#786F68',
+  primaryOrange: adminColors.brand,
+  primaryOrangeLight: adminColors.brandTint,
+  primaryOrangeBorder: adminColors.brandSoft.border,
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textHeading: adminColors.brandDeep,
+  textPrimary: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  borderSoft: adminColors.border,
+  blueBg: adminColors.info.bg,
+  blueText: adminColors.info.text,
+  blueBorder: adminColors.info.border,
+  dangerBg: adminColors.danger.bg,
+  dangerText: adminColors.danger.text,
+  dangerBorder: adminColors.danger.border,
+  successBg: adminColors.success.bg,
+  successText: adminColors.success.text,
+  inactivePillBg: adminColors.canvas,
+  inactivePillText: adminColors.muted,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-export function AdminBackChevronIcon({ color = '#1F1714', size = 18 }: { color?: string; size?: number }) {
+export function AdminBackChevronIcon({ color = adminColors.ink, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -110,7 +120,7 @@ function ChevronDownIcon({ color = ADMIN_PALETTE.textSecondary, size = 18 }: { c
   );
 }
 
-function CheckCircleIcon({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) {
+function CheckCircleIcon({ color = adminColors.onBrand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -559,7 +569,7 @@ export function CreateAdminAccountScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.successIconCircle}>
-              <CheckCircleIcon color="#15803D" size={32} />
+              <CheckCircleIcon color={adminColors.success.text} size={32} />
             </View>
             <Text style={styles.modalTitle}>Admin Account Created</Text>
             <Text style={styles.modalSubtitle}>
@@ -625,62 +635,54 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     backgroundColor: ADMIN_PALETTE.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   directoryBtn: {
     backgroundColor: ADMIN_PALETTE.primaryOrangeLight,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.primaryOrangeBorder,
   },
   directoryBtnText: {
-    fontSize: 12.5,
+    ...adminType.caption,
     fontWeight: '700',
     color: ADMIN_PALETTE.primaryOrange,
   },
 
   // Title Block
   titleBlock: {
-    marginBottom: 18,
+    marginBottom: adminSpacing.md,
   },
   screenTitle: {
+    ...adminType.title,
     fontSize: 22,
-    fontWeight: '800',
     color: ADMIN_PALETTE.textHeading,
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   screenSubtitle: {
-    fontSize: 13,
+    ...adminType.caption,
     color: ADMIN_PALETTE.textSecondary,
     lineHeight: 18,
   },
 
   // Rule Card
   ruleCard: {
-    backgroundColor: '#FFFDFC',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.md,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.primaryOrangeBorder,
-    marginBottom: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   ruleCardTitle: {
     fontSize: 13.5,
@@ -782,7 +784,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   roleSegmentBtnDisabled: {
-    backgroundColor: '#F3EFE9',
+    backgroundColor: adminColors.canvas,
     opacity: 0.55,
   },
   roleSegmentText: {
@@ -791,12 +793,13 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.inactivePillText,
   },
   roleSegmentTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   roleSegmentTextDisabled: {
     color: ADMIN_PALETTE.textMuted,
   },
   roleHelperCaption: {
+    ...adminType.caption,
     fontSize: 11.5,
     color: ADMIN_PALETTE.textSecondary,
     lineHeight: 16,
@@ -809,14 +812,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: ADMIN_PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
     paddingHorizontal: 14,
     height: 50,
   },
   selectInputDisabled: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
   },
   selectInputText: {
     fontSize: 13.5,
@@ -871,29 +874,31 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryButtonText: {
+    ...adminType.rowTitle,
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   disableButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: ADMIN_PALETTE.dangerBg,
-    borderRadius: 14,
-    height: 48,
+    borderRadius: adminRadius.lg,
+    height: ADMIN_BUTTON_HEIGHT,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.dangerBorder,
     gap: 8,
   },
   disableButtonText: {
+    ...adminType.rowTitle,
     fontSize: 14,
     fontWeight: '700',
     color: ADMIN_PALETTE.dangerText,
   },
   enableButton: {
     backgroundColor: ADMIN_PALETTE.successBg,
-    borderColor: '#86EFAC',
+    borderColor: adminColors.success.border,
   },
   enableButtonText: {
     color: ADMIN_PALETTE.successText,
@@ -902,21 +907,17 @@ const styles = StyleSheet.create({
   // Modals
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: adminSpacing.lg,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    ...adminShadow.lg,
   },
   modalTitle: {
     fontSize: 17,
@@ -1016,14 +1017,15 @@ const styles = StyleSheet.create({
   },
   modalPrimaryBtn: {
     backgroundColor: ADMIN_PALETTE.primaryOrange,
-    borderRadius: 14,
-    height: 48,
+    borderRadius: adminRadius.lg,
+    height: ADMIN_BUTTON_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalPrimaryBtnText: {
+    ...adminType.rowTitle,
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 });

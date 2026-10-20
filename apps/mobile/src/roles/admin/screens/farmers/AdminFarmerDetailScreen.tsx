@@ -12,33 +12,42 @@ import {
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
 const telephoneIconAsset = require('../../assets/images/telephone.png');
 const calendarIconAsset = require('../../assets/images/calendar.png');
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  divider: '#F2ECE4',
-  tabActiveBg: '#F0562A',
-  tabActiveText: '#FFFFFF',
-  tabInactiveText: '#4A443F',
-  tabContainerBorder: '#F0ECE6',
-  lockedBg: '#FFF3E0',
-  lockedText: '#B25E00',
-  ratingPillBg: '#FFF3E0',
-  ratingPillText: '#B25E00',
-  disableBtnBg: '#FFECE8',
-  disableBtnText: '#D32F2F',
-  greenSuccess: '#2E7D32',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  divider: adminColors.border,
+  tabActiveBg: adminColors.brand,
+  tabActiveText: adminColors.onBrand,
+  tabInactiveText: adminColors.ink,
+  tabContainerBorder: adminColors.border,
+  lockedBg: adminColors.warning.bg,
+  lockedText: adminColors.warning.text,
+  ratingPillBg: adminColors.warning.bg,
+  ratingPillText: adminColors.warning.text,
+  disableBtnBg: adminColors.danger.bg,
+  disableBtnText: adminColors.danger.text,
+  greenSuccess: adminColors.success.text,
 };
 
 export type FarmerDetailTabType = 'Overview' | 'Farm' | 'KYC' | 'Ratings';
@@ -106,7 +115,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -287,7 +296,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
                 <Path
                   d="M9 20.5V6.5L3 4V18L9 20.5ZM9 20.5L15 18V4L9 6.5M9 20.5V6.5M15 18L21 20.5V6.5L15 4V18Z"
-                  stroke="#FFFFFF"
+                  stroke={adminColors.onBrand}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -314,7 +323,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
                 <Path
                   d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM7 10H9V12H7V10ZM7 7H9V9H7V7ZM7 13H9V15H7V13ZM11 7H17V9H11V7ZM11 10H17V12H11V10ZM11 13H17V15H11V13Z"
-                  fill="#FFFFFF"
+                  fill={adminColors.onBrand}
                 />
               </Svg>
               <Text style={styles.primaryActionButtonText}>Open KYC Review</Text>
@@ -338,7 +347,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
                 <Path
                   d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                  stroke="#FFFFFF"
+                  stroke={adminColors.onBrand}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -372,16 +381,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   container: {
@@ -438,17 +443,13 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: P.tabContainerBorder,
     padding: 4,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   tabButton: {
     flex: 1,
@@ -478,11 +479,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   metaRow: {
     flexDirection: 'row',
@@ -557,12 +554,12 @@ const styles = StyleSheet.create({
   },
   dashedCard: {
     borderWidth: 1.5,
-    borderColor: '#E8DFD5',
+    borderColor: adminColors.border,
     borderStyle: 'dashed',
     borderRadius: 18,
     paddingVertical: 20,
     paddingHorizontal: 16,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     marginBottom: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -580,15 +577,11 @@ const styles = StyleSheet.create({
     backgroundColor: P.orange,
     borderRadius: 16,
     height: 52,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
     cursor: 'pointer' as any,
   },
   primaryActionButtonText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 16,
     fontWeight: '800',
   },

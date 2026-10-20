@@ -28,7 +28,7 @@ export interface InvoiceFiltersScreenProps extends WarehouseScreenBaseProps {
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -36,7 +36,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -45,7 +45,7 @@ function SearchIcon({ size = 18, color = '#64748B' }: { size?: number; color?: s
   );
 }
 
-function FlagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function FlagIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,7 +59,7 @@ function FlagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: str
   );
 }
 
-function CalendarIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -68,7 +68,7 @@ function CalendarIcon({ size = 17, color = '#1E293B' }: { size?: number; color?:
   );
 }
 
-function TagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function TagIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -82,7 +82,7 @@ function TagIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: stri
   );
 }
 
-function BuildingWarehouseIcon({ size = 18, color = '#1E293B' }: { size?: number; color?: string }) {
+function BuildingWarehouseIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -91,7 +91,7 @@ function BuildingWarehouseIcon({ size = 18, color = '#1E293B' }: { size?: number
   );
 }
 
-function UserIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function UserIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -100,7 +100,7 @@ function UserIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: str
   );
 }
 
-function RupeeIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function RupeeIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a4 4 0 0 0 0-8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -108,7 +108,7 @@ function RupeeIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: st
   );
 }
 
-function SortIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: string }) {
+function SortIcon({ size = 17, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -116,7 +116,7 @@ function SortIcon({ size = 17, color = '#1E293B' }: { size?: number; color?: str
   );
 }
 
-function FunnelIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FunnelIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -169,7 +169,7 @@ export function InvoiceFiltersScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -203,11 +203,11 @@ export function InvoiceFiltersScreen({
       >
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#64748B" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search invoice, order or customer"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={adminColors.placeholder}
             value={filters.searchQuery}
             onChangeText={(text) => set({ searchQuery: text })}
             autoCorrect={false}
@@ -216,7 +216,7 @@ export function InvoiceFiltersScreen({
 
         {/* Status */}
         <View style={styles.sectionHeadRow}>
-          <FlagIcon size={17} color="#1E293B" />
+          <FlagIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Invoice Status</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -237,7 +237,7 @@ export function InvoiceFiltersScreen({
 
         {/* Invoice Type */}
         <View style={styles.sectionHeadRow}>
-          <TagIcon size={17} color="#1E293B" />
+          <TagIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Invoice Type</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -258,7 +258,7 @@ export function InvoiceFiltersScreen({
 
         {/* Date Range */}
         <View style={styles.sectionHeadRow}>
-          <CalendarIcon size={17} color="#1E293B" />
+          <CalendarIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Date Range</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -283,7 +283,7 @@ export function InvoiceFiltersScreen({
               <TextInput
                 style={styles.textInput}
                 placeholder="DD/MM/YYYY"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={adminColors.placeholder}
                 value={filters.startDate}
                 onChangeText={(startDate) => set({ startDate })}
               />
@@ -293,7 +293,7 @@ export function InvoiceFiltersScreen({
               <TextInput
                 style={styles.textInput}
                 placeholder="DD/MM/YYYY"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={adminColors.placeholder}
                 value={filters.endDate}
                 onChangeText={(endDate) => set({ endDate })}
               />
@@ -305,7 +305,7 @@ export function InvoiceFiltersScreen({
         {allWarehouses && (
           <>
             <View style={styles.sectionHeadRow}>
-              <BuildingWarehouseIcon size={18} color="#1E293B" />
+              <BuildingWarehouseIcon size={18} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Warehouse</Text>
             </View>
             <View style={styles.chipWrap}>
@@ -328,7 +328,7 @@ export function InvoiceFiltersScreen({
 
         {/* Customer & Order */}
         <View style={styles.sectionHeadRow}>
-          <UserIcon size={17} color="#1E293B" />
+          <UserIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Customer & Order</Text>
         </View>
         <View style={styles.inputStack}>
@@ -337,7 +337,7 @@ export function InvoiceFiltersScreen({
             <TextInput
               style={styles.textInput}
               placeholder="e.g. Ravi Kumar"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={adminColors.placeholder}
               value={filters.customer}
               onChangeText={(customer) => set({ customer })}
             />
@@ -347,7 +347,7 @@ export function InvoiceFiltersScreen({
             <TextInput
               style={styles.textInput}
               placeholder="e.g. ORD-002154"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={adminColors.placeholder}
               value={filters.orderId}
               onChangeText={(orderId) => set({ orderId })}
             />
@@ -356,7 +356,7 @@ export function InvoiceFiltersScreen({
 
         {/* Amount Range */}
         <View style={styles.sectionHeadRow}>
-          <RupeeIcon size={17} color="#1E293B" />
+          <RupeeIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Amount Range (₹)</Text>
         </View>
         <View style={styles.inputRow}>
@@ -365,7 +365,7 @@ export function InvoiceFiltersScreen({
             <TextInput
               style={styles.textInput}
               placeholder="₹ 0"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={adminColors.placeholder}
               keyboardType="numeric"
               value={filters.minAmount}
               onChangeText={(minAmount) => set({ minAmount })}
@@ -376,7 +376,7 @@ export function InvoiceFiltersScreen({
             <TextInput
               style={styles.textInput}
               placeholder="Any"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={adminColors.placeholder}
               keyboardType="numeric"
               value={filters.maxAmount}
               onChangeText={(maxAmount) => set({ maxAmount })}
@@ -386,7 +386,7 @@ export function InvoiceFiltersScreen({
 
         {/* Sort By */}
         <View style={styles.sectionHeadRow}>
-          <SortIcon size={17} color="#1E293B" />
+          <SortIcon size={17} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Sort By</Text>
         </View>
         <View style={styles.chipWrap}>
@@ -417,7 +417,7 @@ export function InvoiceFiltersScreen({
           accessibilityRole="button"
           accessibilityLabel="Apply Filters"
         >
-          <FunnelIcon size={18} color="#FFFFFF" />
+          <FunnelIcon size={18} color={adminColors.onBrand} />
           <Text style={styles.applyButtonText}>Apply Filters</Text>
         </TouchableOpacity>
       </View>

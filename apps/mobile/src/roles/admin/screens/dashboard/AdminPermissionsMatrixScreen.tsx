@@ -11,6 +11,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
   AdminRoleType,
@@ -235,11 +244,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   permHeader: {
     marginBottom: 10,
@@ -273,7 +278,7 @@ const styles = StyleSheet.create({
   },
   roleCellYes: {
     backgroundColor: ADMIN_PALETTE.successBg,
-    borderColor: '#BBF7D0',
+    borderColor: adminColors.success.border,
   },
   roleCellNo: {
     backgroundColor: ADMIN_PALETTE.pageBg,

@@ -14,6 +14,7 @@ import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from 
 import { t } from '../../i18n';
 import { SearchFarmersScreen } from './SearchFarmersScreen';
 import { FarmerProfileDetailScreen, type FarmerProfileData } from './FarmerProfileDetailScreen';
+import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -77,13 +78,24 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
 }
 
 export interface FarmersDirectoryScreenProps {
-  onSelectFarmer?: ((farmer: FarmerProfileData) => void) | undefined;
-  onBack?: (() => void) | undefined;
-  onNavigateAuditHistory?: (() => void) | undefined;
+  onSelectFarmer?: (farmer: FarmerProfileData) => void;
+  onBack?: () => void;
+  onViewChange?: (view: 'list' | 'search_filter' | 'profile') => void;
+  onNavigateAuditHistory?: () => void;
 }
 
-export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAuditHistory }: FarmersDirectoryScreenProps) {
+export function FarmersDirectoryScreen({
+  onSelectFarmer,
+  onBack,
+  onNavigateAuditHistory,
+  onViewChange,
+}: FarmersDirectoryScreenProps) {
   const [internalView, setInternalView] = useState<'list' | 'search_filter' | 'profile'>('list');
+
+  const updateView = (view: 'list' | 'search_filter' | 'profile') => {
+    setInternalView(view);
+    onViewChange?.(view);
+  };
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerProfileData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<{
@@ -186,11 +198,11 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAudit
   if (internalView === 'search_filter') {
     return (
       <SearchFarmersScreen
-        onBack={() => setInternalView('list')}
+        onBack={() => updateView('list')}
         onApplyFilters={(filters) => {
           setActiveFilters(filters);
           if (filters.keyword) setSearchQuery(filters.keyword);
-          setInternalView('list');
+          updateView('list');
         }}
       />
     );
@@ -200,7 +212,7 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAudit
     return (
       <FarmerProfileDetailScreen
         farmer={selectedFarmer}
-        onBack={() => setInternalView('list')}
+        onBack={() => updateView('list')}
         onNavigateAuditHistory={onNavigateAuditHistory}
       />
     );
@@ -230,7 +242,7 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAudit
 
           <TouchableOpacity
             style={styles.filterBtn}
-            onPress={() => setInternalView('search_filter')}
+            onPress={() => updateView('search_filter')}
             activeOpacity={0.8}
             accessibilityLabel="Filter Farmers"
           >
@@ -247,37 +259,60 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAudit
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 4 Summary KPI Cards (2x2 Grid) ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Tile 1: All Farmers */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.allFarmers')}</Text>
-            <Text style={styles.kpiValueDark}>245</Text>
-          </View>
-
-          {/* Tile 2: Active */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.active')}</Text>
-            <Text style={styles.kpiValueGreen}>221</Text>
-          </View>
-
-          {/* Tile 3: Pending/Attention */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.pending')}</Text>
-            <Text style={styles.kpiValueAmber}>12</Text>
-          </View>
-
-          {/* Tile 4: Inactive */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmersDirectory.kpi.inactive')}</Text>
-            <Text style={styles.kpiValueDark}>12</Text>
-          </View>
-        </View>
+        {/* ─── 4 Summary KPI Cards (2x2 Grid) using reusable OverviewDashboardCard ─── */}
+        <OverviewSectionHeader
+          title={t('farmersDirectory.title') || 'Farmers Overview'}
+          actionLabel="View All"
+          onAction={() => {
+            setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'All', keyword: '' }));
+          }}
+          style={{ marginBottom: 12 }}
+        />
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+          <OverviewDashboardCard
+            value="245"
+            title={t('farmersDirectory.kpi.allFarmers')}
+            subtitle="Registered farmers"
+            icon="orders"
+            onPress={() => {
+              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'All', keyword: '' }));
+            }}
+          />
+          <OverviewDashboardCard
+            value="221"
+            title={t('farmersDirectory.kpi.active')}
+            subtitle="Verified & active"
+            icon="pickup"
+            tone="success"
+            onPress={() => {
+              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Active', keyword: '' }));
+            }}
+          />
+          <OverviewDashboardCard
+            value="12"
+            title={t('farmersDirectory.kpi.pending')}
+            subtitle="Requires review"
+            icon="alert"
+            tone="warning"
+            onPress={() => {
+              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Pending', keyword: '' }));
+            }}
+          />
+          <OverviewDashboardCard
+            value="12"
+            title={t('farmersDirectory.kpi.inactive')}
+            subtitle="Dormant profiles"
+            icon="box"
+            onPress={() => {
+              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Inactive', keyword: '' }));
+            }}
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Search Bar ─── */}
         <TouchableOpacity
           style={styles.searchBarBox}
-          onPress={() => setInternalView('search_filter')}
+          onPress={() => updateView('search_filter')}
           activeOpacity={0.9}
         >
           <SearchIcon size={18} color={adminColors.muted} />
@@ -298,7 +333,7 @@ export function FarmersDirectoryScreen({ onSelectFarmer, onBack, onNavigateAudit
             onPress={() => {
               setSelectedFarmer(farmer);
               onSelectFarmer?.(farmer);
-              setInternalView('profile');
+              updateView('profile');
             }}
             activeOpacity={0.75}
           >

@@ -2586,7 +2586,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: adminRadius.full,
-    backgroundColor: '#EF4444',
+    backgroundColor: adminColors.danger.text,
   },
 
   // 2. Greeting Card

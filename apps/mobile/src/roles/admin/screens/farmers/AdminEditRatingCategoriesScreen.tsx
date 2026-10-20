@@ -11,26 +11,35 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  inputBorder: '#E0DDD7',
-  greenBg: '#E8F5E9',
-  greenText: '#2E7D32',
-  amberBg: '#FFF3E0',
-  amberText: '#B25E00',
-  redBg: '#FFEBEE',
-  redText: '#D32F2F',
-  barTrack: '#EFE7DE',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  inputBorder: adminColors.border,
+  greenBg: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  amberBg: adminColors.warning.bg,
+  amberText: adminColors.warning.text,
+  redBg: adminColors.danger.bg,
+  redText: adminColors.danger.text,
+  barTrack: adminColors.border,
 };
 
 export interface RatingCategoryState {
@@ -72,7 +81,7 @@ export const AdminEditRatingCategoriesScreen: React.FC<Props> = ({
   const getTier = (score: number) => {
     if (score >= 750) return { label: 'Excellent Tier', bg: P.greenBg, text: P.greenText };
     if (score >= 700) return { label: 'Good Tier', bg: P.amberBg, text: P.amberText };
-    if (score >= 650) return { label: 'Moderate Tier', bg: '#F5EBE1', text: '#8D4F00' };
+    if (score >= 650) return { label: 'Moderate Tier', bg: adminColors.warning.bg, text: adminColors.warning.text };
     return { label: 'Poor Tier', bg: P.redBg, text: P.redText };
   };
 
@@ -122,7 +131,7 @@ export const AdminEditRatingCategoriesScreen: React.FC<Props> = ({
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -161,7 +170,7 @@ export const AdminEditRatingCategoriesScreen: React.FC<Props> = ({
           {/* Mini circular progress meter */}
           <View style={styles.gaugeBox}>
             <Svg width={80} height={80} viewBox="0 0 80 80">
-              <Circle cx={40} cy={40} r={32} stroke="#EFE7DE" strokeWidth={8} fill="none" />
+              <Circle cx={40} cy={40} r={32} stroke={adminColors.border} strokeWidth={8} fill="none" />
               <Circle
                 cx={40}
                 cy={40}
@@ -261,12 +270,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    ...adminShadow.sm,
   },
   headerTitle: {
     fontSize: 18,
@@ -285,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   saveHeaderBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -387,7 +396,7 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: P.inputBorder,
@@ -398,11 +407,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
   },
   stepBtnText: {
     fontSize: 18,
@@ -435,14 +444,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   saveBottomBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 15,
     fontWeight: '800',
   },

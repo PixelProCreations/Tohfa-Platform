@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: adminColors.border,
   },
-  // The old light bars were #FCD9CE (a light orange off the palette): brandTint is
+  // The old light bars used a hardcoded light orange: brandTint is
   // too close to the card, so the bars use the border tone and today's bar the brand.
   bar: { flex: 1, backgroundColor: adminColors.border, borderRadius: adminRadius.xs },
   barToday: { backgroundColor: adminColors.brand },

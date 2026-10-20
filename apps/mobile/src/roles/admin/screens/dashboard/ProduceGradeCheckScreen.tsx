@@ -160,15 +160,6 @@ export function ProduceGradeCheckScreen({
           </View>
         </View>
 
-        {/* Outstanding Card */}
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceGradeCheck.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         {/* APPLICABLE GRADING STANDARD Card */}
         <View style={styles.standardCard}>
           <Text style={styles.standardLabel}>{t('produceGradeCheck.label.standard')}</Text>
@@ -229,11 +220,6 @@ export function ProduceGradeCheckScreen({
             <Text style={styles.gradeDesc}>{t('produceGradeCheck.rejectedDesc')}</Text>
           </View>
         </TouchableOpacity>
-
-        {/* Footnote Caption */}
-        <Text style={styles.footnoteCaption}>
-          {t('produceGradeCheck.footnote')}
-        </Text>
 
         {/* Grade remarks input */}
         <Text style={styles.inputLabelBold}>{t('produceGradeCheck.label.remarks')}</Text>

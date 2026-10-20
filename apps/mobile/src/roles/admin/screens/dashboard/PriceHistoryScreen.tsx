@@ -412,8 +412,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.3,
   },
   filterIconCircle: {
     width: 36,
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
     paddingBottom: adminSpacing.xxl,
   },
   sectionHeading: {
-    ...adminType.rowTitle,
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginBottom: adminSpacing.md,
   },
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   datePill: {
-    backgroundColor: '#F3EFEA',
+    backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -529,9 +530,9 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: adminColors.brandSoft.border,
     borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
     marginTop: adminSpacing.xs,

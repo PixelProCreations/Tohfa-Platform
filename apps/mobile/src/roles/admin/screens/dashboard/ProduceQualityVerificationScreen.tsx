@@ -242,15 +242,6 @@ export function ProduceQualityVerificationScreen({
           </View>
         </View>
 
-        {/* Outstanding Card */}
-        <View style={styles.outstandingCard}>
-          <Text style={styles.outstandingTitle}>{t('produceQualityVerification.section.outstanding')}</Text>
-          <Text style={styles.outstandingItem}>• Step 1 Quantity Check: Enter the verified quantity.</Text>
-          <Text style={styles.outstandingItem}>• Step 2 Quality Verification: Freshness: mark the result.</Text>
-          <Text style={styles.outstandingItem}>• Step 3 Grade Check: Select the grade.</Text>
-          <Text style={styles.outstandingItem}>• and 2 more</Text>
-        </View>
-
         {/* Standard Notice Caption */}
         <Text style={styles.stepCaptionText}>
           {t('produceQualityVerification.caption')}
@@ -398,8 +389,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    ...adminType.sectionHead,
+    ...adminType.title,
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     ...adminType.caption,

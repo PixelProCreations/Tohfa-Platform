@@ -12,6 +12,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminAccountData,
   AdminBackChevronIcon,
@@ -28,7 +37,7 @@ function SearchIcon({ color = ADMIN_PALETTE.textSecondary, size = 16 }: { color?
   );
 }
 
-function PlusIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
+function PlusIcon({ color = adminColors.onBrand, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -157,15 +166,15 @@ export function ManageAdminsScreen({
   const getRoleBadgeStyle = (role: AdminRoleType) => {
     switch (role) {
       case 'SA':
-        return { bg: '#FDEEE9', text: '#943818', label: 'Super Admin' };
+        return { bg: adminColors.brandTint, text: adminColors.brandDeep, label: 'Super Admin' };
       case 'TA':
-        return { bg: '#FFF1EB', text: '#F0562A', label: 'TOHFA Admin' };
+        return { bg: adminColors.brandTint, text: adminColors.brand, label: 'TOHFA Admin' };
       case 'SW':
-        return { bg: '#FEF3C7', text: '#B45309', label: 'Sub Warehouse' };
+        return { bg: adminColors.warning.bg, text: adminColors.warning.text, label: 'Sub Warehouse' };
       case 'FA':
-        return { bg: '#EBF3FA', text: '#1D6399', label: 'Field Admin' };
+        return { bg: adminColors.info.bg, text: adminColors.info.text, label: 'Field Admin' };
       case 'MW':
-        return { bg: '#DCFCE7', text: '#15803D', label: 'Main Warehouse' };
+        return { bg: adminColors.success.bg, text: adminColors.success.text, label: 'Main Warehouse' };
     }
   };
 
@@ -460,16 +469,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     gap: 6,
-    shadowColor: ADMIN_PALETTE.primaryOrange,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   createBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 
   // Title Block
@@ -504,11 +509,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   govCardTitle: {
     fontSize: 12.5,
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
   requestsBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   requestsTitle: {
     fontSize: 13,
@@ -612,7 +613,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.textSecondary,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
 
@@ -628,11 +629,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   adminCardHeader: {
     flexDirection: 'row',
@@ -695,7 +692,7 @@ const styles = StyleSheet.create({
     backgroundColor: ADMIN_PALETTE.successBg,
   },
   statusPending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   statusDisabled: {
     backgroundColor: ADMIN_PALETTE.dangerBg,
@@ -708,7 +705,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.successText,
   },
   statusTextPending: {
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   statusTextDisabled: {
     color: ADMIN_PALETTE.dangerText,

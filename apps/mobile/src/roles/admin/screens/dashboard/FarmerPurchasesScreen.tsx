@@ -12,6 +12,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -108,6 +109,8 @@ export function FarmerPurchasesScreen({
   onBack,
   onNavigatePurchaseOrders,
   onNavigateProduceListings,
+  onNavigateReadyForCollection,
+  onNavigatePurchaseHistory,
   onViewPurchaseOrder,
   onOpenNotifications,
 }: FarmerPurchasesScreenProps) {
@@ -154,34 +157,30 @@ export function FarmerPurchasesScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Metric KPI Grid ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Row 1 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.pendingPurchases')}</Text>
-              <Text style={styles.kpiValueDark}>9</Text>
-            </View>
-
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.readyForCollection')}</Text>
-              <Text style={[styles.kpiValueDark, styles.kpiBlue]}>5</Text>
-            </View>
-          </View>
-
-          {/* Row 2 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.todayCollections')}</Text>
-              <Text style={styles.kpiValueDark}>3</Text>
-            </View>
-
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>{t('farmerPurchases.kpi.completedPurchases')}</Text>
-              <Text style={[styles.kpiValueDark, styles.kpiGreen]}>142</Text>
-            </View>
-          </View>
-        </View>
+        {/* ─── 2x2 Metric KPI Grid (Static) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="9"
+            title={t('farmerPurchases.kpi.pendingPurchases')}
+            icon="orders"
+          />
+          <OverviewDashboardCard
+            value="5"
+            title={t('farmerPurchases.kpi.readyForCollection')}
+            icon="pickup"
+          />
+          <OverviewDashboardCard
+            value="3"
+            title={t('farmerPurchases.kpi.todayCollections')}
+            icon="truck"
+          />
+          <OverviewDashboardCard
+            value="142"
+            title={t('farmerPurchases.kpi.completedPurchases')}
+            icon="box"
+            tone="success"
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Section: Needs Your Attention ─── */}
         <Text style={styles.sectionHeading}>{t('farmerPurchases.section.attention')}</Text>

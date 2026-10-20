@@ -15,20 +15,14 @@ import {
 import { Icon } from '@tohfa/mobile-ui';
 import type { MarketDay } from './MarketDayScheduleScreen';
 
-const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-  red: '#E8562A',
-  danger: '#E53935',
-};
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
 
 const WAREHOUSES = ['Ooty Warehouse', 'Coonoor Warehouse', 'Kotagiri Warehouse', 'Gudalur Market'];
 
@@ -128,7 +122,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -139,7 +133,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
+          <Icon name="chevron_right" size={20} color={adminColors.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
       </View>
 
@@ -159,7 +153,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
             <Text style={[styles.inputText, !warehouse && styles.inputPlaceholder]}>
               {warehouse || 'Select warehouse'}
             </Text>
-            <Icon name="expand_more" size={20} color={P.muted} />
+            <Icon name="expand_more" size={20} color={adminColors.muted} />
           </TouchableOpacity>
           {errors.warehouse && <Text style={styles.errorText}>{errors.warehouse}</Text>}
           
@@ -177,7 +171,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                   activeOpacity={0.7}
                 >
                   <Text style={styles.pickerItemText}>{wh}</Text>
-                  {warehouse === wh && <Icon name="check" size={18} color={P.orange} />}
+                  {warehouse === wh && <Icon name="check" size={18} color={adminColors.brand} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -195,7 +189,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
             <Text style={styles.inputText}>
               {date} {month} 2026
             </Text>
-            <Icon name="expand_more" size={20} color={P.muted} />
+            <Icon name="expand_more" size={20} color={adminColors.muted} />
           </TouchableOpacity>
           
           {showDatePicker && (
@@ -216,7 +210,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                         activeOpacity={0.7}
                       >
                         <Text style={styles.pickerItemText}>{d}</Text>
-                        {date === d && <Icon name="check" size={18} color={P.orange} />}
+                        {date === d && <Icon name="check" size={18} color={adminColors.brand} />}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -236,7 +230,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                         activeOpacity={0.7}
                       >
                         <Text style={styles.pickerItemText}>{m}</Text>
-                        {month === m && <Icon name="check" size={18} color={P.orange} />}
+                        {month === m && <Icon name="check" size={18} color={adminColors.brand} />}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -264,7 +258,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
             <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
               {startTime || 'Select start time'}
             </Text>
-            <Icon name="expand_more" size={20} color={P.muted} />
+            <Icon name="expand_more" size={20} color={adminColors.muted} />
           </TouchableOpacity>
           {errors.startTime && <Text style={styles.errorText}>{errors.startTime}</Text>}
           
@@ -287,7 +281,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                     activeOpacity={0.7}
                   >
                     <Text style={styles.pickerItemText}>{time}</Text>
-                    {startTime === time && <Icon name="check" size={18} color={P.orange} />}
+                    {startTime === time && <Icon name="check" size={18} color={adminColors.brand} />}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -306,7 +300,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
             <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
               {endTime || 'Select end time'}
             </Text>
-            <Icon name="expand_more" size={20} color={P.muted} />
+            <Icon name="expand_more" size={20} color={adminColors.muted} />
           </TouchableOpacity>
           {errors.endTime && <Text style={styles.errorText}>{errors.endTime}</Text>}
           
@@ -329,7 +323,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                     activeOpacity={0.7}
                   >
                     <Text style={styles.pickerItemText}>{time}</Text>
-                    {endTime === time && <Icon name="check" size={18} color={P.orange} />}
+                    {endTime === time && <Icon name="check" size={18} color={adminColors.brand} />}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -351,106 +345,95 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.lg,
   },
   title: {
+    ...adminType.title,
     fontSize: 20,
-    fontWeight: '700',
-    color: P.darkBrown,
+    color: adminColors.brandDeep,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
-    fontSize: 13,
-    color: P.lightGray,
-    marginBottom: 24,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xl,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   fieldGroup: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.darkBrown,
-    marginBottom: 8,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
   input: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: P.border,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 14,
   },
   inputError: {
-    borderColor: P.danger,
+    borderColor: adminColors.danger.border,
   },
   inputText: {
-    fontSize: 15,
-    color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   inputPlaceholder: {
-    color: P.lightGray,
+    color: adminColors.placeholder,
   },
   errorText: {
-    fontSize: 12,
-    color: P.danger,
+    ...adminType.caption,
+    color: adminColors.danger.text,
     marginTop: 4,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   picker: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
     marginTop: 8,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...adminShadow.md,
   },
   timePicker: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.border,
+    borderColor: adminColors.border,
     marginTop: 8,
     maxHeight: 200,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...adminShadow.md,
   },
   timePickerScroll: {
     maxHeight: 200,
@@ -459,15 +442,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: P.border,
+    borderBottomColor: adminColors.border,
   },
   pickerItemText: {
-    fontSize: 15,
-    color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   datePickerRow: {
     flexDirection: 'row',
@@ -477,48 +459,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateColumnTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: P.body,
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.muted,
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: P.border,
+    borderBottomColor: adminColors.border,
     textAlign: 'center',
-    fontFamily: 'Manrope, system-ui, sans-serif',
-    backgroundColor: P.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   dateScroll: {
     flex: 1,
   },
   pickerDoneBtn: {
-    backgroundColor: P.orange,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: adminRadius.lg,
+    borderBottomRightRadius: adminRadius.lg,
   },
   pickerDoneBtnText: {
-    fontSize: 15,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtn: {
-    backgroundColor: P.orange,
-    borderRadius: 14,
-    paddingVertical: 16,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...adminShadow.md,
   },
   saveBtnText: {
-    fontSize: 16,
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

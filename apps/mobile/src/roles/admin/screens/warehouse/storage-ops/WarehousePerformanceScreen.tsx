@@ -19,7 +19,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   ChipGroup,
   EmptyState,
@@ -73,6 +73,29 @@ export function WarehousePerformanceScreen({
     <WalletScreen title="Warehouse Performance" subtitle="Operational throughput & SLA metrics · All Hubs" onBack={onBack}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <ChipGroup options={PERIODS} value={period} onChange={setPeriod} />
+
+        <View style={styles.metricsGridCard}>
+          <View style={styles.twoByTwoRow}>
+            <View style={styles.twoByTwoCol}>
+              <Text style={styles.twoByTwoLabel}>Receipts (MTD)</Text>
+              <Text style={styles.twoByTwoVal}>68,400 KG</Text>
+            </View>
+            <View style={styles.twoByTwoCol}>
+              <Text style={styles.twoByTwoLabel}>Sales (MTD)</Text>
+              <Text style={styles.twoByTwoVal}>₹1,45,10,000</Text>
+            </View>
+          </View>
+          <View style={[styles.twoByTwoRow, { marginTop: adminSpacing.lg }]}>
+            <View style={styles.twoByTwoCol}>
+              <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
+              <Text style={styles.twoByTwoVal}>18</Text>
+            </View>
+            <View style={styles.twoByTwoCol}>
+              <Text style={styles.twoByTwoLabel}>Avg Turnaround</Text>
+              <Text style={styles.twoByTwoVal}>2.4 days</Text>
+            </View>
+          </View>
+        </View>
 
         <View style={styles.kpiGrid}>
           {kpis.map((kpi) => (
@@ -244,4 +267,29 @@ const styles = StyleSheet.create({
   staffMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   staffScore: { ...adminType.sectionHead, color: adminColors.success.text },
   alignEnd: { alignItems: 'flex-end' },
+  metricsGridCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  twoByTwoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  twoByTwoCol: {
+    flex: 1,
+  },
+  twoByTwoLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  twoByTwoVal: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginTop: adminSpacing.xs,
+  },
 });

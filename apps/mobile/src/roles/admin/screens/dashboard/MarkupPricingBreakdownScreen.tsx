@@ -52,6 +52,8 @@ export interface MarkupPricingBreakdownScreenProps {
   expenseList?: Array<{ name: string; amount: string }> | undefined;
 }
 
+// ─── Default Data Matching Target Design ──────────────────────────────────────
+
 const DEFAULT_EXPENSES = [
   { name: 'Freight', amount: '₹5.00' },
   { name: 'Loading', amount: '₹2.00' },
@@ -90,11 +92,11 @@ export function MarkupPricingBreakdownScreen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel={t('markupPricingBreakdown.backLabel')}
+            accessibilityLabel="Go back"
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('markupPricingBreakdown.title')}</Text>
+          <Text style={styles.headerTitle}>Markup & Pricing Breakdown</Text>
         </View>
 
         <Text style={styles.headerSubtitle}>{cropGradeTitle}</Text>
@@ -107,7 +109,7 @@ export function MarkupPricingBreakdownScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Section: Pricing Flow */}
-        <Text style={styles.sectionHeading}>{t('markupPricingBreakdown.section.pricingFlow')}</Text>
+        <Text style={styles.sectionHeading}>Pricing Flow</Text>
 
         {/* 1. Purchase Price */}
         <View style={styles.flowCard}>
@@ -187,26 +189,15 @@ export function MarkupPricingBreakdownScreen({
           ))}
         </View>
 
-        {/* Notice Banner */}
-        <View style={styles.noticeBanner}>
-          <Text style={styles.noticeBannerText}>
-            Only expense types actually configured in the system are shown here — no invented categories.
-          </Text>
-        </View>
 
-        {/* Read-Only Disclaimer Card */}
-        <View style={styles.disclaimerCard}>
-          <BlockCircleIcon size={18} color={adminColors.muted} />
-          <Text style={styles.disclaimerText}>
-            Read-only pricing explanation — no Edit Markup, Edit Expenses, Set Retail Price, or Override Fair Price Ceiling anywhere.
-          </Text>
-        </View>
 
-        <View style={{ height: adminSpacing.xl }} />
+        <View style={{ height: adminSpacing.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
@@ -237,6 +228,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: adminColors.onBrand,
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
     ...adminType.caption,
@@ -253,11 +245,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xl,
+    paddingBottom: adminSpacing.xxl,
   },
 
   sectionHeading: {
-    ...adminType.sectionHead,
+    ...adminType.rowTitle,
+    fontSize: 15,
+    fontWeight: '800',
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
   },
@@ -268,10 +262,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 14,
     ...adminShadow.sm,
   },
@@ -307,12 +301,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAF0E6',
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.xl,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 16,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 14,
     ...adminShadow.sm,
   },
   finalPriceLabel: {
@@ -332,15 +326,15 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 6,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 4,
     ...adminShadow.sm,
   },
   expenseTableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   expenseName: {
     ...adminType.body,

@@ -2070,13 +2070,7 @@ export function AuditScheduleScreen({
             </View>
           </View>
 
-          {/* Info disclaimer note (Image 2) */}
-          <View style={styles.infoNoteCardWithIcon}>
-            <BanSlashIcon size={18} color={adminColors.muted} />
-            <Text style={styles.infoNoteText}>
-              Schedule, Reschedule and Cancel Audit are not Farmer Admin permissions and are not available here.
-            </Text>
-          </View>
+
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -6837,7 +6831,7 @@ export function AuditScheduleScreen({
             <View>
               {/* Card 1: Farmer & Farm Details */}
               <View style={styles.step11SectionHeaderRow}>
-                <GreenLeafOutlineIcon size={18} color="#2E7D32" />
+                <GreenLeafOutlineIcon size={18} color={adminColors.success.text} />
                 <Text style={styles.step11SectionHeaderTitle}>Farmer & Farm Details</Text>
               </View>
 
@@ -6982,7 +6976,7 @@ export function AuditScheduleScreen({
 
               {/* Card 3: Audit Report Upload */}
               <View style={[styles.step11SectionHeaderRow, { marginTop: 8 }]}>
-                <GreenCloudUploadOutlineIcon size={18} color="#2E7D32" />
+                <GreenCloudUploadOutlineIcon size={18} color={adminColors.success.text} />
                 <Text style={styles.step11SectionHeaderTitle}>Audit Report Upload</Text>
               </View>
 
@@ -7026,7 +7020,7 @@ export function AuditScheduleScreen({
 
               {/* Card 4: Additional Details */}
               <View style={[styles.step11SectionHeaderRow, { marginTop: 14 }]}>
-                <GreenNotesOutlineIcon size={18} color="#2E7D32" />
+                <GreenNotesOutlineIcon size={18} color={adminColors.success.text} />
                 <Text style={styles.step11SectionHeaderTitle}>Additional Details</Text>
               </View>
 
@@ -11027,8 +11021,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   step11ReadonlyBox: {
-    backgroundColor: '#F5F2EB',
-    borderRadius: 8,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.xs,
     height: 44,
     paddingHorizontal: 12,
     justifyContent: 'center',
@@ -11084,11 +11078,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   step11UploadDashedBox: {
-    backgroundColor: '#FAF8F5',
-    borderRadius: 12,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#C8E6C9',
+    borderColor: adminColors.success.border,
     paddingVertical: 18,
     paddingHorizontal: 16,
     marginBottom: 14,

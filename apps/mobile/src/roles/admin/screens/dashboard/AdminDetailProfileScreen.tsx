@@ -11,6 +11,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminAccountData,
   AdminBackChevronIcon,
@@ -410,11 +419,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
     marginBottom: 16,
   },
   avatarCircle: {
@@ -449,7 +454,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   roleTag: {
-    backgroundColor: '#FFF1EB',
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -468,7 +473,7 @@ const styles = StyleSheet.create({
     backgroundColor: ADMIN_PALETTE.successBg,
   },
   statusPending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   statusDisabled: {
     backgroundColor: ADMIN_PALETTE.dangerBg,
@@ -481,7 +486,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.successText,
   },
   statusTextPending: {
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   statusTextDisabled: {
     color: ADMIN_PALETTE.dangerText,
@@ -605,7 +610,7 @@ const styles = StyleSheet.create({
   },
   reactivateBtn: {
     backgroundColor: ADMIN_PALETTE.successBg,
-    borderColor: '#86EFAC',
+    borderColor: adminColors.success.border,
   },
   reactivateBtnText: {
     color: ADMIN_PALETTE.successText,

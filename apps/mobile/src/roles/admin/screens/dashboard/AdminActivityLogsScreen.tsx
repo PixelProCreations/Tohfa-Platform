@@ -10,6 +10,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../theme';
+import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
 } from './CreateAdminAccountScreen';
@@ -101,17 +110,17 @@ export function AdminActivityLogsScreen({ adminId, onBack }: AdminActivityLogsSc
   const getCategoryColor = (cat: string) => {
     switch (cat) {
       case 'PAYOUT':
-        return { bg: '#FEF3C7', text: '#B45309' };
+        return { bg: adminColors.warning.bg, text: adminColors.warning.text };
       case 'KYC':
-        return { bg: '#DCFCE7', text: '#15803D' };
+        return { bg: adminColors.success.bg, text: adminColors.success.text };
       case 'CONFIG':
-        return { bg: '#FFF1EB', text: '#F0562A' };
+        return { bg: adminColors.brandTint, text: adminColors.brand };
       case 'WAREHOUSE':
-        return { bg: '#EBF3FA', text: '#1D6399' };
+        return { bg: adminColors.info.bg, text: adminColors.info.text };
       case 'AUTH':
-        return { bg: '#FDEEE9', text: '#943818' };
+        return { bg: adminColors.brandTint, text: adminColors.brandDeep };
       default:
-        return { bg: '#F5F1EB', text: '#786F68' };
+        return { bg: adminColors.canvas, text: adminColors.muted };
     }
   };
 
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
     color: ADMIN_PALETTE.textSecondary,
   },
   catPillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   logListContent: {
@@ -279,11 +288,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: ADMIN_PALETTE.borderSoft,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   logCardHeader: {
     flexDirection: 'row',

@@ -22,7 +22,7 @@ export interface AdminMoreMenuScreenProps {
   onSelectOption: (optionId: string) => void;
 }
 
-// ─── Menu Icons Matching Exact Design Mockup in Orange #F0562A ───────────────
+// ─── Menu Icons Matching Exact Design Mockup in Brand Orange ───────────────
 
 function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -224,7 +224,7 @@ export function AdminMoreMenuScreen({ onBack, onSelectOption }: AdminMoreMenuScr
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header Banner in Brand Orange #F0562A */}
+      {/* Header Banner in Brand Orange */}
       <View style={styles.headerBanner}>
         <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.8}>
           <BackArrowWhiteIcon />
