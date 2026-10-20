@@ -38,6 +38,8 @@ import {
   deriveSalesCount,
   derivePerformance,
   monthToDateRange,
+  countDashboardAlerts,
+  filterDashboardAlerts,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -961,5 +963,56 @@ describe('BR-80: derivePerformance', () => {
   it('a count that is not a whole number is a data error', () => {
     expect(derivePerformance({ ...totals, ordersPlaced: 1.5 }).ok).toBe(false);
     expect(derivePerformance({ ...totals, returnsRequested: Number.NaN }).ok).toBe(false);
+  });
+});
+
+// ─── Alerts: snoozed state and the type filter (BR-78) ──────────────────────
+
+describe('BR-78: toDashboardAlerts carries the snooze state the server sent', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+
+  it('an active alert is not snoozed and has no snooze time', () => {
+    const [a] = toDashboardAlerts([alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK' })], warehouses, NOW);
+    expect(a).toMatchObject({ snoozed: false, snoozedUntil: null });
+  });
+
+  it('a snoozed alert says it is snoozed and until when, in IST, worded by the catalogue', () => {
+    const [a] = toDashboardAlerts(
+      [alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK', state: 'SNOOZED', snoozedUntil: '2026-10-19T09:30:00Z' })],
+      warehouses,
+      NOW,
+    );
+    expect(a?.snoozed).toBe(true);
+    expect(a?.snoozedUntil).toMatch(/3:00 PM|03:00 PM/);
+  });
+});
+
+describe('alert type filter: counts and filtering over what the server returned', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+  const alerts = toDashboardAlerts(
+    [
+      alertDto({ itemKey: 'low_stock:a', type: 'LOW_STOCK' }),
+      alertDto({ itemKey: 'low_stock:b', type: 'LOW_STOCK' }),
+      alertDto({ itemKey: 'batch_near_expiry:c', type: 'BATCH_NEAR_EXPIRY' }),
+    ],
+    warehouses,
+    NOW,
+  );
+
+  it('counts every type, with all being the whole list and a type with none being a real 0', () => {
+    expect(countDashboardAlerts(alerts)).toEqual({ all: 3, LOW_STOCK: 2, BATCH_NEAR_EXPIRY: 1, CAPACITY_NEAR_FULL: 0 });
+  });
+
+  it('all keeps every alert; a type keeps only that type, in order', () => {
+    expect(filterDashboardAlerts(alerts, 'all')).toHaveLength(3);
+    expect(filterDashboardAlerts(alerts, 'LOW_STOCK').map((a) => a.id)).toEqual(['low_stock:a', 'low_stock:b']);
+    expect(filterDashboardAlerts(alerts, 'CAPACITY_NEAR_FULL')).toEqual([]);
+  });
+
+  it('a type the app does not know still counts under all, and is never shown under a known type', () => {
+    const odd = toDashboardAlerts([alertDto({ itemKey: 'x:1', type: 'SOMETHING_NEW' as AlertItemDto['type'] })], warehouses, NOW);
+    expect(countDashboardAlerts(odd)).toEqual({ all: 1, LOW_STOCK: 0, BATCH_NEAR_EXPIRY: 0, CAPACITY_NEAR_FULL: 0 });
+    expect(filterDashboardAlerts(odd, 'LOW_STOCK')).toEqual([]);
+    expect(filterDashboardAlerts(odd, 'all')).toHaveLength(1);
   });
 });

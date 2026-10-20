@@ -54,6 +54,7 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'perfMtdQuery',
     'salesMtdQuery',
     'activityQuery',
+    'snoozedAlertsQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -463,5 +464,44 @@ describe('BR-104: Recent Activity and the timeline read the warehouse activity f
 
   it('the section is gated: while the feed loads or fails there is a spinner or an error with Retry, not "No recent activity"', () => {
     expect(MAIN).toContain('<SectionGate sources={[openTasksSrc, ...(access.activity ? [activitySrc] : [])]}>');
+  });
+});
+
+describe('BR-78: the Alerts & Action Center snoozes alerts and lists the snoozed ones, as the old Needs Attention did', () => {
+  it('snoozes through the alerts API for the caller only, awaiting the server before it reports success', () => {
+    expect(MAIN).toMatch(/await snoozeMutation\.mutateAsync\(alert\.id\)/);
+    expect(MAIN).not.toMatch(/snoozeMutation\.mutate\(/);
+    expect(MAIN).toContain('snoozeAlert(itemKey, snoozeUntil(new Date()))');
+    const awaited = MAIN.indexOf('await snoozeMutation.mutateAsync(alert.id)');
+    const success = MAIN.indexOf("t('mainDashboard.alert.snoozed.title')");
+    expect(success).toBeGreaterThan(awaited);
+  });
+
+  it('a snooze failure returns before the success message and renders from the mutation error', () => {
+    expect(MAIN).toMatch(/snoozeMutation\.isError \? \(\s*<Text style=\{styles\.dismissErrorText\}>\{t\(adminErrorKey\(snoozeMutation\.error\)\)\}/);
+  });
+
+  it('the snooze button is offered only for an active alert and only with alert.own.view', () => {
+    expect(MAIN).toMatch(/canDismissAlert && !selectedAlert\.snoozed/);
+    expect(MAIN).toContain("t('dashboardHome.alerts.snooze')");
+  });
+
+  it('the snoozed list is its own query (state=snoozed), read only while that list is shown, and gated like the others', () => {
+    expect(MAIN).toContain("state: 'snoozed'");
+    expect(MAIN).toContain("alertState === 'snoozed'");
+    expect(MAIN).toContain('<SectionGate sources={[alertState === \'active\' ? alertsSrc : snoozedAlertsSrc, warehousesSrc]}>');
+  });
+
+  it('Active / Snoozed and the type filter are chips with counts from the pure mapper', () => {
+    expect(MAIN).toContain('ChipGroup');
+    expect(MAIN).toContain('countDashboardAlerts(');
+    expect(MAIN).toContain('filterDashboardAlerts(');
+  });
+
+  it('the new copy is in the catalogue', () => {
+    for (const key of ['mainDashboard.alert.snoozed.title', 'mainDashboard.alert.snoozed.body', 'mainDashboard.alert.snoozing']) {
+      expect({ key, has: key in EN }).toEqual({ key, has: true });
+    }
+    expect(EN['mainDashboard.alert.snoozed.body']).toMatch(/your list only/);
   });
 });

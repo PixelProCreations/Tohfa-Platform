@@ -2500,6 +2500,9 @@
   "mainDashboard.notAvailable": "Not available for your account.",
   "mainDashboard.alert.dismiss": "Dismiss for me",
   "mainDashboard.alert.dismissing": "Dismissing…",
+  "mainDashboard.alert.snoozing": "Snoozing…",
+  "mainDashboard.alert.snoozed.title": "Alert snoozed",
+  "mainDashboard.alert.snoozed.body": "{{title}} is hidden from your list only until the snooze ends. Other admins still see it.",
   "mainDashboard.alert.dismissed.title": "Alert dismissed",
   "mainDashboard.alert.dismissed.body": "{{title}} is hidden from your list only. Other admins still see it until the condition clears."
 }

@@ -23,7 +23,7 @@ import {
   type AttentionFilter,
   type HomeTarget,
 } from '../warehouse/dashboard-home-more';
-import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
+import { ChipGroup, EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
@@ -58,7 +58,8 @@ import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
-import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
+import { dismissAlert, listAlerts, snoozeAlert, type AlertItemDto } from '../../api/alerts';
+import { ALERT_FILTER_LABEL, ALERT_STATE_FILTERS, snoozeUntil, type AlertStateFilter } from '../warehouse/dashboard-home-more/mappers_dashboardHome';
 import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
 import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
@@ -76,7 +77,9 @@ import {
   FIGURE_PLACEHOLDER,
   barWidthPercent,
   capacityLevel,
+  ALERT_TYPE_FILTERS,
   collectPages,
+  countDashboardAlerts,
   coveredWarehouseIds,
   countLabel,
   countOrdersPlacedOn,
@@ -88,6 +91,7 @@ import {
   deriveStockFigures,
   deriveTransfers,
   figureOrPlaceholder,
+  filterDashboardAlerts,
   findWarehouseByName,
   formatUtilization,
   greetingKey,
@@ -103,6 +107,7 @@ import {
   toWarehouseOptions,
   warehouseShortName,
   type AlertTarget,
+  type AlertTypeFilter,
   type DashboardAlert,
 } from './mappers_mainDashboard';
 import { formatKg } from '../../money/quantity';
@@ -699,6 +704,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [alertWarehouseId, setAlertWarehouseId] = useState<string | undefined>(undefined);
+  // The Alerts & Action Center lists the caller's active alerts or the ones they snoozed (BR-78).
+  const [alertState, setAlertState] = useState<AlertStateFilter>('active');
+  const [alertTypeFilter, setAlertTypeFilter] = useState<AlertTypeFilter>('all');
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -865,6 +873,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const liveAlerts = alertsQuery.data?.items ?? NO_ALERTS;
 
+  // The alerts the caller snoozed (BR-78): read only while that list is shown.
+  const snoozedAlertsQuery = useAdminQuery(
+    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'snoozed', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listAlerts({ warehouseId: selectedWarehouseId, state: 'snoozed', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+      ),
+    { enabled: canAllView && alertState === 'snoozed' },
+  );
+
   // A list the page cap cut short: its totals say so instead of looking whole.
   const listsPartial =
     [batchesQuery.data, ordersQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
@@ -879,6 +897,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const ordersSrc = sourceOf(ordersQuery);
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
+  const snoozedAlertsSrc = sourceOf(snoozedAlertsQuery);
   const transfersRawSrc = sourceOf(transfersQuery);
   const issuesSrc = sourceOf(issuesQuery);
   const perfTodaySrc = sourceOf(perfTodayQuery);
@@ -892,6 +911,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     // `now` changes every render, so the relative time is as of the last data change.
     [liveAlerts, warehouses],
   );
+  const snoozedAlertsList: DashboardAlert[] = useMemo(
+    () => toDashboardAlerts(snoozedAlertsQuery.data?.items ?? NO_ALERTS, warehouses, now),
+    [snoozedAlertsQuery.data, warehouses],
+  );
 
   // POST /admin/alerts/{itemKey}/dismiss (alert.own.view) hides the alert from
   // THIS admin's lists only; other admins keep seeing it (BR-78). So the button
@@ -902,6 +925,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
   });
   const canDismissAlert = can('alert.own.view');
+  // POST /admin/alerts/{itemKey}/snooze hides the alert from THIS admin's active list for an hour
+  // (the design's snooze; the server caps it with system_config.alert_snooze_max_hours). Same rules
+  // as dismiss: only with alert.own.view, success only after the server accepted it.
+  const snoozeMutation = useAdminMutation({
+    mutationFn: (itemKey: string) => snoozeAlert(itemKey, snoozeUntil(new Date())),
+    invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
+  });
+  const handleSnoozeAlert = async (alert: DashboardAlert) => {
+    try {
+      await snoozeMutation.mutateAsync(alert.id);
+    } catch {
+      // Not shown as success: the failure renders from snoozeMutation.error.
+      return;
+    }
+    Alert.alert(t('mainDashboard.alert.snoozed.title'), t('mainDashboard.alert.snoozed.body', { title: alert.title }));
+    snoozeMutation.reset();
+    goBackWh();
+  };
   const handleDismissAlert = async (alert: DashboardAlert) => {
     try {
       await dismissMutation.mutateAsync(alert.id);
@@ -1603,11 +1644,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertsActionCenterScreen = () => {
-    // Only the warehouse filter is real: the API has no priority and returns only
-    // active alerts, so there are no priority or read-state chips.
-    const visibleAlerts = alertsList.filter(
+    // The API has no priority or read state, so the chips are the real ones: Active / Snoozed
+    // (the caller's own BR-78 state), the alert type, and the warehouse.
+    const stateList = alertState === 'active' ? alertsList : snoozedAlertsList;
+    const inWarehouse = stateList.filter(
       (alert) => alertWarehouseId === undefined || alert.warehouseId === alertWarehouseId,
     );
+    const alertTypeCounts = countDashboardAlerts(inWarehouse);
+    const visibleAlerts = filterDashboardAlerts(inWarehouse, alertTypeFilter);
     const alertFilterWarehouse = warehouses.find((w) => w.id === alertWarehouseId);
     const alertFilterLabel =
       alertFilterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(alertFilterWarehouse.name);
@@ -1643,16 +1687,34 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </TouchableOpacity>
           </View>
 
+          <View style={styles.actionCenterFiltersRow}>
+            <ChipGroup
+              options={ALERT_STATE_FILTERS}
+              value={alertState}
+              onChange={setAlertState}
+              labelOf={(f) => t(f === 'active' ? 'alerts.filter.active' : 'alerts.filter.snoozed')}
+            />
+          </View>
+          <View style={styles.actionCenterFiltersRow}>
+            <ChipGroup
+              options={ALERT_TYPE_FILTERS}
+              value={alertTypeFilter}
+              onChange={setAlertTypeFilter}
+              labelOf={(f) => t('dashboardHome.alerts.filterCount', { label: t(ALERT_FILTER_LABEL[f]), count: alertTypeCounts[f] })}
+            />
+          </View>
+
           <View style={{ height: 6 }} />
 
           {/* Alerts List */}
-          <SectionGate sources={[alertsSrc, warehousesSrc]}>
+          <SectionGate sources={[alertState === 'active' ? alertsSrc : snoozedAlertsSrc, warehousesSrc]}>
           {visibleAlerts.map((alert) => (
             <TouchableOpacity
               key={alert.id}
               style={styles.actionCenterAlertCard}
               onPress={() => {
                 dismissMutation.reset();
+                snoozeMutation.reset();
                 setSelectedAlert(alert);
                 navigateWh('alert_detail');
               }}
@@ -1675,14 +1737,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionCenterAlertTitle}>{`${alert.warehouse}: ${alert.title}`}</Text>
                   <Text style={styles.actionCenterAlertSub}>{alert.detail}</Text>
+                  {alert.snoozedUntil !== null ? (
+                    <Text style={styles.actionCenterAlertSub}>{t('alerts.snoozedUntil', { time: alert.snoozedUntil })}</Text>
+                  ) : null}
                 </View>
               </View>
             </TouchableOpacity>
           ))}
 
-          {visibleAlerts.length === 0 && (
-            <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
-          )}
+          {visibleAlerts.length === 0 &&
+            (alertState === 'snoozed' ? (
+              <EmptyState title={t('alerts.empty.snoozed')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+            ) : (
+              <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+            ))}
           </SectionGate>
 
           <View style={{ height: 24 }} />
@@ -1757,13 +1825,28 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <Text style={styles.openRelatedBtnText}>Open Related Record</Text>
               </TouchableOpacity>
 
+              {canDismissAlert && !selectedAlert.snoozed ? (
+                <TouchableOpacity
+                  style={styles.acknowledgeBtn}
+                  onPress={() => {
+                    void handleSnoozeAlert(selectedAlert);
+                  }}
+                  disabled={snoozeMutation.isPending || dismissMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.acknowledgeBtnText}>
+                    {snoozeMutation.isPending ? t('mainDashboard.alert.snoozing') : t('dashboardHome.alerts.snooze')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
               {canDismissAlert ? (
                 <TouchableOpacity
                   style={styles.acknowledgeBtn}
                   onPress={() => {
                     void handleDismissAlert(selectedAlert);
                   }}
-                  disabled={dismissMutation.isPending}
+                  disabled={dismissMutation.isPending || snoozeMutation.isPending}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.acknowledgeBtnText}>
@@ -1774,6 +1857,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </View>
             {dismissMutation.isError ? (
               <Text style={styles.dismissErrorText}>{t(adminErrorKey(dismissMutation.error))}</Text>
+            ) : null}
+            {snoozeMutation.isError ? (
+              <Text style={styles.dismissErrorText}>{t(adminErrorKey(snoozeMutation.error))}</Text>
             ) : null}
           </View>
 
@@ -4298,6 +4384,7 @@ const styles = StyleSheet.create({
   },
   alertDetailBtnRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 24,
   },

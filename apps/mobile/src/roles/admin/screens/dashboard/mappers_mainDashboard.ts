@@ -23,7 +23,7 @@ import { parseKgToGrams } from '../../money/quantity';
 import { formatPaise } from '../../money/paise';
 import { toBatchRow } from '../warehouse/inventory/mappers';
 import { hasKey, t, type TranslationKey } from '../../i18n';
-import { formatAdminDay, isOnIstDay, istDay, istHour, relativeTime } from '../../utils/datetime';
+import { formatAdminDate, formatAdminDay, isOnIstDay, istDay, istHour, relativeTime } from '../../utils/datetime';
 import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
 import type { WarehouseScope } from '../warehouse/finance-expenses/types';
 import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
@@ -496,6 +496,10 @@ export interface DashboardAlert {
   /** The server's message key worded through the catalogue, with formatted kg. */
   detail: string;
   target: AlertTarget;
+  /** True for an alert the caller snoozed (GET /admin/alerts?state=snoozed). */
+  snoozed: boolean;
+  /** When the snooze ends, as IST text; null for an active alert. */
+  snoozedUntil: string | null;
 }
 
 function alertTargetOf(type: string): AlertTarget {
@@ -531,8 +535,28 @@ export function toDashboardAlerts(
       time: row.timestamp,
       detail: row.detail,
       target: alertTargetOf(dto.type),
+      snoozed: dto.state === 'SNOOZED',
+      snoozedUntil: dto.snoozedUntil === null ? null : formatAdminDate(dto.snoozedUntil, now),
     };
   });
+}
+
+/** The alert types the type filter offers, in the order the chips show them (docs/openapi.yaml AlertType). */
+export const ALERT_TYPE_FILTERS = ['all', 'LOW_STOCK', 'BATCH_NEAR_EXPIRY', 'CAPACITY_NEAR_FULL'] as const;
+export type AlertTypeFilter = (typeof ALERT_TYPE_FILTERS)[number];
+
+/** How many alerts each chip holds: `all` is the whole list, a type with none is a real 0. */
+export function countDashboardAlerts(alerts: readonly DashboardAlert[]): Record<AlertTypeFilter, number> {
+  const counts: Record<AlertTypeFilter, number> = { all: alerts.length, LOW_STOCK: 0, BATCH_NEAR_EXPIRY: 0, CAPACITY_NEAR_FULL: 0 };
+  for (const alert of alerts) {
+    if (alert.type === 'LOW_STOCK' || alert.type === 'BATCH_NEAR_EXPIRY' || alert.type === 'CAPACITY_NEAR_FULL') counts[alert.type] += 1;
+  }
+  return counts;
+}
+
+/** The alerts of one type, or all of them. A type the app does not know shows under `all` only. */
+export function filterDashboardAlerts(alerts: readonly DashboardAlert[], filter: AlertTypeFilter): DashboardAlert[] {
+  return filter === 'all' ? [...alerts] : alerts.filter((alert) => alert.type === filter);
 }
 
 export interface LowStockItem {
