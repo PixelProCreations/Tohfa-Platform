@@ -12,7 +12,7 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 });
 
 import { request } from '../../../shell/api/client';
-import { getTransferStatusCounts, getWarehouseCapacities } from '../api/dashboardFeeds';
+import { getOpenIssueCounts, getTransferStatusCounts, getWarehouseCapacities } from '../api/dashboardFeeds';
 
 const requestMock = vi.mocked(request);
 const WH_A = '11111111-1111-4111-8111-111111111111';
@@ -65,5 +65,33 @@ describe('roles/admin/api/dashboardFeeds.ts', () => {
     requestMock.mockResolvedValueOnce({ warehouseId: WH_A, capacityKg: null, usedKg: '0.000', availableKg: null, utilizationPercent: null });
     requestMock.mockRejectedValueOnce(new Error('boom'));
     await expect(getWarehouseCapacities([WH_A, WH_B])).rejects.toThrow('boom');
+  });
+
+  it('BR-103: counts open issues per warehouse from the exact list total (OPEN plus IN_PROGRESS), one 1-row page per status', async () => {
+    requestMock.mockImplementation(async (path: string) => {
+      const open = path.includes('status=OPEN');
+      const mine = path.includes(WH_A);
+      return { items: [], page: 1, pageSize: 1, total: mine ? (open ? 2 : 3) : open ? 0 : 4 };
+    });
+    const counts = await getOpenIssueCounts([WH_A, WH_B, WH_A]);
+    expect(counts).toEqual({ [WH_A]: 5, [WH_B]: 4 });
+    expect(requestMock).toHaveBeenCalledTimes(4);
+    for (const [path, init] of requestMock.mock.calls) {
+      expect(path).toMatch(/\/warehouses\/[0-9a-f-]+\/issues/);
+      expect(path).toContain('pageSize=1');
+      expect(init?.method).toBe('GET');
+    }
+    expect(requestMock.mock.calls.some(([path]) => path.includes('status=RESOLVED') || path.includes('status=CLOSED'))).toBe(false);
+  });
+
+  it('no warehouses is no request and no counts', async () => {
+    expect(await getOpenIssueCounts([])).toEqual({});
+    expect(requestMock).not.toHaveBeenCalled();
+  });
+
+  it('fails the whole issue count when one read fails (one error state, never a partial total)', async () => {
+    requestMock.mockResolvedValueOnce({ items: [], page: 1, pageSize: 1, total: 1 });
+    requestMock.mockRejectedValue(new Error('boom'));
+    await expect(getOpenIssueCounts([WH_A])).rejects.toThrow('boom');
   });
 });

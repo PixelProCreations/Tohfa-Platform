@@ -51,6 +51,7 @@ import { useAdminMutation, useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
 import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
 import { listWarehouseTransfers } from '../../api/warehouseTransfers';
+import { getOpenIssueCounts } from '../../api/dashboardFeeds';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
@@ -64,6 +65,7 @@ import { isOnIstDay, istDay, relativeTime } from '../../utils/datetime';
 import { t } from '../../i18n';
 import {
   DASHBOARD_PAGE_LIMIT,
+  EMPTY_ISSUE_FIGURES,
   EMPTY_RECEIPT_FIGURES,
   EMPTY_STOCK_FIGURES,
   EMPTY_TRANSFER_FIGURES,
@@ -71,10 +73,13 @@ import {
   barWidthPercent,
   capacityLevel,
   collectPages,
+  coveredWarehouseIds,
   countLabel,
   countOrdersPlacedOn,
   dashboardAccess,
+  deriveOpenIssues,
   deriveReceiptFigures,
+  deriveSalesCount,
   deriveStockFigures,
   deriveTransfers,
   figureOrPlaceholder,
@@ -805,6 +810,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     { enabled: canAllView && access.transfers },
   );
 
+  // Live open issues (GET /warehouses/{id}/issues, BR-103): the exact totals of the covered
+  // warehouses. Alerts are warnings the server derives; issues are what staff reported.
+  const coveredIds = useMemo(() => coveredWarehouseIds(warehouses, selectedWarehouseId), [warehouses, selectedWarehouseId]);
+  const issuesQuery = useAdminQuery(
+    adminKeys.scoped('warehouseIssues', selectedWarehouseId, { resource: 'open-count', ids: coveredIds.join(',') }),
+    (signal) => getOpenIssueCounts(coveredIds, signal),
+    { enabled: canAllView && access.issues && warehousesQuery.data !== undefined },
+  );
+
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
   // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
@@ -832,6 +846,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
   const transfersRawSrc = sourceOf(transfersQuery);
+  const issuesSrc = sourceOf(issuesQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
 
   const alertsList: DashboardAlert[] = useMemo(
@@ -873,6 +888,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const receiptFig = receiptsD.ok ? receiptsD.value : EMPTY_RECEIPT_FIGURES;
   const revenueD = useMemo(() => (salesSummary === undefined ? null : salesRevenueText(salesSummary)), [salesSummary]);
   const salesRevenueLabel = revenueD !== null && revenueD.ok ? revenueD.value : FIGURE_PLACEHOLDER;
+  const salesCountD = useMemo(() => (salesSummary === undefined ? null : deriveSalesCount(salesSummary)), [salesSummary]);
+  const salesCount = salesCountD !== null && salesCountD.ok ? salesCountD.value : 0;
+  const issuesD = useMemo(
+    () => (issuesQuery.data === undefined ? null : deriveOpenIssues(issuesQuery.data, coveredIds)),
+    [issuesQuery.data, coveredIds],
+  );
+  const issueFig = issuesD !== null && issuesD.ok ? issuesD.value : EMPTY_ISSUE_FIGURES;
 
   // A section's source: its queries plus the derivation built from them.
   const stockSrc = mergeSources(
@@ -897,7 +919,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     warehousesSrc,
     derivedSource(transfersD, () => void transfersQuery.refetch()),
   );
-  const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
+  const revenueSrc = mergeSources(
+    salesSrc,
+    derivedSource(revenueD, () => void salesSummaryQuery.refetch()),
+    derivedSource(salesCountD, () => void salesSummaryQuery.refetch()),
+  );
+  const issuesFigSrc = mergeSources(issuesSrc, derivedSource(issuesD, () => void issuesQuery.refetch()));
 
   const homeKpiSources = [
     stockSrc,
@@ -905,7 +932,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     ...(access.transfers ? [transfersSrc] : []),
     ordersSrc,
     ...(access.sales ? [revenueSrc] : []),
-    alertsSrc,
+    ...(access.issues ? [issuesFigSrc] : []),
   ];
   const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
 
@@ -1079,7 +1106,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <SectionGate sources={[stockSrc, receiptsSrc, alertsSrc]}>
+          <SectionGate sources={[stockSrc, receiptsSrc, ...(access.issues ? [issuesFigSrc] : [])]}>
           {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {stockFig.warehouses.map((row) => {
             const level = capacityLevel(row.utilizationBp);
@@ -1092,7 +1119,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             const progWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
             const stockStr = formatKg(row.stockGrams);
             const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === row.warehouseId).length;
-            const issuesCount = liveAlerts.filter((a) => a.warehouseId === row.warehouseId).length;
             const whName = row.name;
 
             return (
@@ -1122,10 +1148,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     <Text style={styles.whOverviewStatLabel}>Receipts</Text>
                     <Text style={styles.whOverviewStatVal}>{receiptsCount}</Text>
                   </View>
-                  <View style={styles.whOverviewStatCol}>
-                    <Text style={styles.whOverviewStatLabel}>Issues</Text>
-                    <Text style={styles.whOverviewStatVal}>{issuesCount}</Text>
-                  </View>
+                  {access.issues ? (
+                    <View style={styles.whOverviewStatCol}>
+                      <Text style={styles.whOverviewStatLabel}>Issues</Text>
+                      <Text style={styles.whOverviewStatVal}>{issueFig.byWarehouse[row.warehouseId] ?? 0}</Text>
+                    </View>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -2019,65 +2047,69 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* ─── 1. Today's Overview (KPI Grid) ─── */}
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
-                {/* Total Stock */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                {/* Total Stock: opens the capacity summary */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('warehouse_capacity')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.totalStock')}</Text>
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>{t('mainDashboard.kpi.inStock')}</Text>
-                </View>
+                </TouchableOpacity>
 
-                {/* Incoming Goods */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
+                {/* Incoming Goods: opens Receiving */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => openTab('Receiving')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.incoming')}</Text>
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
-                </View>
+                </TouchableOpacity>
 
-                {/* Pending Transfers */}
+                {/* Pending Transfers: opens the transfer list */}
                 {access.transfers ? (
-                  <View style={styles.kpiCard}>
-                    <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
+                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('inter_warehouse_transfer')} activeOpacity={0.75}>
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.pendingTransfers')}</Text>
                     <Text style={styles.kpiValue}>
                       {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
                     </Text>
                     <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ) : null}
 
-                {/* Today's Orders */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
+                {/* Today's Orders: opens the order list */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('customer_orders')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.orders')}</Text>
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(ordersSrc.status, () => countLabel(ordersToday.count, ordersToday.exact))}
                   </Text>
-                  <Text style={styles.kpiSub}>orders</Text>
-                </View>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.ordersSub')}</Text>
+                </TouchableOpacity>
 
-                {/* Sales */}
+                {/* Sales: today's paid revenue and how many sales stand behind it */}
                 {access.sales ? (
                   <TouchableOpacity
                     style={styles.kpiCard}
                     onPress={() => navigateWh('sales')}
                     activeOpacity={0.75}
                   >
-                    <Text style={styles.kpiLabel}>SALES</Text>
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.sales')}</Text>
                     <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
-                    <Text style={styles.kpiSub}>today</Text>
+                    <Text style={styles.kpiSub}>
+                      {t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status, () => String(salesCount)) })}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
 
-                {/* Open Issues */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(alertsSrc.status, () => String(liveAlerts.length))}
-                  </Text>
-                  <Text style={styles.kpiSub}>issues</Text>
-                </View>
+                {/* Open Issues: the real operational issues (BR-103), not the alert count */}
+                {access.issues ? (
+                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('operational_issues')} activeOpacity={0.75}>
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.openIssues')}</Text>
+                    <Text style={styles.kpiValue}>
+                      {figureOrPlaceholder(issuesFigSrc.status, () => String(issueFig.total))}
+                    </Text>
+                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.openIssuesSub')}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
               {homeKpiSources.some((s) => s.status === 'error') ? (
                 <AdminErrorState

@@ -49,6 +49,7 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'ordersQuery',
     'goodsReceiptsQuery',
     'alertsQuery',
+    'issuesQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -346,7 +347,7 @@ describe('permission gating: a figure whose rbac code is missing is not fetched 
 
   it('the Sales tile and the Pending Transfers tile are drawn only with their code', () => {
     expect(MAIN).toMatch(/\{access\.sales \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('sales'\)/);
-    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<View style=\{styles\.kpiCard\}>[\s\S]*?PENDING TRANSFERS/);
+    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<TouchableOpacity[\s\S]*?kpi\.pendingTransfers/);
   });
 
   it('Initiate Stock Transfer is drawn only with transfer.inter_warehouse.initiate, never as a button that answers "Permission Denied"', () => {
@@ -358,5 +359,42 @@ describe('permission gating: a figure whose rbac code is missing is not fetched 
   it('no fake "Export Successful" alert: the activity feed has no export endpoint (StorageFlow documents the prop as unused)', () => {
     expect(MAIN).not.toContain('Export Successful');
     expect(MAIN).not.toContain('onExportActivity');
+  });
+});
+
+describe('BR-103: Open Issues is the real operational-issue count, not the alert count', () => {
+  it('the tile and the per-warehouse Issues stat read the warehouse issue totals', () => {
+    expect(MAIN).toContain('getOpenIssueCounts(coveredIds, signal)');
+    expect(MAIN).toContain('issueFig.total');
+    expect(MAIN).toContain('issueFig.byWarehouse[row.warehouseId]');
+  });
+
+  it('no alert count is shown under an "issues" label', () => {
+    expect(MAIN).not.toContain('String(liveAlerts.length)');
+    expect(MAIN).not.toMatch(/liveAlerts\.filter\(\(a\) => a\.warehouseId === row\.warehouseId\)/);
+  });
+
+  it('is fetched and drawn only with warehouse.issue.view, and the tile opens the issues list', () => {
+    expect(MAIN).toContain('canAllView && access.issues');
+    expect(MAIN).toMatch(/\{access\.issues \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('operational_issues'\)/);
+  });
+});
+
+describe('KPI tiles open their module (old shell), with catalogue labels', () => {
+  it.each([
+    ['totalStock', "navigateWh('warehouse_capacity')"],
+    ['incoming', "openTab('Receiving')"],
+    ['orders', "navigateWh('customer_orders')"],
+    ['pendingTransfers', "navigateWh('inter_warehouse_transfer')"],
+  ])('the %s tile navigates', (name, call) => {
+    const at = MAIN.indexOf(`t('mainDashboard.kpi.${name}')`);
+    expect(at).toBeGreaterThan(-1);
+    const tile = MAIN.slice(Math.max(0, at - 500), at);
+    expect(tile).toContain(call);
+  });
+
+  it('the Sales tile says how many paid sales stand behind the revenue', () => {
+    expect(MAIN).toContain("t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status");
+    expect(MAIN).toContain('deriveSalesCount(salesSummary)');
   });
 });

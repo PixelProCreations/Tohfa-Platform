@@ -765,3 +765,52 @@ export function dashboardAccess(can: (code: string) => boolean): DashboardAccess
     transferInitiate: can(MAIN_DASHBOARD_CODES.transferInitiate),
   };
 }
+
+// ─── Open issues (BR-103) and the paid-sales count ───────────────────────────
+
+/** The warehouses a filter covers: every listed one, or the picked one. A filter naming none that is listed covers nothing. */
+export function coveredWarehouseIds(warehouses: readonly WarehouseDto[], selectedId: string | undefined): string[] {
+  if (selectedId === undefined) return warehouses.map((w) => w.id);
+  return warehouses.some((w) => w.id === selectedId) ? [selectedId] : [];
+}
+
+export interface OpenIssueFigures {
+  /** Open plus in-progress issues over the covered warehouses. */
+  total: number;
+  byWarehouse: Record<string, number>;
+}
+
+/** Zero figures for an issue count that has not loaded: never drawn, a gate or figureOrPlaceholder stands in front of it. */
+export const EMPTY_ISSUE_FIGURES: OpenIssueFigures = { total: 0, byWarehouse: {} };
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * GET /warehouses/{id}/issues totals over the covered warehouses. A covered
+ * warehouse with no count, or one that is not a whole number, fails the
+ * figure: a smaller total is never shown as the real one.
+ */
+export function deriveOpenIssues(counts: Readonly<Record<string, unknown>>, warehouseIds: readonly string[]): Derived<OpenIssueFigures> {
+  return attempt(() => {
+    const byWarehouse: Record<string, number> = {};
+    let total = 0;
+    for (const id of warehouseIds) {
+      const count = counts[id];
+      if (!isCount(count)) throw new DashboardDataError(`issue count of ${id} is not a count`);
+      byWarehouse[id] = count;
+      total += count;
+    }
+    return { total, byWarehouse };
+  });
+}
+
+/** The number of paid sales behind today's revenue; a missing or fractional count is a data error, never 0. */
+export function deriveSalesCount(summary: Pick<SalesDashboardSummaryDto, 'count'>): Derived<number> {
+  return attempt(() => {
+    const count: unknown = summary.count;
+    if (!isCount(count)) throw new DashboardDataError('sales count is not a count');
+    return count;
+  });
+}

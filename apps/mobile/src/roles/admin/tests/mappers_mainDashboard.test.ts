@@ -33,6 +33,9 @@ import {
   filterStockProducts,
   dashboardAccess,
   MAIN_DASHBOARD_CODES,
+  coveredWarehouseIds,
+  deriveOpenIssues,
+  deriveSalesCount,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -855,5 +858,60 @@ describe('dashboardAccess: one rbac code per optional dashboard source (docs/rba
     for (const code of Object.values(MAIN_DASHBOARD_CODES)) {
       expect({ code, known: rbac.includes(`"${code}"`) }).toEqual({ code, known: true });
     }
+  });
+});
+
+// ─── Open issues: the real operational issues, not the alert count ──────────
+
+describe('coveredWarehouseIds: the warehouses a filter covers', () => {
+  const live = [warehouse({ id: WH_A, name: 'Ooty Warehouse' }), warehouse({ id: WH_B, name: 'Coonoor Warehouse' })];
+
+  it('no filter covers every listed warehouse', () => {
+    expect(coveredWarehouseIds(live, undefined)).toEqual([WH_A, WH_B]);
+  });
+
+  it('a filter covers that warehouse only', () => {
+    expect(coveredWarehouseIds(live, WH_B)).toEqual([WH_B]);
+  });
+
+  it('a filter that is not a listed warehouse covers nothing, never the whole network', () => {
+    expect(coveredWarehouseIds(live, 'gone')).toEqual([]);
+  });
+});
+
+describe('BR-103: deriveOpenIssues', () => {
+  it('sums the per-warehouse counts over the covered warehouses and keeps each warehouse\'s own', () => {
+    const d = deriveOpenIssues({ [WH_A]: 5, [WH_B]: 4 }, [WH_A, WH_B]);
+    expect(d).toEqual({ ok: true, value: { total: 9, byWarehouse: { [WH_A]: 5, [WH_B]: 4 } } });
+  });
+
+  it('only the covered warehouses count', () => {
+    const d = deriveOpenIssues({ [WH_A]: 5, [WH_B]: 4 }, [WH_A]);
+    expect(d.ok && d.value.total).toBe(5);
+  });
+
+  it('zero open issues is a real, exact 0', () => {
+    const d = deriveOpenIssues({ [WH_A]: 0 }, [WH_A]);
+    expect(d).toEqual({ ok: true, value: { total: 0, byWarehouse: { [WH_A]: 0 } } });
+  });
+
+  it('a covered warehouse with no count, or a count that is not a whole number, is a data error and not a smaller total', () => {
+    expect(deriveOpenIssues({ [WH_A]: 5 }, [WH_A, WH_B]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: 2.5 }, [WH_A]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: -1 }, [WH_A]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: 'many' as unknown as number }, [WH_A]).ok).toBe(false);
+  });
+});
+
+describe('deriveSalesCount: the number of paid sales behind the revenue', () => {
+  it('reads the server count as a whole number', () => {
+    expect(deriveSalesCount({ count: 12 })).toEqual({ ok: true, value: 12 });
+    expect(deriveSalesCount({ count: 0 })).toEqual({ ok: true, value: 0 });
+  });
+
+  it('a missing or fractional count is a data error, never 0', () => {
+    expect(deriveSalesCount({} as { count: number }).ok).toBe(false);
+    expect(deriveSalesCount({ count: 1.5 }).ok).toBe(false);
+    expect(deriveSalesCount({ count: -1 }).ok).toBe(false);
   });
 });
