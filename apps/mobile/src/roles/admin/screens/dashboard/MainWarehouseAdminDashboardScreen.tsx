@@ -52,7 +52,9 @@ import { adminKeys } from '../../api/queryKeys';
 import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
 import { listWarehouseTransfers } from '../../api/warehouseTransfers';
 import { getOpenIssueCounts } from '../../api/dashboardFeeds';
-import { useDashboardSalesSummary, useWarehousesPerformance } from '../warehouse/dashboard-home-more/useDashboardKpis';
+import { useDashboardSalesSummary, useRecentActivityPages, useWarehousesPerformance } from '../warehouse/dashboard-home-more/useDashboardKpis';
+import { activitySubLine, activityTimelineLine, mergeRecentActivity } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
+import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
@@ -339,6 +341,22 @@ function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; colo
   );
 }
 
+function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M4 13h4l2 3h4l2-3h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 7v5M9 9.5l3 3 3-3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -565,6 +583,8 @@ const NO_ALERTS: AlertItemDto[] = [];
  * hidden, so a few more are fetched to fill them. A page size, not a threshold.
  */
 const ACTIVITY_FETCH_LIMIT = 10;
+/** Rows of live events in Recent Activity: a list length, not a business limit. */
+const RECENT_ACTIVITY_ROWS = 3;
 
 /** The sub-view each alert type opens as its related record. */
 const ALERT_TARGET_ROUTE: Record<AlertTarget, WarehouseSubView> = {
@@ -829,6 +849,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const perfMtdQuery = useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView === 'warehouse_performance');
   const salesMtdQuery = useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now), canAllView && access.sales && whSubView === 'warehouse_performance');
 
+  // The newest events of the covered warehouses (GET /warehouses/{id}/activity, BR-104): stock
+  // movements, receipts, transfers, issues, returns, documents. Needs warehouse.activity.view.
+  const activityQuery = useRecentActivityPages(coveredIds, RECENT_ACTIVITY_ROWS, canAllView && access.activity && warehousesQuery.data !== undefined);
+
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
   // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
@@ -858,6 +882,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const transfersRawSrc = sourceOf(transfersQuery);
   const issuesSrc = sourceOf(issuesQuery);
   const perfTodaySrc = sourceOf(perfTodayQuery);
+  const activitySrc = sourceOf(activityQuery);
   const perfMtdSrc = sourceOf(perfMtdQuery);
   const salesMtdSrc = sourceOf(salesMtdQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
@@ -968,6 +993,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const qualityIssuesCount =
     receiptFig.discrepancies + (taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC'));
   const activityRows = useMemo(() => toRecentActivity(openTasks, warehouses, now), [openTasks, warehouses]);
+  const activityFeed = useMemo(
+    () => mergeRecentActivity(activityQuery.pages, toListOptions(warehouses), now, RECENT_ACTIVITY_ROWS),
+    // `now` changes every render, so the relative time is as of the last data change.
+    [activityQuery.pages, warehouses],
+  );
 
   const lowStockItems = useMemo(
     () => toLowStockItems(liveAlerts, batches, warehouses),
@@ -2242,7 +2272,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc, perfTodayFigSrc]}>
+              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc, perfTodayFigSrc, ...(access.activity ? [activitySrc] : [])]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2324,12 +2354,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
                   <Text style={styles.operationsTimelineSub}>
-                    {goodsReceipts[0]
-                      ? t('mainDashboard.timeline.goodsReceived', {
-                          grn: goodsReceipts[0].grnNumber,
-                          time: relativeTime(goodsReceipts[0].receivedAt, now),
-                        })
-                      : t('mainDashboard.timeline.empty')}
+                    {access.activity
+                      ? activityTimelineLine(activityFeed[0])
+                      : goodsReceipts[0]
+                        ? t('mainDashboard.timeline.goodsReceived', {
+                            grn: goodsReceipts[0].grnNumber,
+                            time: relativeTime(goodsReceipts[0].receivedAt, now),
+                          })
+                        : t('mainDashboard.timeline.empty')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2389,12 +2421,42 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              <SectionGate sources={[openTasksSrc]}>
+              <SectionGate sources={[openTasksSrc, ...(access.activity ? [activitySrc] : [])]}>
               <View style={styles.recentActivityCard}>
+                {/* The newest events (BR-104), then the open tasks #128 lists. */}
+                {activityFeed.map((row, idx) => (
+                  <React.Fragment key={row.key}>
+                    {idx > 0 && <View style={styles.activityDivider} />}
+                    <TouchableOpacity
+                      style={styles.activityItemRow}
+                      onPress={() => {
+                        if (row.type === 'TRANSFER') navigateWh('inter_warehouse_transfer');
+                        else if (row.type === 'GOODS_RECEIPT') openTab('Receiving');
+                        else navigateWh('warehouse_activity');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.activityIconBox}>
+                        {row.type === 'TRANSFER' ? (
+                          <TruckIcon size={18} color={PALETTE.primary} />
+                        ) : (
+                          <InboxReceiveIcon size={18} color={PALETTE.primary} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.activityTitle}>
+                          {t('mainDashboard.activity.title', { type: row.typeLabel, reference: row.reference })}
+                        </Text>
+                        <Text style={styles.activitySub}>{activitySubLine(row)}</Text>
+                      </View>
+                      <Text style={styles.activityTime}>{row.when}</Text>
+                    </TouchableOpacity>
+                  </React.Fragment>
+                ))}
                 {activityRows.map((row, idx) => {
-                  const isLast = idx === activityRows.length - 1;
                   return (
                     <React.Fragment key={row.id}>
+                      {(idx > 0 || activityFeed.length > 0) && <View style={styles.activityDivider} />}
                       <TouchableOpacity
                         style={styles.activityItemRow}
                         onPress={() => navigateWh('activity_timeline_ops')}
@@ -2409,13 +2471,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         </View>
                         <Text style={styles.activityTime}>{row.time}</Text>
                       </TouchableOpacity>
-                      {!isLast && <View style={styles.activityDivider} />}
                     </React.Fragment>
                   );
                 })}
-                {activityRows.length === 0 && (
+                {activityFeed.length === 0 && activityRows.length === 0 && (
                   <View style={{ padding: 16 }}>
-                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>No recent activity recorded</Text>
+                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>{t('mainDashboard.activity.none')}</Text>
                   </View>
                 )}
               </View>

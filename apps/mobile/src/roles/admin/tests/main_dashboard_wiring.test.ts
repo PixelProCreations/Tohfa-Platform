@@ -53,6 +53,7 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'perfTodayQuery',
     'perfMtdQuery',
     'salesMtdQuery',
+    'activityQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -431,5 +432,36 @@ describe('BR-80: Warehouse Performance carries the month-to-date figures the old
 
   it('the shared hooks are reused, not re-implemented: no second performance client in the screen', () => {
     expect(MAIN).not.toContain('getWarehousePerformance(');
+  });
+});
+
+describe('BR-104: Recent Activity and the timeline read the warehouse activity feed (old shell)', () => {
+  it('reads the first feed page of the covered warehouses through the shared hook, only with warehouse.activity.view', () => {
+    expect(MAIN).toContain('useRecentActivityPages(coveredIds, RECENT_ACTIVITY_ROWS, canAllView && access.activity');
+    expect(MAIN).toContain('mergeRecentActivity(activityQuery.pages');
+  });
+
+  it('events are worded through the catalogue (activitySubLine, mainDashboard.activity.title), never as raw enums', () => {
+    expect(MAIN).toContain("t('mainDashboard.activity.title', { type: row.typeLabel, reference: row.reference })");
+    expect(MAIN).toContain('activitySubLine(row)');
+  });
+
+  it('a feed row opens its record: transfers to the transfer list, goods receipts to Receiving, the rest to the activity log', () => {
+    expect(MAIN).toMatch(/row\.type === 'TRANSFER'[\s\S]*?navigateWh\('inter_warehouse_transfer'\)/);
+    expect(MAIN).toMatch(/row\.type === 'GOODS_RECEIPT'[\s\S]*?openTab\('Receiving'\)/);
+  });
+
+  it('the Activity Timeline line is the newest event of any type, not only the last goods receipt', () => {
+    expect(MAIN).toContain('activityTimelineLine(activityFeed[0])');
+  });
+
+  it("the open-task rows #128 shows stay (toRecentActivity), after the events", () => {
+    expect(MAIN).toContain('toRecentActivity(openTasks, warehouses, now)');
+    expect(MAIN.indexOf('activityFeed.map(')).toBeGreaterThan(-1);
+    expect(MAIN.indexOf('activityRows.map(')).toBeGreaterThan(MAIN.indexOf('activityFeed.map('));
+  });
+
+  it('the section is gated: while the feed loads or fails there is a spinner or an error with Retry, not "No recent activity"', () => {
+    expect(MAIN).toContain('<SectionGate sources={[openTasksSrc, ...(access.activity ? [activitySrc] : [])]}>');
   });
 });
