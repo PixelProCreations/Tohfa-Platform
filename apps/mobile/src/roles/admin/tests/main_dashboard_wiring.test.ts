@@ -50,6 +50,9 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'goodsReceiptsQuery',
     'alertsQuery',
     'issuesQuery',
+    'perfTodayQuery',
+    'perfMtdQuery',
+    'salesMtdQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -396,5 +399,37 @@ describe('KPI tiles open their module (old shell), with catalogue labels', () =>
   it('the Sales tile says how many paid sales stand behind the revenue', () => {
     expect(MAIN).toContain("t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status");
     expect(MAIN).toContain('deriveSalesCount(salesSummary)');
+  });
+});
+
+describe('BR-80: Warehouse Performance carries the month-to-date figures the old shell showed', () => {
+  it('reads the server-exact performance of the covered warehouses over the IST month, only while the view is open', () => {
+    expect(MAIN).toContain('useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView ===');
+    expect(MAIN).toContain("'warehouse_performance'");
+    expect(MAIN).toContain('derivePerformance(perfMtdQuery.data)');
+  });
+
+  it('shows receipts, received kg, orders placed and fulfilled, rejected kg and returns, from integer grams', () => {
+    for (const field of ['goodsReceipts', 'grossGrams', 'ordersPlaced', 'ordersFulfilled', 'rejectedGrams', 'returnsRequested']) {
+      expect(MAIN).toContain(`perfMtd.${field}`);
+    }
+    expect(MAIN).toContain('formatKg(perfMtd.grossGrams)');
+    expect(MAIN).toContain('formatKg(perfMtd.rejectedGrams)');
+  });
+
+  it('month-to-date sales (revenue through paise, and the paid-sales count) need sales.dashboard.view', () => {
+    expect(MAIN).toContain('useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now)');
+    expect(MAIN).toContain('salesRevenueText(salesMtdQuery.data)');
+    expect(MAIN).toContain('deriveSalesCount(salesMtdQuery.data)');
+  });
+
+  it("the Quality card also says how many returns were requested today (BR-80 returns.requested)", () => {
+    expect(MAIN).toContain('useWarehousesPerformance(coveredIds, { from: today, to: today }');
+    expect(MAIN).toContain('perfToday.returnsRequested');
+    expect(EN['mainDashboard.ops.returns']).toBe('Returns today');
+  });
+
+  it('the shared hooks are reused, not re-implemented: no second performance client in the screen', () => {
+    expect(MAIN).not.toContain('getWarehousePerformance(');
   });
 });

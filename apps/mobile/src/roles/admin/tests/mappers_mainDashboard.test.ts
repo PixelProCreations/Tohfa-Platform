@@ -36,6 +36,8 @@ import {
   coveredWarehouseIds,
   deriveOpenIssues,
   deriveSalesCount,
+  derivePerformance,
+  monthToDateRange,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -913,5 +915,51 @@ describe('deriveSalesCount: the number of paid sales behind the revenue', () => 
     expect(deriveSalesCount({} as { count: number }).ok).toBe(false);
     expect(deriveSalesCount({ count: 1.5 }).ok).toBe(false);
     expect(deriveSalesCount({ count: -1 }).ok).toBe(false);
+  });
+});
+
+// ─── Performance (BR-80): exact server counts for a range ───────────────────
+
+describe('monthToDateRange: the IST month so far, from utils/datetime', () => {
+  it('runs from the 1st of the IST month to the IST day', () => {
+    expect(monthToDateRange(new Date('2026-10-20T08:00:00Z'))).toEqual({ from: '2026-10-01', to: '2026-10-20' });
+  });
+
+  it('uses the IST calendar, not UTC: 19:00 UTC on 31 Oct is already 1 Nov in India', () => {
+    expect(monthToDateRange(new Date('2026-10-31T19:00:00Z'))).toEqual({ from: '2026-11-01', to: '2026-11-01' });
+  });
+
+  it('the 1st of the month is a one-day range', () => {
+    expect(monthToDateRange(new Date('2026-10-01T03:00:00Z'))).toEqual({ from: '2026-10-01', to: '2026-10-01' });
+  });
+});
+
+describe('BR-80: derivePerformance', () => {
+  const totals = {
+    goodsReceipts: 4,
+    grossGrams: 100501,
+    acceptedGrams: 90001,
+    rejectedGrams: 10500,
+    ordersPlaced: 7,
+    ordersFulfilled: 4,
+    ordersCancelled: 2,
+    returnsRequested: 2,
+  };
+
+  it('passes exact counts and integer grams through', () => {
+    const d = derivePerformance(totals);
+    expect(d).toEqual({ ok: true, value: totals });
+    expect(d.ok && Number.isInteger(d.value.grossGrams)).toBe(true);
+  });
+
+  it('a quantity the sum could not read (null grams) is a data error, never shown as 0 kg', () => {
+    expect(derivePerformance({ ...totals, grossGrams: null }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, acceptedGrams: null }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, rejectedGrams: null }).ok).toBe(false);
+  });
+
+  it('a count that is not a whole number is a data error', () => {
+    expect(derivePerformance({ ...totals, ordersPlaced: 1.5 }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, returnsRequested: Number.NaN }).ok).toBe(false);
   });
 });

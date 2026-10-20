@@ -2436,6 +2436,7 @@
   "mainDashboard.inventory.lowStock": "LOW STOCK SKUS",
   "mainDashboard.inventory.lowStockSub": "active alerts",
   "mainDashboard.inventory.summary": "Warehouse Summary",
+  "mainDashboard.performance.monthToDate": "Month to date",
   "mainDashboard.performance.range": "{{from}} to {{to}} · {{scope}}",
   "mainDashboard.performance.receipts": "Goods Receipts",
   "mainDashboard.performance.received": "Received",

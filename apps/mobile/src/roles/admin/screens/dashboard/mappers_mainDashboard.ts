@@ -23,11 +23,12 @@ import { parseKgToGrams } from '../../money/quantity';
 import { formatPaise } from '../../money/paise';
 import { toBatchRow } from '../warehouse/inventory/mappers';
 import { hasKey, t, type TranslationKey } from '../../i18n';
-import { formatAdminDay, isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
+import { formatAdminDay, isOnIstDay, istDay, istHour, relativeTime } from '../../utils/datetime';
 import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
 import type { WarehouseScope } from '../warehouse/finance-expenses/types';
 import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
 import { queryViewState } from '../warehouse/shared/queryViewState';
+import type { PerformanceTotals } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
 
 // ─── View states ─────────────────────────────────────────────────────────────
 
@@ -812,5 +813,64 @@ export function deriveSalesCount(summary: Pick<SalesDashboardSummaryDto, 'count'
     const count: unknown = summary.count;
     if (!isCount(count)) throw new DashboardDataError('sales count is not a count');
     return count;
+  });
+}
+
+// ─── Performance (GET /warehouses/{id}/performance, BR-80) ───────────────────
+
+/** The IST month so far as the inclusive `{ from, to }` range the performance and sales reads take. */
+export function monthToDateRange(now: Date): { from: string; to: string } {
+  const day = istDay(now);
+  return { from: `${day.slice(0, 8)}01`, to: day };
+}
+
+/** The server's exact counts for a range, summed over the covered warehouses; weights as integer grams. */
+export interface MainPerformance {
+  goodsReceipts: number;
+  grossGrams: number;
+  acceptedGrams: number;
+  rejectedGrams: number;
+  ordersPlaced: number;
+  ordersFulfilled: number;
+  ordersCancelled: number;
+  returnsRequested: number;
+}
+
+export const EMPTY_PERFORMANCE: MainPerformance = {
+  goodsReceipts: 0,
+  grossGrams: 0,
+  acceptedGrams: 0,
+  rejectedGrams: 0,
+  ordersPlaced: 0,
+  ordersFulfilled: 0,
+  ordersCancelled: 0,
+  returnsRequested: 0,
+};
+
+/**
+ * The summed performance as figures. A quantity the sum could not read (null
+ * grams) or a count that is not a whole number fails the figure, so the screen
+ * draws the error state a failed request gets and never "0 kg".
+ */
+export function derivePerformance(totals: PerformanceTotals): Derived<MainPerformance> {
+  return attempt(() => {
+    const grams = (value: number | null, what: string): number => {
+      if (value === null || !Number.isInteger(value)) throw new DashboardDataError(`${what} is not a quantity`);
+      return value;
+    };
+    const count = (value: number, what: string): number => {
+      if (!isCount(value)) throw new DashboardDataError(`${what} is not a count`);
+      return value;
+    };
+    return {
+      goodsReceipts: count(totals.goodsReceipts, 'goodsReceipts'),
+      grossGrams: grams(totals.grossGrams, 'grossGrams'),
+      acceptedGrams: grams(totals.acceptedGrams, 'acceptedGrams'),
+      rejectedGrams: grams(totals.rejectedGrams, 'rejectedGrams'),
+      ordersPlaced: count(totals.ordersPlaced, 'ordersPlaced'),
+      ordersFulfilled: count(totals.ordersFulfilled, 'ordersFulfilled'),
+      ordersCancelled: count(totals.ordersCancelled, 'ordersCancelled'),
+      returnsRequested: count(totals.returnsRequested, 'returnsRequested'),
+    };
   });
 }

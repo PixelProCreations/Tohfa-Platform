@@ -52,6 +52,7 @@ import { adminKeys } from '../../api/queryKeys';
 import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
 import { listWarehouseTransfers } from '../../api/warehouseTransfers';
 import { getOpenIssueCounts } from '../../api/dashboardFeeds';
+import { useDashboardSalesSummary, useWarehousesPerformance } from '../warehouse/dashboard-home-more/useDashboardKpis';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
@@ -66,6 +67,7 @@ import { t } from '../../i18n';
 import {
   DASHBOARD_PAGE_LIMIT,
   EMPTY_ISSUE_FIGURES,
+  EMPTY_PERFORMANCE,
   EMPTY_RECEIPT_FIGURES,
   EMPTY_STOCK_FIGURES,
   EMPTY_TRANSFER_FIGURES,
@@ -77,6 +79,7 @@ import {
   countLabel,
   countOrdersPlacedOn,
   dashboardAccess,
+  derivePerformance,
   deriveOpenIssues,
   deriveReceiptFigures,
   deriveSalesCount,
@@ -86,6 +89,7 @@ import {
   findWarehouseByName,
   formatUtilization,
   greetingKey,
+  monthToDateRange,
   openTaskCount,
   receiptsOnDay,
   salesRevenueText,
@@ -819,6 +823,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     { enabled: canAllView && access.issues && warehousesQuery.data !== undefined },
   );
 
+  // Server-exact performance (GET /warehouses/{id}/performance, BR-80) of the covered warehouses:
+  // today (for the returns count) and, only while Warehouse Performance is open, the IST month so far.
+  const perfTodayQuery = useWarehousesPerformance(coveredIds, { from: today, to: today }, canAllView && warehousesQuery.data !== undefined);
+  const perfMtdQuery = useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView === 'warehouse_performance');
+  const salesMtdQuery = useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now), canAllView && access.sales && whSubView === 'warehouse_performance');
+
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
   // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
@@ -847,6 +857,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const alertsSrc = sourceOf(alertsQuery);
   const transfersRawSrc = sourceOf(transfersQuery);
   const issuesSrc = sourceOf(issuesQuery);
+  const perfTodaySrc = sourceOf(perfTodayQuery);
+  const perfMtdSrc = sourceOf(perfMtdQuery);
+  const salesMtdSrc = sourceOf(salesMtdQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
 
   const alertsList: DashboardAlert[] = useMemo(
@@ -923,6 +936,22 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     salesSrc,
     derivedSource(revenueD, () => void salesSummaryQuery.refetch()),
     derivedSource(salesCountD, () => void salesSummaryQuery.refetch()),
+  );
+  const perfTodayD = useMemo(() => (perfTodayQuery.data === undefined ? null : derivePerformance(perfTodayQuery.data)), [perfTodayQuery.data]);
+  const perfToday = perfTodayD !== null && perfTodayD.ok ? perfTodayD.value : EMPTY_PERFORMANCE;
+  const perfTodayFigSrc = mergeSources(perfTodaySrc, derivedSource(perfTodayD, () => void perfTodayQuery.refetch()));
+  const perfMtdD = useMemo(() => (perfMtdQuery.data === undefined ? null : derivePerformance(perfMtdQuery.data)), [perfMtdQuery.data]);
+  const perfMtd = perfMtdD !== null && perfMtdD.ok ? perfMtdD.value : EMPTY_PERFORMANCE;
+  const perfMtdFigSrc = mergeSources(perfMtdSrc, derivedSource(perfMtdD, () => void perfMtdQuery.refetch()));
+  const salesMtdRevenueD = useMemo(
+    () => (salesMtdQuery.data === undefined ? null : salesRevenueText(salesMtdQuery.data)),
+    [salesMtdQuery.data],
+  );
+  const salesMtdCountD = useMemo(() => (salesMtdQuery.data === undefined ? null : deriveSalesCount(salesMtdQuery.data)), [salesMtdQuery.data]);
+  const salesMtdFigSrc = mergeSources(
+    salesMtdSrc,
+    derivedSource(salesMtdRevenueD, () => void salesMtdQuery.refetch()),
+    derivedSource(salesMtdCountD, () => void salesMtdQuery.refetch()),
   );
   const issuesFigSrc = mergeSources(issuesSrc, derivedSource(issuesD, () => void issuesQuery.refetch()));
 
@@ -1327,6 +1356,58 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
+          </SectionGate>
+
+          {/* Month to date: the server's exact counts (BR-80) and paid sales (BR-96) over the IST month so far */}
+          <Text style={styles.overviewSectionHeading}>{t('mainDashboard.performance.monthToDate')}</Text>
+          <Text style={styles.whOverviewStatLabel}>
+            {t('mainDashboard.performance.range', { from: monthToDateRange(now).from, to: monthToDateRange(now).to, scope: filterLabel })}
+          </Text>
+          <SectionGate sources={[perfMtdFigSrc, ...(access.sales ? [salesMtdFigSrc] : [])]}>
+            <View style={styles.metricsGridCard}>
+              <View style={styles.twoByTwoRow}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.receipts')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.goodsReceipts}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.received')}</Text>
+                  <Text style={styles.twoByTwoVal}>{formatKg(perfMtd.grossGrams)}</Text>
+                </View>
+              </View>
+              <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersPlaced')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.ordersPlaced}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersFulfilled')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.ordersFulfilled}</Text>
+                </View>
+              </View>
+              <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.rejected')}</Text>
+                  <Text style={styles.twoByTwoVal}>{formatKg(perfMtd.rejectedGrams)}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.returns')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.returnsRequested}</Text>
+                </View>
+              </View>
+              {access.sales ? (
+                <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                  <View style={styles.twoByTwoCol}>
+                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.sales')}</Text>
+                    <Text style={styles.twoByTwoVal}>{salesMtdRevenueD !== null && salesMtdRevenueD.ok ? salesMtdRevenueD.value : FIGURE_PLACEHOLDER}</Text>
+                  </View>
+                  <View style={styles.twoByTwoCol}>
+                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.salesCount')}</Text>
+                    <Text style={styles.twoByTwoVal}>{salesMtdCountD !== null && salesMtdCountD.ok ? salesMtdCountD.value : FIGURE_PLACEHOLDER}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
           </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
@@ -2161,7 +2242,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc]}>
+              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc, perfTodayFigSrc]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2226,6 +2307,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     </Text>
                     <Text style={styles.operationsMetricText}>
                       Rejected <Text style={styles.operationsMetricRed}>{receiptFig.rejected}</Text>
+                    </Text>
+                    <Text style={styles.operationsMetricText}>
+                      {t('mainDashboard.ops.returns')} <Text style={styles.operationsMetricBold}>{perfToday.returnsRequested}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
