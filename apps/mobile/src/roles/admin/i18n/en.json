@@ -2477,6 +2477,7 @@
   "mainDashboard.timeline.goodsReceived": "Goods received — {{grn}} · {{time}}",
   "mainDashboard.timeline.empty": "No operations recorded yet today",
   "mainDashboard.pending.returnsApproval": "Returns Awaiting Approval",
+  "mainDashboard.pending.adjustments": "Stock Adjustments Pending Approval",
   "mainDashboard.transfer.status.pendingApproval": "Pending approval",
   "mainDashboard.transfer.status.inTransit": "In transit",
   "mainDashboard.transfer.status.received": "Received",

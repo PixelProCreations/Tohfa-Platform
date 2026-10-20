@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { BatchDto } from '../api/inventory';
+import type { AllocationDto, BatchDto } from '../api/inventory';
 import type { AlertItemDto } from '../api/alerts';
 import type { OrderSummaryDto } from '../api/orders';
 import type { GoodsReceiptDto } from '../api/receiving';
@@ -40,6 +40,8 @@ import {
   monthToDateRange,
   countDashboardAlerts,
   filterDashboardAlerts,
+  deriveAllocatedGrams,
+  derivePendingAdjustments,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -1014,5 +1016,44 @@ describe('alert type filter: counts and filtering over what the server returned'
     expect(countDashboardAlerts(odd)).toEqual({ all: 1, LOW_STOCK: 0, BATCH_NEAR_EXPIRY: 0, CAPACITY_NEAR_FULL: 0 });
     expect(filterDashboardAlerts(odd, 'LOW_STOCK')).toEqual([]);
     expect(filterDashboardAlerts(odd, 'all')).toHaveLength(1);
+  });
+});
+
+// ─── Inventory tab: allocated stock and pending adjustments ─────────────────
+
+describe('deriveAllocatedGrams: stock allocated to channels, as integer grams', () => {
+  const alloc = (over: Partial<AllocationDto> & Pick<AllocationDto, 'allocatedQtyKg'>): AllocationDto => ({
+    id: `a-${over.allocatedQtyKg}`,
+    warehouseId: WH_A,
+    cropId: CARROT,
+    grade: 'GRADE_1',
+    allocationDate: '2026-10-20',
+    channel: 'ONLINE',
+    ...over,
+  });
+
+  it('0.100 kg + 0.200 kg is exactly 300 g', () => {
+    expect(deriveAllocatedGrams([alloc({ allocatedQtyKg: '0.100' }), alloc({ id: 'b', allocatedQtyKg: '0.200' })])).toEqual({ ok: true, value: 300 });
+  });
+
+  it('no allocations is a real, exact 0', () => {
+    expect(deriveAllocatedGrams([])).toEqual({ ok: true, value: 0 });
+  });
+
+  it('an unreadable quantity is a data error, never a silently smaller total', () => {
+    expect(deriveAllocatedGrams([alloc({ allocatedQtyKg: '5.000' }), alloc({ id: 'x', allocatedQtyKg: 'lots' })]).ok).toBe(false);
+  });
+});
+
+describe('BR-37: derivePendingAdjustments', () => {
+  it('is the server total of PENDING adjustments, a whole number', () => {
+    expect(derivePendingAdjustments(3)).toEqual({ ok: true, value: 3 });
+    expect(derivePendingAdjustments(0)).toEqual({ ok: true, value: 0 });
+  });
+
+  it('a total that is not a whole number is a data error, never 0', () => {
+    expect(derivePendingAdjustments(undefined).ok).toBe(false);
+    expect(derivePendingAdjustments(2.5).ok).toBe(false);
+    expect(derivePendingAdjustments('3').ok).toBe(false);
   });
 });

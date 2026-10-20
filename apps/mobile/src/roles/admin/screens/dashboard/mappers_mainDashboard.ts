@@ -12,6 +12,7 @@
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { BatchDto } from '../../api/inventory';
 import type { AlertItemDto } from '../../api/alerts';
+import type { AllocationDto } from '../../api/inventory';
 import type { OrderSummaryDto } from '../../api/orders';
 import type { GoodsReceiptDto } from '../../api/receiving';
 import type { TaskItemDto, TaskSummaryDto, TaskType } from '../../api/tasks';
@@ -896,5 +897,24 @@ export function derivePerformance(totals: PerformanceTotals): Derived<MainPerfor
       ordersCancelled: count(totals.ordersCancelled, 'ordersCancelled'),
       returnsRequested: count(totals.returnsRequested, 'returnsRequested'),
     };
+  });
+}
+
+// ─── Inventory tab ───────────────────────────────────────────────────────────
+
+/**
+ * Stock allocated to the channels (GET /admin/allocations, BR-12), summed as
+ * integer grams. An unreadable quantity fails the figure instead of leaving a
+ * smaller total on screen.
+ */
+export function deriveAllocatedGrams(allocations: readonly AllocationDto[]): Derived<number> {
+  return attempt(() => allocations.reduce((sum, row) => sum + requiredGrams(row.allocatedQtyKg, 'allocatedQtyKg'), 0));
+}
+
+/** The server's total of PENDING stock adjustments (GET /admin/stock-adjustments, BR-37): a whole number or a data error. */
+export function derivePendingAdjustments(total: unknown): Derived<number> {
+  return attempt(() => {
+    if (!isCount(total)) throw new DashboardDataError('adjustment total is not a count');
+    return total;
   });
 }

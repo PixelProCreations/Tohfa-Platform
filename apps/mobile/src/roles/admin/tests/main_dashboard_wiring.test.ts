@@ -55,6 +55,8 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'salesMtdQuery',
     'activityQuery',
     'snoozedAlertsQuery',
+    'allocationsQuery',
+    'adjustmentsQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -503,5 +505,31 @@ describe('BR-78: the Alerts & Action Center snoozes alerts and lists the snoozed
       expect({ key, has: key in EN }).toEqual({ key, has: true });
     }
     expect(EN['mainDashboard.alert.snoozed.body']).toMatch(/your list only/);
+  });
+});
+
+describe('Inventory tab: Allocated is the channel allocation, and the adjustment queue is reachable (old shell)', () => {
+  it('Allocated reads GET /admin/allocations through integer grams, not the batches\' reserved weight', () => {
+    expect(MAIN).toContain('listAllocations({ warehouseId: selectedWarehouseId');
+    expect(MAIN).toContain('deriveAllocatedGrams(allocationsQuery.data.items)');
+    expect(MAIN).toContain('formatKg(allocatedGrams)');
+    expect(MAIN).not.toMatch(/ALLOCATED<\/Text>\s*<Text[^>]*>\s*\{figureOrPlaceholder\(stockSrc\.status, \(\) => formatKg\(stockFig\.reservedGrams\)\)/);
+  });
+
+  it('the reserved weight is still shown, as the sub line of Total Stock', () => {
+    expect(MAIN).toContain("t('mainDashboard.inventory.reservedSub', { qty: formatKg(stockFig.reservedGrams) })");
+  });
+
+  it('the adjustment approval queue opens from Pending Actions with the server count of PENDING adjustments (BR-37), only with the approve code', () => {
+    expect(MAIN).toContain("listStockAdjustments({ status: 'PENDING', warehouseId: selectedWarehouseId");
+    expect(MAIN).toContain('derivePendingAdjustments(adjustmentsQuery.data)');
+    expect(MAIN).toContain("navigateWh('stock_adjustment_approval')");
+    expect(MAIN).toContain('canAllView && access.adjustments');
+    expect(MAIN).not.toContain('Adjustments Awaiting Approval');
+  });
+
+  it('both are read only while the Inventory tab is open', () => {
+    expect(MAIN).toContain("{ enabled: canAllView && activeTab === 'Inventory' }");
+    expect(MAIN).toContain("{ enabled: canAllView && access.adjustments && activeTab === 'Inventory' }");
   });
 });

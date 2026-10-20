@@ -55,7 +55,8 @@ import { getOpenIssueCounts } from '../../api/dashboardFeeds';
 import { useDashboardSalesSummary, useRecentActivityPages, useWarehousesPerformance } from '../warehouse/dashboard-home-more/useDashboardKpis';
 import { activitySubLine, activityTimelineLine, mergeRecentActivity } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
 import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
-import { listBatches, type BatchDto } from '../../api/inventory';
+import { listAllocations, listBatches, type BatchDto } from '../../api/inventory';
+import { listStockAdjustments } from '../../api/stockAdjustments';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
 import { dismissAlert, listAlerts, snoozeAlert, type AlertItemDto } from '../../api/alerts';
@@ -85,7 +86,9 @@ import {
   countOrdersPlacedOn,
   dashboardAccess,
   derivePerformance,
+  deriveAllocatedGrams,
   deriveOpenIssues,
+  derivePendingAdjustments,
   deriveReceiptFigures,
   deriveSalesCount,
   deriveStockFigures,
@@ -861,6 +864,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // movements, receipts, transfers, issues, returns, documents. Needs warehouse.activity.view.
   const activityQuery = useRecentActivityPages(coveredIds, RECENT_ACTIVITY_ROWS, canAllView && access.activity && warehousesQuery.data !== undefined);
 
+  // Inventory tab only: stock allocated to the channels (GET /admin/allocations, BR-12) and the
+  // adjustments waiting for approval (GET /admin/stock-adjustments, BR-37; MAIN approves them).
+  const allocationsQuery = useAdminQuery(
+    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'allocations', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) => listAllocations({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal)),
+    { enabled: canAllView && activeTab === 'Inventory' },
+  );
+  const adjustmentsQuery = useAdminQuery(
+    adminKeys.scoped('stockAdjustments', selectedWarehouseId, { resource: 'pending-count' }),
+    (signal) => listStockAdjustments({ status: 'PENDING', warehouseId: selectedWarehouseId, page: 1, pageSize: 1 }, signal).then((page) => page.total),
+    { enabled: canAllView && access.adjustments && activeTab === 'Inventory' },
+  );
+
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
   // alerts are not fetched, so there is no resolved view.
   const alertsQuery = useAdminQuery(
@@ -902,6 +919,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const issuesSrc = sourceOf(issuesQuery);
   const perfTodaySrc = sourceOf(perfTodayQuery);
   const activitySrc = sourceOf(activityQuery);
+  const allocationsSrc = sourceOf(allocationsQuery);
+  const adjustmentsSrc = sourceOf(adjustmentsQuery);
   const perfMtdSrc = sourceOf(perfMtdQuery);
   const salesMtdSrc = sourceOf(salesMtdQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
@@ -1019,6 +1038,18 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     derivedSource(salesMtdRevenueD, () => void salesMtdQuery.refetch()),
     derivedSource(salesMtdCountD, () => void salesMtdQuery.refetch()),
   );
+  const allocatedD = useMemo(
+    () => (allocationsQuery.data === undefined ? null : deriveAllocatedGrams(allocationsQuery.data.items)),
+    [allocationsQuery.data],
+  );
+  const allocatedGrams = allocatedD !== null && allocatedD.ok ? allocatedD.value : 0;
+  const allocatedFigSrc = mergeSources(allocationsSrc, derivedSource(allocatedD, () => void allocationsQuery.refetch()));
+  const adjustmentsD = useMemo(
+    () => (adjustmentsQuery.data === undefined ? null : derivePendingAdjustments(adjustmentsQuery.data)),
+    [adjustmentsQuery.data],
+  );
+  const pendingAdjustments = adjustmentsD !== null && adjustmentsD.ok ? adjustmentsD.value : 0;
+  const adjustmentsFigSrc = mergeSources(adjustmentsSrc, derivedSource(adjustmentsD, () => void adjustmentsQuery.refetch()));
   const issuesFigSrc = mergeSources(issuesSrc, derivedSource(issuesD, () => void issuesQuery.refetch()));
 
   const homeKpiSources = [
@@ -1029,7 +1060,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     ...(access.sales ? [revenueSrc] : []),
     ...(access.issues ? [issuesFigSrc] : []),
   ];
-  const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
+  const inventoryKpiSources = [
+    stockSrc,
+    receiptsFigSrc,
+    allocatedFigSrc,
+    alertsSrc,
+    ...(access.adjustments ? [adjustmentsFigSrc] : []),
+  ];
 
   const qualityIssuesCount =
     receiptFig.discrepancies + (taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC'));
@@ -2694,7 +2731,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG</Text>
+                  <Text style={styles.kpiSub}>
+                    {figureOrPlaceholder(stockSrc.status, () => t('mainDashboard.inventory.reservedSub', { qty: formatKg(stockFig.reservedGrams) }))}
+                  </Text>
                 </TouchableOpacity>
 
                 {/* Incoming Today */}
@@ -2722,9 +2761,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.reservedGrams))}
+                    {figureOrPlaceholder(allocatedFigSrc.status, () => formatKg(allocatedGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG</Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.inventory.allocatedSub')}</Text>
                 </TouchableOpacity>
 
                 {/* Low Stock SKUs */}
@@ -2829,6 +2868,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
 
                 <View style={styles.summaryDivider} />
+
+                {/* The adjustment approval queue (BR-37): the server's count of PENDING adjustments */}
+                {access.adjustments ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.summaryItemRow}
+                      onPress={() => navigateWh('stock_adjustment_approval')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.summaryItemName}>{t('mainDashboard.pending.adjustments')}</Text>
+                      <Text style={styles.summaryItemValue}>
+                        {figureOrPlaceholder(adjustmentsFigSrc.status, () => String(pendingAdjustments))}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.summaryDivider} />
+                  </>
+                ) : null}
 
                 <TouchableOpacity
                   style={styles.summaryItemRow}
