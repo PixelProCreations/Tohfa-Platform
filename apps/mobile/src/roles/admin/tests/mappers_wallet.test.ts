@@ -28,23 +28,28 @@ import { t } from '../i18n';
 import {
   FISCAL_TAG_MAX_LENGTH,
   FISCAL_TAG_MIN_LENGTH,
+  CASH_LOOKUP_NO_MATCH_KEY,
   LOOKUP_NO_MATCH_KEY,
   TOP_UP_PRESETS_PAISE,
   buildCashTopupBody,
   cashTopupErrorKey,
+  cashTopupsReportRange,
   cashTopupFingerprint,
   customerLookupQuery,
   customerLookupView,
   isTopUpOutcomeUnknown,
   parseTopUpAmount,
   submitCashTopup,
+  toCashTopupKpis,
   toTopUpCustomer,
   toTopUpReceipt,
   topUpCustomerFromWallet,
   topUpWarehouseId,
   validateFiscalTag,
+  toWalletWarehouseScopes,
   walletCustomerOf,
 } from '../screens/warehouse/wallet-cashtopup/mappers';
+import type { CashTopupsReportDto } from '../api/reports';
 
 const WAREHOUSE = '11111111-1111-4111-8111-111111111111';
 const CUSTOMER = '22222222-2222-4222-8222-222222222222';
@@ -213,16 +218,25 @@ describe('customerLookupQuery', () => {
     expect(customerLookupQuery('+91 98765 43210')).toEqual({ mobile: '+919876543210' });
   });
 
-  it('anything else of 2..100 characters is `q` (name, code or 4+ mobile digits)', () => {
-    expect(customerLookupQuery('  ravi ')).toEqual({ q: 'ravi' });
-    expect(customerLookupQuery('CUS-00291')).toEqual({ q: 'CUS-00291' });
-    expect(customerLookupQuery('3210')).toEqual({ q: '3210' });
-    expect(customerLookupQuery('x'.repeat(150))).toEqual({ q: 'x'.repeat(100) });
+  it('BR-91i: anything else of 2..40 characters is the exact `code`; there is no name search and no `q`', () => {
+    expect(customerLookupQuery('  CUS-00291 ')).toEqual({ code: 'CUS-00291' });
+    expect(customerLookupQuery('ravi')).toEqual({ code: 'ravi' });
+    expect(customerLookupQuery('x'.repeat(40))).toEqual({ code: 'x'.repeat(40) });
+    for (const text of ['ravi', 'CUS-1', '9876543210', 'x'.repeat(40)]) {
+      expect(customerLookupQuery(text)).not.toHaveProperty('q');
+    }
   });
 
-  it('nothing is sent for fewer than 2 characters (the server answers 422)', () => {
+  it('a mobile number still being typed (digits only, under 10) asks nothing', () => {
+    expect(customerLookupQuery('3210')).toBeNull();
+    expect(customerLookupQuery('98765 4321')).toBeNull();
+    expect(customerLookupQuery('+91')).toBeNull();
+  });
+
+  it('nothing is sent for fewer than 2 or more than 40 characters (the server answers 422)', () => {
     expect(customerLookupQuery('')).toBeNull();
     expect(customerLookupQuery(' a ')).toBeNull();
+    expect(customerLookupQuery('x'.repeat(41))).toBeNull();
   });
 });
 
@@ -233,6 +247,12 @@ describe('customerLookupView', () => {
     expect(message).toMatch(/place an order here first/i);
     expect(message).toMatch(/check the number/i);
     expect(message).not.toMatch(/does not exist/i);
+  });
+
+  it('BR-91i: the cash top-up lookup has no history gate, so its no-match copy says to check the mobile or code', () => {
+    const message = t(CASH_LOOKUP_NO_MATCH_KEY);
+    expect(message).toMatch(/mobile number or code/i);
+    expect(message).not.toMatch(/place an order/i);
   });
 
   it('idle before a query, then loading, error and ready', () => {
@@ -330,5 +350,68 @@ describe('toTopUpReceipt (BR-18: the server ledger row, not the client draft)', 
     expect(r.customerId).toBe('CUS-00291');
     expect(r.warehouseName).toBe('Coonoor');
     expect(r.dateTime).not.toBe('');
+  });
+});
+
+// ─── Hub KPIs (GET /admin/reports/cash-topups) ───────────────────────────────
+
+describe('cashTopupsReportRange', () => {
+  it('is month to date: from the 1st of the current month to today', () => {
+    expect(cashTopupsReportRange('2026-10-15')).toEqual({ from: '2026-10-01', to: '2026-10-15' });
+    expect(cashTopupsReportRange('2026-10-01')).toEqual({ from: '2026-10-01', to: '2026-10-01' });
+  });
+});
+
+describe('toCashTopupKpis (BR-64: the server aggregate, in integer paise)', () => {
+  const report = (over: Partial<CashTopupsReportDto> = {}): CashTopupsReportDto => ({
+    from: '2026-10-01',
+    to: '2026-10-15',
+    warehouseId: null,
+    count: 7,
+    total: '12345.67',
+    byDay: [
+      { date: '2026-10-03', count: 4, total: '10000.00' },
+      { date: '2026-10-15', count: 3, total: '2345.67' },
+    ],
+    ...over,
+  });
+
+  it('month = the report count and total; today = its byDay entry; money is exact paise', () => {
+    expect(toCashTopupKpis(report(), '2026-10-15')).toEqual({
+      todayCount: 3,
+      todayTotalPaise: 234_567,
+      monthCount: 7,
+      monthTotalPaise: 1_234_567,
+    });
+  });
+
+  it('BR-19: never a float: 0.10 + 0.20 rupees stay 30 paise', () => {
+    const kpis = toCashTopupKpis(
+      report({ count: 2, total: '0.30', byDay: [{ date: '2026-10-15', count: 2, total: '0.30' }] }),
+      '2026-10-15',
+    );
+    expect(kpis.todayTotalPaise).toBe(30);
+    expect(Number.isInteger(kpis.monthTotalPaise)).toBe(true);
+  });
+
+  it('a day with no top-up has no byDay entry: today is 0 and a zero total', () => {
+    expect(toCashTopupKpis(report(), '2026-10-14')).toMatchObject({ todayCount: 0, todayTotalPaise: 0 });
+  });
+
+  it('a malformed total is unknown (null), never a guess', () => {
+    const kpis = toCashTopupKpis(report({ total: 'abc', byDay: [{ date: '2026-10-15', count: 1, total: 'n/a' }] }), '2026-10-15');
+    expect(kpis.monthTotalPaise).toBeNull();
+    expect(kpis.todayTotalPaise).toBeNull();
+    expect(kpis.monthCount).toBe(7);
+  });
+});
+
+describe('toWalletWarehouseScopes (BR-30: only real warehouse uuids reach the API)', () => {
+  it('maps GET /warehouses options to WarehouseScope and drops anything that is not a uuid', () => {
+    const scopes = toWalletWarehouseScopes([
+      { warehouseId: WAREHOUSE, warehouseName: 'Ooty', warehouseCode: 'WH-OOTY', type: 'SUB', city: null, isActive: true },
+      { warehouseId: 'WH-COON', warehouseName: 'Coonoor', warehouseCode: 'WH-COON', type: 'SUB', city: null, isActive: true },
+    ]);
+    expect(scopes).toEqual([{ warehouseId: WAREHOUSE, warehouseName: 'Ooty', warehouseCode: 'WH-OOTY' }]);
   });
 });

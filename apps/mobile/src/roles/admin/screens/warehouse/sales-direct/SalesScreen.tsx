@@ -1,42 +1,51 @@
-import React, { useState } from 'react';
-import {
-  Alert,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-} from 'react-native';
+/**
+ * Sales hub (design M6-S01 / M6-01). Everything on it is live:
+ *
+ *   - Today's KPIs and the payment-method split: GET /admin/sales/summary with
+ *     no from / to (server default = today). Only paid-and-completed sales are
+ *     counted there (BR-96), so a pending UPI sale is not revenue yet.
+ *   - Needs attention: the same summary's needsAttention counters; each row
+ *     opens the shared Needs Attention queue on that category.
+ *   - Recent sales: the first page of GET /admin/sales.
+ *   - HORECA / B2B have no summary endpoint, so they are plain navigation tiles
+ *     rather than numbers we would have to make up.
+ *
+ * A Main (all-warehouses) viewer picks a real warehouse uuid from
+ * GET /warehouses; a Sub viewer is locked to scope.warehouseId (BR-30). Every
+ * control is gated on the rbac.json code the server enforces anyway; hiding is
+ * presentation only (root CLAUDE.md 2.1).
+ */
+import React, { useMemo, useState } from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors, adminType, adminShadow } from '../../../theme';
+import type { SalePaymentStatus } from '../../../api/sales';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { formatAdminDate } from '../../../utils/datetime';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { SALE_PAYMENT_METHODS, salesWarehouseFilter, type SaleListRow } from './mappers';
+import { PAYMENT_METHOD_KEY, PAYMENT_STATUS_KEY, SALE_CHANNEL_KEY } from './salesLabels';
+import { WarehouseChips, isAllWarehouses } from './SalesParts';
+import type { WarehouseScreenBaseProps } from './types';
+import { useSalesList, useSalesSummary, useSalesWarehouseOptions } from './useSalesData';
 
-import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
-import type { SalesChannel, WarehouseScreenBaseProps } from './types';
-
+const RECENT_SALES_LIMIT = 5;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function ArrowBackIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function CashRegisterHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function CashRegisterHeaderIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 7h16M7 3h10v4H7zM3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9zM7 15h2M11 15h2M15 15h2M7 18h10"
         stroke={color}
@@ -48,9 +57,9 @@ function CashRegisterHeaderIcon({ size = 22, color = adminColors.onBrand }: { si
   );
 }
 
-function GridSquareIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function GridSquareIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
       <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
       <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
@@ -82,22 +91,6 @@ function BellHeaderIcon({ color = adminColors.onBrand }: { color?: string }) {
   );
 }
 
-function ChevronDownIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckmarkIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function MoneyCardIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -124,27 +117,11 @@ function StorefrontCardIcon({ color = adminColors.brand }: { color?: string }) {
   );
 }
 
-function CalendarActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function CalendarActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
       <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CutleryCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M8 11v10M17 3v18M14 3v5a3 3 0 0 0 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BuildingCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M15 10h4a2 2 0 0 1 2 2v9M9 7h2M9 11h2M9 15h2M18 14h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -158,9 +135,9 @@ function ExclamationCircleCardIcon({ color = adminColors.danger.text }: { color?
   );
 }
 
-function ShoppingCartActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+function ShoppingCartActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="20" r="1.5" stroke={color} strokeWidth="2" />
       <Circle cx="18" cy="20" r="1.5" stroke={color} strokeWidth="2" />
       <Path
@@ -175,9 +152,9 @@ function ShoppingCartActionIcon({ size = 22, color = adminColors.brand }: { size
   );
 }
 
-function StoreActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+function StoreActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 9a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V5H3v4z"
         stroke={color}
@@ -192,9 +169,9 @@ function StoreActionIcon({ size = 22, color = adminColors.brand }: { size?: numb
   );
 }
 
-function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+function HistoryClockActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M3 3v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -202,9 +179,9 @@ function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size
   );
 }
 
-function CutleryActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function CutleryActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M5.5 4v6a2.8 2.8 0 0 0 2.8 2.8v7.2M8.3 4v6M11.1 4v6a2.8 2.8 0 0 1-2.8 2.8"
         stroke={color}
@@ -212,44 +189,26 @@ function CutleryActionIcon({ size = 24, color = adminColors.brand }: { size?: nu
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path
-        d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function BuildingActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+function BuildingActionIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path
-        d="M4 21V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14 5v16"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 10h5a1.5 1.5 0 0 1 1.5 1.5V21"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M4 21V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14 5v16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 10h5a1.5 1.5 0 0 1 1.5 1.5V21" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M7 8h3M7 12h3M7 16h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Path d="M17 14h1M17 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function WarningTriangleIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
         stroke={color}
@@ -262,9 +221,9 @@ function WarningTriangleIcon({ size = 18, color = adminColors.warning.text }: { 
   );
 }
 
-function StockBoxIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
+function StockBoxIcon({ color = adminColors.danger.text }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M3 8l3-5h12l3 5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -272,9 +231,9 @@ function StockBoxIcon({ size = 20, color = adminColors.danger.text }: { size?: n
   );
 }
 
-function InvoiceDocumentIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
+function InvoiceDocumentIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
         stroke={color}
@@ -287,40 +246,46 @@ function InvoiceDocumentIcon({ size = 20, color = adminColors.warning.text }: { 
   );
 }
 
-function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+function ChevronRightIcon({ color = adminColors.muted }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 type AttentionCategory = 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue';
 
-const WAREHOUSE_OPTIONS = [
-  { id: undefined, name: 'All Warehouses' },
-  { id: 'OOTY', name: 'Ooty' },
-  { id: 'COONOOR', name: 'Coonoor' },
-  { id: 'KOTAGIRI', name: 'Kotagiri' },
-  { id: 'GUDALUR', name: 'Gudalur' },
-] as const;
+type Tone = 'success' | 'warning' | 'danger' | 'info';
+
+const PAYMENT_STATUS_TONE: Record<SalePaymentStatus, Tone> = {
+  PAID: 'success',
+  PENDING: 'warning',
+  PARTIALLY_PAID: 'warning',
+  FAILED: 'danger',
+  REFUNDED: 'info',
+};
+
+function buyerLabel(row: SaleListRow): string {
+  const name = row.buyer.name.trim();
+  if (row.buyer.kind === 'WALK_IN') return name === '' ? t('sales.common.walkIn') : `${name} · ${t('sales.common.walkIn')}`;
+  return name;
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 // Design id: M6-S01 & M6-01 Sales Dashboard
 export interface SalesScreenProps extends WarehouseScreenBaseProps {
   onNavigateToNotifications?: (() => void) | undefined;
-  onNavigateToNewSale: () => void;
+  onNavigateToNewSale: (channel?: 'DIRECT' | 'MARKET') => void;
   onNavigateToSalesHistory: () => void;
   onNavigateToMarketDaySales: () => void;
-  onNavigateToChannelSales: (channel: SalesChannel) => void;
+  onNavigateToChannelSales: (channel: 'HORECA' | 'B2B') => void;
   /** Needs Attention is the shared dashboard-home-more queue (HomeFlow); the host opens it. Card hidden without it. */
   onNavigateToNeedsAttention?: ((category?: AttentionCategory) => void) | undefined;
-  onNavigateToSaleDetail: (saleId?: string) => void;
+  onSelectSale: (saleId: string) => void;
 }
 
 export function SalesScreen({
@@ -333,678 +298,373 @@ export function SalesScreen({
   onNavigateToMarketDaySales,
   onNavigateToChannelSales,
   onNavigateToNeedsAttention,
-  onNavigateToSaleDetail,
+  onSelectSale,
 }: SalesScreenProps) {
   const isMain = isAllWarehouses(scope);
-  // Main only: the warehouse the hub totals are for (undefined = all warehouses).
+  // Main only: the warehouse uuid the hub is for (undefined = all warehouses).
   const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  const warehouses = useSalesWarehouseOptions(scope, can);
+  const warehouseFilter = salesWarehouseFilter(scope, pickedWarehouse);
 
-  const pickedWarehouseObj = WAREHOUSE_OPTIONS.find((w) => w.id === pickedWarehouse);
-  const pickedWarehouseName = pickedWarehouseObj?.name ?? 'All Warehouses';
+  const canDashboard = can('sales.dashboard.view');
+  const canHistory = can('sales.history.view');
+  const canCreate = can('sales.sale.create');
+  const canMarketDay = can('sales.market_day.view');
+  const canHoreca = can('sales.horeca.view');
+  const canB2b = can('sales.b2b.view');
 
-  const headerWarehouse =
-    scope.warehouseName ??
-    SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse)?.warehouseName ??
-    'All warehouses';
+  const summaryQuery = useSalesSummary(warehouseFilter, {}, { enabled: canDashboard });
+  const summary = summaryQuery.summary;
+  const recent = useSalesList(warehouseFilter, {}, { enabled: canHistory });
+  const recentRows = useMemo(() => recent.items.slice(0, RECENT_SALES_LIMIT), [recent.items]);
+  const recentState = queryViewState({ isLoading: recent.isLoading, error: recent.error, itemCount: recentRows.length });
+  const now = new Date();
 
-  const canCreateSale = can ? can('sales.sale.create') : false;
-  const handleOpenNewSale = () => {
-    if (canCreateSale) onNavigateToNewSale();
-    else Alert.alert('New Sale', 'Creating new sales is not permitted for your role.');
-  };
-  const handleOpenSalesHistory = () => onNavigateToSalesHistory();
-  const handleOpenMarketDaySales = () => onNavigateToMarketDaySales();
-  const handleOpenHorecaSales = () => onNavigateToChannelSales('HORECA');
-  const handleOpenB2BSales = () => onNavigateToChannelSales('B2B');
-  const handleOpenNeedsAttention = (cat: AttentionCategory = 'all') => onNavigateToNeedsAttention?.(cat);
-  const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => onNavigateToSaleDetail(saleId);
+  const summaryState = summary
+    ? 'ready'
+    : summaryQuery.isLoading
+      ? 'loading'
+      : summaryQuery.error !== null && summaryQuery.error !== undefined
+        ? 'error'
+        : 'loading';
 
-  // Computed data based on picked warehouse
-  const kpiData = {
-    todaySales: pickedWarehouse === 'OOTY' ? '₹6,200' : pickedWarehouse === 'COONOOR' ? '₹8,450' : '₹24,850',
-    todayTxns: pickedWarehouse === 'OOTY' ? '12 transactions' : pickedWarehouse === 'COONOOR' ? '16 transactions' : '42 transactions',
-    directSales: pickedWarehouse === 'OOTY' ? '₹3,100' : pickedWarehouse === 'COONOOR' ? '₹4,250' : '₹8,450',
-    directTxns: pickedWarehouse === 'OOTY' ? '6 sales' : pickedWarehouse === 'COONOOR' ? '8 sales' : '18 sales',
-    marketSales: pickedWarehouse === 'OOTY' ? '₹2,100' : pickedWarehouse === 'COONOOR' ? '₹2,800' : '₹7,200',
-    marketTxns: pickedWarehouse === 'OOTY' ? '4 sales' : pickedWarehouse === 'COONOOR' ? '5 sales' : '15 sales',
-    horecaSales: pickedWarehouse === 'OOTY' ? '₹600' : pickedWarehouse === 'COONOOR' ? '₹800' : '₹4,800',
-    horecaOrders: pickedWarehouse === 'OOTY' ? '1 orders' : pickedWarehouse === 'COONOOR' ? '2 orders' : '5 orders',
-    b2bSales: pickedWarehouse === 'OOTY' ? '₹400' : pickedWarehouse === 'COONOOR' ? '₹600' : '₹4,400',
-    b2bOrders: pickedWarehouse === 'OOTY' ? '1 orders' : pickedWarehouse === 'COONOOR' ? '1 orders' : '4 orders',
-    needsAttentionCount: pickedWarehouse === 'OOTY' ? '2' : pickedWarehouse === 'COONOOR' ? '1' : '5',
-  };
+  const actions: { key: string; label: string; icon: React.ReactNode; onPress: () => void }[] = [];
+  if (canCreate) {
+    actions.push({
+      key: 'new',
+      label: t('sales.hub.action.newSale'),
+      icon: <ShoppingCartActionIcon />,
+      onPress: () => onNavigateToNewSale('DIRECT'),
+    });
+  }
+  if (canMarketDay) {
+    actions.push({ key: 'market', label: t('sales.hub.action.marketDay'), icon: <StoreActionIcon />, onPress: onNavigateToMarketDaySales });
+  }
+  if (canHistory) {
+    actions.push({ key: 'history', label: t('sales.hub.action.history'), icon: <HistoryClockActionIcon />, onPress: onNavigateToSalesHistory });
+  }
+  if (canHoreca) {
+    actions.push({
+      key: 'horeca',
+      label: t('sales.hub.action.horeca'),
+      icon: <CutleryActionIcon />,
+      onPress: () => onNavigateToChannelSales('HORECA'),
+    });
+  }
+  if (canB2b) {
+    actions.push({
+      key: 'b2b',
+      label: t('sales.hub.action.b2b'),
+      icon: <BuildingActionIcon />,
+      onPress: () => onNavigateToChannelSales('B2B'),
+    });
+  }
+
+  const attentionRows: {
+    category: Exclude<AttentionCategory, 'all'>;
+    title: string;
+    sub: string;
+    count: number;
+    tone: 'warning' | 'danger';
+    icon: React.ReactNode;
+  }[] = summary
+    ? [
+        {
+          category: 'payment_pending',
+          title: t('sales.hub.attention.paymentPending'),
+          sub: t('sales.hub.attention.paymentPendingSub', { count: summary.needsAttention.paymentPending }),
+          count: summary.needsAttention.paymentPending,
+          tone: 'warning',
+          icon: <MoneyCardIcon color={adminColors.warning.text} />,
+        },
+        {
+          category: 'stock_issue',
+          title: t('sales.hub.attention.stockIssue'),
+          sub: t('sales.hub.attention.stockIssueSub', { count: summary.needsAttention.stockIssues }),
+          count: summary.needsAttention.stockIssues,
+          tone: 'danger',
+          icon: <StockBoxIcon color={adminColors.danger.text} />,
+        },
+        {
+          category: 'failed_sale',
+          title: t('sales.hub.attention.failedSale'),
+          sub: t('sales.hub.attention.failedSaleSub', { count: summary.needsAttention.failedSales }),
+          count: summary.needsAttention.failedSales,
+          tone: 'danger',
+          icon: <ExclamationCircleCardIcon color={adminColors.danger.text} />,
+        },
+        {
+          category: 'invoice_issue',
+          title: t('sales.hub.attention.invoiceIssue'),
+          sub: t('sales.hub.attention.invoiceIssueSub', { count: summary.needsAttention.invoiceIssues }),
+          count: summary.needsAttention.invoiceIssues,
+          tone: 'warning',
+          icon: <InvoiceDocumentIcon color={adminColors.warning.text} />,
+        },
+      ]
+    : [];
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner ─── */}
+      {/* ─── Header ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerLeftGroup}>
-            {onBack ? (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-              >
-                <ArrowBackIcon size={22} color={adminColors.onBrand} />
-              </TouchableOpacity>
-            ) : null}
-            {isMain ? (
-              <GridSquareIcon size={24} color={adminColors.onBrand} />
-            ) : (
-              <CashRegisterHeaderIcon size={24} color={adminColors.onBrand} />
-            )}
-            <Text style={styles.headerTitleText}>{isMain ? 'New Direct Sale' : 'Sales'}</Text>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={onBack}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('sales.common.back')}
+            >
+              <ArrowBackIcon />
+            </TouchableOpacity>
+            {isMain ? <GridSquareIcon /> : <CashRegisterHeaderIcon />}
+            <Text style={styles.headerTitleText} accessibilityRole="header">
+              {t('sales.hub.title')}
+            </Text>
           </View>
 
-          <TouchableOpacity
-            style={isMain ? styles.headerBellBtnWhite : styles.headerBellBtn}
-            onPress={() => {
-              if (onNavigateToNotifications) {
-                onNavigateToNotifications();
-              } else {
-                Alert.alert('Notifications', 'You have 3 unread notifications.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <BellHeaderIcon color={isMain ? adminColors.brand : adminColors.onBrand} />
-          </TouchableOpacity>
+          {onNavigateToNotifications ? (
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={onNavigateToNotifications}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('sales.hub.notifications')}
+            >
+              <BellHeaderIcon />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        {isMain ? (
-          <View style={styles.warehouseDropdownRow}>
-            <TouchableOpacity
-              style={styles.warehouseDropdownPill}
-              onPress={() => setShowWarehouseModal(true)}
-              activeOpacity={0.85}
-            >
-              <BuildingCardIcon color={adminColors.brand} />
-              <Text style={styles.warehouseDropdownText}>{pickedWarehouseName}</Text>
-              <ChevronDownIcon size={16} color={adminColors.brand} />
-            </TouchableOpacity>
+        {!isMain && scope.warehouseName ? (
+          <View style={styles.warehouseBadge}>
+            <LockBadgeIcon />
+            <Text style={styles.warehouseBadgeText}>{scope.warehouseName}</Text>
           </View>
-        ) : (
-          <View style={styles.warehouseBadgeRow}>
-            <View style={styles.warehouseBadge}>
-              <LockBadgeIcon />
-              <Text style={styles.warehouseBadgeText}>{headerWarehouse}</Text>
-            </View>
-          </View>
-        )}
+        ) : null}
       </View>
 
-      {/* ─── Main Warehouse Selection Modal ─── */}
-      {isMain ? (
-        <Modal
-          visible={showWarehouseModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowWarehouseModal(false)}
-        >
-          <TouchableWithoutFeedback onPress={() => setShowWarehouseModal(false)}>
-            <View style={styles.modalBackdrop}>
-              <TouchableWithoutFeedback>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Select Warehouse</Text>
-                  {WAREHOUSE_OPTIONS.map((item) => {
-                    const isSelected = pickedWarehouse === item.id;
-                    return (
-                      <TouchableOpacity
-                        key={item.name}
-                        style={[styles.modalItem, isSelected && styles.modalItemSelected]}
-                        onPress={() => {
-                          setPickedWarehouse(item.id);
-                          setShowWarehouseModal(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
-                          {item.name}
-                        </Text>
-                        {isSelected ? <CheckmarkIcon size={18} color={adminColors.brand} /> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setShowWarehouseModal(false)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-      ) : null}
-
-      {/* ─── Main Scrollable Content ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ─── Main: real warehouse picker ─── */}
         {isMain ? (
-          /* ═══════════════════════════════════════════════════════════════════════
-             MAIN WAREHOUSE VIEW (M6-01 Sales Dashboard)
-             ═══════════════════════════════════════════════════════════════════════ */
           <>
-            {/* 6 Top KPI Cards */}
-            <View style={styles.mainKpiGrid}>
-              {/* Card 1: TODAY'S SALES */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={() => Alert.alert("Today's Sales", `${kpiData.todaySales} across ${kpiData.todayTxns}.`)}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>TODAY'S SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.todaySales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.todayTxns}</Text>
-              </TouchableOpacity>
-
-              {/* Card 2: DIRECT SALES */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>DIRECT SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.directSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.directTxns}</Text>
-              </TouchableOpacity>
-
-              {/* Card 3: MARKET SALES */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>MARKET SALES</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.marketSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.marketTxns}</Text>
-              </TouchableOpacity>
-
-              {/* Card 4: HORECA */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>HORECA</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.horecaSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.horecaOrders}</Text>
-              </TouchableOpacity>
-
-              {/* Card 5: B2B */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>B2B</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.b2bSales}</Text>
-                <Text style={styles.mainKpiSub}>{kpiData.b2bOrders}</Text>
-              </TouchableOpacity>
-
-              {/* Card 6: NEEDS ATTENTION */}
-              <TouchableOpacity
-                style={styles.mainKpiCard}
-                onPress={() => handleOpenNeedsAttention('all')}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.mainKpiLabel}>NEEDS ATTENTION</Text>
-                <Text style={styles.mainKpiValue}>{kpiData.needsAttentionCount}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Warehouse Sales Summary */}
-            <Text style={styles.mainSectionHeading}>Warehouse Sales Summary</Text>
-
-            {pickedWarehouse === undefined || pickedWarehouse === 'OOTY' ? (
-              <TouchableOpacity
-                style={styles.whSummaryCard}
-                onPress={() => setPickedWarehouse(pickedWarehouse === 'OOTY' ? undefined : 'OOTY')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.whSummaryTopRow}>
-                  <Text style={styles.whSummaryName}>Ooty</Text>
-                  <View style={styles.whSummaryBadge}>
-                    <Text style={styles.whSummaryBadgeText}>₹6,200</Text>
-                  </View>
-                </View>
-                <Text style={styles.whSummarySub}>12 transactions</Text>
-              </TouchableOpacity>
+            <WarehouseChips
+              scope={scope}
+              selected={pickedWarehouse}
+              onSelect={setPickedWarehouse}
+              options={warehouses.options}
+            />
+            {warehouses.error ? (
+              <View style={styles.inlineErrorRow}>
+                <Text style={styles.inlineErrorText}>{t('sales.hub.warehousesError')}</Text>
+                <TouchableOpacity onPress={warehouses.refresh} activeOpacity={0.7} accessibilityRole="button">
+                  <Text style={styles.sectionLink}>{t('sales.hub.warehousesRetry')}</Text>
+                </TouchableOpacity>
+              </View>
             ) : null}
-
-            {pickedWarehouse === undefined || pickedWarehouse === 'COONOOR' ? (
-              <TouchableOpacity
-                style={styles.whSummaryCard}
-                onPress={() => setPickedWarehouse(pickedWarehouse === 'COONOOR' ? undefined : 'COONOOR')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.whSummaryTopRow}>
-                  <Text style={styles.whSummaryName}>Coonoor</Text>
-                  <View style={styles.whSummaryBadge}>
-                    <Text style={styles.whSummaryBadgeText}>₹8,450</Text>
-                  </View>
-                </View>
-                <Text style={styles.whSummarySub}>16 transactions</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Sales Channel Summary */}
-            <Text style={styles.mainSectionHeading}>Sales Channel Summary</Text>
-            <View style={styles.channelGrid2x2}>
-              <TouchableOpacity
-                style={styles.channelCardBtn}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.75}
-              >
-                <View style={styles.channelIconBox}>
-                  <StorefrontCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.channelCardBtnTitle}>Direct</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.channelCardBtn}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.75}
-              >
-                <View style={styles.channelIconBox}>
-                  <CalendarActionIcon size={24} color={adminColors.brand} />
-                </View>
-                <Text style={styles.channelCardBtnTitle}>Market</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.channelCardBtn}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.75}
-              >
-                <View style={styles.channelIconBox}>
-                  <CutleryCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.channelCardBtnTitle}>HORECA</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.channelCardBtn}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.75}
-              >
-                <View style={styles.channelIconBox}>
-                  <BuildingCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.channelCardBtnTitle}>B2B</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Needs Attention */}
-            <View style={styles.mainSectionHeaderRow}>
-              <Text style={styles.mainSectionHeading}>Needs Attention</Text>
-              <TouchableOpacity
-                onPress={() => handleOpenNeedsAttention('all')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.mainSectionLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.mainAlertCard}
-              onPress={() => handleOpenNeedsAttention('stock_issue')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.mainAlertIconWrap}>
-                <WarningTriangleIcon size={22} color={adminColors.warning.text} />
-              </View>
-              <View style={styles.mainAlertTextWrap}>
-                <Text style={styles.mainAlertTitle}>Stock Updated — 2 sales in cart</Text>
-                <Text style={styles.mainAlertSub}>Requires review before payment</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Recent Sales */}
-            <View style={styles.mainSectionHeaderRow}>
-              <Text style={styles.mainSectionHeading}>Recent Sales</Text>
-              <TouchableOpacity
-                onPress={handleOpenSalesHistory}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.mainSectionLink}>View History →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.mainRecentSaleCard}
-              onPress={() => handleOpenSaleDetail('SALE-00251')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.mainRecentTopRow}>
-                <Text style={styles.mainRecentId}>SALE-00251</Text>
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>Paid</Text>
-                </View>
-              </View>
-              <Text style={styles.mainRecentItems}>Tomato · 2 KG</Text>
-              <View style={styles.mainRecentDivider} />
-              <View style={styles.mainRecentBottomRow}>
-                <Text style={styles.mainRecentWarehouse}>Direct · Coonoor</Text>
-                <Text style={styles.mainRecentAmount}>₹200</Text>
-              </View>
-            </TouchableOpacity>
           </>
+        ) : null}
+
+        {/* ─── Today's sales (BR-96: paid + completed only) ─── */}
+        <Text style={styles.sectionTitle}>{t('sales.hub.todayHeading')}</Text>
+        {!canDashboard ? (
+          <Text style={styles.noteText}>{t('sales.common.noPermission')}</Text>
+        ) : summaryState === 'loading' ? (
+          <AdminLoadingState />
+        ) : summaryState === 'error' || !summary ? (
+          <AdminErrorState error={summaryQuery.error} onRetry={summaryQuery.refresh} />
         ) : (
-          /* ═══════════════════════════════════════════════════════════════════════
-             SUBWAREHOUSE VIEW (Existing Layout)
-             ═══════════════════════════════════════════════════════════════════════ */
           <>
-            <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} />
-
-            {/* 1. Today's Sales by Channel */}
-            <Text style={styles.sectionTitle}>Today's Sales by Channel</Text>
-
-            <View style={styles.channelGrid}>
-              {/* Card 1: Today's Sales */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={() => Alert.alert("Today's Sales", '₹24,850 total revenue across 42 transactions today.')}
-                activeOpacity={0.75}
-              >
+            <Text style={styles.noteText}>{t('sales.hub.todayNote')}</Text>
+            <View style={styles.kpiGrid}>
+              <View style={[styles.kpiCard, styles.kpiCardWide]}>
                 <View style={styles.cardIconWrap}>
                   <MoneyCardIcon />
                 </View>
-                <Text style={styles.cardAmount}>₹24,850</Text>
-                <Text style={styles.cardSubtitle}>Today's Sales · 42 txns</Text>
-              </TouchableOpacity>
-
-              {/* Card 2: Direct */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.75}
-              >
+                <Text style={styles.kpiLabel}>{t('sales.hub.kpi.total')}</Text>
+                <Text style={styles.kpiValue}>{formatPaise(summary.revenuePaise)}</Text>
+                <Text style={styles.kpiSub}>{t('sales.hub.kpi.txnCount', { count: summary.count })}</Text>
+              </View>
+              <View style={styles.kpiCard}>
                 <View style={styles.cardIconWrap}>
                   <StorefrontCardIcon />
                 </View>
-                <Text style={styles.cardAmount}>₹8,450</Text>
-                <Text style={styles.cardSubtitle}>Direct · 18 sales</Text>
-              </TouchableOpacity>
-
-              {/* Card 3: Market */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.75}
-              >
+                <Text style={styles.kpiLabel}>{t(SALE_CHANNEL_KEY.DIRECT)}</Text>
+                <Text style={styles.kpiValue}>{formatPaise(summary.byChannel.DIRECT.revenuePaise)}</Text>
+                <Text style={styles.kpiSub}>{t('sales.hub.kpi.saleCount', { count: summary.byChannel.DIRECT.count })}</Text>
+              </View>
+              <View style={styles.kpiCard}>
                 <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
+                  <CalendarActionIcon />
                 </View>
-                <Text style={styles.cardAmount}>₹7,200</Text>
-                <Text style={styles.cardSubtitle}>Market · 15 sales</Text>
-              </TouchableOpacity>
-
-              {/* Card 4: HORECA */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.75}
-              >
-                <View style={styles.cardIconWrap}>
-                  <CutleryCardIcon />
-                </View>
-                <Text style={styles.cardAmount}>₹4,800</Text>
-                <Text style={styles.cardSubtitle}>HORECA · 5 orders</Text>
-              </TouchableOpacity>
-
-              {/* Card 5: B2B */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.75}
-              >
-                <View style={styles.cardIconWrap}>
-                  <BuildingCardIcon color={adminColors.brand} />
-                </View>
-                <Text style={styles.cardAmount}>₹4,400</Text>
-                <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
-              </TouchableOpacity>
-
-              {/* Card 6: Needs Attention */}
-              <TouchableOpacity
-                style={styles.channelCard}
-                onPress={() => handleOpenNeedsAttention('all')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.cardIconWrap}>
-                  <ExclamationCircleCardIcon color={adminColors.danger.text} />
-                </View>
-                <Text style={[styles.cardAmount, { color: adminColors.danger.text }]}>5</Text>
-                <Text style={styles.cardSubtitle}>Needs Attention</Text>
-              </TouchableOpacity>
+                <Text style={styles.kpiLabel}>{t(SALE_CHANNEL_KEY.MARKET)}</Text>
+                <Text style={styles.kpiValue}>{formatPaise(summary.byChannel.MARKET.revenuePaise)}</Text>
+                <Text style={styles.kpiSub}>{t('sales.hub.kpi.saleCount', { count: summary.byChannel.MARKET.count })}</Text>
+              </View>
             </View>
 
-            {/* 2. Quick Actions */}
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-            <View style={styles.quickActionsRow}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.75}
-              >
-                <ShoppingCartActionIcon size={24} color={adminColors.brand} />
-                <Text style={styles.actionBtnLabel}>New Direct Sale</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.75}
-              >
-                <StoreActionIcon size={24} color={adminColors.brand} />
-                <Text style={styles.actionBtnLabel}>Market Day Sales</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={handleOpenSalesHistory}
-                activeOpacity={0.75}
-              >
-                <HistoryClockActionIcon size={24} color={adminColors.brand} />
-                <Text style={styles.actionBtnLabel}>Sales History</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.quickActionsRow, { marginTop: 10 }]}>
-              <TouchableOpacity
-                style={styles.actionBtnHalf}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.75}
-              >
-                <CutleryActionIcon size={24} color={adminColors.brand} />
-                <Text style={styles.actionBtnLabel}>HORECA Sale</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtnHalf}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.75}
-              >
-                <BuildingActionIcon size={24} color={adminColors.brand} />
-                <Text style={styles.actionBtnLabel}>B2B Sale</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 3. Today's Sales Summary */}
-            <Text style={styles.sectionTitle}>Today's Sales Summary</Text>
-
+            <Text style={styles.sectionTitle}>{t('sales.hub.byMethodHeading')}</Text>
             <View style={styles.summaryCard}>
-              <TouchableOpacity
-                style={styles.summaryRow}
-                onPress={handleOpenNewSale}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.summaryLabel}>Direct</Text>
-                <Text style={styles.summaryValue}>₹8,450</Text>
-              </TouchableOpacity>
-              <View style={styles.divider} />
-
-              <TouchableOpacity
-                style={styles.summaryRow}
-                onPress={handleOpenMarketDaySales}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.summaryLabel}>Market</Text>
-                <Text style={styles.summaryValue}>₹7,200</Text>
-              </TouchableOpacity>
-              <View style={styles.divider} />
-
-              <TouchableOpacity
-                style={styles.summaryRow}
-                onPress={handleOpenHorecaSales}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.summaryLabel}>HORECA</Text>
-                <Text style={styles.summaryValue}>₹4,800</Text>
-              </TouchableOpacity>
-              <View style={styles.divider} />
-
-              <TouchableOpacity
-                style={styles.summaryRow}
-                onPress={handleOpenB2BSales}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.summaryLabel}>B2B</Text>
-                <Text style={styles.summaryValue}>₹4,400</Text>
-              </TouchableOpacity>
-              <View style={styles.dividerThick} />
-
+              {SALE_PAYMENT_METHODS.map((method) => (
+                <View key={method}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>{t(PAYMENT_METHOD_KEY[method])}</Text>
+                    <View style={styles.summaryRight}>
+                      <Text style={styles.summaryValue}>{formatPaise(summary.byMethod[method].revenuePaise)}</Text>
+                      <Text style={styles.summaryCount}>
+                        {t('sales.hub.kpi.saleCount', { count: summary.byMethod[method].count })}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                </View>
+              ))}
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>₹24,850</Text>
+                <Text style={styles.totalLabel}>{t('sales.hub.total')}</Text>
+                <Text style={styles.totalValue}>{formatPaise(summary.revenuePaise)}</Text>
               </View>
             </View>
 
-            {/* 4. Recent Sales */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Recent Sales</Text>
-              <TouchableOpacity
-                onPress={handleOpenSalesHistory}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.viewAllText}>View all</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.recentSaleCard}
-              onPress={() => handleOpenSaleDetail('SALE-00251')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.recentSaleTopRow}>
-                <Text style={styles.recentSaleId}>SALE-00251</Text>
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>Paid</Text>
+            {/* ─── Needs attention (shared queue opened by the host) ─── */}
+            {onNavigateToNeedsAttention ? (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <WarningTriangleIcon color={adminColors.ink} />
+                    <Text style={styles.sectionTitleInline}>{t('sales.hub.attention.heading')}</Text>
+                    {summary.needsAttentionTotal > 0 ? (
+                      <View style={styles.countBadge}>
+                        <Text style={styles.countBadgeText}>{summary.needsAttentionTotal}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => onNavigateToNeedsAttention('all')}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.sectionLink}>{t('sales.hub.attention.viewAll')}</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-              <Text style={styles.recentSaleCustomer}>Rajesh Kumar · 2 Items</Text>
-              <View style={styles.recentSaleBottomRow}>
-                <Text style={styles.recentSaleType}>Direct Sale</Text>
-                <View style={styles.recentSaleRight}>
-                  <Text style={styles.recentSaleTime}>Today · 6:35 PM</Text>
-                  <Text style={styles.recentSaleAmount}>₹500</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* 5. Needs Attention */}
-            <View style={styles.needsAttentionHeader}>
-              <WarningTriangleIcon size={18} color={adminColors.ink} />
-              <Text style={styles.sectionTitle}>Needs Attention</Text>
-            </View>
-
-            <View style={styles.alertsContainer}>
-              <TouchableOpacity
-                style={styles.alertCardItem}
-                onPress={() => handleOpenNeedsAttention('payment_pending')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
-                <View style={styles.alertIconBox}>
-                  <MoneyCardIcon color={adminColors.warning.text} />
-                </View>
-                <View style={styles.alertTextBox}>
-                  <Text style={styles.alertTitle}>Payment Pending</Text>
-                  <Text style={styles.alertSub}>2 sales awaiting payment</Text>
-                </View>
-                <ChevronRightIcon />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.alertCardItem}
-                onPress={() => handleOpenNeedsAttention('stock_issue')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
-                <View style={styles.alertIconBox}>
-                  <StockBoxIcon color={adminColors.danger.text} />
-                </View>
-                <View style={styles.alertTextBox}>
-                  <Text style={styles.alertTitle}>Stock Issue</Text>
-                  <Text style={styles.alertSub}>1 sale affected</Text>
-                </View>
-                <ChevronRightIcon />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.alertCardItem}
-                onPress={() => handleOpenNeedsAttention('failed_sale')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
-                <View style={styles.alertIconBox}>
-                  <ExclamationCircleCardIcon color={adminColors.danger.text} />
-                </View>
-                <View style={styles.alertTextBox}>
-                  <Text style={styles.alertTitle}>Failed Sale</Text>
-                  <Text style={styles.alertSub}>1 payment failure</Text>
-                </View>
-                <ChevronRightIcon />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.alertCardItem}
-                onPress={() => handleOpenNeedsAttention('invoice_issue')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
-                <View style={styles.alertIconBox}>
-                  <InvoiceDocumentIcon color={adminColors.warning.text} />
-                </View>
-                <View style={styles.alertTextBox}>
-                  <Text style={styles.alertTitle}>Invoice Issue</Text>
-                  <Text style={styles.alertSub}>1 invoice needs review</Text>
-                </View>
-                <ChevronRightIcon />
-              </TouchableOpacity>
-            </View>
+                {summary.needsAttentionTotal === 0 ? (
+                  <Text style={styles.noteText}>{t('sales.hub.attention.none')}</Text>
+                ) : (
+                  <View style={styles.alertsContainer}>
+                    {attentionRows
+                      .filter((row) => row.count > 0)
+                      .map((row) => (
+                        <TouchableOpacity
+                          key={row.category}
+                          style={styles.alertCardItem}
+                          onPress={() => onNavigateToNeedsAttention(row.category)}
+                          activeOpacity={0.75}
+                          accessibilityRole="button"
+                        >
+                          <View
+                            style={[
+                              styles.alertAccentBar,
+                              { backgroundColor: row.tone === 'danger' ? adminColors.danger.text : adminColors.warning.text },
+                            ]}
+                          />
+                          <View style={styles.alertIconBox}>{row.icon}</View>
+                          <View style={styles.alertTextBox}>
+                            <Text style={styles.alertTitle}>{row.title}</Text>
+                            <Text style={styles.alertSub}>{row.sub}</Text>
+                          </View>
+                          <ChevronRightIcon />
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                )}
+              </>
+            ) : null}
           </>
         )}
 
-        <View style={{ height: 28 }} />
+        {/* ─── Quick actions (each one gated on its rbac code) ─── */}
+        {actions.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>{t('sales.hub.actionsHeading')}</Text>
+            <View style={styles.actionsGrid}>
+              {actions.map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={styles.actionBtn}
+                  onPress={a.onPress}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
+                  {a.icon}
+                  <Text style={styles.actionBtnLabel}>{a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {/* ─── Recent sales (first page of GET /admin/sales) ─── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitleInline}>{t('sales.hub.recentHeading')}</Text>
+          {canHistory ? (
+            <TouchableOpacity onPress={onNavigateToSalesHistory} activeOpacity={0.7} accessibilityRole="button">
+              <Text style={styles.sectionLink}>{t('sales.hub.recentViewAll')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {!canHistory ? (
+          <Text style={styles.noteText}>{t('sales.common.noPermission')}</Text>
+        ) : recentState === 'loading' ? (
+          <AdminLoadingState />
+        ) : recentState === 'error' ? (
+          <AdminErrorState error={recent.error} onRetry={recent.refresh} />
+        ) : recentState === 'empty' ? (
+          <AdminEmptyState title={t('sales.hub.recentEmpty')} subtitle={t('sales.hub.recentEmptySub')} />
+        ) : (
+          recentRows.map((row) => {
+            const tone = PAYMENT_STATUS_TONE[row.paymentStatus];
+            const items = t('sales.common.itemCount', { count: row.itemCount });
+            const channel = t(SALE_CHANNEL_KEY[row.channel]);
+            const warehouseName = isMain && pickedWarehouse === undefined ? warehouses.nameOf(row.warehouseId) : undefined;
+            return (
+              <TouchableOpacity
+                key={row.id}
+                style={styles.recentSaleCard}
+                onPress={() => onSelectSale(row.id)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <View style={styles.recentSaleTopRow}>
+                  <Text style={styles.recentSaleId}>{row.saleNumber}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: adminColors[tone].bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: adminColors[tone].text }]}>
+                      {t(PAYMENT_STATUS_KEY[row.paymentStatus])}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.recentSaleCustomer}>{buyerLabel(row)}</Text>
+                <View style={styles.recentSaleBottomRow}>
+                  <Text style={styles.recentSaleType}>
+                    {warehouseName
+                      ? t('sales.hub.saleMetaWarehouse', { channel, items, warehouse: warehouseName })
+                      : t('sales.hub.saleMeta', { channel, items })}
+                  </Text>
+                  <View style={styles.recentSaleRight}>
+                    <Text style={styles.recentSaleTime}>{formatAdminDate(row.completedAt ?? row.createdAt, now)}</Text>
+                    <Text style={styles.recentSaleAmount}>{formatPaise(row.totalPaise)}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-
-
     </SafeAreaView>
   );
 }
@@ -1031,130 +691,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  backButton: {
+  headerIconBtn: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleText: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: 0.2,
-  },
-  warehouseDropdownRow: {
-    marginTop: 6,
-  },
-  warehouseDropdownPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    gap: 8,
-    ...adminShadow.sm,
-  },
-  warehouseDropdownText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    width: '100%',
-    backgroundColor: adminColors.card,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.md,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginBottom: 16,
-  },
-  modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 6,
-  },
-  modalItemSelected: {
-    backgroundColor: adminColors.brandSoft.bg,
-  },
-  modalItemText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: adminColors.ink,
-  },
-  modalItemTextSelected: {
-    color: adminColors.brandDeep,
-    fontWeight: '700',
-  },
-  modalCancelBtn: {
-    marginTop: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 12,
-    backgroundColor: adminColors.canvas,
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.muted,
-  },
-  warehouseBadgeRow: {
-    marginTop: 2,
   },
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     alignSelf: 'flex-start',
     gap: 6,
   },
   warehouseBadgeText: {
+    ...adminType.caption,
     color: adminColors.onBrand,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  headerBellBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerBellBtnWhite: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...adminShadow.sm,
   },
   scroll: {
     flex: 1,
@@ -1164,223 +725,58 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
-
-  /* Main Warehouse (M6-01) Styles */
-  mainKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 20,
-  },
-  mainKpiCard: {
-    width: '48%',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    minHeight: 92,
-    justifyContent: 'center',
-    ...adminShadow.sm,
-  },
-  mainKpiLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: adminColors.muted,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  mainKpiValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginBottom: 3,
-  },
-  mainKpiSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: adminColors.muted,
-  },
-  mainSectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  mainSectionHeaderRow: {
+  inlineErrorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 10,
+    marginBottom: adminSpacing.md,
   },
-  mainSectionLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.brandDeep,
+  inlineErrorText: {
+    ...adminType.rowMeta,
+    color: adminColors.danger.text,
   },
-  whSummaryCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-    ...adminShadow.sm,
-  },
-  whSummaryTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  whSummaryName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  whSummaryBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  whSummaryBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.success.text,
-  },
-  whSummarySub: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: adminColors.muted,
-  },
-  channelGrid2x2: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
-  },
-  channelCardBtn: {
-    width: '48%',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...adminShadow.sm,
-  },
-  channelIconBox: {
-    marginBottom: 10,
-  },
-  channelCardBtnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  mainAlertCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: adminColors.brand,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    ...adminShadow.sm,
-  },
-  mainAlertIconWrap: {
-    marginRight: 12,
-  },
-  mainAlertTextWrap: {
-    flex: 1,
-  },
-  mainAlertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.ink,
-    marginBottom: 3,
-  },
-  mainAlertSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: adminColors.muted,
-  },
-  mainRecentSaleCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: 16,
-    ...adminShadow.sm,
-  },
-  mainRecentTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  mainRecentId: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  mainRecentItems: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: adminColors.muted,
-    marginBottom: 10,
-  },
-  mainRecentDivider: {
-    height: 1,
-    backgroundColor: adminColors.border,
-    marginBottom: 10,
-  },
-  mainRecentBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  mainRecentWarehouse: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: adminColors.muted,
-  },
-  mainRecentAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-
-  /* Subwarehouse Styles */
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
-    marginBottom: 12,
-    marginTop: 6,
+    marginBottom: 8,
+    marginTop: 10,
   },
-  channelGrid: {
+  sectionTitleInline: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionLink: {
+    ...adminType.caption,
+    color: adminColors.brandDeep,
+  },
+  noteText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 10,
+  },
+  kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 18,
+    marginBottom: 8,
   },
-  channelCard: {
+  kpiCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     padding: 14,
     borderWidth: 1,
     borderColor: adminColors.border,
@@ -1388,59 +784,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...adminShadow.sm,
   },
+  kpiCardWide: {
+    width: '100%',
+  },
   cardIconWrap: {
     marginBottom: 8,
   },
-  cardAmount: {
-    ...adminType.title,
+  kpiLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  kpiValue: {
+    ...adminType.kpiValue,
     color: adminColors.ink,
     marginBottom: 3,
   },
-  cardSubtitle: {
+  kpiSub: {
     ...adminType.rowMeta,
     color: adminColors.muted,
   },
-  quickActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 18,
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 88,
-    ...adminShadow.sm,
-  },
-  actionBtnHalf: {
-    width: '48%',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 88,
-    ...adminShadow.sm,
-  },
-  actionBtnLabel: {
-    ...adminType.caption,
-    color: adminColors.ink,
-    textAlign: 'center',
-    marginTop: 8,
-  },
   summaryCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: 16,
@@ -1451,24 +817,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
+    paddingVertical: 12,
   },
   summaryLabel: {
     ...adminType.body,
     color: adminColors.muted,
   },
+  summaryRight: {
+    alignItems: 'flex-end',
+  },
   summaryValue: {
     ...adminType.sectionHead,
     color: adminColors.ink,
   },
+  summaryCount: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
   divider: {
     height: 1,
     backgroundColor: adminColors.border,
-  },
-  dividerThick: {
-    height: 1.5,
-    backgroundColor: adminColors.ink,
-    marginVertical: 3,
   },
   totalRow: {
     flexDirection: 'row',
@@ -1477,94 +845,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    marginBottom: 10,
+  countBadge: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 1,
   },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.brandDeep,
-  },
-  recentSaleCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: 10,
-    ...adminShadow.sm,
-  },
-  recentSaleTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  recentSaleId: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-  },
-  paidBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 9,
-    paddingVertical: 2.5,
-    borderRadius: 12,
-  },
-  paidBadgeText: {
-    color: adminColors.success.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recentSaleCustomer: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: adminColors.muted,
-    marginBottom: 10,
-  },
-  recentSaleBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  recentSaleType: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: adminColors.muted,
-  },
-  recentSaleRight: {
-    alignItems: 'flex-end',
-  },
-  recentSaleTime: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: adminColors.muted,
-    marginBottom: 2,
-  },
-  recentSaleAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  needsAttentionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 18,
-    marginBottom: 10,
+  countBadgeText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
   },
   alertsContainer: {
     gap: 10,
@@ -1573,7 +869,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingVertical: 14,
@@ -1600,14 +896,95 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.ink,
     marginBottom: 2,
   },
   alertSub: {
-    fontSize: 13,
-    fontWeight: '400',
+    ...adminType.rowMeta,
     color: adminColors.muted,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  actionBtn: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 88,
+    ...adminShadow.sm,
+  },
+  actionBtnLabel: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  recentSaleCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  recentSaleTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  recentSaleId: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+  },
+  statusBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  statusBadgeText: {
+    ...adminType.caption,
+  },
+  recentSaleCustomer: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: 10,
+  },
+  recentSaleBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  recentSaleType: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    flexShrink: 1,
+  },
+  recentSaleRight: {
+    alignItems: 'flex-end',
+  },
+  recentSaleTime: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  recentSaleAmount: {
+    ...adminType.title,
+    color: adminColors.ink,
+  },
+  bottomSpacer: {
+    height: 28,
   },
 });

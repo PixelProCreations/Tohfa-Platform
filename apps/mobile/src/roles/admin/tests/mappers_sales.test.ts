@@ -1,13 +1,11 @@
 /**
- * roles/admin/screens/warehouse/sales-direct/mappers.ts:
- * Domain mappers between OpenAPI DTOs and warehouse sales UI types.
+ * roles/admin/screens/warehouse/sales-direct/mappers.ts: DTO -> view model
+ * mapping, request builders and the counter's payment checks.
  *
- * Rules:
- *   - Money is NEVER a float. Every amount is integer paise (BR-98).
- *   - Quantities are integer grams (kgToGrams).
- *   - No float drift (0.1 kg + 0.2 kg === 300 grams exactly).
- *   - Status enums go through exhaustive Record with explicit fallback.
- *   - Server-calculated totals and GST are preserved, never computed client-side (BR-89).
+ *   - Money is never a float: amounts are integer paise, bodies carry Money
+ *     strings, the quote's total is echoed verbatim as expectedTotal (BR-89, BR-98).
+ *   - Quantities are integer grams; bodies carry 3-dp kg strings.
+ *   - Codes stay codes (grade, status, method); the screens translate them.
  */
 import { describe, expect, it } from 'vitest';
 import type {
@@ -17,9 +15,19 @@ import type {
   SaleListItemDto,
   SaleProductDto,
   SaleQuoteDto,
+  SalesDashboardSummaryDto,
   SalesMarketDayDto,
 } from '../api/sales';
+import type { AdminOrderDetailDto } from '../api/orders';
+import { en } from '../i18n';
 import {
+  buildQuoteRequest,
+  buildSaleCreateRequest,
+  cartItemRequests,
+  checkSalePayment,
+  customerLookupParams,
+  isPendingUpiSale,
+  mapChannelOrderDetail,
   mapChannelOrderListItem,
   mapSale,
   mapSaleCustomerMatch,
@@ -27,292 +35,425 @@ import {
   mapSaleProduct,
   mapSaleQuote,
   mapSalesMarketDay,
+  mapSalesSummary,
+  normalizeWalkInMobile,
   salesWarehouseFilter,
+  setCartQty,
+  tallyChannelOrders,
+  upiTxnRefInput,
+  type CartLine,
+  type SaleCustomerView,
+  type SaleQuoteView,
 } from '../screens/warehouse/sales-direct/mappers';
+import {
+  CHANNEL_GROUP_KEY,
+  CHANNEL_ORDER_STATUS_KEY,
+  GRADE_KEY,
+  PAYMENT_BLOCK_KEY,
+  PAYMENT_METHOD_KEY,
+  PAYMENT_ROW_STATUS_KEY,
+  PAYMENT_STATUS_KEY,
+  SALE_CHANNEL_KEY,
+  SALE_STATUS_KEY,
+} from '../screens/warehouse/sales-direct/salesLabels';
 
-describe('roles/admin/screens/warehouse/sales-direct/mappers.ts', () => {
-  describe('mapSaleProduct (quantities and money)', () => {
-    it('maps availableQtyKg to integer grams without float drift (0.1 + 0.2 kg === 300g)', () => {
-      const dto: SaleProductDto = {
-        productId: 'prod-1',
-        name: 'Ooty Carrot',
-        categoryId: 'cat-1',
-        grade: 'Grade 1',
-        unitPrice: '45.00',
-        availableQtyKg: '0.300',
-        unit: 'kg',
-        photos: [],
-        certificationBadges: [],
-        batchCode: 'BTH-001',
-        storageLocation: 'A-01',
-      };
-      const mapped = mapSaleProduct(dto);
-      expect(mapped.availableGrams).toBe(300);
-      expect(mapped.unitPricePaise).toBe(4500);
-      expect(mapped.pricePerKgText).toBe('₹45');
-    });
+const WH = '11111111-1111-4111-8111-111111111111';
+const PRODUCT = '33333333-3333-4333-8333-333333333333';
+const CUSTOMER = '44444444-4444-4444-8444-444444444444';
+const SALE = '22222222-2222-4222-8222-222222222222';
+const INVOICE = '55555555-5555-4555-8555-555555555555';
 
-    it('handles fractional paise and multi-digit kg quantities safely', () => {
-      const dto: SaleProductDto = {
-        productId: 'prod-2',
-        name: 'Potato',
-        categoryId: 'cat-1',
-        grade: 'Grade 2',
-        unitPrice: '22.50',
-        availableQtyKg: '125.750',
-        unit: 'kg',
-        photos: [],
-        certificationBadges: [],
-        batchCode: null,
-        storageLocation: null,
-      };
-      const mapped = mapSaleProduct(dto);
-      expect(mapped.availableGrams).toBe(125750);
-      expect(mapped.unitPricePaise).toBe(2250);
-      expect(mapped.pricePerKgText).toBe('₹22.50');
-    });
+const productDto: SaleProductDto = {
+  productId: PRODUCT,
+  name: 'Ooty Carrot',
+  categoryId: '66666666-6666-4666-8666-666666666666',
+  grade: 'GRADE_1',
+  unitPrice: '45.50',
+  availableQtyKg: '12.345',
+  unit: 'kg',
+  photos: [],
+  certificationBadges: [],
+  batchCode: 'BTH-001',
+  storageLocation: null,
+};
+
+const customer: SaleCustomerView = {
+  customerId: CUSTOMER,
+  customerCode: 'CUS-0001',
+  name: 'Priya',
+  mobileMasked: '******3210',
+  walletBalancePaise: 10000,
+};
+
+function quoteOf(total: string): SaleQuoteView {
+  return mapSaleQuote({
+    channel: 'DIRECT',
+    lines: [],
+    totals: { subtotal: total, gst: '0.00', total },
+    gstRatePercent: '5',
+    quotedAt: '2026-10-14T10:00:00Z',
+  });
+}
+
+function cartOf(qtyGrams: number): CartLine[] {
+  return setCartQty([], mapSaleProduct(productDto), qtyGrams);
+}
+
+const saleDto: SaleDto = {
+  id: SALE,
+  saleNumber: 'SO-1001',
+  channel: 'DIRECT',
+  status: 'PICKED_UP',
+  paymentStatus: 'PAID',
+  warehouseId: WH,
+  buyer: { kind: 'WALK_IN', customerId: null, customerCode: null, name: 'Asha', mobileMasked: '******9876' },
+  items: [
+    { productId: PRODUCT, name: 'Ooty Carrot', grade: 'GRADE_1', qtyKg: '0.300', unitPrice: '45.50', lineTotal: '13.65' },
+  ],
+  totals: { subtotal: '13.65', gst: '0.68', total: '14.33', changeGiven: '5.67' },
+  payment: {
+    method: 'CASH',
+    status: 'CONFIRMED',
+    amount: '14.33',
+    amountReceived: '20.00',
+    cardRef: null,
+    upiTxnRef: null,
+    confirmedAt: '2026-10-14T10:01:00Z',
+  },
+  invoiceNumber: 'INV-0001',
+  invoiceId: INVOICE,
+  timeline: [{ fromStatus: null, toStatus: 'PICKED_UP', at: '2026-10-14T10:01:00Z' }],
+  createdAt: '2026-10-14T10:00:00Z',
+  completedAt: '2026-10-14T10:01:00Z',
+};
+
+describe('sales mappers: products, cart and quote', () => {
+  it('maps a product to integer paise and grams, keeping the grade code', () => {
+    const p = mapSaleProduct(productDto);
+    expect(p.unitPricePaise).toBe(4550);
+    expect(p.availableGrams).toBe(12345);
+    expect(p.grade).toBe('GRADE_1');
+    expect(p.storageLocation).toBeNull();
   });
 
-  describe('mapSaleCustomerMatch (BR-91, BR-92)', () => {
-    it('maps customer match and formats walletBalance in integer paise', () => {
-      const dto: SaleCustomerMatchDto = {
-        customerId: 'cus-1',
-        customerCode: 'CUS-001',
-        name: 'Ramesh Kumar',
-        mobileMasked: '+91 ****** 4321',
-        walletBalance: '1500.00',
-      };
-      const mapped = mapSaleCustomerMatch(dto);
-      expect(mapped.walletBalancePaise).toBe(150000);
-      expect(mapped.walletBalanceText).toBe('₹1,500');
-      expect(mapped.mobileMasked).toBe('+91 ****** 4321');
-    });
+  it('BR-89: cart lines become one request per productId + grade with exact 3-dp kg', () => {
+    const product = mapSaleProduct(productDto);
+    let cart = setCartQty([], product, 100);
+    cart = setCartQty(cart, product, 300); // same product + grade replaces, never duplicates
+    expect(cart).toHaveLength(1);
+    expect(cartItemRequests(cart)).toEqual([{ productId: PRODUCT, grade: 'GRADE_1', qtyKg: '0.300' }]);
   });
 
-  describe('mapSaleQuote (BR-89, BR-98: GST & Totals from server)', () => {
-    it('maps quote lines and totals without modifying server-provided GST', () => {
-      const dto: SaleQuoteDto = {
-        channel: 'DIRECT',
-        lines: [
-          {
-            productId: 'prod-1',
-            name: 'Tomato',
-            grade: 'Grade 1',
-            qtyKg: '2.000',
-            unitPrice: '50.00',
-            lineTotal: '100.00',
-          },
-        ],
-        totals: {
-          subtotal: '100.00',
-          gst: '5.00',
-          total: '105.00',
-          changeGiven: null,
-        },
-        gstRatePercent: '5.00',
-        quotedAt: '2026-10-13T10:00:00.000Z',
-      };
-      const mapped = mapSaleQuote(dto);
-      expect(mapped.lines[0]?.qtyGrams).toBe(2000);
-      expect(mapped.lines[0]?.unitPricePaise).toBe(5000);
-      expect(mapped.lines[0]?.lineTotalPaise).toBe(10000);
-      expect(mapped.subtotalPaise).toBe(10000);
-      expect(mapped.gstPaise).toBe(500);
-      expect(mapped.totalPaise).toBe(10500);
-      expect(mapped.gstRatePercent).toBe('5.00');
-    });
+  it('clamps a quantity to the available stock and removes a line at 0', () => {
+    const product = mapSaleProduct(productDto);
+    expect(setCartQty([], product, 999999)[0]?.qtyGrams).toBe(12345);
+    expect(setCartQty(setCartQty([], product, 500), product, 0)).toEqual([]);
   });
 
-  describe('mapSale (BR-86, BR-94: full sale record)', () => {
-    it('maps sale record with exhaustive status mapping and change given', () => {
-      const dto: SaleDto = {
-        id: 'sale-1',
-        saleNumber: 'ORD-00123',
-        channel: 'DIRECT',
-        status: 'PICKED_UP',
-        paymentStatus: 'CONFIRMED',
-        warehouseId: 'wh-1',
-        buyer: {
-          kind: 'CUSTOMER',
-          customerId: 'cus-1',
-          customerCode: 'CUS-001',
-          name: 'Anand',
-          mobileMasked: '+91 ****** 9999',
-        },
-        items: [
-          {
-            productId: 'p-1',
-            name: 'Beans',
-            grade: 'Grade 1',
-            qtyKg: '1.500',
-            unitPrice: '80.00',
-            lineTotal: '120.00',
-          },
-        ],
-        totals: {
-          subtotal: '120.00',
-          gst: '6.00',
-          total: '126.00',
-          changeGiven: '74.00',
-        },
-        payment: {
-          method: 'CASH',
-          status: 'CONFIRMED',
-          amount: '126.00',
-          amountReceived: '200.00',
-          cardRef: null,
-          upiTxnRef: null,
-          confirmedAt: '2026-10-13T10:05:00.000Z',
-        },
-        invoiceNumber: 'INV-00123',
-        invoiceId: 'inv-uuid-1',
-        createdAt: '2026-10-13T10:00:00.000Z',
-        completedAt: '2026-10-13T10:05:00.000Z',
-      };
-      const mapped = mapSale(dto);
-      expect(mapped.id).toBe('sale-1');
-      expect(mapped.status).toBe('Completed');
-      expect(mapped.paymentStatus).toBe('Paid');
-      expect(mapped.paymentMethod).toBe('Cash');
-      expect(mapped.totalPaise).toBe(12600);
-      expect(mapped.subtotalPaise).toBe(12000);
-      expect(mapped.gstPaise).toBe(600);
-      expect(mapped.changeGivenPaise).toBe(7400);
-      expect(mapped.invoiceNo).toBe('INV-00123');
+  it('builds the quote body with the sale warehouse uuid and omits it for a Sub admin', () => {
+    expect(buildQuoteRequest('MARKET', cartOf(1500), WH)).toEqual({
+      channel: 'MARKET',
+      items: [{ productId: PRODUCT, grade: 'GRADE_1', qtyKg: '1.500' }],
+      warehouseId: WH,
     });
-
-    it('falls back safely on unknown enum values without throwing', () => {
-      const dto = {
-        id: 'sale-2',
-        saleNumber: 'ORD-00124',
-        channel: 'DIRECT',
-        status: 'UNKNOWN_STATUS_XYZ',
-        paymentStatus: 'UNKNOWN_PAY_XYZ',
-        warehouseId: 'wh-1',
-        buyer: {
-          kind: 'WALK_IN',
-          customerId: null,
-          customerCode: null,
-          name: 'Walk-in',
-          mobileMasked: null,
-        },
-        items: [],
-        totals: {
-          subtotal: '0.00',
-          gst: '0.00',
-          total: '0.00',
-          changeGiven: null,
-        },
-        payment: {
-          method: 'UNKNOWN_METHOD_XYZ',
-          status: 'PENDING',
-          amount: '0.00',
-          amountReceived: null,
-          cardRef: null,
-          upiTxnRef: null,
-          confirmedAt: null,
-        },
-        invoiceNumber: null,
-        invoiceId: null,
-        createdAt: '2026-10-13T10:00:00.000Z',
-        completedAt: null,
-      } as unknown as SaleDto;
-
-      const mapped = mapSale(dto);
-      expect(mapped.status).toBe('Pending Payment');
-      expect(mapped.paymentStatus).toBe('Pending');
-      expect(mapped.paymentMethod).toBe('Cash');
-    });
+    expect(buildQuoteRequest('DIRECT', cartOf(1500), undefined)).not.toHaveProperty('warehouseId');
   });
 
-  describe('mapSaleListItem', () => {
-    it('maps list item fields accurately', () => {
-      const dto: SaleListItemDto = {
-        id: 'sale-3',
-        saleNumber: 'ORD-00125',
-        channel: 'MARKET',
-        status: 'PICKED_UP',
-        paymentStatus: 'CONFIRMED',
-        paymentMethod: 'UPI',
-        warehouseId: 'wh-1',
-        buyer: {
-          kind: 'WALK_IN',
-          customerId: null,
-          customerCode: null,
-          name: 'Market Buyer',
-          mobileMasked: null,
-        },
-        itemCount: 3,
-        total: '350.00',
-        invoiceNumber: 'INV-00125',
-        createdAt: '2026-10-13T09:00:00.000Z',
-        completedAt: '2026-10-13T09:05:00.000Z',
-      };
-      const mapped = mapSaleListItem(dto);
-      expect(mapped.id).toBe('sale-3');
-      expect(mapped.totalPaise).toBe(35000);
-      expect(mapped.paymentMethod).toBe('UPI');
-    });
+  it('BR-98: keeps the server totals and echoes totals.total verbatim as expectedTotal', () => {
+    const dto: SaleQuoteDto = {
+      channel: 'DIRECT',
+      lines: [{ productId: PRODUCT, name: 'Ooty Carrot', grade: 'GRADE_1', qtyKg: '0.300', unitPrice: '45.50', lineTotal: '13.65' }],
+      totals: { subtotal: '13.65', gst: '0.68', total: '14.33' },
+      gstRatePercent: '5',
+      quotedAt: '2026-10-14T10:00:00Z',
+    };
+    const q = mapSaleQuote(dto);
+    expect(q.subtotalPaise + q.gstPaise).toBe(q.totalPaise);
+    expect(q.totalPaise).toBe(1433);
+    expect(q.expectedTotal).toBe('14.33');
+    expect(q.lines[0]?.qtyGrams).toBe(300);
+  });
+});
+
+describe('sales mappers: customers', () => {
+  it('BR-92: maps a lookup hit keeping only the masked mobile', () => {
+    const dto: SaleCustomerMatchDto = {
+      customerId: CUSTOMER,
+      customerCode: 'CUS-0001',
+      name: 'Priya',
+      mobileMasked: '******3210',
+      walletBalance: '1250.75',
+    };
+    const c = mapSaleCustomerMatch(dto);
+    expect(c.walletBalancePaise).toBe(125075);
+    expect(c.mobileMasked).toBe('******3210');
   });
 
-  describe('mapSalesMarketDay (BR-95, BR-96)', () => {
-    it('maps allocation quantities to integer grams without float drift', () => {
-      const dto: SalesMarketDayDto = {
-        date: '2026-10-13',
-        warehouseId: 'wh-1',
-        totals: { count: 10, revenue: '4500.00' },
-        byPaymentMethod: [{ method: 'CASH', count: 10, revenue: '4500.00' }],
-        allocation: [
-          {
-            productId: 'p-1',
-            name: 'Cabbage',
-            grade: 'Grade 1',
-            allocatedQtyKg: '100.500',
-            soldQtyKg: '40.200',
-            remainingQtyKg: '60.300',
-          },
-        ],
-        items: [],
-        page: { nextCursor: null, hasMore: false },
-      };
-      const mapped = mapSalesMarketDay(dto);
-      expect(mapped.revenuePaise).toBe(450000);
-      expect(mapped.allocation[0]?.allocatedGrams).toBe(100500);
-      expect(mapped.allocation[0]?.soldGrams).toBe(40200);
-      expect(mapped.allocation[0]?.remainingGrams).toBe(60300);
-    });
+  it('BR-91: lookup params are exactly one of mobile or q, and nothing for 0-1 chars', () => {
+    expect(customerLookupParams('98765 43210')).toEqual({ mobile: '9876543210' });
+    expect(customerLookupParams('+919876543210')).toEqual({ mobile: '+919876543210' });
+    expect(customerLookupParams('CUS-0001')).toEqual({ q: 'CUS-0001' });
+    expect(customerLookupParams('  P ')).toBeNull();
+    expect(customerLookupParams('')).toBeNull();
   });
 
-  describe('mapChannelOrderListItem (BR-85h)', () => {
-    it('maps B2B / HORECA order item to UI type with integer paise total', () => {
-      const dto: ChannelOrderListItemDto = {
-        id: 'ord-b2b-1',
-        orderNumber: 'B2B-00100',
-        channel: 'B2B',
-        status: 'CONFIRMED',
-        paymentStatus: 'CONFIRMED',
-        warehouseId: 'wh-1',
-        customerCode: 'CUS-B01',
-        businessName: 'Green Hotels',
-        itemCount: 5,
-        total: '15400.00',
-        placedAt: '2026-10-13T08:00:00.000Z',
-      };
-      const mapped = mapChannelOrderListItem(dto);
-      expect(mapped.id).toBe('ord-b2b-1');
-      expect(mapped.totalPaise).toBe(1540000);
-      expect(mapped.status).toBe('Confirmed');
-      expect(mapped.channel).toBe('B2B');
-    });
+  it('normalises a walk-in mobile to E.164 or reports it invalid', () => {
+    expect(normalizeWalkInMobile('')).toBeUndefined();
+    expect(normalizeWalkInMobile('98765 43210')).toBe('+919876543210');
+    expect(normalizeWalkInMobile('+447700900123')).toBe('+447700900123');
+    expect(normalizeWalkInMobile('12345')).toBeNull();
+  });
+});
+
+describe('sales mappers: payment checks and the create body', () => {
+  const walkIn = { kind: 'WALK_IN' as const, name: 'Asha' };
+  const registered = { kind: 'CUSTOMER' as const, customer };
+
+  it('BR-86: a walk-in cannot pay by wallet', () => {
+    const check = checkSalePayment({ cart: cartOf(300), quote: quoteOf('14.33'), buyer: walkIn, payment: { method: 'WALLET' } });
+    expect(check.block).toBe('WALKIN_WALLET_NOT_ALLOWED');
+    expect(
+      buildSaleCreateRequest({ channel: 'DIRECT', warehouseId: WH, cart: cartOf(300), quote: quoteOf('14.33'), buyer: walkIn, payment: { method: 'WALLET' } }),
+    ).toBeNull();
   });
 
-  describe('salesWarehouseFilter (BR-30)', () => {
-    it('pins to scope.warehouseId when defined (Sub Warehouse)', () => {
-      expect(salesWarehouseFilter({ warehouseId: 'wh-sub' }, 'wh-other')).toBe('wh-sub');
-    });
+  it('BR-88: a wallet that does not cover the total blocks, with the exact paise shortfall', () => {
+    const check = checkSalePayment({ cart: cartOf(300), quote: quoteOf('100.01'), buyer: registered, payment: { method: 'WALLET' } });
+    expect(check.block).toBe('WALLET_INSUFFICIENT');
+    expect(check.shortfallPaise).toBe(1);
+    expect(checkSalePayment({ cart: cartOf(300), quote: quoteOf('100.00'), buyer: registered, payment: { method: 'WALLET' } }).block).toBeNull();
+  });
 
-    it('allows selected warehouseId for Main Warehouse', () => {
-      expect(salesWarehouseFilter({}, 'wh-other')).toBe('wh-other');
+  it('BR-94: cash must cover the total; change is exact integer paise (no float drift)', () => {
+    const quote = quoteOf('0.30');
+    expect(checkSalePayment({ cart: cartOf(300), quote, buyer: walkIn, payment: { method: 'CASH', receivedInput: '0.29' } }).block).toBe(
+      'CASH_AMOUNT_INSUFFICIENT',
+    );
+    expect(checkSalePayment({ cart: cartOf(300), quote, buyer: walkIn, payment: { method: 'CASH', receivedInput: 'abc' } }).block).toBe(
+      'CASH_AMOUNT_INVALID',
+    );
+    const ok = checkSalePayment({ cart: cartOf(300), quote, buyer: walkIn, payment: { method: 'CASH', receivedInput: '0.50' } });
+    expect(ok.block).toBeNull();
+    expect(ok.changePaise).toBe(20);
+  });
+
+  it('BR-94: a card sale needs a non-blank reference', () => {
+    expect(checkSalePayment({ cart: cartOf(300), quote: quoteOf('1.00'), buyer: walkIn, payment: { method: 'CARD', cardRef: '  ' } }).block).toBe(
+      'CARD_REF_REQUIRED',
+    );
+  });
+
+  it('blocks an empty cart, a missing quote and a nameless walk-in', () => {
+    expect(checkSalePayment({ cart: [], quote: quoteOf('1.00'), buyer: walkIn, payment: { method: 'UPI' } }).block).toBe('EMPTY_CART');
+    expect(checkSalePayment({ cart: cartOf(300), quote: null, buyer: walkIn, payment: { method: 'UPI' } }).block).toBe('NO_QUOTE');
+    expect(
+      checkSalePayment({ cart: cartOf(300), quote: quoteOf('1.00'), buyer: { kind: 'WALK_IN', name: ' ' }, payment: { method: 'UPI' } }).block,
+    ).toBe('WALK_IN_NAME_REQUIRED');
+  });
+
+  it('BR-89, BR-86: the create body echoes expectedTotal, has exactly one buyer and Money amounts', () => {
+    const body = buildSaleCreateRequest({
+      channel: 'DIRECT',
+      warehouseId: WH,
+      cart: cartOf(300),
+      quote: quoteOf('14.33'),
+      buyer: { kind: 'WALK_IN', name: ' Asha ', mobile: '9876543210' },
+      payment: { method: 'CASH', receivedInput: '20' },
     });
+    expect(body).toEqual({
+      channel: 'DIRECT',
+      warehouseId: WH,
+      items: [{ productId: PRODUCT, grade: 'GRADE_1', qtyKg: '0.300' }],
+      expectedTotal: '14.33',
+      walkIn: { name: 'Asha', mobile: '+919876543210' },
+      payment: { method: 'CASH', amountReceived: '20.00' },
+    });
+    expect(body).not.toHaveProperty('customer');
+  });
+
+  it('BR-86: a registered-customer body carries only customer.customerId', () => {
+    const body = buildSaleCreateRequest({
+      channel: 'MARKET',
+      warehouseId: undefined,
+      cart: cartOf(300),
+      quote: quoteOf('14.33'),
+      buyer: registered,
+      payment: { method: 'CARD', cardRef: ' TXN-9 ' },
+    });
+    expect(body?.customer).toEqual({ customerId: CUSTOMER });
+    expect(body).not.toHaveProperty('walkIn');
+    expect(body).not.toHaveProperty('warehouseId');
+    expect(body?.payment).toEqual({ method: 'CARD', cardRef: 'TXN-9' });
+  });
+
+  it('BR-94: a UPI reference is what the cashier typed, trimmed, 1-120 chars; never generated', () => {
+    expect(upiTxnRefInput('  412345678901 ')).toBe('412345678901');
+    expect(upiTxnRefInput('   ')).toBeNull();
+    expect(upiTxnRefInput('x'.repeat(121))).toBeNull();
+  });
+});
+
+describe('sales mappers: sales, summary, market day, channel orders', () => {
+  it('maps a sale detail with invoice uuid, payment and timeline in paise', () => {
+    const s = mapSale(saleDto);
+    expect(s.totalPaise).toBe(1433);
+    expect(s.changeGivenPaise).toBe(567);
+    expect(s.payment.amountReceivedPaise).toBe(2000);
+    expect(s.invoiceId).toBe(INVOICE);
+    expect(s.items[0]).toMatchObject({ grade: 'GRADE_1', qtyGrams: 300, lineTotalPaise: 1365 });
+    expect(s.timeline).toHaveLength(1);
+    expect(isPendingUpiSale(s)).toBe(false);
+  });
+
+  it('BR-94: a UPI sale created PENDING has no invoice and needs a confirm', () => {
+    const pending = mapSale({
+      ...saleDto,
+      status: 'PENDING_PAYMENT',
+      paymentStatus: 'PENDING',
+      invoiceId: null,
+      invoiceNumber: null,
+      totals: { subtotal: '13.65', gst: '0.68', total: '14.33', changeGiven: null },
+      payment: { ...saleDto.payment, method: 'UPI', status: 'PENDING', amountReceived: null, confirmedAt: null },
+    });
+    expect(isPendingUpiSale(pending)).toBe(true);
+    expect(pending.invoiceId).toBeNull();
+    expect(pending.changeGivenPaise).toBeNull();
+  });
+
+  it('maps a sales list row', () => {
+    const dto: SaleListItemDto = {
+      id: SALE,
+      saleNumber: 'SO-1001',
+      channel: 'MARKET',
+      status: 'PICKED_UP',
+      paymentStatus: 'PAID',
+      paymentMethod: 'UPI',
+      warehouseId: WH,
+      buyer: saleDto.buyer,
+      itemCount: 3,
+      total: '1250.50',
+      invoiceNumber: null,
+      createdAt: '2026-10-14T10:00:00Z',
+      completedAt: null,
+    };
+    expect(mapSaleListItem(dto)).toMatchObject({ totalPaise: 125050, channel: 'MARKET', itemCount: 3, paymentMethod: 'UPI' });
+  });
+
+  it('BR-96: zero-fills every channel and method and does not double-count stock issues', () => {
+    const dto: SalesDashboardSummaryDto = {
+      from: '2026-10-14',
+      to: '2026-10-14',
+      warehouseId: WH,
+      count: 2,
+      revenue: '300.30',
+      byChannel: [{ channel: 'DIRECT', count: 2, revenue: '300.30' }],
+      byPaymentMethod: [{ method: 'CASH', count: 2, revenue: '300.30' }],
+      needsAttention: { paymentPending: 1, stockIssues: 2, failedSales: 3, invoiceIssues: 4 },
+    };
+    const s = mapSalesSummary(dto);
+    expect(s.revenuePaise).toBe(30030);
+    expect(s.byChannel.MARKET).toEqual({ count: 0, revenuePaise: 0 });
+    expect(s.byMethod.WALLET).toEqual({ count: 0, revenuePaise: 0 });
+    expect(s.byMethod.CASH.revenuePaise).toBe(30030);
+    expect(s.needsAttentionTotal).toBe(8);
+  });
+
+  it('BR-95: maps the market-day allocation in grams', () => {
+    const dto: SalesMarketDayDto = {
+      date: '2026-10-14',
+      warehouseId: WH,
+      totals: { count: 1, revenue: '45.50' },
+      byPaymentMethod: [],
+      allocation: [
+        { productId: PRODUCT, name: 'Ooty Carrot', grade: 'GRADE_2', allocatedQtyKg: '10.000', soldQtyKg: '0.100', remainingQtyKg: '9.900' },
+      ],
+      items: [],
+      page: { nextCursor: null, hasMore: false },
+    };
+    const m = mapSalesMarketDay(dto);
+    expect(m.allocation[0]).toMatchObject({ allocatedGrams: 10000, soldGrams: 100, remainingGrams: 9900, grade: 'GRADE_2' });
+    expect(m.revenuePaise).toBe(4550);
+    expect(m.byMethod.UPI).toEqual({ count: 0, revenuePaise: 0 });
+  });
+
+  it('BR-85h: channel orders map read-only and tally over the loaded rows, excluding cancelled value', () => {
+    const base: ChannelOrderListItemDto = {
+      id: SALE,
+      orderNumber: 'HO-1',
+      channel: 'HORECA',
+      status: 'CONFIRMED',
+      paymentStatus: 'PAID',
+      warehouseId: WH,
+      customerCode: null,
+      businessName: null,
+      itemCount: 2,
+      total: '100.10',
+      placedAt: '2026-10-14T10:00:00Z',
+    };
+    const rows = [
+      mapChannelOrderListItem(base),
+      mapChannelOrderListItem({ ...base, status: 'DELIVERED', total: '0.20' }),
+      mapChannelOrderListItem({ ...base, status: 'CANCELLED', total: '999.00' }),
+    ];
+    expect(rows[0]?.businessName).toBeNull();
+    const tally = tallyChannelOrders(rows);
+    expect(tally.orders).toBe(3);
+    expect(tally.byGroup).toEqual({ PENDING: 1, IN_PROGRESS: 0, COMPLETED: 1, CLOSED: 1 });
+    expect(tally.valuePaise).toBe(10030);
+  });
+
+  it('BR-99: a channel order detail carries its real invoice uuid or null', () => {
+    const dto = {
+      id: SALE,
+      orderNumber: 'B2B-1',
+      channel: 'B2B',
+      status: 'DELIVERED',
+      fulfilmentType: 'DELIVERY',
+      paymentMethod: 'UPI',
+      paymentStatus: 'PAID',
+      warehouse: { id: WH, name: 'Coonoor' },
+      buyer: { kind: 'CUSTOMER', customerId: CUSTOMER, customerCode: 'CUS-1', name: 'Hotel', mobileMasked: null },
+      items: [
+        { productId: PRODUCT, name: 'Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '40.00', gstRate: '5.00', gstAmount: '4.00', lineTotal: '80.00' },
+      ],
+      totals: { subtotal: '80.00', deliveryFee: '0.00', discount: '0.00', gst: '4.00', total: '84.00' },
+      invoice: { id: INVOICE, invoiceNumber: 'INV-9', status: 'ISSUED' },
+      fulfilment: { deliveryDate: null, deliverySlot: null, otpRequired: false, otpVerifiedAt: null },
+      timeline: [],
+      placedAt: '2026-10-14T10:00:00Z',
+      packedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+    } as unknown as AdminOrderDetailDto;
+    const d = mapChannelOrderDetail(dto);
+    expect(d.invoiceId).toBe(INVOICE);
+    expect(d.totalPaise).toBe(8400);
+    expect(d.items[0]?.qtyGrams).toBe(2000);
+    expect(mapChannelOrderDetail({ ...dto, invoice: null }).invoiceId).toBeNull();
+  });
+
+  it('BR-30: a Sub scope pins the warehouse filter to its own warehouse', () => {
+    expect(salesWarehouseFilter({ warehouseId: WH }, 'other')).toBe(WH);
+    expect(salesWarehouseFilter({}, 'other')).toBe('other');
+    expect(salesWarehouseFilter({}, undefined)).toBeUndefined();
+  });
+});
+
+describe('sales labels: every code has an English string', () => {
+  it('maps every enum code to an existing admin i18n key', () => {
+    const maps = [
+      GRADE_KEY,
+      SALE_STATUS_KEY,
+      PAYMENT_STATUS_KEY,
+      PAYMENT_ROW_STATUS_KEY,
+      PAYMENT_METHOD_KEY,
+      SALE_CHANNEL_KEY,
+      CHANNEL_ORDER_STATUS_KEY,
+      CHANNEL_GROUP_KEY,
+      PAYMENT_BLOCK_KEY,
+    ];
+    for (const m of maps) {
+      for (const key of Object.values(m)) expect(en).toHaveProperty([key]);
+    }
   });
 });

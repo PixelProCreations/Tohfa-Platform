@@ -19,10 +19,14 @@
  * dashboard barrel re-exported all of them with `export *`. They are folded
  * into the few types below, defined once.
  *
- * Amounts in a cash top-up draft are integer paise (plan phase 9: the wizard
- * is live). Display amounts in records are pre-formatted strings (from paise for
- * live rows, from the mock data elsewhere); nothing here computes money from
- * them (CLAUDE.md 2.2).
+ * Amounts in a cash top-up draft are integer paise (the wizard is live).
+ * Display amounts in records are pre-formatted strings, formatted from the
+ * server's paise; nothing here computes money from them (CLAUDE.md 2.2).
+ *
+ * TopUpHistoryRow and AttentionCategory/AttentionIssue type the two sample
+ * screens that have no backend (Top-Up History, Wallet Needs Attention); they
+ * are kept for them by the owner decision of 2026-10-14. CashLedgerEntry went
+ * with the Daily Cash fixture (that screen is live).
  */
 import type { Paise } from '@tohfa/shared-types';
 import type { TopUpCustomer } from './mappers';
@@ -79,9 +83,8 @@ export interface CashTopUpDraft {
 }
 
 /**
- * One wallet transaction: a cash top-up (Top-Up Details / Top-Up Successful) or
- * any wallet movement (Transaction Detail). Replaces TopUpDetailsData,
- * TransactionDetailData and TopUpSuccessData.
+ * One wallet ledger row as the screens show it: the cash top-up's 201 (Top-Up
+ * Successful) or any wallet movement (Transaction Detail).
  */
 export interface WalletTransactionRecord {
   transactionId?: string | undefined;
@@ -105,10 +108,10 @@ export interface WalletTransactionRecord {
   warehouseName?: string | undefined;
 }
 
-/** Status of a top-up row. */
+/** Status of a top-up row (sample data: no endpoint lists top-up rows). */
 export type TopUpStatus = 'Completed' | 'Pending' | 'Failed';
 
-/** One row of the top-up history (and the daily summary's top-up list). */
+/** One row of the Top-Up History sample. */
 export interface TopUpHistoryRow {
   id: string;
   customerName: string;
@@ -121,10 +124,10 @@ export interface TopUpHistoryRow {
   warehouseId: string;
 }
 
-/** Needs-attention filter (the hub's KPI tiles open a pre-filtered list). */
+/** Needs-attention filter (the hub opens the list unfiltered or on one category). */
 export type AttentionCategory = 'all' | 'pending' | 'failed' | 'fiscal' | 'reconciliation';
 
-/** One item on the Needs Attention screen. */
+/** One item on the Needs Attention sample. */
 export interface AttentionIssue {
   id: string;
   category: Exclude<AttentionCategory, 'all'>;
@@ -139,18 +142,6 @@ export interface AttentionIssue {
   diagnostics: string;
   primaryAction: string;
   secondaryAction?: string | undefined;
-  warehouseId: string;
-}
-
-/** One line of the daily cash ledger breakdown. */
-export interface CashLedgerEntry {
-  id: string;
-  type: 'Cash In' | 'Cash Out';
-  title: string;
-  ref: string;
-  /** Whole rupees (mock). */
-  amount: number;
-  time: string;
   warehouseId: string;
 }
 
@@ -174,8 +165,8 @@ export type WalletRoute =
 export interface WalletRouteParams {
   customer?: WalletCustomer | undefined;
   draft?: CashTopUpDraft | undefined;
+  /** A live ledger row (the wallet's or the top-up's 201); Transaction Detail shows only what the server sent. */
   transaction?: WalletTransactionRecord | undefined;
-  /** The transaction is a live ledger row: show only what the server sent (no sample fallbacks). */
-  liveTransaction?: boolean | undefined;
+  /** Needs Attention opens on this filter (the hub's entry); undefined is 'all'. */
   category?: AttentionCategory | undefined;
 }

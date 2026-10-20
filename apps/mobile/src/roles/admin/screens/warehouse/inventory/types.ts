@@ -191,26 +191,3 @@ export interface LowStockRow {
   threshold: string;
   warehouseId: string;
 }
-
-// ─── Design-sample shapes (./fixtures.ts) ────────────────────────────────────
-
-/** One adjustment row. `warehouseId` is the warehouse the adjustment was created in. */
-export interface AdjustmentHistoryItem {
-  id: string;
-  status: string;
-  statusKey: 'Pending' | 'Approved' | 'Rejected';
-  product: string;
-  warehouseId?: string | undefined;
-}
-
-/** A physical-count result carried from PhysicalCountScreen to the adjustment screens. */
-export interface PhysicalCountResult {
-  produceName: string;
-  batchId: string;
-  zone: string;
-  systemCount: number;
-  physicalCount: number;
-  varianceKg: number;
-  variancePct: number;
-  reason: string;
-}

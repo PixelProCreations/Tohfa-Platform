@@ -15,8 +15,14 @@
  *                      -> Report an Issue (operational) -> Request Submitted
  *   Report an Issue (support, from Help & Support) -> Request Submitted
  *
- * Report an Issue and Request Submitted need `support.ticket.create_own`
- * (neither warehouse admin role holds it today, SPEC_GAPS W4v-2).
+ * Report an Issue in 'operational' mode is ReportOperationalIssueScreen
+ * (POST /warehouses/{id}/issues, warehouse.issue.manage); the 'support' mode
+ * (Help & Support) is still ReportIssueScreen and is unchanged.
+ *
+ * Live data: every storage-ops endpoint takes ONE warehouse uuid. The flow
+ * keeps the Main admin's warehouse pick (useStorageWarehouse) so it survives
+ * moving between screens; a Sub scope is always its own warehouse (BR-30).
+ * `initialParams.warehouseId` preselects the Main pick when it is a uuid.
  *
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
@@ -42,7 +48,9 @@ import { ReportIssueScreen } from './ReportIssueScreen';
 import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { StorageLocationsScreen } from './StorageLocationsScreen';
+import { ReportOperationalIssueScreen } from './ReportOperationalIssueScreen';
 import { STORAGE_CODES } from './StorageParts';
+import { useStorageWarehouse } from './StorageWarehouse';
 import { WarehouseActivityScreen } from './WarehouseActivityScreen';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
 import { WarehouseOperationsScreen } from './WarehouseOperationsScreen';
@@ -86,15 +94,18 @@ export interface StorageFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
-  /** Material movement / capacity history; defaults to the flow's own Warehouse Activity. */
+  /** Capacity history; defaults to the flow's own Warehouse Activity. */
   onViewActivity?: (() => void) | undefined;
   /**
    * Open a module outside storage-ops that owns an activity record or a metric
    * tile (receiving, stock verification, storage locations, orders, cash, QC,
-   * staff). Material handling and operational issues open inside the flow.
+   * staff). Operational issues open inside the flow.
    */
   onOpenModule?: ((module: ActivityModule) => void) | undefined;
-  /** Warehouse Activity "Export Operations (CSV)"; the button also needs report.export.file. */
+  /**
+   * Kept for host compatibility only: the activity CSV export was a fake alert
+   * and there is no export endpoint for the feed, so nothing calls it.
+   */
   onExportActivity?: (() => void) | undefined;
   /** Storage location View Stock: Inventory & Stock (inventory.batch.view). */
   onViewStock?: (() => void) | undefined;
@@ -112,7 +123,10 @@ export interface StorageFlowProps {
   onSelectWarehouse?: ((warehouseName: string) => void) | undefined;
   /** Performance "Operations log"; defaults to the flow's Warehouse Activity (All). */
   onViewOperationsHistory?: (() => void) | undefined;
-  /** Performance "All Staff" (warehouse roster / attendance). */
+  /**
+   * Performance "All Staff". Kept for host compatibility; the staff ranking it
+   * belonged to was example data and is gone (the performance API has none).
+   */
   onViewStaffAttendance?: (() => void) | undefined;
   /**
    * Request Submitted "Back to Settings" on the support path (the form was
@@ -130,15 +144,14 @@ export function StorageFlow({
   onTabChange,
   onViewActivity,
   onOpenModule,
-  onExportActivity,
   onViewStock,
+  onViewProductDetail,
   onConfirmAssignment,
   onManageCapacity,
   onOpenNotifications,
   onOpenWarehouseOverview,
   onSelectWarehouse,
   onViewOperationsHistory,
-  onViewStaffAttendance,
   onSupportRequestDone,
 }: StorageFlowProps) {
   const [stack, setStack] = useState<StorageStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
@@ -167,6 +180,12 @@ export function StorageFlow({
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: StorageRouteParams = current.params ?? {};
 
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialParams?.warehouseId);
+  useEffect(() => {
+    if (initialParams?.warehouseId !== undefined) setSelectedWarehouseId(initialParams.warehouseId);
+  }, [initialParams?.warehouseId]);
+  const warehouse = useStorageWarehouse(scope, can, selectedWarehouseId, setSelectedWarehouseId);
+
   const navigate = (screen: StorageRoute, nextParams?: StorageRouteParams) => {
     if (!canOpenStorageRoute(screen, can)) return;
     setStack((prev) => [...prev, { screen, params: nextParams }]);
@@ -190,7 +209,7 @@ export function StorageFlow({
     });
   };
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const common = { scope, can, onBack: back, onTabChange, warehouse };
   const viewActivity = onViewActivity ?? (() => navigate('Activity'));
   /** Records and tiles of storage-ops' own modules open in the flow; the rest go to the host. */
   const openModule = (module: ActivityModule) => {
@@ -206,6 +225,7 @@ export function StorageFlow({
           {...common}
           locationId={params.locationId}
           onViewStock={onViewStock}
+          onViewProductDetail={onViewProductDetail}
           onViewActivity={viewActivity}
         />
       );
@@ -216,7 +236,6 @@ export function StorageFlow({
           batchId={params.batchId}
           productName={params.productName}
           quantity={params.quantity}
-          warehouseId={params.warehouseId}
           onConfirmAssignment={onConfirmAssignment}
         />
       );
@@ -228,7 +247,6 @@ export function StorageFlow({
           {...common}
           onSelectWarehouse={onSelectWarehouse}
           onViewOperationsHistory={onViewOperationsHistory ?? (() => navigate('Activity', { activityPreset: 'All' }))}
-          onViewStaffAttendance={onViewStaffAttendance}
         />
       );
     case 'Operations':
@@ -238,7 +256,7 @@ export function StorageFlow({
           onOpenCapacity={() => navigate('Capacity')}
           onOpenIssues={() => navigate('OperationalIssues')}
           onOpenActivity={(activityPreset) => navigate('Activity', { activityPreset })}
-          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
           onOpenModule={openModule}
           onOpenNotifications={onOpenNotifications}
           onOpenWarehouseOverview={onOpenWarehouseOverview}
@@ -250,13 +268,20 @@ export function StorageFlow({
         <WarehouseActivityScreen
           {...common}
           initialPreset={params.activityPreset}
-          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
-          onOpenModule={openModule}
-          onExport={onExportActivity}
+          onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
         />
       );
     case 'ActivityDetail':
-      return <ActivityDetailScreen {...common} activityId={params.activityId} onOpenModule={openModule} />;
+      return (
+        <ActivityDetailScreen
+          {...common}
+          activity={params.activity}
+          onOpenRecord={(row) => {
+            if (row.type === 'ISSUE') navigate('OperationalIssueDetail', { issueId: row.sourceId });
+            else if (row.module !== undefined) openModule(row.module);
+          }}
+        />
+      );
     case 'OperationalIssues':
       return (
         <OperationalIssuesScreen
@@ -268,6 +293,16 @@ export function StorageFlow({
     case 'OperationalIssueDetail':
       return <OperationalIssueDetailScreen {...common} issueId={params.issueId} />;
     case 'ReportIssue':
+      if (params.reportMode === 'operational') {
+        return (
+          <ReportOperationalIssueScreen
+            {...common}
+            onCreated={(issue) =>
+              navigate('IssueSubmitted', { reportMode: 'operational', submittedId: issue.issueNumber, issueId: issue.id })
+            }
+          />
+        );
+      }
       return (
         <ReportIssueScreen
           {...common}
@@ -282,6 +317,19 @@ export function StorageFlow({
           {...common}
           mode={params.reportMode}
           submittedId={params.submittedId}
+          onViewIssue={
+            params.reportMode === 'operational' && params.issueId !== undefined
+              ? () => {
+                  // Replace the confirmation with the issue, above the list, so Back returns to the list.
+                  const issueId = params.issueId;
+                  setStack((prev) => {
+                    const index = prev.map((e) => e.screen).lastIndexOf('OperationalIssues');
+                    const base = index >= 0 ? prev.slice(0, index + 1) : prev.slice(0, -1);
+                    return [...base, { screen: 'OperationalIssueDetail', params: { issueId } }];
+                  });
+                }
+              : undefined
+          }
           onDone={() => {
             if (params.reportMode === 'operational') backTo('OperationalIssues');
             else (onSupportRequestDone ?? onBack)();

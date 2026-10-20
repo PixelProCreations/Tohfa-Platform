@@ -119,7 +119,8 @@ describe('BR-61d: the wallet refund is idempotent', () => {
 
 describe('mounting: the Sub admin reaches the live returns', () => {
   it('the More menu row opens the returns queue through the host', () => {
-    expect(MORE).toMatch(/case 'returns':\s*\n\s*if \(onNavigateToReturns\) onNavigateToReturns\(\)/);
+    // The More row calls the host callback directly (the fake Alert fallback is gone).
+    expect(MORE).toMatch(/case 'returns':\s*\n\s*onNavigateToReturns\?\.\(\);/);
     expect(APP).toMatch(/onNavigateToReturns=\{\(\) => navigate\('SubWarehouseReturnsIssues'\)\}/);
     expect(APP).toMatch(/SubWarehouseReturnsIssues: 'ReturnsIssues'/);
     expect(APP).toMatch(/SubWarehouseRmaDetail: 'RmaDetail'/);

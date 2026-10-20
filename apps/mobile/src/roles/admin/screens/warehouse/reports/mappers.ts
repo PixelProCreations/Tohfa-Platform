@@ -7,6 +7,8 @@
  *   - Quantities are integer grams (parseKgToGrams / gramsToKgString).
  *   - Scoping: Sub Warehouse Admin is confined to its assigned warehouse (BR-30, BR-64).
  *   - Date range validation: from and to are required (from <= to) for date-bounded reports.
+ *   - The API's warehouseId is a uuid or absent: an old fixture id ('WH-OOTY') is a 400,
+ *     so a non-uuid selection means "all of the caller's warehouses" (BR-64a, BR-64b).
  */
 import type { Paise } from '@tohfa/shared-types';
 import type {
@@ -22,7 +24,10 @@ import type {
 } from '../../../api/reports';
 import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
 import { gramsToKgString, parseKgToGrams } from '../../../money/quantity';
+import { hasKey, t } from '../../../i18n';
 import type { WarehouseScope } from '../finance-expenses';
+import { uuidOrUndefined } from '../finance-expenses/mappers';
+import type { ReportPreset } from './types';
 
 const toPaise = (v: string | number | null | undefined): Paise => {
   if (typeof v === 'number') return v;
@@ -43,7 +48,7 @@ export function validateReportDateRange(from: string, to: string): boolean {
  * Calculates start and end YYYY-MM-DD dates in Asia/Kolkata day for report presets (BR-64).
  */
 export function getReportPresetDates(
-  preset: 'Today' | 'Week' | 'Month',
+  preset: ReportPreset,
   now = new Date(),
 ): { from: string; to: string } {
   const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
@@ -67,18 +72,36 @@ export function getReportPresetDates(
 }
 
 /**
- * Enforces BR-30 / BR-64 warehouse scoping on report queries.
- * A Sub Warehouse Admin is pinned to its assigned warehouse ID.
- * A Main Warehouse Admin can select an individual warehouse or view across all.
+ * The warehouseId a report request carries (BR-30, BR-64a, BR-64b).
+ *
+ * - Sub (scope.warehouseId set): always its own warehouse; a selection is
+ *   ignored. The server confines it again (a foreign id is 404).
+ * - Main: the selected warehouse, or undefined for all warehouses.
+ *
+ * Either way only a uuid is ever sent: anything else (an old 'WH-OOTY' fixture
+ * id) becomes undefined, which the server reads as "every warehouse the caller
+ * may see", instead of a 400.
  */
 export function reportsWarehouseFilter(
   scope: WarehouseScope,
   selectedWarehouseId?: string | undefined,
 ): string | undefined {
-  if (scope.warehouseId) {
-    return scope.warehouseId;
+  if (scope.warehouseId !== undefined) {
+    return uuidOrUndefined(scope.warehouseId);
   }
-  return selectedWarehouseId;
+  return uuidOrUndefined(selectedWarehouseId);
+}
+
+/** Label of an enum code from the reports' status buckets, falling back to the raw code. */
+export function reportStatusLabel(kind: 'order' | 'grn' | 'return', status: string): string {
+  const key = `reports.status.${kind}.${status}`;
+  return hasKey(key) ? t(key) : status;
+}
+
+/** Label of a sales channel code, falling back to the raw code. */
+export function reportChannelLabel(channel: string): string {
+  const key = `reports.channel.${channel}`;
+  return hasKey(key) ? t(key) : channel;
 }
 
 export interface MappedSalesReportDayRow {
@@ -158,6 +181,10 @@ export interface MappedReceivingReport {
   warehouseId: string | null;
   totalReceipts: number;
   byStatusCounts: Record<string, number>;
+  /** grn_status ACCEPTED (whole receipt passed QC). */
+  acceptedCount: number;
+  /** grn_status REJECTED. */
+  rejectedCount: number;
   byDay: ReceivingReportDto['byDay'];
 }
 
@@ -176,6 +203,8 @@ export function mapReceivingReport(dto: ReceivingReportDto): MappedReceivingRepo
     warehouseId: dto.warehouseId,
     totalReceipts,
     byStatusCounts,
+    acceptedCount: byStatusCounts['ACCEPTED'] ?? 0,
+    rejectedCount: byStatusCounts['REJECTED'] ?? 0,
     byDay: dto.byDay,
   };
 }

@@ -2,7 +2,7 @@
  * The warehouse cash top-up and the counter customer lookup it starts from
  * (docs/openapi.yaml):
  *   POST /admin/wallets/{customerId}/cash-topup  createCashTopup          wallet.cash_topup.process (BR-18, BR-19, BR-30)
- *   GET  /admin/sales/customers/lookup           lookupAdminSaleCustomer  sales.sale.create         (BR-91, BR-92)
+ *   GET  /admin/wallets/cash-topup/customers/lookup  lookupCashTopupCustomer  wallet.cash_topup.process (BR-91i, BR-92g)
  *
  * The top-up is a REAL money write: the server credits the wallet ledger and
  * returns that ledger row (WalletTransaction). So, root CLAUDE.md 2.4, it never
@@ -16,8 +16,13 @@
  * caller's warehouse (the mappers pin a Sub scope to its own); this module
  * never picks one.
  *
- * The lookup sends exactly one of mobile / code / q and no warehouse: the
- * server scopes it to the caller (BR-91) and masks the mobile (BR-92g).
+ * The lookup sends exactly one of mobile / code (exact matches only: there is
+ * no name or partial search) and no warehouse. It is gated by the top-up's own
+ * code, which Main and Sub both hold; the sales counter lookup
+ * (sales.sale.create) is not held by MAIN_WH_ADMIN, so a Main top-up could not
+ * find its customer through it. It skips the BR-91 warehouse-history gate on
+ * purpose (BR-91i: a first top-up at this warehouse must find the customer)
+ * and masks the mobile (BR-92g).
  *
  * Money stays the API's decimal string (`Money`); the mappers turn it into
  * integer paise. No UI imports, so the Main Warehouse admin can reuse it.
@@ -39,7 +44,7 @@ export interface CashTopupCreate {
   remarks?: string | undefined;
 }
 
-/** docs/openapi.yaml SaleCustomerMatch: masked for an `own` actor, no e-mail or address (BR-92g). */
+/** docs/openapi.yaml SaleCustomerMatch (both lookups answer with it): the mobile masked, no e-mail or address (BR-92g). */
 export interface SaleCustomerMatchDto {
   customerId: string;
   customerCode: string;
@@ -49,8 +54,8 @@ export interface SaleCustomerMatchDto {
   walletBalance: Money;
 }
 
-/** lookupAdminSaleCustomer: exactly one of these (422 otherwise). */
-export type CustomerLookupQuery = { mobile: string } | { code: string } | { q: string };
+/** lookupCashTopupCustomer: exactly one of these (422 otherwise, and for any other parameter such as `q`). */
+export type CustomerLookupQuery = { mobile: string } | { code: string };
 
 export interface CustomerLookupResponse {
   items: SaleCustomerMatchDto[];
@@ -109,7 +114,9 @@ export function createCashTopup(
   });
 }
 
-/** Counter lookup; no match is an empty `items`, never 403 (BR-91). */
+/** Counter lookup for a cash top-up; no match is an empty `items`, never 403 (BR-91i). */
 export function lookupCustomers(query: CustomerLookupQuery, signal?: AbortSignal): Promise<CustomerLookupResponse> {
-  return adminGet<CustomerLookupResponse>('/admin/sales/customers/lookup', { ...query }, signal);
+  // Rebuilt field by field: exactly one parameter leaves, whatever the caller's object holds.
+  const params = 'mobile' in query ? { mobile: query.mobile } : { code: query.code };
+  return adminGet<CustomerLookupResponse>('/admin/wallets/cash-topup/customers/lookup', params, signal);
 }

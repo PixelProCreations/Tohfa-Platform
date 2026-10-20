@@ -109,7 +109,7 @@ export function StockAllocationDashboardScreen({
   onRefresh,
   isRefreshing = false,
 }: StockAllocationDashboardScreenProps) {
-  // Stock verification has no server API (availability.ts), so its tab is hidden.
+  // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: rowCount });
   const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));
@@ -155,7 +155,7 @@ export function StockAllocationDashboardScreen({
             <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
-          {/* Verify Tab (no API: hidden, availability.ts) */}
+          {/* Verify Tab (gated on stock counts, availability.ts) */}
           {canVerify ? (
           <TouchableOpacity 
             style={styles.tabCard}

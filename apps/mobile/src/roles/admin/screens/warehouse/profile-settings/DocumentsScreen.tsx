@@ -1,263 +1,379 @@
 // Design id: M15-S05
 /**
- * Warehouse Documents for the Main and Sub warehouse admins (FINAL_LIST #88).
+ * Warehouse Documents for the Main and Sub warehouse admins (FINAL_LIST #88,
+ * BR-105).
  *
- * Was roles/subwarehouse SubWarehouseDocumentsScreen. Absorbs
- * dashboard/MainWarehouseDocumentsScreen (pair_table M15-S05): its "Document
- * Detail" step (name / id / status / expiry card and the "No Edit, Delete,
- * Replace, Approve or Verify here" notice) replaces the Sub list's Alert, for
- * both roles. Its View / Download buttons had no handler; they are shown
- * disabled with a note until a document-file endpoint exists (SPEC_GAPS W4m-3).
+ * Live: the list is GET /warehouses/{id}/documents (warehouse.document.view:
+ * Sub its own warehouse, Main the warehouse picked in the header from the real
+ * warehouse list). The status (Active / Expiring soon / Expired / Archived) is
+ * derived by the server from system_config's warning window and shown as sent;
+ * the status and type chips and the search are server filters.
  *
- * Gate: none. Read-only for both roles: no upload control (an upload would
- * need upload.signed_url.create and a document endpoint, neither wired here).
- * Sub sees its own warehouse's documents (locked pill); Main sees all four
- * warehouses with the all-warehouses selector and a warehouse line per card.
- * The Sub search bar's filter button (an Alert that did nothing) is dropped;
- * the category chips are the filter.
+ * The detail is GET .../{documentId}. Open file asks for the detail again and
+ * hands its signed 15-minute URL to the OS viewer (Linking), where the admin
+ * can also save it; a deleted file says so instead.
+ *
+ * Edit metadata and Archive (warehouse.document.manage: Main all, Sub none)
+ * are offered only with that code and never on an archived document. Adding a
+ * document needs a file picker and an upload to POST /uploads/sign, which the
+ * admin app does not have yet (the only uploader is farmer-only, and the
+ * cross-role guard keeps it out of admin), so Add is not offered; a note says
+ * why.
+ *
+ * Every state (loading, error with Retry, empty) comes from ../shared; error
+ * text is adminErrorKey's, never the server's detail.
  */
-import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import React, { useState } from 'react';
+import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
-  EmptyState,
   InfoCard,
-  inScope,
-  isAllWarehouses,
-  KpiRow,
-  ScopeHeader,
+  InfoNote,
   SearchBar,
   StatusBadge,
+  WalletButton,
   WalletScreen,
   WarehouseTabBar,
 } from '../wallet-cashtopup/WalletParts';
-import { BlockIcon } from './ProfileParts';
-import type { DocumentCategory, WarehouseDocItem, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
-import { PROFILE_WAREHOUSES, WAREHOUSE_DOCUMENTS } from './warehouseFixtures';
-import { warehouseNameOf, warehouseProfileLayout, WarningTriangleIcon } from './WarehouseProfileParts';
+import {
+  canManageDocument,
+  DOCUMENT_STATUS_FILTERS,
+  DOCUMENT_TYPE_FILTERS,
+  documentEditBody,
+  documentFormOf,
+  documentTypeLabel,
+  statusFilterLabel,
+  typeFilterLabel,
+  type DocumentForm,
+  type DocumentStatusFilter,
+  type DocumentTypeFilter,
+  type WarehouseDocumentDetailView,
+  type WarehouseDocumentView,
+} from './mappers_documents';
+import { WAREHOUSE_DOCUMENT_TYPES, type UpdateWarehouseDocumentBody } from '../../../api/warehouseDocuments';
+import type { WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
+import { DocumentFileMissingError } from './useWarehouseDocuments';
+import { SingleWarehouseHeader, warehouseProfileLayout, WarningTriangleIcon } from './WarehouseProfileParts';
 
-type CategoryFilter = 'All' | DocumentCategory;
-const CATEGORIES: readonly CategoryFilter[] = ['All', 'Registration', 'Compliance', 'License', 'Other'];
+/** The docs/rbac.json codes this screen checks (both exist there). */
+export const WAREHOUSE_DOCUMENT_CODES = {
+  view: 'warehouse.document.view',
+  manage: 'warehouse.document.manage',
+} as const;
 
 export interface DocumentsScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
-  documents?: readonly WarehouseDocItem[] | undefined;
+  /** The warehouse uuid in the header (Sub: its own; Main: the real pick). */
+  headerWarehouseId?: string | undefined;
+  /** No warehouse to ask for (Main before the warehouse list loads, or none). */
+  unavailable?: boolean | undefined;
+
+  documents?: readonly WarehouseDocumentView[] | undefined;
+  total?: number | null | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
+
+  statusFilter: DocumentStatusFilter;
+  onStatusFilterChange: (next: DocumentStatusFilter) => void;
+  typeFilter: DocumentTypeFilter;
+  onTypeFilterChange: (next: DocumentTypeFilter) => void;
+  searchQuery: string;
+  onSearchQueryChange: (next: string) => void;
+
+  /** The open document (detail view), or undefined for the list. */
+  openDocumentId?: string | undefined;
+  onOpenDocument: (documentId: string | undefined) => void;
+  detail?: WarehouseDocumentDetailView | undefined;
+  detailLoading?: boolean | undefined;
+  detailError?: unknown;
+  onRetryDetail?: (() => void) | undefined;
+
+  onOpenFile: (documentId: string) => void;
+  isOpeningFile?: boolean | undefined;
+  openFileError?: unknown;
+
+  onSaveEdit: (documentId: string, body: UpdateWarehouseDocumentBody, onDone: () => void) => void;
+  isSavingEdit?: boolean | undefined;
+  saveEditError?: unknown;
+  onResetEdit?: (() => void) | undefined;
+
+  onArchive: (documentId: string) => void;
+  isArchiving?: boolean | undefined;
+  archiveError?: unknown;
 }
 
-function EyeIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
+function errorText(err: unknown): string {
+  return err instanceof DocumentFileMissingError ? t('warehouseDocs.file.missing') : t(adminErrorKey(err));
 }
 
-function DownloadTrayIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-export function DocumentsScreen({
-  scope,
-  onBack,
-  onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
-  selectedWarehouseId,
-  onSelectWarehouse,
-  documents = WAREHOUSE_DOCUMENTS,
-}: DocumentsScreenProps) {
-  const isMain = isAllWarehouses(scope);
-  const [localSelection, setLocalSelection] = useState<string | undefined>(undefined);
-  const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
-  const select = onSelectWarehouse ?? setLocalSelection;
-
-  const [category, setCategory] = useState<CategoryFilter>('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [openDoc, setOpenDoc] = useState<WarehouseDocItem | null>(null);
-
-  const visible = useMemo(() => documents.filter((d) => inScope(scope, d.warehouseId, selected)), [documents, scope, selected]);
-  const filtered = visible.filter((doc) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchCategory = category === 'All' || doc.category === category;
-    const matchQuery =
-      !q || doc.name.toLowerCase().includes(q) || doc.code.toLowerCase().includes(q) || doc.category.toLowerCase().includes(q);
-    return matchCategory && matchQuery;
-  });
-
+export function DocumentsScreen(props: DocumentsScreenProps) {
+  const { scope, can, onBack, onTabChange, warehouseOptions, headerWarehouseId, onSelectWarehouse } = props;
+  const canManage = can(WAREHOUSE_DOCUMENT_CODES.manage);
   const header = (
-    <ScopeHeader scope={scope} warehouseOptions={warehouseOptions} selectedWarehouseId={selected} onSelectWarehouse={select} />
+    <SingleWarehouseHeader scope={scope} warehouseId={headerWarehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
   );
   const footer = onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined;
 
-  if (openDoc !== null) {
-    const issuedDate =
-      (openDoc as any).issuedDate ??
-      openDoc.dateNote.match(/Issued\s+([0-9A-Za-z\s]+?)(?:\s*·|$)/i)?.[1]?.trim() ??
-      '01 Jan 2026';
-    const expiryDate =
-      openDoc.expiry ??
-      openDoc.dateNote.match(/Expires?\s+([0-9A-Za-z\s]+?)(?:\s*·|$)/i)?.[1]?.trim() ??
-      '31 Dec 2026';
-    const issuingAuthority = (openDoc as any).issuingAuthority ?? 'TOHFA Regional Office';
-    const rawWhName = warehouseNameOf(scope, openDoc.warehouseId, warehouseOptions);
-    const warehouseShortName = rawWhName.replace(/\s+Warehouse$/i, '') || 'Coonoor';
-
-    const docDetailRows = [
-      [
-        { label: 'Document Name', value: openDoc.name },
-        { label: 'Document ID', value: openDoc.code },
-      ],
-      [
-        { label: 'Document Type', value: openDoc.category },
-        { label: 'Status', value: openDoc.status },
-      ],
-      [
-        { label: 'Issued Date', value: issuedDate },
-        { label: 'Expiry Date', value: expiryDate },
-      ],
-      [
-        { label: 'Issuing Authority', value: issuingAuthority },
-        { label: 'Warehouse', value: warehouseShortName },
-      ],
-    ];
-
-    const detailHeader = (
-      <ScopeHeader
-        scope={scope}
-        label={rawWhName}
-      />
-    );
-
-    return (
-      <WalletScreen
-        title="Document Detail"
-        onBack={() => setOpenDoc(null)}
-        headerExtra={detailHeader}
-        footer={footer}
-      >
-        <ScrollView
-          contentContainerStyle={warehouseProfileLayout.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.detailSectionTitle}>
-            {openDoc.name} — {openDoc.code}
-          </Text>
-
-          <InfoCard rows={docDetailRows} />
-
-          <Text style={[styles.detailSectionTitle, styles.previewSectionTitle]}>
-            Document Preview
-          </Text>
-
-          <View style={styles.previewBox}>
-            <Text style={styles.previewPlaceholderText}>PDF / Image Preview</Text>
-          </View>
-
-          <View style={styles.previewActionsRow}>
-            <TouchableOpacity
-              style={styles.previewActionBtn}
-              onPress={() => Alert.alert('View Document', `Opening ${openDoc.name} preview...`)}
-              activeOpacity={0.75}
-            >
-              <EyeIcon size={20} color="#9A3412" />
-              <Text style={styles.previewActionText}>View</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.previewActionBtn}
-              onPress={() => Alert.alert('Download Document', `Downloading ${openDoc.name} (${openDoc.code})...`)}
-              activeOpacity={0.75}
-            >
-              <DownloadTrayIcon size={20} color="#9A3412" />
-              <Text style={styles.previewActionText}>Download</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.restrictionBanner}>
-            <BlockIcon size={20} color="#DC2626" />
-            <Text style={styles.restrictionBannerText}>
-              No Edit, Delete, Replace, Approve, or Verify Document — those aren't granted to SWA by the role matrix.
-            </Text>
-          </View>
-        </ScrollView>
-      </WalletScreen>
-    );
+  if (props.openDocumentId !== undefined) {
+    return <DocumentDetail {...props} canManage={canManage} header={header} footer={footer} />;
   }
 
+  const documents = props.documents ?? [];
+  const state = props.unavailable
+    ? props.isLoading
+      ? 'loading'
+      : 'unavailable'
+    : queryViewState({ isLoading: props.isLoading ?? false, error: props.error, itemCount: documents.length });
+
   return (
-    <WalletScreen title="Warehouse Documents" onBack={onBack} headerExtra={header} footer={footer}>
+    <WalletScreen title={t('warehouseDocs.title')} onBack={onBack} headerExtra={header} footer={footer}>
       <ScrollView
         contentContainerStyle={warehouseProfileLayout.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={props.onRefresh ? <RefreshControl refreshing={props.isRefreshing ?? false} onRefresh={props.onRefresh} /> : undefined}
       >
-        <KpiRow
-          items={[
-            { value: String(visible.length), label: 'TOTAL' },
-            { value: String(visible.filter((d) => d.status === 'Active').length), label: 'ACTIVE', tone: 'success' },
-            { value: String(visible.filter((d) => d.status === 'Expiring Soon').length), label: 'EXPIRING SOON', tone: 'warning' },
-          ]}
-        />
+        {canManage ? <InfoNote tone="info">{t('warehouseDocs.addUnavailable')}</InfoNote> : null}
         <View style={warehouseProfileLayout.gap} />
-        <ChipGroup options={CATEGORIES} value={category} onChange={setCategory} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ChipGroup options={DOCUMENT_STATUS_FILTERS} value={props.statusFilter} onChange={props.onStatusFilterChange} labelOf={statusFilterLabel} />
+        </ScrollView>
         <View style={warehouseProfileLayout.gap} />
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Document name, ID, type" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ChipGroup options={DOCUMENT_TYPE_FILTERS} value={props.typeFilter} onChange={props.onTypeFilterChange} labelOf={typeFilterLabel} />
+        </ScrollView>
         <View style={warehouseProfileLayout.gap} />
-        {filtered.length === 0 ? (
-          <EmptyState title="No Documents Found" subtitle="Try clearing your search query or selecting another category filter." />
+        <SearchBar value={props.searchQuery} onChangeText={props.onSearchQueryChange} placeholder={t('warehouseDocs.searchPlaceholder')} />
+        <View style={warehouseProfileLayout.gap} />
+
+        {state === 'unavailable' ? (
+          <AdminEmptyState title={t('warehouseDocs.unavailable')} />
+        ) : state === 'loading' ? (
+          <AdminLoadingState />
+        ) : state === 'error' ? (
+          <AdminErrorState error={props.error} onRetry={props.onRetry} />
+        ) : state === 'empty' ? (
+          <AdminEmptyState title={t('warehouseDocs.empty.title')} subtitle={t('warehouseDocs.empty.subtitle')} />
         ) : (
-          filtered.map((doc) => {
-            const expiring = doc.status === 'Expiring Soon';
-            return (
+          <>
+            {props.total !== null && props.total !== undefined ? (
+              <Text style={styles.countText}>{t('warehouseDocs.count', { count: String(props.total) })}</Text>
+            ) : null}
+            {documents.map((doc) => (
               <TouchableOpacity
                 key={doc.id}
                 style={styles.docCard}
-                onPress={() => setOpenDoc(doc)}
+                onPress={() => props.onOpenDocument(doc.id)}
                 activeOpacity={0.75}
                 accessibilityRole="button"
-                accessibilityLabel={doc.name}
+                accessibilityLabel={doc.title}
               >
                 <View style={styles.docText}>
-                  <Text style={styles.docTitle}>{doc.name}</Text>
+                  <Text style={styles.docTitle}>{doc.title}</Text>
                   <Text style={styles.docMeta}>
-                    {doc.code}
-                    {isMain ? ` · ${warehouseNameOf(scope, doc.warehouseId, warehouseOptions)}` : ''}
+                    {doc.documentNumber === null ? doc.docTypeLabel : `${doc.docTypeLabel} · ${doc.documentNumber}`}
                   </Text>
-                  <Text style={styles.docMeta}>{doc.dateNote}</Text>
+                  <Text style={styles.docMeta}>{doc.dateLine}</Text>
                 </View>
                 <View style={styles.badgeRow}>
-                  {expiring ? <WarningTriangleIcon /> : null}
-                  <StatusBadge label={doc.status} tone={expiring ? 'warning' : 'success'} />
+                  {doc.status === 'EXPIRING_SOON' || doc.status === 'EXPIRED' ? <WarningTriangleIcon /> : null}
+                  <StatusBadge label={doc.statusLabel} tone={doc.statusTone} />
                 </View>
               </TouchableOpacity>
-            );
-          })
+            ))}
+            {props.hasMore && props.onLoadMore ? (
+              <WalletButton label={t('warehouseDocs.loadMore')} variant="outline" onPress={props.onLoadMore} />
+            ) : null}
+          </>
         )}
       </ScrollView>
     </WalletScreen>
   );
 }
 
+function DocumentDetail(
+  props: DocumentsScreenProps & { canManage: boolean; header: React.ReactNode; footer: React.ReactNode },
+) {
+  const { detail, canManage } = props;
+  const [form, setForm] = useState<DocumentForm | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const close = () => props.onOpenDocument(undefined);
+  const state = detail !== undefined ? 'ready' : queryViewState({ isLoading: props.detailLoading ?? false, error: props.detailError, itemCount: 0 });
+  const noValue = t('profile.noValue');
+
+  const startEdit = () => {
+    if (detail === undefined) return;
+    props.onResetEdit?.();
+    setFormError(null);
+    setForm(documentFormOf(detail));
+  };
+
+  const saveEdit = () => {
+    if (detail === undefined || form === null) return;
+    const result = documentEditBody(detail, form);
+    if ('errorKey' in result) {
+      setFormError(t(result.errorKey));
+      return;
+    }
+    setFormError(null);
+    props.onSaveEdit(detail.id, result.body, () => setForm(null));
+  };
+
+  const confirmArchive = () => {
+    if (detail === undefined) return;
+    Alert.alert(t('warehouseDocs.archive.confirmTitle'), t('warehouseDocs.archive.confirmBody', { title: detail.title }), [
+      { text: t('warehouseDocs.action.cancel'), style: 'cancel' },
+      { text: t('warehouseDocs.action.archive'), style: 'destructive', onPress: () => props.onArchive(detail.id) },
+    ]);
+  };
+
+  return (
+    <WalletScreen title={t('warehouseDocs.detailTitle')} onBack={close} headerExtra={props.header} footer={props.footer}>
+      {state === 'loading' ? (
+        <AdminLoadingState />
+      ) : state !== 'ready' || detail === undefined ? (
+        <AdminErrorState error={props.detailError} onRetry={props.onRetryDetail} />
+      ) : (
+        <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.detailHead}>
+            <Text style={styles.detailTitle}>{detail.title}</Text>
+            <StatusBadge label={detail.statusLabel} tone={detail.statusTone} />
+          </View>
+          <InfoCard
+            rows={[
+              [
+                { label: t('warehouseDocs.field.type'), value: detail.docTypeLabel },
+                { label: t('warehouseDocs.field.number'), value: detail.documentNumber ?? noValue },
+              ],
+              [
+                { label: t('warehouseDocs.field.issueDate'), value: detail.issueLabel ?? noValue },
+                { label: t('warehouseDocs.field.expiryDate'), value: detail.expiryLabel ?? t('warehouseDocs.noExpiry') },
+              ],
+              [
+                { label: t('warehouseDocs.field.status'), value: detail.statusLabel },
+                { label: t('warehouseDocs.field.added'), value: detail.addedLabel ?? noValue },
+              ],
+            ]}
+          />
+          <View style={warehouseProfileLayout.gap} />
+
+          {detail.hasFile ? (
+            <WalletButton
+              label={props.isOpeningFile ? t('warehouseDocs.file.opening') : t('warehouseDocs.file.open')}
+              onPress={() => props.onOpenFile(detail.id)}
+              disabled={props.isOpeningFile ?? false}
+            />
+          ) : (
+            <InfoNote tone="warning">{t('warehouseDocs.file.missing')}</InfoNote>
+          )}
+          {detail.hasFile ? <Text style={styles.hint}>{t('warehouseDocs.file.hint')}</Text> : null}
+          {props.openFileError ? <Text style={styles.error}>{errorText(props.openFileError)}</Text> : null}
+
+          {canManageDocument(detail, canManage) ? (
+            <View style={styles.manageRow}>
+              <WalletButton label={t('warehouseDocs.action.edit')} variant="outline" flex onPress={startEdit} />
+              <WalletButton
+                label={props.isArchiving ? t('warehouseDocs.action.archiving') : t('warehouseDocs.action.archive')}
+                variant="neutral"
+                flex
+                disabled={props.isArchiving ?? false}
+                onPress={confirmArchive}
+              />
+            </View>
+          ) : null}
+          {props.archiveError ? <Text style={styles.error}>{errorText(props.archiveError)}</Text> : null}
+          {!canManage ? <Text style={styles.hint}>{t('warehouseDocs.readOnlyNote')}</Text> : null}
+        </ScrollView>
+      )}
+
+      <Modal visible={form !== null} transparent animationType="fade" onRequestClose={() => setForm(null)}>
+        <View style={styles.backdrop}>
+          {form !== null ? (
+            <ScrollView contentContainerStyle={styles.dialog} keyboardShouldPersistTaps="handled">
+              <Text style={styles.dialogTitle}>{t('warehouseDocs.edit.title')}</Text>
+              <FormField label={t('warehouseDocs.field.title')} value={form.title} onChange={(title) => setForm({ ...form, title })} />
+              <Text style={styles.inputLabel}>{t('warehouseDocs.field.type')}</Text>
+              <ChipGroup
+                options={WAREHOUSE_DOCUMENT_TYPES}
+                value={form.docType}
+                onChange={(docType) => setForm({ ...form, docType })}
+                labelOf={documentTypeLabel}
+              />
+              <FormField
+                label={t('warehouseDocs.field.number')}
+                value={form.documentNumber}
+                onChange={(documentNumber) => setForm({ ...form, documentNumber })}
+              />
+              <FormField
+                label={t('warehouseDocs.field.issueDate')}
+                value={form.issueDate}
+                placeholder={t('warehouseDocs.edit.datePlaceholder')}
+                onChange={(issueDate) => setForm({ ...form, issueDate })}
+              />
+              <FormField
+                label={t('warehouseDocs.field.expiryDate')}
+                value={form.expiryDate}
+                placeholder={t('warehouseDocs.edit.datePlaceholder')}
+                onChange={(expiryDate) => setForm({ ...form, expiryDate })}
+              />
+              <Text style={styles.hint}>{t('warehouseDocs.edit.dateHint')}</Text>
+              {formError !== null ? <Text style={styles.error}>{formError}</Text> : null}
+              {formError === null && props.saveEditError ? <Text style={styles.error}>{errorText(props.saveEditError)}</Text> : null}
+              <View style={styles.manageRow}>
+                <WalletButton label={t('warehouseDocs.action.cancel')} variant="neutral" flex onPress={() => setForm(null)} />
+                <WalletButton
+                  label={props.isSavingEdit ? t('warehouseDocs.action.saving') : t('warehouseDocs.action.save')}
+                  flex
+                  disabled={props.isSavingEdit ?? false}
+                  onPress={saveEdit}
+                />
+              </View>
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
+    </WalletScreen>
+  );
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string | undefined;
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={adminColors.placeholder}
+        autoCapitalize="none"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  actionRow: { flexDirection: 'row', gap: adminSpacing.md },
+  countText: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.sm },
   docCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -271,70 +387,40 @@ const styles = StyleSheet.create({
   },
   docText: { flex: 1 },
   docTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  docMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  docMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
-  detailSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
+  detailHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: adminSpacing.sm,
     marginBottom: adminSpacing.sm,
   },
-  previewSectionTitle: {
-    marginTop: adminSpacing.lg,
-  },
-  previewBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  detailTitle: { ...adminType.sectionHead, color: adminColors.ink, flex: 1 },
+  manageRow: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
+  hint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.sm },
+  // No translucent token: a solid canvas scrim with the card raised by adminShadow.lg (as Warehouse Settings).
+  backdrop: { flex: 1, backgroundColor: adminColors.canvas, justifyContent: 'center', padding: adminSpacing.xl },
+  dialog: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    height: 190,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: adminSpacing.md,
+    borderColor: adminColors.border,
+    padding: adminSpacing.xl,
+    ...adminShadow.lg,
   },
-  previewPlaceholderText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  previewActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: adminSpacing.md,
-  },
-  previewActionBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
+  dialogTitle: { ...adminType.title, color: adminColors.ink, marginBottom: adminSpacing.sm },
+  inputGroup: { marginTop: adminSpacing.md },
+  inputLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs, marginTop: adminSpacing.sm },
+  input: {
+    ...adminType.body,
+    color: adminColors.ink,
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  previewActionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#451a03',
-  },
-  restrictionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginTop: adminSpacing.xs,
-  },
-  restrictionBannerText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#dc2626',
-    lineHeight: 18,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
 });

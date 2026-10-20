@@ -1,34 +1,38 @@
 /**
- * Building blocks shared by the finance hub, revenue, voucher and expense
- * category screens (design module M11).
+ * Building blocks shared by the finance screens (design module M11).
  *
  * The frame (orange header, scope pill / all-warehouses selector, cards, KPI
  * tiles, chips, notes, empty state) is the wallet area's WalletParts, already
  * on the admin theme; this file adds only what is finance-specific: the rbac
- * codes the finance screens check, the interim voucher gate, the quick-action
- * tile grid and a few icons.
+ * codes the finance screens check, which code opens which FinanceFlow route,
+ * the live warehouse picker, the quick-action tile grid and a few icons.
  *
  * `can` only decides what is worth rendering; the server re-checks every code
  * and applies the warehouse scope (CLAUDE.md 2.1).
  */
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { EmptyState, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import type { PermissionCheck, VoucherType, WarehouseScope } from './types';
+import { financeWarehouseFilter } from './mappers';
+import type { FinanceRoute, PermissionCheck, WarehouseScope } from './types';
 
 /** docs/rbac.json codes the finance screens check (each one exists there). */
 export const FINANCE_CODES = {
   /** Finance hub. MAIN_WH_ADMIN view, SUB_WH_ADMIN own (rbac 1.2.0). */
   dashboard: 'finance.dashboard.view',
-  /** Revenue / sales income. MAIN all, SUB own. */
+  /** Revenue list/detail and the revenue report. MAIN own (= all four), SUB own. */
   salesIncome: 'finance.sales_income.view',
-  /** Expense log (list + add). MAIN all, SUB own. No approve/edit/cancel code exists. */
+  /** Expense list/add/detail/voucher, categories and the expense report. No approve/edit/cancel code exists (BR-62). */
   expenseLog: 'finance.expense.log',
-  /** Finance reports. MAIN view (read-only), SUB own. */
-  reportExport: 'report.export.file',
+  /** Daily cash summary and close (BR-74). */
+  cashClose: 'finance.cash_close.manage',
+  /** The Main admin's warehouse list (GET /warehouses) for pickers. */
+  warehouseAllView: 'warehouse.all.view',
   /** Wallet cash top-up hub. MAIN all, SUB all. */
   cashTopUp: 'wallet.cash_topup.process',
   /** View Order from a revenue record. */
@@ -38,23 +42,85 @@ export const FINANCE_CODES = {
 } as const;
 
 /**
- * Interim voucher gate. No rbac code covers vouchers (SPEC_GAPS, FINAL_LIST
- * #42/#43); until one exists a voucher is shown to whoever may see the data it
- * vouches for: an expense voucher with finance.expense.log, a revenue voucher
- * with finance.sales_income.view.
+ * Which code(s) unlock a FinanceFlow route: any one is enough. Each matches the
+ * requirePermission of the endpoint the screen reads (apps/api finance.routes.ts):
+ * vouchers come from GET /admin/expenses/{id}/voucher (finance.expense.log);
+ * the reports screen reads /reports/revenue (sales income) and
+ * /reports/expenses (expense log), each section gated by its own code.
  */
-export function canSeeVoucherType(can: PermissionCheck, type: VoucherType): boolean {
-  return can(type === 'Expense' ? FINANCE_CODES.expenseLog : FINANCE_CODES.salesIncome);
+const ROUTE_CODES: Readonly<Record<FinanceRoute, readonly string[]>> = {
+  FinanceHub: [FINANCE_CODES.dashboard],
+  Revenue: [FINANCE_CODES.salesIncome],
+  RevenueDetail: [FINANCE_CODES.salesIncome],
+  Expenses: [FINANCE_CODES.expenseLog],
+  AddExpense: [FINANCE_CODES.expenseLog],
+  ExpenseDetail: [FINANCE_CODES.expenseLog],
+  ExpenseCategories: [FINANCE_CODES.expenseLog],
+  Vouchers: [FINANCE_CODES.expenseLog],
+  VoucherDetail: [FINANCE_CODES.expenseLog],
+  FinanceHistory: [FINANCE_CODES.salesIncome, FINANCE_CODES.expenseLog],
+  FinanceReports: [FINANCE_CODES.salesIncome, FINANCE_CODES.expenseLog],
+  DailyCash: [FINANCE_CODES.cashClose],
+};
+
+/** True when the viewer may open `route` (FinanceFlow and the hub apply the same check). */
+export function canOpenFinanceRoute(can: PermissionCheck, route: FinanceRoute): boolean {
+  const codes = ROUTE_CODES[route];
+  return codes === undefined || codes.some((code) => can(code));
 }
 
-/** Header label for the scope: the Sub warehouse's name, or 'All Warehouses' for Main. */
+/** Header label for the scope: the Sub warehouse's name, or "All Warehouses" for Main. */
 export function scopeLabel(scope: WarehouseScope): string {
-  return scope.warehouseId === undefined ? 'All Warehouses' : (scope.warehouseName ?? scope.warehouseId);
+  return scope.warehouseId === undefined ? t('finance.scope.all') : (scope.warehouseName ?? scope.warehouseId);
 }
 
-/** '₹3,450' from whole rupees (mock display values only; never used to move money). */
-export function rupees(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`;
+/**
+ * The warehouse a finance screen reads or writes for (BR-30).
+ *
+ * A Sub admin is pinned to scope.warehouseId and never gets a picker. A Main
+ * admin picks from the live GET /warehouses list (uuids only; the old
+ * 'WH-OOTY' fixture ids are gone); `warehouseId` stays undefined until a pick,
+ * which for a list means "all warehouses" and for a write means "pick one".
+ */
+export interface FinanceWarehousePicker {
+  isMain: boolean;
+  /** Picker options as WarehouseScope, for ScopeHeader / WarehouseSelector. Empty for Sub. */
+  options: WarehouseScope[];
+  selectedId: string | undefined;
+  setSelectedId: (warehouseId: string | undefined) => void;
+  /** The uuid to send (financeWarehouseFilter): Sub = own, Main = the pick or undefined. */
+  warehouseId: string | undefined;
+  /** Display name of `warehouseId`, when known. */
+  warehouseName: string | undefined;
+  isLoading: boolean;
+  error: unknown;
+  refresh: () => void;
+}
+
+export function useFinanceWarehousePicker(scope: WarehouseScope, can: PermissionCheck): FinanceWarehousePicker {
+  const isMain = scope.warehouseId === undefined;
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const list = useWarehouseOptions({ enabled: isMain && can(FINANCE_CODES.warehouseAllView) });
+  const options = useMemo<WarehouseScope[]>(
+    () =>
+      list.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName, warehouseCode: o.warehouseCode })),
+    [list.options],
+  );
+  const warehouseId = financeWarehouseFilter(scope, selectedId);
+  const warehouseName = isMain
+    ? options.find((o) => o.warehouseId === warehouseId)?.warehouseName
+    : (scope.warehouseName ?? undefined);
+  return {
+    isMain,
+    options,
+    selectedId,
+    setSelectedId,
+    warehouseId,
+    warehouseName,
+    isLoading: list.isLoading,
+    error: list.error,
+    refresh: list.refresh,
+  };
 }
 
 /** A screen the viewer's role does not include: header + explanation, nothing else. */
@@ -69,7 +135,7 @@ export function FinanceNotAvailable({
 }) {
   return (
     <WalletScreen title={title} onBack={onBack}>
-      <EmptyState title={`${title} unavailable`} subtitle={message} />
+      <EmptyState title={t('finance.notAvailable.title', { title })} subtitle={message} />
     </WalletScreen>
   );
 }

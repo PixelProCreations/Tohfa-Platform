@@ -7,6 +7,8 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  type StyleProp,
+  type TextStyle,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -87,7 +89,39 @@ import { getDailyCashSummary } from '../../api/finance';
 import { mapDailyCashSummary } from '../warehouse/finance-expenses/mappers';
 import { formatPaise } from '../../money/paise';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
-import { AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+// Recent Activity (live feed, BR-104): the admin activity client and the shared dashboard mappers.
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import {
+  useWarehouseActivityFeed,
+  useWarehouseProfile,
+} from '../warehouse/dashboard-home-more/useDashboardHomeData';
+import { countLabel, gramsLabel, moneyLabel } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
+import {
+  useAllocationDashboard,
+  useLowStockAlerts,
+  useStockSummary,
+} from '../warehouse/inventory/useInventoryData';
+import { formatAdminDay } from '../../utils/datetime';
+import {
+  ACTIVITY_DATE_FILTERS,
+  ACTIVITY_DATE_LABEL,
+  ACTIVITY_TYPE_FILTERS,
+  ACTIVITY_TYPE_LABEL,
+  activityRange,
+  istDateString,
+  type ActivityDateFilter,
+  type ActivityTypeFilter,
+} from '../warehouse/dashboard-home-more/mappers_dashboardHome';
+import {
+  ChipGroup,
+  StatusBadge,
+  WalletButton,
+  WalletScreen,
+  walletLayout,
+} from '../warehouse/wallet-cashtopup/WalletParts';
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -355,7 +389,6 @@ function BrokenCrateIcon() {
   );
 }
 
-
 function HomeTabIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
@@ -603,6 +636,7 @@ function SubWarehouseTodayOverviewView({
   salesTxnCountText,
   cashTopUpText,
   warehouseLabel,
+  warehouseId,
 }: {
   onBack: () => void;
   onOpenReceiving?: () => void;
@@ -615,6 +649,8 @@ function SubWarehouseTodayOverviewView({
   salesTxnCountText?: string | undefined;
   cashTopUpText?: string | undefined;
   warehouseLabel?: string | undefined;
+  /** The Sub admin's own warehouse (BR-30), for the live low-stock count. */
+  warehouseId?: string | undefined;
 }) {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
@@ -691,7 +727,7 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
                 </View>
               </View>
@@ -719,11 +755,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>actionable</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : '00'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready pickup</Text>
                 </View>
               </View>
@@ -751,7 +787,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>00</Text>
+                  {warehouseId !== undefined ? (
+                    <SubLowStockCount warehouseId={warehouseId} style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }} />
+                  ) : (
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{t('dashboardHome.noValue')}</Text>
+                  )}
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
                 </View>
               </View>
@@ -779,11 +819,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesTxnCountText ?? '0 transactions'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesTxnCountText ?? t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesRevenueText ?? '₹0'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesRevenueText ?? t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -811,7 +851,7 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{cashTopUpText ?? '₹0'}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{cashTopUpText ?? t('dashboardHome.noValue')}</Text>
                   <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
@@ -823,310 +863,91 @@ function SubWarehouseTodayOverviewView({
   );
 }
 
+/**
+ * Recent Activity: the live activity feed of this warehouse (GET
+ * /v1/warehouses/{id}/activity, warehouse.activity.view, Sub = own, BR-104):
+ * stock movements, goods receipts, transfers, issues, returns and documents,
+ * newest first, cursor paged. The date chips send the inclusive IST from/to
+ * the API takes; the type chips are exactly the API's types (the old Cash /
+ * QC / Orders filters had no source and are gone). An event carries no actor
+ * name and no free text, so neither is shown.
+ */
 function SubWarehouseRecentActivityView({
+  warehouseId,
   onBack,
 }: {
+  warehouseId: string | undefined;
   onBack: () => void;
 }) {
-  const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'This Week' | 'All Time'>('Today');
-  const [activityFilter, setActivityFilter] = useState<'All Activities' | 'Inventory' | 'Receiving' | 'Orders' | 'Cash' | 'QC'>('All Activities');
-  const [showDateMenu, setShowDateMenu] = useState(false);
-  const [showActivityMenu, setShowActivityMenu] = useState(false);
-
-  const activities = [
-    {
-      id: 'act-1',
-      title: 'Stock Verification',
-      badge: 'Inventory',
-      subtitle: 'Tomato — Grade 1',
-      date: 'Today',
-      time: '10:25 AM',
-      author: 'By Suresh',
-      type: 'Inventory',
-      stats: {
-        system: '100 KG',
-        counted: '95 KG',
-        variance: '-5 KG',
-      },
-    },
-    {
-      id: 'act-2',
-      title: 'Goods Received',
-      badge: 'Receiving',
-      subtitle: 'GR-00124 · 150 KG Tomato',
-      date: 'Today',
-      time: '10:42 AM',
-      author: 'By Suresh',
-      type: 'Receiving',
-    },
-    {
-      id: 'act-3',
-      title: 'Order Packed',
-      badge: 'Orders',
-      subtitle: 'ORD-10242 · 3 items',
-      date: 'Today',
-      time: '10:20 AM',
-      author: 'By Suresh',
-      type: 'Orders',
-    },
-    {
-      id: 'act-4',
-      title: 'Cash Top-Up',
-      badge: 'Cash',
-      subtitle: '₹2,000 · Customer CUS-1042',
-      date: 'Today',
-      time: '09:55 AM',
-      author: 'By Suresh',
-      type: 'Cash',
-    },
-    {
-      id: 'act-5',
-      title: 'QC Completed',
-      badge: 'QC',
-      subtitle: 'GR-00123 · Carrot, Grade 1 · Accepted in full',
-      date: 'Today',
-      time: '09:20 AM',
-      author: 'By Suresh',
-      type: 'QC',
-    },
-  ];
-
-  const filtered = activities.filter((item) => {
-    if (activityFilter !== 'All Activities' && item.type !== activityFilter) return false;
-    if (dateFilter !== 'All Time' && item.date !== dateFilter && dateFilter !== 'Today') return false;
-    return true;
-  });
+  const [dateFilter, setDateFilter] = useState<ActivityDateFilter>('today');
+  const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>('all');
+  const range = useMemo(() => activityRange(dateFilter, new Date()), [dateFilter]);
+  const feed = useWarehouseActivityFeed(warehouseId, typeFilter === 'all' ? undefined : typeFilter, range);
+  const viewState = queryViewState({ isLoading: feed.isLoading, error: feed.error, itemCount: feed.items.length });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
-      {/* Brand Orange Header */}
-      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
-          >
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>Recent Activity</Text>
-        </View>
-      </View>
-
-      {/* Main Body */}
-      <View style={{ flex: 1, backgroundColor: '#F8F6F2' }}>
-        {/* Filter Buttons */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 12 }}>
-          {/* Date Filter Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setShowDateMenu(!showDateMenu);
-              setShowActivityMenu(false);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              paddingVertical: 9,
-              paddingHorizontal: 14,
-              borderWidth: 1,
-              borderColor: '#E8E8E8',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.05,
-              shadowRadius: 2,
-              elevation: 1,
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{dateFilter}</Text>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </TouchableOpacity>
-
-          {/* Activity Filter Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setShowActivityMenu(!showActivityMenu);
-              setShowDateMenu(false);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              paddingVertical: 9,
-              paddingHorizontal: 14,
-              borderWidth: 1,
-              borderColor: '#E8E8E8',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.05,
-              shadowRadius: 2,
-              elevation: 1,
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{activityFilter}</Text>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </TouchableOpacity>
+    <WalletScreen title={t('dashboardHome.activity.title')} onBack={onBack}>
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={activityStyles.filters}>
+          <ChipGroup
+            options={ACTIVITY_DATE_FILTERS}
+            value={dateFilter}
+            onChange={setDateFilter}
+            labelOf={(f) => t(ACTIVITY_DATE_LABEL[f])}
+          />
+          <ChipGroup
+            options={ACTIVITY_TYPE_FILTERS}
+            value={typeFilter}
+            onChange={setTypeFilter}
+            labelOf={(f) => t(ACTIVITY_TYPE_LABEL[f])}
+          />
         </View>
 
-        {/* Date Filter Options Dropdown */}
-        {showDateMenu && (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginBottom: 10,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#E5E7EB',
-              paddingVertical: 4,
-              elevation: 3,
-              shadowColor: '#000',
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }}
-          >
-            {(['Today', 'Yesterday', 'This Week', 'All Time'] as const).map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                onPress={() => {
-                  setDateFilter(opt);
-                  setShowDateMenu(false);
-                }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 16,
-                  backgroundColor: dateFilter === opt ? '#FFF1EB' : '#FFFFFF',
-                }}
-              >
-                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? '#F0562A' : '#1F2937' }}>
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Activity Filter Options Dropdown */}
-        {showActivityMenu && (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginBottom: 10,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#E5E7EB',
-              paddingVertical: 4,
-              elevation: 3,
-              shadowColor: '#000',
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }}
-          >
-            {(['All Activities', 'Inventory', 'Receiving', 'Orders', 'Cash', 'QC'] as const).map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                onPress={() => {
-                  setActivityFilter(opt);
-                  setShowActivityMenu(false);
-                }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 16,
-                  backgroundColor: activityFilter === opt ? '#FFF1EB' : '#FFFFFF',
-                }}
-              >
-                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? '#F0562A' : '#1F2937' }}>
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Activity Cards List */}
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
-          {filtered.map((item) => (
-            <View
-              key={item.id}
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#ECE8E3',
-                padding: 16,
-                marginBottom: 14,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 3,
-                elevation: 1,
-              }}
-            >
-              {/* Header: Title + Badge */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
-                <View
-                  style={{
-                    backgroundColor: '#FFF1EB',
-                    paddingHorizontal: 12,
-                    paddingVertical: 3,
-                    borderRadius: 14,
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>{item.badge}</Text>
-                </View>
+        {viewState === 'loading' ? (
+          <AdminLoadingState />
+        ) : viewState === 'error' ? (
+          <AdminErrorState error={feed.error} onRetry={feed.refresh} />
+        ) : viewState === 'empty' ? (
+          <AdminEmptyState title={t('dashboardHome.activity.empty')} />
+        ) : (
+          feed.items.map((item) => (
+            <View key={item.key} style={activityStyles.card}>
+              <View style={activityStyles.rowBetween}>
+                <Text style={activityStyles.title}>{item.reference}</Text>
+                <StatusBadge label={item.typeLabel} tone="brandSoft" />
               </View>
-
-              {/* Subtitle */}
-              <Text style={{ fontSize: 13.5, color: '#6B7280', marginBottom: item.stats ? 12 : 14 }}>
-                {item.subtitle}
-              </Text>
-
-              {/* Stats Box (Stock Verification) */}
-              {item.stats && (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.system}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>SYSTEM</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.counted}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>COUNTED</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#EF4444' }}>{item.stats.variance}</Text>
-                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>VARIANCE</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Footer: Author & Time */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.author}</Text>
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.time}</Text>
-              </View>
+              {[item.qty, item.direction, item.status].some((v) => v !== null) ? (
+                <Text style={activityStyles.subtitle}>
+                  {[item.qty, item.direction, item.status].filter((v): v is string => v !== null).join(' · ')}
+                </Text>
+              ) : null}
+              <Text style={activityStyles.meta}>{item.when}</Text>
             </View>
-          ))}
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+          ))
+        )}
+        {feed.hasMore ? <WalletButton label={t('dashboardHome.loadMore')} variant="outline" onPress={feed.loadMore} /> : null}
+      </ScrollView>
+    </WalletScreen>
   );
 }
+
+const activityStyles = StyleSheet.create({
+  filters: { marginTop: adminSpacing.sm, marginBottom: adminSpacing.md, gap: adminSpacing.sm },
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    gap: adminSpacing.xs,
+    ...adminShadow.sm,
+  },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: adminSpacing.sm },
+  title: { ...adminType.sectionHead, color: adminColors.ink, flex: 1 },
+  subtitle: { ...adminType.body, color: adminColors.muted },
+  meta: { ...adminType.rowMeta, color: adminColors.muted },
+});
 
 function getTaskIcon(type: TaskType) {
   switch (type) {
@@ -1157,6 +978,110 @@ function getTaskIconBg(type: TaskType): string {
     case 'RETURN_APPROVAL':
       return PALETTE.redIconBg;
   }
+}
+
+/** Recent Activity rows on Home: a list length, not a business limit. */
+const SUB_RECENT_ACTIVITY_ROWS = 3;
+
+/**
+ * The live LOW_STOCK alert count of this warehouse (GET /admin/alerts, BR-77);
+ * the dash until it loads. Shares the inventory area's query key, so every
+ * place that shows it costs one read.
+ */
+function SubLowStockCount({ warehouseId, style }: { warehouseId: string; style: StyleProp<TextStyle> }) {
+  const alerts = useLowStockAlerts(warehouseId);
+  const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
+  return <Text style={style}>{countLabel(count)}</Text>;
+}
+
+/**
+ * Inventory Snapshot + Stock Allocation from the live batches, allocations and
+ * LOW_STOCK alerts (useStockSummary / useAllocationDashboard). The old
+ * "Verification Pending" row had no read and is gone.
+ */
+function SubInventorySections({
+  warehouseId,
+  onOpenInventory,
+  onOpenAllocation,
+}: {
+  warehouseId: string;
+  onOpenInventory: () => void;
+  onOpenAllocation: () => void;
+}) {
+  const stock = useStockSummary(warehouseId);
+  const allocation = useAllocationDashboard(warehouseId);
+  const stockKnown = !stock.isLoading && !stock.error;
+  const allocationKnown = !allocation.isLoading && !allocation.error;
+  return (
+    <>
+      <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
+      <View style={styles.infoTableCard}>
+        <View style={styles.infoTableRow}>
+          <Text style={styles.infoTableLabel}>Available Stock</Text>
+          <Text style={styles.infoTableValue}>{gramsLabel(stockKnown ? stock.summary.totalAvailableGrams : null)}</Text>
+        </View>
+        <View style={styles.infoTableRow}>
+          <Text style={styles.infoTableLabel}>Reserved</Text>
+          <Text style={styles.infoTableValue}>{gramsLabel(stockKnown ? stock.summary.totalReservedGrams : null)}</Text>
+        </View>
+        <View style={styles.infoTableRow}>
+          <Text style={styles.infoTableLabel}>Allocated</Text>
+          <Text style={styles.infoTableValue}>{gramsLabel(stock.allocatedGrams)}</Text>
+        </View>
+        <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+          <Text style={styles.infoTableLabel}>Low Stock</Text>
+          <Text style={[styles.infoTableValue, styles.overviewNumberDanger]}>{countLabel(stock.lowStockCount)}</Text>
+        </View>
+        <TouchableOpacity style={styles.tableLinkButton} onPress={onOpenInventory} activeOpacity={0.7}>
+          <Text style={styles.linkButtonText}>View Inventory →</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionHeading}>Stock Allocation</Text>
+      <View style={styles.infoTableCard}>
+        {allocation.dashboard.channels.map((channel, index) => (
+          <View
+            key={channel.channel}
+            style={[styles.infoTableRow, index === allocation.dashboard.channels.length - 1 ? { borderBottomWidth: 0 } : null]}
+          >
+            <Text style={styles.infoTableLabel}>{channel.label}</Text>
+            <Text style={styles.infoTableValue}>{gramsLabel(allocationKnown ? channel.allocatedGrams : null)}</Text>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.tableLinkButton} onPress={onOpenAllocation} activeOpacity={0.7}>
+          <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
+/** The newest live events of this warehouse (GET /warehouses/{id}/activity, BR-104). */
+function SubRecentActivityCard({ warehouseId }: { warehouseId: string }) {
+  const feed = useWarehouseActivityFeed(warehouseId, undefined, {});
+  const rows = feed.items.slice(0, SUB_RECENT_ACTIVITY_ROWS);
+  if (feed.isLoading) return <AdminLoadingState />;
+  if (feed.error) return <AdminErrorState error={feed.error} onRetry={feed.refresh} />;
+  if (rows.length === 0) return <AdminEmptyState title={t('mainDashboard.activity.none')} />;
+  return (
+    <View style={styles.activityCardContainer}>
+      {rows.map((row, index) => (
+        <React.Fragment key={row.key}>
+          {index > 0 ? <View style={styles.cardDivider} /> : null}
+          <View style={styles.activityItemRow}>
+            <View style={styles.activityIconBox}>
+              {row.type === 'GOODS_RECEIPT' ? <ReceiveGoodsActionIcon /> : <PackageBagIcon />}
+            </View>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.activityItemTitle}>{row.typeLabel}</Text>
+              <Text style={styles.activityItemSub}>{row.qty === null ? row.reference : t('mainDashboard.activity.sub', { warehouse: row.reference, qty: row.qty })}</Text>
+              <Text style={styles.activityTimeText}>{row.when}</Text>
+            </View>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
 }
 
 export function SubWarehouseAdminDashboardScreen({
@@ -1345,7 +1270,11 @@ export function SubWarehouseAdminDashboardScreen({
   const canStock = can(HOME_CODES.batchView);
   const canSales = can(HOME_CODES.salesIncome);
 
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // The IST calendar day (the server's date params), not the UTC one toISOString gives.
+  const todayIso = useMemo(() => istDateString(new Date()), []);
+  // GET /admin/sales/summary is authorised by sales.dashboard.view (BR-96), not the income code.
+  const canSalesSummary = can('sales.dashboard.view');
+  const warehouseProfile = useWarehouseProfile(scope.warehouseId);
 
   // Live task summary query (BR-77)
   const taskSummaryQuery = useAdminQuery(
@@ -1354,6 +1283,8 @@ export function SubWarehouseAdminDashboardScreen({
   );
   const taskSummary = taskSummaryQuery.data;
   const taskCounts = useMemo(() => summarizeTaskCounts(taskSummary), [taskSummary]);
+  // Task figures are the dash until the summary loads, never a fake 00.
+  const taskCountText = (count: number) => (taskSummary === undefined ? countLabel(null) : String(count).padStart(2, '0'));
 
   // Live open tasks query (BR-77)
   const openTasksQuery = useAdminQuery(
@@ -1366,7 +1297,7 @@ export function SubWarehouseAdminDashboardScreen({
   const salesSummaryQuery = useAdminQuery(
     adminKeys.scoped('sales', scope.warehouseId, { resource: 'summary', from: todayIso, to: todayIso }),
     (signal) => getSalesSummary({ warehouseId: scope.warehouseId, from: todayIso, to: todayIso }, signal),
-    { enabled: canSales },
+    { enabled: canSales && canSalesSummary },
   );
   const salesSummary = salesSummaryQuery.data;
 
@@ -1406,28 +1337,21 @@ export function SubWarehouseAdminDashboardScreen({
     }
   };
 
-  const salesRevenueText = useMemo(() => {
-    if (!salesSummary) return '₹0';
-    try {
-      const paise = toPaise(parseMoney(String(salesSummary.revenue || '0')));
-      return formatPaise(paise);
-    } catch {
-      return `₹${salesSummary.revenue}`;
-    }
-  }, [salesSummary]);
+  // Unloaded money reads as the dash, never as a fake ₹0.
+  const salesRevenueText = useMemo(() => moneyLabel(salesSummary?.revenue), [salesSummary]);
 
   const salesTxnCountText = useMemo(() => {
-    if (!salesSummary) return '0 transactions';
-    return `${salesSummary.count} transaction${salesSummary.count === 1 ? '' : 's'}`;
+    if (!salesSummary) return countLabel(null);
+    return t('mainDashboard.sub.transactions', { count: salesSummary.count });
   }, [salesSummary]);
 
   const cashTopUpText = useMemo(() => {
-    if (!dailyCashSummary) return '₹0';
+    if (!dailyCashSummary) return countLabel(null);
     return formatPaise(dailyCashSummary.cashTopUpsPaise);
   }, [dailyCashSummary]);
 
   const formatChannelRevenue = (...channels: string[]) => {
-    if (!salesSummary) return '₹0';
+    if (!salesSummary) return countLabel(null);
     const totalPaise = salesSummary.byChannel
       .filter((c) => channels.includes(c.channel))
       .reduce((sum, c) => {
@@ -1758,7 +1682,8 @@ export function SubWarehouseAdminDashboardScreen({
           setShowTodayOverview(false);
           setShowCashTopUp(true);
         }}
-        taskCounts={taskCounts}
+        taskCounts={taskSummary === undefined ? undefined : taskCounts}
+        warehouseId={scope.warehouseId}
         salesRevenueText={salesRevenueText}
         salesTxnCountText={salesTxnCountText}
         cashTopUpText={cashTopUpText}
@@ -1770,6 +1695,7 @@ export function SubWarehouseAdminDashboardScreen({
   if (showRecentActivity) {
     return (
       <SubWarehouseRecentActivityView
+        warehouseId={scope.warehouseId}
         onBack={() => setShowRecentActivity(false)}
       />
     );
@@ -2204,7 +2130,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
               </View>
 
-              <Text style={styles.headerDate}>Thursday, 24 September 2026</Text>
+              <Text style={styles.headerDate}>{formatAdminDay(new Date())}</Text>
 
               <View style={styles.assignedWarehousePill}>
                 <LockBadgeIcon />
@@ -2220,14 +2146,18 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.statusWarehouseTitle}>{warehouseLabel}</Text>
                   <View style={styles.operationalRow}>
                     <View style={styles.greenDot} />
-                    <Text style={styles.operationalText}>Operational</Text>
+                    <Text style={styles.operationalText}>
+                      {warehouseProfile.data === undefined
+                        ? t('dashboardHome.noValue')
+                        : t(warehouseProfile.data.isActive ? 'dashboardHome.snapshot.active' : 'dashboardHome.snapshot.inactive')}
+                    </Text>
                   </View>
                 </View>
 
+                {/* Open QC tasks (GET /admin/tasks/summary); the old shipment count and sync time had no source. */}
                 <View style={styles.statusCardRight}>
-                  <Text style={styles.receivingLabel}>Today's receiving</Text>
-                  <Text style={styles.receivingValue}>3 shipments</Text>
-                  <Text style={styles.syncText}>Last sync: 2 min ago</Text>
+                  <Text style={styles.receivingLabel}>{t('mainDashboard.sub.awaitingQc')}</Text>
+                  <Text style={styles.receivingValue}>{taskCountText(taskCounts.qcPending)}</Text>
                 </View>
               </View>
 
@@ -2252,7 +2182,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>{String(taskCounts.ordersActionable).padStart(2, '0')}</Text>
+                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.ordersActionable)}</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
                   <Text style={styles.overviewSub}>{taskCounts.ordersActionable} need action</Text>
                 </View>
@@ -2262,7 +2192,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>{String(taskCounts.readyForPickup).padStart(2, '0')}</Text>
+                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.readyForPickup)}</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
                   <Text style={styles.overviewSub}>{taskCounts.readyForPickup} customers expected</Text>
                 </View>
@@ -2274,7 +2204,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
                   </View>
-                  <Text style={styles.overviewNumber}>{String(taskCounts.qcPending).padStart(2, '0')}</Text>
+                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.qcPending)}</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
                   <Text style={styles.overviewSub}>{taskCounts.qcPending} awaiting QC</Text>
                 </View>
@@ -2285,9 +2215,10 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
                   </View>
-                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>
-                    {taskSummary?.byType['LOW_STOCK'] !== undefined ? String(taskSummary.byType['LOW_STOCK']).padStart(2, '0') : '00'}
-                  </Text>
+                  {/* LOW_STOCK is an alert, not a task type: the count is the live alert list (BR-77). */}
+                  {scope.warehouseId !== undefined ? (
+                    <SubLowStockCount warehouseId={scope.warehouseId} style={[styles.overviewNumber, styles.overviewNumberDanger]} />
+                  ) : null}
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
                 </View>
@@ -2586,69 +2517,17 @@ export function SubWarehouseAdminDashboardScreen({
               {/* 8. Inventory Snapshot + 9. Stock Allocation: inventory.batch.view */}
               {canStock ? (
               <>
-              <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Available Stock</Text>
-                  <Text style={styles.infoTableValue}>1,245 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Reserved</Text>
-                  <Text style={styles.infoTableValue}>320 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Allocated</Text>
-                  <Text style={styles.infoTableValue}>580 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Low Stock</Text>
-                  <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
-                </View>
-                {/* Ported from the absorbed Today's Overview (Inventory card). */}
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>Verification Pending</Text>
-                  <Text style={styles.infoTableValue}>02</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => setActiveTab('Inventory')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Inventory →</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 9. Stock Allocation */}
-              <Text style={styles.sectionHeading}>Stock Allocation</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>ONLINE</Text>
-                  <Text style={styles.infoTableValue}>420 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
-                  <Text style={styles.infoTableValue}>120 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>RESERVE</Text>
-                  <Text style={styles.infoTableValue}>80 KG</Text>
-                </View>
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>BUFFER</Text>
-                  <Text style={styles.infoTableValue}>60 KG</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
+              {scope.warehouseId !== undefined ? (
+                <SubInventorySections
+                  warehouseId={scope.warehouseId}
+                  onOpenInventory={() => setActiveTab('Inventory')}
+                  onOpenAllocation={() => {
                     setInventoryInitialScreen('M3S02');
                     setInventoryInitialParams({ initialTab: 'Allocation' });
                     setActiveTab('Inventory');
                   }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
-                </TouchableOpacity>
-              </View>
+                />
+              ) : null}
               </>
               ) : null}
 
@@ -2699,7 +2578,7 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
                   <Text style={styles.salesTotalAmount}>
-                    {dailyCashSummary ? formatPaise(dailyCashSummary.expectedClosingPaise) : '₹0'}
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.expectedClosingPaise) : t('dashboardHome.noValue')}
                   </Text>
                   <Text style={styles.salesTxnCount}>
                     {dailyCashSummary?.closed ? 'Closed' : 'Active today'}
@@ -2712,7 +2591,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.infoTableLabel}>Cash Sales</Text>
                   <Text style={styles.infoTableValue}>
-                    {dailyCashSummary ? formatPaise(dailyCashSummary.cashSalesPaise) : '₹0'}
+                    {dailyCashSummary ? formatPaise(dailyCashSummary.cashSalesPaise) : t('dashboardHome.noValue')}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -2740,51 +2619,7 @@ export function SubWarehouseAdminDashboardScreen({
                     ) : null}
                   </View>
 
-                  <View style={styles.activityCardContainer}>
-                    {/* Activity 1 */}
-                    <View style={styles.activityItemRow}>
-                      <View style={styles.activityIconBox}>
-                        <ReceiveGoodsActionIcon />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.activityItemTitle}>Goods Received</Text>
-                        <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
-                        <Text style={styles.activityTimeText}>10:42 AM</Text>
-                      </View>
-                    </View>
-
-                    {canOrders ? (
-                    <>
-                    <View style={styles.cardDivider} />
-
-                    {/* Activity 2 */}
-                    <View style={styles.activityItemRow}>
-                      <View style={styles.activityIconBox}>
-                        <PackageBagIcon />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.activityItemTitle}>Order Packed</Text>
-                        <Text style={styles.activityItemSub}>ORD-10242</Text>
-                        <Text style={styles.activityTimeText}>10:20 AM</Text>
-                      </View>
-                    </View>
-                    </>
-                    ) : null}
-
-                    <View style={styles.cardDivider} />
-
-                    {/* Activity 3 */}
-                    <View style={styles.activityItemRow}>
-                      <View style={styles.activityIconBox}>
-                        <CashTopUpActionIcon />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
-                        <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
-                        <Text style={styles.activityTimeText}>09:55 AM</Text>
-                      </View>
-                    </View>
-                  </View>
+                  {scope.warehouseId !== undefined ? <SubRecentActivityCard warehouseId={scope.warehouseId} /> : null}
                 </>
               ) : null}
 
@@ -2801,7 +2636,8 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.alertBulletRow}>
                     <WarningTriangleIcon color="#D97706" size={16} />
                     <Text style={styles.alertBulletText}>
-                      {taskSummary?.byType['LOW_STOCK'] ?? 0} low-stock products
+                      {scope.warehouseId !== undefined ? <SubLowStockCount warehouseId={scope.warehouseId} style={styles.alertBulletText} /> : null}
+                      {' '}{t('mainDashboard.sub.lowStockProducts')}
                     </Text>
                   </View>
                 ) : null}
@@ -3278,6 +3114,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.textInk,
     letterSpacing: -0.4,
+  },
+  overviewNumberDanger: {
+    color: adminColors.danger.text,
   },
   overviewTitle: {
     fontSize: 12.5,

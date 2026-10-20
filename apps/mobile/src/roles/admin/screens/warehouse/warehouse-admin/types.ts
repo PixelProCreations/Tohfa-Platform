@@ -19,39 +19,6 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
-export type WarehouseAdminStatus = 'Active' | 'Near Capacity';
-
-/** One warehouse as the Main admin manages it (mock; GET /warehouses returns only id/code/name/type/city/capacityKg). */
-export interface WarehouseAdminRow {
-  warehouseId: string;
-  /** Display code, e.g. 'WH-OOT-001'. */
-  code: string;
-  city: string;
-  kind: 'Main Warehouse' | 'Sub Warehouse';
-  address: string;
-  /** Demo status held as warehouse data (no capacity-alert key, SPEC_GAPS W4u-3). */
-  status: WarehouseAdminStatus;
-  stockKg: number;
-  capacityKg: number;
-  receiptsTodayKg: number;
-  pendingOrders: number;
-  openIssues: number;
-  staffCount: number;
-  /** Per-warehouse low-stock trigger shown on the management card (warehouse data, not a threshold in code). */
-  lowStockTrigger: string;
-  operatingHours: string;
-  /** Assigned Sub Warehouse Admin id; undefined = unassigned. */
-  swaId?: string | undefined;
-}
-
-/** One Sub Warehouse Admin account (mock; no SWA list endpoint is wired here). */
-export interface SubWarehouseAdminItem {
-  id: string;
-  name: string;
-  warehouseId: string;
-  status: 'Active' | 'Pending';
-  responsibilities: readonly string[];
-}
 
 /** Screens of the warehouse-admin flow. */
 export type WarehouseAdminRoute =
@@ -61,7 +28,9 @@ export type WarehouseAdminRoute =
   | 'WarehouseDocuments'
   | 'WarehouseSettings'
   | 'WarehouseCapacity'
-  | 'WarehousePerformance';
+  | 'WarehousePerformance'
+  | 'Staff'
+  | 'Attendance';
 
 export interface WarehouseAdminRouteParams {
   warehouseId?: string | undefined;

@@ -1,273 +1,286 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+/**
+ * Storage Location Detail, live from
+ * GET /warehouses/{id}/storage-locations/{locationId} (inventory.batch.view;
+ * Sub own; BR-79). A location outside the caller's warehouse is 404.
+ *
+ * Shows what the API carries: code, name, free-text type, capacity and the
+ * active flag. The old Section / Rack / Shelf card is gone (the API has no
+ * layout). "Stored stock" and occupancy are DERIVED from the warehouse's
+ * ACTIVE batches whose free-text storage location equals this location's code
+ * (what the receiving flow records), and the screen says so.
+ *
+ * Edit name / type / capacity and activate / deactivate (PATCH) need
+ * `warehouse.storage_location.manage` (Main all, Sub none). View Stock opens
+ * Inventory & Stock (host).
+ */
+import React, { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
-  LockIcon,
+  InfoCard,
+  InfoNote,
   SectionTitle,
   StatusBadge,
+  WalletButton,
   WalletScreen,
+  walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import {
+  buildLocationBody,
+  locationBatches,
+  locationStockOf,
+  toLocationRow,
+  type LocationDraft,
+  type LocationDraftField,
+} from './mappers';
+import { ProgressBar, STORAGE_CODES } from './StorageParts';
+import type { StorageWarehouse } from './StorageWarehouse';
+import { useActiveBatches, useStorageLocation, useUpdateStorageLocation } from './useStorageData';
 import type { WarehouseScreenBaseProps } from './types';
 
-function BoxOutlineIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ClockOutlineIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 export interface StorageLocationDetailScreenProps extends WarehouseScreenBaseProps {
+  warehouse: StorageWarehouse;
   locationId?: string | undefined;
   onViewStock?: (() => void) | undefined;
+  /** A stored batch row: that product in Inventory & Stock. */
+  onViewProductDetail?: ((product: string) => void) | undefined;
   onViewActivity?: (() => void) | undefined;
 }
 
 export function StorageLocationDetailScreen({
+  can,
   onBack,
+  warehouse,
+  locationId,
   onViewStock,
+  onViewProductDetail,
   onViewActivity,
 }: StorageLocationDetailScreenProps) {
+  const canViewStock = can(STORAGE_CODES.batchView);
+  const canManage = can(STORAGE_CODES.storageLocationManage);
+  const query = useStorageLocation(warehouse.warehouseId, locationId);
+  const batches = useActiveBatches(warehouse.warehouseId, canViewStock);
+  const update = useUpdateStorageLocation(warehouse.warehouseId, locationId);
+  const [editing, setEditing] = useState(false);
+  const [actionError, setActionError] = useState<string | undefined>(undefined);
+
+  const dto = query.location;
+  const row = useMemo(
+    () => (dto === undefined ? undefined : toLocationRow(dto, locationStockOf(batches.stockByCode, dto.code), new Date())),
+    [dto, batches.stockByCode],
+  );
+  const stored = useMemo(() => (dto === undefined ? [] : locationBatches(batches.items, dto.code)), [dto, batches.items]);
+  const none = t('storageOps.notAvailable');
+
+  const toggleActive = () => {
+    if (row === undefined) return;
+    setActionError(undefined);
+    update.mutate({ isActive: !row.isActive }, { onError: (err) => setActionError(t(adminErrorKey(err))) });
+  };
+
   return (
     <WalletScreen
-      title="Rack 02 · Shelf 03"
+      title={row?.name ?? t('storageOps.location.title')}
+      subtitle={row?.code}
       onBack={onBack}
-      headerRight={<StatusBadge label="Occupied" tone="danger" />}
+      headerExtra={warehouse.header}
+      headerRight={row !== undefined ? <StatusBadge label={row.statusLabel} tone={row.statusTone} /> : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>Location Information</SectionTitle>
-        <View style={styles.card}>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Location ID</Text>
-              <Text style={styles.fieldValue}>LOC-COO-A02-S03</Text>
-            </View>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Storage Type</Text>
-              <Text style={styles.fieldValue}>Cold Storage</Text>
-            </View>
-          </View>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Section</Text>
-              <Text style={styles.fieldValue}>A</Text>
-            </View>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Rack</Text>
-              <Text style={styles.fieldValue}>02</Text>
-            </View>
-          </View>
-          <View style={styles.gridRowSingle}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Shelf</Text>
-              <Text style={styles.fieldValue}>03</Text>
-            </View>
-          </View>
-        </View>
+      {warehouse.placeholder ??
+        (row === undefined || dto === undefined ? (
+          query.isLoading ? (
+            <AdminLoadingState />
+          ) : locationId === undefined ? (
+            <AdminEmptyState title={t('storageOps.location.notFound')} />
+          ) : (
+            <AdminErrorState error={query.error} onRetry={query.refresh} />
+          )
+        ) : (
+          <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <SectionTitle>{t('storageOps.location.section.info')}</SectionTitle>
+            <InfoCard
+              rows={[
+                [
+                  { label: t('storageOps.location.field.code'), value: row.code },
+                  { label: t('storageOps.location.field.type'), value: row.typeLabel },
+                ],
+                [
+                  { label: t('storageOps.location.field.capacity'), value: row.capacity ?? t('storageOps.location.capacityNotSet') },
+                  { label: t('storageOps.location.field.created'), value: row.createdAt },
+                ],
+              ]}
+            />
 
-        <SectionTitle>Occupancy</SectionTitle>
-        <View style={styles.card}>
-          <View style={styles.occupancyHeader}>
-            <Text style={styles.occupancyTitle}>Current</Text>
-            <Text style={styles.occupancyPercent}>68%</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: '68%' }]} />
-          </View>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Capacity</Text>
-              <Text style={styles.fieldValue}>500 KG</Text>
-            </View>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Available</Text>
-              <Text style={styles.fieldValue}>160 KG</Text>
-            </View>
-          </View>
-        </View>
+            {canManage && editing ? (
+              <EditLocationForm
+                warehouseId={warehouse.warehouseId}
+                locationId={dto.id}
+                initial={{ code: dto.code, name: dto.name, locationType: dto.locationType ?? '', capacityKg: dto.capacityKg ?? '' }}
+                onDone={() => setEditing(false)}
+              />
+            ) : null}
+            {canManage && !editing ? (
+              <View style={styles.actions}>
+                <WalletButton label={t('storageOps.location.edit')} variant="outline" flex onPress={() => setEditing(true)} />
+                <WalletButton
+                  label={t(row.isActive ? 'storageOps.location.deactivate' : 'storageOps.location.activate')}
+                  variant="neutral"
+                  flex
+                  disabled={update.isPending}
+                  onPress={toggleActive}
+                />
+              </View>
+            ) : null}
+            {actionError !== undefined ? <Text style={styles.error}>{actionError}</Text> : null}
 
-        <SectionTitle>Stored Stock</SectionTitle>
-        <View style={styles.stockCard}>
-          <View style={styles.stockHeader}>
-            <Text style={styles.stockTitle}>Tomato</Text>
-            <Text style={styles.stockQty}>140 KG</Text>
-          </View>
-          <Text style={styles.stockSubtitle}>Grade 1</Text>
-        </View>
+            {canViewStock ? (
+              <>
+                <SectionTitle>{t('storageOps.location.section.occupancy')}</SectionTitle>
+                <View style={styles.card}>
+                  {batches.isLoading ? (
+                    <AdminLoadingState />
+                  ) : batches.error ? (
+                    <AdminErrorState error={batches.error} onRetry={batches.refresh} />
+                  ) : (
+                    <>
+                      <View style={styles.occupancyHead}>
+                        <Text style={styles.ink}>{t('storageOps.location.stored', { quantity: row.stockLabel ?? none })}</Text>
+                        <Text style={styles.ink}>
+                          {row.occupancyPercent === null ? none : t('storageOps.percent', { value: row.occupancyPercent })}
+                        </Text>
+                      </View>
+                      {row.occupancyPercent !== null ? (
+                        <ProgressBar percent={row.occupancyPercent} tone={row.occupancyPercent > 100 ? 'danger' : 'brand'} />
+                      ) : null}
+                      <Text style={styles.muted}>
+                        {t('storageOps.location.availableLine', { available: row.available ?? none })}
+                      </Text>
+                    </>
+                  )}
+                </View>
+                <InfoNote tone="brandSoft">{t('storageOps.locations.stockNote')}</InfoNote>
+                {!batches.complete ? <Text style={styles.muted}>{t('storageOps.partial')}</Text> : null}
 
-        <View style={styles.stockCard}>
-          <View style={styles.stockHeader}>
-            <Text style={styles.stockTitle}>Carrot</Text>
-            <Text style={styles.stockQty}>80 KG</Text>
-          </View>
-          <Text style={styles.stockSubtitle}>Grade 1</Text>
-        </View>
-
-        <SectionTitle>Actions</SectionTitle>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={onViewStock}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-        >
-          <BoxOutlineIcon size={20} color="#9A3412" />
-          <Text style={styles.actionButtonText}>View Stock</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={onViewActivity}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-        >
-          <ClockOutlineIcon size={20} color="#9A3412" />
-          <Text style={styles.actionButtonText}>View Activity</Text>
-        </TouchableOpacity>
-
-        <View style={styles.noteCard}>
-          <LockIcon size={16} color="#9A3412" />
-          <Text style={styles.noteText}>
-            SWA views this location's stock and activity here — this is a deep-link into inventory data, not a second stock-editing system.
-          </Text>
-        </View>
-      </ScrollView>
+                <SectionTitle>{t('storageOps.location.section.stock')}</SectionTitle>
+                {stored.length === 0 && !batches.isLoading ? (
+                  <Text style={styles.muted}>{t('storageOps.location.noStock')}</Text>
+                ) : (
+                  stored.map((b) => (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={styles.card}
+                      onPress={() => onViewProductDetail?.(b.productName)}
+                      disabled={onViewProductDetail === undefined}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <View style={styles.occupancyHead}>
+                        <Text style={styles.ink}>{b.product}</Text>
+                        <Text style={styles.ink}>{b.quantity}</Text>
+                      </View>
+                      <Text style={styles.muted}>{b.batchCode}</Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+                {onViewStock ? <WalletButton label={t('storageOps.location.viewStock')} variant="outline" onPress={onViewStock} /> : null}
+              </>
+            ) : null}
+            {onViewActivity ? (
+              <View style={styles.spaced}>
+                <WalletButton label={t('storageOps.location.viewActivity')} variant="neutral" onPress={onViewActivity} />
+              </View>
+            ) : null}
+          </ScrollView>
+        ))}
     </WalletScreen>
   );
 }
 
+/** PATCH name / type / capacity (the code is immutable); only rendered with warehouse.storage_location.manage. */
+function EditLocationForm({
+  warehouseId,
+  locationId,
+  initial,
+  onDone,
+}: {
+  warehouseId: string | undefined;
+  locationId: string;
+  initial: LocationDraft;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState<LocationDraft>(initial);
+  const [errors, setErrors] = useState<Partial<Record<LocationDraftField, string>>>({});
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  const update = useUpdateStorageLocation(warehouseId, locationId);
+  const set = (field: LocationDraftField) => (value: string) => setDraft((d) => ({ ...d, [field]: value }));
+
+  const save = () => {
+    const built = buildLocationBody(draft);
+    if (!built.ok) {
+      setErrors(Object.fromEntries(Object.entries(built.errors).map(([f, k]) => [f, t(k)])));
+      return;
+    }
+    setErrors({});
+    const { name, locationType, capacityKg } = built.body;
+    update.mutate({ name, locationType, capacityKg }, { onSuccess: onDone, onError: (err) => setSubmitError(t(adminErrorKey(err))) });
+  };
+
+  const field = (name: Exclude<LocationDraftField, 'code'>, label: string, numeric = false) => (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={draft[name]}
+        onChangeText={set(name)}
+        keyboardType={numeric ? 'decimal-pad' : 'default'}
+        placeholderTextColor={adminColors.placeholder}
+      />
+      {errors[name] ? <Text style={styles.error}>{errors[name]}</Text> : null}
+    </>
+  );
+
+  return (
+    <View style={styles.card}>
+      {field('name', t('storageOps.location.field.name'))}
+      {field('locationType', t('storageOps.location.field.type'))}
+      {field('capacityKg', t('storageOps.location.field.capacityKg'), true)}
+      {submitError !== undefined ? <Text style={styles.error}>{submitError}</Text> : null}
+      <View style={styles.actions}>
+        <WalletButton label={t('storageOps.cancel')} variant="neutral" flex onPress={onDone} />
+        <WalletButton label={t('storageOps.save')} flex disabled={update.isPending} onPress={save} />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: adminSpacing.lg,
-    paddingBottom: 40,
-  },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 16,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: adminSpacing.lg,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+    gap: adminSpacing.xs,
   },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  gridRowSingle: {
-    flexDirection: 'row',
-  },
-  gridCol: {
-    flex: 1,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  fieldValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  occupancyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  occupancyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  occupancyPercent: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#D97706',
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: '#F3EFEA',
-    borderRadius: 4,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#D97706',
-    borderRadius: 4,
-  },
-  stockCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
+  occupancyHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: adminSpacing.sm },
+  ink: { ...adminType.rowTitle, color: adminColors.ink },
+  muted: { ...adminType.rowMeta, color: adminColors.muted },
+  actions: { flexDirection: 'row', gap: adminSpacing.sm, marginVertical: adminSpacing.sm },
+  spaced: { marginTop: adminSpacing.sm },
+  label: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm, marginBottom: adminSpacing.xs },
+  input: {
+    ...adminType.body,
+    color: adminColors.ink,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
-  stockHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  stockTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  stockQty: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  stockSubtitle: {
-    fontSize: 13,
-    color: adminColors.muted,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    backgroundColor: adminColors.card,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#D97706',
-    marginBottom: 10,
-  },
-  actionButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#9A3412',
-  },
-  noteCard: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 6,
-    alignItems: 'flex-start',
-  },
-  noteText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#92400E',
-    fontWeight: '500',
-  },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

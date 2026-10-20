@@ -1,21 +1,31 @@
 /**
- * Initiate New Transfer: pick source / destination, produce, quantity and
- * priority, then dispatch (or submit for Super Admin approval).
+ * Initiate New Transfer: pick the source and destination warehouses (the real
+ * warehouse list, uuids), pick one or more ACTIVE batches of the source with a
+ * kg quantity each, optionally a vehicle number and notes, and submit
+ * (POST /warehouse-transfers with an Idempotency-Key).
  *
- * Gate (FINAL_LIST 142): Main-only. The whole screen needs
- * `transfer.inter_warehouse.initiate` (SA all, MAIN all, SUB none, BR-26);
- * without it a not-available note renders and TransfersFlow refuses the route.
- * A quantity at or above the high-value threshold is routed to Super Admin
- * approval unless the initiator holds `transfer.high_value.approve` (SA only).
- * The threshold lives in config/businessThresholds.ts (CLAUDE.md 2.7; it is
- * undefined in system_config, SPEC_GAPS W4w-1), no longer `qty >= 1000` here.
- * Warehouse options are the seeded warehouses (fixtures), not literals.
+ * Gate: `transfer.inter_warehouse.initiate` (SA all, MAIN all, SUB none,
+ * BR-26); without it a not-available note renders and TransfersFlow refuses
+ * the route. The warehouse list needs `warehouse.all.view`, which every holder
+ * of the initiate code also holds.
+ *
+ * The server decides what happens next: a transfer below the high-value
+ * threshold (system_config, value-based) is dispatched at once (IN_TRANSIT);
+ * one at or above it, or with an unvalued line, waits for Super Admin
+ * approval (PENDING_APPROVAL). The app does not guess the threshold; it reports
+ * the status the server returns. There is no ETA or driver: the API has none.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { useIdempotencyKey } from '../../../api/hooks';
+import { adminErrorKey } from '../../../api/errors';
+import type { WarehouseTransferDto } from '../../../api/transfers';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { formatTransferThreshold, transferNeedsApproval } from '../../../config/businessThresholds';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
   EmptyState,
@@ -26,102 +36,182 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { WarningTriangleIcon } from '../storage-ops/StorageParts';
-import { DEMO_DISPATCH, TRANSFER_PRODUCE_OPTIONS, TRANSFER_QTY_PRESETS_KG, TRANSFER_WAREHOUSES, transferWarehouseLabel } from './fixtures';
-import { ArrowDownRouteIcon, DispatchIcon, formatTransferKg, TRANSFER_CODES } from './TransferParts';
-import type { TransferItem, WarehouseScreenBaseProps } from './types';
-
-type Priority = 'Urgent' | 'Standard';
-
-const PRIORITY_COPY: Record<Priority, { title: string; subtitle: string }> = {
-  Urgent: { title: 'Low Stock Rebalance', subtitle: 'Urgent dispatch to resolve critical deficit' },
-  Standard: { title: 'Standard Rotation', subtitle: 'Regular stock leveling across facilities' },
-};
-
-const WAREHOUSE_IDS: readonly string[] = TRANSFER_WAREHOUSES.flatMap((w) => (w.warehouseId ? [w.warehouseId] : []));
+import {
+  buildCreateTransferBody,
+  canInitiateTransfer,
+  createdOutcomeKey,
+  INITIATE_ERROR_KEY,
+  TRANSFER_NOTES_MAX,
+  VEHICLE_NUMBER_MAX,
+  type InitiateDraftLine,
+  type TransferBatchOption,
+} from './mappers';
+import { ArrowDownRouteIcon, DispatchIcon } from './TransferParts';
+import { useCreateTransferMutation, useTransferBatchOptions, useTransferWarehouses } from './useTransfersData';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface InitiateNewTransferScreenProps extends WarehouseScreenBaseProps {
-  onSubmitTransfer?: ((transfer: TransferItem) => void) | undefined;
+  /** The transfer was created (the host opens it). */
+  onTransferCreated?: ((transfer: WarehouseTransferDto) => void) | undefined;
 }
 
-export function InitiateNewTransferScreen({ can, onBack, onSubmitTransfer }: InitiateNewTransferScreenProps) {
-  const [sourceId, setSourceId] = useState(WAREHOUSE_IDS[0] ?? '');
-  const [destId, setDestId] = useState(WAREHOUSE_IDS[2] ?? WAREHOUSE_IDS[1] ?? '');
-  const [produce, setProduce] = useState(TRANSFER_PRODUCE_OPTIONS[0] ?? '');
-  const [quantityKg, setQuantityKg] = useState('300');
-  const [priority, setPriority] = useState<Priority>('Urgent');
+function BatchRow({
+  option,
+  qtyText,
+  error,
+  onToggle,
+  onChangeQty,
+}: {
+  option: TransferBatchOption;
+  /** undefined = not selected. */
+  qtyText: string | undefined;
+  error: string | undefined;
+  onToggle: () => void;
+  onChangeQty: (text: string) => void;
+}) {
+  const selected = qtyText !== undefined;
+  return (
+    <View style={[styles.batchCard, selected && styles.batchCardSelected]}>
+      <TouchableOpacity onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} activeOpacity={0.8}>
+        <Text style={styles.batchTitle}>{option.batchCode}</Text>
+        <Text style={styles.batchMeta}>
+          {t('transfers.initiate.batchMeta', {
+            crop: option.cropName ?? t('transfers.initiate.cropUnknown'),
+            grade: option.gradeLabel,
+            qty: formatKg(option.availableGrams),
+          })}
+        </Text>
+      </TouchableOpacity>
+      {selected ? (
+        <>
+          <View style={styles.qtyInputBox}>
+            <TextInput
+              style={styles.qtyInput}
+              keyboardType="decimal-pad"
+              value={qtyText}
+              onChangeText={onChangeQty}
+              placeholder={t('transfers.initiate.qtyPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              accessibilityLabel={t('transfers.initiate.qtyA11y', { batch: option.batchCode })}
+            />
+            <Text style={styles.qtyUnit}>{t('transfers.common.kgUnit')}</Text>
+          </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
 
-  if (!can(TRANSFER_CODES.initiate)) {
+export function InitiateNewTransferScreen({ scope, can, onBack, onTransferCreated }: InitiateNewTransferScreenProps) {
+  const allowed = canInitiateTransfer(can);
+  const warehouses = useTransferWarehouses(scope, can);
+  const active = useMemo(() => warehouses.options.filter((o) => o.isActive), [warehouses.options]);
+  const ids = useMemo(() => active.map((o) => o.warehouseId), [active]);
+
+  const [sourceId, setSourceId] = useState<string | undefined>(undefined);
+  const [destId, setDestId] = useState<string | undefined>(undefined);
+  const [selected, setSelected] = useState<Record<string, string>>({});
+  const [vehicle, setVehicle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitError, setSubmitError] = useState<unknown>(null);
+
+  // Before a pick, the source defaults to the scope's warehouse when it has one, else the first option.
+  const source = sourceId ?? (scope.warehouseId !== undefined && ids.includes(scope.warehouseId) ? scope.warehouseId : ids[0]);
+  const destination = destId !== undefined && destId !== source ? destId : ids.find((id) => id !== source);
+
+  const batches = useTransferBatchOptions(allowed ? source : undefined);
+  const create = useCreateTransferMutation();
+  const createKey = useIdempotencyKey();
+
+  if (!allowed) {
     return (
-      <WalletScreen title="Initiate New Transfer" onBack={onBack}>
-        <EmptyState
-          title="Not available"
-          subtitle="Initiating an inter-warehouse transfer needs transfer initiate permission."
-        />
+      <WalletScreen title={t('transfers.initiate.title')} onBack={onBack}>
+        <EmptyState title={t('transfers.initiate.notAvailable.title')} subtitle={t('transfers.initiate.notAvailable.subtitle')} />
       </WalletScreen>
     );
   }
 
-  const parsedQty = parseInt(quantityKg, 10) || 0;
-  const needsApproval = transferNeedsApproval(parsedQty, can(TRANSFER_CODES.highValueApprove));
-  const sourceLabel = transferWarehouseLabel(sourceId);
-  const destLabel = transferWarehouseLabel(destId);
+  if (active.length === 0) {
+    return (
+      <WalletScreen title={t('transfers.initiate.title')} onBack={onBack}>
+        {warehouses.isLoading ? <AdminLoadingState /> : null}
+        {!warehouses.isLoading && warehouses.error ? <AdminErrorState error={warehouses.error} onRetry={warehouses.refresh} /> : null}
+        {!warehouses.isLoading && !warehouses.error ? <AdminEmptyState title={t('transfers.initiate.noWarehouses')} /> : null}
+      </WalletScreen>
+    );
+  }
+
+  const nameOf = (id: string) => warehouses.nameOf(id);
+  const optionById = new Map(batches.items.map((b) => [b.batchId, b]));
+  const draftLines: InitiateDraftLine[] = Object.entries(selected).map(([batchId, qtyText]) => ({
+    batchId,
+    qtyText,
+    availableGrams: optionById.get(batchId)?.availableGrams ?? 0,
+  }));
+  const result = buildCreateTransferBody({ fromWarehouseId: source, toWarehouseId: destination, lines: draftLines, vehicleNumber: vehicle, notes });
+  const lineError = (batchId: string) =>
+    !result.ok && result.batchId === batchId ? t(INITIATE_ERROR_KEY[result.error]) : undefined;
+  const formError = !result.ok && result.batchId === undefined && draftLines.length > 0 ? t(INITIATE_ERROR_KEY[result.error]) : undefined;
 
   const selectSource = (id: string) => {
+    if (id === source) return;
     setSourceId(id);
-    if (id === destId) setDestId(WAREHOUSE_IDS.find((w) => w !== id) ?? '');
+    setSelected({}); // batches belong to the source warehouse
   };
 
-  const handleDispatch = () => {
-    if (sourceId === destId) {
-      Alert.alert('Invalid Route', 'Source and destination facilities must be different.');
-      return;
-    }
-    if (parsedQty <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid transfer quantity.');
-      return;
-    }
-    const id = String(Date.now()).slice(-5);
-    const transfer: TransferItem = {
-      id,
-      code: `TRF-${id}`,
-      sourceWarehouseId: sourceId,
-      destinationWarehouseId: destId,
-      produce,
-      quantityKg: parsedQty,
-      status: needsApproval ? 'Pending SA Approval' : 'In Transit',
-      eta: needsApproval ? undefined : DEMO_DISPATCH.eta,
-      vehicle: needsApproval ? undefined : DEMO_DISPATCH.vehicle,
-      initiatedBy: DEMO_DISPATCH.initiatedBy,
-    };
-    Alert.alert(
-      needsApproval ? 'Transfer Submitted for Approval' : 'Transfer Dispatched',
-      needsApproval
-        ? `Transfer of ${formatTransferKg(parsedQty)} from ${sourceLabel} to ${destLabel} routed to Super Admin for dual-key authorization.`
-        : `Transfer manifest created. Truck ${DEMO_DISPATCH.vehicle} dispatched to ${destLabel}.`,
-      [{ text: 'OK', onPress: () => (onSubmitTransfer ? onSubmitTransfer(transfer) : onBack()) }],
+  const toggleBatch = (batchId: string) =>
+    setSelected((prev) => {
+      if (prev[batchId] !== undefined) {
+        const next = { ...prev };
+        delete next[batchId];
+        return next;
+      }
+      return { ...prev, [batchId]: '' };
+    });
+
+  const submit = () => {
+    if (!result.ok) return;
+    setSubmitError(null);
+    const body = result.body;
+    create.mutate(
+      { body, idempotencyKey: createKey.keyFor(body) },
+      {
+        onSuccess: (transfer) => {
+          createKey.reset();
+          Alert.alert(
+            t('transfers.initiate.result.title', { code: transfer.transferNumber }),
+            t(createdOutcomeKey(transfer.status), { to: nameOf(transfer.toWarehouseId) }),
+            [{ text: t('transfers.common.ok'), onPress: () => (onTransferCreated ? onTransferCreated(transfer) : onBack()) }],
+          );
+        },
+        onError: setSubmitError,
+      },
     );
   };
 
+  const batchView = queryViewState({ isLoading: batches.isLoading, error: batches.error, itemCount: batches.items.length });
+
   return (
     <WalletScreen
-      title="Initiate New Transfer"
-      subtitle="Dispatch stock between facilities"
+      title={t('transfers.initiate.title')}
+      subtitle={t('transfers.initiate.subtitle')}
       onBack={onBack}
       footer={
         <WalletFooter>
           <WalletButton
-            label={needsApproval ? 'Submit for Super Admin Sign-off' : 'Dispatch Transfer'}
+            label={t('transfers.initiate.submit')}
             icon={<DispatchIcon />}
-            onPress={handleDispatch}
+            disabled={!result.ok || create.isPending}
+            onPress={submit}
           />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.label}>Source Warehouse</Text>
-          <ChipGroup options={WAREHOUSE_IDS} value={sourceId} onChange={selectSource} labelOf={transferWarehouseLabel} />
+          <Text style={styles.label}>{t('transfers.initiate.source')}</Text>
+          {source !== undefined ? <ChipGroup options={ids} value={source} onChange={selectSource} labelOf={nameOf} /> : null}
           <View style={styles.routeDividerRow}>
             <View style={styles.routeDividerLine} />
             <View style={styles.routeArrowBox}>
@@ -129,69 +219,60 @@ export function InitiateNewTransferScreen({ can, onBack, onSubmitTransfer }: Ini
             </View>
             <View style={styles.routeDividerLine} />
           </View>
-          <Text style={styles.label}>Destination Facility</Text>
-          <ChipGroup
-            options={WAREHOUSE_IDS.filter((w) => w !== sourceId)}
-            value={destId}
-            onChange={setDestId}
-            labelOf={transferWarehouseLabel}
+          <Text style={styles.label}>{t('transfers.initiate.destination')}</Text>
+          {destination !== undefined ? (
+            <ChipGroup options={ids.filter((id) => id !== source)} value={destination} onChange={setDestId} labelOf={nameOf} />
+          ) : null}
+        </View>
+
+        <SectionTitle>{t('transfers.initiate.batches')}</SectionTitle>
+        {batchView === 'loading' ? <AdminLoadingState /> : null}
+        {batchView === 'error' ? <AdminErrorState error={batches.error} onRetry={batches.refresh} /> : null}
+        {batchView === 'empty' ? <AdminEmptyState title={t('transfers.initiate.noBatches')} /> : null}
+        {batchView === 'ready'
+          ? batches.items.map((option) => (
+              <BatchRow
+                key={option.batchId}
+                option={option}
+                qtyText={selected[option.batchId]}
+                error={lineError(option.batchId)}
+                onToggle={() => toggleBatch(option.batchId)}
+                onChangeQty={(text) => setSelected((prev) => ({ ...prev, [option.batchId]: text }))}
+              />
+            ))
+          : null}
+        {batchView === 'ready' && batches.hasMore ? (
+          <WalletButton label={t('transfers.list.loadMore')} variant="outline" onPress={batches.loadMore} />
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.label}>{t('transfers.initiate.vehicle')}</Text>
+          <TextInput
+            style={styles.textInput}
+            value={vehicle}
+            onChangeText={setVehicle}
+            maxLength={VEHICLE_NUMBER_MAX}
+            autoCapitalize="characters"
+            placeholder={t('transfers.initiate.vehiclePlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
+            accessibilityLabel={t('transfers.initiate.vehicle')}
+          />
+          <Text style={[styles.label, styles.labelSpaced]}>{t('transfers.initiate.notes')}</Text>
+          <TextInput
+            style={[styles.textInput, styles.notesInput]}
+            value={notes}
+            onChangeText={setNotes}
+            maxLength={TRANSFER_NOTES_MAX}
+            multiline
+            placeholder={t('transfers.initiate.notesPlaceholder')}
+            placeholderTextColor={adminColors.placeholder}
+            accessibilityLabel={t('transfers.initiate.notes')}
           />
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Produce Type</Text>
-          <ChipGroup options={TRANSFER_PRODUCE_OPTIONS} value={produce} onChange={setProduce} />
-          <Text style={[styles.label, styles.labelSpaced]}>Transfer Quantity (kg)</Text>
-          <View style={styles.qtyInputBox}>
-            <TextInput
-              style={styles.qtyInput}
-              keyboardType="numeric"
-              value={quantityKg}
-              onChangeText={setQuantityKg}
-              placeholder="e.g. 300"
-              placeholderTextColor={adminColors.placeholder}
-              accessibilityLabel="Transfer quantity in kg"
-            />
-            <Text style={styles.qtyUnit}>kg</Text>
-          </View>
-          <View style={styles.presetRow}>
-            {TRANSFER_QTY_PRESETS_KG.map((add) => (
-              <TouchableOpacity
-                key={add}
-                style={styles.presetBtn}
-                onPress={() => setQuantityKg(String(parsedQty + add))}
-                accessibilityRole="button"
-              >
-                <Text style={styles.presetText}>+{formatTransferKg(add)}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <SectionTitle>Transfer Reason / Priority</SectionTitle>
-        {(Object.keys(PRIORITY_COPY) as Priority[]).map((p) => {
-          const active = priority === p;
-          return (
-            <TouchableOpacity
-              key={p}
-              style={[styles.priorityBtn, active && styles.priorityBtnActive]}
-              onPress={() => setPriority(p)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.priorityTitle, active && styles.priorityTitleActive]}>{PRIORITY_COPY[p].title}</Text>
-              <Text style={styles.prioritySub}>{PRIORITY_COPY[p].subtitle}</Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {needsApproval ? (
-          <InfoNote tone="brandSoft" icon={<WarningTriangleIcon color={adminColors.brandDeep} />}>
-            Transfers of {formatTransferThreshold()} or more need dual-key approval from Super Admin before the dispatch
-            manifest is issued.
-          </InfoNote>
-        ) : null}
+        {formError ? <Text style={styles.error}>{formError}</Text> : null}
+        {submitError ? <InfoNote tone="danger">{t(adminErrorKey(submitError))}</InfoNote> : null}
+        <InfoNote tone="brandSoft">{t('transfers.list.approvalNote')}</InfoNote>
       </ScrollView>
     </WalletScreen>
   );
@@ -221,27 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: adminSpacing.sm,
   },
-  qtyInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.canvas,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    height: ADMIN_BUTTON_HEIGHT,
-  },
-  qtyInput: { ...adminType.title, flex: 1, color: adminColors.ink, padding: 0 },
-  qtyUnit: { ...adminType.sectionHead, color: adminColors.muted },
-  presetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: adminSpacing.sm },
-  presetBtn: {
-    backgroundColor: adminColors.canvas,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.xs,
-  },
-  presetText: { ...adminType.caption, color: adminColors.ink },
-  priorityBtn: {
+  batchCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
@@ -249,8 +310,32 @@ const styles = StyleSheet.create({
     padding: adminSpacing.md,
     marginBottom: adminSpacing.sm,
   },
-  priorityBtnActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  priorityTitle: { ...adminType.sectionHead, color: adminColors.ink },
-  priorityTitleActive: { color: adminColors.brand },
-  prioritySub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  batchCardSelected: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
+  batchTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  batchMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  qtyInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    height: ADMIN_BUTTON_HEIGHT,
+    marginTop: adminSpacing.sm,
+  },
+  qtyInput: { ...adminType.title, flex: 1, color: adminColors.ink, padding: 0 },
+  qtyUnit: { ...adminType.sectionHead, color: adminColors.muted },
+  textInput: {
+    ...adminType.body,
+    color: adminColors.ink,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    height: ADMIN_BUTTON_HEIGHT,
+  },
+  notesInput: { height: ADMIN_BUTTON_HEIGHT * 2, paddingTop: adminSpacing.sm, textAlignVertical: 'top' },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

@@ -6,11 +6,12 @@
  *   POST /admin/sales                              sales.sale.create (BR-86, BR-88, BR-89; Idempotency-Key)
  *   GET  /admin/sales                              sales.history.view (BR-85, BR-90; cursor)
  *   GET  /admin/sales/{saleId}                     sales.history.view (BR-90, BR-92)
- *   GET  /admin/sales/summary                      sales.history.view (BR-96)
+ *   GET  /admin/sales/summary                      sales.dashboard.view (BR-96)
  *   GET  /admin/sales/market-day                   sales.market_day.view (BR-95, BR-96)
  *   GET  /admin/sales/horeca                       sales.horeca.view (BR-85h, BR-13; read-only)
  *   GET  /admin/sales/b2b                          sales.b2b.view (BR-85h, BR-13; read-only)
  *   POST /admin/sales/{saleId}/payments/upi/confirm payment.record (BR-94, BR-88g; Idempotency-Key)
+ *   POST /admin/sales/{saleId}/cancel              sales.sale.cancel (BR-94i, BR-94l; Idempotency-Key)
  *
  * Money and quantities stay as the API's decimal strings (`Money`, `Quantity`);
  * the screens' mappers turn them into integer paise and grams.
@@ -23,12 +24,30 @@ import { adminGet, adminPost } from './http';
 
 export type Quantity = string;
 
-export type Grade = 'Grade 1' | 'Grade 2' | 'Grade 3';
+/** docs/openapi.yaml `Grade`. REJECT is never sellable but is part of the enum. */
+export type Grade = 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'REJECT';
 export type SalePaymentMethod = 'CASH' | 'UPI' | 'WALLET' | 'CARD';
 export type SaleStatus = 'PENDING_PAYMENT' | 'PICKED_UP' | 'CANCELLED';
-export type SalePaymentStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
-export type SaleChannel = 'ONLINE' | 'DIRECT' | 'MARKET' | 'HORECA' | 'B2B';
-export type SaleCreateChannel = 'DIRECT' | 'MARKET';
+/** docs/openapi.yaml `SalePaymentStatus`: the ORDER's payment_status (not the SalePayment row's). */
+export type SalePaymentStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'FAILED';
+/** docs/openapi.yaml `SalePayment.status`: the payment row's own status. */
+export type SalePaymentRowStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
+/** docs/openapi.yaml `SaleChannel`: sales history / detail only carry DIRECT and MARKET. */
+export type SaleChannel = 'DIRECT' | 'MARKET';
+/** docs/openapi.yaml `SaleCreateChannel`. HORECA / B2B exist only to be refused 501 (BR-13). */
+export type SaleCreateChannel = 'DIRECT' | 'MARKET' | 'HORECA' | 'B2B';
+/** docs/openapi.yaml `ChannelOrderListItem.status`. */
+export type ChannelOrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'CONFIRMED'
+  | 'PACKED'
+  | 'DISPATCHED'
+  | 'READY_FOR_PICKUP'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'PICKED_UP'
+  | 'CANCELLED'
+  | 'RETURNED';
 
 /** docs/openapi.yaml `SaleProduct`. */
 export interface SaleProductDto {
@@ -50,7 +69,7 @@ export interface SaleCustomerMatchDto {
   customerId: string;
   customerCode: string;
   name: string;
-  mobileMasked: string | null;
+  mobileMasked: string;
   walletBalance: Money | string;
 }
 
@@ -107,7 +126,7 @@ export interface SaleBuyerDto {
 /** docs/openapi.yaml `SalePayment`. */
 export interface SalePaymentDto {
   method: SalePaymentMethod;
-  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  status: SalePaymentRowStatus;
   amount: Money | string;
   amountReceived: Money | string | null;
   cardRef: string | null;
@@ -200,7 +219,7 @@ export interface ChannelOrderListItemDto {
   id: string;
   orderNumber: string;
   channel: 'HORECA' | 'B2B';
-  status: string;
+  status: ChannelOrderStatus;
   paymentStatus: SalePaymentStatus;
   warehouseId: string;
   customerCode: string | null;
@@ -219,6 +238,32 @@ export interface SaleUpiConfirmDto {
   upiTxnRef: string;
 }
 
+/** docs/openapi.yaml `SaleCancelRequest`. */
+export interface SaleCancelDto {
+  reason?: string | undefined;
+}
+
+/** docs/openapi.yaml `SaleProduct` list page. */
+export interface ListSaleProductsResponseDto {
+  items: SaleProductDto[];
+  page: PageMeta;
+}
+
+export interface ListSaleProductsParams {
+  /** Required by the API: DIRECT = pooled stock, MARKET = the LIVE_MARKET allocation (BR-95). */
+  channel: 'DIRECT' | 'MARKET';
+  q?: string | undefined;
+  warehouseId?: string | undefined;
+  cursor?: string | undefined;
+  limit?: number | undefined;
+}
+
+/** Exactly one of mobile, code or q (422 otherwise). */
+export type SaleCustomerLookupParams =
+  | { mobile: string; code?: undefined; q?: undefined }
+  | { code: string; mobile?: undefined; q?: undefined }
+  | { q: string; mobile?: undefined; code?: undefined };
+
 export interface SaleCreateDto {
   channel: SaleCreateChannel;
   warehouseId?: string | undefined;
@@ -236,6 +281,10 @@ export interface SaleCreateDto {
 export interface ListSalesParams {
   channel?: SaleChannel | undefined;
   status?: SaleStatus | undefined;
+  paymentStatus?: SalePaymentStatus | undefined;
+  paymentMethod?: SalePaymentMethod | undefined;
+  customerId?: string | undefined;
+  q?: string | undefined;
   from?: string | undefined;
   to?: string | undefined;
   warehouseId?: string | undefined;
@@ -244,8 +293,9 @@ export interface ListSalesParams {
 }
 
 export interface SalesSummaryParams {
-  from: string;
-  to: string;
+  /** openapi: optional; `to` defaults to today and `from` to `to`. */
+  from?: string | undefined;
+  to?: string | undefined;
   warehouseId?: string | undefined;
 }
 
@@ -270,23 +320,30 @@ export const ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
 ];
 
 export function listSaleProducts(
-  params: { warehouseId?: string | undefined } = {},
+  params: ListSaleProductsParams,
   signal?: AbortSignal,
-): Promise<{ items: SaleProductDto[] }> {
-  return adminGet<{ items: SaleProductDto[] }>(
+): Promise<ListSaleProductsResponseDto> {
+  return adminGet<ListSaleProductsResponseDto>(
     '/admin/sales/products',
-    { warehouseId: params.warehouseId },
+    {
+      channel: params.channel,
+      q: params.q,
+      warehouseId: params.warehouseId,
+      cursor: params.cursor,
+      limit: params.limit,
+    },
     signal,
   );
 }
 
+/** The lookup takes no warehouseId: the server applies the caller's customer scope (BR-91). */
 export function lookupSaleCustomer(
-  params: { phone: string; warehouseId?: string | undefined },
+  params: SaleCustomerLookupParams,
   signal?: AbortSignal,
-): Promise<{ customer: SaleCustomerMatchDto | null }> {
-  return adminGet<{ customer: SaleCustomerMatchDto | null }>(
+): Promise<{ items: SaleCustomerMatchDto[] }> {
+  return adminGet<{ items: SaleCustomerMatchDto[] }>(
     '/admin/sales/customers/lookup',
-    { phone: params.phone, warehouseId: params.warehouseId },
+    { mobile: params.mobile, code: params.code, q: params.q },
     signal,
   );
 }
@@ -315,6 +372,10 @@ export function listSales(
     {
       channel: params.channel,
       status: params.status,
+      paymentStatus: params.paymentStatus,
+      paymentMethod: params.paymentMethod,
+      customerId: params.customerId,
+      q: params.q,
       from: params.from,
       to: params.to,
       warehouseId: params.warehouseId,
@@ -396,4 +457,13 @@ export function confirmSaleUpiPayment(
     body,
     { idempotencyKey, signal },
   );
+}
+
+export function cancelSale(
+  saleId: string,
+  body: SaleCancelDto,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<SaleDto> {
+  return adminPost<SaleDto>(`/admin/sales/${encodeURIComponent(saleId)}/cancel`, body, { idempotencyKey, signal });
 }

@@ -4,22 +4,22 @@
  * and (Main only) warehouse performance. Part B: operational issues, the
  * report-issue form, warehouse activity and the operations hub.
  *
- * One set of screens serves both warehouse roles. As in the other warehouse
- * areas, the role difference is carried by `scope` (warehouseId undefined = all
- * four warehouses, the Main Warehouse view) and `can` (a docs/rbac.json code
- * check that only decides what to render; the server enforces every action
- * again, CLAUDE.md 2.1).
+ * One set of screens serves both warehouse roles. Every live endpoint takes
+ * ONE warehouse uuid: a Sub scope always uses scope.warehouseId, the Main view
+ * the warehouse picked in the header (StorageWarehouse.tsx). `can` (a
+ * docs/rbac.json code check) only decides what to render; the server enforces
+ * every action again (CLAUDE.md 2.1).
  *
- * Permissions (FINAL_LIST 127, 129-131, 136, 137, 140):
- *   - Storage location detail: `inventory.batch.view` for the View Stock link
- *     (approximation; no code covers storage-location master data).
+ * Permissions:
+ *   - Storage locations: read `inventory.batch.view` (SUB own); create / edit
+ *     `warehouse.storage_location.manage` (SUB none).
  *   - Storage location assignment: `inventory.batch.assign` (MAIN all, SUB all).
- *   - Capacity: no view code (SPEC_GAPS); the Manage Capacity Limits link needs
- *     `warehouse.capacity.set` (MAIN all, SUB none).
- *   - Performance: `warehouse.all.view` (Main); the staff ranking needs
- *     `warehouse.staff.list_view` (the warehouse roster).
+ *   - Capacity: read `warehouse.own.view`; set `warehouse.capacity.set` (SUB none).
+ *   - Performance: `warehouse.all.view` (SUB none).
+ *   - Operational issues: `warehouse.issue.view` / `warehouse.issue.manage` (SUB own).
+ *   - Activity feed: `warehouse.activity.view` (SUB own).
  */
-import type { AdminTone } from '../../../theme';
+import type { ActivityRow } from './mappers';
 
 export type {
   PermissionCheck,
@@ -30,86 +30,8 @@ export type {
 } from '../finance-expenses/types';
 export type { StorageLocationItem, StorageType } from '../profile-settings/types';
 
-/** One product lot stored at a storage location (Location Usage / Stored Stock). */
-export interface LocationStockItem {
-  id: string;
-  locationId: string;
-  product: string;
-  quantityKg: number;
-}
-
-/** Location details beyond the profile-settings record (Main's Location Information card). */
-export interface LocationLayout {
-  locationId: string;
-  section: string;
-  rackShelf: string;
-}
-
-/** Capacity list chip / state of a storage location. */
-export type CapacityState = 'Available' | 'Occupied' | 'Unavailable';
-export type CapacityFilter = 'All' | CapacityState;
-
-/** One KPI tile of Warehouse Performance (display values; the targets are data, not thresholds). */
-export interface PerformanceKpi {
-  id: string;
-  label: string;
-  value: string;
-  badge: string;
-  badgeTone: AdminTone;
-  sub: string;
-}
-
-/** One warehouse row of Warehouse Performance. */
-export interface WarehousePerformanceRow {
-  warehouseId: string;
-  slaRate: string;
-  inbound: string;
-  outbound: string;
-  openIssues: number;
-  utilizationPercent: number;
-  tone: AdminTone;
-}
-
-/** One staff member of the Top Performing Staff ranking. */
-export interface TopPerformer {
-  id: string;
-  name: string;
-  role: string;
-  warehouseId: string;
-  taskCount: string;
-  score: string;
-}
-
-/** Performance period chips. */
-export type PerformancePeriod = 'Today' | 'This Week' | 'This Month';
-
-/** Lifecycle state of an operational issue, also the issue list chips (besides 'All'). */
-export type IssueStatus = 'Open' | 'In Progress' | 'Resolved';
-export type IssueFilter = IssueStatus | 'All';
-
 /** Severity of an operational issue (absorbed Main Report Operational Issue form). */
 export type IssueSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
-
-/** One operational issue (floor / facility problem). Mock data until an endpoint exists. */
-export interface OperationalIssue {
-  id: string;
-  warehouseId: string;
-  title: string;
-  type: string;
-  /** Short context line on the list card ("Cold Storage · Section A"). */
-  area: string;
-  location: string;
-  status: IssueStatus;
-  severity?: IssueSeverity | undefined;
-  description: string;
-  reportedBy: string;
-  reportedDate: string;
-  reportedAt: string;
-  resolvedBy?: string | undefined;
-  resolvedAt?: string | undefined;
-  /** Number of evidence photos attached. */
-  evidenceCount: number;
-}
 
 /**
  * The Report an Issue form serves two paths: the Help & Support request
@@ -117,16 +39,6 @@ export interface OperationalIssue {
  * absorbed Main fields: warehouse, location / rack, issue category, severity).
  */
 export type ReportIssueMode = 'support' | 'operational';
-
-/** Category of a logged warehouse activity, also the activity log chips (besides 'All'). */
-export type ActivityCategory =
-  | 'Receiving'
-  | 'Storage'
-  | 'Verification'
-  | 'Issues'
-  | 'Orders'
-  | 'Cash'
-  | 'QC';
 
 /**
  * Module that owns an activity's record; the detail screen links there
@@ -143,69 +55,8 @@ export type ActivityModule =
   | 'qc'
   | 'staff';
 
-export type ActivityStatus = 'Completed' | 'Pending' | 'Open';
-export type ActivityTimeOfDay = 'morning' | 'afternoon' | 'evening';
 /** Activity log date preset: Today (the folded Today's Operations) or the full history. */
 export type ActivityPreset = 'Today' | 'All';
-
-/** One logged warehouse activity. Mock data until an activity endpoint exists. */
-export interface ActivityItem {
-  id: string;
-  title: string;
-  category: ActivityCategory;
-  module: ActivityModule;
-  warehouseId: string;
-  subtitle: string;
-  performedBy: string;
-  /** 'Today' rows make up the Today preset. */
-  day: 'Today' | 'Yesterday' | 'Earlier';
-  /** Display date / time ("Today · 10:42 AM", "27 Sep 2026, 04:20 PM"). */
-  when: string;
-  timeOfDay: ActivityTimeOfDay;
-  status: ActivityStatus;
-  action: string;
-  reference: string;
-  notes: string;
-  /** Stock verification counts (absorbed Recent Activity). */
-  metrics?: { system: string; counted: string; variance: string } | undefined;
-}
-
-/** Today's operation counts of one warehouse (Today preset metrics strip). */
-export interface TodayMetrics {
-  warehouseId: string;
-  receiving: number;
-  storage: number;
-  verification: number;
-  materials: number;
-  issues: number;
-  staffPresent: number;
-}
-
-/** One warehouse's operations snapshot (Warehouse Operations hub tiles and cards). */
-export interface OperationsSummary {
-  warehouseId: string;
-  storageLocations: number;
-  occupancyPercent: number;
-  materialItems: number;
-  staffPresent: number;
-  staffTotal: number;
-  activitiesToday: number;
-  /** Rows in the long-term operations history (Main's Operations History tile). */
-  historyRecords: number;
-  receivingShipments: number;
-  storageMovements: number;
-  verificationPending: number;
-}
-
-/** One Needs Attention card of the hub; `module` is where it leads. */
-export interface AttentionItem {
-  id: string;
-  warehouseId: string;
-  title: string;
-  detail: string;
-  tone: 'danger' | 'warning';
-  module: ActivityModule;
-}
 
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
@@ -225,21 +76,26 @@ export type StorageRoute =
 export interface StorageRouteParams {
   /** Warehouse Activity date preset (default 'All'; 'Today' = the old Today's Operations). */
   activityPreset?: ActivityPreset | undefined;
-  /** Activity detail. */
+  /** Activity detail: legacy id param (there is no detail endpoint, so it opens nothing on its own). */
   activityId?: string | undefined;
+  /** Activity detail: the feed row to show (BR-104 has no detail route). */
+  activity?: ActivityRow | undefined;
   /** Operational issue detail. */
   issueId?: string | undefined;
   /** Report an Issue / Request Submitted path (default 'support'). */
   reportMode?: ReportIssueMode | undefined;
   /** Report an Issue: preselected support category. */
   issueCategory?: string | undefined;
-  /** Request Submitted: the id the form returned. */
+  /** Request Submitted: the id the form returned (an operational issue's number). */
   submittedId?: string | undefined;
   locationId?: string | undefined;
   /** Storage Location Assignment: the batch being put away. */
   batchId?: string | undefined;
   productName?: string | undefined;
   quantity?: string | undefined;
-  /** The batch's warehouse (Main view); a Sub scope always uses its own. */
+  /**
+   * Main view: the warehouse uuid to open on (a non-uuid such as an old
+   * fixture id is ignored). A Sub scope always uses its own.
+   */
   warehouseId?: string | undefined;
 }

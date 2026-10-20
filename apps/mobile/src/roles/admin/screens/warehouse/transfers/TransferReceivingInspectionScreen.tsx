@@ -1,23 +1,34 @@
 /**
- * Transfer Receiving Inspection: verify the received quantity of an arrived
- * transfer and complete the receipt.
+ * Transfer Receiving Inspection: count what arrived, line by line, and record
+ * the receipt (POST /warehouse-transfers/{id}/receive, Idempotency-Key).
  *
- * Gate (FINAL_LIST 146): Shared and scope-locked; for Sub the transfer's
- * destination must be scope.warehouseId, otherwise "not found" (no 403 leak).
- * Complete Transfer Receipt needs `transfer.inter_warehouse.receive` (all).
- * The source / destination come from the transfer row, not the old
- * 'Kotagiri' / 'Coonoor Warehouse' defaults.
+ * The server has no inspection step beyond this: the screen collects each
+ * line's received quantity (0 to the quantity sent) and a receipt note, which
+ * is required as soon as any line is short (BR-102; the shortfall is recorded,
+ * not written off). A line received above zero becomes a new ACTIVE batch at
+ * the destination on the server.
+ *
+ * Gate: `transfer.inter_warehouse.receive` on an IN_TRANSIT transfer whose
+ * destination the scope covers (a Sub admin of the source is refused by the
+ * server with WAREHOUSE_SCOPE_VIOLATION; any other is a 404). The receipt is
+ * a stock-moving write, so one Idempotency-Key per body is reused across
+ * retries (root CLAUDE.md 2.4).
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { ApiError } from '../../../../../shell/api/client';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   CheckIcon,
   EmptyState,
   InfoCard,
   InfoNote,
-  PermissionNote,
   ScopeHeader,
   SectionTitle,
   WalletButton,
@@ -25,16 +36,156 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS } from './fixtures';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
-import { formatTransferKg, TRANSFER_CODES, transferInScope, transferRouteLabel } from './TransferParts';
-import type { TransferItem, WarehouseScreenBaseProps } from './types';
+import {
+  buildReceiveTransferBody,
+  kgInputText,
+  RECEIPT_NOTE_MAX,
+  RECEIVE_ERROR_KEY,
+  receiveShortfallGrams,
+  transferActions,
+} from './mappers';
+import { transferRouteLabel } from './TransferParts';
+import { useReceiveTransferMutation, useTransferDetail, useTransferWarehouses } from './useTransfersData';
+import type { TransferDetailView, WarehouseScreenBaseProps } from './types';
 
 export interface TransferReceivingInspectionScreenProps extends WarehouseScreenBaseProps {
   transferId?: string | undefined;
-  transfers?: readonly TransferItem[] | undefined;
-  /** Receipt confirmed with the verified quantity in kg. */
-  onCompleteTransfer?: ((transferId: string, receivedKg: number) => void) | undefined;
+  /** The receipt was recorded. */
+  onCompleteTransfer?: ((transferId: string) => void) | undefined;
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.problem.code === 'NOT_FOUND';
+}
+
+function initialEntries(transfer: TransferDetailView): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of transfer.lines) out[line.id] = kgInputText(line.sentGrams);
+  return out;
+}
+
+function InspectionForm({
+  transfer,
+  header,
+  onBack,
+  onComplete,
+}: {
+  transfer: TransferDetailView;
+  header: React.ReactNode;
+  onBack: () => void;
+  onComplete: (transferId: string) => void;
+}) {
+  const [entered, setEntered] = useState<Record<string, string>>(() => initialEntries(transfer));
+  const [note, setNote] = useState('');
+  const [submitError, setSubmitError] = useState<unknown>(null);
+  const receive = useReceiveTransferMutation();
+  const receiveKey = useIdempotencyKey();
+
+  const result = buildReceiveTransferBody(transfer.lines, entered, note);
+  const shortGrams = receiveShortfallGrams(transfer.lines, entered);
+
+  const submit = () => {
+    if (!result.ok) return;
+    setSubmitError(null);
+    const body = result.body;
+    receive.mutate(
+      { id: transfer.id, body, idempotencyKey: receiveKey.keyFor({ id: transfer.id, body }) },
+      {
+        onSuccess: (saved) => {
+          receiveKey.reset();
+          Alert.alert(
+            t('transfers.inspection.done.title'),
+            saved.hasDiscrepancy
+              ? t('transfers.inspection.done.short', { code: transfer.code })
+              : t('transfers.inspection.done.full', { code: transfer.code }),
+            [{ text: t('transfers.common.ok'), onPress: () => onComplete(transfer.id) }],
+          );
+        },
+        onError: setSubmitError,
+      },
+    );
+  };
+
+  return (
+    <WalletScreen
+      title={t('transfers.inspection.title')}
+      subtitle={t('transfers.detail.subtitle', { code: transfer.code, route: transferRouteLabel(transfer) })}
+      onBack={onBack}
+      headerExtra={header}
+      footer={
+        <WalletFooter>
+          <WalletButton
+            label={t('transfers.inspection.submit')}
+            icon={<CheckIcon />}
+            disabled={!result.ok || receive.isPending}
+            onPress={submit}
+          />
+        </WalletFooter>
+      }
+    >
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle>{t('transfers.inspection.details')}</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: t('transfers.detail.number'), value: transfer.code },
+              { label: t('transfers.detail.quantity'), value: formatKg(transfer.sentGrams) },
+            ],
+            [
+              { label: t('transfers.inspection.source'), value: transfer.sourceName },
+              { label: t('transfers.inspection.destination'), value: transfer.destinationName },
+            ],
+          ]}
+        />
+
+        <SectionTitle>{t('transfers.inspection.lines')}</SectionTitle>
+        {transfer.lines.map((line) => (
+          <View key={line.id} style={styles.lineCard}>
+            <Text style={styles.lineTitle}>{line.batchCode}</Text>
+            <Text style={styles.lineMeta}>
+              {t('transfers.inspection.lineMeta', { grade: line.gradeLabel, qty: formatKg(line.sentGrams) })}
+            </Text>
+            <View style={styles.inputBox}>
+              <TextInput
+                style={styles.input}
+                value={entered[line.id] ?? ''}
+                onChangeText={(text) => setEntered((prev) => ({ ...prev, [line.id]: text }))}
+                keyboardType="decimal-pad"
+                placeholderTextColor={adminColors.placeholder}
+                accessibilityLabel={t('transfers.inspection.qtyA11y', { batch: line.batchCode })}
+              />
+              <Text style={styles.unit}>{t('transfers.common.kgUnit')}</Text>
+            </View>
+            {!result.ok && result.lineId === line.id ? (
+              <Text style={styles.error}>{t(RECEIVE_ERROR_KEY[result.error])}</Text>
+            ) : null}
+          </View>
+        ))}
+
+        <Text style={styles.fieldLabel}>
+          {shortGrams > 0 ? t('transfers.inspection.noteRequired') : t('transfers.inspection.noteOptional')}
+        </Text>
+        <TextInput
+          style={[styles.input, styles.noteInput]}
+          value={note}
+          onChangeText={setNote}
+          multiline
+          maxLength={RECEIPT_NOTE_MAX}
+          placeholder={t('transfers.inspection.notePlaceholder')}
+          placeholderTextColor={adminColors.placeholder}
+          accessibilityLabel={t('transfers.inspection.noteA11y')}
+        />
+        {shortGrams > 0 ? (
+          <InfoNote tone="warning">{t('transfers.inspection.shortNote', { qty: formatKg(shortGrams) })}</InfoNote>
+        ) : null}
+        {!result.ok && result.lineId === undefined && shortGrams > 0 ? (
+          <Text style={styles.error}>{t(RECEIVE_ERROR_KEY[result.error])}</Text>
+        ) : null}
+        {submitError ? <InfoNote tone="danger">{t(adminErrorKey(submitError))}</InfoNote> : null}
+        <InfoNote tone="brandSoft">{t('transfers.inspection.ledgerNote')}</InfoNote>
+      </ScrollView>
+    </WalletScreen>
+  );
 }
 
 export function TransferReceivingInspectionScreen({
@@ -42,91 +193,61 @@ export function TransferReceivingInspectionScreen({
   can,
   onBack,
   transferId,
-  transfers = TRANSFERS,
   onCompleteTransfer,
 }: TransferReceivingInspectionScreenProps) {
-  const transfer = transfers.find((t) => t.id === transferId && transferInScope(scope, t));
-  const [receivedVal, setReceivedVal] = useState(transfer ? String(transfer.quantityKg) : '');
+  const { nameOf } = useTransferWarehouses(scope, can);
+  const detail = useTransferDetail(scope, transferId, nameOf);
+  const transfer = detail.transfer;
+  const header = <ScopeHeader scope={scope} label={scope.warehouseId === undefined ? t('transfers.scope.all') : undefined} />;
 
   if (transfer === undefined) {
+    const notFound = transferId === undefined || isNotFound(detail.error);
     return (
-      <WalletScreen title="Transfer Inspection" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Transfer not found" subtitle="This transfer is not arriving at your warehouse." />
+      <WalletScreen title={t('transfers.inspection.title')} onBack={onBack} headerExtra={header}>
+        {detail.isLoading ? <AdminLoadingState /> : null}
+        {!detail.isLoading && notFound ? (
+          <EmptyState title={t('transfers.detail.notFound.title')} subtitle={t('transfers.detail.notFound.subtitle')} />
+        ) : null}
+        {!detail.isLoading && !notFound && detail.error ? <AdminErrorState error={detail.error} onRetry={detail.refresh} /> : null}
       </WalletScreen>
     );
   }
 
-  const canReceive = can(TRANSFER_CODES.receive);
-  const receivedKg = parseInt(receivedVal, 10);
-  const valid = Number.isFinite(receivedKg) && receivedKg >= 0;
-  const mismatch = valid && receivedKg !== transfer.quantityKg;
+  if (!transferActions(scope, can, transfer).receive) {
+    // Not receivable here: not IN_TRANSIT, no receive permission, or not this scope's destination.
+    return (
+      <WalletScreen title={t('transfers.inspection.title')} onBack={onBack} headerExtra={header}>
+        <EmptyState
+          title={t('transfers.inspection.notReceivable.title')}
+          subtitle={t('transfers.inspection.notReceivable.subtitle', { status: transfer.statusLabel })}
+        />
+      </WalletScreen>
+    );
+  }
 
   return (
-    <WalletScreen
-      title="Transfer Inspection"
-      subtitle={`${transfer.code} · ${transferRouteLabel(transfer)}`}
+    <InspectionForm
+      key={transfer.id}
+      transfer={transfer}
+      header={header}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} />}
-      footer={
-        <WalletFooter>
-          {canReceive ? (
-            <WalletButton
-              label="Complete Transfer Receipt"
-              icon={<CheckIcon />}
-              disabled={!valid || transfer.status !== 'Arrived'}
-              onPress={() => onCompleteTransfer?.(transfer.id, receivedKg)}
-            />
-          ) : (
-            <PermissionNote>Completing a transfer receipt needs transfer receive permission.</PermissionNote>
-          )}
-        </WalletFooter>
-      }
-    >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>Transfer Details</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Transfer ID', value: transfer.code },
-              { label: 'Source', value: warehouseNameOf(transfer.sourceWarehouseId) },
-            ],
-            [
-              { label: 'Destination', value: warehouseNameOf(transfer.destinationWarehouseId) },
-              { label: 'Sent Quantity', value: `${transfer.produce} (${formatTransferKg(transfer.quantityKg)})` },
-            ],
-          ]}
-        />
-
-        <SectionTitle>Verification</SectionTitle>
-        <Text style={styles.fieldLabel}>Verified Received Quantity</Text>
-        <View style={styles.inputBox}>
-          <TextInput
-            style={styles.input}
-            value={receivedVal}
-            onChangeText={setReceivedVal}
-            keyboardType="numeric"
-            editable={canReceive}
-            placeholderTextColor={adminColors.placeholder}
-            accessibilityLabel="Verified received quantity in kg"
-          />
-          <Text style={styles.unit}>KG</Text>
-        </View>
-        {mismatch ? (
-          <InfoNote tone="warning">
-            Received quantity differs from the {formatTransferKg(transfer.quantityKg)} sent; the difference is recorded
-            as a quantity mismatch.
-          </InfoNote>
-        ) : null}
-        <InfoNote tone="brandSoft">
-          Inter-warehouse receipts update the destination stock ledger and close the transit manifest.
-        </InfoNote>
-      </ScrollView>
-    </WalletScreen>
+      onComplete={(id) => (onCompleteTransfer ? onCompleteTransfer(id) : onBack())}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  fieldLabel: { ...adminType.rowTitle, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  lineCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  lineTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  lineMeta: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.sm },
+  fieldLabel: { ...adminType.rowTitle, color: adminColors.muted, marginTop: adminSpacing.md, marginBottom: adminSpacing.xs },
   inputBox: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -138,5 +259,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   input: { ...adminType.sectionHead, color: adminColors.ink, flex: 1, padding: 0 },
+  noteInput: {
+    ...adminType.body,
+    flex: 0,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    minHeight: ADMIN_BUTTON_HEIGHT * 2,
+    textAlignVertical: 'top',
+  },
   unit: { ...adminType.sectionHead, color: adminColors.muted },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

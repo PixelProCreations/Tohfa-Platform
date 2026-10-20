@@ -313,15 +313,12 @@ export type ScreenName =
   | 'SubWarehouseCashTopUp'
   | 'SubWarehouseConfirmCashTopUp'
   | 'WarehouseCustomerSearch'
-  | 'SubWarehouseTopUpHistory'
   | 'SubWarehouseDailyCashSummary'
-  | 'SubWarehouseTopUpDetails'
   | 'SubWarehouseCustomerWallet'
   | 'SubWarehouseFiscalTag'
   | 'SubWarehouseTransactionDetail'
   | 'SubWarehouseTopUpSuccess'
   | 'SubWarehouseNeedsAttention'
-  | 'SubWarehouseWalletAttention'
   | 'SubWarehouseReturnsIssues'
   | 'SubWarehouseRmaDetail'
   | 'SubWarehouseInspectProduct'
@@ -716,10 +713,10 @@ const CUSTOMERS_ROUTE_ENTRY: Partial<Record<ScreenName, CustomersRoute>> = {
   SubWarehouseCustomerSupportDetail: 'SupportDetail',
 };
 /**
- * Legacy wallet route keys -> shared WalletFlow routes (W4). Every key still
- * works; SubWarehouseTransactionDetail is TopUpDetails' 'transaction' variant
- * (SubWarehouseTransactionDetailScreen was absorbed) and SubWarehouseDailyCash
- * is the daily cash ledger reached from the finance hub and the daily summary.
+ * Legacy wallet route keys -> shared WalletFlow routes (W4). The top-up
+ * history, top-up details and wallet-attention keys were removed with their
+ * fixture-backed screens; SubWarehouseDailyCash is the daily cash ledger
+ * reached from the finance hub and the daily summary.
  */
 const WALLET_ROUTE_ENTRY: Partial<Record<ScreenName, WalletRoute>> = {
   WarehouseWalletOperations: 'WalletOperations',
@@ -728,12 +725,9 @@ const WALLET_ROUTE_ENTRY: Partial<Record<ScreenName, WalletRoute>> = {
   SubWarehouseFiscalTag: 'FiscalTag',
   SubWarehouseConfirmCashTopUp: 'ConfirmCashTopUp',
   SubWarehouseTopUpSuccess: 'TopUpSuccess',
-  SubWarehouseTopUpDetails: 'TopUpDetails',
   SubWarehouseTransactionDetail: 'TransactionDetail',
-  SubWarehouseTopUpHistory: 'TopUpHistory',
   SubWarehouseDailyCashSummary: 'DailyCashSummary',
   SubWarehouseDailyCash: 'DailyCash',
-  SubWarehouseWalletAttention: 'WalletAttention',
 };
 /**
  * Legacy finance route keys -> shared FinanceFlow routes (W4). Every key still
@@ -979,52 +973,15 @@ export default function App(): React.JSX.Element {
   }, [params]);
 
   // Params for a FinanceFlow entry, memoised so the flow does not restart its
-  // stack on every App render. Deep links carry flat revenue / expense fields.
+  // stack on every App render. Ids only: each finance screen reads its own
+  // record from the API (an order uuid for revenue, an expense uuid for an
+  // expense or its voucher), so a deep link can never carry display figures.
   const financeParams = useMemo<FinanceRouteParams>(() => {
-    const revenueId = stringParam(params['revenueId']);
+    const orderId = stringParam(params['orderId']) ?? stringParam(params['revenueId']);
     const expenseId = stringParam(params['expenseId']);
-    const amount = params['amount'];
-    const expense =
-      expenseId !== undefined
-        ? {
-          expenseId,
-          amount: typeof amount === 'number' || typeof amount === 'string' ? amount : undefined,
-          category: stringParam(params['category']),
-          date: stringParam(params['date']),
-          description: stringParam(params['description']),
-          paymentMethod: stringParam(params['paymentMethod']),
-          vendorPayee: stringParam(params['vendorPayee']),
-          warehouse: stringParam(params['warehouse']),
-          createdBy: stringParam(params['createdBy']),
-          status: stringParam(params['status']),
-        }
-        : undefined;
-    const method = stringParam(params['paymentMethod']);
     return {
-      revenue:
-        revenueId !== undefined
-          ? {
-            revenueId,
-            finalAmount: stringParam(params['finalAmount']),
-            salesChannel: stringParam(params['salesChannel']),
-            transactionDate: stringParam(params['transactionDate']),
-          }
-          : undefined,
-      expense,
-      // An expense key opened with an expense id is an edit (the form prefills).
-      expenseDraft:
-        expense !== undefined
-          ? {
-            expenseId: expense.expenseId,
-            amount: String(expense.amount ?? ''),
-            category: expense.category ?? '',
-            date: expense.date ?? '',
-            description: expense.description ?? '',
-            paymentMethod: method === 'UPI' || method === 'Bank' ? method : 'Cash',
-            vendorPayee: expense.vendorPayee ?? '',
-          }
-          : undefined,
-      isReceiptView: params['isReceiptView'] === 'true' || params['isReceiptView'] === true,
+      ...(orderId === undefined ? {} : { orderId }),
+      ...(expenseId === undefined ? {} : { expenseId }),
     };
   }, [params]);
 

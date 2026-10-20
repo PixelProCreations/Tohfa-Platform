@@ -1,80 +1,167 @@
 /**
- * Constants, permissions, and section definitions for the warehouse reports area (M12).
- * Gated by real permissions from docs/rbac.json and scoped to warehouse (BR-64).
+ * Permission codes and hub cards for the warehouse reports area (M12). The single
+ * source for both: the old fixtures.ts duplicate is gone.
+ *
+ * rbac.json has no report-view code, so each card is gated by the code its
+ * endpoint requires on the server (apps/api/src/modules/reports/reports.routes.ts
+ * and finance.routes.ts). The server enforces every one again (BR-64h); the gate
+ * here only avoids drawing a card whose request would be a 403.
+ *
+ * No warehouse list lives here: the Main picker reads GET /warehouses through
+ * shared/useWarehouseOptions.ts (BR-64b), a Sub admin has only its scope (BR-30).
+ *
+ * Not offered, and why (backend / platform gaps, not hidden by accident):
+ *   - CSV export (GET /admin/exports/<report>, report.export.file): the endpoint
+ *     answers text/csv and the app has no file save or share mechanism to put
+ *     it anywhere. Needs a download/share module (e.g. a file-system + share
+ *     sheet dependency) before an Export card can exist.
+ *   - Per-order / per-invoice / per-item drill-downs: the report endpoints return
+ *     aggregates only; the orders, invoices and inventory areas own the detail.
  */
-import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import type { PermissionCheck } from '../finance-expenses';
 import type { ReportCard, ReportSection } from './types';
 
-/**
- * docs/rbac.json codes the reports area checks (BR-64).
- */
+/** docs/rbac.json codes, one per report endpoint (server route permission). */
 export const REPORT_CODES = {
+  /** GET /admin/reports/sales */
   sales: 'order.list.view_all',
+  /** GET /admin/finance/reports/revenue */
   revenue: 'finance.sales_income.view',
+  /** GET /admin/finance/reports/expenses */
   expense: 'finance.expense.log',
+  /** GET /admin/reports/cash-topups */
   cashTopUp: 'wallet.cash_topup.process',
+  /** GET /admin/reports/returns */
   returns: 'rma.request.process',
+  /** GET /admin/reports/customers */
   customers: 'customer.list.view',
+  /** GET /admin/reports/inventory */
   inventory: 'inventory.batch.view',
-  export: 'report.export.file',
+  /** GET /admin/reports/receiving (the route requires the goods-receipt code, not batch.view). */
+  receiving: 'inventory.goods_receipt.record',
 } as const;
 
-/** The four warehouses (seed 001) offered by the Main all-warehouses selector. */
-export const REPORT_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
+/** The parts of the summary card, each gated like its own report. */
+export const SUMMARY_PARTS: readonly string[] = [
+  REPORT_CODES.sales,
+  REPORT_CODES.inventory,
+  REPORT_CODES.receiving,
+  REPORT_CODES.revenue,
+  REPORT_CODES.expense,
+  REPORT_CODES.cashTopUp,
+  REPORT_CODES.returns,
+];
 
-/**
- * The hub's report cards.
- * Note: CSV/file export is hidden entirely (BR-64 / M12: no in-app file-share mechanism yet).
- */
 export const REPORT_SECTIONS: readonly ReportSection[] = [
   {
     category: 'SALES',
+    labelKey: 'reports.category.SALES',
     reports: [
-      { title: 'Sales Report', code: 'SALES_REPORT', subtitle: 'Orders, channel sales & transaction log', permission: REPORT_CODES.sales },
+      {
+        code: 'SALES_REPORT',
+        titleKey: 'reports.card.sales.title',
+        subtitleKey: 'reports.card.sales.subtitle',
+        permission: REPORT_CODES.sales,
+      },
     ],
   },
   {
     category: 'INVENTORY',
+    labelKey: 'reports.category.INVENTORY',
     reports: [
-      { title: 'Inventory Report', code: 'INVENTORY_REPORT', subtitle: 'Stock balance, active batches & quantities', permission: REPORT_CODES.inventory },
+      {
+        code: 'INVENTORY_REPORT',
+        titleKey: 'reports.card.inventory.title',
+        subtitleKey: 'reports.card.inventory.subtitle',
+        permission: REPORT_CODES.inventory,
+      },
     ],
   },
   {
     category: 'WAREHOUSE',
+    labelKey: 'reports.category.WAREHOUSE',
     reports: [
-      { title: 'Receiving Report', code: 'RECEIVING_REPORT', subtitle: 'Goods receipts, QC status & quantities', permission: REPORT_CODES.inventory },
+      {
+        code: 'RECEIVING_REPORT',
+        titleKey: 'reports.card.receiving.title',
+        subtitleKey: 'reports.card.receiving.subtitle',
+        permission: REPORT_CODES.receiving,
+      },
     ],
   },
   {
     category: 'CUSTOMERS',
+    labelKey: 'reports.category.CUSTOMERS',
     reports: [
-      { title: 'Customer Report', code: 'CUSTOMER_REPORT', subtitle: 'Active & new customer counts', permission: REPORT_CODES.customers },
+      {
+        code: 'CUSTOMER_REPORT',
+        titleKey: 'reports.card.customers.title',
+        subtitleKey: 'reports.card.customers.subtitle',
+        permission: REPORT_CODES.customers,
+      },
     ],
   },
   {
     category: 'FINANCE',
+    labelKey: 'reports.category.FINANCE',
     reports: [
-      { title: 'Revenue Report', code: 'REVENUE_REPORT', subtitle: 'Revenue sources, orders & average sale', permission: REPORT_CODES.revenue },
-      { title: 'Expense Report', code: 'EXPENSE_REPORT', subtitle: 'Operational expense categorization & vouchers', permission: REPORT_CODES.expense },
-      { title: 'Cash Top-Up Report', code: 'CASH_TOPUP_REPORT', subtitle: 'Customer wallet cash top-up records', permission: REPORT_CODES.cashTopUp },
+      {
+        code: 'REVENUE_REPORT',
+        titleKey: 'reports.card.revenue.title',
+        subtitleKey: 'reports.card.revenue.subtitle',
+        permission: REPORT_CODES.revenue,
+      },
+      {
+        code: 'EXPENSE_REPORT',
+        titleKey: 'reports.card.expense.title',
+        subtitleKey: 'reports.card.expense.subtitle',
+        permission: REPORT_CODES.expense,
+      },
+      {
+        code: 'CASH_TOPUP_REPORT',
+        titleKey: 'reports.card.cashTopup.title',
+        subtitleKey: 'reports.card.cashTopup.subtitle',
+        permission: REPORT_CODES.cashTopUp,
+      },
     ],
   },
   {
     category: 'RETURNS',
+    labelKey: 'reports.category.RETURNS',
     reports: [
-      { title: 'Returns Report', code: 'RETURNS_REPORT', subtitle: 'Returns by issue category & resolutions', permission: REPORT_CODES.returns },
+      {
+        code: 'RETURNS_REPORT',
+        titleKey: 'reports.card.returns.title',
+        subtitleKey: 'reports.card.returns.subtitle',
+        permission: REPORT_CODES.returns,
+      },
     ],
   },
   {
     category: 'SUMMARY',
+    labelKey: 'reports.category.SUMMARY',
     reports: [
-      { title: 'Daily / Monthly Summary', code: 'SUMMARY_REPORT', subtitle: 'Consolidated overview & metrics' },
+      {
+        code: 'SUMMARY_REPORT',
+        titleKey: 'reports.card.summary.title',
+        subtitleKey: 'reports.card.summary.subtitle',
+        anyOf: SUMMARY_PARTS,
+      },
     ],
   },
 ];
 
 /** True when the viewer may open this report card. */
 export function reportVisible(card: ReportCard, can: PermissionCheck): boolean {
-  return card.permission === undefined || can(card.permission);
+  if (card.permission !== undefined && !can(card.permission)) return false;
+  if (card.anyOf !== undefined && !card.anyOf.some((code) => can(code))) return false;
+  return true;
+}
+
+/** The hub sections with only the cards the viewer may open; empty sections dropped. */
+export function visibleReportSections(can: PermissionCheck): ReportSection[] {
+  return REPORT_SECTIONS.map((section) => ({
+    ...section,
+    reports: section.reports.filter((card) => reportVisible(card, can)),
+  })).filter((section) => section.reports.length > 0);
 }

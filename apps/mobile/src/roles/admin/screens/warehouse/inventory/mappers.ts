@@ -73,7 +73,7 @@ export function gradeLabel(grade: string): string {
 }
 
 /** "Carrot · Grade 1". */
-function productLabelOf(productName: string, grade: string): string {
+export function productLabelOf(productName: string, grade: string): string {
   return t('inventory.product.label', { product: productName, grade: gradeLabel(grade) });
 }
 
@@ -246,7 +246,7 @@ function directionOf(deltaGrams: number | null): MovementDirection {
 }
 
 /** "+100 kg" for an inflow, "-20 kg" for an outflow, '' when unreadable. */
-function signedKg(deltaGrams: number | null): string {
+export function signedKg(deltaGrams: number | null): string {
   if (deltaGrams === null) return '';
   return deltaGrams > 0 ? `+${formatKg(deltaGrams)}` : formatKg(deltaGrams);
 }

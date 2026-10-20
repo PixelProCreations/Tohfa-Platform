@@ -1,207 +1,145 @@
 // Design id: M11-S02
 /**
- * Revenue: the sales-income list, read-only. Serves both warehouse roles (it
- * was SubWarehouseRevenueScreen and absorbs MainWarehouseRevenueScreen).
+ * Revenue list (BR-63): GET /admin/finance/revenue, cursor-paged, gated on
+ * finance.sales_income.view. Revenue is the server's definition (completed,
+ * paid orders); nothing is summed or derived here.
  *
- * Scope (finance.sales_income.view: MAIN all, SUB own): a Sub scope lists only
- * its own warehouse's rows under a locked pill (the old hard-wired 'Coonoor
- * Warehouse · Today' now comes from scope.warehouseName); Main (warehouseId
- * undefined) gets the all-warehouses selector. The server applies the real
- * filter (CLAUDE.md 2.1).
- *
- * Main-only content ported: Main's list opened the record inside itself
- * (embedded RevenueDetail). Without `onSelectRevenue` this screen does the
- * same, so a host that just mounts the list (Finance Reports) still gets the
- * detail; FinanceFlow passes `onSelectRevenue` and pushes the detail instead.
+ * No warehouse filter: the endpoint takes no warehouse. The server scopes it
+ * to the caller (Sub = own warehouse, Main = all four), so a Main picker here
+ * would be a control the API cannot apply. Filters are channel and payment
+ * method, which it does take.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import type { RevenuePaymentMethod } from '../../../api/finance';
+import { t } from '../../../i18n';
+import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import {
-  ChipGroup,
-  EmptyState,
-  inScope,
-  isAllWarehouses,
-  KpiRow,
-  ScopeHeader,
-  SearchBar,
-  StatusBadge,
-  WalletScreen,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
-import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
-import { RevenueDetailScreen } from './RevenueDetailScreen';
-import type { RevenueRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { ChipGroup, ScopeHeader, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { FINANCE_CODES, FinanceNotAvailable, scopeLabel } from './FinanceParts';
+import { REVENUE_CHANNELS, revenueChannelLabel, revenuePaymentMethodLabel } from './mappers';
+import type { RevenueRecord, WarehouseScreenBaseProps } from './types';
 import { useRevenueList } from './useFinanceData';
 
-const CATEGORY_FILTERS = ['All', 'Orders', 'Direct Sales', 'Other'] as const;
-type CategoryFilter = (typeof CATEGORY_FILTERS)[number];
-
 export interface RevenueScreenProps extends WarehouseScreenBaseProps {
-  records?: readonly RevenueRecord[] | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Open a record. Without it the record opens inside this screen (Main's embedded detail). */
-  onSelectRevenue?: ((record: RevenueRecord) => void) | undefined;
-  onViewOrder?: (() => void) | undefined;
-  onViewInvoice?: (() => void) | undefined;
+  onSelectRevenue: (orderId: string) => void;
 }
 
-/** A list row as revenue-detail props. */
-export function revenueDetailOf(record: RevenueRecord) {
-  return {
-    revenueId: record.id,
-    finalAmount: record.amount.toLocaleString('en-IN'),
-    paymentMethod: record.paymentMethod,
-    paymentStatus: record.status,
-    salesChannel: record.orderRef.split('·')[0]?.trim(),
-    transactionDate: record.timestamp,
-    warehouseName: record.warehouseName,
-  };
+const ALL = '';
+const PAYMENT_METHODS: readonly RevenuePaymentMethod[] = ['WALLET', 'UPI', 'CARD', 'NETBANKING', 'CASH'];
+
+export function RevenueScreen(props: RevenueScreenProps) {
+  if (!props.can(FINANCE_CODES.salesIncome)) {
+    return (
+      <FinanceNotAvailable title={t('finance.revenue.title')} message={t('finance.notAvailable.message')} onBack={props.onBack} />
+    );
+  }
+  return <RevenueBody {...props} />;
 }
 
-export function RevenueScreen({
-  scope,
-  can,
-  onBack,
-  onTabChange,
-  records = SAMPLE_REVENUE_RECORDS,
-  warehouseOptions = FINANCE_WAREHOUSES,
-  onSelectRevenue,
-  onViewOrder,
-  onViewInvoice,
-}: RevenueScreenProps) {
-  const [selectedFilter, setSelectedFilter] = useState<CategoryFilter>('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [openRecord, setOpenRecord] = useState<RevenueRecord | null>(null);
-
-  if (!can(FINANCE_CODES.salesIncome)) {
-    return <FinanceNotAvailable title="Revenue" message="Your role does not include sales income." onBack={onBack} />;
-  }
-
-  if (openRecord) {
-    return (
-      <RevenueDetailScreen
-        scope={scope}
-        can={can}
-        onBack={() => setOpenRecord(null)}
-        onTabChange={onTabChange}
-        onViewOrder={onViewOrder}
-        onViewInvoice={onViewInvoice}
-        {...revenueDetailOf(openRecord)}
-      />
-    );
-  }
-
-  const liveRevenue = useRevenueList(scope.warehouseId);
-  const sourceRecords = records !== SAMPLE_REVENUE_RECORDS ? records : (liveRevenue.items.length > 0 ? liveRevenue.items : SAMPLE_REVENUE_RECORDS);
-
-  const query = searchQuery.trim().toLowerCase();
-  const visible = sourceRecords.filter((rec) => {
-    if (!inScope(scope, rec.warehouseId, selectedWarehouseId)) return false;
-    if (selectedFilter !== 'All' && rec.category !== selectedFilter) return false;
-    return (
-      !query ||
-      rec.id.toLowerCase().includes(query) ||
-      rec.orderRef.toLowerCase().includes(query) ||
-      rec.paymentMethod.toLowerCase().includes(query)
-    );
+function RevenueBody({ scope, onBack, onSelectRevenue }: RevenueScreenProps) {
+  const [channel, setChannel] = useState<string>(ALL);
+  const [paymentMethod, setPaymentMethod] = useState<string>(ALL);
+  const list = useRevenueList(scope.warehouseId, {
+    channel: REVENUE_CHANNELS.find((c) => c === channel),
+    paymentMethod: PAYMENT_METHODS.find((m) => m === paymentMethod),
   });
-
-  const openRevenue = (record: RevenueRecord) => {
-    if (onSelectRevenue) onSelectRevenue(record);
-    else setOpenRecord(record);
-  };
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
 
   return (
-    <WalletScreen
-      title="Revenue"
-      onBack={onBack}
-      headerExtra={
-        <ScopeHeader
-          scope={scope}
-          label={isAllWarehouses(scope) ? undefined : `${scopeLabel(scope)} · Today`}
-          warehouseOptions={warehouseOptions}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
-      }
-    >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <KpiRow
-          items={[
-            { label: 'TOTAL REVENUE', value: '₹1,84,500' },
-            { label: "TODAY'S REVENUE", value: '₹24,850' },
-          ]}
-        />
-        <KpiRow
-          items={[
-            { label: 'ONLINE / ORDER', value: '₹12,400' },
-            { label: 'MARKET SALES', value: '₹9,850' },
-          ]}
-        />
-
-        <View style={styles.filters}>
-          <ChipGroup options={CATEGORY_FILTERS} value={selectedFilter} onChange={setSelectedFilter} />
-        </View>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Revenue ID, Order ID, Invoice or Customer"
-        />
-
-        {visible.length === 0 ? (
-          <EmptyState title="No revenue found" subtitle="Try a different search or category." />
-        ) : (
-          <View style={styles.list}>
-            {visible.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.card}
-                onPress={() => openRevenue(item)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={styles.recordId}>{item.id}</Text>
-                  <StatusBadge label={item.status} tone={item.status === 'Completed' ? 'success' : 'warning'} />
-                </View>
-                <Text style={styles.orderRef}>{item.orderRef}</Text>
-                <View style={styles.amountRow}>
-                  <Text style={styles.amount}>{rupees(item.amount)}</Text>
-                  <Text style={styles.meta}>{item.paymentMethod}</Text>
-                </View>
-                <Text style={styles.meta}>
-                  {item.timestamp}
-                  {isAllWarehouses(scope) && item.warehouseName ? ` · ${item.warehouseName}` : ''}
-                </Text>
-              </TouchableOpacity>
-            ))}
+    <WalletScreen title={t('finance.revenue.title')} onBack={onBack} headerExtra={<ScopeHeader scope={scope} label={scopeLabel(scope)} />}>
+      <FlatList
+        data={view === 'ready' ? list.items : []}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.filters}>
+            <Text style={styles.filterLabel}>{t('finance.revenue.filter.channel')}</Text>
+            <ChipGroup<string>
+              options={[ALL, ...REVENUE_CHANNELS]}
+              value={channel}
+              onChange={setChannel}
+              labelOf={(c) => {
+                const known = REVENUE_CHANNELS.find((x) => x === c);
+                return known === undefined ? t('finance.revenue.filter.all') : revenueChannelLabel(known);
+              }}
+            />
+            <Text style={styles.filterLabel}>{t('finance.revenue.filter.paymentMethod')}</Text>
+            <ChipGroup<string>
+              options={[ALL, ...PAYMENT_METHODS]}
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              labelOf={(m) => {
+                const known = PAYMENT_METHODS.find((x) => x === m);
+                return known === undefined ? t('finance.revenue.filter.all') : revenuePaymentMethodLabel(known);
+              }}
+            />
           </View>
-        )}
-      </ScrollView>
+        }
+        ListEmptyComponent={
+          view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={list.error} onRetry={list.refresh} />
+          ) : (
+            <AdminEmptyState title={t('finance.revenue.empty.title')} subtitle={t('finance.revenue.empty.subtitle')} />
+          )
+        }
+        renderItem={({ item }) => <RevenueRow record={item} onPress={() => onSelectRevenue(item.id)} />}
+        onEndReached={() => {
+          if (list.hasMore) list.loadMore();
+        }}
+        onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={adminColors.brand} />}
+      />
     </WalletScreen>
   );
 }
 
+function RevenueRow({ record, onPress }: { record: RevenueRecord; onPress: () => void }) {
+  const amount = formatPaise(record.amountPaise);
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={t('finance.revenue.row.a11y', { channel: record.channelLabel, amount })}
+    >
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{record.channelLabel}</Text>
+        <Text style={styles.rowMeta}>
+          {record.dateLabel} · {record.paymentMethodLabel}
+        </Text>
+      </View>
+      <View style={styles.side}>
+        <Text style={styles.amount}>{amount}</Text>
+        <Text style={styles.rowMeta}>{t('finance.revenue.row.gst', { amount: formatPaise(record.gstPaise) })}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  filters: { marginBottom: adminSpacing.md },
-  list: { gap: adminSpacing.md },
-  card: {
+  list: { padding: adminSpacing.lg, gap: adminSpacing.sm, flexGrow: 1 },
+  filters: { gap: adminSpacing.xs, marginBottom: adminSpacing.sm },
+  filterLabel: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.md,
-    gap: adminSpacing.xs,
+    gap: adminSpacing.md,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recordId: { ...adminType.rowTitle, color: adminColors.brandDeep },
-  orderRef: { ...adminType.body, color: adminColors.ink },
-  amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  amount: { ...adminType.sectionHead, color: adminColors.success.text },
-  meta: { ...adminType.rowMeta, color: adminColors.muted },
+  rowText: { flex: 1 },
+  rowTitle: { ...adminType.rowTitle, color: adminColors.ink },
+  rowMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  side: { alignItems: 'flex-end' },
+  amount: { ...adminType.rowTitle, color: adminColors.success.text },
 });

@@ -23,7 +23,7 @@ import {
   type AttentionFilter,
   type HomeTarget,
 } from '../warehouse/dashboard-home-more';
-import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
+import { ChipGroup, EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
@@ -51,10 +51,15 @@ import { useAdminMutation, useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
 import { listWarehouses, type WarehouseDto } from '../../api/warehouses';
 import { listWarehouseTransfers } from '../../api/warehouseTransfers';
-import { listBatches, type BatchDto } from '../../api/inventory';
+import { getOpenIssueCounts } from '../../api/dashboardFeeds';
+import { useDashboardSalesSummary, useRecentActivityPages, useWarehousesPerformance } from '../warehouse/dashboard-home-more/useDashboardKpis';
+import { activitySubLine, activityTimelineLine, mergeRecentActivity } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
+import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
+import { listAllocations, listBatches, type BatchDto } from '../../api/inventory';
+import { listStockAdjustments } from '../../api/stockAdjustments';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
-import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
-import { dismissAlert, listAlerts, type AlertItemDto } from '../../api/alerts';
+import { dismissAlert, listAlerts, snoozeAlert, type AlertItemDto } from '../../api/alerts';
+import { ALERT_FILTER_LABEL, ALERT_STATE_FILTERS, snoozeUntil, type AlertStateFilter } from '../warehouse/dashboard-home-more/mappers_dashboardHome';
 import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
 import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
@@ -64,32 +69,46 @@ import { isOnIstDay, istDay, relativeTime } from '../../utils/datetime';
 import { t } from '../../i18n';
 import {
   DASHBOARD_PAGE_LIMIT,
+  EMPTY_ISSUE_FIGURES,
+  EMPTY_PERFORMANCE,
   EMPTY_RECEIPT_FIGURES,
   EMPTY_STOCK_FIGURES,
   EMPTY_TRANSFER_FIGURES,
   FIGURE_PLACEHOLDER,
   barWidthPercent,
   capacityLevel,
+  ALERT_TYPE_FILTERS,
   collectPages,
+  countDashboardAlerts,
+  coveredWarehouseIds,
   countLabel,
-  countOrdersPlacedOn,
+  dashboardAccess,
+  derivePerformance,
+  deriveAllocatedGrams,
+  deriveOpenIssues,
+  derivePendingAdjustments,
   deriveReceiptFigures,
+  deriveSalesCount,
   deriveStockFigures,
   deriveTransfers,
   figureOrPlaceholder,
+  filterDashboardAlerts,
   findWarehouseByName,
-  fixtureWarehouseId,
   formatUtilization,
   greetingKey,
+  monthToDateRange,
   openTaskCount,
   receiptsOnDay,
   salesRevenueText,
+  scopeStockFigures,
+  filterStockProducts,
   toDashboardAlerts,
   toLowStockItems,
   toRecentActivity,
   toWarehouseOptions,
   warehouseShortName,
   type AlertTarget,
+  type AlertTypeFilter,
   type DashboardAlert,
 } from './mappers_mainDashboard';
 import { formatKg } from '../../money/quantity';
@@ -328,6 +347,22 @@ function TruckIcon({ size = 20, color = PALETTE.primary }: { size?: number; colo
   );
 }
 
+function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M4 13h4l2 3h4l2-3h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 7v5M9 9.5l3 3 3-3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -546,7 +581,6 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 const NO_WAREHOUSES: WarehouseDto[] = [];
 const NO_BATCHES: BatchDto[] = [];
 const NO_TASKS: TaskItemDto[] = [];
-const NO_ORDERS: OrderSummaryDto[] = [];
 const NO_RECEIPTS: GoodsReceiptDto[] = [];
 const NO_ALERTS: AlertItemDto[] = [];
 /**
@@ -554,6 +588,8 @@ const NO_ALERTS: AlertItemDto[] = [];
  * hidden, so a few more are fetched to fill them. A page size, not a threshold.
  */
 const ACTIVITY_FETCH_LIMIT = 10;
+/** Rows of live events in Recent Activity: a list length, not a business limit. */
+const RECENT_ACTIVITY_ROWS = 3;
 
 /** The sub-view each alert type opens as its related record. */
 const ALERT_TARGET_ROUTE: Record<AlertTarget, WarehouseSubView> = {
@@ -668,6 +704,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [alertWarehouseId, setAlertWarehouseId] = useState<string | undefined>(undefined);
+  // The Alerts & Action Center lists the caller's active alerts or the ones they snoozed (BR-78).
+  const [alertState, setAlertState] = useState<AlertStateFilter>('active');
+  const [alertTypeFilter, setAlertTypeFilter] = useState<AlertTypeFilter>('all');
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -700,6 +739,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // Every query waits for warehouse.all.view: without it (or until /auth/me
   // answers) the Home shows a note and nothing is requested.
   const live = { enabled: canAllView };
+  // Optional sources are fetched and drawn only with their own rbac code (the old shell did the same).
+  const access = dashboardAccess(can);
 
   // Live warehouses query (GET /warehouses, warehouse.all.view): the API's own
   // isActive filter, no seed-code list.
@@ -715,7 +756,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const warehouseOptions: readonly WarehouseScope[] = useMemo(() => toWarehouseOptions(warehouses), [warehouses]);
   const selectedWarehouseId = filterWarehouseId;
   const detailWarehouse = warehouses.find((w) => w.id === detailWarehouseId);
-  const detailFixtureId = fixtureWarehouseId(detailWarehouse);
   const filterWarehouse = warehouses.find((w) => w.id === filterWarehouseId);
   const filterLabel = filterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(filterWarehouse.name);
   // Memoised: InventoryFlow restarts its stack whenever initialParams changes identity.
@@ -759,25 +799,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const salesSummaryQuery = useAdminQuery(
     adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: today, to: today }),
     (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: today, to: today }, signal),
-    live,
+    { enabled: canAllView && access.sales },
   );
   const salesSummary = salesSummaryQuery.data;
-
-  // Live orders (GET /admin/orders), newest first. The spec has no placed-date
-  // filter, so read pages until one reaches an older day and count today's.
-  const ordersQuery = useAdminQuery(
-    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', day: today, limit: DASHBOARD_PAGE_LIMIT }),
-    (signal) =>
-      collectPages(
-        (cursor) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
-        { isDone: (page) => page.some((o) => !isOnIstDay(o.placedAt, today)) },
-      ),
-    live,
-  );
-  const ordersToday = useMemo(
-    () => countOrdersPlacedOn(ordersQuery.data?.items ?? NO_ORDERS, today, ordersQuery.data?.complete ?? false),
-    [ordersQuery.data, today],
-  );
 
   // Live goods receipts (GET /admin/goods-receipts), newest first; today's only.
   const goodsReceiptsQuery = useAdminQuery(
@@ -799,7 +823,40 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const transfersQuery = useAdminQuery(
     adminKeys.scoped('transfers', selectedWarehouseId, { resource: 'list', pageSize: DASHBOARD_PAGE_LIMIT }),
     (signal) => listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }, signal),
-    live,
+    { enabled: canAllView && access.transfers },
+  );
+
+  // Live open issues (GET /warehouses/{id}/issues, BR-103): the exact totals of the covered
+  // warehouses. Alerts are warnings the server derives; issues are what staff reported.
+  const coveredIds = useMemo(() => coveredWarehouseIds(warehouses, selectedWarehouseId), [warehouses, selectedWarehouseId]);
+  const issuesQuery = useAdminQuery(
+    adminKeys.scoped('warehouseIssues', selectedWarehouseId, { resource: 'open-count', ids: coveredIds.join(',') }),
+    (signal) => getOpenIssueCounts(coveredIds, signal),
+    { enabled: canAllView && access.issues && warehousesQuery.data !== undefined },
+  );
+
+  // Server-exact performance (GET /warehouses/{id}/performance, BR-80) of the covered warehouses:
+  // today (for the returns count) and, only while Warehouse Performance is open, the IST month so far.
+  const perfTodayQuery = useWarehousesPerformance(coveredIds, { from: today, to: today }, canAllView && warehousesQuery.data !== undefined);
+  const perfMtdQuery = useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView === 'warehouse_performance');
+  const salesMtdQuery = useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now), canAllView && access.sales && whSubView === 'warehouse_performance');
+
+  // The newest events of the covered warehouses (GET /warehouses/{id}/activity, BR-104): stock
+  // movements, receipts, transfers, issues, returns, documents. Needs warehouse.activity.view.
+  const activityQuery = useRecentActivityPages(coveredIds, RECENT_ACTIVITY_ROWS, canAllView && access.activity && warehousesQuery.data !== undefined);
+
+  // Inventory tab only: stock allocated to the channels (GET /admin/allocations, BR-12) and the
+  // adjustments waiting for approval (GET /admin/stock-adjustments, BR-37; MAIN approves them).
+  const allocationsQuery = useAdminQuery(
+    adminKeys.scoped('inventory', selectedWarehouseId, { resource: 'allocations', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) => listAllocations({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal)),
+    { enabled: canAllView && activeTab === 'Inventory' },
+  );
+  const adjustmentsQuery = useAdminQuery(
+    adminKeys.scoped('stockAdjustments', selectedWarehouseId, { resource: 'pending-count' }),
+    (signal) => listStockAdjustments({ status: 'PENDING', warehouseId: selectedWarehouseId, page: 1, pageSize: 1 }, signal).then((page) => page.total),
+    { enabled: canAllView && access.adjustments && activeTab === 'Inventory' },
   );
 
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
@@ -814,9 +871,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const liveAlerts = alertsQuery.data?.items ?? NO_ALERTS;
 
+  // The alerts the caller snoozed (BR-78): read only while that list is shown.
+  const snoozedAlertsQuery = useAdminQuery(
+    adminKeys.scoped('alerts', selectedWarehouseId, { resource: 'list', state: 'snoozed', limit: DASHBOARD_PAGE_LIMIT }),
+    (signal) =>
+      collectPages((cursor) =>
+        listAlerts({ warehouseId: selectedWarehouseId, state: 'snoozed', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
+      ),
+    { enabled: canAllView && alertState === 'snoozed' },
+  );
+
   // A list the page cap cut short: its totals say so instead of looking whole.
   const listsPartial =
-    [batchesQuery.data, ordersQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
+    [batchesQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
       (collected) => collected !== undefined && !collected.complete,
     );
 
@@ -825,16 +892,27 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const batchesSrc = sourceOf(batchesQuery);
   const openTasksSrc = sourceOf(openTasksQuery);
   const salesSrc = sourceOf(salesSummaryQuery);
-  const ordersSrc = sourceOf(ordersQuery);
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
+  const snoozedAlertsSrc = sourceOf(snoozedAlertsQuery);
   const transfersRawSrc = sourceOf(transfersQuery);
+  const issuesSrc = sourceOf(issuesQuery);
+  const perfTodaySrc = sourceOf(perfTodayQuery);
+  const activitySrc = sourceOf(activityQuery);
+  const allocationsSrc = sourceOf(allocationsQuery);
+  const adjustmentsSrc = sourceOf(adjustmentsQuery);
+  const perfMtdSrc = sourceOf(perfMtdQuery);
+  const salesMtdSrc = sourceOf(salesMtdQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
 
   const alertsList: DashboardAlert[] = useMemo(
     () => toDashboardAlerts(liveAlerts, warehouses, now),
     // `now` changes every render, so the relative time is as of the last data change.
     [liveAlerts, warehouses],
+  );
+  const snoozedAlertsList: DashboardAlert[] = useMemo(
+    () => toDashboardAlerts(snoozedAlertsQuery.data?.items ?? NO_ALERTS, warehouses, now),
+    [snoozedAlertsQuery.data, warehouses],
   );
 
   // POST /admin/alerts/{itemKey}/dismiss (alert.own.view) hides the alert from
@@ -846,6 +924,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
   });
   const canDismissAlert = can('alert.own.view');
+  // POST /admin/alerts/{itemKey}/snooze hides the alert from THIS admin's active list for an hour
+  // (the design's snooze; the server caps it with system_config.alert_snooze_max_hours). Same rules
+  // as dismiss: only with alert.own.view, success only after the server accepted it.
+  const snoozeMutation = useAdminMutation({
+    mutationFn: (itemKey: string) => snoozeAlert(itemKey, snoozeUntil(new Date())),
+    invalidates: [adminKeys.scoped('alerts', selectedWarehouseId)],
+  });
+  const handleSnoozeAlert = async (alert: DashboardAlert) => {
+    try {
+      await snoozeMutation.mutateAsync(alert.id);
+    } catch {
+      // Not shown as success: the failure renders from snoozeMutation.error.
+      return;
+    }
+    Alert.alert(t('mainDashboard.alert.snoozed.title'), t('mainDashboard.alert.snoozed.body', { title: alert.title }));
+    snoozeMutation.reset();
+    goBackWh();
+  };
   const handleDismissAlert = async (alert: DashboardAlert) => {
     try {
       await dismissMutation.mutateAsync(alert.id);
@@ -863,11 +959,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // (BR-66b). A malformed value from the server makes that derivation fail,
   // which draws the same error state a failed request does, never a zero.
   const stockD = useMemo(() => deriveStockFigures(batches, warehouses), [batches, warehouses]);
-  const stockFig = stockD.ok ? stockD.value : EMPTY_STOCK_FIGURES;
+  // The filter narrows the batches at the API; scoping the rows keeps the cards, the capacity and the
+  // warehouse count on the warehouse(s) it covers (the old shell's filter did the same for every KPI).
+  const stockFig = stockD.ok ? scopeStockFigures(stockD.value, selectedWarehouseId) : EMPTY_STOCK_FIGURES;
   const receiptsD = useMemo(() => deriveReceiptFigures(goodsReceipts), [goodsReceipts]);
   const receiptFig = receiptsD.ok ? receiptsD.value : EMPTY_RECEIPT_FIGURES;
   const revenueD = useMemo(() => (salesSummary === undefined ? null : salesRevenueText(salesSummary)), [salesSummary]);
   const salesRevenueLabel = revenueD !== null && revenueD.ok ? revenueD.value : FIGURE_PLACEHOLDER;
+  const salesCountD = useMemo(() => (salesSummary === undefined ? null : deriveSalesCount(salesSummary)), [salesSummary]);
+  const salesCount = salesCountD !== null && salesCountD.ok ? salesCountD.value : 0;
+  const issuesD = useMemo(
+    () => (issuesQuery.data === undefined ? null : deriveOpenIssues(issuesQuery.data, coveredIds)),
+    [issuesQuery.data, coveredIds],
+  );
+  const issueFig = issuesD !== null && issuesD.ok ? issuesD.value : EMPTY_ISSUE_FIGURES;
 
   // A section's source: its queries plus the derivation built from them.
   const stockSrc = mergeSources(
@@ -892,14 +997,65 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     warehousesSrc,
     derivedSource(transfersD, () => void transfersQuery.refetch()),
   );
-  const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
+  const revenueSrc = mergeSources(
+    salesSrc,
+    derivedSource(revenueD, () => void salesSummaryQuery.refetch()),
+    derivedSource(salesCountD, () => void salesSummaryQuery.refetch()),
+  );
+  const perfTodayD = useMemo(() => (perfTodayQuery.data === undefined ? null : derivePerformance(perfTodayQuery.data)), [perfTodayQuery.data]);
+  const perfToday = perfTodayD !== null && perfTodayD.ok ? perfTodayD.value : EMPTY_PERFORMANCE;
+  const perfTodayFigSrc = mergeSources(perfTodaySrc, derivedSource(perfTodayD, () => void perfTodayQuery.refetch()));
+  const perfMtdD = useMemo(() => (perfMtdQuery.data === undefined ? null : derivePerformance(perfMtdQuery.data)), [perfMtdQuery.data]);
+  const perfMtd = perfMtdD !== null && perfMtdD.ok ? perfMtdD.value : EMPTY_PERFORMANCE;
+  const perfMtdFigSrc = mergeSources(perfMtdSrc, derivedSource(perfMtdD, () => void perfMtdQuery.refetch()));
+  const salesMtdRevenueD = useMemo(
+    () => (salesMtdQuery.data === undefined ? null : salesRevenueText(salesMtdQuery.data)),
+    [salesMtdQuery.data],
+  );
+  const salesMtdCountD = useMemo(() => (salesMtdQuery.data === undefined ? null : deriveSalesCount(salesMtdQuery.data)), [salesMtdQuery.data]);
+  const salesMtdFigSrc = mergeSources(
+    salesMtdSrc,
+    derivedSource(salesMtdRevenueD, () => void salesMtdQuery.refetch()),
+    derivedSource(salesMtdCountD, () => void salesMtdQuery.refetch()),
+  );
+  const allocatedD = useMemo(
+    () => (allocationsQuery.data === undefined ? null : deriveAllocatedGrams(allocationsQuery.data.items)),
+    [allocationsQuery.data],
+  );
+  const allocatedGrams = allocatedD !== null && allocatedD.ok ? allocatedD.value : 0;
+  const allocatedFigSrc = mergeSources(allocationsSrc, derivedSource(allocatedD, () => void allocationsQuery.refetch()));
+  const adjustmentsD = useMemo(
+    () => (adjustmentsQuery.data === undefined ? null : derivePendingAdjustments(adjustmentsQuery.data)),
+    [adjustmentsQuery.data],
+  );
+  const pendingAdjustments = adjustmentsD !== null && adjustmentsD.ok ? adjustmentsD.value : 0;
+  const adjustmentsFigSrc = mergeSources(adjustmentsSrc, derivedSource(adjustmentsD, () => void adjustmentsQuery.refetch()));
+  const issuesFigSrc = mergeSources(issuesSrc, derivedSource(issuesD, () => void issuesQuery.refetch()));
 
-  const homeKpiSources = [stockSrc, receiptsFigSrc, transfersSrc, ordersSrc, revenueSrc, alertsSrc];
-  const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
+  const homeKpiSources = [
+    stockSrc,
+    receiptsFigSrc,
+    ...(access.transfers ? [transfersSrc] : []),
+    perfTodayFigSrc,
+    ...(access.sales ? [revenueSrc] : []),
+    ...(access.issues ? [issuesFigSrc] : []),
+  ];
+  const inventoryKpiSources = [
+    stockSrc,
+    receiptsFigSrc,
+    allocatedFigSrc,
+    alertsSrc,
+    ...(access.adjustments ? [adjustmentsFigSrc] : []),
+  ];
 
   const qualityIssuesCount =
     receiptFig.discrepancies + (taskSummary === undefined ? 0 : openTaskCount(taskSummary, 'GOODS_RECEIPT_QC'));
   const activityRows = useMemo(() => toRecentActivity(openTasks, warehouses, now), [openTasks, warehouses]);
+  const activityFeed = useMemo(
+    () => mergeRecentActivity(activityQuery.pages, toListOptions(warehouses), now, RECENT_ACTIVITY_ROWS),
+    // `now` changes every render, so the relative time is as of the last data change.
+    [activityQuery.pages, warehouses],
+  );
 
   const lowStockItems = useMemo(
     () => toLowStockItems(liveAlerts, batches, warehouses),
@@ -994,7 +1150,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       initialParams={params}
       onBack={goBackWh}
       onOpenModule={openMainModule}
-      onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
     />
   );
 
@@ -1019,6 +1174,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       }}
     />
   );
+
+  /** The pinned Initiate Stock Transfer button: drawn only with transfer.inter_warehouse.initiate (the server checks again). */
+  const renderInitiateTransferBar = () =>
+    access.transferInitiate ? (
+      <View style={styles.fixedBottomBar}>
+        <TouchableOpacity
+          style={styles.initiateTransferBtn}
+          onPress={() => navigateWh('initiate_new_transfer')}
+          activeOpacity={0.8}
+        >
+          <TransferArrowsWhiteIcon size={18} />
+          <Text style={styles.initiateTransferBtnText}>{t('dashboardHome.stockTransfer.initiate')}</Text>
+        </TouchableOpacity>
+      </View>
+    ) : null;
 
   const renderWarehouseOverviewScreen = () => {
     if (!canAllView) {
@@ -1053,7 +1223,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <SectionGate sources={[stockSrc, receiptsSrc, alertsSrc]}>
+          <SectionGate sources={[stockSrc, receiptsSrc, ...(access.issues ? [issuesFigSrc] : [])]}>
           {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {stockFig.warehouses.map((row) => {
             const level = capacityLevel(row.utilizationBp);
@@ -1066,7 +1236,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             const progWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
             const stockStr = formatKg(row.stockGrams);
             const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === row.warehouseId).length;
-            const issuesCount = liveAlerts.filter((a) => a.warehouseId === row.warehouseId).length;
             const whName = row.name;
 
             return (
@@ -1096,10 +1265,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     <Text style={styles.whOverviewStatLabel}>Receipts</Text>
                     <Text style={styles.whOverviewStatVal}>{receiptsCount}</Text>
                   </View>
-                  <View style={styles.whOverviewStatCol}>
-                    <Text style={styles.whOverviewStatLabel}>Issues</Text>
-                    <Text style={styles.whOverviewStatVal}>{issuesCount}</Text>
-                  </View>
+                  {access.issues ? (
+                    <View style={styles.whOverviewStatCol}>
+                      <Text style={styles.whOverviewStatLabel}>Issues</Text>
+                      <Text style={styles.whOverviewStatVal}>{issueFig.byWarehouse[row.warehouseId] ?? 0}</Text>
+                    </View>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -1248,17 +1419,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
 
-          <SectionGate sources={[receiptsFigSrc, revenueSrc, openTasksSrc, taskSummarySrc]}>
+          <SectionGate sources={[receiptsFigSrc, ...(access.sales ? [revenueSrc] : []), openTasksSrc, taskSummarySrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
-                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.acceptedGrams)}</Text>
+                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.grossGrams)}</Text>
               </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Sales Today</Text>
-                <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
-              </View>
+              {access.sales ? (
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>Sales Today</Text>
+                  <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
@@ -1271,6 +1444,58 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
             </View>
           </View>
+          </SectionGate>
+
+          {/* Month to date: the server's exact counts (BR-80) and paid sales (BR-96) over the IST month so far */}
+          <Text style={styles.overviewSectionHeading}>{t('mainDashboard.performance.monthToDate')}</Text>
+          <Text style={styles.whOverviewStatLabel}>
+            {t('mainDashboard.performance.range', { from: monthToDateRange(now).from, to: monthToDateRange(now).to, scope: filterLabel })}
+          </Text>
+          <SectionGate sources={[perfMtdFigSrc, ...(access.sales ? [salesMtdFigSrc] : [])]}>
+            <View style={styles.metricsGridCard}>
+              <View style={styles.twoByTwoRow}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.receipts')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.goodsReceipts}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.received')}</Text>
+                  <Text style={styles.twoByTwoVal}>{formatKg(perfMtd.grossGrams)}</Text>
+                </View>
+              </View>
+              <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersPlaced')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.ordersPlaced}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.ordersFulfilled')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.ordersFulfilled}</Text>
+                </View>
+              </View>
+              <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.rejected')}</Text>
+                  <Text style={styles.twoByTwoVal}>{formatKg(perfMtd.rejectedGrams)}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.returns')}</Text>
+                  <Text style={styles.twoByTwoVal}>{perfMtd.returnsRequested}</Text>
+                </View>
+              </View>
+              {access.sales ? (
+                <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+                  <View style={styles.twoByTwoCol}>
+                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.sales')}</Text>
+                    <Text style={styles.twoByTwoVal}>{salesMtdRevenueD !== null && salesMtdRevenueD.ok ? salesMtdRevenueD.value : FIGURE_PLACEHOLDER}</Text>
+                  </View>
+                  <View style={styles.twoByTwoCol}>
+                    <Text style={styles.twoByTwoLabel}>{t('mainDashboard.performance.salesCount')}</Text>
+                    <Text style={styles.twoByTwoVal}>{salesMtdCountD !== null && salesMtdCountD.ok ? salesMtdCountD.value : FIGURE_PLACEHOLDER}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
           </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
@@ -1333,7 +1558,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Active Warehouses</Text>
-                <Text style={styles.twoByTwoVal}>{warehouses.length}</Text>
+                <Text style={styles.twoByTwoVal}>{stockFig.warehouses.length}</Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Utilization</Text>
@@ -1436,11 +1661,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertsActionCenterScreen = () => {
-    // Only the warehouse filter is real: the API has no priority and returns only
-    // active alerts, so there are no priority or read-state chips.
-    const visibleAlerts = alertsList.filter(
+    // The API has no priority or read state, so the chips are the real ones: Active / Snoozed
+    // (the caller's own BR-78 state), the alert type, and the warehouse.
+    const stateList = alertState === 'active' ? alertsList : snoozedAlertsList;
+    const inWarehouse = stateList.filter(
       (alert) => alertWarehouseId === undefined || alert.warehouseId === alertWarehouseId,
     );
+    const alertTypeCounts = countDashboardAlerts(inWarehouse);
+    const visibleAlerts = filterDashboardAlerts(inWarehouse, alertTypeFilter);
     const alertFilterWarehouse = warehouses.find((w) => w.id === alertWarehouseId);
     const alertFilterLabel =
       alertFilterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(alertFilterWarehouse.name);
@@ -1476,16 +1704,34 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </TouchableOpacity>
           </View>
 
+          <View style={styles.actionCenterFiltersRow}>
+            <ChipGroup
+              options={ALERT_STATE_FILTERS}
+              value={alertState}
+              onChange={setAlertState}
+              labelOf={(f) => t(f === 'active' ? 'alerts.filter.active' : 'alerts.filter.snoozed')}
+            />
+          </View>
+          <View style={styles.actionCenterFiltersRow}>
+            <ChipGroup
+              options={ALERT_TYPE_FILTERS}
+              value={alertTypeFilter}
+              onChange={setAlertTypeFilter}
+              labelOf={(f) => t('dashboardHome.alerts.filterCount', { label: t(ALERT_FILTER_LABEL[f]), count: alertTypeCounts[f] })}
+            />
+          </View>
+
           <View style={{ height: 6 }} />
 
           {/* Alerts List */}
-          <SectionGate sources={[alertsSrc, warehousesSrc]}>
+          <SectionGate sources={[alertState === 'active' ? alertsSrc : snoozedAlertsSrc, warehousesSrc]}>
           {visibleAlerts.map((alert) => (
             <TouchableOpacity
               key={alert.id}
               style={styles.actionCenterAlertCard}
               onPress={() => {
                 dismissMutation.reset();
+                snoozeMutation.reset();
                 setSelectedAlert(alert);
                 navigateWh('alert_detail');
               }}
@@ -1508,14 +1754,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionCenterAlertTitle}>{`${alert.warehouse}: ${alert.title}`}</Text>
                   <Text style={styles.actionCenterAlertSub}>{alert.detail}</Text>
+                  {alert.snoozedUntil !== null ? (
+                    <Text style={styles.actionCenterAlertSub}>{t('alerts.snoozedUntil', { time: alert.snoozedUntil })}</Text>
+                  ) : null}
                 </View>
               </View>
             </TouchableOpacity>
           ))}
 
-          {visibleAlerts.length === 0 && (
-            <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
-          )}
+          {visibleAlerts.length === 0 &&
+            (alertState === 'snoozed' ? (
+              <EmptyState title={t('alerts.empty.snoozed')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+            ) : (
+              <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+            ))}
           </SectionGate>
 
           <View style={{ height: 24 }} />
@@ -1590,13 +1842,28 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <Text style={styles.openRelatedBtnText}>Open Related Record</Text>
               </TouchableOpacity>
 
+              {canDismissAlert && !selectedAlert.snoozed ? (
+                <TouchableOpacity
+                  style={styles.acknowledgeBtn}
+                  onPress={() => {
+                    void handleSnoozeAlert(selectedAlert);
+                  }}
+                  disabled={snoozeMutation.isPending || dismissMutation.isPending}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.acknowledgeBtnText}>
+                    {snoozeMutation.isPending ? t('mainDashboard.alert.snoozing') : t('dashboardHome.alerts.snooze')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
               {canDismissAlert ? (
                 <TouchableOpacity
                   style={styles.acknowledgeBtn}
                   onPress={() => {
                     void handleDismissAlert(selectedAlert);
                   }}
-                  disabled={dismissMutation.isPending}
+                  disabled={dismissMutation.isPending || snoozeMutation.isPending}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.acknowledgeBtnText}>
@@ -1607,6 +1874,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </View>
             {dismissMutation.isError ? (
               <Text style={styles.dismissErrorText}>{t(adminErrorKey(dismissMutation.error))}</Text>
+            ) : null}
+            {snoozeMutation.isError ? (
+              <Text style={styles.dismissErrorText}>{t(adminErrorKey(snoozeMutation.error))}</Text>
             ) : null}
           </View>
 
@@ -1675,67 +1945,53 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </TouchableOpacity>
           </SectionGate>
 
-          {/* 3. Transfers Section */}
-          <View style={styles.overviewSectionHeaderRow}>
-            <Text style={styles.overviewSectionTitle}>Transfers</Text>
-            <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
-              <Text style={styles.viewAllLink}>View All →</Text>
-            </TouchableOpacity>
-          </View>
-          <SectionGate sources={[transfersSrc]}>
-          <View style={styles.stockTableCard}>
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Pending</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>In Transit</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Received</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Exceptions</Text>
-              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
-                {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
-              </Text>
-            </View>
-          </View>
-          </SectionGate>
+          {/* 3. Transfers Section: needs transfer.inter_warehouse.view */}
+          {access.transfers ? (
+            <>
+              <View style={styles.overviewSectionHeaderRow}>
+                <Text style={styles.overviewSectionTitle}>Transfers</Text>
+                <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
+                  <Text style={styles.viewAllLink}>View All →</Text>
+                </TouchableOpacity>
+              </View>
+              <SectionGate sources={[transfersSrc]}>
+              <View style={styles.stockTableCard}>
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Pending</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>In Transit</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Received</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Exceptions</Text>
+                  <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
+                    {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
+                  </Text>
+                </View>
+              </View>
+              </SectionGate>
+            </>
+          ) : null}
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
 
   const renderConsolidatedStockScreen = () => {
-    const filteredProducts = stockFig.products.filter(
-      (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
-    );
+    const filteredProducts = filterStockProducts(stockFig.products, stockSearchQuery);
 
     return (
       <View style={styles.subScreenContainer}>
@@ -1754,7 +2010,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <SearchIcon size={18} color={PALETTE.subTextMuted} />
             <TextInput
               style={styles.stockSearchInput}
-              placeholder="Product, grade, batch..."
+              placeholder={t('mainDashboard.stock.searchPlaceholder')}
               placeholderTextColor={PALETTE.subTextMuted}
               value={stockSearchQuery}
               onChangeText={setStockSearchQuery}
@@ -1764,8 +2020,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {/* Product Cards */}
           <SectionGate sources={[stockSrc]}>
           {filteredProducts.map((p) => (
-            <View key={p.cropId} style={styles.consolidatedProductCard}>
-              <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
+            <View key={p.key} style={styles.consolidatedProductCard}>
+              <Text style={styles.consolidatedProductTitle}>{p.label}</Text>
               {p.rows.map((row) => (
                 <View key={row.warehouseId}>
                   <View style={styles.stockTableRowDivider} />
@@ -1791,23 +2047,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -1862,23 +2102,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -1898,6 +2122,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
+          {!access.transfers ? <AdminEmptyState title={t('mainDashboard.notAvailable')} /> : null}
+          {access.transfers ? (
           <SectionGate sources={[transfersSrc]}>
           <View style={styles.trackingCard}>
             {transferFig.rows.map((t, idx) => {
@@ -1945,27 +2171,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             )}
           </View>
           </SectionGate>
+          ) : null}
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -2050,61 +2261,69 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {/* ─── 1. Today's Overview (KPI Grid) ─── */}
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
-                {/* Total Stock */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                {/* Total Stock: opens the capacity summary */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('warehouse_capacity')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.totalStock')}</Text>
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>{t('mainDashboard.kpi.inStock')}</Text>
-                </View>
-
-                {/* Incoming Goods */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
-                </View>
-
-                {/* Pending Transfers */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
-                </View>
-
-                {/* Today's Orders */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(ordersSrc.status, () => countLabel(ordersToday.count, ordersToday.exact))}
-                  </Text>
-                  <Text style={styles.kpiSub}>orders</Text>
-                </View>
-
-                {/* Sales */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('sales')}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
-                  <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
-                {/* Open Issues */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
+                {/* Incoming Goods: opens Receiving */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => openTab('Receiving')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.incoming')}</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(alertsSrc.status, () => String(liveAlerts.length))}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>issues</Text>
-                </View>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
+                </TouchableOpacity>
+
+                {/* Pending Transfers: opens the transfer list */}
+                {access.transfers ? (
+                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('inter_warehouse_transfer')} activeOpacity={0.75}>
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.pendingTransfers')}</Text>
+                    <Text style={styles.kpiValue}>
+                      {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
+                    </Text>
+                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* Today's Orders: opens the order list */}
+                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('customer_orders')} activeOpacity={0.75}>
+                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.orders')}</Text>
+                  <Text style={styles.kpiValue}>
+                    {figureOrPlaceholder(perfTodayFigSrc.status, () => String(perfToday.ordersPlaced))}
+                  </Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.ordersSub')}</Text>
+                </TouchableOpacity>
+
+                {/* Sales: today's paid revenue and how many sales stand behind it */}
+                {access.sales ? (
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.sales')}</Text>
+                    <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
+                    <Text style={styles.kpiSub}>
+                      {t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status, () => String(salesCount)) })}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* Open Issues: the real operational issues (BR-103), not the alert count */}
+                {access.issues ? (
+                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('operational_issues')} activeOpacity={0.75}>
+                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.openIssues')}</Text>
+                    <Text style={styles.kpiValue}>
+                      {figureOrPlaceholder(issuesFigSrc.status, () => String(issueFig.total))}
+                    </Text>
+                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.openIssuesSub')}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
               {homeKpiSources.some((s) => s.status === 'error') ? (
                 <AdminErrorState
@@ -2156,7 +2375,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc]}>
+              <SectionGate sources={[receiptsFigSrc, taskSummarySrc, perfTodayFigSrc, ...(access.activity ? [activitySrc] : [])]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2170,7 +2389,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
+                      {t('mainDashboard.ops.awaitingQc')} <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
                       Arrived <Text style={styles.operationsMetricBold}>{receiptFig.arrived}</Text>
@@ -2189,16 +2408,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onPress={() => navigateWh('customer_orders')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                  <Text style={styles.operationsTitle}>{t('mainDashboard.ops.orders')}</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
+                      {t('mainDashboard.ops.placed')} <Text style={styles.operationsMetricBold}>{perfToday.ordersPlaced}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
+                      {t('mainDashboard.ops.fulfilled')} <Text style={styles.operationsMetricBold}>{perfToday.ordersFulfilled}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>{ordersToday.orders.filter((o) => o.status === 'CANCELLED').length}</Text>
+                      {t('mainDashboard.ops.cancelled')} <Text style={styles.operationsMetricRed}>{perfToday.ordersCancelled}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -2222,6 +2441,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     <Text style={styles.operationsMetricText}>
                       Rejected <Text style={styles.operationsMetricRed}>{receiptFig.rejected}</Text>
                     </Text>
+                    <Text style={styles.operationsMetricText}>
+                      {t('mainDashboard.ops.returns')} <Text style={styles.operationsMetricBold}>{perfToday.returnsRequested}</Text>
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
@@ -2235,12 +2457,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
                   <Text style={styles.operationsTimelineSub}>
-                    {goodsReceipts[0]
-                      ? t('mainDashboard.timeline.goodsReceived', {
-                          grn: goodsReceipts[0].grnNumber,
-                          time: relativeTime(goodsReceipts[0].receivedAt, now),
-                        })
-                      : t('mainDashboard.timeline.empty')}
+                    {access.activity
+                      ? activityTimelineLine(activityFeed[0])
+                      : goodsReceipts[0]
+                        ? t('mainDashboard.timeline.goodsReceived', {
+                            grn: goodsReceipts[0].grnNumber,
+                            time: relativeTime(goodsReceipts[0].receivedAt, now),
+                          })
+                        : t('mainDashboard.timeline.empty')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2300,12 +2524,42 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.viewAllLink}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              <SectionGate sources={[openTasksSrc]}>
+              <SectionGate sources={[openTasksSrc, ...(access.activity ? [activitySrc] : [])]}>
               <View style={styles.recentActivityCard}>
+                {/* The newest events (BR-104), then the open tasks #128 lists. */}
+                {activityFeed.map((row, idx) => (
+                  <React.Fragment key={row.key}>
+                    {idx > 0 && <View style={styles.activityDivider} />}
+                    <TouchableOpacity
+                      style={styles.activityItemRow}
+                      onPress={() => {
+                        if (row.type === 'TRANSFER') navigateWh('inter_warehouse_transfer');
+                        else if (row.type === 'GOODS_RECEIPT') openTab('Receiving');
+                        else navigateWh('warehouse_activity');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.activityIconBox}>
+                        {row.type === 'TRANSFER' ? (
+                          <TruckIcon size={18} color={PALETTE.primary} />
+                        ) : (
+                          <InboxReceiveIcon size={18} color={PALETTE.primary} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.activityTitle}>
+                          {t('mainDashboard.activity.title', { type: row.typeLabel, reference: row.reference })}
+                        </Text>
+                        <Text style={styles.activitySub}>{activitySubLine(row)}</Text>
+                      </View>
+                      <Text style={styles.activityTime}>{row.when}</Text>
+                    </TouchableOpacity>
+                  </React.Fragment>
+                ))}
                 {activityRows.map((row, idx) => {
-                  const isLast = idx === activityRows.length - 1;
                   return (
                     <React.Fragment key={row.id}>
+                      {(idx > 0 || activityFeed.length > 0) && <View style={styles.activityDivider} />}
                       <TouchableOpacity
                         style={styles.activityItemRow}
                         onPress={() => navigateWh('activity_timeline_ops')}
@@ -2320,13 +2574,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                         </View>
                         <Text style={styles.activityTime}>{row.time}</Text>
                       </TouchableOpacity>
-                      {!isLast && <View style={styles.activityDivider} />}
                     </React.Fragment>
                   );
                 })}
-                {activityRows.length === 0 && (
+                {activityFeed.length === 0 && activityRows.length === 0 && (
                   <View style={{ padding: 16 }}>
-                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>No recent activity recorded</Text>
+                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>{t('mainDashboard.activity.none')}</Text>
                   </View>
                 )}
               </View>
@@ -2458,7 +2711,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.kpiValue}>
                     {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG</Text>
+                  <Text style={styles.kpiSub}>
+                    {figureOrPlaceholder(stockSrc.status, () => t('mainDashboard.inventory.reservedSub', { qty: formatKg(stockFig.reservedGrams) }))}
+                  </Text>
                 </TouchableOpacity>
 
                 {/* Incoming Today */}
@@ -2471,7 +2726,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>
@@ -2486,9 +2741,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.reservedGrams))}
+                    {figureOrPlaceholder(allocatedFigSrc.status, () => formatKg(allocatedGrams))}
                   </Text>
-                  <Text style={styles.kpiSub}>KG</Text>
+                  <Text style={styles.kpiSub}>{t('mainDashboard.inventory.allocatedSub')}</Text>
                 </TouchableOpacity>
 
                 {/* Low Stock SKUs */}
@@ -2594,6 +2849,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
                 <View style={styles.summaryDivider} />
 
+                {/* The adjustment approval queue (BR-37): the server's count of PENDING adjustments */}
+                {access.adjustments ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.summaryItemRow}
+                      onPress={() => navigateWh('stock_adjustment_approval')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.summaryItemName}>{t('mainDashboard.pending.adjustments')}</Text>
+                      <Text style={styles.summaryItemValue}>
+                        {figureOrPlaceholder(adjustmentsFigSrc.status, () => String(pendingAdjustments))}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.summaryDivider} />
+                  </>
+                ) : null}
+
                 <TouchableOpacity
                   style={styles.summaryItemRow}
                   onPress={() => openTab('More', 'returns')}
@@ -2640,7 +2913,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <WalletFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
-              warehouseOptions={warehouseOptions}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
               onNavigateToNotifications={() => {
@@ -2653,7 +2925,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <FinanceFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
-              warehouseOptions={warehouseOptions}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
               onNavigateToNotifications={() => {
@@ -2785,15 +3056,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             ) : whSubView === 'warehouse_operations' ? (
               // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
               // selector (replaces the shell's filter modal here); per-warehouse cards,
-              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-              // capacity, issues and activity open inside the flow.
+              // Open Issues / Operations History tiles need warehouse.all.view. Capacity,
+              // issues and activity open inside the flow.
               <StorageFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="Operations"
                 onBack={goBackWh}
                 onOpenModule={openMainModule}
-                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
                 onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
                 onSelectWarehouse={(whName) => openWarehouseDetail(findWarehouseByName(warehouses, whName)?.id)}
@@ -2812,7 +3082,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: detailFixtureId } : undefined}
+                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: detailWarehouseId } : undefined}
                 onBack={goBackWh}
                 onNavigateComparison={() => navigateWh('warehouse_comparison')}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
@@ -2946,7 +3216,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen="WarehouseSettings"
-                initialWarehouseId={detailFixtureId}
+                initialWarehouseId={detailWarehouseId}
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_performance' ? (
@@ -3022,7 +3292,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                       <WalletFlow
                         scope={MAIN_WAREHOUSE_SCOPE}
                         can={can}
-                        warehouseOptions={warehouseOptions}
                         initialScreen={target}
                         initialParams={walletParamsForCustomer(p.customer)}
                         onBack={nav.back}
@@ -4152,6 +4421,7 @@ const styles = StyleSheet.create({
   },
   alertDetailBtnRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 24,
   },

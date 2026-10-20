@@ -28,18 +28,26 @@ import { CASH_TOPUP_CAP_PAISE, validateTopUpAmount } from '../../../config/busin
 import type { TranslationKey } from '../../../i18n';
 import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
 import { customerIdParam, toWalletScreenTransaction, toWalletTxnRow, uuidParam } from '../customers/mappers';
+import { monthStart } from '../finance-expenses/mappers';
 import { moneyToPaise } from '../orders/mappers';
-import type { WalletCustomer, WalletTransactionRecord } from './types';
+import type { CashTopupsReportDto } from '../../../api/reports';
+import type { WarehouseOption } from '../../../api/warehouseList';
+import type { WalletCustomer, WalletTransactionRecord, WarehouseScope } from './types';
 
 /** docs/openapi.yaml CashTopupCreate.fiscalCashTag minLength / maxLength (contract, not a business threshold). */
 export const FISCAL_TAG_MIN_LENGTH = 3;
 export const FISCAL_TAG_MAX_LENGTH = 60;
 
-/** lookupAdminSaleCustomer `q`: minLength 2, maxLength 100. */
+/**
+ * lookupCashTopupCustomer `code`: maxLength 40. The spec's minLength is 1; the
+ * lookup asks from 2 characters so a single keystroke is not a request.
+ */
 const LOOKUP_MIN_LENGTH = 2;
-const LOOKUP_MAX_LENGTH = 100;
-/** lookupAdminSaleCustomer `mobile` pattern. */
+const CODE_MAX_LENGTH = 40;
+/** lookupCashTopupCustomer `mobile` pattern. */
 const MOBILE_RE = /^\+?[0-9]{10,15}$/;
+/** Digits only (an optional leading +): a mobile number still being typed, not a code. */
+const PARTIAL_MOBILE_RE = /^\+?[0-9]*$/;
 
 /**
  * The design's quick-pick amounts (whole rupees, in paise). A UI shortcut, not
@@ -139,17 +147,20 @@ export function submitCashTopup(
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 /**
- * The lookup query for what was typed: a full mobile number (10-15 digits,
- * spaces and dashes ignored) is the exact `mobile` match; anything else of 2+
- * characters is `q` (name, customer code, or 4+ mobile digits). null = do not
- * ask (the server answers 422 below 2 characters).
+ * The lookup query for what was typed (GET /admin/wallets/cash-topup/customers/lookup,
+ * BR-91i): a full mobile number (10-15 digits, spaces and dashes ignored) is
+ * the exact `mobile` match; anything else of 2..40 characters is the exact
+ * `code`. There is no name or partial search on this lookup, so a number still
+ * being typed (digits only, under 10) asks nothing, and so does anything the
+ * server would refuse (422). null = do not ask.
  */
 export function customerLookupQuery(text: string): CustomerLookupQuery | null {
   const trimmed = text.trim();
   const compact = trimmed.replace(/[\s-]/g, '');
   if (MOBILE_RE.test(compact)) return { mobile: compact };
-  if (trimmed.length < LOOKUP_MIN_LENGTH) return null;
-  return { q: trimmed.slice(0, LOOKUP_MAX_LENGTH) };
+  if (PARTIAL_MOBILE_RE.test(compact)) return null;
+  if (trimmed.length < LOOKUP_MIN_LENGTH || trimmed.length > CODE_MAX_LENGTH) return null;
+  return { code: trimmed };
 }
 
 export type LookupView = 'idle' | 'loading' | 'error' | 'noMatch' | 'ready';
@@ -163,15 +174,14 @@ export function customerLookupView(input: { hasQuery: boolean; isLoading: boolea
 }
 
 /**
- * Shown when the lookup finds no one.
- *
- * TODO(server, BR-91 lookup scoping): the lookup only matches customers with
- * an order or a successful top-up at this warehouse (or who prefer it), so a
- * legitimate first-time customer who walks up with cash is not found. Known
- * server limitation, being fixed separately; until then the copy says what to
- * do next instead of claiming the customer does not exist.
+ * Shown by the customers area's Customer Search when its lookup finds no one
+ * (kept for customers/CustomerSearchScreen). The wallet flow's own lookup
+ * (CustomerLookupScreen) says CASH_LOOKUP_NO_MATCH_KEY instead: the cash
+ * top-up lookup applies no BR-91 history gate (BR-91i), so no match there
+ * means the mobile or code is wrong, not that the customer is new here.
  */
 export const LOOKUP_NO_MATCH_KEY: TranslationKey = 'wallet.lookup.noMatch';
+export const CASH_LOOKUP_NO_MATCH_KEY: TranslationKey = 'wallet.lookup.cashNoMatch';
 
 /** A lookup hit as the customer being topped up: uuid apart from the code, masked mobile as sent. */
 export function toTopUpCustomer(match: SaleCustomerMatchDto): TopUpCustomer {
@@ -255,4 +265,45 @@ export function toTopUpReceipt(dto: WalletTransactionDto, customer: TopUpCustome
     ...(dto.fiscalCashTag === null ? {} : { fiscalCashTag: dto.fiscalCashTag }),
     ...(warehouseName === undefined || warehouseName === '' ? {} : { warehouseName }),
   };
+}
+
+// ─── Hub ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The wallet hub's report range: month to date, Asia/Kolkata days (`today` is
+ * finance-expenses istToday()). One GET /admin/reports/cash-topups call gives
+ * both the month (its count / total) and today (its byDay entry).
+ */
+export function cashTopupsReportRange(today: string): { from: string; to: string } {
+  return { from: monthStart(today), to: today };
+}
+
+/** The hub's KPIs; a total the server sent malformed is null (shown as no value), never a guess. */
+export interface CashTopupKpis {
+  todayCount: number;
+  todayTotalPaise: Paise | null;
+  monthCount: number;
+  monthTotalPaise: Paise | null;
+}
+
+/**
+ * GET /admin/reports/cash-topups (successful CASH top-ups, BR-64) as the hub's
+ * KPIs, in integer paise. A day with no top-up has no byDay entry: today is
+ * then 0 top-ups and a zero total, which is what the server's aggregate means.
+ */
+export function toCashTopupKpis(report: CashTopupsReportDto, today: string): CashTopupKpis {
+  const day = report.byDay.find((entry) => entry.date === today);
+  return {
+    todayCount: day?.count ?? 0,
+    todayTotalPaise: day === undefined ? 0 : moneyToPaise(day.total),
+    monthCount: report.count,
+    monthTotalPaise: moneyToPaise(report.total),
+  };
+}
+
+/** Real picker options (GET /warehouses) as the WarehouseScope list the wallet screens take; uuids only. */
+export function toWalletWarehouseScopes(options: readonly WarehouseOption[]): WarehouseScope[] {
+  return options
+    .filter((option) => uuidParam(option.warehouseId) !== undefined)
+    .map((option) => ({ warehouseId: option.warehouseId, warehouseName: option.warehouseName, warehouseCode: option.warehouseCode }));
 }

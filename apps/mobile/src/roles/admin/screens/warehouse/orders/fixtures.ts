@@ -1,10 +1,10 @@
 /**
  * Design sample data for the customer-order screens that have no API yet
- * (availability.ts): the stock check, delivery preparation and dispatch, the
- * order invoice (phase 7), order issues and cancellation. Those screens stay in
- * the code, unreachable, until an API exists. The live screens (dashboard,
- * list, detail, ready for pickup, history, packing, pickup OTP) read the API
- * through useOrdersData.ts and import nothing from here.
+ * (availability.ts): the stock check, delivery preparation and dispatch, order
+ * issues and cancellation. Those screens stay in the code, unreachable, until
+ * an API exists. The live screens (dashboard, list, detail, ready for pickup,
+ * history, packing, pickup OTP, order invoice) read the API through
+ * useOrdersData.ts and import nothing from here.
  *
  * No colours here: status tones stay with the screens, on the admin theme.
  */
@@ -40,9 +40,6 @@ export const SAMPLE_DELIVERY_PREP = {
   deliveryDate: '25 Sep 2026',
   deliverySlot: 'AFTERNOON_12_4',
 };
-
-/** The sample invoice number (M5S18). */
-export const SAMPLE_INVOICE_NO = 'INV-2026-001024';
 
 /** The id the old M5S16 handed to M5S16B on submit. */
 export const SAMPLE_NEW_ISSUE_ID = 'ISS-0028';

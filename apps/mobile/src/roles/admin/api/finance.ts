@@ -14,6 +14,9 @@
  *   GET  /admin/finance/cash-close           finance.cash_close.manage (BR-74)
  *   GET  /admin/finance/cash-close/{id}      finance.cash_close.manage (BR-74)
  *
+ * DTOs mirror apps/api/src/modules/finance/*.schema.ts (the server's zod
+ * response schemas) field for field.
+ *
  * Money stays as the API's decimal string (`Money`); the screens' mappers turn
  * them into integer paise.
  *
@@ -24,53 +27,55 @@ import type { PageMeta } from '../../../shell/api/pagination';
 import { adminGet, adminPost } from './http';
 
 export type ExpensePaymentMethod = 'CASH' | 'UPI' | 'BANK';
+/** Always RECORDED through the API (BR-62: no approval workflow); the others are legacy values. */
 export type ExpenseStatus = 'RECORDED' | 'APPROVED' | 'REJECTED';
 
-export type RevenueChannel = 'ONLINE' | 'DIRECT' | 'MARKET' | 'HORECA' | 'B2B';
+/** docs/openapi.yaml FinanceChannelTotal / FinanceRevenueItem channel (orders.channel, BR-15). */
+export type RevenueChannel = 'ONLINE' | 'MARKET' | 'HORECA' | 'B2B';
 export type RevenuePaymentMethod = 'WALLET' | 'UPI' | 'CARD' | 'NETBANKING' | 'CASH';
 
-/** docs/openapi.yaml `ExpenseCategory`. */
+/** docs/openapi.yaml `ExpenseCategory`: only ACTIVE categories are listed. */
 export interface ExpenseCategoryDto {
   id: string;
   name: string;
-  active: boolean;
 }
 
-/** docs/openapi.yaml `ExpenseCreate`. */
+/**
+ * docs/openapi.yaml `ExpenseCreate` (additionalProperties: false, so a stray
+ * field is a 422). There is no receipt / attachment field: the API stores no
+ * expense receipt (see SPEC gap in the finance screens).
+ */
 export interface ExpenseCreateDto {
-  warehouseId?: string | undefined;
   categoryId: string;
-  amount: Money | string;
   expenseDate: string;
+  amount: Money | string;
   paymentMethod: ExpensePaymentMethod;
-  referenceNumber?: string | undefined;
+  vendor?: string | undefined;
   description?: string | undefined;
-  receiptStorageKey?: string | undefined;
+  warehouseId?: string | undefined;
 }
 
 /** docs/openapi.yaml `Expense`. */
 export interface ExpenseDto {
   id: string;
-  expenseNumber: string;
-  warehouseId: string;
-  warehouseName?: string | undefined;
-  categoryId: string;
-  categoryName: string;
+  warehouseId: string | null;
+  /** Null on rows recorded before migration 0047; `category` (the name) is always present. */
+  categoryId: string | null;
+  category: string;
   amount: Money | string;
   expenseDate: string;
-  paymentMethod: ExpensePaymentMethod;
+  paymentMethod: ExpensePaymentMethod | null;
+  vendor: string | null;
+  description: string | null;
   status: ExpenseStatus;
-  referenceNumber?: string | undefined;
-  description?: string | undefined;
-  receiptStorageKey?: string | undefined;
   recordedBy: string;
-  recordedByName?: string | undefined;
   createdAt: string;
 }
 
+/** docs/openapi.yaml `FinanceTotal`. */
 export interface FinanceTotalDto {
-  totalAmount: Money | string;
   count: number;
+  total: Money | string;
 }
 
 export interface ListExpensesResponseDto {
@@ -90,43 +95,41 @@ export interface ListExpensesParams {
   limit?: number | undefined;
 }
 
-/** docs/openapi.yaml `ExpenseVoucher`. */
+/** docs/openapi.yaml `ExpenseVoucher` (BR-75): derived from one expense, never allocated. */
 export interface ExpenseVoucherDto {
   voucherNumber: string;
+  voucherType: 'EXPENSE';
   expenseId: string;
-  expenseNumber: string;
-  warehouseId: string;
-  warehouseName?: string | undefined;
-  categoryId: string;
-  categoryName: string;
+  warehouse: { id: string; code: string; name: string } | null;
+  category: string;
   amount: Money | string;
   expenseDate: string;
-  paymentMethod: ExpensePaymentMethod;
+  paymentMethod: ExpensePaymentMethod | null;
+  vendor: string | null;
+  description: string | null;
   status: ExpenseStatus;
-  referenceNumber?: string | undefined;
-  description?: string | undefined;
-  receiptStorageKey?: string | undefined;
-  recordedBy: string;
-  recordedByName?: string | undefined;
-  createdAt: string;
+  recordedBy: { id: string; name: string };
 }
 
 /** docs/openapi.yaml `FinanceRevenueItem`. */
 export interface FinanceRevenueItemDto {
-  id: string;
-  orderNumber: string;
-  warehouseId: string;
-  warehouseName?: string | undefined;
+  orderId: string;
   channel: RevenueChannel;
   paymentMethod: RevenuePaymentMethod;
-  amount: Money | string;
+  paymentStatus: string;
+  status: string;
+  totalAmount: Money | string;
+  gstAmount: Money | string;
+  placedAt: string;
   completedAt: string;
+  warehouseId: string;
 }
 
+/** docs/openapi.yaml `FinanceChannelTotal`. */
 export interface FinanceChannelTotalDto {
   channel: RevenueChannel;
-  totalAmount: Money | string;
   count: number;
+  total: Money | string;
 }
 
 export interface ListRevenueResponseDto {
@@ -135,6 +138,7 @@ export interface ListRevenueResponseDto {
   page: PageMeta;
 }
 
+/** GET /admin/finance/revenue has no warehouseId: the server scopes it to the caller (BR-63). */
 export interface ListRevenueParams {
   from?: string | undefined;
   to?: string | undefined;
@@ -146,11 +150,11 @@ export interface ListRevenueParams {
 
 /** docs/openapi.yaml `FinanceRevenueDetail`. */
 export interface FinanceRevenueDetailDto extends FinanceRevenueItemDto {
-  invoiceNumber?: string | null | undefined;
-  invoiceStatus?: string | null | undefined;
+  invoiceNumber: string | null;
+  invoiceStatus: string | null;
 }
 
-/** docs/openapi.yaml `SystemCashFigures`. */
+/** docs/openapi.yaml `SystemCashFigures`: computed by the server, never typed in (BR-74). */
 export interface SystemCashFiguresDto {
   openingCash: Money | string;
   openingFrom: string | null;
@@ -160,10 +164,10 @@ export interface SystemCashFiguresDto {
   expectedClosing: Money | string;
 }
 
-/** docs/openapi.yaml `DailyCashSummary`. */
+/** docs/openapi.yaml `DailyCashSummary`: the figures live under `system`. */
 export interface DailyCashSummaryDto {
-  date: string;
   warehouseId: string;
+  date: string;
   system: SystemCashFiguresDto;
   closed: CashCloseDto | null;
 }
@@ -184,20 +188,19 @@ export interface CashCloseCreateDto {
 /** docs/openapi.yaml `CashClose`. */
 export interface CashCloseDto {
   id: string;
-  closeNumber: string;
   warehouseId: string;
   date: string;
   openingCash: Money | string;
+  openingFrom: string | null;
   cashSales: Money | string;
   cashTopUps: Money | string;
   cashExpenses: Money | string;
   expectedClosing: Money | string;
   countedCash: Money | string;
   difference: Money | string;
-  note?: string | null | undefined;
+  note: string | null;
   closedBy: string;
-  closedByName?: string | undefined;
-  closedAt: string;
+  createdAt: string;
 }
 
 export interface ListCashClosesParams {
@@ -213,26 +216,30 @@ export interface ListCashClosesResponseDto {
   page: PageMeta;
 }
 
+interface DayTotalDto {
+  date: string;
+  count: number;
+  total: Money | string;
+}
+
 /** docs/openapi.yaml `FinanceRevenueReport`. */
 export interface FinanceRevenueReportDto {
   from: string;
   to: string;
-  totalAmount: Money | string;
-  count: number;
-  byDay: { date: string; totalAmount: Money | string; count: number }[];
-  byChannel: { channel: RevenueChannel; totalAmount: Money | string; count: number }[];
-  byPaymentMethod: { paymentMethod: RevenuePaymentMethod; totalAmount: Money | string; count: number }[];
+  summary: FinanceTotalDto;
+  byDay: DayTotalDto[];
+  byChannel: FinanceChannelTotalDto[];
+  byPaymentMethod: { paymentMethod: RevenuePaymentMethod; count: number; total: Money | string }[];
 }
 
 /** docs/openapi.yaml `FinanceExpenseReport`. */
 export interface FinanceExpenseReportDto {
   from: string;
   to: string;
-  totalAmount: Money | string;
-  count: number;
-  byDay: { date: string; totalAmount: Money | string; count: number }[];
-  byCategory: { categoryId: string; categoryName: string; totalAmount: Money | string; count: number }[];
-  byPaymentMethod: { paymentMethod: ExpensePaymentMethod | null; totalAmount: Money | string; count: number }[];
+  summary: FinanceTotalDto;
+  byDay: DayTotalDto[];
+  byCategory: { category: string; count: number; total: Money | string }[];
+  byPaymentMethod: { paymentMethod: ExpensePaymentMethod | null; count: number; total: Money | string }[];
 }
 
 /**
@@ -274,7 +281,18 @@ export function createExpense(
   idempotencyKey: string,
   signal?: AbortSignal,
 ): Promise<ExpenseDto> {
-  return adminPost<ExpenseDto>('/admin/expenses', body, { idempotencyKey, signal });
+  // Rebuilt field by field: the server's ExpenseCreate is strict, so anything
+  // else the caller holds (a receipt key, a reference) would be a 422.
+  const payload: ExpenseCreateDto = {
+    categoryId: body.categoryId,
+    expenseDate: body.expenseDate,
+    amount: body.amount,
+    paymentMethod: body.paymentMethod,
+    ...(body.vendor === undefined ? {} : { vendor: body.vendor }),
+    ...(body.description === undefined ? {} : { description: body.description }),
+    ...(body.warehouseId === undefined ? {} : { warehouseId: body.warehouseId }),
+  };
+  return adminPost<ExpenseDto>('/admin/expenses', payload, { idempotencyKey, signal });
 }
 
 export function getExpense(id: string, signal?: AbortSignal): Promise<ExpenseDto> {
@@ -368,3 +386,4 @@ export function listCashCloses(
 export function getCashClose(id: string, signal?: AbortSignal): Promise<CashCloseDto> {
   return adminGet<CashCloseDto>(`/admin/finance/cash-close/${encodeURIComponent(id)}`, undefined, signal);
 }
+

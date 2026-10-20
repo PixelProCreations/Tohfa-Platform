@@ -1,137 +1,88 @@
 /**
- * Activity Detail: one logged warehouse activity (summary, action, reference,
- * notes).
+ * Activity Detail: one warehouse activity event. There is no detail endpoint
+ * (BR-104 is a read-only merge of other modules' rows), so this shows the
+ * list row the feed already returned, passed in by StorageFlow. Opened
+ * without a row (e.g. a stale deep link) it says the event is not available
+ * rather than inventing one.
  *
- * Gate (FINAL_LIST 128): none needed; read-only. Scope-locked: an activity of
- * another warehouse renders "not found" (no existence leak). The warehouse
- * label comes from the activity's warehouse id, not the old hard-coded
- * 'Coonoor'. "Open in <module>" hands off to the owning module (host / flow),
- * which carries its own gates.
+ * An event carries no free text and no names (BR-104 item 5): only its type,
+ * reference, status / severity / kg / direction where they apply, and whether
+ * the source row recorded an actor. "Open" goes to the record's owner: an
+ * issue opens its detail in this flow, a goods receipt the receiving module.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import {
-  EmptyState,
-  InfoCard,
-  inScope,
-  ScopeHeader,
-  SectionTitle,
-  StatusBadge,
-  WalletButton,
-  WalletFooter,
-  WalletScreen,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
-import { ACTIVITIES, storageWarehouseName } from './fixtures';
-import { ACTIVITY_STATUS_TONE, ActivityCategoryIcon } from './WarehouseActivityScreen';
-import type { ActivityItem, ActivityModule, WarehouseScreenBaseProps } from './types';
-
-const MODULE_NAME: Record<ActivityModule, string> = {
-  receiving: 'Receiving',
-  storage: 'Storage Locations',
-  verification: 'Stock Verification',
-  operational_issue: 'Operational Issues',
-  orders: 'Orders',
-  cash: 'Cash Top-Up',
-  qc: 'Quality Check',
-  staff: 'Staff Attendance',
-};
+import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
+import { InfoCard, SectionTitle, StatusBadge, WalletButton, WalletFooter, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import type { ActivityRow } from './mappers';
+import type { StorageWarehouse } from './StorageWarehouse';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface ActivityDetailScreenProps extends WarehouseScreenBaseProps {
-  activityId?: string | undefined;
-  activities?: readonly ActivityItem[] | undefined;
-  /** Open the module that owns this record. */
-  onOpenModule?: ((module: ActivityModule) => void) | undefined;
+  warehouse: StorageWarehouse;
+  activity?: ActivityRow | undefined;
+  /** Open the record that owns this event (issue detail, receiving). */
+  onOpenRecord?: ((row: ActivityRow) => void) | undefined;
 }
 
-export function ActivityDetailScreen({ scope, onBack, activityId, activities = ACTIVITIES, onOpenModule }: ActivityDetailScreenProps) {
-  const activity = activities.find((a) => a.id === activityId && inScope(scope, a.warehouseId));
-
+export function ActivityDetailScreen({ onBack, warehouse, activity, onOpenRecord }: ActivityDetailScreenProps) {
   if (activity === undefined) {
     return (
-      <WalletScreen title="Activity Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Activity not found" subtitle="This activity is not available in your warehouse." />
+      <WalletScreen title={t('storageOps.activity.detailTitle')} onBack={onBack} headerExtra={warehouse.header}>
+        <AdminEmptyState title={t('storageOps.activity.notFound')} subtitle={t('storageOps.activity.notFoundHint')} />
       </WalletScreen>
     );
   }
-
-  const warehouse = storageWarehouseName(activity.warehouseId);
+  const none = t('storageOps.notAvailable');
+  const openLabel =
+    activity.module === 'operational_issue'
+      ? t('storageOps.activity.openIssue')
+      : activity.module === 'receiving'
+        ? t('storageOps.activity.openReceiving')
+        : undefined;
 
   return (
     <WalletScreen
-      title="Activity Detail"
+      title={t('storageOps.activity.detailTitle')}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={`${warehouse} Warehouse`} />}
+      headerExtra={warehouse.header}
       footer={
-        onOpenModule ? (
+        openLabel !== undefined && onOpenRecord !== undefined ? (
           <WalletFooter>
-            <WalletButton label={`Open in ${MODULE_NAME[activity.module]}`} onPress={() => onOpenModule(activity.module)} />
+            <WalletButton label={openLabel} onPress={() => onOpenRecord(activity)} />
           </WalletFooter>
         ) : undefined
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleRow}>
-          <View style={styles.iconBox}>
-            <ActivityCategoryIcon category={activity.category} size={20} />
-          </View>
-          <Text style={styles.title}>{activity.title}</Text>
-          <StatusBadge label={activity.status} tone={ACTIVITY_STATUS_TONE[activity.status] ?? 'info'} />
-        </View>
+        <SectionTitle right={activity.statusLabel !== undefined ? <StatusBadge label={activity.statusLabel} tone={activity.statusTone} /> : undefined}>
+          {activity.typeLabel}
+        </SectionTitle>
         <InfoCard
           rows={[
             [
-              { label: 'Activity ID', value: activity.id },
-              { label: 'Activity Type', value: activity.category },
+              { label: t('storageOps.activity.field.reference'), value: activity.reference },
+              { label: t('storageOps.activity.field.when'), value: activity.when },
             ],
             [
-              { label: 'Date / Time', value: activity.when },
-              { label: 'Warehouse', value: warehouse },
+              { label: t('storageOps.activity.field.warehouse'), value: warehouse.warehouseName ?? none },
+              { label: t('storageOps.activity.field.quantity'), value: activity.quantity ?? none },
             ],
             [
-              { label: 'Performed By', value: activity.performedBy },
-              { label: 'Status', value: activity.status },
+              { label: t('storageOps.activity.field.direction'), value: activity.directionLabel ?? none },
+              { label: t('storageOps.activity.field.severity'), value: activity.severityLabel ?? none },
+            ],
+            [
+              {
+                label: t('storageOps.activity.field.actor'),
+                value: t(activity.hasActor ? 'storageOps.activity.actorRecorded' : 'storageOps.activity.actorNone'),
+              },
             ],
           ]}
         />
-        {activity.metrics ? (
-          <>
-            <SectionTitle>Verification Counts</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'System', value: activity.metrics.system },
-                  { label: 'Counted', value: activity.metrics.counted },
-                  { label: 'Variance', value: activity.metrics.variance },
-                ],
-              ]}
-            />
-          </>
-        ) : null}
-        <SectionTitle>Action</SectionTitle>
-        <InfoCard rows={[[{ label: activity.subtitle, value: activity.action }]]} />
-        <SectionTitle>Reference</SectionTitle>
-        <InfoCard rows={[[{ label: MODULE_NAME[activity.module], value: activity.reference }]]} />
-        <SectionTitle>Notes</SectionTitle>
-        <InfoCard rows={[[{ label: activity.performedBy, value: activity.notes }]]} />
       </ScrollView>
     </WalletScreen>
   );
 }
-
-const ICON_BOX = 32;
-
-const styles = StyleSheet.create({
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginVertical: adminSpacing.md },
-  iconBox: {
-    width: ICON_BOX,
-    height: ICON_BOX,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { ...adminType.sectionHead, color: adminColors.ink, flex: 1 },
-});

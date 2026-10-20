@@ -1,21 +1,23 @@
 /**
- * Mock data for the wallet & cash top-up screens until the wallet / top-up
- * read APIs are wired. Rows carry the seeded warehouse ids (seed
- * 001_reference.sql) so a Sub scope filters to its own warehouse while the
- * Main scope sees all four; warehouse names are looked up from
- * WALLET_WAREHOUSES instead of being written into each row or screen.
+ * Design samples. Kept for:
+ *  - WALLET_WAREHOUSES / warehouseNameOf: sales-direct, staff-attendance,
+ *    storage-ops, receiving-qc, reports and finance-expenses fixtures, and
+ *    the two sample screens below.
+ *  - CUSTOMER_WALLET_TRANSACTIONS: customers/CustomerSearchScreen's sample
+ *    (non-live) wallet.
+ *  - TOP_UP_HISTORY and ATTENTION_ISSUES (with sampleProcessedBy): Top-Up
+ *    History and Wallet Needs Attention. No endpoint lists cash top-up rows
+ *    or feeds wallet issues, and by the owner decision of 2026-10-14 nothing
+ *    is hidden for having no API, so those two screens stay reachable on this
+ *    sample until one exists.
+ * The live wallet flow (hub, wizard, customer wallet, transaction detail)
+ * imports nothing from here (tests/cash_topup_wiring.test.ts pins that). The
+ * ids are seed codes, not uuids, so none of this can ever reach the API.
  *
  * The BR-19 cash top-up cap is NOT here: it lives in config/businessThresholds
- * (mirroring system_config.cash_topup_cap) and the screens read it from there.
+ * (mirroring system_config.cash_topup_cap).
  */
-import type {
-  AttentionIssue,
-  CashLedgerEntry,
-  ResolvedWalletCustomer,
-  TopUpHistoryRow,
-  WalletTransactionRecord,
-  WarehouseScope,
-} from './types';
+import type { AttentionIssue, TopUpHistoryRow, WalletTransactionRecord, WarehouseScope } from './types';
 
 /** The four warehouses (seed 001). Main's wallet grants cover all of them. */
 export const WALLET_WAREHOUSES: readonly WarehouseScope[] = [
@@ -31,29 +33,10 @@ export function warehouseNameOf(warehouseId: string | undefined): string {
   return WALLET_WAREHOUSES.find((w) => w.warehouseId === warehouseId)?.warehouseName ?? warehouseId;
 }
 
-/** Customer shown when a wallet screen is opened without one (demo). */
-export const SAMPLE_WALLET_CUSTOMER: ResolvedWalletCustomer = {
-  name: 'Ravi Kumar',
-  id: 'CUS-001245',
-  mobile: '+91 98765 43210',
-  balance: '₹4,500.00',
-  totalCredited: '₹25,000',
-  totalUsed: '₹20,500',
-};
-
-/** Pre-filled fiscal cash tag of the demo top-up. */
-export const SAMPLE_FISCAL_TAG = 'FC-20260925-0012';
-export const SAMPLE_TRANSACTION_ID = 'WT-20260925-001245';
-export const SAMPLE_DATE = '25 Sep 2026';
-export const SAMPLE_TIME = '10:42 AM';
-
 /** Who processed a demo top-up: the Sub twin said SWA, the Main twin MWA. */
 export function sampleProcessedBy(scope: WarehouseScope): string {
   return scope.warehouseId === undefined ? 'MWA – Suresh' : 'SWA – Suresh';
 }
-
-/** Preset top-up amounts (whole rupees). "Config-driven" in the design; mock until system_config exposes them. */
-export const TOP_UP_PRESETS: readonly number[] = [500, 1000, 2000, 5000];
 
 /** Recent movements on the demo customer's wallet. */
 export const CUSTOMER_WALLET_TRANSACTIONS: readonly WalletTransactionRecord[] = [
@@ -241,23 +224,4 @@ export const ATTENTION_ISSUES: readonly AttentionIssue[] = [
     secondaryAction: 'Open Daily Cash Summary',
     warehouseId: 'WH-OOTY',
   },
-];
-
-/** Daily cash ledger lines (Sub twin; the Main twin showed a subset). */
-export const CASH_LEDGER: readonly CashLedgerEntry[] = [
-  { id: 'TX-01', type: 'Cash In', title: 'Direct Sale', ref: 'Ref: REV-000845', amount: 3450, time: '11:20 AM', warehouseId: 'WH-COON' },
-  { id: 'TX-02', type: 'Cash In', title: 'Cash Top-Up', ref: 'Ref: TOP-000512', amount: 5000, time: '2:15 PM', warehouseId: 'WH-COON' },
-  { id: 'TX-03', type: 'Cash In', title: 'Market Day Cash Sale', ref: 'Ref: REV-000842', amount: 5050, time: '4:30 PM', warehouseId: 'WH-COON' },
-  { id: 'TX-04', type: 'Cash Out', title: 'Transport Expense', ref: 'Ref: EXP-001245', amount: 2400, time: '09:30 AM', warehouseId: 'WH-COON' },
-  { id: 'TX-05', type: 'Cash Out', title: 'Loading / Unloading', ref: 'Ref: EXP-001244', amount: 1800, time: '12:45 PM', warehouseId: 'WH-COON' },
-  { id: 'TX-06', type: 'Cash Out', title: 'Generator Fuel / Utilities', ref: 'Ref: EXP-001238', amount: 2220, time: '3:00 PM', warehouseId: 'WH-COON' },
-];
-
-/** Cash denominations recorded for today's top-ups (daily cash summary). */
-export const CASH_BREAKDOWN: readonly { label: string; amount: string }[] = [
-  { label: '₹500 × 3', amount: '₹1,500' },
-  { label: '₹1,000 × 7', amount: '₹7,000' },
-  { label: '₹2,000 × 8', amount: '₹16,000' },
-  { label: '₹5,000 × 1', amount: '₹5,000' },
-  { label: 'Other × 5', amount: '—' },
 ];

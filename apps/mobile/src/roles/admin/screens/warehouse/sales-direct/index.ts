@@ -14,8 +14,7 @@ export { SaleDetailScreen, type SaleDetailScreenProps } from './SaleDetailScreen
 export { MarketDaySalesScreen, type MarketDaySalesScreenProps } from './MarketDaySalesScreen';
 export { ChannelSalesScreen, type ChannelSalesScreenProps } from './ChannelSalesScreen';
 export { ChannelOrderDetailScreen, type ChannelOrderDetailScreenProps } from './ChannelOrderDetailScreen';
-export { invoiceIdForOrder } from './fixtures';
-export { SALE_WAREHOUSES } from './SalesParts';
+export { isAllWarehouses, WarehouseChips, type WarehouseChipsProps } from './SalesParts';
 export type {
   ChannelOrderItem,
   ChannelOrderLine,

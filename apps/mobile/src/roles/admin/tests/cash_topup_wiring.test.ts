@@ -18,19 +18,38 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { ATTENTION_ISSUES, TOP_UP_HISTORY, WALLET_WAREHOUSES } from '../screens/warehouse/wallet-cashtopup/fixtures';
+
 const SRC = path.join(__dirname, '..', '..', '..');
-const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+/** Line endings normalised: a checkout with CRLF must not change what the scans match. */
+const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8').replace(/\r\n/g, '\n');
 /** The source without comments, so "never drawn" checks read code only. */
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
 const WALLET = 'roles/admin/screens/warehouse/wallet-cashtopup';
 const LIVE_WIZARD_FILES = ['CashTopUpScreen.tsx', 'FiscalTagScreen.tsx', 'ConfirmCashTopUpScreen.tsx', 'TopUpSuccessScreen.tsx', 'useWalletData.ts'];
+/** Every wallet-area file that must hold no sample (the leftover fixtures.ts serves other areas only). */
+const LIVE_WALLET_FILES = [
+  ...LIVE_WIZARD_FILES,
+  'WalletFlow.tsx',
+  'WalletOperationsScreen.tsx',
+  'CustomerLookupScreen.tsx',
+  'CustomerWalletScreen.tsx',
+  'TopUpDetailsScreen.tsx',
+  'mappers.ts',
+  'types.ts',
+];
 
+const EN = JSON.parse(read('roles/admin/i18n/en.json')) as Record<string, string>;
 const FLOW = read(`${WALLET}/WalletFlow.tsx`);
 const DATA = read(`${WALLET}/useWalletData.ts`);
 const CONFIRM = code(read(`${WALLET}/ConfirmCashTopUpScreen.tsx`));
 const SUCCESS = code(read(`${WALLET}/TopUpSuccessScreen.tsx`));
 const SEARCH = read('roles/admin/screens/warehouse/customers/CustomerSearchScreen.tsx');
+const HUB = code(read(`${WALLET}/WalletOperationsScreen.tsx`));
+const LOOKUP = code(read(`${WALLET}/CustomerLookupScreen.tsx`));
+const TYPES = read(`${WALLET}/types.ts`);
+const API = read('roles/admin/api/wallet.ts');
 const DETAILS = read('roles/admin/screens/warehouse/customers/CustomerDetailsScreen.tsx');
 const CUSTOMERS_FLOW = read('roles/admin/screens/warehouse/customers/CustomersFlow.tsx');
 const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
@@ -81,11 +100,16 @@ describe('the top-up write (root CLAUDE.md 2.4)', () => {
   });
 });
 
-describe('the counter lookup (BR-91)', () => {
+describe('the counter lookup (BR-91i)', () => {
   it('the lookup hook sends the mapped query, keyed by warehouse, enabled only with a query', () => {
     expect(DATA).toMatch(/lookupCustomers\(query/);
     expect(DATA).toMatch(/adminKeys\.scoped\(WALLET, warehouseId/);
     expect(DATA).toMatch(/enabled: query !== null/);
+  });
+
+  it('BR-91i: the top-up lookup is the cash top-up route, not the sales lookup Main cannot call', () => {
+    expect(API).toMatch(/'\/admin\/wallets\/cash-topup\/customers\/lookup'/);
+    expect(code(API)).not.toMatch(/\/admin\/sales\/customers\/lookup/);
   });
 
   it('a top-up without a live customer starts at the lookup; the wallet search is the same live lookup', () => {
@@ -94,11 +118,155 @@ describe('the counter lookup (BR-91)', () => {
     expect(FLOW).toMatch(/topUpCustomerFromWallet\(params\.customer\)/);
     expect(FLOW).toMatch(/<LiveCustomerLookupRoute/);
     expect(functionBody(FLOW, 'LiveCustomerLookupRoute')).toMatch(/customerLookupView\(/);
+    expect(functionBody(FLOW, 'LiveCustomerLookupRoute')).toMatch(/<CustomerLookupScreen/);
   });
 
-  it('Customer Search draws the server results and the no-match copy in live mode', () => {
+  it('Find Customer is gated by the lookup\'s own code (wallet.cash_topup.process), not sales.sale.create', () => {
+    expect(LOOKUP).toMatch(/can\('wallet\.cash_topup\.process'\)/);
+    expect(LOOKUP).not.toMatch(/sales\.sale\.create/);
+    expect(LOOKUP).toMatch(/CASH_LOOKUP_NO_MATCH_KEY/);
+    expect(LOOKUP).toMatch(/AdminErrorState error=\{error\} onRetry=\{onRetry\}/);
+  });
+
+  it('Customer Search (customers area) still draws its live mode and no-match copy', () => {
     expect(SEARCH).toMatch(/live\?: CustomerLookupLiveProps/);
     expect(SEARCH).toMatch(/LOOKUP_NO_MATCH_KEY/);
+  });
+});
+
+describe('the wallet flow has no fixture path', () => {
+  it.each(LIVE_WALLET_FILES)('%s imports no fixture and no sample', (file) => {
+    const source = code(read(`${WALLET}/${file}`));
+    expect(source).not.toMatch(/from '\.\/fixtures'/);
+    expect(source).not.toMatch(/SAMPLE_|sampleProcessedBy|CUSTOMER_WALLET_TRANSACTIONS|WALLET_WAREHOUSES|TOP_UP_HISTORY|ATTENTION_ISSUES|CASH_LEDGER/);
+  });
+
+  it('the barrel re-exports only WALLET_WAREHOUSES from fixtures (other areas still import it)', () => {
+    const index = code(read(`${WALLET}/index.ts`));
+    expect(index.match(/from '\.\/fixtures'/g)).toHaveLength(1);
+    expect(index).toMatch(/export \{ WALLET_WAREHOUSES \} from '\.\/fixtures'/);
+  });
+
+  it('Customer Wallet without a customer uuid opens the live lookup, never a sample wallet', () => {
+    const flow = functionBody(FLOW, 'WalletFlow');
+    const wallet = flow.slice(flow.indexOf("case 'CustomerWallet'"), flow.indexOf("case 'CashTopUp'"));
+    expect(wallet).toMatch(/<LiveCustomerWalletRoute/);
+    expect(wallet).toMatch(/<LiveCustomerLookupRoute/);
+    expect(wallet).not.toMatch(/<CustomerWalletScreen/);
+  });
+
+  it('BR-30: the Main picker is GET /warehouses (uuids only); a Sub scope gets no picker', () => {
+    expect(DATA).toMatch(/useWarehouseOptions\(\{ enabled: scope\.warehouseId === undefined && can\('warehouse\.all\.view'\) \}\)/);
+    expect(DATA).toMatch(/toWalletWarehouseScopes\(/);
+    expect(functionBody(FLOW, 'LiveCashTopUpRoute')).toMatch(/useWalletWarehouseScopes\(base\.scope, base\.can\)/);
+    // The host-supplied (sample) option list is gone from the flow's props.
+    expect(FLOW).not.toMatch(/warehouseOptions\?: readonly/);
+  });
+
+  it('renders the finance-owned Daily Cash screens to their contract (no warehouseOptions, no top-up history)', () => {
+    expect(FLOW).toMatch(/<DailyCashSummaryScreen \{\.\.\.common\} onNavigateToDailyCash=\{\(\) => navigate\('DailyCash'\)\} \/>/);
+    expect(FLOW).toMatch(/<DailyCashScreen \{\.\.\.common\} \/>/);
+    expect(FLOW).not.toMatch(/onViewTopUpHistory/);
+  });
+});
+
+// Owner decision (2026-10-14, availability.ts): nothing is hidden for having no server API. Top-Up
+// History (no warehouse-wide top-up list endpoint) and Wallet Needs Attention (no needs-attention
+// list endpoint) are restored on their design samples and stay reachable from the wallet hub until
+// an API exists. They replace the earlier "no screen without a backend" removal.
+describe('screens without a backend stay reachable on sample data (owner decision 2026-10-14)', () => {
+  const HISTORY = read(`${WALLET}/TopUpHistoryScreen.tsx`);
+  const ATTENTION = read(`${WALLET}/WalletAttentionScreen.tsx`);
+  const FIXTURES = read(`${WALLET}/fixtures.ts`);
+  const INDEX = code(read(`${WALLET}/index.ts`));
+
+  it('Top-Up History and Wallet Needs Attention exist and read their rows from the sample fixtures', () => {
+    for (const file of ['TopUpHistoryScreen.tsx', 'WalletAttentionScreen.tsx']) {
+      expect(fs.existsSync(path.join(SRC, WALLET, file)), file).toBe(true);
+    }
+    expect(HISTORY).toMatch(/rows = TOP_UP_HISTORY/);
+    expect(ATTENTION).toMatch(/issues: sourceIssues = ATTENTION_ISSUES/);
+    expect(FIXTURES).toMatch(/export const TOP_UP_HISTORY: readonly TopUpHistoryRow\[\]/);
+    expect(FIXTURES).toMatch(/export const ATTENTION_ISSUES: readonly AttentionIssue\[\]/);
+  });
+
+  it('WalletFlow routes TopUpHistory, TopUpDetails and WalletAttention to them', () => {
+    for (const route of ['TopUpHistory', 'TopUpDetails', 'WalletAttention']) {
+      expect(TYPES).toMatch(new RegExp(`'${route}'`));
+      expect(FLOW).toMatch(new RegExp(`case '${route}'`));
+    }
+    expect(FLOW).toMatch(/<TopUpHistoryScreen \{\.\.\.common\} onSelectTransaction=\{openTopUpDetails\} \/>/);
+    expect(FLOW).toMatch(/<WalletAttentionScreen/);
+    expect(FLOW).toMatch(/initialCategory=\{params\.category\}/);
+    expect(FLOW).toMatch(/onRetryTopUp=\{\(\) => startTopUp\(\)\}/);
+    // A history row opens the live Transaction Detail view (present fields only), not a second details screen.
+    expect(FLOW).toMatch(/case 'TopUpDetails':\s*return <TopUpDetailsScreen \{\.\.\.common\} transaction=\{params\.transaction\} \/>/);
+  });
+
+  it('the wallet hub opens both: a Top-Up History entry and a Needs Attention entry, worded through the catalogue and not gated on a code the server does not have', () => {
+    expect(HUB).toMatch(/onNavigateToTopUpHistory: \(\) => void/);
+    expect(HUB).toMatch(/onNavigateToAttention: \(category: AttentionCategory\) => void/);
+    expect(HUB).toMatch(/title=\{t\('wallet\.hub\.action\.topUpHistory'\)\}[\s\S]{0,200}onPress=\{onNavigateToTopUpHistory\}/);
+    expect(HUB).toMatch(/title=\{t\('wallet\.hub\.action\.attention'\)\}[\s\S]{0,200}onPress=\{\(\) => onNavigateToAttention\('all'\)\}/);
+    expect(FLOW).toMatch(/onNavigateToTopUpHistory=\{\(\) => navigate\('TopUpHistory'\)\}/);
+    expect(FLOW).toMatch(/onNavigateToAttention=\{\(category\) => navigate\('WalletAttention', \{ category \}\)\}/);
+    for (const key of ['wallet.hub.action.topUpHistory', 'wallet.hub.action.topUpHistoryHint', 'wallet.hub.action.attention', 'wallet.hub.action.attentionHint']) {
+      expect({ key, has: key in EN }).toEqual({ key, has: true });
+    }
+  });
+
+  it('the barrel exports both screens and their row types; the live wizard still imports no sample', () => {
+    expect(INDEX).toMatch(/export \{ TopUpHistoryScreen, type TopUpHistoryScreenProps \} from '\.\/TopUpHistoryScreen'/);
+    expect(INDEX).toMatch(/export \{ WalletAttentionScreen, type WalletAttentionScreenProps \} from '\.\/WalletAttentionScreen'/);
+    for (const file of LIVE_WIZARD_FILES) {
+      expect(read(`${WALLET}/${file}`), file).not.toMatch(/from '\.\/fixtures'/);
+    }
+  });
+
+  it('every sample row belongs to a sample warehouse and every attention category has an item, so the screens render from sample data', () => {
+    const warehouseIds = new Set(WALLET_WAREHOUSES.map((w) => w.warehouseId));
+    expect(TOP_UP_HISTORY.length).toBeGreaterThan(0);
+    for (const row of TOP_UP_HISTORY) expect(warehouseIds.has(row.warehouseId), row.id).toBe(true);
+    for (const item of ATTENTION_ISSUES) expect(warehouseIds.has(item.warehouseId), item.id).toBe(true);
+    expect([...new Set(ATTENTION_ISSUES.map((item) => item.category))].sort()).toEqual(['failed', 'fiscal', 'pending', 'reconciliation']);
+    expect(new Set(TOP_UP_HISTORY.map((row) => row.status))).toEqual(new Set(['Completed', 'Pending']));
+  });
+
+  it('Wallet Needs Attention never offers a cash refund and gates its actions on the wallet codes', () => {
+    expect(ATTENTION).toMatch(/NEVER_RENDERED = new Set\(\['Refund Cash to Customer'\]\)/);
+    expect(ATTENTION).toMatch(/can\('wallet\.cash_topup\.fiscal_tag'\)/);
+  });
+});
+
+describe('no screen without a backend: the live paths carry no sample', () => {
+  it('Transaction Detail shows only the server row: no sample fallback, no variant', () => {
+    const detail = code(read(`${WALLET}/TopUpDetailsScreen.tsx`));
+    expect(detail).not.toMatch(/variant|SAMPLE_|\?\? '/);
+  });
+});
+
+describe('the hub (BR-64): numbers only from GET /admin/reports/cash-topups', () => {
+  it('reads the cash top-ups report through useCashTopupKpis, gated by wallet.cash_topup.process', () => {
+    expect(DATA).toMatch(/getCashTopupsReport\(\{ \.\.\.range, warehouseId \}, signal\)/);
+    expect(DATA).toMatch(/adminKeys\.scoped\(WALLET, warehouseId, \{ resource: 'cashTopupsReport'/);
+    expect(HUB).toMatch(/const canTopUp = can\('wallet\.cash_topup\.process'\)/);
+    expect(HUB).toMatch(/useCashTopupKpis\(warehouseId, canTopUp\)/);
+  });
+
+  it('BR-64a: the report warehouse is the Sub scope, or the Main pick as a uuid (financeWarehouseFilter)', () => {
+    expect(HUB).toMatch(/financeWarehouseFilter\(scope, selectedWarehouseId\)/);
+  });
+
+  it('has loading, error-with-retry states and no fake actions or literals', () => {
+    expect(HUB).toMatch(/<AdminLoadingState \/>/);
+    expect(HUB).toMatch(/<AdminErrorState error=\{report\.error\} onRetry=\{report\.refresh\} \/>/);
+    expect(HUB).not.toMatch(/Alert|Modal|Export|Select Date/);
+    expect(HUB).not.toMatch(/>[A-Za-z][^<{]*</);
+  });
+
+  it('Daily Cash Summary is offered only with finance.cash_close.manage', () => {
+    expect(FLOW).toMatch(/const canDailyCash = can\('finance\.cash_close\.manage'\)/);
+    expect(FLOW).toMatch(/onNavigateToDailySummary=\{canDailyCash \? \(\) => navigate\('DailyCashSummary'\) : undefined\}/);
   });
 });
 

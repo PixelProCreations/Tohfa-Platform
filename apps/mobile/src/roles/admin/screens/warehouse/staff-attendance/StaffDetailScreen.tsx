@@ -1,252 +1,195 @@
 /**
- * Staff Detail: one roster member (driver or warehouse staff).
+ * Staff Detail: one roster member, live from GET /admin/warehouse-staff/{id}.
  *
- * Gate (FINAL_LIST 121): reached only through the Staff list, which needs
- * `warehouse.staff.list_view`; the screen checks the code again and renders a
- * not-available note without it.
+ * Gate: `admin.staff.list_view` (SUB none). Edit and Deactivate need
+ * `admin.staff.manage`; Deactivate is soft (status INACTIVE, attendance kept,
+ * BR-83h) and asks for confirmation. The attendance summary is this month's
+ * GET /admin/staff-attendance/summary for this member (admin.staff.attendance.view).
  *
- * Actions:
- *   - "Assign Delivery" is removed: no rbac code exists for it, and rbac
- *     Principle 9 has no delivery fleet (SPEC_GAPS W4t-2).
- *   - "Edit Driver/Staff Profile" opens Edit Staff Profile. No edit code exists
- *     in docs/rbac.json; per the owner it stays available behind the roster
- *     code (SPEC_GAPS W4t-1). No code is invented here.
- *
- * Absorbs Main MainWarehouseStaffDetailScreen (pair M14-S02): the dated
- * activity timeline, the tappable attendance summary (opens Attendance
- * History) and, for the Main view, the driver's contact / vehicle row with the
- * "illustrative fields" note. The warehouse comes from the member's record or
- * the viewer's scope, never a hard-coded name.
+ * Dropped because the staff record has no such fields: driver vehicle details,
+ * email, the delivery summary and performance figures, "Assign Delivery", and
+ * the fixed activity feed. The timeline shows only the record's own
+ * createdAt / updatedAt.
  */
 // Design id: M14-S02
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
-  EmptyState,
   InfoCard,
   InfoNote,
-  isAllWarehouses,
   SectionTitle,
+  StatusBadge,
   WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import {
-  DEFAULT_STAFF_MEMBER,
-  DRIVER_DELIVERY_SUMMARY,
-  STAFF_ACTIVITY,
-  STAFF_ATTENDANCE_SUMMARY,
-  staffWarehouseName,
-} from './fixtures';
-import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
-import { STAFF_ROSTER_CODE } from './StaffScreen';
+  canDeactivateStaff,
+  canManageStaff,
+  canViewAttendance,
+  istToday,
+  monthOf,
+  STAFF_CODES,
+  staffStatusLabel,
+  staffStatusTone,
+} from './mappers';
+import { RingTimeline, StaffAvatar } from './StaffParts';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
-
-function DeliveryTruckIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h15v13H1zM16 8h4l3 4v4h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
+import { useAttendanceSummary, useDeactivateStaffMutation, useStaffDetail, useStaffWarehouses } from './useStaffData';
 
 export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   staff?: StaffMember | undefined;
   onEditProfile?: ((staff: StaffMember) => void) | undefined;
-  /** Attendance summary tap (Main): opens Attendance History. */
+  /** Attendance summary tap: opens Attendance History for this member. */
   onViewAttendanceHistory?: ((staff: StaffMember) => void) | undefined;
-  onAssignDelivery?: ((staff: StaffMember) => void) | undefined;
 }
 
-export function StaffDetailScreen({
-  scope,
-  can,
-  onBack,
-  onNavigate,
-  staff,
-  onEditProfile,
-  onViewAttendanceHistory,
-  onAssignDelivery,
-}: StaffDetailScreenProps) {
-  if (!can(STAFF_ROSTER_CODE)) {
+export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, onViewAttendanceHistory }: StaffDetailScreenProps) {
+  const allowed = can(STAFF_CODES.listView);
+  const [now] = useState(() => new Date());
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const warehouses = useStaffWarehouses(scope, can);
+  const detail = useStaffDetail(scope, staff?.id, warehouses.nameOf, allowed);
+  const member = detail.member ?? staff;
+  const attendanceAllowed = allowed && canViewAttendance(can) && member !== undefined;
+  const summary = useAttendanceSummary(scope, { staffId: member?.id, month: monthOf(istToday(now)) }, attendanceAllowed);
+  const deactivate = useDeactivateStaffMutation();
+
+  if (!allowed) {
     return (
-      <WalletScreen title="Staff Detail" onBack={onBack}>
-        <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />
+      <WalletScreen title={t('staff.detail.title')} onBack={onBack}>
+        <AdminEmptyState title={t('staff.denied.title')} subtitle={t('staff.denied.roster')} />
+      </WalletScreen>
+    );
+  }
+  if (member === undefined) {
+    return (
+      <WalletScreen title={t('staff.detail.title')} onBack={onBack}>
+        {detail.isLoading ? (
+          <AdminLoadingState />
+        ) : detail.error ? (
+          <AdminErrorState error={detail.error} onRetry={detail.refresh} />
+        ) : (
+          <AdminEmptyState title={t('staff.detail.notFound.title')} subtitle={t('staff.detail.notFound.subtitle')} />
+        )}
       </WalletScreen>
     );
   }
 
-  const member = staff ?? DEFAULT_STAFF_MEMBER;
-  const isDriver = member.type === 'driver';
-  const isMain = isAllWarehouses(scope);
-  const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? '';
-  const summary = STAFF_ATTENDANCE_SUMMARY;
-  const timeline = STAFF_ACTIVITY.map((item) => ({
-    id: item.id,
-    title: item.id === 'a-2' && warehouseName ? `Assigned to ${warehouseName}` : item.title,
-    subtitle: item.when,
-  }));
-
-  const handleAssignDelivery = () => {
-    if (onAssignDelivery) {
-      onAssignDelivery(member);
-    } else if (onNavigate) {
-      onNavigate('M5S02', { fulfillment: 'Delivery' });
-    }
-  };
-
+  const totals = summary.totals;
+  const days = (count: number | undefined) => (count === undefined ? t('staff.kpi.unknown') : t('staff.detail.days', { count }));
   const attendanceCard = (
     <InfoCard
       rows={[
         [
-          { label: 'Present', value: `${summary.present} days` },
-          { label: 'Absent', value: `${summary.absent} days` },
-          { label: 'Leave', value: `${summary.leave} day${summary.leave === 1 ? '' : 's'}` },
+          { label: t('staff.attendance.status.PRESENT'), value: days(totals?.present) },
+          { label: t('staff.attendance.status.ABSENT'), value: days(totals?.absent) },
+          { label: t('staff.attendance.status.LEAVE'), value: days(totals?.leave) },
         ],
       ]}
     />
   );
+  const timeline = [
+    { id: 'created', title: t('staff.detail.activity.created'), subtitle: member.createdAtText },
+    { id: 'joined', title: t('staff.detail.activity.joined', { warehouse: member.warehouseName }), subtitle: member.joinedOnText },
+    ...(member.updatedAtText === null ? [] : [{ id: 'updated', title: t('staff.detail.activity.updated'), subtitle: member.updatedAtText }]),
+  ];
+  const showDeactivate = canDeactivateStaff(can, member);
+  const manage = canManageStaff(can);
+
+  const footer =
+    manage && (onEditProfile || showDeactivate) ? (
+      <WalletFooter>
+        {confirmDeactivate ? (
+          <>
+            <Text style={styles.confirmText}>{t('staff.detail.deactivate.confirm', { name: member.name })}</Text>
+            {deactivate.error ? <Text style={styles.errorText}>{t(adminErrorKey(deactivate.error))}</Text> : null}
+            <WalletButton
+              label={t('staff.detail.deactivate.yes')}
+              disabled={deactivate.isPending}
+              onPress={() =>
+                deactivate.mutate(member.id, {
+                  onSuccess: () => {
+                    setConfirmDeactivate(false);
+                    detail.refresh();
+                  },
+                })
+              }
+            />
+            <WalletButton label={t('staff.common.cancel')} variant="neutral" onPress={() => setConfirmDeactivate(false)} />
+          </>
+        ) : (
+          <>
+            {onEditProfile ? <WalletButton label={t('staff.detail.edit')} onPress={() => onEditProfile(member)} /> : null}
+            {showDeactivate ? (
+              <WalletButton label={t('staff.detail.deactivate')} variant="outline" onPress={() => setConfirmDeactivate(true)} />
+            ) : null}
+          </>
+        )}
+      </WalletFooter>
+    ) : undefined;
 
   return (
-    <WalletScreen
-      title="Staff Detail"
-      onBack={onBack}
-      footer={
-        isDriver || onEditProfile ? (
-          <WalletFooter>
-            {isDriver ? (
-              <WalletButton
-                label="Assign Delivery"
-                icon={<DeliveryTruckIcon color={adminColors.onBrand} />}
-                onPress={handleAssignDelivery}
-              />
-            ) : null}
-            {onEditProfile ? (
-              <WalletButton
-                label={`Edit ${isDriver ? 'Driver' : 'Staff'} Profile`}
-                variant={isDriver ? 'outline' : 'primary'}
-                onPress={() => onEditProfile(member)}
-              />
-            ) : null}
-          </WalletFooter>
-        ) : undefined
-      }
-    >
+    <WalletScreen title={t('staff.detail.title')} onBack={onBack} footer={footer}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
-          <StaffAvatar type={member.type} large />
+          <StaffAvatar large />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{member.name}</Text>
-            <Text style={styles.profileMeta}>
-              {isDriver ? 'Driver ID' : 'Staff ID'}: {member.staffId} · {member.status}
-            </Text>
+            <Text style={styles.profileMeta}>{t('staff.list.meta', { code: member.staffCode, designation: member.designation })}</Text>
+            <View style={styles.badgeRow}>
+              <StatusBadge label={staffStatusLabel(member.status)} tone={staffStatusTone(member.status)} />
+            </View>
           </View>
         </View>
 
-        {isDriver ? (
+        <SectionTitle>{t('staff.detail.basic')}</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: t('staff.field.name'), value: member.name },
+              { label: t('staff.field.staffCode'), value: member.staffCode },
+            ],
+            [
+              { label: t('staff.field.designation'), value: member.designation },
+              { label: t('staff.field.status'), value: staffStatusLabel(member.status) },
+            ],
+            [
+              { label: t('staff.field.warehouse'), value: member.warehouseName },
+              { label: t('staff.field.joinedOn'), value: member.joinedOnText },
+            ],
+            [{ label: t('staff.field.phone'), value: member.phone ?? t('staff.common.none') }],
+          ]}
+        />
+        <InfoNote>{t('staff.detail.noHrNote')}</InfoNote>
+
+        {attendanceAllowed ? (
           <>
-            <SectionTitle>Driver Information</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Driver ID', value: member.staffId },
-                  { label: 'Status', value: member.status },
-                ],
-                [{ label: 'Assigned Warehouse', value: warehouseName || '—' }],
-                ...(isMain
-                  ? [
-                      [
-                        { label: 'Contact', value: member.phone ?? '—' },
-                        { label: 'Vehicle Details', value: member.vehicleDetails ?? '—' },
-                      ],
-                    ]
-                  : []),
-              ]}
-            />
-            {isMain ? (
-              <InfoNote>
-                Vehicle, license and document fields are illustrative and must be confirmed against the final driver data model
-                before becoming mandatory.
-              </InfoNote>
-            ) : null}
-
-            <SectionTitle>Delivery Summary</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: "Today's Deliveries", value: String(member.deliveriesToday ?? 0) },
-                  { label: 'Completed', value: String(DRIVER_DELIVERY_SUMMARY.completedToday) },
-                ],
-                [{ label: 'Pending', value: String(DRIVER_DELIVERY_SUMMARY.pendingToday) }],
-              ]}
-            />
-
-            <SectionTitle>Performance</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Completed Deliveries', value: String(DRIVER_DELIVERY_SUMMARY.completedTotal) },
-                  { label: 'Cancelled', value: String(DRIVER_DELIVERY_SUMMARY.cancelled) },
-                ],
-                [{ label: 'Failed', value: String(DRIVER_DELIVERY_SUMMARY.failed) }],
-              ]}
-            />
-            <InfoNote>Only metrics the backend actually defines are shown — no invented performance figures.</InfoNote>
+            <SectionTitle>{t('staff.detail.attendanceMonth')}</SectionTitle>
+            {summary.error ? (
+              <AdminErrorState error={summary.error} onRetry={summary.refresh} />
+            ) : onViewAttendanceHistory ? (
+              <TouchableOpacity
+                onPress={() => onViewAttendanceHistory(member)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('staff.detail.openHistoryA11y')}
+              >
+                {attendanceCard}
+              </TouchableOpacity>
+            ) : (
+              attendanceCard
+            )}
           </>
-        ) : (
-          <>
-            <SectionTitle>Basic Information</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Name', value: member.name },
-                  { label: 'Staff ID', value: member.staffId },
-                ],
-                [
-                  { label: 'Role', value: member.role },
-                  { label: 'Status', value: member.status },
-                ],
-                [{ label: 'Warehouse', value: warehouseName || '—' }],
-              ]}
-            />
+        ) : null}
 
-            <SectionTitle>Contact Information</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Phone', value: member.phone ?? '—' },
-                  { label: 'Email', value: member.email ?? '—' },
-                ],
-              ]}
-            />
-            <InfoNote tone="danger" icon={<ProhibitedIcon />}>
-              No salary, payroll, bank account, or Aadhaar fields — the source doesn&apos;t define a complete warehouse-staff HR
-              data model, so none is invented here.
-            </InfoNote>
-          </>
-        )}
-
-        <SectionTitle>Attendance Summary</SectionTitle>
-        {onViewAttendanceHistory ? (
-          <TouchableOpacity
-            onPress={() => onViewAttendanceHistory(member)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Open attendance history"
-          >
-            {attendanceCard}
-          </TouchableOpacity>
-        ) : (
-          attendanceCard
-        )}
-
-        <SectionTitle>Activity</SectionTitle>
+        <SectionTitle>{t('staff.detail.activity')}</SectionTitle>
         <RingTimeline items={timeline} />
       </ScrollView>
     </WalletScreen>
@@ -266,5 +209,8 @@ const styles = StyleSheet.create({
   },
   profileInfo: { flex: 1 },
   profileName: { ...adminType.title, color: adminColors.ink },
-  profileMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  profileMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  badgeRow: { flexDirection: 'row', gap: adminSpacing.xs, marginTop: adminSpacing.xs },
+  confirmText: { ...adminType.body, color: adminColors.ink },
+  errorText: { ...adminType.rowMeta, color: adminColors.danger.text },
 });

@@ -12,10 +12,4 @@ export {
   type ManageSubWarehouseAdminsScreenProps,
 } from './ManageSubWarehouseAdminsScreen';
 export { WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
-export { ADMIN_WAREHOUSES, SUB_WAREHOUSE_ADMINS, WAREHOUSE_ADMIN_ROWS } from './fixtures';
-export type {
-  SubWarehouseAdminItem,
-  WarehouseAdminRoute,
-  WarehouseAdminRouteParams,
-  WarehouseAdminRow,
-} from './types';
+export type { WarehouseAdminRoute, WarehouseAdminRouteParams } from './types';

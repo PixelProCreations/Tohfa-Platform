@@ -33,6 +33,7 @@ import { t, type TranslationKey } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { formatAdminDate, formatAdminDay, relativeTime } from '../../../utils/datetime';
+import { isAreaAvailable } from '../availability';
 import { gradeLabel } from '../inventory/mappers';
 import type {
   OrderAction,
@@ -353,7 +354,21 @@ export function toOrderDetail(dto: AdminOrderDetailDto, now: Date): OrderDetailV
     placedLabel: formatAdminDate(dto.placedAt, now),
     packedLabel: dateOrNull(dto.packedAt, now),
     completedLabel: dateOrNull(dto.completedAt, now),
+    // Only a uuid is kept: anything else could not be looked up (GET /invoices/{id}).
+    // Checked here rather than with billing's invoiceIdParam: billing-invoices/mappers imports this file.
+    invoiceId: typeof dto.invoice?.id === 'string' && UUID_RE.test(dto.invoice.id) ? dto.invoice.id : null,
   };
+}
+
+/**
+ * The invoice the order detail's "View Invoice" entry opens (M5S18), or
+ * undefined to hide the entry: the order has no invoice yet, or the caller
+ * cannot read invoices (availability.ts 'orderInvoices', invoice.view_own).
+ * Display only; the server scopes GET /invoices/{id} to the caller (BR-36).
+ */
+export function orderInvoiceEntry(order: Pick<OrderDetailView, 'invoiceId'>, can: PermissionCheck): string | undefined {
+  if (order.invoiceId === null) return undefined;
+  return isAreaAvailable('orderInvoices', can) ? order.invoiceId : undefined;
 }
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────

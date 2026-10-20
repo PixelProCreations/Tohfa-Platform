@@ -1,323 +1,180 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+/**
+ * Storage Locations: the warehouse's locations, live from
+ * GET /warehouses/{id}/storage-locations (inventory.batch.view; Sub own;
+ * BR-79), grouped by their free-text type.
+ *
+ * A location has a code, a name, a type, an optional capacity and an active
+ * flag; there is no rack / shelf / bin layout, so the old invented "Rack 02 ·
+ * Shelf 03" rows are gone. The stock shown on a row is DERIVED from the
+ * warehouse's ACTIVE batches whose free-text storage location equals the
+ * location's code (what the receiving flow records); the screen says so.
+ *
+ * Add Location (POST) needs `warehouse.storage_location.manage` (Main all, Sub
+ * none), so a Sub admin never sees it.
+ */
+import React, { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
-import {
-  isAllWarehouses,
-  ScopeHeader,
-  SearchBar,
-  SectionTitle,
-  StatusBadge,
-  WalletScreen,
-} from '../wallet-cashtopup/WalletParts';
-import { WarehouseIcon } from './StorageParts';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { InfoNote, SectionTitle, StatusBadge, WalletButton, WalletFooter, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { buildLocationBody, groupLocationsByType, locationStockOf, toLocationRow, type LocationDraft, type LocationDraftField } from './mappers';
+import { PlusIcon, STORAGE_CODES } from './StorageParts';
+import type { StorageWarehouse } from './StorageWarehouse';
+import { useActiveBatches, useCreateStorageLocation, useStorageLocationList } from './useStorageData';
 import type { WarehouseScreenBaseProps } from './types';
 
-function SnowflakeIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M12 6l-2-2m4 0l-2 2M12 18l-2 2m4 0l-2-2M6 12l-2-2m0 4l2-2M18 12l2-2m0 4l-2-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StorageBoxIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ChevronUpIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ChevronDownIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-interface LocationItem {
-  id: string;
-  title: string;
-  section: string;
-  status: 'Occupied' | 'Empty';
-  statusTone: 'danger' | 'success' | 'warning';
-  stockItems?: number;
-}
-
-interface StorageGroup {
-  type: string;
-  icon: React.ReactNode;
-  items: LocationItem[];
-}
-
-const STORAGE_GROUPS: StorageGroup[] = [
-  {
-    type: 'Cold Storage',
-    icon: <SnowflakeIcon size={18} color={adminColors.ink} />,
-    items: [
-      {
-        id: 'cs-1',
-        title: 'Rack 02 · Shelf 03',
-        section: 'Section A',
-        status: 'Occupied',
-        statusTone: 'danger',
-        stockItems: 12,
-      },
-      {
-        id: 'cs-2',
-        title: 'Rack 01 · Shelf 01',
-        section: 'Section A',
-        status: 'Occupied',
-        statusTone: 'success',
-        stockItems: 6,
-      },
-      {
-        id: 'cs-3',
-        title: 'Rack 03 · Shelf 02',
-        section: 'Section B',
-        status: 'Empty',
-        statusTone: 'danger',
-      },
-    ],
-  },
-  {
-    type: 'Dry Storage',
-    icon: <StorageBoxIcon size={18} color={adminColors.ink} />,
-    items: [
-      {
-        id: 'ds-1',
-        title: 'Rack 01 · Shelf 01',
-        section: 'Section C',
-        status: 'Occupied',
-        statusTone: 'success',
-      },
-    ],
-  },
-];
-
-interface MainWarehouseGroup {
-  warehouseId: string;
-  warehouseName: string;
-  items: LocationItem[];
-}
-
-const MAIN_WAREHOUSE_LOCATIONS: MainWarehouseGroup[] = [
-  {
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-    items: [
-      {
-        id: 'cs-ooty-1',
-        title: 'Rack 02 · Shelf 03',
-        section: 'Cold Storage · Section A',
-        status: 'Occupied',
-        statusTone: 'danger',
-        stockItems: 12,
-      },
-      {
-        id: 'cs-ooty-2',
-        title: 'Rack 01 · Shelf 01',
-        section: 'Cold Storage · Section A',
-        status: 'Occupied',
-        statusTone: 'success',
-        stockItems: 6,
-      },
-      {
-        id: 'cs-ooty-3',
-        title: 'Rack 03 · Shelf 02',
-        section: 'Cold Storage · Section B',
-        status: 'Empty',
-        statusTone: 'danger',
-      },
-    ],
-  },
-  {
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-    items: [
-      {
-        id: 'ds-coon-1',
-        title: 'Rack 01 · Shelf 01',
-        section: 'Dry Storage · Section C',
-        status: 'Occupied',
-        statusTone: 'success',
-      },
-    ],
-  },
-];
-
 export interface StorageLocationsScreenProps extends WarehouseScreenBaseProps {
+  warehouse: StorageWarehouse;
   onSelectLocation?: ((locationId: string) => void) | undefined;
 }
 
-export function StorageLocationsScreen({ scope, onBack, onSelectLocation }: StorageLocationsScreenProps) {
-  const [query, setQuery] = useState('');
-  const [collapsedWarehouses, setCollapsedWarehouses] = useState<Record<string, boolean>>({});
+const EMPTY_DRAFT: LocationDraft = { code: '', name: '', locationType: '', capacityKg: '' };
 
-  const isMain = isAllWarehouses(scope);
-  const q = query.toLowerCase().trim();
+export function StorageLocationsScreen({ can, onBack, warehouse, onSelectLocation }: StorageLocationsScreenProps) {
+  const locations = useStorageLocationList(warehouse.warehouseId);
+  const batches = useActiveBatches(warehouse.warehouseId, can(STORAGE_CODES.batchView));
+  const canManage = can(STORAGE_CODES.storageLocationManage);
+  const [adding, setAdding] = useState(false);
 
-  const toggleWarehouse = (id: string) => {
-    setCollapsedWarehouses((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const filteredGroups = STORAGE_GROUPS.map((group) => {
-    const items = group.items.filter((item) => {
-      if (!q) return true;
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.section.toLowerCase().includes(q) ||
-        group.type.toLowerCase().includes(q)
-      );
-    });
-    return { ...group, items };
-  }).filter((group) => group.items.length > 0);
-
-  const filteredMainGroups = MAIN_WAREHOUSE_LOCATIONS.map((group) => {
-    const items = group.items.filter((item) => {
-      if (!q) return true;
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.section.toLowerCase().includes(q) ||
-        group.warehouseName.toLowerCase().includes(q)
-      );
-    });
-    return { ...group, items };
-  }).filter((group) => group.items.length > 0);
+  const groups = useMemo(() => {
+    const now = new Date();
+    return groupLocationsByType(locations.items.map((dto) => toLocationRow(dto, locationStockOf(batches.stockByCode, dto.code), now)));
+  }, [locations.items, batches.stockByCode]);
+  const view = queryViewState({ isLoading: locations.isLoading, error: locations.error, itemCount: locations.items.length });
 
   return (
     <WalletScreen
-      title="Storage Locations"
+      title={t('storageOps.locations.title')}
       onBack={onBack}
-      headerExtra={isMain ? undefined : <ScopeHeader scope={scope} label={scope.warehouseName ?? 'Coonoor Warehouse'} />}
+      headerExtra={warehouse.header}
+      footer={
+        canManage && !adding && warehouse.warehouseId !== undefined ? (
+          <WalletFooter>
+            <WalletButton label={t('storageOps.locations.add')} icon={<PlusIcon />} onPress={() => setAdding(true)} />
+          </WalletFooter>
+        ) : undefined
+      }
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.searchWrap}>
-          <SearchBar
-            value={query}
-            onChangeText={setQuery}
-            placeholder={isMain ? 'Location name, ID, rack, shelf, bin' : 'Search location, rack, shelf'}
-          />
-        </View>
-
-        {isMain ? (
-          <>
-            <SectionTitle>Locations</SectionTitle>
-            {filteredMainGroups.map((group) => {
-              const isCollapsed = !!collapsedWarehouses[group.warehouseId];
-              return (
-                <View key={group.warehouseId} style={styles.accordionCard}>
-                  <TouchableOpacity
-                    style={styles.accordionHeader}
-                    onPress={() => toggleWarehouse(group.warehouseId)}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                  >
-                    <View style={styles.accordionTitleRow}>
-                      <WarehouseIcon size={18} color={adminColors.brand} />
-                      <Text style={styles.accordionTitle}>{group.warehouseName}</Text>
-                    </View>
-                    <View style={styles.accordionRightRow}>
-                      <Text style={styles.locationsCountText}>{group.items.length} locations</Text>
-                      {isCollapsed ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}
-                    </View>
-                  </TouchableOpacity>
-
-                  {!isCollapsed && (
-                    <View style={styles.nestedCardsColumn}>
-                      {group.items.map((item) => (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={styles.nestedCard}
-                          onPress={() => onSelectLocation?.(item.id)}
-                          activeOpacity={0.75}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${item.title} ${item.section}`}
-                        >
-                          <View style={styles.cardTop}>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            <StatusBadge label={item.status} tone={item.statusTone} />
-                          </View>
-                          <Text style={styles.cardSubtitle}>{item.section}</Text>
-                          {item.stockItems !== undefined ? (
-                            <View style={styles.stockRow}>
-                              <Text style={styles.stockLabel}>Stock Items</Text>
-                              <Text style={styles.stockValue}>{item.stockItems}</Text>
-                            </View>
-                          ) : null}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </>
-        ) : (
-          filteredGroups.map((group) => (
-            <View key={group.type} style={styles.groupContainer}>
-              <View style={styles.groupHeader}>
-                {group.icon}
-                <Text style={styles.groupTitle}>{group.type}</Text>
-              </View>
-
-              <View style={styles.treeWrapper}>
-                <View style={styles.treeLine} />
-                <View style={styles.cardsColumn}>
-                  {group.items.map((item) => (
+      {warehouse.placeholder ?? (
+        <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {adding ? <AddLocationForm warehouseId={warehouse.warehouseId} onDone={() => setAdding(false)} /> : null}
+          <InfoNote tone="brandSoft">{t('storageOps.locations.stockNote')}</InfoNote>
+          {batches.error ? <Text style={styles.muted}>{t('storageOps.locations.stockUnavailable')}</Text> : null}
+          {!batches.complete ? <Text style={styles.muted}>{t('storageOps.partial')}</Text> : null}
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={locations.error} onRetry={locations.refresh} /> : null}
+          {view === 'empty' ? (
+            <AdminEmptyState title={t('storageOps.locations.empty')} subtitle={t('storageOps.locations.emptyHint')} />
+          ) : null}
+          {view === 'ready'
+            ? groups.map((group) => (
+                <View key={group.title} style={styles.group}>
+                  <SectionTitle>{t('storageOps.locations.groupTitle', { type: group.title, count: group.rows.length })}</SectionTitle>
+                  {group.rows.map((row) => (
                     <TouchableOpacity
-                      key={item.id}
+                      key={row.id}
                       style={styles.card}
-                      onPress={() => onSelectLocation?.(item.id)}
+                      onPress={() => onSelectLocation?.(row.id)}
+                      disabled={onSelectLocation === undefined}
                       activeOpacity={0.75}
                       accessibilityRole="button"
-                      accessibilityLabel={`${item.title} ${item.section}`}
+                      accessibilityLabel={`${row.code} ${row.name}`}
                     >
                       <View style={styles.cardTop}>
-                        <Text style={styles.cardTitle}>{item.title}</Text>
-                        <StatusBadge label={item.status} tone={item.statusTone} />
+                        <Text style={styles.cardTitle}>{row.name}</Text>
+                        <StatusBadge label={row.statusLabel} tone={row.statusTone} />
                       </View>
-                      <Text style={styles.cardSubtitle}>{item.section}</Text>
-                      {item.stockItems !== undefined ? (
-                        <View style={styles.stockRow}>
-                          <Text style={styles.stockLabel}>Stock Items</Text>
-                          <Text style={styles.stockValue}>{item.stockItems}</Text>
-                        </View>
+                      <Text style={styles.muted}>
+                        {t('storageOps.locations.rowMeta', { code: row.code, capacity: row.capacity ?? t('storageOps.location.capacityNotSet') })}
+                      </Text>
+                      {row.stock !== undefined ? (
+                        <Text style={styles.stock}>
+                          {t('storageOps.locations.rowStock', { quantity: row.stockLabel ?? '', count: row.stock.batchCount })}
+                        </Text>
                       ) : null}
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+              ))
+            : null}
+          {!locations.complete ? <Text style={styles.muted}>{t('storageOps.partial')}</Text> : null}
+        </ScrollView>
+      )}
     </WalletScreen>
   );
 }
 
+/** Inline create form (POST .../storage-locations); only rendered with warehouse.storage_location.manage. */
+function AddLocationForm({ warehouseId, onDone }: { warehouseId: string | undefined; onDone: () => void }) {
+  const [draft, setDraft] = useState<LocationDraft>(EMPTY_DRAFT);
+  const [errors, setErrors] = useState<Partial<Record<LocationDraftField, string>>>({});
+  const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  const create = useCreateStorageLocation(warehouseId);
+  const set = (field: LocationDraftField) => (value: string) => setDraft((d) => ({ ...d, [field]: value }));
+
+  const save = () => {
+    const built = buildLocationBody(draft);
+    if (!built.ok) {
+      setErrors(Object.fromEntries(Object.entries(built.errors).map(([f, k]) => [f, t(k)])));
+      return;
+    }
+    setErrors({});
+    create.mutate(built.body, {
+      onSuccess: onDone,
+      onError: (err) => setSubmitError(t(adminErrorKey(err))),
+    });
+  };
+
+  const field = (name: LocationDraftField, label: string, numeric = false) => (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={draft[name]}
+        onChangeText={set(name)}
+        keyboardType={numeric ? 'decimal-pad' : 'default'}
+        placeholderTextColor={adminColors.placeholder}
+      />
+      {errors[name] ? <Text style={styles.error}>{errors[name]}</Text> : null}
+    </>
+  );
+
+  return (
+    <View style={styles.form}>
+      <Text style={styles.formTitle}>{t('storageOps.locations.add')}</Text>
+      {field('code', t('storageOps.location.field.code'))}
+      {field('name', t('storageOps.location.field.name'))}
+      {field('locationType', t('storageOps.location.field.type'))}
+      {field('capacityKg', t('storageOps.location.field.capacityKg'), true)}
+      {submitError !== undefined ? <Text style={styles.error}>{submitError}</Text> : null}
+      <View style={styles.formActions}>
+        <WalletButton label={t('storageOps.cancel')} variant="neutral" flex onPress={onDone} />
+        <WalletButton label={t('storageOps.save')} flex disabled={create.isPending} onPress={save} />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: adminSpacing.lg,
-    paddingBottom: 40,
+  group: { marginBottom: adminSpacing.md },
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+    gap: adminSpacing.xs,
   },
-  searchWrap: {
-    marginBottom: adminSpacing.lg,
-  },
-  accordionCard: {
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { ...adminType.rowTitle, color: adminColors.ink, flex: 1 },
+  muted: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  stock: { ...adminType.rowMeta, color: adminColors.ink },
+  form: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
@@ -325,107 +182,17 @@ const styles = StyleSheet.create({
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
-  accordionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  accordionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-  },
-  accordionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  formTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  formActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
+  label: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm, marginBottom: adminSpacing.xs },
+  input: {
+    ...adminType.body,
     color: adminColors.ink,
-  },
-  accordionRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-  },
-  locationsCountText: {
-    fontSize: 13,
-    color: adminColors.muted,
-  },
-  nestedCardsColumn: {
-    marginTop: adminSpacing.md,
-    gap: adminSpacing.sm,
-  },
-  nestedCard: {
-    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 12,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
-  groupContainer: {
-    marginBottom: adminSpacing.lg,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  groupTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  treeWrapper: {
-    flexDirection: 'row',
-    position: 'relative',
-  },
-  treeLine: {
-    width: 2,
-    backgroundColor: adminColors.border,
-    marginLeft: 8,
-    marginRight: 14,
-    borderRadius: 1,
-  },
-  cardsColumn: {
-    flex: 1,
-    gap: 12,
-  },
-  card: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 14,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: adminColors.muted,
-    marginBottom: 6,
-  },
-  stockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 4,
-  },
-  stockLabel: {
-    fontSize: 13,
-    color: adminColors.muted,
-  },
-  stockValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
+  error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

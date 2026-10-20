@@ -6,17 +6,16 @@
  * task sources).
  */
 import { describe, expect, it } from 'vitest';
-import type { BatchDto } from '../api/inventory';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { AllocationDto, BatchDto } from '../api/inventory';
 import type { AlertItemDto } from '../api/alerts';
-import type { OrderSummaryDto } from '../api/orders';
 import type { GoodsReceiptDto } from '../api/receiving';
 import type { TaskItemDto, TaskSummaryDto } from '../api/tasks';
 import { TRANSFER_STATUSES, type WarehouseTransferDto } from '../api/warehouseTransfers';
 import type { Page } from '../../../shell/api/pagination';
 import type { WarehouseDto } from '../api/warehouses';
 import { formatKg } from '../money/quantity';
-import { WAREHOUSE_SETTINGS, PROFILE_WAREHOUSES } from '../screens/warehouse/profile-settings/warehouseFixtures';
-import { ADMIN_WAREHOUSES, WAREHOUSE_ADMIN_ROWS } from '../screens/warehouse/warehouse-admin/fixtures';
 import {
   FIGURE_PLACEHOLDER,
   attempt,
@@ -25,10 +24,22 @@ import {
   deriveTransfers,
   transferStatusKind,
   countLabel,
-  countOrdersPlacedOn,
   greetingKey,
   openTaskCount,
   receiptsOnDay,
+  scopeStockFigures,
+  filterStockProducts,
+  dashboardAccess,
+  MAIN_DASHBOARD_CODES,
+  coveredWarehouseIds,
+  deriveOpenIssues,
+  deriveSalesCount,
+  derivePerformance,
+  monthToDateRange,
+  countDashboardAlerts,
+  filterDashboardAlerts,
+  deriveAllocatedGrams,
+  derivePendingAdjustments,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -37,7 +48,6 @@ import {
   deriveStockFigures,
   figureOrPlaceholder,
   findWarehouseByName,
-  fixtureWarehouseId,
   formatUtilization,
   salesRevenueText,
   sectionStatus,
@@ -310,6 +320,21 @@ function receiptsOf(list: GoodsReceiptDto[]) {
   return d.value;
 }
 
+describe('deriveReceiptFigures: gross received weight counts what arrived, accepted or not (old shell: received kg)', () => {
+  it('sums grossQtyKg in grams, so a receipt still awaiting QC counts as received (its accepted weight is not known yet)', () => {
+    const f = receiptsOf([
+      receipt({ id: '1', grossQtyKg: '0.100', acceptedQtyKg: '0.100' }),
+      receipt({ id: '2', grossQtyKg: '0.200', status: 'AWAITING_QC' }),
+    ]);
+    expect(f.grossGrams).toBe(300);
+    expect(f.acceptedGrams).toBe(100);
+  });
+
+  it('an unreadable gross weight is a data error, not a silent zero', () => {
+    expect(deriveReceiptFigures([receipt({ id: '1', grossQtyKg: 'heavy' })]).ok).toBe(false);
+  });
+});
+
 describe('deriveReceiptFigures: accepted weight in integer grams', () => {
   it('sums accepted kg exactly (0.100 + 0.200 is 300 g) and treats an absent acceptedQtyKg as 0', () => {
     const f = receiptsOf([
@@ -408,35 +433,6 @@ describe('receiptsOnDay: Receipts today must filter by date', () => {
       ),
     );
     expect(f.acceptedGrams).toBe(20000);
-  });
-});
-
-describe("countOrdersPlacedOn: Today's orders must be today's", () => {
-  const order = (id: string, placedAt: string): OrderSummaryDto => ({
-    id,
-    orderNumber: id,
-    status: 'CONFIRMED',
-    totalAmount: '10.00' as OrderSummaryDto['totalAmount'],
-    placedAt,
-  });
-
-  it('counts orders placed on the IST day only', () => {
-    const orders = [order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-19T02:00:00Z'), order('3', '2026-10-17T05:00:00Z')];
-    expect(countOrdersPlacedOn(orders, TODAY, true)).toMatchObject({ count: 2, exact: true });
-    expect(countOrdersPlacedOn(orders, TODAY, true).orders.map((o) => o.id)).toEqual(['1', '2']);
-  });
-
-  it('is exact when the list was read to the end, or when it reached an older order (newest first)', () => {
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, true).exact).toBe(true);
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-01T05:00:00Z')], TODAY, false).exact).toBe(true);
-  });
-
-  it('is NOT exact when the pages ran out while every order read was still today (more may follow)', () => {
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, false)).toMatchObject({ count: 1, exact: false });
-  });
-
-  it('no orders is an exact zero only when the list was complete', () => {
-    expect(countOrdersPlacedOn([], TODAY, true)).toMatchObject({ count: 0, exact: true });
   });
 });
 
@@ -706,9 +702,9 @@ describe('countLabel: a count that may be partial says so', () => {
   });
 });
 
-// ─── Selector flows: live uuids vs the seed codes fixture screens key by ─────
+// ─── Selector flows: every flow is live, so the selection is the uuid ────────
 
-describe('selector ids: a live warehouse resolves on both paths', () => {
+describe('selector ids: a live warehouse resolves by uuid', () => {
   const OOTY = '5b1f1c1e-0000-4000-8000-000000000001';
   const COON = '5b1f1c1e-0000-4000-8000-000000000002';
   const live = [
@@ -723,35 +719,6 @@ describe('selector ids: a live warehouse resolves on both paths', () => {
       { warehouseId: COON, warehouseName: 'Coonoor Warehouse', warehouseCode: 'WH-COON' },
     ]);
     expect(options.find((o) => o.warehouseId === COON)?.warehouseName).toBe('Coonoor Warehouse');
-  });
-
-  it('fixture-keyed screens get the seed code the live list carries: it resolves in the settings and admin fixtures', () => {
-    const code = fixtureWarehouseId(live.find((w) => w.id === OOTY));
-    expect(code).toBe('WH-OOTY');
-    // WarehouseSettingsScreen: values.find((v) => v.warehouseId === warehouseId)
-    expect(WAREHOUSE_SETTINGS.find((v) => v.warehouseId === code)).toBeDefined();
-    // WarehouseCityDetailScreen: warehouses.find((row) => row.warehouseId === warehouseId)
-    expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === code)).toBeDefined();
-    expect(ADMIN_WAREHOUSES.map((w) => w.warehouseId)).toContain(code);
-  });
-
-  it('regression guard: the uuid does NOT resolve in those fixtures, which is why it must not be passed to them', () => {
-    expect(WAREHOUSE_SETTINGS.find((v) => v.warehouseId === OOTY)).toBeUndefined();
-    expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === OOTY)).toBeUndefined();
-  });
-
-  it('every seed code resolves for every seeded warehouse the fixtures hold', () => {
-    const codes = WAREHOUSE_SETTINGS.map((v) => v.warehouseId);
-    expect(codes.length).toBeGreaterThan(0);
-    for (const [i, code] of codes.entries()) {
-      const w = warehouse({ id: `uuid-${i}`, name: `W${i} Warehouse`, code });
-      expect(WAREHOUSE_ADMIN_ROWS.find((row) => row.warehouseId === fixtureWarehouseId(w))).toBeDefined();
-      expect(PROFILE_WAREHOUSES.find((o) => o.warehouseId === fixtureWarehouseId(w))).toBeDefined();
-    }
-  });
-
-  it('no selected warehouse gives no id', () => {
-    expect(fixtureWarehouseId(undefined)).toBeUndefined();
   });
 });
 
@@ -776,5 +743,310 @@ describe('findWarehouseByName: StorageFlow hands names back', () => {
     expect(findWarehouseByName(live, 'Gud')?.id).toBe('b');
     expect(findWarehouseByName(live, 'Mettupalayam')).toBeUndefined();
     expect(findWarehouseByName(live, '')).toBeUndefined();
+  });
+});
+
+// ─── The warehouse filter scopes every figure it feeds ──────────────────────
+
+describe('scopeStockFigures: the header filter narrows the cards and the capacity, not only the batches', () => {
+  const a = warehouse({ id: WH_A, name: 'Ooty Warehouse', capacityKg: '1000.000' });
+  const b = warehouse({ id: WH_B, name: 'Coonoor Warehouse', capacityKg: '3000.000' });
+  // The API already returned only Ooty's batches for the filter; Coonoor has no stock in this read.
+  const ootyOnly = stockOf([batch({ warehouseId: WH_A, qtyAvailableKg: '500.000' })], [a, b]);
+
+  it('with no filter every warehouse stays, unchanged', () => {
+    expect(scopeStockFigures(ootyOnly, undefined)).toEqual(ootyOnly);
+  });
+
+  it('with a filter only that warehouse is a row: the others are not drawn as a false 0 kg', () => {
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.warehouses.map((w) => w.warehouseId)).toEqual([WH_A]);
+  });
+
+  it('BR-66b: utilization is measured against the covered warehouses only (500 of 1000, not 500 of 4000)', () => {
+    expect(ootyOnly.capacity.utilizationBp).toBe(1250);
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.capacity).toMatchObject({ capacityGrams: 1000000, usedGrams: 500000, availableGrams: 500000, utilizationBp: 5000, warehousesWithCapacity: 1 });
+  });
+
+  it('a filter naming a warehouse that is not in the list leaves no rows and no capacity, never the whole network', () => {
+    const scoped = scopeStockFigures(ootyOnly, 'not-a-warehouse');
+    expect(scoped.warehouses).toEqual([]);
+    expect(scoped.capacity).toMatchObject({ capacityGrams: null, utilizationBp: null, warehousesWithCapacity: 0 });
+  });
+
+  it('keeps the batch totals the API returned (they are already filtered server-side)', () => {
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.totalGrams).toBe(500000);
+  });
+});
+
+describe('consolidated stock is per product and grade, and searchable by either', () => {
+  const a = warehouse({ id: WH_A, name: 'Ooty Warehouse' });
+  const b = warehouse({ id: WH_B, name: 'Coonoor Warehouse' });
+  const f = stockOf(
+    [
+      batch({ warehouseId: WH_A, qtyAvailableKg: '10.000', grade: 'GRADE_1' }),
+      batch({ id: 'g2', warehouseId: WH_A, qtyAvailableKg: '5.000', grade: 'GRADE_2' }),
+      batch({ id: 'g1b', warehouseId: WH_B, qtyAvailableKg: '2.500', grade: 'GRADE_1' }),
+      batch({ id: 'bt', warehouseId: WH_B, qtyAvailableKg: '1.000', cropId: BEET, cropName: 'Beetroot', grade: 'GRADE_1' }),
+    ],
+    [a, b],
+  );
+
+  it('keeps grades of one crop apart (Grade 1 and Grade 2 are different stock) and still totals across warehouses', () => {
+    const carrots = f.products.filter((p) => p.cropId === CARROT);
+    expect(carrots).toHaveLength(2);
+    const g1 = carrots.find((p) => p.grade === 'GRADE_1');
+    expect(g1?.totalGrams).toBe(12500);
+    expect(g1?.rows.map((r) => r.grams)).toEqual([10000, 2500]);
+    expect(carrots.find((p) => p.grade === 'GRADE_2')?.totalGrams).toBe(5000);
+  });
+
+  it('every product row has a unique key and a "Product · Grade" label', () => {
+    expect(new Set(f.products.map((p) => p.key)).size).toBe(f.products.length);
+    expect(f.products.find((p) => p.cropId === BEET)?.label).toBe('Beetroot · Grade 1');
+  });
+
+  it('search matches the product or the grade, case-insensitively, and empty search keeps everything', () => {
+    expect(filterStockProducts(f.products, '').length).toBe(f.products.length);
+    expect(filterStockProducts(f.products, 'beet').map((p) => p.product)).toEqual(['Beetroot']);
+    expect(filterStockProducts(f.products, 'grade 2').map((p) => p.grade)).toEqual(['GRADE_2']);
+    expect(filterStockProducts(f.products, 'zzz')).toEqual([]);
+  });
+});
+
+// ─── Permission gating: a figure whose code is not held is not fetched or drawn ─
+
+describe('dashboardAccess: one rbac code per optional dashboard source (docs/rbac.json)', () => {
+  const holding = (...codes: string[]) => (code: string) => codes.includes(code);
+
+  it('fails closed: a user holding nothing sees no optional figure and no transfer action', () => {
+    expect(dashboardAccess(holding())).toEqual({
+      sales: false,
+      transfers: false,
+      issues: false,
+      activity: false,
+      adjustments: false,
+      transferInitiate: false,
+    });
+  });
+
+  it('each flag follows its own code and no other', () => {
+    expect(dashboardAccess(holding('sales.dashboard.view')).sales).toBe(true);
+    expect(dashboardAccess(holding('sales.dashboard.view')).transfers).toBe(false);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.view')).transfers).toBe(true);
+    expect(dashboardAccess(holding('warehouse.issue.view')).issues).toBe(true);
+    expect(dashboardAccess(holding('warehouse.activity.view')).activity).toBe(true);
+    expect(dashboardAccess(holding('inventory.stock_adjustment.approve')).adjustments).toBe(true);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.initiate')).transferInitiate).toBe(true);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.view')).transferInitiate).toBe(false);
+  });
+
+  it('uses only codes that exist in docs/rbac.json (a code that does not exist would gate a figure off for everyone)', () => {
+    const rbac = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', '..', 'docs', 'rbac.json'), 'utf8');
+    for (const code of Object.values(MAIN_DASHBOARD_CODES)) {
+      expect({ code, known: rbac.includes(`"${code}"`) }).toEqual({ code, known: true });
+    }
+  });
+});
+
+// ─── Open issues: the real operational issues, not the alert count ──────────
+
+describe('coveredWarehouseIds: the warehouses a filter covers', () => {
+  const live = [warehouse({ id: WH_A, name: 'Ooty Warehouse' }), warehouse({ id: WH_B, name: 'Coonoor Warehouse' })];
+
+  it('no filter covers every listed warehouse', () => {
+    expect(coveredWarehouseIds(live, undefined)).toEqual([WH_A, WH_B]);
+  });
+
+  it('a filter covers that warehouse only', () => {
+    expect(coveredWarehouseIds(live, WH_B)).toEqual([WH_B]);
+  });
+
+  it('a filter that is not a listed warehouse covers nothing, never the whole network', () => {
+    expect(coveredWarehouseIds(live, 'gone')).toEqual([]);
+  });
+});
+
+describe('BR-103: deriveOpenIssues', () => {
+  it('sums the per-warehouse counts over the covered warehouses and keeps each warehouse\'s own', () => {
+    const d = deriveOpenIssues({ [WH_A]: 5, [WH_B]: 4 }, [WH_A, WH_B]);
+    expect(d).toEqual({ ok: true, value: { total: 9, byWarehouse: { [WH_A]: 5, [WH_B]: 4 } } });
+  });
+
+  it('only the covered warehouses count', () => {
+    const d = deriveOpenIssues({ [WH_A]: 5, [WH_B]: 4 }, [WH_A]);
+    expect(d.ok && d.value.total).toBe(5);
+  });
+
+  it('zero open issues is a real, exact 0', () => {
+    const d = deriveOpenIssues({ [WH_A]: 0 }, [WH_A]);
+    expect(d).toEqual({ ok: true, value: { total: 0, byWarehouse: { [WH_A]: 0 } } });
+  });
+
+  it('a covered warehouse with no count, or a count that is not a whole number, is a data error and not a smaller total', () => {
+    expect(deriveOpenIssues({ [WH_A]: 5 }, [WH_A, WH_B]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: 2.5 }, [WH_A]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: -1 }, [WH_A]).ok).toBe(false);
+    expect(deriveOpenIssues({ [WH_A]: 'many' as unknown as number }, [WH_A]).ok).toBe(false);
+  });
+});
+
+describe('deriveSalesCount: the number of paid sales behind the revenue', () => {
+  it('reads the server count as a whole number', () => {
+    expect(deriveSalesCount({ count: 12 })).toEqual({ ok: true, value: 12 });
+    expect(deriveSalesCount({ count: 0 })).toEqual({ ok: true, value: 0 });
+  });
+
+  it('a missing or fractional count is a data error, never 0', () => {
+    expect(deriveSalesCount({} as { count: number }).ok).toBe(false);
+    expect(deriveSalesCount({ count: 1.5 }).ok).toBe(false);
+    expect(deriveSalesCount({ count: -1 }).ok).toBe(false);
+  });
+});
+
+// ─── Performance (BR-80): exact server counts for a range ───────────────────
+
+describe('monthToDateRange: the IST month so far, from utils/datetime', () => {
+  it('runs from the 1st of the IST month to the IST day', () => {
+    expect(monthToDateRange(new Date('2026-10-20T08:00:00Z'))).toEqual({ from: '2026-10-01', to: '2026-10-20' });
+  });
+
+  it('uses the IST calendar, not UTC: 19:00 UTC on 31 Oct is already 1 Nov in India', () => {
+    expect(monthToDateRange(new Date('2026-10-31T19:00:00Z'))).toEqual({ from: '2026-11-01', to: '2026-11-01' });
+  });
+
+  it('the 1st of the month is a one-day range', () => {
+    expect(monthToDateRange(new Date('2026-10-01T03:00:00Z'))).toEqual({ from: '2026-10-01', to: '2026-10-01' });
+  });
+});
+
+describe('BR-80: derivePerformance', () => {
+  const totals = {
+    goodsReceipts: 4,
+    grossGrams: 100501,
+    acceptedGrams: 90001,
+    rejectedGrams: 10500,
+    ordersPlaced: 7,
+    ordersFulfilled: 4,
+    ordersCancelled: 2,
+    returnsRequested: 2,
+  };
+
+  it('passes exact counts and integer grams through', () => {
+    const d = derivePerformance(totals);
+    expect(d).toEqual({ ok: true, value: totals });
+    expect(d.ok && Number.isInteger(d.value.grossGrams)).toBe(true);
+  });
+
+  it('a quantity the sum could not read (null grams) is a data error, never shown as 0 kg', () => {
+    expect(derivePerformance({ ...totals, grossGrams: null }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, acceptedGrams: null }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, rejectedGrams: null }).ok).toBe(false);
+  });
+
+  // Order Fulfilment (Placed / Fulfilled / Cancelled) now reads these three counts directly, so a
+  // malformed one must fail the card into its error state rather than draw a wrong number.
+  it('BR-80: each of the Order Fulfilment counts (placed, fulfilled, cancelled) that is not a whole number is a data error', () => {
+    for (const field of ['ordersPlaced', 'ordersFulfilled', 'ordersCancelled'] as const) {
+      expect(derivePerformance({ ...totals, [field]: 2.5 }).ok).toBe(false);
+      expect(derivePerformance({ ...totals, [field]: -1 }).ok).toBe(false);
+    }
+  });
+
+  it('a count that is not a whole number is a data error', () => {
+    expect(derivePerformance({ ...totals, ordersPlaced: 1.5 }).ok).toBe(false);
+    expect(derivePerformance({ ...totals, returnsRequested: Number.NaN }).ok).toBe(false);
+  });
+});
+
+// ─── Alerts: snoozed state and the type filter (BR-78) ──────────────────────
+
+describe('BR-78: toDashboardAlerts carries the snooze state the server sent', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+
+  it('an active alert is not snoozed and has no snooze time', () => {
+    const [a] = toDashboardAlerts([alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK' })], warehouses, NOW);
+    expect(a).toMatchObject({ snoozed: false, snoozedUntil: null });
+  });
+
+  it('a snoozed alert says it is snoozed and until when, in IST, worded by the catalogue', () => {
+    const [a] = toDashboardAlerts(
+      [alertDto({ itemKey: 'low_stock:x', type: 'LOW_STOCK', state: 'SNOOZED', snoozedUntil: '2026-10-19T09:30:00Z' })],
+      warehouses,
+      NOW,
+    );
+    expect(a?.snoozed).toBe(true);
+    expect(a?.snoozedUntil).toMatch(/3:00 PM|03:00 PM/);
+  });
+});
+
+describe('alert type filter: counts and filtering over what the server returned', () => {
+  const warehouses = [warehouse({ id: WH_A, name: 'Ooty Warehouse' })];
+  const alerts = toDashboardAlerts(
+    [
+      alertDto({ itemKey: 'low_stock:a', type: 'LOW_STOCK' }),
+      alertDto({ itemKey: 'low_stock:b', type: 'LOW_STOCK' }),
+      alertDto({ itemKey: 'batch_near_expiry:c', type: 'BATCH_NEAR_EXPIRY' }),
+    ],
+    warehouses,
+    NOW,
+  );
+
+  it('counts every type, with all being the whole list and a type with none being a real 0', () => {
+    expect(countDashboardAlerts(alerts)).toEqual({ all: 3, LOW_STOCK: 2, BATCH_NEAR_EXPIRY: 1, CAPACITY_NEAR_FULL: 0 });
+  });
+
+  it('all keeps every alert; a type keeps only that type, in order', () => {
+    expect(filterDashboardAlerts(alerts, 'all')).toHaveLength(3);
+    expect(filterDashboardAlerts(alerts, 'LOW_STOCK').map((a) => a.id)).toEqual(['low_stock:a', 'low_stock:b']);
+    expect(filterDashboardAlerts(alerts, 'CAPACITY_NEAR_FULL')).toEqual([]);
+  });
+
+  it('a type the app does not know still counts under all, and is never shown under a known type', () => {
+    const odd = toDashboardAlerts([alertDto({ itemKey: 'x:1', type: 'SOMETHING_NEW' as AlertItemDto['type'] })], warehouses, NOW);
+    expect(countDashboardAlerts(odd)).toEqual({ all: 1, LOW_STOCK: 0, BATCH_NEAR_EXPIRY: 0, CAPACITY_NEAR_FULL: 0 });
+    expect(filterDashboardAlerts(odd, 'LOW_STOCK')).toEqual([]);
+    expect(filterDashboardAlerts(odd, 'all')).toHaveLength(1);
+  });
+});
+
+// ─── Inventory tab: allocated stock and pending adjustments ─────────────────
+
+describe('deriveAllocatedGrams: stock allocated to channels, as integer grams', () => {
+  const alloc = (over: Partial<AllocationDto> & Pick<AllocationDto, 'allocatedQtyKg'>): AllocationDto => ({
+    id: `a-${over.allocatedQtyKg}`,
+    warehouseId: WH_A,
+    cropId: CARROT,
+    grade: 'GRADE_1',
+    allocationDate: '2026-10-20',
+    channel: 'ONLINE',
+    ...over,
+  });
+
+  it('0.100 kg + 0.200 kg is exactly 300 g', () => {
+    expect(deriveAllocatedGrams([alloc({ allocatedQtyKg: '0.100' }), alloc({ id: 'b', allocatedQtyKg: '0.200' })])).toEqual({ ok: true, value: 300 });
+  });
+
+  it('no allocations is a real, exact 0', () => {
+    expect(deriveAllocatedGrams([])).toEqual({ ok: true, value: 0 });
+  });
+
+  it('an unreadable quantity is a data error, never a silently smaller total', () => {
+    expect(deriveAllocatedGrams([alloc({ allocatedQtyKg: '5.000' }), alloc({ id: 'x', allocatedQtyKg: 'lots' })]).ok).toBe(false);
+  });
+});
+
+describe('BR-37: derivePendingAdjustments', () => {
+  it('is the server total of PENDING adjustments, a whole number', () => {
+    expect(derivePendingAdjustments(3)).toEqual({ ok: true, value: 3 });
+    expect(derivePendingAdjustments(0)).toEqual({ ok: true, value: 0 });
+  });
+
+  it('a total that is not a whole number is a data error, never 0', () => {
+    expect(derivePendingAdjustments(undefined).ok).toBe(false);
+    expect(derivePendingAdjustments(2.5).ok).toBe(false);
+    expect(derivePendingAdjustments('3').ok).toBe(false);
   });
 });

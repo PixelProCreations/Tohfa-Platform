@@ -9,9 +9,8 @@
  * most); the screens' mappers turn them into integer grams. Ids are uuids;
  * `batchCode` is the human code.
  *
- * No write lives here: POST /admin/stock-adjustments is in the spec but the
- * server has no route for it, and there is no list or approve endpoint for
- * adjustments, so the app offers none (spec gap).
+ * No write lives here: stock adjustments (BR-37) and physical counts (BR-107)
+ * have their own clients, ./stockAdjustments.ts and ./stockVerifications.ts.
  *
  * The functions send a warehouseId only when the caller passes one. The server
  * scopes every call to the caller's own warehouse anyway (BR-30); a Sub screen

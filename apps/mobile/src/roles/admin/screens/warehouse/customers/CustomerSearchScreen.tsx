@@ -15,7 +15,6 @@
  */
 import React, { useState } from 'react';
 import {
-  Alert,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -26,7 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { CUSTOMER_WALLET_TRANSACTIONS } from '../wallet-cashtopup/fixtures';
 import { LOOKUP_NO_MATCH_KEY, type LookupView, type TopUpCustomer } from '../wallet-cashtopup/mappers';
@@ -67,23 +66,6 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
         strokeWidth="2"
         strokeLinecap="round"
       />
-    </Svg>
-  );
-}
-
-function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <Rect x="8" y="8" width="3" height="3" fill={color} />
-      <Rect x="13" y="8" width="3" height="3" fill={color} />
-      <Rect x="8" y="13" width="3" height="3" fill={color} />
-      <Rect x="13" y="13" width="3" height="3" fill={color} />
     </Svg>
   );
 }
@@ -330,12 +312,7 @@ export function CustomerSearchScreen({
             autoFocus={true}
             clearButtonMode="while-editing"
           />
-          <TouchableOpacity
-            onPress={() => Alert.alert('QR Scanner', 'Opening QR & Barcode scanner...')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <QrScanIcon size={20} color={adminColors.muted} />
-          </TouchableOpacity>
+          {/* The QR scanner button was a placeholder alert with no scanner behind it; removed. */}
         </View>
 
         {/* Read-only scope indicator, not a toggle. Main Warehouse searches every

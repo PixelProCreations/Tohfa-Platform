@@ -1,172 +1,255 @@
-import React, { useState } from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+/**
+ * Sale Summary (design M6-S04): prices the cart through POST /admin/sales/quote
+ * (sales.sale.create, BR-89, BR-98) and shows exactly what the server returned.
+ * Nothing about money is computed here: lines, subtotal, GST and total all come
+ * from the quote, and the quote's own total is what Payment echoes back as
+ * `expectedTotal`. Editing a quantity or removing a line re-quotes.
+ *
+ * A 409 SALE_STOCK_CHANGED (stock moved since the products were listed) shows
+ * through adminErrorKey with a Retry.
+ */
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import type { SaleProduct, WarehouseScope, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminType } from '../../../theme';
+import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
-import { cartTotalPaise, lineTotalPaise } from './salesMath';
+import { formatKg, gramsToKgString, parseKgToGrams } from '../../../money/quantity';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import {
+  buildQuoteRequest,
+  cartItemRequests,
+  cartLineKey,
+  setCartQty,
+  type CartLine,
+  type SaleProductView,
+  type SaleQuoteView,
+} from './mappers';
+import { GRADE_KEY, SALE_CHANNEL_KEY } from './salesLabels';
+import { isAllWarehouses } from './SalesParts';
+import type { WarehouseScreenBaseProps } from './types';
+import { useQuoteSaleMutation } from './useSalesData';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function UserIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M5 12h14M12 5l7 7-7 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
-}
-
-function CheckCircleIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M22 4L12 14.01l-3-3"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-interface CartItem {
-  id: string;
-  name: string;
-  grade: string;
-  quantityKg: number;
-  pricePerKg: number;
-}
-
-const SAMPLE_CART: CartItem[] = [
-  {
-    id: 'tomato-1',
-    name: 'Tomato',
-    grade: 'Grade 1',
-    quantityKg: 2,
-    pricePerKg: 100,
-  },
-  {
-    id: 'carrot-1',
-    name: 'Carrot',
-    grade: 'Grade 1',
-    quantityKg: 1,
-    pricePerKg: 120,
-  },
-];
-
-/** Cart lines from the products picked on Select Products (Main's Sale Summary slice, M6-S04). */
-function cartFromProducts(products: readonly SaleProduct[] | undefined): CartItem[] {
-  if (!products || products.length === 0) return SAMPLE_CART;
-  return products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    grade: p.grade,
-    quantityKg: p.selectedQty ?? 1,
-    pricePerKg: p.pricePerKg,
-  }));
 }
 
 // Design id: M6-S04
 export interface SaleSummaryScreenProps extends WarehouseScreenBaseProps {
-  /** Products picked on Select Products; a sample cart when absent. */
-  items?: readonly SaleProduct[] | undefined;
-  /** Warehouse holding the stock for this sale */
-  saleWarehouse?: WarehouseScope | undefined;
-  /** Direct sales channel (defaults to 'Direct Sale') */
-  channel?: string | undefined;
-  /** Continue with the (possibly edited) cart total and line count. */
-  onContinueToCustomer: (total: number, itemsCount: number) => void;
+  channel: 'DIRECT' | 'MARKET';
+  saleWarehouseId: string | undefined;
+  cart: readonly CartLine[];
+  onChangeCart: (cart: CartLine[]) => void;
+  /** Called with the server quote for the current cart. */
+  onContinue: (quote: SaleQuoteView) => void;
+}
+
+/** setCartQty takes a product; a cart line carries every field it reads. */
+function lineAsProduct(line: CartLine): SaleProductView {
+  return {
+    productId: line.productId,
+    name: line.name,
+    grade: line.grade,
+    unitPricePaise: line.unitPricePaise,
+    availableGrams: line.availableGrams,
+    batchCode: null,
+    storageLocation: null,
+  };
 }
 
 export function SaleSummaryScreen({
-  items,
-  saleWarehouse,
-  channel = 'Direct Sale',
   scope,
+  can,
   onBack,
-  onContinueToCustomer,
+  channel,
+  saleWarehouseId,
+  cart,
+  onChangeCart,
+  onContinue,
 }: SaleSummaryScreenProps) {
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => cartFromProducts(items));
+  const canCreate = can('sales.sale.create');
+  const quoteMutation = useQuoteSaleMutation();
+  const { mutate } = quoteMutation;
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const newQty = Math.max(1, item.quantityKg + delta);
-          return { ...item, quantityKg: newQty };
-        }
-        return item;
-      })
+  // What the quote is for: the item requests plus channel and warehouse. A
+  // quote is only usable while it still matches this key.
+  const requestKey = JSON.stringify({ channel, saleWarehouseId, items: cartItemRequests(cart) });
+  const [quoted, setQuoted] = useState<{ key: string; quote: SaleQuoteView } | null>(null);
+  const isEmpty = cartItemRequests(cart).length === 0;
+
+  const requestQuote = () => {
+    if (!canCreate || isEmpty) return;
+    const key = requestKey;
+    mutate(buildQuoteRequest(channel, cart, saleWarehouseId), {
+      onSuccess: (quote) => setQuoted({ key, quote }),
+    });
+  };
+
+  useEffect(() => {
+    requestQuote();
+    // requestKey captures every input of the request.
+  }, [requestKey, canCreate]);
+
+  const current = quoted !== null && quoted.key === requestKey && !quoteMutation.isPending ? quoted.quote : null;
+
+  // Quantity drafts, committed on end-editing so typing does not re-quote per key.
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+  const [qtyError, setQtyError] = useState<Record<string, boolean>>({});
+
+  const commitQty = (line: CartLine) => {
+    const key = cartLineKey(line);
+    const draft = qtyDraft[key];
+    if (draft === undefined) return;
+    const grams = parseKgToGrams(draft);
+    if (grams === null || grams <= 0) {
+      setQtyError((prev) => ({ ...prev, [key]: true }));
+      return;
+    }
+    setQtyError((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setQtyDraft((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (grams !== line.qtyGrams) onChangeCart(setCartQty(cart, lineAsProduct(line), grams));
+  };
+
+  const removeLine = (line: CartLine) => {
+    const key = cartLineKey(line);
+    setQtyDraft((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    onChangeCart(setCartQty(cart, lineAsProduct(line), 0));
+  };
+
+  let body: React.ReactNode;
+  if (!canCreate) {
+    body = <AdminEmptyState title={t('sales.common.noPermission')} />;
+  } else if (isEmpty) {
+    body = <AdminEmptyState title={t('sales.summary.empty')} />;
+  } else if (quoteMutation.isPending) {
+    body = <AdminLoadingState label={t('sales.summary.quoting')} />;
+  } else if (quoteMutation.error) {
+    body = <AdminErrorState error={quoteMutation.error} onRetry={requestQuote} />;
+  } else if (current === null) {
+    body = <AdminLoadingState label={t('sales.summary.quoting')} />;
+  } else {
+    body = (
+      <>
+        {/* ─── 1. Sale Items (server lines) ─── */}
+        <Text style={styles.sectionHeading}>{t('sales.summary.items')}</Text>
+        <View style={styles.card}>
+          {current.lines.map((qLine, idx) => {
+            const key = cartLineKey(qLine);
+            const cartLine = cart.find((l) => cartLineKey(l) === key);
+            return (
+              <View key={key}>
+                {idx > 0 && <View style={styles.divider} />}
+                <View style={styles.itemRow}>
+                  <View style={styles.itemLeft}>
+                    <Text style={styles.itemName}>{qLine.name}</Text>
+                    <Text style={styles.itemSubtitle}>
+                      {t('sales.summary.lineDetail', {
+                        grade: t(GRADE_KEY[qLine.grade]),
+                        qty: formatKg(qLine.qtyGrams),
+                        price: formatPaise(qLine.unitPricePaise),
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemPrice}>{formatPaise(qLine.lineTotalPaise)}</Text>
+                </View>
+                {cartLine ? (
+                  <View style={styles.editRow}>
+                    <TextInput
+                      style={[styles.qtyInput, qtyError[key] && styles.qtyInputError]}
+                      value={qtyDraft[key] ?? gramsToKgString(cartLine.qtyGrams)}
+                      onChangeText={(text) => setQtyDraft((prev) => ({ ...prev, [key]: text }))}
+                      onEndEditing={() => commitQty(cartLine)}
+                      onSubmitEditing={() => commitQty(cartLine)}
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                      accessibilityLabel={t('sales.summary.qtyLabel', { name: qLine.name })}
+                    />
+                    <TouchableOpacity
+                      onPress={() => removeLine(cartLine)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('sales.summary.removeLabel', { name: qLine.name })}
+                    >
+                      <Text style={styles.removeText}>{t('sales.summary.remove')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+                {qtyError[key] ? <Text style={styles.errorText}>{t('sales.summary.qtyInvalid')}</Text> : null}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* ─── 2. Pricing (server totals) ─── */}
+        <Text style={styles.sectionHeading}>{t('sales.summary.pricing')}</Text>
+        <View style={styles.card}>
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>{t('sales.summary.subtotal')}</Text>
+            <Text style={styles.breakdownValue}>{formatPaise(current.subtotalPaise)}</Text>
+          </View>
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>{t('sales.summary.gst', { rate: current.gstRatePercent })}</Text>
+            <Text style={styles.breakdownValue}>{formatPaise(current.gstPaise)}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.breakdownRow}>
+            <Text style={styles.totalLabel}>{t('sales.summary.total')}</Text>
+            <Text style={styles.totalValue}>{formatPaise(current.totalPaise)}</Text>
+          </View>
+        </View>
+
+        {/* ─── 3. Sale Information ─── */}
+        <Text style={styles.sectionHeading}>{t('sales.summary.saleInfo')}</Text>
+        <View style={styles.card}>
+          <View style={styles.saleInfoRow}>
+            {!isAllWarehouses(scope) && scope.warehouseName ? (
+              <View style={styles.flex}>
+                <Text style={styles.saleInfoLabel}>{t('sales.summary.warehouse')}</Text>
+                <Text style={styles.saleInfoValue}>{scope.warehouseName}</Text>
+              </View>
+            ) : null}
+            <View style={styles.flex}>
+              <Text style={styles.saleInfoLabel}>{t('sales.summary.channel')}</Text>
+              <Text style={styles.saleInfoValue}>{t(SALE_CHANNEL_KEY[channel])}</Text>
+            </View>
+          </View>
+        </View>
+      </>
     );
-  };
+  }
 
-  const removeItem = (id: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Integer paise (CLAUDE.md 2.2); the rupee number handed to onContinueToCustomer
-  // is paise / 100, which PaymentScreen converts back through the same helpers.
-  const subtotalPaise = cartTotalPaise(cartItems);
-  const discount = 0;
-  const gst = 0;
-  const totalPaise = subtotalPaise - discount + gst;
-
-  // Warehouse name resolution
-  const warehouseDisplayName =
-    saleWarehouse?.warehouseName?.replace(/ Warehouse$/, '') ??
-    scope.warehouseName?.replace(/ Warehouse$/, '') ??
-    'Coonoor';
-
-  const handleContinue = () => onContinueToCustomer(totalPaise / 100, cartItems.length);
+  const canContinue = current !== null && Object.keys(qtyDraft).length === 0;
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -174,139 +257,43 @@ export function SaleSummaryScreen({
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('sales.common.back')}
           >
             <ArrowBackIcon size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sale Summary</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header">
+            {t('sales.summary.title')}
+          </Text>
         </View>
       </View>
 
-      {/* ─── Main Content ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* ─── 1. Sale Items ─── */}
-        <Text style={styles.sectionHeading}>Sale Items</Text>
-        <View style={styles.card}>
-          {cartItems.map((item, idx) => {
-            const itemTotal = formatPaise(lineTotalPaise(item.pricePerKg, item.quantityKg));
-            const isTomato = idx === 0;
-
-            return (
-              <View key={item.id}>
-                {idx > 0 && <View style={styles.divider} />}
-                <View style={styles.itemRow}>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemSubtitle}>
-                      {item.grade} · {item.quantityKg} KG × ₹{item.pricePerKg}
-                    </Text>
-                  </View>
-
-                  <View style={styles.itemRightCol}>
-                    <Text style={styles.itemPrice}>{itemTotal}</Text>
-                    {isTomato ? (
-                      <View style={styles.stepperWrap}>
-                        <TouchableOpacity
-                          style={styles.stepperBtn}
-                          onPress={() => updateQuantity(item.id, -1)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.stepperBtnText}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.stepperValue}>{item.quantityKg}</Text>
-                        <TouchableOpacity
-                          style={styles.stepperBtn}
-                          onPress={() => updateQuantity(item.id, 1)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.stepperBtnText}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => removeItem(item.id)}
-                        activeOpacity={0.7}
-                        style={{ marginTop: 4 }}
-                      >
-                        <Text style={styles.removeText}>Remove</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-
-          {cartItems.length === 0 && (
-            <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: adminColors.muted, ...adminType.body }}>
-                No items in cart
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ─── 2. Pricing ─── */}
-        <Text style={styles.sectionHeading}>Pricing</Text>
-        <View style={styles.card}>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Subtotal</Text>
-            <Text style={styles.breakdownValue}>{formatPaise(subtotalPaise)}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Discount</Text>
-            <Text style={styles.breakdownValue}>₹{discount}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>GST</Text>
-            <Text style={styles.breakdownValue}>₹{gst}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={[styles.breakdownRow, { paddingTop: 6, paddingBottom: 2 }]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{formatPaise(totalPaise)}</Text>
-          </View>
-        </View>
-
-        {/* ─── 3. Stock Validation ─── */}
-        <Text style={styles.sectionHeading}>Stock Validation</Text>
-        <View style={[styles.card, styles.stockValidationCard]}>
-          <CheckCircleIcon size={20} color={adminColors.success.text} />
-          <Text style={styles.stockValidationText}>All products available</Text>
-        </View>
-
-        {/* ─── 4. Sale Information ─── */}
-        <Text style={styles.sectionHeading}>Sale Information</Text>
-        <View style={styles.card}>
-          <View style={styles.saleInfoRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.saleInfoLabel}>Warehouse</Text>
-              <Text style={styles.saleInfoValue}>{warehouseDisplayName}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.saleInfoLabel}>Channel</Text>
-              <Text style={styles.saleInfoValue}>{channel}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Bottom Action Button ─── */}
-        <TouchableOpacity
-          style={styles.continueBtn}
-          onPress={handleContinue}
-          activeOpacity={0.85}
-        >
-          <UserIcon size={20} color={adminColors.onBrand} />
-          <Text style={styles.continueBtnText}>Continue to Customer</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 24 }} />
+        {body}
       </ScrollView>
+
+      {canCreate && !isEmpty ? (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.continueBtn, !canContinue && styles.btnDisabled]}
+            onPress={() => {
+              if (current !== null) onContinue(current);
+            }}
+            disabled={!canContinue}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canContinue }}
+          >
+            <ArrowRightIcon size={18} />
+            <Text style={styles.continueBtnText}>{t('sales.summary.continue')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -315,6 +302,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
+  },
+  flex: {
+    flex: 1,
   },
   headerBanner: {
     backgroundColor: adminColors.brand,
@@ -336,12 +326,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: 0.2,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 24,
@@ -366,6 +356,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
+  itemLeft: {
+    flex: 1,
+    paddingRight: 8,
+  },
   itemName: {
     ...adminType.title,
     color: adminColors.ink,
@@ -375,41 +369,34 @@ const styles = StyleSheet.create({
     ...adminType.body,
     color: adminColors.muted,
   },
-  itemRightCol: {
-    alignItems: 'flex-end',
-  },
   itemPrice: {
     ...adminType.title,
     color: adminColors.ink,
-    marginBottom: 4,
   },
-  stepperWrap: {
+  editRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 20,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    gap: 6,
+    justifyContent: 'space-between',
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.md,
   },
-  stepperBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnText: {
-    ...adminType.sectionHead,
+  qtyInput: {
+    flex: 1,
+    ...adminType.body,
     color: adminColors.ink,
-    marginTop: -1,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
-  stepperValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    minWidth: 16,
-    textAlign: 'center',
+  qtyInputError: {
+    borderColor: adminColors.danger.text,
+  },
+  errorText: {
+    ...adminType.rowMeta,
+    color: adminColors.danger.text,
+    marginTop: adminSpacing.xs,
   },
   removeText: {
     ...adminType.sectionHead,
@@ -419,11 +406,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: adminColors.border,
     marginVertical: 12,
-  },
-  thickDivider: {
-    height: 1.5,
-    backgroundColor: adminColors.ink,
-    marginVertical: 10,
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -447,55 +429,6 @@ const styles = StyleSheet.create({
     ...adminType.title,
     color: adminColors.ink,
   },
-  marketRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  marketLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  marketValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    lineHeight: 19,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginTop: 14,
-    marginBottom: 12,
-  },
-  infoBannerText: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.info.text,
-    lineHeight: 17,
-  },
-  bottomBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 20,
-    backgroundColor: adminColors.canvas,
-  },
-  stockValidationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-  },
-  stockValidationText: {
-    ...adminType.title,
-    color: adminColors.success.text,
-  },
   saleInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -509,6 +442,12 @@ const styles = StyleSheet.create({
     ...adminType.title,
     color: adminColors.ink,
   },
+  bottomBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 20,
+    backgroundColor: adminColors.canvas,
+  },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -517,7 +456,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
-    marginTop: 18,
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
   continueBtnText: {
     color: adminColors.onBrand,

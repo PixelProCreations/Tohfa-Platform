@@ -1,31 +1,25 @@
+/**
+ * Issue Submitted / Request Submitted confirmation.
+ *
+ * Operational mode: shown after POST /warehouses/{id}/issues succeeded;
+ * `submittedId` is the server's issue number and "View Issue" opens the
+ * created issue (`onViewIssue`). A new issue always starts OPEN (BR-103), so
+ * the status shown is the server's rule, not a guess.
+ *
+ * Support mode (Help & Support, ProfileFlow): unchanged behaviour, no View
+ * Issue button unless the host asks for it.
+ */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import {
-  WalletButton,
-  WalletFooter,
-  WalletScreen,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { WalletButton, WalletFooter, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { issueStatusLabel } from './mappers';
 import type { ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
-function EyeIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function GreenCheckCircleIcon({ size = 56, color = '#0D8A68' }: { size?: number; color?: string }) {
+function SuccessIcon({ size = 56, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.4" />
@@ -38,14 +32,17 @@ export interface IssueSubmittedScreenProps extends WarehouseScreenBaseProps {
   mode?: ReportIssueMode | undefined;
   submittedId?: string | undefined;
   onDone: () => void;
+  /** Operational mode: open the created issue. Defaults to onDone. */
+  onViewIssue?: (() => void) | undefined;
   showViewIssueButton?: boolean | undefined;
 }
 
 export function IssueSubmittedScreen({
   onBack,
   mode = 'operational',
-  submittedId = 'ISS-0029',
+  submittedId,
   onDone,
+  onViewIssue,
   showViewIssueButton,
 }: IssueSubmittedScreenProps) {
   const isSupport = mode === 'support';
@@ -54,34 +51,36 @@ export function IssueSubmittedScreen({
 
   return (
     <WalletScreen
-      title="Issue Submitted"
+      title={t('storageOps.submitted.title')}
       onBack={handleBack}
       footer={
         showButton ? (
           <WalletFooter>
-            <WalletButton
-              label="View Issue"
-              icon={<EyeIcon />}
-              onPress={onDone}
-            />
+            <WalletButton label={t('storageOps.submitted.view')} onPress={onViewIssue ?? onDone} />
+            {onViewIssue !== undefined ? (
+              <>
+                <View style={styles.gap} />
+                <WalletButton label={t('storageOps.submitted.done')} variant="neutral" onPress={onDone} />
+              </>
+            ) : null}
           </WalletFooter>
         ) : undefined
       }
     >
       <ScrollView contentContainerStyle={[walletLayout.scrollContent, styles.content]} showsVerticalScrollIndicator={false}>
         <View style={styles.iconWrap}>
-          <GreenCheckCircleIcon size={56} />
+          <SuccessIcon />
         </View>
-        <Text style={styles.title}>Issue Submitted</Text>
+        <Text style={styles.title}>{t('storageOps.submitted.title')}</Text>
 
         <View style={styles.card}>
           <View style={styles.column}>
-            <Text style={styles.label}>Issue ID</Text>
-            <Text style={styles.value}>{submittedId}</Text>
+            <Text style={styles.label}>{t('storageOps.submitted.id')}</Text>
+            <Text style={styles.value}>{submittedId ?? t('storageOps.notAvailable')}</Text>
           </View>
           <View style={styles.column}>
-            <Text style={styles.label}>Status</Text>
-            <Text style={styles.value}>Open</Text>
+            <Text style={styles.label}>{t('storageOps.submitted.status')}</Text>
+            <Text style={styles.value}>{issueStatusLabel('OPEN')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -90,42 +89,21 @@ export function IssueSubmittedScreen({
 }
 
 const styles = StyleSheet.create({
-  content: {
-    alignItems: 'center',
-    paddingTop: 48,
-  },
-  iconWrap: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0F172A',
-    textAlign: 'center',
-    marginBottom: 28,
-  },
+  content: { alignItems: 'center', paddingTop: adminSpacing.xxl },
+  iconWrap: { marginBottom: adminSpacing.lg },
+  gap: { height: adminSpacing.sm },
+  title: { ...adminType.title, color: adminColors.ink, textAlign: 'center', marginBottom: adminSpacing.xl },
   card: {
     width: '100%',
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
     justifyContent: 'space-between',
   },
-  column: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 6,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
+  column: { flex: 1 },
+  label: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  value: { ...adminType.sectionHead, color: adminColors.ink },
 });

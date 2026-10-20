@@ -1,28 +1,31 @@
-import React, { useState } from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+/**
+ * New Sale (design M6-S02): the start of a counter sale. Picks the channel,
+ * the warehouse (all-scope actors only; a Sub admin sells at its own, BR-85f),
+ * shows the buyer and the cart so far. No price is shown here: the server
+ * quote on Sale Summary is the only authority on money (BR-89).
+ *
+ * Gated on sales.sale.create (docs/rbac.json). Hiding the screen is
+ * presentation only; every sales endpoint re-checks the permission.
+ */
+import React from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors, adminType } from '../../../theme';
+import type { WarehouseOption } from '../../../api/warehouseList';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { cartLineKey, type CartLine, type SaleBuyerInput } from './mappers';
+import { GRADE_KEY, SALE_CHANNEL_KEY } from './salesLabels';
+import { isAllWarehouses, WarehouseChips } from './SalesParts';
+import type { WarehouseScreenBaseProps } from './types';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -36,10 +39,10 @@ function LockIcon({ size = 12, color = adminColors.warning.text }: { size?: numb
   );
 }
 
-function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 6l6 6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -49,7 +52,13 @@ function EmptyCartIcon({ size = 56, color = adminColors.border }: { size?: numbe
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="21" r="1.5" stroke={color} strokeWidth="1.6" />
       <Circle cx="19" cy="21" r="1.5" stroke={color} strokeWidth="1.6" />
-      <Path d="M2.5 3h3.2l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6l1.8-8.2H6.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M2.5 3h3.2l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6l1.8-8.2H6.5"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -62,156 +71,217 @@ function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-import { WarehouseChips } from './SalesParts';
-import type { SaleProduct, WarehouseScreenBaseProps } from './types';
+const CHANNELS: readonly ('DIRECT' | 'MARKET')[] = ['DIRECT', 'MARKET'];
 
 // Design id: M6-S02
-// No direct/walk-in sale code exists in docs/rbac.json (SPEC_GAPS "Sales
-// Direct" #110): ungated, and a Sub admin is locked to its own warehouse.
 export interface NewSaleScreenProps extends WarehouseScreenBaseProps {
-  /** Customer already chosen (from Select Customer or the caller), shown on the card. */
-  customerLabel?: string | undefined;
-  /** Main only: the warehouse the sale is made from (Main's warehouse selector, M6-S02). */
-  saleWarehouseId?: string | undefined;
-  onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
-  /** Products already picked (Main's "Current Cart", M6-S02). */
-  cartItems?: readonly SaleProduct[] | undefined;
+  channel: 'DIRECT' | 'MARKET';
+  onChangeChannel: (channel: 'DIRECT' | 'MARKET') => void;
+  /** The warehouse the sale is made from: scope.warehouseId for a Sub, the pick for an all-scope actor. */
+  saleWarehouseId: string | undefined;
+  warehouseOptions: readonly WarehouseOption[];
+  warehousesLoading: boolean;
+  warehousesError: unknown;
+  onRetryWarehouses: () => void;
+  onSelectWarehouse: (warehouseId: string | undefined) => void;
+  buyer: SaleBuyerInput | null;
+  /** A customer the caller suggested (e.g. from Customer Details); a hint until one is picked. */
+  presetCustomerName?: string | undefined;
+  cart: readonly CartLine[];
   onSelectCustomer: () => void;
   onSelectProducts: () => void;
 }
 
+function buyerLabel(buyer: SaleBuyerInput | null, presetCustomerName: string | undefined): string {
+  if (buyer?.kind === 'CUSTOMER') {
+    return t('sales.newSale.customerCode', { name: buyer.customer.name, code: buyer.customer.customerCode });
+  }
+  if (buyer?.kind === 'WALK_IN') return t('sales.newSale.walkInBuyer', { name: buyer.name });
+  if (presetCustomerName) return t('sales.newSale.presetCustomer', { name: presetCustomerName });
+  return t('sales.newSale.chooseCustomer');
+}
+
 export function NewSaleScreen({
   scope,
-  customerLabel,
-  saleWarehouseId,
-  onSelectWarehouse,
-  cartItems = [],
+  can,
   onBack,
+  channel,
+  onChangeChannel,
+  saleWarehouseId,
+  warehouseOptions,
+  warehousesLoading,
+  warehousesError,
+  onRetryWarehouses,
+  onSelectWarehouse,
+  buyer,
+  presetCustomerName,
+  cart,
   onSelectCustomer,
   onSelectProducts,
 }: NewSaleScreenProps) {
-  const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
-  const selectedCustomer = customerLabel || 'Select Customer / Walk-in';
+  const canCreate = can('sales.sale.create');
+  const allScope = isAllWarehouses(scope);
+  const warehouseKnown = saleWarehouseId !== undefined;
+  const totalGrams = cart.reduce((sum, l) => sum + l.qtyGrams, 0);
+
+  const header = (
+    <View style={styles.headerBanner}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('sales.common.back')}
+        >
+          <ArrowBackIcon size={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} accessibilityRole="header">
+          {t('sales.newSale.title')}
+        </Text>
+      </View>
+    </View>
+  );
+
+  if (!canCreate) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <AdminEmptyState title={t('sales.common.noPermission')} />
+      </SafeAreaView>
+    );
+  }
+
+  let warehouseSection: React.ReactNode;
+  if (!allScope) {
+    warehouseSection = scope.warehouseName ? (
+      <View style={styles.warehousePill}>
+        <LockIcon size={12} color={adminColors.warning.text} />
+        <Text style={styles.warehousePillText}>{scope.warehouseName}</Text>
+      </View>
+    ) : null;
+  } else if (warehouseOptions.length === 0 && warehousesLoading) {
+    warehouseSection = <AdminLoadingState />;
+  } else if (warehouseOptions.length === 0 && warehousesError) {
+    warehouseSection = <AdminErrorState error={warehousesError} onRetry={onRetryWarehouses} />;
+  } else if (warehouseOptions.length === 0) {
+    warehouseSection = <AdminEmptyState title={t('sales.newSale.noWarehouses')} />;
+  } else {
+    warehouseSection = (
+      <>
+        <WarehouseChips
+          scope={scope}
+          selected={saleWarehouseId}
+          onSelect={onSelectWarehouse}
+          allowAll={false}
+          options={warehouseOptions}
+        />
+        {!warehouseKnown ? <Text style={styles.hintText}>{t('sales.common.selectWarehouse')}</Text> : null}
+      </>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      {header}
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Sale</Text>
-        </View>
-      </View>
-
-      {/* ─── Main Content ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ─── 1. Warehouse ─── */}
-        <Text style={styles.sectionHeading}>Warehouse</Text>
-        {scope.warehouseId !== undefined ? (
-          <View style={styles.warehousePill}>
-            <LockIcon size={12} color={adminColors.warning.text} />
-            <Text style={styles.warehousePillText}>{scope.warehouseName}</Text>
-          </View>
-        ) : (
-          <WarehouseChips
-            scope={scope}
-            selected={saleWarehouseId}
-            onSelect={(id) => onSelectWarehouse?.(id)}
-            allowAll={false}
-          />
-        )}
+        {warehouseSection !== null ? <Text style={styles.sectionHeading}>{t('sales.newSale.warehouse')}</Text> : null}
+        {warehouseSection}
 
         {/* ─── 2. Sales Channel ─── */}
-        <Text style={styles.sectionHeading}>Sales Channel</Text>
-
-        <View style={styles.channelContainer}>
-          {/* Direct Customer Option */}
-          <TouchableOpacity
-            style={styles.channelRow}
-            onPress={() => setSalesChannel('Direct')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.radioOuter, salesChannel === 'Direct' && styles.radioOuterSelected]}>
-              {salesChannel === 'Direct' && <View style={styles.radioInner} />}
-            </View>
-            <Text style={styles.channelLabel}>Direct Customer</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Live Market Option */}
-          <TouchableOpacity
-            style={styles.channelRow}
-            onPress={() => setSalesChannel('LiveMarket')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.radioOuter, salesChannel === 'LiveMarket' && styles.radioOuterSelected]}>
-              {salesChannel === 'LiveMarket' && <View style={styles.radioInner} />}
-            </View>
-            <Text style={styles.channelLabel}>Live Market</Text>
-          </TouchableOpacity>
+        <Text style={styles.sectionHeading}>{t('sales.newSale.channel')}</Text>
+        <View style={styles.card}>
+          {CHANNELS.map((ch, idx) => {
+            const selected = channel === ch;
+            return (
+              <View key={ch}>
+                {idx > 0 && <View style={styles.divider} />}
+                <TouchableOpacity
+                  style={styles.channelRow}
+                  onPress={() => {
+                    if (!selected) onChangeChannel(ch);
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                >
+                  <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                    {selected && <View style={styles.radioInner} />}
+                  </View>
+                  <Text style={styles.channelLabel}>{t(SALE_CHANNEL_KEY[ch])}</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
 
         {/* ─── 3. Customer ─── */}
-        <Text style={styles.sectionHeading}>Customer</Text>
+        <Text style={styles.sectionHeading}>{t('sales.newSale.customer')}</Text>
         <TouchableOpacity
           style={styles.customerSelectCard}
           onPress={onSelectCustomer}
           activeOpacity={0.75}
+          accessibilityRole="button"
         >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.customerSubLabel}>CUSTOMER</Text>
-            <Text style={styles.customerValueText}>{selectedCustomer}</Text>
+          <View style={styles.flex}>
+            <Text style={styles.customerSubLabel}>{t('sales.newSale.customerLabel')}</Text>
+            <Text style={[styles.customerValueText, buyer === null && styles.customerValueHint]}>
+              {buyerLabel(buyer, presetCustomerName)}
+            </Text>
           </View>
-          <ChevronDownIcon size={20} color={adminColors.muted} />
+          <ChevronRightIcon size={20} color={adminColors.muted} />
         </TouchableOpacity>
 
-        {/* ─── 4. Products Empty State ─── */}
-        <Text style={styles.sectionHeading}>Products</Text>
-        {cartItems.length === 0 ? (
+        {/* ─── 4. Products ─── */}
+        <Text style={styles.sectionHeading}>{t('sales.newSale.products')}</Text>
+        {cart.length === 0 ? (
           <View style={styles.emptyProductsContainer}>
             <EmptyCartIcon size={52} color={adminColors.border} />
-            <Text style={styles.emptyProductsText}>No products added</Text>
+            <Text style={styles.emptyProductsText}>{t('sales.newSale.noProducts')}</Text>
           </View>
         ) : (
-          <View style={styles.channelContainer}>
-            {cartItems.map((item, idx) => (
-              <View key={item.id}>
-                {idx > 0 && <View style={styles.divider} />}
-                <View style={styles.channelRow}>
-                  <Text style={[styles.channelLabel, { flex: 1 }]}>
-                    {item.name} - {item.selectedQty ?? 1} KG
-                  </Text>
-                  <Text style={styles.channelLabel}>₹{item.pricePerKg * (item.selectedQty ?? 1)}</Text>
+          <>
+            <View style={styles.card}>
+              {cart.map((line, idx) => (
+                <View key={cartLineKey(line)}>
+                  {idx > 0 && <View style={styles.divider} />}
+                  <View style={styles.cartRow}>
+                    <Text style={[styles.cartName, styles.flex]}>{line.name}</Text>
+                    <Text style={styles.cartMeta}>
+                      {t('sales.newSale.cartLine', { grade: t(GRADE_KEY[line.grade]), qty: formatKg(line.qtyGrams) })}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+            <Text style={styles.cartSummary}>
+              {t('sales.newSale.cartSummary', { count: cart.length, qty: formatKg(totalGrams) })}
+            </Text>
+            <Text style={styles.hintText}>{t('sales.newSale.priceNote')}</Text>
+          </>
         )}
       </ScrollView>
 
       {/* ─── Bottom Action Button ─── */}
       <View style={styles.bottomBar}>
+        {!warehouseKnown ? <Text style={styles.hintText}>{t('sales.newSale.pickWarehouseFirst')}</Text> : null}
         <TouchableOpacity
-          style={styles.selectProductsBtn}
+          style={[styles.selectProductsBtn, !warehouseKnown && styles.btnDisabled]}
           onPress={onSelectProducts}
+          disabled={!warehouseKnown}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !warehouseKnown }}
         >
           <PlusIcon size={18} />
-          <Text style={styles.selectProductsBtnText}>Select Products</Text>
+          <Text style={styles.selectProductsBtnText}>
+            {cart.length === 0 ? t('sales.newSale.selectProducts') : t('sales.newSale.editProducts')}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -222,6 +292,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
+  },
+  flex: {
+    flex: 1,
   },
   headerBanner: {
     backgroundColor: adminColors.brand,
@@ -243,7 +316,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    letterSpacing: 0.2,
   },
   scroll: {
     flex: 1,
@@ -259,13 +331,19 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 8,
   },
+  hintText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xs,
+  },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     alignSelf: 'flex-start',
     gap: 6,
     marginBottom: 6,
@@ -274,7 +352,7 @@ const styles = StyleSheet.create({
     color: adminColors.warning.text,
     ...adminType.rowTitle,
   },
-  channelContainer: {
+  card: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
@@ -315,24 +393,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: adminColors.border,
   },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-    marginBottom: 6,
-  },
-  infoBannerText: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.info.text,
-    lineHeight: 17,
-  },
   customerSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,11 +407,32 @@ const styles = StyleSheet.create({
   customerSubLabel: {
     ...adminType.caption,
     color: adminColors.muted,
-    letterSpacing: 0.5,
     marginBottom: 4,
   },
   customerValueText: {
     ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  customerValueHint: {
+    color: adminColors.muted,
+  },
+  cartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  cartName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  cartMeta: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  cartSummary: {
+    ...adminType.rowTitle,
     color: adminColors.ink,
   },
   emptyProductsContainer: {
@@ -378,6 +459,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
   selectProductsBtnText: {
     color: adminColors.onBrand,

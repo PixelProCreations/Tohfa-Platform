@@ -560,10 +560,26 @@ export function MoreScreen({
   const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
   const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
 
+  /** Rows that only the host can open; the rest have an in-screen fallback below. */
+  const hostOnly: Readonly<Record<string, (() => void) | undefined>> = {
+    orders: onNavigateToOrders,
+    sales: onNavigateToSales,
+    wallet: onNavigateToWallet,
+    returns: onNavigateToReturns,
+    return_history: onNavigateToReturnHistory,
+    notifications: onNavigateToNotifications,
+    staff: onNavigateToStaff,
+    attendance: onNavigateToAttendance,
+    today_attendance: onNavigateToAttendance,
+  };
+  const hasDestination = (id: string) => !(id in hostOnly) || hostOnly[id] !== undefined;
+
   // Hide gated rows and any group left empty. Display only: the server enforces.
   const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      // A row whose destination this host does not wire is not drawn (no placeholder alert).
+      if (!hasDestination(item.id)) return false;
       if (item.id === 'staff') return isAreaAvailable('staff', can);
       const code = ITEM_PERMISSION[item.id];
       return code === undefined || can(code);
@@ -605,12 +621,10 @@ export function MoreScreen({
 
     switch (item.id) {
       case 'orders':
-        if (onNavigateToOrders) onNavigateToOrders();
-        else Alert.alert(item.title, 'Opening Customer Orders & Fulfillment...');
+        onNavigateToOrders?.();
         break;
       case 'sales':
-        if (onNavigateToSales) onNavigateToSales();
-        else Alert.alert(item.title, 'Opening Direct / Market Sales...');
+        onNavigateToSales?.();
         break;
       case 'customers':
         if (onNavigateToCustomers) {
@@ -620,8 +634,7 @@ export function MoreScreen({
         }
         break;
       case 'wallet':
-        if (onNavigateToWallet) onNavigateToWallet();
-        else Alert.alert(item.title, 'Opening Wallet & Cash Top-Up...');
+        onNavigateToWallet?.();
         break;
       case 'billing':
         if (onNavigateToBilling) {
@@ -631,12 +644,10 @@ export function MoreScreen({
         }
         break;
       case 'returns':
-        if (onNavigateToReturns) onNavigateToReturns();
-        else Alert.alert(item.title, 'Opening Returns & Issues...');
+        onNavigateToReturns?.();
         break;
       case 'return_history':
-        if (onNavigateToReturnHistory) onNavigateToReturnHistory();
-        else Alert.alert(item.title, 'Opening Return History...');
+        onNavigateToReturnHistory?.();
         break;
       case 'finance':
         if (onNavigateToFinance) {
@@ -653,17 +664,14 @@ export function MoreScreen({
         }
         break;
       case 'notifications':
-        if (onNavigateToNotifications) onNavigateToNotifications();
-        else Alert.alert(item.title, 'Opening Notifications & Tasks...');
+        onNavigateToNotifications?.();
         break;
       case 'staff':
-        if (onNavigateToStaff) onNavigateToStaff();
-        else Alert.alert(item.title, 'Opening Warehouse Staff...');
+        onNavigateToStaff?.();
         break;
       case 'attendance':
       case 'today_attendance':
-        if (onNavigateToAttendance) onNavigateToAttendance();
-        else Alert.alert(item.title, "Opening Today's Attendance...");
+        onNavigateToAttendance?.();
         break;
       case 'profile':
         if (onNavigateToProfile) onNavigateToProfile();
@@ -691,7 +699,8 @@ export function MoreScreen({
         }
         break;
       default:
-        Alert.alert(item.title, `Opening ${item.title}...`);
+        // Every listed row has a case above; an unknown id opens nothing rather than a fake screen.
+        break;
     }
   };
 

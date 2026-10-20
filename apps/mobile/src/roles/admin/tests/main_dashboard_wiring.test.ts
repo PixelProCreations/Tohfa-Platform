@@ -46,9 +46,16 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'taskSummaryQuery',
     'openTasksQuery',
     'salesSummaryQuery',
-    'ordersQuery',
     'goodsReceiptsQuery',
     'alertsQuery',
+    'issuesQuery',
+    'perfTodayQuery',
+    'perfMtdQuery',
+    'salesMtdQuery',
+    'activityQuery',
+    'snoozedAlertsQuery',
+    'allocationsQuery',
+    'adjustmentsQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
@@ -133,10 +140,51 @@ describe('honest figures: no claim the data does not back', () => {
     expect(MAIN).not.toContain('toISOString()');
   });
 
-  it("Today's orders is placed-today from placedAt (GET /admin/orders has no placed-date filter), shown as N+ when the pages ran out", () => {
-    expect(MAIN).toContain('countOrdersPlacedOn(');
-    expect(MAIN).toContain('countLabel(ordersToday.count, ordersToday.exact)');
+  // Replaces the old "Today's orders is a list scan shown as N+" test: the tile and the Order
+  // Fulfilment card now read the server's exact counts (GET /warehouses/{id}/performance, BR-80),
+  // summed over the covered warehouses, instead of scanning the newest pages of GET /admin/orders.
+  it("BR-80: Today's Orders tile is the exact placed count of today (perfToday.ordersPlaced), not a list scan with an N+ suffix", () => {
+    expect(MAIN).toMatch(/figureOrPlaceholder\(perfTodayFigSrc\.status, \(\) => String\(perfToday\.ordersPlaced\)\)/);
+    expect(MAIN).not.toContain('countOrdersPlacedOn');
+    expect(MAIN).not.toContain('ordersToday');
+    expect(MAIN).not.toContain('ordersQuery');
+    expect(MAIN).not.toContain('listAdminOrders');
     expect(MAIN).not.toMatch(/String\(orders\.length\)/);
+  });
+
+  it('BR-80: Order Fulfilment shows Placed / Fulfilled / Cancelled from the exact server counts, through the catalogue, not guessed Ready / Dispatched / Exceptions', () => {
+    for (const [key, field] of [
+      ['mainDashboard.ops.placed', 'ordersPlaced'],
+      ['mainDashboard.ops.fulfilled', 'ordersFulfilled'],
+      ['mainDashboard.ops.cancelled', 'ordersCancelled'],
+    ] as const) {
+      expect(MAIN).toMatch(new RegExp(`t\\('${key.replace(/\./g, '\\.')}'\\)\\}[\\s\\S]{0,160}?\\{perfToday\\.${field}\\}`));
+    }
+    expect(MAIN).not.toMatch(/\bReady <Text/);
+    expect(MAIN).not.toMatch(/\bDispatched <Text/);
+    expect(MAIN).not.toMatch(/Exceptions <Text/);
+    expect(MAIN).not.toMatch(/o\.status === '(CONFIRMED|PACKED|DISPATCHED|OUT_FOR_DELIVERY|DELIVERED|CANCELLED)'/);
+  });
+
+  it('BR-80: Order Fulfilment is gated by the performance view-state (Retry), never zeros while loading or failed, and the labels are in the catalogue', () => {
+    const gate = MAIN.indexOf("<SectionGate sources={[receiptsFigSrc, taskSummarySrc, perfTodayFigSrc");
+    const card = MAIN.indexOf("t('mainDashboard.ops.orders')");
+    expect(gate).toBeGreaterThan(-1);
+    expect(card).toBeGreaterThan(gate);
+    expect(MAIN).toContain('homeKpiSources');
+    expect(MAIN.slice(MAIN.indexOf('const homeKpiSources'), MAIN.indexOf('const inventoryKpiSources'))).toContain('perfTodayFigSrc');
+    expect(EN['mainDashboard.ops.orders']).toBe('Order Fulfilment');
+    expect(EN['mainDashboard.ops.placed']).toBe('Placed');
+    expect(EN['mainDashboard.ops.fulfilled']).toBe('Fulfilled');
+    expect(EN['mainDashboard.ops.cancelled']).toBe('Cancelled');
+  });
+
+  // The Incoming Goods row used to say "Expected" over receiptFig.awaitingQc, but that number counts
+  // goods receipts whose status is AWAITING_QC (they have arrived and wait for QC), not what is expected.
+  it('Incoming Goods labels the AWAITING_QC receipt count "Awaiting QC", not "Expected"', () => {
+    expect(EN['mainDashboard.ops.awaitingQc']).toBe('Awaiting QC');
+    expect(MAIN).toMatch(/t\('mainDashboard\.ops\.awaitingQc'\)\}? <Text[^>]*>\{receiptFig\.awaitingQc\}/);
+    expect(MAIN).not.toMatch(/Expected <Text[^>]*>\{receiptFig\.awaitingQc\}/);
   });
 
   it('Receipts today are the receipts of the IST day (receiptsOnDay), not every receipt the first page held', () => {
@@ -224,7 +272,7 @@ describe('transfers come from GET /warehouse-transfers (BR-102), not from tasks 
   });
 });
 
-describe('warehouse selection: uuids for live flows, the seed code for fixture-keyed screens', () => {
+describe('warehouse selection: every flow is live, so the selection is always a uuid', () => {
   /** The opening JSX tag of the first `<Name ... >` in the screen (props run to the first '>' not inside braces). */
   function openingTag(name: string, from = 0): string {
     const start = MAIN.indexOf(`<${name}`, from);
@@ -239,7 +287,7 @@ describe('warehouse selection: uuids for live flows, the seed code for fixture-k
     throw new Error(`unterminated <${name}`);
   }
 
-  it.each(['WalletFlow', 'CustomersFlow', 'ReportsScreen', 'FinanceFlow', 'InventoryFlow', 'OrdersFlow', 'BillingFlow'])(
+  it.each(['CustomersFlow', 'ReportsScreen', 'InventoryFlow', 'OrdersFlow', 'BillingFlow'])(
     '%s gets the live warehouseOptions (real uuids), not its seed-code defaults',
     (flow) => {
       expect(openingTag(flow)).toContain('warehouseOptions={warehouseOptions}');
@@ -250,15 +298,21 @@ describe('warehouse selection: uuids for live flows, the seed code for fixture-k
     expect(openingTag('ReturnsFlow', MAIN.indexOf("moreSubScreen === 'returns'"))).toContain('warehouseOptions={warehouseOptions}');
   });
 
-  it('the second WalletFlow (opened from a customer) gets them too', () => {
+  it('WalletFlow and FinanceFlow take no warehouse options: they load their own live picker (GET /warehouses, uuids only)', () => {
+    for (const flow of ['WalletFlow', 'FinanceFlow']) {
+      expect({ flow, passed: openingTag(flow).includes('warehouseOptions') }).toEqual({ flow, passed: false });
+    }
     const second = MAIN.indexOf('<WalletFlow', MAIN.indexOf('<WalletFlow') + 1);
-    expect(openingTag('WalletFlow', second)).toContain('warehouseOptions={warehouseOptions}');
+    expect(openingTag('WalletFlow', second)).not.toContain('warehouseOptions');
+    expect(read('roles/admin/screens/warehouse/wallet-cashtopup/WalletFlow.tsx')).toContain('useWalletWarehouseScopes');
+    expect(read('roles/admin/screens/warehouse/finance-expenses/WarehouseExpensesScreen.tsx')).toContain('useFinanceWarehousePicker');
   });
 
-  it('Warehouse Settings and the City Detail card are fixture-keyed, so they get the live warehouse\'s code, never the uuid', () => {
-    expect(MAIN).toContain('initialWarehouseId={detailFixtureId}');
-    expect(MAIN).toContain('{ warehouseId: detailFixtureId }');
-    expect(MAIN).toContain('const detailFixtureId = fixtureWarehouseId(detailWarehouse)');
+  it('Warehouse Settings and the City Detail card are live flows, so they get the selected warehouse uuid, never a seed code', () => {
+    expect(MAIN).toContain('initialWarehouseId={detailWarehouseId}');
+    expect(MAIN).toContain('{ warehouseId: detailWarehouseId }');
+    expect(MAIN).not.toContain('fixtureWarehouseId');
+    expect(MAIN).not.toContain('detailFixtureId');
   });
 
   it('the live Storage Info route gets the live options and the selected uuid', () => {
@@ -305,5 +359,225 @@ describe('theme: the screen takes colours from adminColors where a token exists'
     const count = (MAIN.match(hex)?.length ?? 0) + (MAIN.match(rgb)?.length ?? 0);
     expect(Number(allowed)).toBeGreaterThan(0);
     expect(count).toBeLessThanOrEqual(Number(allowed));
+  });
+});
+
+describe('the warehouse filter scopes what it feeds (old shell: filter -> KPIs, capacity and stock summary)', () => {
+  it('the stock figures are scoped to the filter, so the cards and the capacity follow the picked warehouse', () => {
+    expect(MAIN).toContain('scopeStockFigures(stockD.value, selectedWarehouseId)');
+  });
+
+  it('Capacity Summary counts the warehouses covered by the filter, not every active warehouse', () => {
+    expect(MAIN).toContain('{stockFig.warehouses.length}');
+    expect(MAIN).not.toMatch(/Active Warehouses<\/Text>\s*<Text[^>]*>\{warehouses\.length\}/);
+  });
+
+  it('Consolidated Stock searches product and grade through filterStockProducts and keys cards by the product+grade key', () => {
+    expect(MAIN).toContain('filterStockProducts(stockFig.products, stockSearchQuery)');
+    expect(MAIN).toContain('key={p.key}');
+    expect(MAIN).not.toContain('key={p.cropId}');
+  });
+
+  it('the search placeholder is a catalogue string and does not promise a batch search the filter does not do', () => {
+    expect(MAIN).not.toContain('Product, grade, batch...');
+    expect(MAIN).toContain("t('mainDashboard.stock.searchPlaceholder')");
+    expect(EN['mainDashboard.stock.searchPlaceholder']).toBe('Product or grade');
+  });
+});
+
+describe('permission gating: a figure whose rbac code is missing is not fetched and not drawn (old shell)', () => {
+  it('the screen asks dashboardAccess(can) once and gates the optional sources on it', () => {
+    expect(MAIN).toContain('const access = dashboardAccess(can);');
+    expect(MAIN).toContain('{ enabled: canAllView && access.sales }');
+    expect(MAIN).toContain('{ enabled: canAllView && access.transfers }');
+  });
+
+  it('the Sales tile and the Pending Transfers tile are drawn only with their code', () => {
+    expect(MAIN).toMatch(/\{access\.sales \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('sales'\)/);
+    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<TouchableOpacity[\s\S]*?kpi\.pendingTransfers/);
+  });
+
+  it('Initiate Stock Transfer is drawn only with transfer.inter_warehouse.initiate, never as a button that answers "Permission Denied"', () => {
+    expect(MAIN).not.toContain('Permission Denied');
+    expect(MAIN).not.toContain('Transfer initiation requires');
+    expect(MAIN).toContain('access.transferInitiate');
+  });
+
+  it('no fake "Export Successful" alert: the activity feed has no export endpoint (StorageFlow documents the prop as unused)', () => {
+    expect(MAIN).not.toContain('Export Successful');
+    expect(MAIN).not.toContain('onExportActivity');
+  });
+});
+
+describe('BR-103: Open Issues is the real operational-issue count, not the alert count', () => {
+  it('the tile and the per-warehouse Issues stat read the warehouse issue totals', () => {
+    expect(MAIN).toContain('getOpenIssueCounts(coveredIds, signal)');
+    expect(MAIN).toContain('issueFig.total');
+    expect(MAIN).toContain('issueFig.byWarehouse[row.warehouseId]');
+  });
+
+  it('no alert count is shown under an "issues" label', () => {
+    expect(MAIN).not.toContain('String(liveAlerts.length)');
+    expect(MAIN).not.toMatch(/liveAlerts\.filter\(\(a\) => a\.warehouseId === row\.warehouseId\)/);
+  });
+
+  it('is fetched and drawn only with warehouse.issue.view, and the tile opens the issues list', () => {
+    expect(MAIN).toContain('canAllView && access.issues');
+    expect(MAIN).toMatch(/\{access\.issues \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('operational_issues'\)/);
+  });
+});
+
+describe('KPI tiles open their module (old shell), with catalogue labels', () => {
+  it.each([
+    ['totalStock', "navigateWh('warehouse_capacity')"],
+    ['incoming', "openTab('Receiving')"],
+    ['orders', "navigateWh('customer_orders')"],
+    ['pendingTransfers', "navigateWh('inter_warehouse_transfer')"],
+  ])('the %s tile navigates', (name, call) => {
+    const at = MAIN.indexOf(`t('mainDashboard.kpi.${name}')`);
+    expect(at).toBeGreaterThan(-1);
+    const tile = MAIN.slice(Math.max(0, at - 500), at);
+    expect(tile).toContain(call);
+  });
+
+  it('the Sales tile says how many paid sales stand behind the revenue', () => {
+    expect(MAIN).toContain("t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status");
+    expect(MAIN).toContain('deriveSalesCount(salesSummary)');
+  });
+});
+
+describe('BR-80: Warehouse Performance carries the month-to-date figures the old shell showed', () => {
+  it('reads the server-exact performance of the covered warehouses over the IST month, only while the view is open', () => {
+    expect(MAIN).toContain('useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView ===');
+    expect(MAIN).toContain("'warehouse_performance'");
+    expect(MAIN).toContain('derivePerformance(perfMtdQuery.data)');
+  });
+
+  it('shows receipts, received kg, orders placed and fulfilled, rejected kg and returns, from integer grams', () => {
+    for (const field of ['goodsReceipts', 'grossGrams', 'ordersPlaced', 'ordersFulfilled', 'rejectedGrams', 'returnsRequested']) {
+      expect(MAIN).toContain(`perfMtd.${field}`);
+    }
+    expect(MAIN).toContain('formatKg(perfMtd.grossGrams)');
+    expect(MAIN).toContain('formatKg(perfMtd.rejectedGrams)');
+  });
+
+  it('month-to-date sales (revenue through paise, and the paid-sales count) need sales.dashboard.view', () => {
+    expect(MAIN).toContain('useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now)');
+    expect(MAIN).toContain('salesRevenueText(salesMtdQuery.data)');
+    expect(MAIN).toContain('deriveSalesCount(salesMtdQuery.data)');
+  });
+
+  it("the Quality card also says how many returns were requested today (BR-80 returns.requested)", () => {
+    expect(MAIN).toContain('useWarehousesPerformance(coveredIds, { from: today, to: today }');
+    expect(MAIN).toContain('perfToday.returnsRequested');
+    expect(EN['mainDashboard.ops.returns']).toBe('Returns today');
+  });
+
+  it('the shared hooks are reused, not re-implemented: no second performance client in the screen', () => {
+    expect(MAIN).not.toContain('getWarehousePerformance(');
+  });
+});
+
+describe('BR-104: Recent Activity and the timeline read the warehouse activity feed (old shell)', () => {
+  it('reads the first feed page of the covered warehouses through the shared hook, only with warehouse.activity.view', () => {
+    expect(MAIN).toContain('useRecentActivityPages(coveredIds, RECENT_ACTIVITY_ROWS, canAllView && access.activity');
+    expect(MAIN).toContain('mergeRecentActivity(activityQuery.pages');
+  });
+
+  it('events are worded through the catalogue (activitySubLine, mainDashboard.activity.title), never as raw enums', () => {
+    expect(MAIN).toContain("t('mainDashboard.activity.title', { type: row.typeLabel, reference: row.reference })");
+    expect(MAIN).toContain('activitySubLine(row)');
+  });
+
+  it('a feed row opens its record: transfers to the transfer list, goods receipts to Receiving, the rest to the activity log', () => {
+    expect(MAIN).toMatch(/row\.type === 'TRANSFER'[\s\S]*?navigateWh\('inter_warehouse_transfer'\)/);
+    expect(MAIN).toMatch(/row\.type === 'GOODS_RECEIPT'[\s\S]*?openTab\('Receiving'\)/);
+  });
+
+  it('the Activity Timeline line is the newest event of any type, not only the last goods receipt', () => {
+    expect(MAIN).toContain('activityTimelineLine(activityFeed[0])');
+  });
+
+  it("the open-task rows #128 shows stay (toRecentActivity), after the events", () => {
+    expect(MAIN).toContain('toRecentActivity(openTasks, warehouses, now)');
+    expect(MAIN.indexOf('activityFeed.map(')).toBeGreaterThan(-1);
+    expect(MAIN.indexOf('activityRows.map(')).toBeGreaterThan(MAIN.indexOf('activityFeed.map('));
+  });
+
+  it('the section is gated: while the feed loads or fails there is a spinner or an error with Retry, not "No recent activity"', () => {
+    expect(MAIN).toContain('<SectionGate sources={[openTasksSrc, ...(access.activity ? [activitySrc] : [])]}>');
+  });
+});
+
+describe('BR-78: the Alerts & Action Center snoozes alerts and lists the snoozed ones, as the old Needs Attention did', () => {
+  it('snoozes through the alerts API for the caller only, awaiting the server before it reports success', () => {
+    expect(MAIN).toMatch(/await snoozeMutation\.mutateAsync\(alert\.id\)/);
+    expect(MAIN).not.toMatch(/snoozeMutation\.mutate\(/);
+    expect(MAIN).toContain('snoozeAlert(itemKey, snoozeUntil(new Date()))');
+    const awaited = MAIN.indexOf('await snoozeMutation.mutateAsync(alert.id)');
+    const success = MAIN.indexOf("t('mainDashboard.alert.snoozed.title')");
+    expect(success).toBeGreaterThan(awaited);
+  });
+
+  it('a snooze failure returns before the success message and renders from the mutation error', () => {
+    expect(MAIN).toMatch(/snoozeMutation\.isError \? \(\s*<Text style=\{styles\.dismissErrorText\}>\{t\(adminErrorKey\(snoozeMutation\.error\)\)\}/);
+  });
+
+  it('the snooze button is offered only for an active alert and only with alert.own.view', () => {
+    expect(MAIN).toMatch(/canDismissAlert && !selectedAlert\.snoozed/);
+    expect(MAIN).toContain("t('dashboardHome.alerts.snooze')");
+  });
+
+  it('the snoozed list is its own query (state=snoozed), read only while that list is shown, and gated like the others', () => {
+    expect(MAIN).toContain("state: 'snoozed'");
+    expect(MAIN).toContain("alertState === 'snoozed'");
+    expect(MAIN).toContain('<SectionGate sources={[alertState === \'active\' ? alertsSrc : snoozedAlertsSrc, warehousesSrc]}>');
+  });
+
+  it('Active / Snoozed and the type filter are chips with counts from the pure mapper', () => {
+    expect(MAIN).toContain('ChipGroup');
+    expect(MAIN).toContain('countDashboardAlerts(');
+    expect(MAIN).toContain('filterDashboardAlerts(');
+  });
+
+  it('the new copy is in the catalogue', () => {
+    for (const key of ['mainDashboard.alert.snoozed.title', 'mainDashboard.alert.snoozed.body', 'mainDashboard.alert.snoozing']) {
+      expect({ key, has: key in EN }).toEqual({ key, has: true });
+    }
+    expect(EN['mainDashboard.alert.snoozed.body']).toMatch(/your list only/);
+  });
+});
+
+describe('Inventory tab: Allocated is the channel allocation, and the adjustment queue is reachable (old shell)', () => {
+  it('Allocated reads GET /admin/allocations through integer grams, not the batches\' reserved weight', () => {
+    expect(MAIN).toContain('listAllocations({ warehouseId: selectedWarehouseId');
+    expect(MAIN).toContain('deriveAllocatedGrams(allocationsQuery.data.items)');
+    expect(MAIN).toContain('formatKg(allocatedGrams)');
+    expect(MAIN).not.toMatch(/ALLOCATED<\/Text>\s*<Text[^>]*>\s*\{figureOrPlaceholder\(stockSrc\.status, \(\) => formatKg\(stockFig\.reservedGrams\)\)/);
+  });
+
+  it('the reserved weight is still shown, as the sub line of Total Stock', () => {
+    expect(MAIN).toContain("t('mainDashboard.inventory.reservedSub', { qty: formatKg(stockFig.reservedGrams) })");
+  });
+
+  it('the adjustment approval queue opens from Pending Actions with the server count of PENDING adjustments (BR-37), only with the approve code', () => {
+    expect(MAIN).toContain("listStockAdjustments({ status: 'PENDING', warehouseId: selectedWarehouseId");
+    expect(MAIN).toContain('derivePendingAdjustments(adjustmentsQuery.data)');
+    expect(MAIN).toContain("navigateWh('stock_adjustment_approval')");
+    expect(MAIN).toContain('canAllView && access.adjustments');
+    expect(MAIN).not.toContain('Adjustments Awaiting Approval');
+  });
+
+  it('both are read only while the Inventory tab is open', () => {
+    expect(MAIN).toContain("{ enabled: canAllView && activeTab === 'Inventory' }");
+    expect(MAIN).toContain("{ enabled: canAllView && access.adjustments && activeTab === 'Inventory' }");
+  });
+});
+
+describe('Incoming goods is the weight that arrived today (gross), as the old shell showed', () => {
+  it('both Incoming tiles and the Performance receipts tile read the gross weight, not the QC-accepted weight', () => {
+    expect(MAIN).not.toMatch(/INCOMING (GOODS|TODAY)<\/Text>\s*<Text[^>]*>\s*\{figureOrPlaceholder\(receiptsFigSrc\.status, \(\) => formatKg\(receiptFig\.acceptedGrams\)\)/);
+    expect(MAIN).toContain('formatKg(receiptFig.grossGrams)');
+    expect(MAIN).not.toContain('formatKg(receiptFig.acceptedGrams)');
   });
 });

@@ -29,6 +29,14 @@ export const STORAGE_CODES = {
   issueReport: 'support.ticket.create_own',
   /** Activity log CSV export (absorbed Operations History). MAIN view, SUB own. */
   reportExport: 'report.export.file',
+  /** Operational issues list / detail (BR-103). MAIN all, SUB own. */
+  issueView: 'warehouse.issue.view',
+  /** Report, progress, resolve, close and comment on operational issues (BR-103). MAIN all, SUB own. */
+  issueManage: 'warehouse.issue.manage',
+  /** Warehouse activity feed (BR-104). MAIN all, SUB own. */
+  activityView: 'warehouse.activity.view',
+  /** Create / edit / (de)activate storage locations (BR-79). MAIN all, SUB none. */
+  storageLocationManage: 'warehouse.storage_location.manage',
 } as const;
 
 interface IconProps {

@@ -12,7 +12,7 @@
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { BatchDto } from '../../api/inventory';
 import type { AlertItemDto } from '../../api/alerts';
-import type { OrderSummaryDto } from '../../api/orders';
+import type { AllocationDto } from '../../api/inventory';
 import type { GoodsReceiptDto } from '../../api/receiving';
 import type { TaskItemDto, TaskSummaryDto, TaskType } from '../../api/tasks';
 import type { WarehouseTransferDto } from '../../api/warehouseTransfers';
@@ -23,11 +23,12 @@ import { parseKgToGrams } from '../../money/quantity';
 import { formatPaise } from '../../money/paise';
 import { toBatchRow } from '../warehouse/inventory/mappers';
 import { hasKey, t, type TranslationKey } from '../../i18n';
-import { formatAdminDay, isOnIstDay, istHour, relativeTime } from '../../utils/datetime';
+import { formatAdminDate, formatAdminDay, isOnIstDay, istDay, istHour, relativeTime } from '../../utils/datetime';
 import { cropNamesOf, toLowStockRow } from '../warehouse/inventory/mappers';
 import type { WarehouseScope } from '../warehouse/finance-expenses/types';
 import { toApprovalAlertItem } from '../warehouse/notifications/mappers';
 import { queryViewState } from '../warehouse/shared/queryViewState';
+import type { PerformanceTotals } from '../warehouse/dashboard-home-more/mappers_dashboardKpis';
 
 // ─── View states ─────────────────────────────────────────────────────────────
 
@@ -178,8 +179,15 @@ export interface WarehouseStockRow {
 }
 
 export interface ProductStockRow {
+  /** cropId + grade: one row per product and grade (Grade 1 and Grade 2 are different stock). */
+  key: string;
   cropId: string;
+  /** The product name ("Carrot"). */
   product: string;
+  /** The grade code ("GRADE_1"). */
+  grade: string;
+  /** "Carrot · Grade 1", what a card and a search match. */
+  label: string;
   rows: { warehouseId: string; warehouse: string; grams: number }[];
   totalGrams: number;
 }
@@ -214,7 +222,7 @@ export function deriveStockFigures(
   return attempt(() => {
     const names = new Map(warehouses.map((w) => [w.id, warehouseShortName(w.name)]));
     const stockByWarehouse = new Map<string, number>();
-    const productByCrop = new Map<string, { product: string; byWarehouse: Map<string, number> }>();
+    const productByKey = new Map<string, { cropId: string; product: string; grade: string; label: string; byWarehouse: Map<string, number> }>();
     let totalGrams = 0;
     let reservedGrams = 0;
 
@@ -225,10 +233,17 @@ export function deriveStockFigures(
       reservedGrams += optionalGrams(dto.qtyReservedKg, 'qtyReservedKg');
       totalGrams += available;
       stockByWarehouse.set(dto.warehouseId, (stockByWarehouse.get(dto.warehouseId) ?? 0) + available);
-      let product = productByCrop.get(dto.cropId);
+      const productKey = `${dto.cropId}|${dto.grade}`;
+      let product = productByKey.get(productKey);
       if (product === undefined) {
-        product = { product: row.productName, byWarehouse: new Map() };
-        productByCrop.set(dto.cropId, product);
+        product = {
+          cropId: dto.cropId,
+          product: row.productName,
+          grade: dto.grade,
+          label: t('inventory.product.label', { product: row.productName, grade: row.gradeLabel }),
+          byWarehouse: new Map(),
+        };
+        productByKey.set(productKey, product);
       }
       product.byWarehouse.set(dto.warehouseId, (product.byWarehouse.get(dto.warehouseId) ?? 0) + available);
     }
@@ -249,34 +264,58 @@ export function deriveStockFigures(
       };
     });
 
-    const measured = rows.filter((r) => r.capacityGrams !== null);
-    const capacityGrams = measured.length === 0 ? null : measured.reduce((sum, r) => sum + (r.capacityGrams ?? 0), 0);
-    const usedGrams = measured.reduce((sum, r) => sum + r.stockGrams, 0);
 
     const unknown = t('mainDashboard.warehouse.unknown');
-    const products: ProductStockRow[] = [...productByCrop.entries()].map(([cropId, { product, byWarehouse }]) => {
+    const products: ProductStockRow[] = [...productByKey.entries()].map(([key, { cropId, product, grade, label, byWarehouse }]) => {
       const productRows = [...byWarehouse.entries()].map(([warehouseId, grams]) => ({
         warehouseId,
         warehouse: names.get(warehouseId) ?? unknown,
         grams,
       }));
-      return { cropId, product, rows: productRows, totalGrams: productRows.reduce((sum, r) => sum + r.grams, 0) };
+      return { key, cropId, product, grade, label, rows: productRows, totalGrams: productRows.reduce((sum, r) => sum + r.grams, 0) };
     });
 
     return {
       totalGrams,
       reservedGrams,
       warehouses: rows,
-      capacity: {
-        capacityGrams,
-        usedGrams,
-        availableGrams: capacityGrams === null ? null : capacityGrams - usedGrams,
-        utilizationBp: capacityGrams === null || capacityGrams === 0 ? null : basisPoints(usedGrams, capacityGrams),
-        warehousesWithCapacity: measured.length,
-      },
+      capacity: capacityOfRows(rows),
       products,
     };
   });
+}
+
+/** The network capacity over `rows`: only the warehouses that have one count (BR-66b: never clamped). */
+function capacityOfRows(rows: readonly WarehouseStockRow[]): StockFigures['capacity'] {
+  const measured = rows.filter((r) => r.capacityGrams !== null);
+  const capacityGrams = measured.length === 0 ? null : measured.reduce((sum, r) => sum + (r.capacityGrams ?? 0), 0);
+  const usedGrams = measured.reduce((sum, r) => sum + r.stockGrams, 0);
+  return {
+    capacityGrams,
+    usedGrams,
+    availableGrams: capacityGrams === null ? null : capacityGrams - usedGrams,
+    utilizationBp: capacityGrams === null || capacityGrams === 0 ? null : basisPoints(usedGrams, capacityGrams),
+    warehousesWithCapacity: measured.length,
+  };
+}
+
+/**
+ * The stock figures for the header filter. The batches are already filtered by
+ * the API, but the warehouse list is not, so without this every other
+ * warehouse would be drawn as a false "0 kg" and the capacity would be measured
+ * against the whole network. A filter that names no listed warehouse leaves no
+ * rows (never silently the whole network). The batch totals are kept as read.
+ */
+export function scopeStockFigures(figures: StockFigures, warehouseId: string | undefined): StockFigures {
+  if (warehouseId === undefined) return figures;
+  const rows = figures.warehouses.filter((w) => w.warehouseId === warehouseId);
+  return { ...figures, warehouses: rows, capacity: capacityOfRows(rows) };
+}
+
+/** Products whose "Product · Grade" label contains the search text, case-insensitively; empty text keeps all. */
+export function filterStockProducts(products: readonly ProductStockRow[], query: string): ProductStockRow[] {
+  const q = query.trim().toLowerCase();
+  return q === '' ? [...products] : products.filter((p) => p.label.toLowerCase().includes(q));
 }
 
 // ─── Sales (integer paise) ───────────────────────────────────────────────────
@@ -296,6 +335,8 @@ export function salesRevenueText(summary: Pick<SalesDashboardSummaryDto, 'revenu
 // ─── Goods receipts ──────────────────────────────────────────────────────────
 
 export interface ReceiptFigures {
+  /** Sum of grossQtyKg, in grams: what arrived, whether or not QC has accepted it yet. */
+  grossGrams: number;
   /** Sum of acceptedQtyKg, in grams. */
   acceptedGrams: number;
   /** status AWAITING_QC. */
@@ -313,8 +354,9 @@ export interface ReceiptFigures {
 /** The figures the operations card, performance and incoming tiles read, over `receipts`. */
 export function deriveReceiptFigures(receipts: readonly GoodsReceiptDto[]): Derived<ReceiptFigures> {
   return attempt(() => {
-    const f: ReceiptFigures = { acceptedGrams: 0, awaitingQc: 0, arrived: 0, discrepancies: 0, damaged: 0, rejected: 0 };
+    const f: ReceiptFigures = { grossGrams: 0, acceptedGrams: 0, awaitingQc: 0, arrived: 0, discrepancies: 0, damaged: 0, rejected: 0 };
     for (const g of receipts) {
+      f.grossGrams += requiredGrams(g.grossQtyKg, 'grossQtyKg');
       f.acceptedGrams += optionalGrams(g.acceptedQtyKg, 'acceptedQtyKg');
       const hasRejectedWeight = optionalGrams(g.rejectedQtyKg, 'rejectedQtyKg') > 0;
       if (g.status === 'AWAITING_QC') f.awaitingQc += 1;
@@ -337,6 +379,7 @@ export const EMPTY_STOCK_FIGURES: StockFigures = {
 };
 
 export const EMPTY_RECEIPT_FIGURES: ReceiptFigures = {
+  grossGrams: 0,
   acceptedGrams: 0,
   awaitingQc: 0,
   arrived: 0,
@@ -397,29 +440,6 @@ export function receiptsOnDay(receipts: readonly GoodsReceiptDto[], day: string)
   return receipts.filter((g) => isOnIstDay(g.receivedAt, day));
 }
 
-export interface OrdersToday {
-  /** The orders placed on the day. */
-  orders: OrderSummaryDto[];
-  count: number;
-  /**
-   * True when the count is the whole day: the list was read to its end, or it
-   * reached an order from another day (the queue is newest first, so nothing
-   * placed today follows). False means more may exist: show "N+".
-   */
-  exact: boolean;
-}
-
-/**
- * GET /admin/orders has no placed-date filter (`deliveryDate` is the pickup or
- * delivery date, not when the order was placed), so "today's orders" is read
- * from `placedAt` of the newest-first list.
- */
-export function countOrdersPlacedOn(orders: readonly OrderSummaryDto[], day: string, listComplete: boolean): OrdersToday {
-  const today = orders.filter((o) => isOnIstDay(o.placedAt, day));
-  const reachedAnotherDay = orders.some((o) => !isOnIstDay(o.placedAt, day));
-  return { orders: today, count: today.length, exact: listComplete || reachedAnotherDay };
-}
-
 /** A count as text: "12", or "12+" when more may exist beyond what was read. */
 export function countLabel(count: number, exact: boolean): string {
   return `${count}${exact ? '' : '+'}`;
@@ -457,6 +477,10 @@ export interface DashboardAlert {
   /** The server's message key worded through the catalogue, with formatted kg. */
   detail: string;
   target: AlertTarget;
+  /** True for an alert the caller snoozed (GET /admin/alerts?state=snoozed). */
+  snoozed: boolean;
+  /** When the snooze ends, as IST text; null for an active alert. */
+  snoozedUntil: string | null;
 }
 
 function alertTargetOf(type: string): AlertTarget {
@@ -492,8 +516,28 @@ export function toDashboardAlerts(
       time: row.timestamp,
       detail: row.detail,
       target: alertTargetOf(dto.type),
+      snoozed: dto.state === 'SNOOZED',
+      snoozedUntil: dto.snoozedUntil === null ? null : formatAdminDate(dto.snoozedUntil, now),
     };
   });
+}
+
+/** The alert types the type filter offers, in the order the chips show them (docs/openapi.yaml AlertType). */
+export const ALERT_TYPE_FILTERS = ['all', 'LOW_STOCK', 'BATCH_NEAR_EXPIRY', 'CAPACITY_NEAR_FULL'] as const;
+export type AlertTypeFilter = (typeof ALERT_TYPE_FILTERS)[number];
+
+/** How many alerts each chip holds: `all` is the whole list, a type with none is a real 0. */
+export function countDashboardAlerts(alerts: readonly DashboardAlert[]): Record<AlertTypeFilter, number> {
+  const counts: Record<AlertTypeFilter, number> = { all: alerts.length, LOW_STOCK: 0, BATCH_NEAR_EXPIRY: 0, CAPACITY_NEAR_FULL: 0 };
+  for (const alert of alerts) {
+    if (alert.type === 'LOW_STOCK' || alert.type === 'BATCH_NEAR_EXPIRY' || alert.type === 'CAPACITY_NEAR_FULL') counts[alert.type] += 1;
+  }
+  return counts;
+}
+
+/** The alerts of one type, or all of them. A type the app does not know shows under `all` only. */
+export function filterDashboardAlerts(alerts: readonly DashboardAlert[], filter: AlertTypeFilter): DashboardAlert[] {
+  return filter === 'all' ? [...alerts] : alerts.filter((alert) => alert.type === filter);
 }
 
 export interface LowStockItem {
@@ -691,14 +735,166 @@ export function findWarehouseByName(warehouses: readonly WarehouseDto[], name: s
   return warehouses.find((w) => warehouseShortName(w.name).toLowerCase().startsWith(key));
 }
 
+// ─── Permission gating ───────────────────────────────────────────────────────
+
 /**
- * The id a fixture-keyed screen expects for a live warehouse. Screens still on
- * design samples (Warehouse Settings, the City Detail card) key their rows by
- * the seed code (`WH-OOTY`), not the uuid the API uses, so they are given the
- * live warehouse's own `code`; the uuid goes only to live-backed flows. A code
- * the samples do not hold lands on that screen's own not-found state, as any
- * unknown id does.
+ * The docs/rbac.json codes the optional dashboard sources read (each exists
+ * there; the server authorises every read again, root CLAUDE.md 2.1). A source
+ * whose code is not held is not fetched and not drawn, so a role without it
+ * sees no tile instead of a tile that answers 403.
  */
-export function fixtureWarehouseId(warehouse: WarehouseDto | undefined): string | undefined {
-  return warehouse?.code;
+export const MAIN_DASHBOARD_CODES = {
+  /** GET /admin/sales/summary (BR-96). */
+  sales: 'sales.dashboard.view',
+  /** GET /warehouse-transfers (BR-102). */
+  transfers: 'transfer.inter_warehouse.view',
+  /** GET /warehouses/{id}/issues (BR-103). */
+  issues: 'warehouse.issue.view',
+  /** GET /warehouses/{id}/activity (BR-104). */
+  activity: 'warehouse.activity.view',
+  /** GET /admin/stock-adjustments, approved from the queue (BR-37). */
+  adjustments: 'inventory.stock_adjustment.approve',
+  /** The Initiate Stock Transfer button. */
+  transferInitiate: 'transfer.inter_warehouse.initiate',
+} as const;
+
+export type DashboardAccess = { [K in keyof typeof MAIN_DASHBOARD_CODES]: boolean };
+
+/** Which optional dashboard sources and actions the signed-in admin holds the code for. */
+export function dashboardAccess(can: (code: string) => boolean): DashboardAccess {
+  return {
+    sales: can(MAIN_DASHBOARD_CODES.sales),
+    transfers: can(MAIN_DASHBOARD_CODES.transfers),
+    issues: can(MAIN_DASHBOARD_CODES.issues),
+    activity: can(MAIN_DASHBOARD_CODES.activity),
+    adjustments: can(MAIN_DASHBOARD_CODES.adjustments),
+    transferInitiate: can(MAIN_DASHBOARD_CODES.transferInitiate),
+  };
+}
+
+// ─── Open issues (BR-103) and the paid-sales count ───────────────────────────
+
+/** The warehouses a filter covers: every listed one, or the picked one. A filter naming none that is listed covers nothing. */
+export function coveredWarehouseIds(warehouses: readonly WarehouseDto[], selectedId: string | undefined): string[] {
+  if (selectedId === undefined) return warehouses.map((w) => w.id);
+  return warehouses.some((w) => w.id === selectedId) ? [selectedId] : [];
+}
+
+export interface OpenIssueFigures {
+  /** Open plus in-progress issues over the covered warehouses. */
+  total: number;
+  byWarehouse: Record<string, number>;
+}
+
+/** Zero figures for an issue count that has not loaded: never drawn, a gate or figureOrPlaceholder stands in front of it. */
+export const EMPTY_ISSUE_FIGURES: OpenIssueFigures = { total: 0, byWarehouse: {} };
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * GET /warehouses/{id}/issues totals over the covered warehouses. A covered
+ * warehouse with no count, or one that is not a whole number, fails the
+ * figure: a smaller total is never shown as the real one.
+ */
+export function deriveOpenIssues(counts: Readonly<Record<string, unknown>>, warehouseIds: readonly string[]): Derived<OpenIssueFigures> {
+  return attempt(() => {
+    const byWarehouse: Record<string, number> = {};
+    let total = 0;
+    for (const id of warehouseIds) {
+      const count = counts[id];
+      if (!isCount(count)) throw new DashboardDataError(`issue count of ${id} is not a count`);
+      byWarehouse[id] = count;
+      total += count;
+    }
+    return { total, byWarehouse };
+  });
+}
+
+/** The number of paid sales behind today's revenue; a missing or fractional count is a data error, never 0. */
+export function deriveSalesCount(summary: Pick<SalesDashboardSummaryDto, 'count'>): Derived<number> {
+  return attempt(() => {
+    const count: unknown = summary.count;
+    if (!isCount(count)) throw new DashboardDataError('sales count is not a count');
+    return count;
+  });
+}
+
+// ─── Performance (GET /warehouses/{id}/performance, BR-80) ───────────────────
+
+/** The IST month so far as the inclusive `{ from, to }` range the performance and sales reads take. */
+export function monthToDateRange(now: Date): { from: string; to: string } {
+  const day = istDay(now);
+  return { from: `${day.slice(0, 8)}01`, to: day };
+}
+
+/** The server's exact counts for a range, summed over the covered warehouses; weights as integer grams. */
+export interface MainPerformance {
+  goodsReceipts: number;
+  grossGrams: number;
+  acceptedGrams: number;
+  rejectedGrams: number;
+  ordersPlaced: number;
+  ordersFulfilled: number;
+  ordersCancelled: number;
+  returnsRequested: number;
+}
+
+export const EMPTY_PERFORMANCE: MainPerformance = {
+  goodsReceipts: 0,
+  grossGrams: 0,
+  acceptedGrams: 0,
+  rejectedGrams: 0,
+  ordersPlaced: 0,
+  ordersFulfilled: 0,
+  ordersCancelled: 0,
+  returnsRequested: 0,
+};
+
+/**
+ * The summed performance as figures. A quantity the sum could not read (null
+ * grams) or a count that is not a whole number fails the figure, so the screen
+ * draws the error state a failed request gets and never "0 kg".
+ */
+export function derivePerformance(totals: PerformanceTotals): Derived<MainPerformance> {
+  return attempt(() => {
+    const grams = (value: number | null, what: string): number => {
+      if (value === null || !Number.isInteger(value)) throw new DashboardDataError(`${what} is not a quantity`);
+      return value;
+    };
+    const count = (value: number, what: string): number => {
+      if (!isCount(value)) throw new DashboardDataError(`${what} is not a count`);
+      return value;
+    };
+    return {
+      goodsReceipts: count(totals.goodsReceipts, 'goodsReceipts'),
+      grossGrams: grams(totals.grossGrams, 'grossGrams'),
+      acceptedGrams: grams(totals.acceptedGrams, 'acceptedGrams'),
+      rejectedGrams: grams(totals.rejectedGrams, 'rejectedGrams'),
+      ordersPlaced: count(totals.ordersPlaced, 'ordersPlaced'),
+      ordersFulfilled: count(totals.ordersFulfilled, 'ordersFulfilled'),
+      ordersCancelled: count(totals.ordersCancelled, 'ordersCancelled'),
+      returnsRequested: count(totals.returnsRequested, 'returnsRequested'),
+    };
+  });
+}
+
+// ─── Inventory tab ───────────────────────────────────────────────────────────
+
+/**
+ * Stock allocated to the channels (GET /admin/allocations, BR-12), summed as
+ * integer grams. An unreadable quantity fails the figure instead of leaving a
+ * smaller total on screen.
+ */
+export function deriveAllocatedGrams(allocations: readonly AllocationDto[]): Derived<number> {
+  return attempt(() => allocations.reduce((sum, row) => sum + requiredGrams(row.allocatedQtyKg, 'allocatedQtyKg'), 0));
+}
+
+/** The server's total of PENDING stock adjustments (GET /admin/stock-adjustments, BR-37): a whole number or a data error. */
+export function derivePendingAdjustments(total: unknown): Derived<number> {
+  return attempt(() => {
+    if (!isCount(total)) throw new DashboardDataError('adjustment total is not a count');
+    return total;
+  });
 }
