@@ -336,6 +336,8 @@ export function salesRevenueText(summary: Pick<SalesDashboardSummaryDto, 'revenu
 // ─── Goods receipts ──────────────────────────────────────────────────────────
 
 export interface ReceiptFigures {
+  /** Sum of grossQtyKg, in grams: what arrived, whether or not QC has accepted it yet. */
+  grossGrams: number;
   /** Sum of acceptedQtyKg, in grams. */
   acceptedGrams: number;
   /** status AWAITING_QC. */
@@ -353,8 +355,9 @@ export interface ReceiptFigures {
 /** The figures the operations card, performance and incoming tiles read, over `receipts`. */
 export function deriveReceiptFigures(receipts: readonly GoodsReceiptDto[]): Derived<ReceiptFigures> {
   return attempt(() => {
-    const f: ReceiptFigures = { acceptedGrams: 0, awaitingQc: 0, arrived: 0, discrepancies: 0, damaged: 0, rejected: 0 };
+    const f: ReceiptFigures = { grossGrams: 0, acceptedGrams: 0, awaitingQc: 0, arrived: 0, discrepancies: 0, damaged: 0, rejected: 0 };
     for (const g of receipts) {
+      f.grossGrams += requiredGrams(g.grossQtyKg, 'grossQtyKg');
       f.acceptedGrams += optionalGrams(g.acceptedQtyKg, 'acceptedQtyKg');
       const hasRejectedWeight = optionalGrams(g.rejectedQtyKg, 'rejectedQtyKg') > 0;
       if (g.status === 'AWAITING_QC') f.awaitingQc += 1;
@@ -377,6 +380,7 @@ export const EMPTY_STOCK_FIGURES: StockFigures = {
 };
 
 export const EMPTY_RECEIPT_FIGURES: ReceiptFigures = {
+  grossGrams: 0,
   acceptedGrams: 0,
   awaitingQc: 0,
   arrived: 0,

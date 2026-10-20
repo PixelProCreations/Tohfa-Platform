@@ -533,3 +533,11 @@ describe('Inventory tab: Allocated is the channel allocation, and the adjustment
     expect(MAIN).toContain("{ enabled: canAllView && access.adjustments && activeTab === 'Inventory' }");
   });
 });
+
+describe('Incoming goods is the weight that arrived today (gross), as the old shell showed', () => {
+  it('both Incoming tiles and the Performance receipts tile read the gross weight, not the QC-accepted weight', () => {
+    expect(MAIN).not.toMatch(/INCOMING (GOODS|TODAY)<\/Text>\s*<Text[^>]*>\s*\{figureOrPlaceholder\(receiptsFigSrc\.status, \(\) => formatKg\(receiptFig\.acceptedGrams\)\)/);
+    expect(MAIN).toContain('formatKg(receiptFig.grossGrams)');
+    expect(MAIN).not.toContain('formatKg(receiptFig.acceptedGrams)');
+  });
+});

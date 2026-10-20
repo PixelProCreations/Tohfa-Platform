@@ -1444,7 +1444,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
-                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.acceptedGrams)}</Text>
+                <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.grossGrams)}</Text>
               </View>
               {access.sales ? (
                 <View style={styles.twoByTwoCol}>
@@ -2294,7 +2294,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <TouchableOpacity style={styles.kpiCard} onPress={() => openTab('Receiving')} activeOpacity={0.75}>
                   <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.incoming')}</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
                 </TouchableOpacity>
@@ -2746,7 +2746,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 >
                   <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.acceptedGrams))}
+                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
                   </Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </TouchableOpacity>

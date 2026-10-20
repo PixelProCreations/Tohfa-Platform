@@ -322,6 +322,21 @@ function receiptsOf(list: GoodsReceiptDto[]) {
   return d.value;
 }
 
+describe('deriveReceiptFigures: gross received weight counts what arrived, accepted or not (old shell: received kg)', () => {
+  it('sums grossQtyKg in grams, so a receipt still awaiting QC counts as received (its accepted weight is not known yet)', () => {
+    const f = receiptsOf([
+      receipt({ id: '1', grossQtyKg: '0.100', acceptedQtyKg: '0.100' }),
+      receipt({ id: '2', grossQtyKg: '0.200', status: 'AWAITING_QC' }),
+    ]);
+    expect(f.grossGrams).toBe(300);
+    expect(f.acceptedGrams).toBe(100);
+  });
+
+  it('an unreadable gross weight is a data error, not a silent zero', () => {
+    expect(deriveReceiptFigures([receipt({ id: '1', grossQtyKg: 'heavy' })]).ok).toBe(false);
+  });
+});
+
 describe('deriveReceiptFigures: accepted weight in integer grams', () => {
   it('sums accepted kg exactly (0.100 + 0.200 is 300 g) and treats an absent acceptedQtyKg as 0', () => {
     const f = receiptsOf([
