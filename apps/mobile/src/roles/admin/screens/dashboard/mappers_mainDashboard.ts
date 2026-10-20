@@ -178,8 +178,15 @@ export interface WarehouseStockRow {
 }
 
 export interface ProductStockRow {
+  /** cropId + grade: one row per product and grade (Grade 1 and Grade 2 are different stock). */
+  key: string;
   cropId: string;
+  /** The product name ("Carrot"). */
   product: string;
+  /** The grade code ("GRADE_1"). */
+  grade: string;
+  /** "Carrot · Grade 1", what a card and a search match. */
+  label: string;
   rows: { warehouseId: string; warehouse: string; grams: number }[];
   totalGrams: number;
 }
@@ -214,7 +221,7 @@ export function deriveStockFigures(
   return attempt(() => {
     const names = new Map(warehouses.map((w) => [w.id, warehouseShortName(w.name)]));
     const stockByWarehouse = new Map<string, number>();
-    const productByCrop = new Map<string, { product: string; byWarehouse: Map<string, number> }>();
+    const productByKey = new Map<string, { cropId: string; product: string; grade: string; label: string; byWarehouse: Map<string, number> }>();
     let totalGrams = 0;
     let reservedGrams = 0;
 
@@ -225,10 +232,17 @@ export function deriveStockFigures(
       reservedGrams += optionalGrams(dto.qtyReservedKg, 'qtyReservedKg');
       totalGrams += available;
       stockByWarehouse.set(dto.warehouseId, (stockByWarehouse.get(dto.warehouseId) ?? 0) + available);
-      let product = productByCrop.get(dto.cropId);
+      const productKey = `${dto.cropId}|${dto.grade}`;
+      let product = productByKey.get(productKey);
       if (product === undefined) {
-        product = { product: row.productName, byWarehouse: new Map() };
-        productByCrop.set(dto.cropId, product);
+        product = {
+          cropId: dto.cropId,
+          product: row.productName,
+          grade: dto.grade,
+          label: t('inventory.product.label', { product: row.productName, grade: row.gradeLabel }),
+          byWarehouse: new Map(),
+        };
+        productByKey.set(productKey, product);
       }
       product.byWarehouse.set(dto.warehouseId, (product.byWarehouse.get(dto.warehouseId) ?? 0) + available);
     }
@@ -249,34 +263,58 @@ export function deriveStockFigures(
       };
     });
 
-    const measured = rows.filter((r) => r.capacityGrams !== null);
-    const capacityGrams = measured.length === 0 ? null : measured.reduce((sum, r) => sum + (r.capacityGrams ?? 0), 0);
-    const usedGrams = measured.reduce((sum, r) => sum + r.stockGrams, 0);
 
     const unknown = t('mainDashboard.warehouse.unknown');
-    const products: ProductStockRow[] = [...productByCrop.entries()].map(([cropId, { product, byWarehouse }]) => {
+    const products: ProductStockRow[] = [...productByKey.entries()].map(([key, { cropId, product, grade, label, byWarehouse }]) => {
       const productRows = [...byWarehouse.entries()].map(([warehouseId, grams]) => ({
         warehouseId,
         warehouse: names.get(warehouseId) ?? unknown,
         grams,
       }));
-      return { cropId, product, rows: productRows, totalGrams: productRows.reduce((sum, r) => sum + r.grams, 0) };
+      return { key, cropId, product, grade, label, rows: productRows, totalGrams: productRows.reduce((sum, r) => sum + r.grams, 0) };
     });
 
     return {
       totalGrams,
       reservedGrams,
       warehouses: rows,
-      capacity: {
-        capacityGrams,
-        usedGrams,
-        availableGrams: capacityGrams === null ? null : capacityGrams - usedGrams,
-        utilizationBp: capacityGrams === null || capacityGrams === 0 ? null : basisPoints(usedGrams, capacityGrams),
-        warehousesWithCapacity: measured.length,
-      },
+      capacity: capacityOfRows(rows),
       products,
     };
   });
+}
+
+/** The network capacity over `rows`: only the warehouses that have one count (BR-66b: never clamped). */
+function capacityOfRows(rows: readonly WarehouseStockRow[]): StockFigures['capacity'] {
+  const measured = rows.filter((r) => r.capacityGrams !== null);
+  const capacityGrams = measured.length === 0 ? null : measured.reduce((sum, r) => sum + (r.capacityGrams ?? 0), 0);
+  const usedGrams = measured.reduce((sum, r) => sum + r.stockGrams, 0);
+  return {
+    capacityGrams,
+    usedGrams,
+    availableGrams: capacityGrams === null ? null : capacityGrams - usedGrams,
+    utilizationBp: capacityGrams === null || capacityGrams === 0 ? null : basisPoints(usedGrams, capacityGrams),
+    warehousesWithCapacity: measured.length,
+  };
+}
+
+/**
+ * The stock figures for the header filter. The batches are already filtered by
+ * the API, but the warehouse list is not, so without this every other
+ * warehouse would be drawn as a false "0 kg" and the capacity would be measured
+ * against the whole network. A filter that names no listed warehouse leaves no
+ * rows (never silently the whole network). The batch totals are kept as read.
+ */
+export function scopeStockFigures(figures: StockFigures, warehouseId: string | undefined): StockFigures {
+  if (warehouseId === undefined) return figures;
+  const rows = figures.warehouses.filter((w) => w.warehouseId === warehouseId);
+  return { ...figures, warehouses: rows, capacity: capacityOfRows(rows) };
+}
+
+/** Products whose "Product · Grade" label contains the search text, case-insensitively; empty text keeps all. */
+export function filterStockProducts(products: readonly ProductStockRow[], query: string): ProductStockRow[] {
+  const q = query.trim().toLowerCase();
+  return q === '' ? [...products] : products.filter((p) => p.label.toLowerCase().includes(q));
 }
 
 // ─── Sales (integer paise) ───────────────────────────────────────────────────

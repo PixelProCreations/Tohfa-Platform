@@ -27,6 +27,8 @@ import {
   greetingKey,
   openTaskCount,
   receiptsOnDay,
+  scopeStockFigures,
+  filterStockProducts,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -744,5 +746,75 @@ describe('findWarehouseByName: StorageFlow hands names back', () => {
     expect(findWarehouseByName(live, 'Gud')?.id).toBe('b');
     expect(findWarehouseByName(live, 'Mettupalayam')).toBeUndefined();
     expect(findWarehouseByName(live, '')).toBeUndefined();
+  });
+});
+
+// ─── The warehouse filter scopes every figure it feeds ──────────────────────
+
+describe('scopeStockFigures: the header filter narrows the cards and the capacity, not only the batches', () => {
+  const a = warehouse({ id: WH_A, name: 'Ooty Warehouse', capacityKg: '1000.000' });
+  const b = warehouse({ id: WH_B, name: 'Coonoor Warehouse', capacityKg: '3000.000' });
+  // The API already returned only Ooty's batches for the filter; Coonoor has no stock in this read.
+  const ootyOnly = stockOf([batch({ warehouseId: WH_A, qtyAvailableKg: '500.000' })], [a, b]);
+
+  it('with no filter every warehouse stays, unchanged', () => {
+    expect(scopeStockFigures(ootyOnly, undefined)).toEqual(ootyOnly);
+  });
+
+  it('with a filter only that warehouse is a row: the others are not drawn as a false 0 kg', () => {
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.warehouses.map((w) => w.warehouseId)).toEqual([WH_A]);
+  });
+
+  it('BR-66b: utilization is measured against the covered warehouses only (500 of 1000, not 500 of 4000)', () => {
+    expect(ootyOnly.capacity.utilizationBp).toBe(1250);
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.capacity).toMatchObject({ capacityGrams: 1000000, usedGrams: 500000, availableGrams: 500000, utilizationBp: 5000, warehousesWithCapacity: 1 });
+  });
+
+  it('a filter naming a warehouse that is not in the list leaves no rows and no capacity, never the whole network', () => {
+    const scoped = scopeStockFigures(ootyOnly, 'not-a-warehouse');
+    expect(scoped.warehouses).toEqual([]);
+    expect(scoped.capacity).toMatchObject({ capacityGrams: null, utilizationBp: null, warehousesWithCapacity: 0 });
+  });
+
+  it('keeps the batch totals the API returned (they are already filtered server-side)', () => {
+    const scoped = scopeStockFigures(ootyOnly, WH_A);
+    expect(scoped.totalGrams).toBe(500000);
+  });
+});
+
+describe('consolidated stock is per product and grade, and searchable by either', () => {
+  const a = warehouse({ id: WH_A, name: 'Ooty Warehouse' });
+  const b = warehouse({ id: WH_B, name: 'Coonoor Warehouse' });
+  const f = stockOf(
+    [
+      batch({ warehouseId: WH_A, qtyAvailableKg: '10.000', grade: 'GRADE_1' }),
+      batch({ id: 'g2', warehouseId: WH_A, qtyAvailableKg: '5.000', grade: 'GRADE_2' }),
+      batch({ id: 'g1b', warehouseId: WH_B, qtyAvailableKg: '2.500', grade: 'GRADE_1' }),
+      batch({ id: 'bt', warehouseId: WH_B, qtyAvailableKg: '1.000', cropId: BEET, cropName: 'Beetroot', grade: 'GRADE_1' }),
+    ],
+    [a, b],
+  );
+
+  it('keeps grades of one crop apart (Grade 1 and Grade 2 are different stock) and still totals across warehouses', () => {
+    const carrots = f.products.filter((p) => p.cropId === CARROT);
+    expect(carrots).toHaveLength(2);
+    const g1 = carrots.find((p) => p.grade === 'GRADE_1');
+    expect(g1?.totalGrams).toBe(12500);
+    expect(g1?.rows.map((r) => r.grams)).toEqual([10000, 2500]);
+    expect(carrots.find((p) => p.grade === 'GRADE_2')?.totalGrams).toBe(5000);
+  });
+
+  it('every product row has a unique key and a "Product · Grade" label', () => {
+    expect(new Set(f.products.map((p) => p.key)).size).toBe(f.products.length);
+    expect(f.products.find((p) => p.cropId === BEET)?.label).toBe('Beetroot · Grade 1');
+  });
+
+  it('search matches the product or the grade, case-insensitively, and empty search keeps everything', () => {
+    expect(filterStockProducts(f.products, '').length).toBe(f.products.length);
+    expect(filterStockProducts(f.products, 'beet').map((p) => p.product)).toEqual(['Beetroot']);
+    expect(filterStockProducts(f.products, 'grade 2').map((p) => p.grade)).toEqual(['GRADE_2']);
+    expect(filterStockProducts(f.products, 'zzz')).toEqual([]);
   });
 });

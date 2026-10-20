@@ -83,6 +83,8 @@ import {
   openTaskCount,
   receiptsOnDay,
   salesRevenueText,
+  scopeStockFigures,
+  filterStockProducts,
   toDashboardAlerts,
   toLowStockItems,
   toRecentActivity,
@@ -861,7 +863,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // (BR-66b). A malformed value from the server makes that derivation fail,
   // which draws the same error state a failed request does, never a zero.
   const stockD = useMemo(() => deriveStockFigures(batches, warehouses), [batches, warehouses]);
-  const stockFig = stockD.ok ? stockD.value : EMPTY_STOCK_FIGURES;
+  // The filter narrows the batches at the API; scoping the rows keeps the cards, the capacity and the
+  // warehouse count on the warehouse(s) it covers (the old shell's filter did the same for every KPI).
+  const stockFig = stockD.ok ? scopeStockFigures(stockD.value, selectedWarehouseId) : EMPTY_STOCK_FIGURES;
   const receiptsD = useMemo(() => deriveReceiptFigures(goodsReceipts), [goodsReceipts]);
   const receiptFig = receiptsD.ok ? receiptsD.value : EMPTY_RECEIPT_FIGURES;
   const revenueD = useMemo(() => (salesSummary === undefined ? null : salesRevenueText(salesSummary)), [salesSummary]);
@@ -1331,7 +1335,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Active Warehouses</Text>
-                <Text style={styles.twoByTwoVal}>{warehouses.length}</Text>
+                <Text style={styles.twoByTwoVal}>{stockFig.warehouses.length}</Text>
               </View>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Utilization</Text>
@@ -1731,9 +1735,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderConsolidatedStockScreen = () => {
-    const filteredProducts = stockFig.products.filter(
-      (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
-    );
+    const filteredProducts = filterStockProducts(stockFig.products, stockSearchQuery);
 
     return (
       <View style={styles.subScreenContainer}>
@@ -1752,7 +1754,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <SearchIcon size={18} color={PALETTE.subTextMuted} />
             <TextInput
               style={styles.stockSearchInput}
-              placeholder="Product, grade, batch..."
+              placeholder={t('mainDashboard.stock.searchPlaceholder')}
               placeholderTextColor={PALETTE.subTextMuted}
               value={stockSearchQuery}
               onChangeText={setStockSearchQuery}
@@ -1762,8 +1764,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           {/* Product Cards */}
           <SectionGate sources={[stockSrc]}>
           {filteredProducts.map((p) => (
-            <View key={p.cropId} style={styles.consolidatedProductCard}>
-              <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
+            <View key={p.key} style={styles.consolidatedProductCard}>
+              <Text style={styles.consolidatedProductTitle}>{p.label}</Text>
               {p.rows.map((row) => (
                 <View key={row.warehouseId}>
                   <View style={styles.stockTableRowDivider} />

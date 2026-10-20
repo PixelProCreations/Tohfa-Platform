@@ -313,3 +313,26 @@ describe('theme: the screen takes colours from adminColors where a token exists'
     expect(count).toBeLessThanOrEqual(Number(allowed));
   });
 });
+
+describe('the warehouse filter scopes what it feeds (old shell: filter -> KPIs, capacity and stock summary)', () => {
+  it('the stock figures are scoped to the filter, so the cards and the capacity follow the picked warehouse', () => {
+    expect(MAIN).toContain('scopeStockFigures(stockD.value, selectedWarehouseId)');
+  });
+
+  it('Capacity Summary counts the warehouses covered by the filter, not every active warehouse', () => {
+    expect(MAIN).toContain('{stockFig.warehouses.length}');
+    expect(MAIN).not.toMatch(/Active Warehouses<\/Text>\s*<Text[^>]*>\{warehouses\.length\}/);
+  });
+
+  it('Consolidated Stock searches product and grade through filterStockProducts and keys cards by the product+grade key', () => {
+    expect(MAIN).toContain('filterStockProducts(stockFig.products, stockSearchQuery)');
+    expect(MAIN).toContain('key={p.key}');
+    expect(MAIN).not.toContain('key={p.cropId}');
+  });
+
+  it('the search placeholder is a catalogue string and does not promise a batch search the filter does not do', () => {
+    expect(MAIN).not.toContain('Product, grade, batch...');
+    expect(MAIN).toContain("t('mainDashboard.stock.searchPlaceholder')");
+    expect(EN['mainDashboard.stock.searchPlaceholder']).toBe('Product or grade');
+  });
+});

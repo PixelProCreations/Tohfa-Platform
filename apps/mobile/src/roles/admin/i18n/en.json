@@ -2495,6 +2495,7 @@
   "mainDashboard.comparison.stat": "{{stock}} · {{utilization}} cap",
   "mainDashboard.comparison.statNoCapacity": "{{stock}} · capacity not set",
   "mainDashboard.warehouse.unknown": "Unknown warehouse",
+  "mainDashboard.stock.searchPlaceholder": "Product or grade",
   "mainDashboard.alert.dismiss": "Dismiss for me",
   "mainDashboard.alert.dismissing": "Dismissing…",
   "mainDashboard.alert.dismissed.title": "Alert dismissed",
