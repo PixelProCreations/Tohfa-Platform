@@ -58,7 +58,6 @@ import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
 import { listAllocations, listBatches, type BatchDto } from '../../api/inventory';
 import { listStockAdjustments } from '../../api/stockAdjustments';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
-import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
 import { dismissAlert, listAlerts, snoozeAlert, type AlertItemDto } from '../../api/alerts';
 import { ALERT_FILTER_LABEL, ALERT_STATE_FILTERS, snoozeUntil, type AlertStateFilter } from '../warehouse/dashboard-home-more/mappers_dashboardHome';
 import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
@@ -83,7 +82,6 @@ import {
   countDashboardAlerts,
   coveredWarehouseIds,
   countLabel,
-  countOrdersPlacedOn,
   dashboardAccess,
   derivePerformance,
   deriveAllocatedGrams,
@@ -583,7 +581,6 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 const NO_WAREHOUSES: WarehouseDto[] = [];
 const NO_BATCHES: BatchDto[] = [];
 const NO_TASKS: TaskItemDto[] = [];
-const NO_ORDERS: OrderSummaryDto[] = [];
 const NO_RECEIPTS: GoodsReceiptDto[] = [];
 const NO_ALERTS: AlertItemDto[] = [];
 /**
@@ -806,22 +803,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const salesSummary = salesSummaryQuery.data;
 
-  // Live orders (GET /admin/orders), newest first. The spec has no placed-date
-  // filter, so read pages until one reaches an older day and count today's.
-  const ordersQuery = useAdminQuery(
-    adminKeys.scoped('orders', selectedWarehouseId, { resource: 'list', day: today, limit: DASHBOARD_PAGE_LIMIT }),
-    (signal) =>
-      collectPages(
-        (cursor) => listAdminOrders({ warehouseId: selectedWarehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }, signal),
-        { isDone: (page) => page.some((o) => !isOnIstDay(o.placedAt, today)) },
-      ),
-    live,
-  );
-  const ordersToday = useMemo(
-    () => countOrdersPlacedOn(ordersQuery.data?.items ?? NO_ORDERS, today, ordersQuery.data?.complete ?? false),
-    [ordersQuery.data, today],
-  );
-
   // Live goods receipts (GET /admin/goods-receipts), newest first; today's only.
   const goodsReceiptsQuery = useAdminQuery(
     adminKeys.scoped('receiving', selectedWarehouseId, { resource: 'grn', day: today, limit: DASHBOARD_PAGE_LIMIT }),
@@ -902,7 +883,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
   // A list the page cap cut short: its totals say so instead of looking whole.
   const listsPartial =
-    [batchesQuery.data, ordersQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
+    [batchesQuery.data, goodsReceiptsQuery.data, alertsQuery.data].some(
       (collected) => collected !== undefined && !collected.complete,
     );
 
@@ -911,7 +892,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const batchesSrc = sourceOf(batchesQuery);
   const openTasksSrc = sourceOf(openTasksQuery);
   const salesSrc = sourceOf(salesSummaryQuery);
-  const ordersSrc = sourceOf(ordersQuery);
   const receiptsSrc = sourceOf(goodsReceiptsQuery);
   const alertsSrc = sourceOf(alertsQuery);
   const snoozedAlertsSrc = sourceOf(snoozedAlertsQuery);
@@ -1056,7 +1036,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     stockSrc,
     receiptsFigSrc,
     ...(access.transfers ? [transfersSrc] : []),
-    ordersSrc,
+    perfTodayFigSrc,
     ...(access.sales ? [revenueSrc] : []),
     ...(access.issues ? [issuesFigSrc] : []),
   ];
@@ -2314,7 +2294,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('customer_orders')} activeOpacity={0.75}>
                   <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.orders')}</Text>
                   <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(ordersSrc.status, () => countLabel(ordersToday.count, ordersToday.exact))}
+                    {figureOrPlaceholder(perfTodayFigSrc.status, () => String(perfToday.ordersPlaced))}
                   </Text>
                   <Text style={styles.kpiSub}>{t('mainDashboard.kpi.ordersSub')}</Text>
                 </TouchableOpacity>
@@ -2395,7 +2375,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 3. Today's Operations ─── */}
               <Text style={styles.sectionHeading}>Today's Operations</Text>
-              <SectionGate sources={[receiptsFigSrc, ordersSrc, taskSummarySrc, perfTodayFigSrc, ...(access.activity ? [activitySrc] : [])]}>
+              <SectionGate sources={[receiptsFigSrc, taskSummarySrc, perfTodayFigSrc, ...(access.activity ? [activitySrc] : [])]}>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
                 <TouchableOpacity
@@ -2428,16 +2408,16 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   onPress={() => navigateWh('customer_orders')}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                  <Text style={styles.operationsTitle}>{t('mainDashboard.ops.orders')}</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'CONFIRMED' || o.status === 'PACKED').length}</Text>
+                      {t('mainDashboard.ops.placed')} <Text style={styles.operationsMetricBold}>{perfToday.ordersPlaced}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>{ordersToday.orders.filter((o) => o.status === 'DISPATCHED' || o.status === 'OUT_FOR_DELIVERY' || o.status === 'DELIVERED').length}</Text>
+                      {t('mainDashboard.ops.fulfilled')} <Text style={styles.operationsMetricBold}>{perfToday.ordersFulfilled}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>{ordersToday.orders.filter((o) => o.status === 'CANCELLED').length}</Text>
+                      {t('mainDashboard.ops.cancelled')} <Text style={styles.operationsMetricRed}>{perfToday.ordersCancelled}</Text>
                     </Text>
                   </View>
                 </TouchableOpacity>

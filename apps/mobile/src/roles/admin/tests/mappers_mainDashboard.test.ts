@@ -10,7 +10,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { AllocationDto, BatchDto } from '../api/inventory';
 import type { AlertItemDto } from '../api/alerts';
-import type { OrderSummaryDto } from '../api/orders';
 import type { GoodsReceiptDto } from '../api/receiving';
 import type { TaskItemDto, TaskSummaryDto } from '../api/tasks';
 import { TRANSFER_STATUSES, type WarehouseTransferDto } from '../api/warehouseTransfers';
@@ -25,7 +24,6 @@ import {
   deriveTransfers,
   transferStatusKind,
   countLabel,
-  countOrdersPlacedOn,
   greetingKey,
   openTaskCount,
   receiptsOnDay,
@@ -435,35 +433,6 @@ describe('receiptsOnDay: Receipts today must filter by date', () => {
       ),
     );
     expect(f.acceptedGrams).toBe(20000);
-  });
-});
-
-describe("countOrdersPlacedOn: Today's orders must be today's", () => {
-  const order = (id: string, placedAt: string): OrderSummaryDto => ({
-    id,
-    orderNumber: id,
-    status: 'CONFIRMED',
-    totalAmount: '10.00' as OrderSummaryDto['totalAmount'],
-    placedAt,
-  });
-
-  it('counts orders placed on the IST day only', () => {
-    const orders = [order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-19T02:00:00Z'), order('3', '2026-10-17T05:00:00Z')];
-    expect(countOrdersPlacedOn(orders, TODAY, true)).toMatchObject({ count: 2, exact: true });
-    expect(countOrdersPlacedOn(orders, TODAY, true).orders.map((o) => o.id)).toEqual(['1', '2']);
-  });
-
-  it('is exact when the list was read to the end, or when it reached an older order (newest first)', () => {
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, true).exact).toBe(true);
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z'), order('2', '2026-10-01T05:00:00Z')], TODAY, false).exact).toBe(true);
-  });
-
-  it('is NOT exact when the pages ran out while every order read was still today (more may follow)', () => {
-    expect(countOrdersPlacedOn([order('1', '2026-10-19T05:00:00Z')], TODAY, false)).toMatchObject({ count: 1, exact: false });
-  });
-
-  it('no orders is an exact zero only when the list was complete', () => {
-    expect(countOrdersPlacedOn([], TODAY, true)).toMatchObject({ count: 0, exact: true });
   });
 });
 
@@ -975,6 +944,15 @@ describe('BR-80: derivePerformance', () => {
     expect(derivePerformance({ ...totals, grossGrams: null }).ok).toBe(false);
     expect(derivePerformance({ ...totals, acceptedGrams: null }).ok).toBe(false);
     expect(derivePerformance({ ...totals, rejectedGrams: null }).ok).toBe(false);
+  });
+
+  // Order Fulfilment (Placed / Fulfilled / Cancelled) now reads these three counts directly, so a
+  // malformed one must fail the card into its error state rather than draw a wrong number.
+  it('BR-80: each of the Order Fulfilment counts (placed, fulfilled, cancelled) that is not a whole number is a data error', () => {
+    for (const field of ['ordersPlaced', 'ordersFulfilled', 'ordersCancelled'] as const) {
+      expect(derivePerformance({ ...totals, [field]: 2.5 }).ok).toBe(false);
+      expect(derivePerformance({ ...totals, [field]: -1 }).ok).toBe(false);
+    }
   });
 
   it('a count that is not a whole number is a data error', () => {

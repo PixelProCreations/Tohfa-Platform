@@ -13,7 +13,6 @@ import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { BatchDto } from '../../api/inventory';
 import type { AlertItemDto } from '../../api/alerts';
 import type { AllocationDto } from '../../api/inventory';
-import type { OrderSummaryDto } from '../../api/orders';
 import type { GoodsReceiptDto } from '../../api/receiving';
 import type { TaskItemDto, TaskSummaryDto, TaskType } from '../../api/tasks';
 import type { WarehouseTransferDto } from '../../api/warehouseTransfers';
@@ -439,29 +438,6 @@ export async function collectPages<T>(
 /** Goods receipts received on the IST calendar day `day` ("YYYY-MM-DD"). */
 export function receiptsOnDay(receipts: readonly GoodsReceiptDto[], day: string): GoodsReceiptDto[] {
   return receipts.filter((g) => isOnIstDay(g.receivedAt, day));
-}
-
-export interface OrdersToday {
-  /** The orders placed on the day. */
-  orders: OrderSummaryDto[];
-  count: number;
-  /**
-   * True when the count is the whole day: the list was read to its end, or it
-   * reached an order from another day (the queue is newest first, so nothing
-   * placed today follows). False means more may exist: show "N+".
-   */
-  exact: boolean;
-}
-
-/**
- * GET /admin/orders has no placed-date filter (`deliveryDate` is the pickup or
- * delivery date, not when the order was placed), so "today's orders" is read
- * from `placedAt` of the newest-first list.
- */
-export function countOrdersPlacedOn(orders: readonly OrderSummaryDto[], day: string, listComplete: boolean): OrdersToday {
-  const today = orders.filter((o) => isOnIstDay(o.placedAt, day));
-  const reachedAnotherDay = orders.some((o) => !isOnIstDay(o.placedAt, day));
-  return { orders: today, count: today.length, exact: listComplete || reachedAnotherDay };
 }
 
 /** A count as text: "12", or "12+" when more may exist beyond what was read. */

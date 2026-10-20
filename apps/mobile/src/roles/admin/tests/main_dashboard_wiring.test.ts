@@ -46,7 +46,6 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'taskSummaryQuery',
     'openTasksQuery',
     'salesSummaryQuery',
-    'ordersQuery',
     'goodsReceiptsQuery',
     'alertsQuery',
     'issuesQuery',
@@ -141,10 +140,43 @@ describe('honest figures: no claim the data does not back', () => {
     expect(MAIN).not.toContain('toISOString()');
   });
 
-  it("Today's orders is placed-today from placedAt (GET /admin/orders has no placed-date filter), shown as N+ when the pages ran out", () => {
-    expect(MAIN).toContain('countOrdersPlacedOn(');
-    expect(MAIN).toContain('countLabel(ordersToday.count, ordersToday.exact)');
+  // Replaces the old "Today's orders is a list scan shown as N+" test: the tile and the Order
+  // Fulfilment card now read the server's exact counts (GET /warehouses/{id}/performance, BR-80),
+  // summed over the covered warehouses, instead of scanning the newest pages of GET /admin/orders.
+  it("BR-80: Today's Orders tile is the exact placed count of today (perfToday.ordersPlaced), not a list scan with an N+ suffix", () => {
+    expect(MAIN).toMatch(/figureOrPlaceholder\(perfTodayFigSrc\.status, \(\) => String\(perfToday\.ordersPlaced\)\)/);
+    expect(MAIN).not.toContain('countOrdersPlacedOn');
+    expect(MAIN).not.toContain('ordersToday');
+    expect(MAIN).not.toContain('ordersQuery');
+    expect(MAIN).not.toContain('listAdminOrders');
     expect(MAIN).not.toMatch(/String\(orders\.length\)/);
+  });
+
+  it('BR-80: Order Fulfilment shows Placed / Fulfilled / Cancelled from the exact server counts, through the catalogue, not guessed Ready / Dispatched / Exceptions', () => {
+    for (const [key, field] of [
+      ['mainDashboard.ops.placed', 'ordersPlaced'],
+      ['mainDashboard.ops.fulfilled', 'ordersFulfilled'],
+      ['mainDashboard.ops.cancelled', 'ordersCancelled'],
+    ] as const) {
+      expect(MAIN).toMatch(new RegExp(`t\\('${key.replace(/\./g, '\\.')}'\\)\\}[\\s\\S]{0,160}?\\{perfToday\\.${field}\\}`));
+    }
+    expect(MAIN).not.toMatch(/\bReady <Text/);
+    expect(MAIN).not.toMatch(/\bDispatched <Text/);
+    expect(MAIN).not.toMatch(/Exceptions <Text/);
+    expect(MAIN).not.toMatch(/o\.status === '(CONFIRMED|PACKED|DISPATCHED|OUT_FOR_DELIVERY|DELIVERED|CANCELLED)'/);
+  });
+
+  it('BR-80: Order Fulfilment is gated by the performance view-state (Retry), never zeros while loading or failed, and the labels are in the catalogue', () => {
+    const gate = MAIN.indexOf("<SectionGate sources={[receiptsFigSrc, taskSummarySrc, perfTodayFigSrc");
+    const card = MAIN.indexOf("t('mainDashboard.ops.orders')");
+    expect(gate).toBeGreaterThan(-1);
+    expect(card).toBeGreaterThan(gate);
+    expect(MAIN).toContain('homeKpiSources');
+    expect(MAIN.slice(MAIN.indexOf('const homeKpiSources'), MAIN.indexOf('const inventoryKpiSources'))).toContain('perfTodayFigSrc');
+    expect(EN['mainDashboard.ops.orders']).toBe('Order Fulfilment');
+    expect(EN['mainDashboard.ops.placed']).toBe('Placed');
+    expect(EN['mainDashboard.ops.fulfilled']).toBe('Fulfilled');
+    expect(EN['mainDashboard.ops.cancelled']).toBe('Cancelled');
   });
 
   it('Receipts today are the receipts of the IST day (receiptsOnDay), not every receipt the first page held', () => {
