@@ -728,3 +728,40 @@ export function findWarehouseByName(warehouses: readonly WarehouseDto[], name: s
   if (exactShort !== undefined) return exactShort;
   return warehouses.find((w) => warehouseShortName(w.name).toLowerCase().startsWith(key));
 }
+
+// ─── Permission gating ───────────────────────────────────────────────────────
+
+/**
+ * The docs/rbac.json codes the optional dashboard sources read (each exists
+ * there; the server authorises every read again, root CLAUDE.md 2.1). A source
+ * whose code is not held is not fetched and not drawn, so a role without it
+ * sees no tile instead of a tile that answers 403.
+ */
+export const MAIN_DASHBOARD_CODES = {
+  /** GET /admin/sales/summary (BR-96). */
+  sales: 'sales.dashboard.view',
+  /** GET /warehouse-transfers (BR-102). */
+  transfers: 'transfer.inter_warehouse.view',
+  /** GET /warehouses/{id}/issues (BR-103). */
+  issues: 'warehouse.issue.view',
+  /** GET /warehouses/{id}/activity (BR-104). */
+  activity: 'warehouse.activity.view',
+  /** GET /admin/stock-adjustments, approved from the queue (BR-37). */
+  adjustments: 'inventory.stock_adjustment.approve',
+  /** The Initiate Stock Transfer button. */
+  transferInitiate: 'transfer.inter_warehouse.initiate',
+} as const;
+
+export type DashboardAccess = { [K in keyof typeof MAIN_DASHBOARD_CODES]: boolean };
+
+/** Which optional dashboard sources and actions the signed-in admin holds the code for. */
+export function dashboardAccess(can: (code: string) => boolean): DashboardAccess {
+  return {
+    sales: can(MAIN_DASHBOARD_CODES.sales),
+    transfers: can(MAIN_DASHBOARD_CODES.transfers),
+    issues: can(MAIN_DASHBOARD_CODES.issues),
+    activity: can(MAIN_DASHBOARD_CODES.activity),
+    adjustments: can(MAIN_DASHBOARD_CODES.adjustments),
+    transferInitiate: can(MAIN_DASHBOARD_CODES.transferInitiate),
+  };
+}

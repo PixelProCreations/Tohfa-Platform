@@ -6,6 +6,8 @@
  * task sources).
  */
 import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { BatchDto } from '../api/inventory';
 import type { AlertItemDto } from '../api/alerts';
 import type { OrderSummaryDto } from '../api/orders';
@@ -29,6 +31,8 @@ import {
   receiptsOnDay,
   scopeStockFigures,
   filterStockProducts,
+  dashboardAccess,
+  MAIN_DASHBOARD_CODES,
   toDashboardAlerts,
   toLowStockItems,
   toWarehouseOptions,
@@ -816,5 +820,40 @@ describe('consolidated stock is per product and grade, and searchable by either'
     expect(filterStockProducts(f.products, 'beet').map((p) => p.product)).toEqual(['Beetroot']);
     expect(filterStockProducts(f.products, 'grade 2').map((p) => p.grade)).toEqual(['GRADE_2']);
     expect(filterStockProducts(f.products, 'zzz')).toEqual([]);
+  });
+});
+
+// ─── Permission gating: a figure whose code is not held is not fetched or drawn ─
+
+describe('dashboardAccess: one rbac code per optional dashboard source (docs/rbac.json)', () => {
+  const holding = (...codes: string[]) => (code: string) => codes.includes(code);
+
+  it('fails closed: a user holding nothing sees no optional figure and no transfer action', () => {
+    expect(dashboardAccess(holding())).toEqual({
+      sales: false,
+      transfers: false,
+      issues: false,
+      activity: false,
+      adjustments: false,
+      transferInitiate: false,
+    });
+  });
+
+  it('each flag follows its own code and no other', () => {
+    expect(dashboardAccess(holding('sales.dashboard.view')).sales).toBe(true);
+    expect(dashboardAccess(holding('sales.dashboard.view')).transfers).toBe(false);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.view')).transfers).toBe(true);
+    expect(dashboardAccess(holding('warehouse.issue.view')).issues).toBe(true);
+    expect(dashboardAccess(holding('warehouse.activity.view')).activity).toBe(true);
+    expect(dashboardAccess(holding('inventory.stock_adjustment.approve')).adjustments).toBe(true);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.initiate')).transferInitiate).toBe(true);
+    expect(dashboardAccess(holding('transfer.inter_warehouse.view')).transferInitiate).toBe(false);
+  });
+
+  it('uses only codes that exist in docs/rbac.json (a code that does not exist would gate a figure off for everyone)', () => {
+    const rbac = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', '..', 'docs', 'rbac.json'), 'utf8');
+    for (const code of Object.values(MAIN_DASHBOARD_CODES)) {
+      expect({ code, known: rbac.includes(`"${code}"`) }).toEqual({ code, known: true });
+    }
   });
 });

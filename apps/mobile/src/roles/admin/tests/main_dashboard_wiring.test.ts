@@ -336,3 +336,27 @@ describe('the warehouse filter scopes what it feeds (old shell: filter -> KPIs, 
     expect(EN['mainDashboard.stock.searchPlaceholder']).toBe('Product or grade');
   });
 });
+
+describe('permission gating: a figure whose rbac code is missing is not fetched and not drawn (old shell)', () => {
+  it('the screen asks dashboardAccess(can) once and gates the optional sources on it', () => {
+    expect(MAIN).toContain('const access = dashboardAccess(can);');
+    expect(MAIN).toContain('{ enabled: canAllView && access.sales }');
+    expect(MAIN).toContain('{ enabled: canAllView && access.transfers }');
+  });
+
+  it('the Sales tile and the Pending Transfers tile are drawn only with their code', () => {
+    expect(MAIN).toMatch(/\{access\.sales \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('sales'\)/);
+    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<View style=\{styles\.kpiCard\}>[\s\S]*?PENDING TRANSFERS/);
+  });
+
+  it('Initiate Stock Transfer is drawn only with transfer.inter_warehouse.initiate, never as a button that answers "Permission Denied"', () => {
+    expect(MAIN).not.toContain('Permission Denied');
+    expect(MAIN).not.toContain('Transfer initiation requires');
+    expect(MAIN).toContain('access.transferInitiate');
+  });
+
+  it('no fake "Export Successful" alert: the activity feed has no export endpoint (StorageFlow documents the prop as unused)', () => {
+    expect(MAIN).not.toContain('Export Successful');
+    expect(MAIN).not.toContain('onExportActivity');
+  });
+});

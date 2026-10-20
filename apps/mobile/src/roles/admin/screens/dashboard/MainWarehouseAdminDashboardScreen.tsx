@@ -73,6 +73,7 @@ import {
   collectPages,
   countLabel,
   countOrdersPlacedOn,
+  dashboardAccess,
   deriveReceiptFigures,
   deriveStockFigures,
   deriveTransfers,
@@ -701,6 +702,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // Every query waits for warehouse.all.view: without it (or until /auth/me
   // answers) the Home shows a note and nothing is requested.
   const live = { enabled: canAllView };
+  // Optional sources are fetched and drawn only with their own rbac code (the old shell did the same).
+  const access = dashboardAccess(can);
 
   // Live warehouses query (GET /warehouses, warehouse.all.view): the API's own
   // isActive filter, no seed-code list.
@@ -759,7 +762,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const salesSummaryQuery = useAdminQuery(
     adminKeys.scoped('sales', selectedWarehouseId, { resource: 'summary', from: today, to: today }),
     (signal) => getSalesSummary({ warehouseId: selectedWarehouseId, from: today, to: today }, signal),
-    live,
+    { enabled: canAllView && access.sales },
   );
   const salesSummary = salesSummaryQuery.data;
 
@@ -799,7 +802,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const transfersQuery = useAdminQuery(
     adminKeys.scoped('transfers', selectedWarehouseId, { resource: 'list', pageSize: DASHBOARD_PAGE_LIMIT }),
     (signal) => listWarehouseTransfers({ warehouseId: selectedWarehouseId, pageSize: DASHBOARD_PAGE_LIMIT }, signal),
-    live,
+    { enabled: canAllView && access.transfers },
   );
 
   // Live alerts (GET /admin/alerts): the active ones. Snoozed and dismissed
@@ -896,7 +899,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   );
   const revenueSrc = mergeSources(salesSrc, derivedSource(revenueD, () => void salesSummaryQuery.refetch()));
 
-  const homeKpiSources = [stockSrc, receiptsFigSrc, transfersSrc, ordersSrc, revenueSrc, alertsSrc];
+  const homeKpiSources = [
+    stockSrc,
+    receiptsFigSrc,
+    ...(access.transfers ? [transfersSrc] : []),
+    ordersSrc,
+    ...(access.sales ? [revenueSrc] : []),
+    alertsSrc,
+  ];
   const inventoryKpiSources = [stockSrc, receiptsFigSrc, alertsSrc];
 
   const qualityIssuesCount =
@@ -996,7 +1006,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       initialParams={params}
       onBack={goBackWh}
       onOpenModule={openMainModule}
-      onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
     />
   );
 
@@ -1021,6 +1030,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       }}
     />
   );
+
+  /** The pinned Initiate Stock Transfer button: drawn only with transfer.inter_warehouse.initiate (the server checks again). */
+  const renderInitiateTransferBar = () =>
+    access.transferInitiate ? (
+      <View style={styles.fixedBottomBar}>
+        <TouchableOpacity
+          style={styles.initiateTransferBtn}
+          onPress={() => navigateWh('initiate_new_transfer')}
+          activeOpacity={0.8}
+        >
+          <TransferArrowsWhiteIcon size={18} />
+          <Text style={styles.initiateTransferBtnText}>{t('dashboardHome.stockTransfer.initiate')}</Text>
+        </TouchableOpacity>
+      </View>
+    ) : null;
 
   const renderWarehouseOverviewScreen = () => {
     if (!canAllView) {
@@ -1250,17 +1274,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
 
-          <SectionGate sources={[receiptsFigSrc, revenueSrc, openTasksSrc, taskSummarySrc]}>
+          <SectionGate sources={[receiptsFigSrc, ...(access.sales ? [revenueSrc] : []), openTasksSrc, taskSummarySrc]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
                 <Text style={styles.twoByTwoLabel}>Receipts Today</Text>
                 <Text style={styles.twoByTwoVal}>{formatKg(receiptFig.acceptedGrams)}</Text>
               </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Sales Today</Text>
-                <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
-              </View>
+              {access.sales ? (
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>Sales Today</Text>
+                  <Text style={styles.twoByTwoVal}>{salesRevenueLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
               <View style={styles.twoByTwoCol}>
@@ -1677,59 +1703,47 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </TouchableOpacity>
           </SectionGate>
 
-          {/* 3. Transfers Section */}
-          <View style={styles.overviewSectionHeaderRow}>
-            <Text style={styles.overviewSectionTitle}>Transfers</Text>
-            <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
-              <Text style={styles.viewAllLink}>View All →</Text>
-            </TouchableOpacity>
-          </View>
-          <SectionGate sources={[transfersSrc]}>
-          <View style={styles.stockTableCard}>
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Pending</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>In Transit</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Received</Text>
-              <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Exceptions</Text>
-              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
-                {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
-              </Text>
-            </View>
-          </View>
-          </SectionGate>
+          {/* 3. Transfers Section: needs transfer.inter_warehouse.view */}
+          {access.transfers ? (
+            <>
+              <View style={styles.overviewSectionHeaderRow}>
+                <Text style={styles.overviewSectionTitle}>Transfers</Text>
+                <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
+                  <Text style={styles.viewAllLink}>View All →</Text>
+                </TouchableOpacity>
+              </View>
+              <SectionGate sources={[transfersSrc]}>
+              <View style={styles.stockTableCard}>
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Pending</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.pendingApproval, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>In Transit</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.inTransit, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Received</Text>
+                  <Text style={styles.stockTableVal}>{countLabel(transferFig.counts.received, transferFig.counts.exact)}</Text>
+                </View>
+                <View style={styles.stockTableRowDivider} />
+                <View style={styles.stockTableRow}>
+                  <Text style={styles.stockTableLabel}>Exceptions</Text>
+                  <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>
+                    {countLabel(transferFig.counts.discrepancies, transferFig.counts.exact)}
+                  </Text>
+                </View>
+              </View>
+              </SectionGate>
+            </>
+          ) : null}
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -1791,23 +1805,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -1862,23 +1860,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -1898,6 +1880,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
+          {!access.transfers ? <AdminEmptyState title={t('mainDashboard.notAvailable')} /> : null}
+          {access.transfers ? (
           <SectionGate sources={[transfersSrc]}>
           <View style={styles.trackingCard}>
             {transferFig.rows.map((t, idx) => {
@@ -1945,27 +1929,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             )}
           </View>
           </SectionGate>
+          ) : null}
 
           <View style={{ height: 90 }} />
         </ScrollView>
 
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
+        {renderInitiateTransferBar()}
       </View>
     );
   };
@@ -2069,13 +2038,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
 
                 {/* Pending Transfers */}
-                <View style={styles.kpiCard}>
-                  <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
-                </View>
+                {access.transfers ? (
+                  <View style={styles.kpiCard}>
+                    <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
+                    <Text style={styles.kpiValue}>
+                      {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
+                    </Text>
+                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
+                  </View>
+                ) : null}
 
                 {/* Today's Orders */}
                 <View style={styles.kpiCard}>
@@ -2087,15 +2058,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </View>
 
                 {/* Sales */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('sales')}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
-                  <Text style={styles.kpiSub}>today</Text>
-                </TouchableOpacity>
+                {access.sales ? (
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.kpiLabel}>SALES</Text>
+                    <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
+                    <Text style={styles.kpiSub}>today</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
@@ -2791,7 +2764,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 initialScreen="Operations"
                 onBack={goBackWh}
                 onOpenModule={openMainModule}
-                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
                 onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
                 onSelectWarehouse={(whName) => openWarehouseDetail(findWarehouseByName(warehouses, whName)?.id)}
