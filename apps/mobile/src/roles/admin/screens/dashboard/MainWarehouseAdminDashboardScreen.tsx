@@ -2389,7 +2389,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
+                      {t('mainDashboard.ops.awaitingQc')} <Text style={styles.operationsMetricBold}>{receiptFig.awaitingQc}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
                       Arrived <Text style={styles.operationsMetricBold}>{receiptFig.arrived}</Text>

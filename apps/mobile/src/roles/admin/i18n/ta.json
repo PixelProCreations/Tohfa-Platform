@@ -212,6 +212,7 @@
   "mainDashboard.ops.receipts": "பெறுதல்கள்",
   "mainDashboard.ops.accepted": "ஏற்கப்பட்டது",
   "mainDashboard.ops.rejected": "நிராகரிக்கப்பட்டது",
+  "mainDashboard.ops.awaitingQc": "QC நிலுவை",
   "mainDashboard.ops.orders": "ஆர்டர் நிறைவேற்றம்",
   "mainDashboard.ops.placed": "வைக்கப்பட்டது",
   "mainDashboard.ops.fulfilled": "நிறைவேற்றப்பட்டது",

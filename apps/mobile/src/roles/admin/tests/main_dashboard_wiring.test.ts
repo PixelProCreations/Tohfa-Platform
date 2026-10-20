@@ -179,6 +179,14 @@ describe('honest figures: no claim the data does not back', () => {
     expect(EN['mainDashboard.ops.cancelled']).toBe('Cancelled');
   });
 
+  // The Incoming Goods row used to say "Expected" over receiptFig.awaitingQc, but that number counts
+  // goods receipts whose status is AWAITING_QC (they have arrived and wait for QC), not what is expected.
+  it('Incoming Goods labels the AWAITING_QC receipt count "Awaiting QC", not "Expected"', () => {
+    expect(EN['mainDashboard.ops.awaitingQc']).toBe('Awaiting QC');
+    expect(MAIN).toMatch(/t\('mainDashboard\.ops\.awaitingQc'\)\}? <Text[^>]*>\{receiptFig\.awaitingQc\}/);
+    expect(MAIN).not.toMatch(/Expected <Text[^>]*>\{receiptFig\.awaitingQc\}/);
+  });
+
   it('Receipts today are the receipts of the IST day (receiptsOnDay), not every receipt the first page held', () => {
     expect(MAIN).toContain('receiptsOnDay(goodsReceiptsQuery.data');
   });

@@ -2414,6 +2414,7 @@
   "mainDashboard.ops.receipts": "Receipts",
   "mainDashboard.ops.accepted": "Accepted",
   "mainDashboard.ops.rejected": "Rejected",
+  "mainDashboard.ops.awaitingQc": "Awaiting QC",
   "mainDashboard.ops.orders": "Order Fulfilment",
   "mainDashboard.ops.placed": "Placed",
   "mainDashboard.ops.fulfilled": "Fulfilled",
