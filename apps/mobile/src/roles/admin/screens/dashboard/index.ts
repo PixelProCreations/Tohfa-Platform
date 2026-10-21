@@ -47,11 +47,10 @@ export * from '../../../subwarehouse/screens/SubWarehouseAdminDashboardScreen';
 export * from './AdminProfileScreen';
 
 // Market & Pricing screens
-export * from './MarketPricingHomeScreen';
+export * from '../pricing';
 export * from './FairPriceCeilingScreen';
 export * from './CategoriesGradesScreen';
 export * from './RetailPricingScreen';
-export * from './MarkupPricingBreakdownScreen';
 export * from './UpdateFairPriceScreen';
 export * from './BulkPriceUpdateScreen';
 export * from './PriceHistoryScreen';

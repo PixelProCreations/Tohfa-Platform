@@ -59,6 +59,29 @@ import {
 import { FinancialDashboardScreen, PLStatementScreen } from '../finance';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
+import {
+  AuditManagementScreen,
+  AuditScheduleAssignmentScreen,
+  AuditDetailsFarmerRecordsScreen,
+  ScheduleAuditFormScreen,
+  AuditHistoryComplianceScreen,
+  GenerateAuditReportScreen,
+  AuditReportsTierConfigScreen,
+  AuditReportHistoryScreen,
+  AuditReportDetailsScreen,
+} from '../audits';
+import {
+  MarketPricingHomeScreen,
+  MarketPricingOverviewScreen,
+  EditRetailPriceScreen,
+  MarkupPricingBreakdownScreen,
+  FairPriceCeilingScreen,
+  CategoriesGradesScreen,
+  RetailPricingScreen,
+  PriceHistoryScreen,
+  INITIAL_PRICING_RECORDS,
+  type PricingRecordItem,
+} from '../pricing';
 
 export type TohfaAdminTab =
   | 'Home'
@@ -462,8 +485,44 @@ export function TohfaAdminDashboardScreen({
 
   // Subscreen navigation
   const [dashboardSubScreen, setDashboardSubScreen] = useState<
-    'listingApproval' | 'scheduleAudit' | 'support' | 'reportBuilder' | 'pendingApplications' | null
+    | 'listingApproval'
+    | 'scheduleAudit'
+    | 'auditScheduleAssignment'
+    | 'auditDetailsRecord'
+    | 'scheduleAuditForm'
+    | 'auditHistoryCompliance'
+    | 'generateAuditReport'
+    | 'auditReportsTierConfig'
+    | 'auditReportHistory'
+    | 'auditReportDetails'
+    | 'support'
+    | 'reportBuilder'
+    | 'pendingApplications'
+    | 'marketPricingHome'
+    | 'marketPricingOverview'
+    | 'editRetailPrice'
+    | 'markupBreakdown'
+    | 'fairPriceCeiling'
+    | 'categoriesGrades'
+    | 'retailPricing'
+    | 'priceHistory'
+    | null
   >(null);
+  const [pricingRecords, setPricingRecords] = useState<PricingRecordItem[]>(INITIAL_PRICING_RECORDS);
+  const [selectedPricingRecord, setSelectedPricingRecord] = useState<PricingRecordItem | null>(null);
+  const [editRetailReturnScreen, setEditRetailReturnScreen] = useState<'marketPricingOverview' | 'retailPricing'>('marketPricingOverview');
+  const [markupBreakdownReturnScreen, setMarkupBreakdownReturnScreen] = useState<'marketPricingOverview' | 'fairPriceCeiling' | 'retailPricing'>('marketPricingOverview');
+  const [pricingReturnTab, setPricingReturnTab] = useState<'Home' | 'More'>('More');
+  const [selectedAuditId, setSelectedAuditId] = useState<string>('AUD-2026-0034');
+  const [auditDetailsReturnScreen, setAuditDetailsReturnScreen] = useState<
+    'scheduleAudit' | 'auditScheduleAssignment' | 'auditHistoryCompliance'
+  >('auditScheduleAssignment');
+  const [scheduleAuditFormReturnScreen, setScheduleAuditFormReturnScreen] = useState<
+    'auditScheduleAssignment' | 'auditDetailsRecord'
+  >('auditDetailsRecord');
+  const [reportHistoryReturnScreen, setReportHistoryReturnScreen] = useState<
+    'scheduleAudit' | 'auditReportsTierConfig'
+  >('scheduleAudit');
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [selectedAdminApplication, setSelectedAdminApplication] = useState<any>(null);
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
@@ -479,7 +538,7 @@ export function TohfaAdminDashboardScreen({
   useEffect(() => {
     fetchMe()
       .then((me) => setUser(me))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const adminName = user?.fullName ?? 'Admin';
@@ -508,11 +567,7 @@ export function TohfaAdminDashboardScreen({
   };
 
   const handleOpenScheduleAudit = () => {
-    if (onNavigate) {
-      onNavigate('AuditCalendar');
-    } else {
-      setDashboardSubScreen('scheduleAudit');
-    }
+    setDashboardSubScreen('scheduleAudit');
   };
 
   const handleOpenSupport = () => {
@@ -690,7 +745,8 @@ export function TohfaAdminDashboardScreen({
       label: 'Manage retail\nprices',
       icon: <QuickTagIcon />,
       action: () => {
-        if (onNavigate) onNavigate('RetailPricing');
+        setPricingReturnTab('Home');
+        setDashboardSubScreen('marketPricingHome');
       },
     },
     {
@@ -759,1392 +815,1677 @@ export function TohfaAdminDashboardScreen({
 
       <View style={styles.container}>
         {/* ══════════════════════════════════════════════════════════════════════
-            HOME DASHBOARD (M1-S01)
+            MARKET & PRICING SUB-SCREENS (Module 7)
            ══════════════════════════════════════════════════════════════════════ */}
-        {(activeTab === 'Home' || activeTab === 'Dashboard') && (
-          dashboardSubScreen === 'listingApproval' ? (
-            <ListingApprovalQueueScreen
-              onBack={() => setDashboardSubScreen(null)}
-              onApprove={(id) => {
-                Alert.alert('Listing Approved', `Listing #${id} has been approved.`);
-              }}
-              onCounter={(id) => {
-                Alert.alert('Counter Offer', `Counter offer sent for listing #${id}.`);
-              }}
-              onReject={(id) => {
-                Alert.alert('Listing Rejected', `Listing #${id} has been rejected.`);
-              }}
-            />
-          ) : dashboardSubScreen === 'scheduleAudit' ? (
-            <FinancialDashboardScreen
-              title="Schedule Audit"
-              subtitle="Platform-wide audit schedule & compliance overview · September 2026"
-              onBack={() => setDashboardSubScreen(null)}
-              onNavigate={(s) => {
-                if (onNavigate) onNavigate(s);
-              }}
-            />
-          ) : dashboardSubScreen === 'support' ? (
-            <AdminSupportScreen onBack={() => setDashboardSubScreen(null)} />
-          ) : dashboardSubScreen === 'reportBuilder' ? (
-            <ReportBuilderScreen onBack={() => setDashboardSubScreen(null)} />
-          ) : dashboardSubScreen === 'pendingApplications' ? (
-            <AdminPendingApplicationsScreen
-              onBack={() => setDashboardSubScreen(null)}
-              onSelectApplication={() => {
-                if (onNavigate) onNavigate('AdminPendingApplications');
-              }}
-            />
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* 1. Header Banner with Vector Gradient */}
-              <View style={styles.headerBanner}>
-                <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                  <Defs>
-                    <LinearGradient id="adminGrad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor={adminColors.brand} />
-                      <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.92} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect width="100%" height="100%" fill="url(#adminGrad)" />
-                </Svg>
-
-                <View style={styles.headerTopRow}>
-                  <View style={styles.headerLeftCol}>
-                    <View style={styles.headerBrandTitleRow}>
-                      <HomeHeaderIcon size={20} />
-                      <Text style={styles.headerBrandText}>TOHFA Admin</Text>
-                    </View>
-                    <Text style={styles.headerDateText}>Thursday, 24 September 2026</Text>
-                  </View>
-
-                  <View style={styles.headerIconsRow}>
-                    <TouchableOpacity
-                      style={styles.headerIconButton}
-                      onPress={() => {
-                        if (onNavigate) onNavigate('SystemAlerts');
-                        else setActiveTab('Reports');
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <BellHeaderIcon size={20} />
-                      <View style={styles.notificationDot} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.headerIconButton}
-                      onPress={() => setActiveTab('Profile')}
-                      activeOpacity={0.8}
-                    >
-                      <ProfileHeaderIcon size={20} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {/* 2. Floating "Good morning, Admin" Summary Card */}
-              <View style={styles.greetingCard}>
-                <View style={styles.greetingTopRow}>
-                  <Text style={styles.greetingTitle} numberOfLines={1}>
-                    Good morning, {adminDisplayName}
-                  </Text>
-                  <View style={styles.roleBadgePill}>
-                    <Text style={styles.roleBadgeText}>TOHFA Admin</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
-                <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
-
-                <View style={styles.greetingBottomRow}>
-                  <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={handleRefresh}
-                    activeOpacity={0.7}
-                  >
-                    <RefreshIcon />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* 3. Search and Date Range Filter Bar */}
-              <View style={styles.searchContainer}>
-                <View style={styles.searchBar}>
-                  <SearchIcon />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search farmers, crops, orders, customers, staff"
-                    placeholderTextColor={adminColors.placeholder}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                  <TouchableOpacity activeOpacity={0.7}>
-                    <FilterSlidersIcon />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.dateFilterContainer}>
-                  <TouchableOpacity
-                    style={styles.dateFilterButton}
-                    onPress={() => setShowDateRangeModal(true)}
-                    activeOpacity={0.8}
-                  >
-                    <CalendarIcon />
-                    <Text style={styles.dateFilterText}>{dateRange}</Text>
-                    <ChevronDownIcon />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* 4. Metric Cards (using reusable OverviewDashboardCard) */}
-              <View style={styles.sectionContainer}>
-                <OverviewCardsGrid>
-                  {displayedMetrics.map((item) => (
-                    <OverviewDashboardCard
-                      key={item.id}
-                      title={item.title}
-                      value={item.value}
-                      subtitle={item.subtitle}
-                      tone={item.tone ?? 'default'}
-                      titlePosition="top"
-                      onPress={item.onPress}
-                    />
-                  ))}
-                </OverviewCardsGrid>
-
-                {/* Show more metrics / Show fewer metrics Toggle Button */}
-                <TouchableOpacity
-                  style={styles.toggleMetricsButton}
-                  onPress={() => setShowAllMetrics((prev) => !prev)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.toggleMetricsText}>
-                    {showAllMetrics ? 'Show fewer metrics' : 'Show more metrics'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 5. "Needs your attention" Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionHeading}>Needs your attention</Text>
-
-                {/* Card 1: Overdue Audit */}
-                <View style={styles.attentionCard}>
-                  <View style={styles.attentionTopRow}>
-                    <Text style={styles.attentionCodeTitle}>Audit · AUD-2026-0051</Text>
-                    <View style={styles.badgeOverdue}>
-                      <Text style={styles.badgeOverdueText}>Overdue</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.attentionName}>Ramesh Kumar</Text>
-                  <Text style={styles.attentionDescription}>
-                    The scheduled date has passed and the audit is not completed.
-                  </Text>
-                  <Text style={styles.attentionMeta}>Created 2 Oct 2026 · Due 2 Oct 2026</Text>
-                  <TouchableOpacity
-                    style={styles.attentionActionBtn}
-                    onPress={handleOpenScheduleAudit}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.attentionActionBtnText}>View Audit</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Card 2: Upcoming Audit */}
-                <View style={styles.attentionCard}>
-                  <View style={styles.attentionTopRow}>
-                    <Text style={styles.attentionCodeTitle}>Upcoming audit · AUD-2026-0053</Text>
-                    <View style={styles.badgeUpcoming}>
-                      <Text style={styles.badgeUpcomingText}>Upcoming</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.attentionName}>Selvi</Text>
-                  <Text style={styles.attentionDescription}>
-                    The audit is scheduled for 2026-10-15.
-                  </Text>
-                  <Text style={styles.attentionMeta}>Created 12 Oct 2026 · Due 15 Oct 2026</Text>
-                  <TouchableOpacity
-                    style={styles.attentionActionBtn}
-                    onPress={handleOpenScheduleAudit}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.attentionActionBtnText}>View Audit</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Card 3: Inventory Exception */}
-                <View style={styles.attentionCard}>
-                  <View style={styles.attentionTopRow}>
-                    <Text style={styles.attentionCodeTitle}>Inventory exception · Kotagiri · Beans</Text>
-                    <View style={styles.badgeException}>
-                      <Text style={styles.badgeExceptionText}>Exception</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.attentionName}>Beans · Kotagiri</Text>
-                  <Text style={styles.attentionDescription}>
-                    Stock is at or below the reorder level.
-                  </Text>
-                  <Text style={styles.attentionMeta}>Created 12 Oct 2026</Text>
-                  <TouchableOpacity
-                    style={styles.attentionActionBtn}
-                    onPress={() => {
-                      if (onNavigate) onNavigate('MainWarehouseAdmin');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.attentionActionBtnText}>Review Exception</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* 6. Quick Actions Section (3 Columns Grid) */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionHeading}>Quick actions</Text>
-                <View style={styles.quickActionsGrid}>
-                  {displayedActions.map((qa) => (
-                    <TouchableOpacity
-                      key={qa.id}
-                      style={styles.quickActionTile}
-                      onPress={qa.action}
-                      activeOpacity={0.75}
-                    >
-                      <View style={styles.quickActionIconBox}>{qa.icon}</View>
-                      <Text style={styles.quickActionTileLabel}>{qa.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Show few actions / Show more actions toggle button */}
-                <TouchableOpacity
-                  style={styles.toggleMetricsButton}
-                  onPress={() => setShowAllActions((prev) => !prev)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.toggleMetricsText}>
-                    {showAllActions ? 'Show few actions' : 'Show more actions'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 7. Operations Summary Section */}
-              <View style={styles.sectionContainer}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionHeading}>Operations summary</Text>
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('Operations')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.sectionOpenLink}>Open →</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.summaryListCard}>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Farmers · active / registered</Text>
-                    <Text style={styles.summaryRowValue}>20 / 24</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Produce · pending review</Text>
-                    <Text style={styles.summaryRowValue}>5</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Audits · upcoming / overdue</Text>
-                    <Text style={styles.summaryRowValue}>2 / 2</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Purchases · awaiting receipt</Text>
-                    <Text style={styles.summaryRowValue}>3</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Warehouse · discrepancies</Text>
-                    <Text style={styles.summaryRowValue}>2</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* 8. Sales & Finance Summary Section */}
-              <View style={styles.sectionContainer}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionHeading}>Sales & Finance summary</Text>
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('Finance')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.sectionOpenLink}>Open →</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Sales Breakdown Card */}
-                <TouchableOpacity
-                  style={styles.summaryListCard}
-                  onPress={() => setActiveTab('Finance')}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Order value (30 days)</Text>
-                    <Text style={styles.summaryOrderValueBig}>₹3,33,660</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Online</Text>
-                    <Text style={styles.summaryRowValue}>₹10,870</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Live Market</Text>
-                    <Text style={styles.summaryRowValue}>₹19,710</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Horeca</Text>
-                    <Text style={styles.summaryRowValue}>₹1,51,740</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>B2B</Text>
-                    <Text style={styles.summaryRowValue}>₹1,51,340</Text>
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.salesSubNote}>
-                  Orders: Placed 3 · Packed 0 · Ready for Pickup 1 · Delivered 48
-                </Text>
-
-                {/* Finance Action Card */}
-                <TouchableOpacity
-                  style={[styles.summaryListCard, { marginTop: adminSpacing.md }]}
-                  onPress={() => setActiveTab('Finance')}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Payouts awaiting processing</Text>
-                    <Text style={styles.summaryRowValue}>3</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Payouts awaiting Super Admin approval</Text>
-                    <Text style={styles.summaryRowValue}>1</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Failed or on hold</Text>
-                    <Text style={styles.summaryRowValue}>2</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Refunds awaiting review or payment</Text>
-                    <Text style={styles.summaryRowValue}>2</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* 9. Warehouse Summary Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionHeading}>Warehouse summary</Text>
-
-                <View style={styles.warehouseCard}>
-                  <View style={styles.warehouseTopRow}>
-                    <Text style={styles.warehouseName}>Ooty</Text>
-                    <View style={styles.badgeActive}>
-                      <Text style={styles.badgeActiveText}>Active</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.warehouseDetail}>1290 KG in stock · 0 low-stock lines</Text>
-                  <Text style={styles.warehouseMeta}>Updated 12 Oct 2026, 08:40</Text>
-                </View>
-
-                <View style={styles.warehouseCard}>
-                  <View style={styles.warehouseTopRow}>
-                    <Text style={styles.warehouseName}>Coonoor</Text>
-                    <View style={styles.badgeActive}>
-                      <Text style={styles.badgeActiveText}>Active</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.warehouseDetail}>1465 KG in stock · 0 low-stock lines</Text>
-                  <Text style={styles.warehouseMeta}>Updated 12 Oct 2026, 08:15</Text>
-                </View>
-
-                <View style={styles.warehouseCard}>
-                  <View style={styles.warehouseTopRow}>
-                    <Text style={styles.warehouseName}>Kotagiri</Text>
-                    <View style={styles.badgeActive}>
-                      <Text style={styles.badgeActiveText}>Active</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.warehouseDetail}>1518 KG in stock · 1 low-stock lines</Text>
-                  <Text style={styles.warehouseMeta}>Updated 11 Oct 2026, 17:55</Text>
-                </View>
-
-                <View style={styles.warehouseCard}>
-                  <View style={styles.warehouseTopRow}>
-                    <Text style={styles.warehouseName}>Gudalur Market</Text>
-                    <View style={styles.badgePending}>
-                      <Text style={styles.badgePendingText}>Pending Activation</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.warehouseDetail}>Not active yet, so there is no stock data</Text>
-                </View>
-              </View>
-
-              {/* 10. Recent Activity Section */}
-              <View style={styles.sectionContainer}>
-                <Text style={styles.sectionHeading}>Recent activity</Text>
-
-                <View style={styles.activityItemRow}>
-                  <ClockHistoryIcon />
-                  <View style={styles.activityContentCol}>
-                    <Text style={styles.activityTitle}>Farmer application approved</Text>
-                    <Text style={styles.activityMeta}>APP-2026-0108 · 11 Oct 2026, 16:40</Text>
-                    <Text style={styles.activityActor}>Priya Nair · Approved</Text>
-                  </View>
-                </View>
-
-                <View style={styles.activityItemRow}>
-                  <ClockHistoryIcon />
-                  <View style={styles.activityContentCol}>
-                    <Text style={styles.activityTitle}>KYC verification updated</Text>
-                    <Text style={styles.activityMeta}>FMR-00177 · 11 Oct 2026, 15:05</Text>
-                    <Text style={styles.activityActor}>Priya Nair · Verified</Text>
-                  </View>
-                </View>
-
-                <View style={styles.activityItemRow}>
-                  <ClockHistoryIcon />
-                  <View style={styles.activityContentCol}>
-                    <Text style={styles.activityTitle}>Retail price change submitted for review</Text>
-                    <Text style={styles.activityMeta}>PRC-003 · 11 Oct 2026, 12:30</Text>
-                    <Text style={styles.activityActor}>Priya Nair · Pending review</Text>
-                  </View>
-                </View>
-
-                <View style={styles.activityItemRow}>
-                  <ClockHistoryIcon />
-                  <View style={styles.activityContentCol}>
-                    <Text style={styles.activityTitle}>Quality discrepancy recorded</Text>
-                    <Text style={styles.activityMeta}>PO-2026-00311 · 10 Oct 2026, 18:22</Text>
-                    <Text style={styles.activityActor}>Warehouse staff · Rejected</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={{ height: adminSpacing.xxxl }} />
-            </ScrollView>
-          )
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            WORK QUEUE TAB
-           ══════════════════════════════════════════════════════════════════════ */}
-        {/* ══════════════════════════════════════════════════════════════════════
-            WORK QUEUE TAB (M1-S03 · Work Queue)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'WorkQueue' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.workQueueScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.subScreenHeaderBanner}>
-              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                <Defs>
-                  <LinearGradient id="workQueueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={adminColors.brand} />
-                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#workQueueGrad)" />
-              </Svg>
-
-              <View style={styles.subScreenHeaderTopRow}>
-                <TouchableOpacity
-                  style={styles.backIconButton}
-                  onPress={() => setActiveTab('Home')}
-                  activeOpacity={0.8}
-                >
-                  <BackArrowWhiteIcon size={22} />
-                </TouchableOpacity>
-                <Text style={styles.subScreenHeaderTitle}>Work Queue</Text>
-                <View style={{ width: 36 }} />
-              </View>
-            </View>
-
-            {/* Search and Filter Box */}
-            <View style={styles.workQueueSearchContainer}>
-              <View style={styles.workQueueSearchBar}>
-                <SearchIcon size={18} color={adminColors.muted} />
-                <TextInput
-                  style={styles.workQueueSearchInput}
-                  placeholder="Search common or scientific name"
-                  placeholderTextColor={adminColors.placeholder}
-                  value={workQueueSearch}
-                  onChangeText={setWorkQueueSearch}
+        {dashboardSubScreen === 'marketPricingHome' ? (
+          <MarketPricingHomeScreen
+            onBack={() => {
+              setDashboardSubScreen(null);
+              setActiveTab(pricingReturnTab);
+            }}
+            onNavigateOverview={() => setDashboardSubScreen('marketPricingOverview')}
+            onNavigateToFairPrice={() => setDashboardSubScreen('fairPriceCeiling')}
+            onNavigateToCategories={() => setDashboardSubScreen('categoriesGrades')}
+            onNavigateToPriceHistory={() => setDashboardSubScreen('priceHistory')}
+            onNavigateToRetailPricing={() => setDashboardSubScreen('retailPricing')}
+          />
+        ) : dashboardSubScreen === 'marketPricingOverview' ? (
+          <MarketPricingOverviewScreen
+            onBack={() => setDashboardSubScreen('marketPricingHome')}
+            records={pricingRecords}
+            onEditRetailPrice={(record) => {
+              setSelectedPricingRecord(record);
+              setEditRetailReturnScreen('marketPricingOverview');
+              setDashboardSubScreen('editRetailPrice');
+            }}
+            onViewBreakdown={(record) => {
+              setSelectedPricingRecord(record);
+              setMarkupBreakdownReturnScreen('marketPricingOverview');
+              setDashboardSubScreen('markupBreakdown');
+            }}
+          />
+        ) : dashboardSubScreen === 'editRetailPrice' ? (
+          <EditRetailPriceScreen
+            onBack={() => setDashboardSubScreen(editRetailReturnScreen)}
+            record={selectedPricingRecord}
+            onSaveSuccess={(updated) => {
+              setPricingRecords((prev) =>
+                prev.map((r) => (r.id === updated.id ? updated : r))
+              );
+              setSelectedPricingRecord(updated);
+              setDashboardSubScreen(editRetailReturnScreen);
+            }}
+          />
+        ) : dashboardSubScreen === 'fairPriceCeiling' ? (
+          <FairPriceCeilingScreen
+            onBack={() => setDashboardSubScreen('marketPricingHome')}
+            onNavigateToRetailPricing={() => setDashboardSubScreen('retailPricing')}
+            onNavigateToHistory={() => setDashboardSubScreen('priceHistory')}
+            onNavigateToBreakdown={(item) => {
+              const matching = pricingRecords.find((r) => r.product === item?.product && r.grade === item?.grade);
+              setSelectedPricingRecord(matching || null);
+              setMarkupBreakdownReturnScreen('fairPriceCeiling');
+              setDashboardSubScreen('markupBreakdown');
+            }}
+          />
+        ) : dashboardSubScreen === 'categoriesGrades' ? (
+          <CategoriesGradesScreen
+            onBack={() => setDashboardSubScreen('marketPricingHome')}
+          />
+        ) : dashboardSubScreen === 'retailPricing' ? (
+          <RetailPricingScreen
+            onBack={() => setDashboardSubScreen('marketPricingHome')}
+            onEditRetailPrice={(record) => {
+              setSelectedPricingRecord(record);
+              setEditRetailReturnScreen('retailPricing');
+              setDashboardSubScreen('editRetailPrice');
+            }}
+          />
+        ) : dashboardSubScreen === 'priceHistory' ? (
+          <PriceHistoryScreen
+            onBack={() => setDashboardSubScreen('marketPricingHome')}
+          />
+        ) : dashboardSubScreen === 'markupBreakdown' ? (
+          <MarkupPricingBreakdownScreen
+            onBack={() => setDashboardSubScreen(markupBreakdownReturnScreen)}
+            record={selectedPricingRecord}
+            cropGradeTitle={
+              selectedPricingRecord
+                ? `${selectedPricingRecord.product} · ${selectedPricingRecord.grade}`
+                : undefined
+            }
+            retailPrice={selectedPricingRecord?.retailPrice}
+            ceilingPrice={selectedPricingRecord?.ceiling}
+            purchasePrice={selectedPricingRecord?.farmerPurchasePrice}
+          />
+        ) : (
+          <>
+            {/* ══════════════════════════════════════════════════════════════════════
+                HOME DASHBOARD (M1-S01)
+               ══════════════════════════════════════════════════════════════════════ */}
+            {(activeTab === 'Home' || activeTab === 'Dashboard') && (
+              dashboardSubScreen === 'listingApproval' ? (
+                <ListingApprovalQueueScreen
+                  onBack={() => setDashboardSubScreen(null)}
+                  onApprove={(id) => {
+                    Alert.alert('Listing Approved', `Listing #${id} has been approved.`);
+                  }}
+                  onCounter={(id) => {
+                    Alert.alert('Counter Offer', `Counter offer sent for listing #${id}.`);
+                  }}
+                  onReject={(id) => {
+                    Alert.alert('Listing Rejected', `Listing #${id} has been rejected.`);
+                  }}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowWorkQueueFilterModal(true)}
-                  activeOpacity={0.7}
-                  style={styles.workQueueFilterTrigger}
+              ) : dashboardSubScreen === 'scheduleAudit' ? (
+                <AuditManagementScreen
+                  onBack={() => setDashboardSubScreen(null)}
+                  onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
+                  onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
+                  onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
+                  onOpenReportHistory={() => {
+                    setReportHistoryReturnScreen('scheduleAudit');
+                    setDashboardSubScreen('auditReportHistory');
+                  }}
+                  onSelectAuditItem={(audit) => {
+                    setSelectedAuditId(audit.code);
+                    setAuditDetailsReturnScreen('scheduleAudit');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
+                <AuditScheduleAssignmentScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onViewSchedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setAuditDetailsReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                  onEditSchedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onReschedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditDetailsRecord' ? (
+                <AuditDetailsFarmerRecordsScreen
+                  auditId={selectedAuditId}
+                  onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+                  onEditSchedule={() => {
+                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onReschedule={() => {
+                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+                  onOpenFarmerProfile={() => {
+                    if (onNavigate) onNavigate('AdminAllFarmers');
+                    else setActiveTab('Farmers');
+                  }}
+                />
+              ) : dashboardSubScreen === 'scheduleAuditForm' ? (
+                <ScheduleAuditFormScreen
+                  initialAuditId={selectedAuditId}
+                  onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                  onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                  onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                />
+              ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
+                <AuditHistoryComplianceScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onSelectAudit={(audit) => {
+                    setSelectedAuditId(audit.code);
+                    setAuditDetailsReturnScreen('auditHistoryCompliance');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                />
+              ) : dashboardSubScreen === 'generateAuditReport' ? (
+                <GenerateAuditReportScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onConfigureReport={() => {
+                    setDashboardSubScreen('auditReportsTierConfig');
+                  }}
+                  onGenerateReport={() => {
+                    setDashboardSubScreen('auditReportsTierConfig');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
+                <AuditReportsTierConfigScreen
+                  onBack={() => setDashboardSubScreen('generateAuditReport')}
+                  onGenerateReportSuccess={() => {
+                    setReportHistoryReturnScreen('auditReportsTierConfig');
+                    setDashboardSubScreen('auditReportHistory');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportHistory' ? (
+                <AuditReportHistoryScreen
+                  onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
+                  onOpenReportDetails={(_reportId) => {
+                    setDashboardSubScreen('auditReportDetails');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportDetails' ? (
+                <AuditReportDetailsScreen
+                  onBack={() => setDashboardSubScreen('auditReportHistory')}
+                  onDownload={() => {
+                    Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
+                  }}
+                />
+              ) : dashboardSubScreen === 'support' ? (
+                <AdminSupportScreen onBack={() => setDashboardSubScreen(null)} />
+              ) : dashboardSubScreen === 'reportBuilder' ? (
+                <ReportBuilderScreen onBack={() => setDashboardSubScreen(null)} />
+              ) : dashboardSubScreen === 'pendingApplications' ? (
+                <AdminPendingApplicationsScreen
+                  onBack={() => setDashboardSubScreen(null)}
+                  onSelectApplication={() => {
+                    if (onNavigate) onNavigate('AdminPendingApplications');
+                  }}
+                />
+              ) : (
+                <ScrollView
+                  style={styles.scroll}
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
                 >
-                  <FilterSlidersIcon size={18} color={adminColors.brand} />
-                </TouchableOpacity>
-              </View>
+                  {/* 1. Header Banner with Vector Gradient */}
+                  <View style={styles.headerBanner}>
+                    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+                      <Defs>
+                        <LinearGradient id="adminGrad" x1="0" y1="0" x2="0" y2="1">
+                          <Stop offset="0" stopColor={adminColors.brand} />
+                          <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.92} />
+                        </LinearGradient>
+                      </Defs>
+                      <Rect width="100%" height="100%" fill="url(#adminGrad)" />
+                    </Svg>
 
-              {/* Status & pending count row */}
-              <Text style={styles.workQueueCountText}>
-                6 pending · 3 blocked / exception
-              </Text>
-            </View>
+                    <View style={styles.headerTopRow}>
+                      <View style={styles.headerLeftCol}>
+                        <View style={styles.headerBrandTitleRow}>
+                          <HomeHeaderIcon size={20} />
+                          <Text style={styles.headerBrandText}>TOHFA Admin</Text>
+                        </View>
+                        <Text style={styles.headerDateText}>Thursday, 24 September 2026</Text>
+                      </View>
 
-            {/* Task Cards List */}
-            <View style={styles.workQueueTaskList}>
-              {workQueueTasks
-                .filter((t) => {
-                  if (!workQueueSearch.trim()) return true;
-                  const q = workQueueSearch.toLowerCase();
-                  return (
-                    t.title.toLowerCase().includes(q) ||
-                    t.name.toLowerCase().includes(q) ||
-                    t.code.toLowerCase().includes(q) ||
-                    t.detail.toLowerCase().includes(q)
-                  );
-                })
-                .map((task) => (
-                  <View key={task.id} style={styles.workQueueCard}>
-                    <View style={styles.workQueueCardTopRow}>
-                      <Text style={styles.workQueueCardTitle}>{task.title}</Text>
-                      <View
-                        style={[
-                          styles.workQueueBadge,
-                          task.badgeTone === 'danger'
-                            ? styles.workQueueBadgeDanger
-                            : styles.workQueueBadgeWarning,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.workQueueBadgeText,
-                            task.badgeTone === 'danger'
-                              ? styles.workQueueBadgeTextDanger
-                              : styles.workQueueBadgeTextWarning,
-                          ]}
+                      <View style={styles.headerIconsRow}>
+                        <TouchableOpacity
+                          style={styles.headerIconButton}
+                          onPress={() => {
+                            if (onNavigate) onNavigate('SystemAlerts');
+                            else setActiveTab('Reports');
+                          }}
+                          activeOpacity={0.8}
                         >
-                          {task.badge}
-                        </Text>
+                          <BellHeaderIcon size={20} />
+                          <View style={styles.notificationDot} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.headerIconButton}
+                          onPress={() => setActiveTab('Profile')}
+                          activeOpacity={0.8}
+                        >
+                          <ProfileHeaderIcon size={20} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* 2. Floating "Good morning, Admin" Summary Card */}
+                  <View style={styles.greetingCard}>
+                    <View style={styles.greetingTopRow}>
+                      <Text style={styles.greetingTitle} numberOfLines={1}>
+                        Good morning, {adminDisplayName}
+                      </Text>
+                      <View style={styles.roleBadgePill}>
+                        <Text style={styles.roleBadgeText}>TOHFA Admin</Text>
                       </View>
                     </View>
 
-                    <Text style={styles.workQueuePersonName}>{task.name}</Text>
-                    <Text style={styles.workQueueTaskCode}>{task.code}</Text>
-                    <Text style={styles.workQueueTaskDetail}>{task.detail}</Text>
-                    <Text style={styles.workQueueTaskCreated}>{task.created}</Text>
+                    <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
+                    <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
 
+                    <View style={styles.greetingBottomRow}>
+                      <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
+                      <TouchableOpacity
+                        style={styles.refreshButton}
+                        onPress={handleRefresh}
+                        activeOpacity={0.7}
+                      >
+                        <RefreshIcon />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* 3. Search and Date Range Filter Bar */}
+                  <View style={styles.searchContainer}>
+                    <View style={styles.searchBar}>
+                      <SearchIcon />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search farmers, crops, orders, customers, staff"
+                        placeholderTextColor={adminColors.placeholder}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                      />
+                      <TouchableOpacity activeOpacity={0.7}>
+                        <FilterSlidersIcon />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.dateFilterContainer}>
+                      <TouchableOpacity
+                        style={styles.dateFilterButton}
+                        onPress={() => setShowDateRangeModal(true)}
+                        activeOpacity={0.8}
+                      >
+                        <CalendarIcon />
+                        <Text style={styles.dateFilterText}>{dateRange}</Text>
+                        <ChevronDownIcon />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* 4. Metric Cards (using reusable OverviewDashboardCard) */}
+                  <View style={styles.sectionContainer}>
+                    <OverviewCardsGrid>
+                      {displayedMetrics.map((item) => (
+                        <OverviewDashboardCard
+                          key={item.id}
+                          title={item.title}
+                          value={item.value}
+                          subtitle={item.subtitle}
+                          tone={item.tone ?? 'default'}
+                          titlePosition="top"
+                          onPress={item.onPress}
+                        />
+                      ))}
+                    </OverviewCardsGrid>
+
+                    {/* Show more metrics / Show fewer metrics Toggle Button */}
                     <TouchableOpacity
-                      style={styles.workQueueActionButton}
-                      onPress={task.onAction}
-                      activeOpacity={0.75}
+                      style={styles.toggleMetricsButton}
+                      onPress={() => setShowAllMetrics((prev) => !prev)}
+                      activeOpacity={0.8}
                     >
-                      <Text style={styles.workQueueActionText}>{task.actionLabel}</Text>
+                      <Text style={styles.toggleMetricsText}>
+                        {showAllMetrics ? 'Show fewer metrics' : 'Show more metrics'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
-                ))}
-            </View>
 
-            {/* Screen footer code */}
-            <Text style={styles.screenFooterCode}>M1-S03 · Work Queue</Text>
-            <View style={{ height: adminSpacing.xxl }} />
-          </ScrollView>
-        )}
+                  {/* 5. "Needs your attention" Section */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Needs your attention</Text>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            OPERATIONS TAB (M1-S04 · Operations Overview)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Operations' && (
-          <AdminOperationsOverviewScreen
-            onBack={() => setActiveTab('Home')}
-            onExportReports={() => {
-              Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
-            }}
-          />
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            FARMERS TAB
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Farmers' && (
-          selectedAdminApplication ? (
-            <AdminApplicationDetailScreen
-              application={selectedAdminApplication}
-              onBack={() => setSelectedAdminApplication(null)}
-              onApprove={() => {
-                setSelectedAdminApplication(null);
-                Alert.alert('Approved', 'Application has been approved successfully.');
-              }}
-              onReject={() => {
-                setSelectedAdminApplication(null);
-                Alert.alert('Rejected', 'Application has been rejected.');
-              }}
-            />
-          ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-            />
-          ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => {}}
-            />
-          ) : selectedAdminFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setSelectedAdminFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              showBottomNav={false}
-              onBack={() => setActiveTab('More')}
-              onSelectFarmer={(f) => {
-                setSelectedAdminFarmer(f);
-              }}
-              onReviewApplication={(app) => {
-                setSelectedAdminApplication(app);
-              }}
-            />
-          )
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            FINANCE TAB (M1-S04 · Sales & Finance Overview)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Finance' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.financeScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.subScreenHeaderBanner}>
-              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                <Defs>
-                  <LinearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={adminColors.brand} />
-                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#financeGrad)" />
-              </Svg>
-
-              <View style={styles.subScreenHeaderTopRow}>
-                <TouchableOpacity
-                  style={styles.backIconButton}
-                  onPress={() => setActiveTab('Home')}
-                  activeOpacity={0.8}
-                >
-                  <BackArrowWhiteIcon size={22} />
-                </TouchableOpacity>
-                <Text style={styles.subScreenHeaderTitle}>Sales & Finance Overview</Text>
-                <TouchableOpacity
-                  style={styles.headerPillIconButton}
-                  onPress={() => setShowFinanceFilterModal(true)}
-                  activeOpacity={0.8}
-                >
-                  <FilterSlidersIcon size={18} color={adminColors.onBrand} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* ── Section A: Sales overview ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>A · Sales overview</Text>
-
-              {/* Order value metrics card */}
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Order value</Text>
-                    <Text style={styles.financeMetricValue}>₹71,190</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Gross value of orders placed in the period, excluding cancelled and returned.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Invoiced amount</Text>
-                    <Text style={styles.financeMetricValue}>₹69,570</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Value of B2B and Horeca orders with a generated invoice.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Collected amount</Text>
-                    <Text style={styles.financeMetricValue}>₹69,570</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Value of orders whose payment is Paid.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Refunded amount</Text>
-                    <Text style={styles.financeMetricValue}>₹0</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Refund cases completed in the period.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Orders by status (7) */}
-              <Text style={styles.financeSubHeading}>Orders by status (7)</Text>
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Placed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Packed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Ready for Pickup</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>5</Text>
-                  <Text style={styles.kpiTileLabel}>Delivered</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Returned</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Cancelled</Text>
-                </View>
-              </View>
-
-              {/* Sales by channel */}
-              <Text style={styles.financeSubHeading}>Sales by channel</Text>
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Online</Text>
-                  <Text style={styles.summaryRowValue}>₹0</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Live Market</Text>
-                  <Text style={styles.summaryRowValue}>₹1,620</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Horeca</Text>
-                  <Text style={styles.summaryRowValue}>₹20,130</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>B2B</Text>
-                  <Text style={styles.summaryRowValue}>₹49,440</Text>
-                </View>
-              </View>
-
-              {/* B2B and Horeca */}
-              <Text style={styles.financeSubHeading}>B2B and Horeca</Text>
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Orders</Text>
-                  <Text style={styles.summaryRowValue}>5</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Invoices generated / pending</Text>
-                  <Text style={styles.summaryRowValue}>5 / 0</Text>
-                </View>
-              </View>
-
-              <View style={[styles.financeSummaryCard, { marginTop: adminSpacing.sm }]}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Cancelled orders</Text>
-                  <Text style={styles.summaryRowValue}>0</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Returned orders</Text>
-                  <Text style={styles.summaryRowValue}>0</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Filters applied here: Date range, Sales channel, Warehouse, Customer type, Payment status.
-              </Text>
-            </View>
-
-            {/* ── Section B: Farmer payouts ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>B · Farmer payouts</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Pending approval</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Successful</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Failed or on hold</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Payout value requested in the period</Text>
-                  <Text style={styles.summaryRowValue}>₹60,070</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Payouts in the period</Text>
-                  <Text style={styles.summaryRowValue}>5</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* ── Section C: Customer refunds ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>C · Customer refunds</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting review</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Completed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Failed</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Unresolved complaints</Text>
-                  <Text style={styles.summaryRowValue}>2</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Refund statuses are current; the date range applies only to the refunded amount above.
-              </Text>
-
-              <TouchableOpacity
-                style={styles.financeOutlineButton}
-                onPress={() => {
-                  if (onNavigate) onNavigate('Customers');
-                  else Alert.alert('Customers', 'Opening customers overview.');
-                }}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.financeOutlineButtonText}>Customers</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Section D: Finance and reconciliation ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>D · Finance and reconciliation</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Vouchers awaiting approval</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Reconciliation mismatches</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Salary payouts to process</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Records awaiting approval</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>
-                    Reconciliation: matched / pending review / mismatch
-                  </Text>
-                  <Text style={styles.summaryRowValue}>1 / 1 / 1</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Voucher value awaiting approval</Text>
-                  <Text style={styles.summaryRowValue}>₹11,000</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Wallet and ledger figures come from the Accounts & Finance records. Filters other than the vouchers listed do not apply.
-              </Text>
-            </View>
-
-            {/* ── Section E: Price compliance ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>E · Price compliance</Text>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Retail prices needing action</Text>
-                  <Text style={styles.summaryRowValue}>1</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Retail prices above the ceiling</Text>
-                  <Text style={styles.summaryRowValue}>1</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeSubHeading}>Fair-price ceiling (reference only)</Text>
-
-              {/* Price compliance table */}
-              <View style={styles.complianceListCard}>
-                {[
-                  {
-                    name: 'Tomato · Grade A',
-                    ceiling: 'Ceiling Rs. 60 · Retail Rs. 55',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Carrot · Grade A',
-                    ceiling: 'Ceiling Rs. 70 · Retail Rs. 74',
-                    status: 'Above ceiling',
-                    tone: 'danger' as const,
-                  },
-                  {
-                    name: 'Cabbage · Grade B',
-                    ceiling: 'Ceiling Rs. 35 · Retail Rs. 32',
-                    status: 'Needs action',
-                    tone: 'warning' as const,
-                  },
-                  {
-                    name: 'Beans · Grade A',
-                    ceiling: 'Ceiling Rs. 90 · Retail Rs. 84',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Potato · Grade B',
-                    ceiling: 'Ceiling Rs. 40 · Retail Rs. 38',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Garlic · Grade A',
-                    ceiling: 'Ceiling Rs. 210 · Retail Rs. 198',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                ].map((item, index, arr) => (
-                  <View key={item.name}>
-                    <View style={styles.complianceRow}>
-                      <Text style={styles.complianceItemName}>{item.name}</Text>
-                      <View style={styles.complianceRightCol}>
-                        <Text style={styles.complianceCeilingText}>{item.ceiling}</Text>
-                        <View
-                          style={[
-                            styles.compliancePill,
-                            item.tone === 'success' && styles.compliancePillSuccess,
-                            item.tone === 'danger' && styles.compliancePillDanger,
-                            item.tone === 'warning' && styles.compliancePillWarning,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.compliancePillText,
-                              item.tone === 'success' && styles.compliancePillTextSuccess,
-                              item.tone === 'danger' && styles.compliancePillTextDanger,
-                              item.tone === 'warning' && styles.compliancePillTextWarning,
-                            ]}
-                          >
-                            {item.status}
-                          </Text>
+                    {/* Card 1: Overdue Audit */}
+                    <View style={styles.attentionCard}>
+                      <View style={styles.attentionTopRow}>
+                        <Text style={styles.attentionCodeTitle}>Audit · AUD-2026-0051</Text>
+                        <View style={styles.badgeOverdue}>
+                          <Text style={styles.badgeOverdueText}>Overdue</Text>
                         </View>
                       </View>
+                      <Text style={styles.attentionName}>Ramesh Kumar</Text>
+                      <Text style={styles.attentionDescription}>
+                        The scheduled date has passed and the audit is not completed.
+                      </Text>
+                      <Text style={styles.attentionMeta}>Created 2 Oct 2026 · Due 2 Oct 2026</Text>
+                      <TouchableOpacity
+                        style={styles.attentionActionBtn}
+                        onPress={handleOpenScheduleAudit}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.attentionActionBtnText}>View Audit</Text>
+                      </TouchableOpacity>
                     </View>
-                    {index < arr.length - 1 && <View style={styles.summaryDivider} />}
+
+                    {/* Card 2: Upcoming Audit */}
+                    <View style={styles.attentionCard}>
+                      <View style={styles.attentionTopRow}>
+                        <Text style={styles.attentionCodeTitle}>Upcoming audit · AUD-2026-0053</Text>
+                        <View style={styles.badgeUpcoming}>
+                          <Text style={styles.badgeUpcomingText}>Upcoming</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.attentionName}>Selvi</Text>
+                      <Text style={styles.attentionDescription}>
+                        The audit is scheduled for 2026-10-15.
+                      </Text>
+                      <Text style={styles.attentionMeta}>Created 12 Oct 2026 · Due 15 Oct 2026</Text>
+                      <TouchableOpacity
+                        style={styles.attentionActionBtn}
+                        onPress={handleOpenScheduleAudit}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.attentionActionBtnText}>View Audit</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Card 3: Inventory Exception */}
+                    <View style={styles.attentionCard}>
+                      <View style={styles.attentionTopRow}>
+                        <Text style={styles.attentionCodeTitle}>Inventory exception · Kotagiri · Beans</Text>
+                        <View style={styles.badgeException}>
+                          <Text style={styles.badgeExceptionText}>Exception</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.attentionName}>Beans · Kotagiri</Text>
+                      <Text style={styles.attentionDescription}>
+                        Stock is at or below the reorder level.
+                      </Text>
+                      <Text style={styles.attentionMeta}>Created 12 Oct 2026</Text>
+                      <TouchableOpacity
+                        style={styles.attentionActionBtn}
+                        onPress={() => {
+                          if (onNavigate) onNavigate('MainWarehouseAdmin');
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.attentionActionBtnText}>Review Exception</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                ))}
-              </View>
-            </View>
 
-            {/* Export reports full-width button */}
-            <TouchableOpacity
-              style={styles.exportReportsButton}
-              onPress={() => {
-                Alert.alert(
-                  'Export Reports',
-                  'Sales and finance report exported successfully in PDF and Excel formats.'
-                );
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.exportReportsButtonText}>Export reports</Text>
-            </TouchableOpacity>
+                  {/* 6. Quick Actions Section (3 Columns Grid) */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Quick actions</Text>
+                    <View style={styles.quickActionsGrid}>
+                      {displayedActions.map((qa) => (
+                        <TouchableOpacity
+                          key={qa.id}
+                          style={styles.quickActionTile}
+                          onPress={qa.action}
+                          activeOpacity={0.75}
+                        >
+                          <View style={styles.quickActionIconBox}>{qa.icon}</View>
+                          <Text style={styles.quickActionTileLabel}>{qa.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
 
-            {/* Screen footer code */}
-            <Text style={styles.screenFooterCode}>M1-S04 · Sales & Finance Overview</Text>
-            <View style={{ height: adminSpacing.xxl }} />
-          </ScrollView>
-        )}
+                    {/* Show few actions / Show more actions toggle button */}
+                    <TouchableOpacity
+                      style={styles.toggleMetricsButton}
+                      onPress={() => setShowAllActions((prev) => !prev)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.toggleMetricsText}>
+                        {showAllActions ? 'Show few actions' : 'Show more actions'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
 
-        {/* ══════════════════════════════════════════════════════════════════════
+                  {/* 7. Operations Summary Section */}
+                  <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeaderRow}>
+                      <Text style={styles.sectionHeading}>Operations summary</Text>
+                      <TouchableOpacity
+                        onPress={() => setActiveTab('Operations')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.sectionOpenLink}>Open →</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.summaryListCard}>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Farmers · active / registered</Text>
+                        <Text style={styles.summaryRowValue}>20 / 24</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Produce · pending review</Text>
+                        <Text style={styles.summaryRowValue}>5</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Audits · upcoming / overdue</Text>
+                        <Text style={styles.summaryRowValue}>2 / 2</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Purchases · awaiting receipt</Text>
+                        <Text style={styles.summaryRowValue}>3</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Warehouse · discrepancies</Text>
+                        <Text style={styles.summaryRowValue}>2</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* 8. Sales & Finance Summary Section */}
+                  <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeaderRow}>
+                      <Text style={styles.sectionHeading}>Sales & Finance summary</Text>
+                      <TouchableOpacity
+                        onPress={() => setActiveTab('Finance')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.sectionOpenLink}>Open →</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Sales Breakdown Card */}
+                    <TouchableOpacity
+                      style={styles.summaryListCard}
+                      onPress={() => setActiveTab('Finance')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Order value (30 days)</Text>
+                        <Text style={styles.summaryOrderValueBig}>₹3,33,660</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Online</Text>
+                        <Text style={styles.summaryRowValue}>₹10,870</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Live Market</Text>
+                        <Text style={styles.summaryRowValue}>₹19,710</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Horeca</Text>
+                        <Text style={styles.summaryRowValue}>₹1,51,740</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>B2B</Text>
+                        <Text style={styles.summaryRowValue}>₹1,51,340</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <Text style={styles.salesSubNote}>
+                      Orders: Placed 3 · Packed 0 · Ready for Pickup 1 · Delivered 48
+                    </Text>
+
+                    {/* Finance Action Card */}
+                    <TouchableOpacity
+                      style={[styles.summaryListCard, { marginTop: adminSpacing.md }]}
+                      onPress={() => setActiveTab('Finance')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Payouts awaiting processing</Text>
+                        <Text style={styles.summaryRowValue}>3</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Payouts awaiting Super Admin approval</Text>
+                        <Text style={styles.summaryRowValue}>1</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Failed or on hold</Text>
+                        <Text style={styles.summaryRowValue}>2</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryRowLabel}>Refunds awaiting review or payment</Text>
+                        <Text style={styles.summaryRowValue}>2</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 9. Warehouse Summary Section */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Warehouse summary</Text>
+
+                    <View style={styles.warehouseCard}>
+                      <View style={styles.warehouseTopRow}>
+                        <Text style={styles.warehouseName}>Ooty</Text>
+                        <View style={styles.badgeActive}>
+                          <Text style={styles.badgeActiveText}>Active</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.warehouseDetail}>1290 KG in stock · 0 low-stock lines</Text>
+                      <Text style={styles.warehouseMeta}>Updated 12 Oct 2026, 08:40</Text>
+                    </View>
+
+                    <View style={styles.warehouseCard}>
+                      <View style={styles.warehouseTopRow}>
+                        <Text style={styles.warehouseName}>Coonoor</Text>
+                        <View style={styles.badgeActive}>
+                          <Text style={styles.badgeActiveText}>Active</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.warehouseDetail}>1465 KG in stock · 0 low-stock lines</Text>
+                      <Text style={styles.warehouseMeta}>Updated 12 Oct 2026, 08:15</Text>
+                    </View>
+
+                    <View style={styles.warehouseCard}>
+                      <View style={styles.warehouseTopRow}>
+                        <Text style={styles.warehouseName}>Kotagiri</Text>
+                        <View style={styles.badgeActive}>
+                          <Text style={styles.badgeActiveText}>Active</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.warehouseDetail}>1518 KG in stock · 1 low-stock lines</Text>
+                      <Text style={styles.warehouseMeta}>Updated 11 Oct 2026, 17:55</Text>
+                    </View>
+
+                    <View style={styles.warehouseCard}>
+                      <View style={styles.warehouseTopRow}>
+                        <Text style={styles.warehouseName}>Gudalur Market</Text>
+                        <View style={styles.badgePending}>
+                          <Text style={styles.badgePendingText}>Pending Activation</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.warehouseDetail}>Not active yet, so there is no stock data</Text>
+                    </View>
+                  </View>
+
+                  {/* 10. Recent Activity Section */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionHeading}>Recent activity</Text>
+
+                    <View style={styles.activityItemRow}>
+                      <ClockHistoryIcon />
+                      <View style={styles.activityContentCol}>
+                        <Text style={styles.activityTitle}>Farmer application approved</Text>
+                        <Text style={styles.activityMeta}>APP-2026-0108 · 11 Oct 2026, 16:40</Text>
+                        <Text style={styles.activityActor}>Priya Nair · Approved</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.activityItemRow}>
+                      <ClockHistoryIcon />
+                      <View style={styles.activityContentCol}>
+                        <Text style={styles.activityTitle}>KYC verification updated</Text>
+                        <Text style={styles.activityMeta}>FMR-00177 · 11 Oct 2026, 15:05</Text>
+                        <Text style={styles.activityActor}>Priya Nair · Verified</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.activityItemRow}>
+                      <ClockHistoryIcon />
+                      <View style={styles.activityContentCol}>
+                        <Text style={styles.activityTitle}>Retail price change submitted for review</Text>
+                        <Text style={styles.activityMeta}>PRC-003 · 11 Oct 2026, 12:30</Text>
+                        <Text style={styles.activityActor}>Priya Nair · Pending review</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.activityItemRow}>
+                      <ClockHistoryIcon />
+                      <View style={styles.activityContentCol}>
+                        <Text style={styles.activityTitle}>Quality discrepancy recorded</Text>
+                        <Text style={styles.activityMeta}>PO-2026-00311 · 10 Oct 2026, 18:22</Text>
+                        <Text style={styles.activityActor}>Warehouse staff · Rejected</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={{ height: adminSpacing.xxxl }} />
+                </ScrollView>
+              )
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            WORK QUEUE TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+            {/* ══════════════════════════════════════════════════════════════════════
+            WORK QUEUE TAB (M1-S03 · Work Queue)
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'WorkQueue' && (
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.workQueueScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Header Banner */}
+                <View style={styles.subScreenHeaderBanner}>
+                  <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+                    <Defs>
+                      <LinearGradient id="workQueueGrad" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor={adminColors.brand} />
+                        <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#workQueueGrad)" />
+                  </Svg>
+
+                  <View style={styles.subScreenHeaderTopRow}>
+                    <TouchableOpacity
+                      style={styles.backIconButton}
+                      onPress={() => setActiveTab('Home')}
+                      activeOpacity={0.8}
+                    >
+                      <BackArrowWhiteIcon size={22} />
+                    </TouchableOpacity>
+                    <Text style={styles.subScreenHeaderTitle}>Work Queue</Text>
+                    <View style={{ width: 36 }} />
+                  </View>
+                </View>
+
+                {/* Search and Filter Box */}
+                <View style={styles.workQueueSearchContainer}>
+                  <View style={styles.workQueueSearchBar}>
+                    <SearchIcon size={18} color={adminColors.muted} />
+                    <TextInput
+                      style={styles.workQueueSearchInput}
+                      placeholder="Search common or scientific name"
+                      placeholderTextColor={adminColors.placeholder}
+                      value={workQueueSearch}
+                      onChangeText={setWorkQueueSearch}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowWorkQueueFilterModal(true)}
+                      activeOpacity={0.7}
+                      style={styles.workQueueFilterTrigger}
+                    >
+                      <FilterSlidersIcon size={18} color={adminColors.brand} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Status & pending count row */}
+                  <Text style={styles.workQueueCountText}>
+                    6 pending · 3 blocked / exception
+                  </Text>
+                </View>
+
+                {/* Task Cards List */}
+                <View style={styles.workQueueTaskList}>
+                  {workQueueTasks
+                    .filter((t) => {
+                      if (!workQueueSearch.trim()) return true;
+                      const q = workQueueSearch.toLowerCase();
+                      return (
+                        t.title.toLowerCase().includes(q) ||
+                        t.name.toLowerCase().includes(q) ||
+                        t.code.toLowerCase().includes(q) ||
+                        t.detail.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((task) => (
+                      <View key={task.id} style={styles.workQueueCard}>
+                        <View style={styles.workQueueCardTopRow}>
+                          <Text style={styles.workQueueCardTitle}>{task.title}</Text>
+                          <View
+                            style={[
+                              styles.workQueueBadge,
+                              task.badgeTone === 'danger'
+                                ? styles.workQueueBadgeDanger
+                                : styles.workQueueBadgeWarning,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.workQueueBadgeText,
+                                task.badgeTone === 'danger'
+                                  ? styles.workQueueBadgeTextDanger
+                                  : styles.workQueueBadgeTextWarning,
+                              ]}
+                            >
+                              {task.badge}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.workQueuePersonName}>{task.name}</Text>
+                        <Text style={styles.workQueueTaskCode}>{task.code}</Text>
+                        <Text style={styles.workQueueTaskDetail}>{task.detail}</Text>
+                        <Text style={styles.workQueueTaskCreated}>{task.created}</Text>
+
+                        <TouchableOpacity
+                          style={styles.workQueueActionButton}
+                          onPress={task.onAction}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={styles.workQueueActionText}>{task.actionLabel}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                </View>
+
+                {/* Screen footer code */}
+                <Text style={styles.screenFooterCode}>M1-S03 · Work Queue</Text>
+                <View style={{ height: adminSpacing.xxl }} />
+              </ScrollView>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            OPERATIONS TAB (M1-S04 · Operations Overview)
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'Operations' && (
+              <AdminOperationsOverviewScreen
+                onBack={() => setActiveTab('Home')}
+                onExportReports={() => {
+                  Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
+                }}
+              />
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            FARMERS TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'Farmers' && (
+              selectedAdminApplication ? (
+                <AdminApplicationDetailScreen
+                  application={selectedAdminApplication}
+                  onBack={() => setSelectedAdminApplication(null)}
+                  onApprove={() => {
+                    setSelectedAdminApplication(null);
+                    Alert.alert('Approved', 'Application has been approved successfully.');
+                  }}
+                  onReject={() => {
+                    setSelectedAdminApplication(null);
+                    Alert.alert('Rejected', 'Application has been rejected.');
+                  }}
+                />
+              ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
+                <AdminFarmMapScreen
+                  farmer={selectedAdminFarmer}
+                  onBack={() => setFarmerSubScreen(null)}
+                />
+              ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
+                <AdminRatingScorecardScreen
+                  farmer={selectedAdminFarmer}
+                  onBack={() => setFarmerSubScreen(null)}
+                  onOpenComplianceTiers={() => { }}
+                />
+              ) : selectedAdminFarmer ? (
+                <AdminFarmerDetailScreen
+                  farmer={selectedAdminFarmer}
+                  onBack={() => setSelectedAdminFarmer(null)}
+                  onOpenFarmMap={() => setFarmerSubScreen('map')}
+                  onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+                />
+              ) : (
+                <AdminAllFarmersScreen
+                  showBottomNav={false}
+                  onBack={() => setActiveTab('More')}
+                  onSelectFarmer={(f) => {
+                    setSelectedAdminFarmer(f);
+                  }}
+                  onReviewApplication={(app) => {
+                    setSelectedAdminApplication(app);
+                  }}
+                />
+              )
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            FINANCE TAB (M1-S04 · Sales & Finance Overview)
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'Finance' && (
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.financeScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Header Banner */}
+                <View style={styles.subScreenHeaderBanner}>
+                  <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+                    <Defs>
+                      <LinearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor={adminColors.brand} />
+                        <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect width="100%" height="100%" fill="url(#financeGrad)" />
+                  </Svg>
+
+                  <View style={styles.subScreenHeaderTopRow}>
+                    <TouchableOpacity
+                      style={styles.backIconButton}
+                      onPress={() => setActiveTab('Home')}
+                      activeOpacity={0.8}
+                    >
+                      <BackArrowWhiteIcon size={22} />
+                    </TouchableOpacity>
+                    <Text style={styles.subScreenHeaderTitle}>Sales & Finance Overview</Text>
+                    <TouchableOpacity
+                      style={styles.headerPillIconButton}
+                      onPress={() => setShowFinanceFilterModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* ── Section A: Sales overview ── */}
+                <View style={styles.financeSection}>
+                  <Text style={styles.financeSectionHeading}>A · Sales overview</Text>
+
+                  {/* Order value metrics card */}
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.financeMetricRow}>
+                      <View style={styles.financeMetricHeaderRow}>
+                        <Text style={styles.financeMetricTitle}>Order value</Text>
+                        <Text style={styles.financeMetricValue}>₹71,190</Text>
+                      </View>
+                      <Text style={styles.financeMetricSubtext}>
+                        Gross value of orders placed in the period, excluding cancelled and returned.
+                      </Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.financeMetricRow}>
+                      <View style={styles.financeMetricHeaderRow}>
+                        <Text style={styles.financeMetricTitle}>Invoiced amount</Text>
+                        <Text style={styles.financeMetricValue}>₹69,570</Text>
+                      </View>
+                      <Text style={styles.financeMetricSubtext}>
+                        Value of B2B and Horeca orders with a generated invoice.
+                      </Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.financeMetricRow}>
+                      <View style={styles.financeMetricHeaderRow}>
+                        <Text style={styles.financeMetricTitle}>Collected amount</Text>
+                        <Text style={styles.financeMetricValue}>₹69,570</Text>
+                      </View>
+                      <Text style={styles.financeMetricSubtext}>
+                        Value of orders whose payment is Paid.
+                      </Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.financeMetricRow}>
+                      <View style={styles.financeMetricHeaderRow}>
+                        <Text style={styles.financeMetricTitle}>Refunded amount</Text>
+                        <Text style={styles.financeMetricValue}>₹0</Text>
+                      </View>
+                      <Text style={styles.financeMetricSubtext}>
+                        Refund cases completed in the period.
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Orders by status (7) */}
+                  <Text style={styles.financeSubHeading}>Orders by status (7)</Text>
+                  <View style={styles.kpiTileGrid}>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>2</Text>
+                      <Text style={styles.kpiTileLabel}>Placed</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>0</Text>
+                      <Text style={styles.kpiTileLabel}>Packed</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>0</Text>
+                      <Text style={styles.kpiTileLabel}>Ready for Pickup</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>5</Text>
+                      <Text style={styles.kpiTileLabel}>Delivered</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>0</Text>
+                      <Text style={styles.kpiTileLabel}>Returned</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>0</Text>
+                      <Text style={styles.kpiTileLabel}>Cancelled</Text>
+                    </View>
+                  </View>
+
+                  {/* Sales by channel */}
+                  <Text style={styles.financeSubHeading}>Sales by channel</Text>
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Online</Text>
+                      <Text style={styles.summaryRowValue}>₹0</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Live Market</Text>
+                      <Text style={styles.summaryRowValue}>₹1,620</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Horeca</Text>
+                      <Text style={styles.summaryRowValue}>₹20,130</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>B2B</Text>
+                      <Text style={styles.summaryRowValue}>₹49,440</Text>
+                    </View>
+                  </View>
+
+                  {/* B2B and Horeca */}
+                  <Text style={styles.financeSubHeading}>B2B and Horeca</Text>
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Orders</Text>
+                      <Text style={styles.summaryRowValue}>5</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Invoices generated / pending</Text>
+                      <Text style={styles.summaryRowValue}>5 / 0</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.financeSummaryCard, { marginTop: adminSpacing.sm }]}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Cancelled orders</Text>
+                      <Text style={styles.summaryRowValue}>0</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Returned orders</Text>
+                      <Text style={styles.summaryRowValue}>0</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.financeCaptionNote}>
+                    Filters applied here: Date range, Sales channel, Warehouse, Customer type, Payment status.
+                  </Text>
+                </View>
+
+                {/* ── Section B: Farmer payouts ── */}
+                <View style={styles.financeSection}>
+                  <Text style={styles.financeSectionHeading}>B · Farmer payouts</Text>
+
+                  <View style={styles.kpiTileGrid}>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>3</Text>
+                      <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Pending approval</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Successful</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>2</Text>
+                      <Text style={styles.kpiTileLabel}>Failed or on hold</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Payout value requested in the period</Text>
+                      <Text style={styles.summaryRowValue}>₹60,070</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Payouts in the period</Text>
+                      <Text style={styles.summaryRowValue}>5</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* ── Section C: Customer refunds ── */}
+                <View style={styles.financeSection}>
+                  <Text style={styles.financeSectionHeading}>C · Customer refunds</Text>
+
+                  <View style={styles.kpiTileGrid}>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Awaiting review</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Completed</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Failed</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Unresolved complaints</Text>
+                      <Text style={styles.summaryRowValue}>2</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.financeCaptionNote}>
+                    Refund statuses are current; the date range applies only to the refunded amount above.
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.financeOutlineButton}
+                    onPress={() => {
+                      if (onNavigate) onNavigate('Customers');
+                      else Alert.alert('Customers', 'Opening customers overview.');
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.financeOutlineButtonText}>Customers</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* ── Section D: Finance and reconciliation ── */}
+                <View style={styles.financeSection}>
+                  <Text style={styles.financeSectionHeading}>D · Finance and reconciliation</Text>
+
+                  <View style={styles.kpiTileGrid}>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>2</Text>
+                      <Text style={styles.kpiTileLabel}>Vouchers awaiting approval</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>1</Text>
+                      <Text style={styles.kpiTileLabel}>Reconciliation mismatches</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>3</Text>
+                      <Text style={styles.kpiTileLabel}>Salary payouts to process</Text>
+                    </View>
+                    <View style={styles.kpiTileItem}>
+                      <Text style={styles.kpiTileValue}>3</Text>
+                      <Text style={styles.kpiTileLabel}>Records awaiting approval</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>
+                        Reconciliation: matched / pending review / mismatch
+                      </Text>
+                      <Text style={styles.summaryRowValue}>1 / 1 / 1</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Voucher value awaiting approval</Text>
+                      <Text style={styles.summaryRowValue}>₹11,000</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.financeCaptionNote}>
+                    Wallet and ledger figures come from the Accounts & Finance records. Filters other than the vouchers listed do not apply.
+                  </Text>
+                </View>
+
+                {/* ── Section E: Price compliance ── */}
+                <View style={styles.financeSection}>
+                  <Text style={styles.financeSectionHeading}>E · Price compliance</Text>
+
+                  <View style={styles.financeSummaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Retail prices needing action</Text>
+                      <Text style={styles.summaryRowValue}>1</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Retail prices above the ceiling</Text>
+                      <Text style={styles.summaryRowValue}>1</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.financeSubHeading}>Fair-price ceiling (reference only)</Text>
+
+                  {/* Price compliance table */}
+                  <View style={styles.complianceListCard}>
+                    {[
+                      {
+                        name: 'Tomato · Grade A',
+                        ceiling: 'Ceiling Rs. 60 · Retail Rs. 55',
+                        status: 'Within ceiling',
+                        tone: 'success' as const,
+                      },
+                      {
+                        name: 'Carrot · Grade A',
+                        ceiling: 'Ceiling Rs. 70 · Retail Rs. 74',
+                        status: 'Above ceiling',
+                        tone: 'danger' as const,
+                      },
+                      {
+                        name: 'Cabbage · Grade B',
+                        ceiling: 'Ceiling Rs. 35 · Retail Rs. 32',
+                        status: 'Needs action',
+                        tone: 'warning' as const,
+                      },
+                      {
+                        name: 'Beans · Grade A',
+                        ceiling: 'Ceiling Rs. 90 · Retail Rs. 84',
+                        status: 'Within ceiling',
+                        tone: 'success' as const,
+                      },
+                      {
+                        name: 'Potato · Grade B',
+                        ceiling: 'Ceiling Rs. 40 · Retail Rs. 38',
+                        status: 'Within ceiling',
+                        tone: 'success' as const,
+                      },
+                      {
+                        name: 'Garlic · Grade A',
+                        ceiling: 'Ceiling Rs. 210 · Retail Rs. 198',
+                        status: 'Within ceiling',
+                        tone: 'success' as const,
+                      },
+                    ].map((item, index, arr) => (
+                      <View key={item.name}>
+                        <View style={styles.complianceRow}>
+                          <Text style={styles.complianceItemName}>{item.name}</Text>
+                          <View style={styles.complianceRightCol}>
+                            <Text style={styles.complianceCeilingText}>{item.ceiling}</Text>
+                            <View
+                              style={[
+                                styles.compliancePill,
+                                item.tone === 'success' && styles.compliancePillSuccess,
+                                item.tone === 'danger' && styles.compliancePillDanger,
+                                item.tone === 'warning' && styles.compliancePillWarning,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.compliancePillText,
+                                  item.tone === 'success' && styles.compliancePillTextSuccess,
+                                  item.tone === 'danger' && styles.compliancePillTextDanger,
+                                  item.tone === 'warning' && styles.compliancePillTextWarning,
+                                ]}
+                              >
+                                {item.status}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        {index < arr.length - 1 && <View style={styles.summaryDivider} />}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Export reports full-width button */}
+                <TouchableOpacity
+                  style={styles.exportReportsButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Export Reports',
+                      'Sales and finance report exported successfully in PDF and Excel formats.'
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.exportReportsButtonText}>Export reports</Text>
+                </TouchableOpacity>
+
+                {/* Screen footer code */}
+                <Text style={styles.screenFooterCode}>M1-S04 · Sales & Finance Overview</Text>
+                <View style={{ height: adminSpacing.xxl }} />
+              </ScrollView>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
             SALES TAB (Subscreens & Channels)
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Sales' && (
-          salesSubScreen === 'online' ? (
-            <SalesOnlineOrdersScreen
-              onBack={() => setSalesSubScreen('overview')}
-              onSelectOrder={(ord) => {
-                setSelectedSalesOrder(ord);
-                setSalesSubScreen('fulfillment');
-              }}
-              onOpenInvoice={(ord) => {
-                setSelectedSalesOrder(ord);
-                setSalesSubScreen('invoice');
-              }}
-            />
-          ) : salesSubScreen === 'market' ? (
-            <SalesMarketDayScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : salesSubScreen === 'horeca' ? (
-            <SalesHorecaOrdersScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : salesSubScreen === 'b2b' ? (
-            <SalesB2BOrdersScreen
-              onBack={() => setSalesSubScreen('overview')}
-              onOpenInvoice={(acc) => {
-                setSelectedSalesB2B(acc);
-                setSalesSubScreen('invoice');
-              }}
-            />
-          ) : salesSubScreen === 'fulfillment' ? (
-            <SalesFulfillmentAssignmentScreen
-              orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
-              customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
-              onBack={() => setSalesSubScreen('overview')}
-              onNavigateToInvoice={() => setSalesSubScreen('invoice')}
-            />
-          ) : salesSubScreen === 'invoice' ? (
-            <SalesInvoiceScreen
-              orderNumber={
-                selectedSalesOrder?.orderNumber ??
-                (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
-              }
-              customerName={
-                selectedSalesOrder?.customerName ??
-                (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
-              }
-              onBack={() => setSalesSubScreen('overview')}
-            />
-          ) : salesSubScreen === 'returns' ? (
-            <SalesReturnsRefundsScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : (
-            <SalesChannelOverviewScreen
-              onBack={() => setActiveTab('Home')}
-              onSelectChannel={(ch) => setSalesSubScreen(ch)}
-              onOpenFulfillment={() => setSalesSubScreen('fulfillment')}
-              onOpenReturns={() => setSalesSubScreen('returns')}
-            />
-          )
-        )}
+            {activeTab === 'Sales' && (
+              salesSubScreen === 'online' ? (
+                <SalesOnlineOrdersScreen
+                  onBack={() => setSalesSubScreen('overview')}
+                  onSelectOrder={(ord) => {
+                    setSelectedSalesOrder(ord);
+                    setSalesSubScreen('fulfillment');
+                  }}
+                  onOpenInvoice={(ord) => {
+                    setSelectedSalesOrder(ord);
+                    setSalesSubScreen('invoice');
+                  }}
+                />
+              ) : salesSubScreen === 'market' ? (
+                <SalesMarketDayScreen onBack={() => setSalesSubScreen('overview')} />
+              ) : salesSubScreen === 'horeca' ? (
+                <SalesHorecaOrdersScreen onBack={() => setSalesSubScreen('overview')} />
+              ) : salesSubScreen === 'b2b' ? (
+                <SalesB2BOrdersScreen
+                  onBack={() => setSalesSubScreen('overview')}
+                  onOpenInvoice={(acc) => {
+                    setSelectedSalesB2B(acc);
+                    setSalesSubScreen('invoice');
+                  }}
+                />
+              ) : salesSubScreen === 'fulfillment' ? (
+                <SalesFulfillmentAssignmentScreen
+                  orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
+                  customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
+                  onBack={() => setSalesSubScreen('overview')}
+                  onNavigateToInvoice={() => setSalesSubScreen('invoice')}
+                />
+              ) : salesSubScreen === 'invoice' ? (
+                <SalesInvoiceScreen
+                  orderNumber={
+                    selectedSalesOrder?.orderNumber ??
+                    (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
+                  }
+                  customerName={
+                    selectedSalesOrder?.customerName ??
+                    (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
+                  }
+                  onBack={() => setSalesSubScreen('overview')}
+                />
+              ) : salesSubScreen === 'returns' ? (
+                <SalesReturnsRefundsScreen onBack={() => setSalesSubScreen('overview')} />
+              ) : (
+                <SalesChannelOverviewScreen
+                  onBack={() => setActiveTab('Home')}
+                  onSelectChannel={(ch) => setSalesSubScreen(ch)}
+                  onOpenFulfillment={() => setSalesSubScreen('fulfillment')}
+                  onOpenReturns={() => setSalesSubScreen('returns')}
+                />
+              )
+            )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
+            {/* ══════════════════════════════════════════════════════════════════════
             MORE TAB (Image 1 Menu Screen)
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'More' && (
-          <AdminMoreMenuScreen
-            onBack={() => setActiveTab('Home')}
-            onSelectOption={(optionId) => {
-              if (optionId === 'farmers') {
-                setActiveTab('Farmers');
-              } else if (optionId === 'produce') {
-                setDashboardSubScreen('listingApproval');
-                setActiveTab('Home');
-              } else if (optionId === 'audit') {
-                handleOpenScheduleAudit();
-              } else if (optionId === 'inputs') {
-                if (onNavigate) onNavigate('InputsPestHome');
-              } else if (optionId === 'pricing') {
-                if (onNavigate) onNavigate('RetailPricing');
-              } else if (optionId === 'purchase_sales') {
-                setActiveTab('Finance');
-              } else if (optionId === 'customers') {
-                if (onNavigate) onNavigate('Customers');
-              } else if (optionId === 'finance') {
-                setActiveTab('Finance');
-              } else if (optionId === 'workforce') {
-                if (onNavigate) onNavigate('Staff');
-              } else if (optionId === 'notifications') {
-                setActiveTab('Reports');
-              } else if (optionId === 'community') {
-                if (onNavigate) onNavigate('Community');
-              } else if (optionId === 'settings') {
-                setActiveTab('Profile');
-              }
-            }}
-          />
-        )}
+            {activeTab === 'More' && (
+              dashboardSubScreen === 'scheduleAudit' ? (
+                <AuditManagementScreen
+                  onBack={() => setDashboardSubScreen(null)}
+                  onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
+                  onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
+                  onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
+                  onOpenReportHistory={() => {
+                    setReportHistoryReturnScreen('scheduleAudit');
+                    setDashboardSubScreen('auditReportHistory');
+                  }}
+                  onSelectAuditItem={(audit) => {
+                    setSelectedAuditId(audit.code);
+                    setAuditDetailsReturnScreen('scheduleAudit');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
+                <AuditScheduleAssignmentScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onViewSchedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setAuditDetailsReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                  onEditSchedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onReschedule={(schedule) => {
+                    setSelectedAuditId(schedule.code);
+                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditDetailsRecord' ? (
+                <AuditDetailsFarmerRecordsScreen
+                  auditId={selectedAuditId}
+                  onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+                  onEditSchedule={() => {
+                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onReschedule={() => {
+                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
+                    setDashboardSubScreen('scheduleAuditForm');
+                  }}
+                  onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+                  onOpenFarmerProfile={() => {
+                    if (onNavigate) onNavigate('AdminAllFarmers');
+                    else setActiveTab('Farmers');
+                  }}
+                />
+              ) : dashboardSubScreen === 'scheduleAuditForm' ? (
+                <ScheduleAuditFormScreen
+                  initialAuditId={selectedAuditId}
+                  onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                  onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                  onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+                />
+              ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
+                <AuditHistoryComplianceScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onSelectAudit={(audit) => {
+                    setSelectedAuditId(audit.code);
+                    setAuditDetailsReturnScreen('auditHistoryCompliance');
+                    setDashboardSubScreen('auditDetailsRecord');
+                  }}
+                />
+              ) : dashboardSubScreen === 'generateAuditReport' ? (
+                <GenerateAuditReportScreen
+                  onBack={() => setDashboardSubScreen('scheduleAudit')}
+                  onConfigureReport={() => {
+                    setDashboardSubScreen('auditReportsTierConfig');
+                  }}
+                  onGenerateReport={() => {
+                    setDashboardSubScreen('auditReportsTierConfig');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
+                <AuditReportsTierConfigScreen
+                  onBack={() => setDashboardSubScreen('generateAuditReport')}
+                  onGenerateReportSuccess={() => {
+                    setReportHistoryReturnScreen('auditReportsTierConfig');
+                    setDashboardSubScreen('auditReportHistory');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportHistory' ? (
+                <AuditReportHistoryScreen
+                  onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
+                  onOpenReportDetails={(_reportId) => {
+                    setDashboardSubScreen('auditReportDetails');
+                  }}
+                />
+              ) : dashboardSubScreen === 'auditReportDetails' ? (
+                <AuditReportDetailsScreen
+                  onBack={() => setDashboardSubScreen('auditReportHistory')}
+                  onDownload={() => {
+                    Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
+                  }}
+                />
+              ) : (
+                <AdminMoreMenuScreen
+                  onBack={() => setActiveTab('Home')}
+                  onSelectOption={(optionId) => {
+                    if (optionId === 'farmers') {
+                      if (onNavigate) onNavigate('AdminAllFarmers');
+                      else setActiveTab('Farmers');
+                    } else if (optionId === 'produce') {
+                      setDashboardSubScreen('listingApproval');
+                      setActiveTab('Home');
+                    } else if (optionId === 'audit') {
+                      handleOpenScheduleAudit();
+                    } else if (optionId === 'inputs') {
+                      if (onNavigate) onNavigate('InputsPestHome');
+                    } else if (optionId === 'pricing') {
+                      setPricingReturnTab('More');
+                      setDashboardSubScreen('marketPricingHome');
+                    } else if (optionId === 'purchase_sales') {
+                      setActiveTab('Finance');
+                    } else if (optionId === 'customers') {
+                      if (onNavigate) onNavigate('Customers');
+                    } else if (optionId === 'finance') {
+                      setActiveTab('Finance');
+                    } else if (optionId === 'workforce') {
+                      if (onNavigate) onNavigate('Staff');
+                    } else if (optionId === 'notifications') {
+                      setActiveTab('Reports');
+                    } else if (optionId === 'community') {
+                      if (onNavigate) onNavigate('Community');
+                    } else if (optionId === 'settings') {
+                      setActiveTab('Profile');
+                    }
+                  }}
+                />
+              )
+            )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
+            {/* ══════════════════════════════════════════════════════════════════════
             REPORTS TAB
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Reports' && (
-          reportsSubScreen === 'analytics' ? (
-            <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'pl' ? (
-            <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'farmerPerformance' ? (
-            <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'warehouseOps' ? (
-            <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'allRecent' ? (
-            <AllRecentReportsScreen
-              onBack={() => setReportsSubScreen(null)}
-              onOpenPLReport={() => setReportsSubScreen('pl')}
-              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-            />
-          ) : reportsSubScreen === 'builder' ? (
-            <ReportBuilderScreen
-              onBack={() => setReportsSubScreen(null)}
-              onGenerate={(type) => {
-                if (type === 'pl') setReportsSubScreen('pl');
-                else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
-                else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
-              }}
-            />
-          ) : reportsSubScreen === 'alerts' ? (
-            <SystemAlertsScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'announcements' ? (
-            <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
-          ) : (
-            <AdminReportsMainScreen
-              onBack={() => setActiveTab('Home')}
-              onOpenPLReport={() => setReportsSubScreen('pl')}
-              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-              onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
-              onOpenReportBuilder={() => setReportsSubScreen('builder')}
-              onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
-              onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
-              onOpenAnnouncements={() => setReportsSubScreen('announcements')}
-            />
-          )
-        )}
+            {activeTab === 'Reports' && (
+              reportsSubScreen === 'analytics' ? (
+                <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
+              ) : reportsSubScreen === 'pl' ? (
+                <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
+              ) : reportsSubScreen === 'farmerPerformance' ? (
+                <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
+              ) : reportsSubScreen === 'warehouseOps' ? (
+                <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
+              ) : reportsSubScreen === 'allRecent' ? (
+                <AllRecentReportsScreen
+                  onBack={() => setReportsSubScreen(null)}
+                  onOpenPLReport={() => setReportsSubScreen('pl')}
+                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+                />
+              ) : reportsSubScreen === 'builder' ? (
+                <ReportBuilderScreen
+                  onBack={() => setReportsSubScreen(null)}
+                  onGenerate={(type) => {
+                    if (type === 'pl') setReportsSubScreen('pl');
+                    else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
+                    else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
+                  }}
+                />
+              ) : reportsSubScreen === 'alerts' ? (
+                <SystemAlertsScreen onBack={() => setReportsSubScreen(null)} />
+              ) : reportsSubScreen === 'announcements' ? (
+                <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
+              ) : (
+                <AdminReportsMainScreen
+                  onBack={() => setActiveTab('Home')}
+                  onOpenPLReport={() => setReportsSubScreen('pl')}
+                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+                  onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
+                  onOpenReportBuilder={() => setReportsSubScreen('builder')}
+                  onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
+                  onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
+                  onOpenAnnouncements={() => setReportsSubScreen('announcements')}
+                />
+              )
+            )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
+            {/* ══════════════════════════════════════════════════════════════════════
             PROFILE TAB
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Profile' && (
-          <AdminProfileScreen
-            role="TOHFA_ADMIN"
-            onSignOut={onSignOut ?? (() => onNavigate?.('Welcome'))}
-            onBack={() => setActiveTab('Home')}
-          />
+            {activeTab === 'Profile' && (
+              <AdminProfileScreen
+                role="TOHFA_ADMIN"
+                onSignOut={onSignOut ?? (() => onNavigate?.('Welcome'))}
+                onBack={() => setActiveTab('Home')}
+              />
+            )}
+          </>
         )}
       </View>
 
       {/* ══════════════════════════════════════════════════════════════════════
           BOTTOM NAVIGATION BAR (5 Tabs matching Screenshot 1-5 exactly)
          ══════════════════════════════════════════════════════════════════════ */}
-      {!dashboardSubScreen && (
+      {(!dashboardSubScreen || dashboardSubScreen === 'marketPricingHome') && (
         <View style={styles.bottomNav}>
-            {/* Tab 1: Home */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              onPress={() => {
-                setDashboardSubScreen(null);
-                setActiveTab('Home');
-              }}
-              activeOpacity={0.7}
+          {/* Tab 1: Home */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              setDashboardSubScreen(null);
+              setActiveTab('Home');
+            }}
+            activeOpacity={0.7}
+          >
+            <TabHomeIcon
+              color={
+                activeTab === 'Home' || activeTab === 'Dashboard'
+                  ? adminColors.brand
+                  : adminColors.muted
+              }
+            />
+            <Text
+              style={[
+                styles.navTabLabel,
+                (activeTab === 'Home' || activeTab === 'Dashboard') && styles.navTabLabelActive,
+              ]}
             >
-              <TabHomeIcon
-                color={
-                  activeTab === 'Home' || activeTab === 'Dashboard'
-                    ? adminColors.brand
-                    : adminColors.muted
-                }
-              />
-              <Text
-                style={[
-                  styles.navTabLabel,
-                  (activeTab === 'Home' || activeTab === 'Dashboard') && styles.navTabLabelActive,
-                ]}
-              >
-                Home
-              </Text>
-            </TouchableOpacity>
+              Home
+            </Text>
+          </TouchableOpacity>
 
-            {/* Tab 2: Work Queue */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              onPress={() => {
-                setDashboardSubScreen(null);
-                setActiveTab('WorkQueue');
-              }}
-              activeOpacity={0.7}
+          {/* Tab 2: Work Queue */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              setDashboardSubScreen(null);
+              setActiveTab('WorkQueue');
+            }}
+            activeOpacity={0.7}
+          >
+            <TabWorkQueueIcon
+              color={activeTab === 'WorkQueue' ? adminColors.brand : adminColors.muted}
+            />
+            <Text
+              style={[
+                styles.navTabLabel,
+                activeTab === 'WorkQueue' && styles.navTabLabelActive,
+              ]}
             >
-              <TabWorkQueueIcon
-                color={activeTab === 'WorkQueue' ? adminColors.brand : adminColors.muted}
-              />
-              <Text
-                style={[
-                  styles.navTabLabel,
-                  activeTab === 'WorkQueue' && styles.navTabLabelActive,
-                ]}
-              >
-                Work Queue
-              </Text>
-            </TouchableOpacity>
+              Work Queue
+            </Text>
+          </TouchableOpacity>
 
-            {/* Tab 3: Operations */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              onPress={() => {
-                setDashboardSubScreen(null);
-                setActiveTab('Operations');
-              }}
-              activeOpacity={0.7}
+          {/* Tab 3: Operations */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              setDashboardSubScreen(null);
+              setActiveTab('Operations');
+            }}
+            activeOpacity={0.7}
+          >
+            <TabOperationsIcon
+              color={
+                activeTab === 'Operations'
+                  ? adminColors.brand
+                  : adminColors.muted
+              }
+            />
+            <Text
+              style={[
+                styles.navTabLabel,
+                activeTab === 'Operations' && styles.navTabLabelActive,
+              ]}
             >
-              <TabOperationsIcon
-                color={
-                  activeTab === 'Operations'
-                    ? adminColors.brand
-                    : adminColors.muted
-                }
-              />
-              <Text
-                style={[
-                  styles.navTabLabel,
-                  activeTab === 'Operations' && styles.navTabLabelActive,
-                ]}
-              >
-                Operations
-              </Text>
-            </TouchableOpacity>
+              Operations
+            </Text>
+          </TouchableOpacity>
 
-            {/* Tab 4: Finance */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              onPress={() => {
-                setDashboardSubScreen(null);
-                setActiveTab('Finance');
-              }}
-              activeOpacity={0.7}
+          {/* Tab 4: Finance */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              setDashboardSubScreen(null);
+              setActiveTab('Finance');
+            }}
+            activeOpacity={0.7}
+          >
+            <TabFinanceIcon
+              color={
+                activeTab === 'Finance' || activeTab === 'Sales'
+                  ? adminColors.brand
+                  : adminColors.muted
+              }
+            />
+            <Text
+              style={[
+                styles.navTabLabel,
+                (activeTab === 'Finance' || activeTab === 'Sales') && styles.navTabLabelActive,
+              ]}
             >
-              <TabFinanceIcon
-                color={
-                  activeTab === 'Finance' || activeTab === 'Sales'
-                    ? adminColors.brand
-                    : adminColors.muted
-                }
-              />
-              <Text
-                style={[
-                  styles.navTabLabel,
-                  (activeTab === 'Finance' || activeTab === 'Sales') && styles.navTabLabelActive,
-                ]}
-              >
-                Finance
-              </Text>
-            </TouchableOpacity>
+              Finance
+            </Text>
+          </TouchableOpacity>
 
-            {/* Tab 5: More */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              onPress={() => {
-                setDashboardSubScreen(null);
-                setActiveTab('More');
-              }}
-              activeOpacity={0.7}
-            >
-              <TabMoreIcon
-                color={
-                  activeTab === 'More' ||
+          {/* Tab 5: More */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              setDashboardSubScreen(null);
+              setActiveTab('More');
+            }}
+            activeOpacity={0.7}
+          >
+            <TabMoreIcon
+              color={
+                activeTab === 'More' ||
                   activeTab === 'Farmers' ||
                   activeTab === 'Reports' ||
                   activeTab === 'Profile'
-                    ? adminColors.brand
-                    : adminColors.muted
-                }
-              />
-              <Text
-                style={[
-                  styles.navTabLabel,
-                  (activeTab === 'More' ||
-                    activeTab === 'Farmers' ||
-                    activeTab === 'Reports' ||
-                    activeTab === 'Profile') &&
-                    styles.navTabLabelActive,
-                ]}
-              >
-                More
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+                  ? adminColors.brand
+                  : adminColors.muted
+              }
+            />
+            <Text
+              style={[
+                styles.navTabLabel,
+                (activeTab === 'More' ||
+                  activeTab === 'Farmers' ||
+                  activeTab === 'Reports' ||
+                  activeTab === 'Profile') &&
+                styles.navTabLabelActive,
+              ]}
+            >
+              More
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Date Range Modal */}
       <Modal
