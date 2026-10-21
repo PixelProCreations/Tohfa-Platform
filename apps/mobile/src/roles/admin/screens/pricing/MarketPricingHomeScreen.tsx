@@ -50,19 +50,6 @@ function PriceTagHeaderIcon({ size = 20, color = adminColors.onBrand }: { size?:
   );
 }
 
-function HorizontalFilterIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top slider bar with vertical pip */}
-      <Line x1="3.5" y1="8" x2="20.5" y2="8" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-      <Line x1="16" y1="4.5" x2="16" y2="11.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      {/* Bottom slider bar with vertical pip */}
-      <Line x1="3.5" y1="16" x2="20.5" y2="16" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-      <Line x1="8" y1="12.5" x2="8" y2="19.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function CloseIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

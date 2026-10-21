@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Line, Path, Rect, Stop } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
   adminColors,
   adminOverlay,
@@ -28,6 +27,7 @@ import {
   AdminFarmerDetailScreen,
   AdminFarmMapScreen,
   AdminRatingScorecardScreen,
+  type ApplicationListItem,
   type FarmerListItem,
 } from '../farmers';
 import {
@@ -45,7 +45,10 @@ import {
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
-import { AdminPendingApplicationsScreen, AdminApplicationDetailScreen } from '../registration';
+import {
+  AdminPendingApplicationsScreen,
+  AdminApplicationDetailScreen,
+} from '../registration';
 import {
   AdminReportsMainScreen,
   AnalyticsDashboardScreen,
@@ -56,7 +59,7 @@ import {
   AnnouncementsScreen,
   AllRecentReportsScreen,
 } from '../reports';
-import { FinancialDashboardScreen, PLStatementScreen } from '../finance';
+import { PLStatementScreen } from '../finance';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import {
@@ -451,7 +454,7 @@ function TabMoreIcon({ color, size = 20 }: { color: string; size?: number }) {
 export function TohfaAdminDashboardScreen({
   onSignOut,
   onNavigate,
-  onSwitchRole,
+  onSwitchRole: _onSwitchRole,
   initialTab,
 }: TohfaAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<TohfaAdminTab>(
@@ -524,7 +527,7 @@ export function TohfaAdminDashboardScreen({
     'scheduleAudit' | 'auditReportsTierConfig'
   >('scheduleAudit');
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
-  const [selectedAdminApplication, setSelectedAdminApplication] = useState<any>(null);
+  const [selectedAdminApplication, setSelectedAdminApplication] = useState<ApplicationListItem | null>(null);
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
   const [salesSubScreen, setSalesSubScreen] = useState<
     'overview' | 'online' | 'market' | 'horeca' | 'b2b' | 'fulfillment' | 'invoice' | 'returns'

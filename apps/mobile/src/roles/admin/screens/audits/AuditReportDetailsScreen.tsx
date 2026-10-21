@@ -53,7 +53,7 @@ interface AuditRowItem {
 
 export function AuditReportDetailsScreen({
   onBack,
-  reportId = 'audit_summary',
+  reportId: _reportId = 'audit_summary',
   onDownload,
 }: AuditReportDetailsScreenProps) {
   // Summary key-value rows matching media_1792339703059.png

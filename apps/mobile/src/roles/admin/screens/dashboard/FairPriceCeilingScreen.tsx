@@ -60,21 +60,6 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function PriceTagIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="7" cy="7" r="1.5" fill={color} />
-    </Svg>
-  );
-}
-
 function ChevronDownIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -409,18 +394,18 @@ export type FairPriceItem = FairPriceCeilingRecord;
 export interface FairPriceCeilingScreenProps {
   onBack: () => void;
   onNavigateToRetailPricing?: (() => void) | undefined;
-  onNavigateToBreakdown?: ((item?: any) => void) | undefined;
-  onNavigateToHistory?: ((item?: any) => void) | undefined;
-  onSelectPriceItem?: ((item?: any) => void) | undefined;
-  onUpdatePrice?: ((item?: any) => void) | undefined;
+  onNavigateToBreakdown?: ((item?: FairPriceCeilingRecord) => void) | undefined;
+  onNavigateToHistory?: ((item?: FairPriceCeilingRecord) => void) | undefined;
+  onSelectPriceItem?: ((item?: FairPriceCeilingRecord) => void) | undefined;
+  onUpdatePrice?: ((item?: FairPriceCeilingRecord) => void) | undefined;
   onBulkUpdate?: (() => void) | undefined;
-  onViewHistory?: ((item?: any) => void) | undefined;
+  onViewHistory?: ((item?: FairPriceCeilingRecord) => void) | undefined;
 }
 
 export function FairPriceCeilingScreen({
   onBack,
   onNavigateToRetailPricing = () => {},
-  onNavigateToBreakdown,
+  onNavigateToBreakdown: _onNavigateToBreakdown,
   onNavigateToHistory,
 }: FairPriceCeilingScreenProps) {
   // ── States

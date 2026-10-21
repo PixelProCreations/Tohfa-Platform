@@ -201,7 +201,7 @@ export const SAMPLE_RETAIL_PRICES = INITIAL_RETAIL_MANAGEMENT_ITEMS;
 export interface RetailPricingScreenProps {
   onBack: () => void;
   onEditRetailPrice?: (record: PricingRecordItem) => void;
-  onSelectBreakdown?: (item?: any) => void;
+  onSelectBreakdown?: (item?: RetailPriceManagementItem) => void;
 }
 
 export function RetailPricingScreen({
@@ -209,7 +209,7 @@ export function RetailPricingScreen({
   onEditRetailPrice,
 }: RetailPricingScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<RetailPriceManagementItem[]>(INITIAL_RETAIL_MANAGEMENT_ITEMS);
+  const [items] = useState<RetailPriceManagementItem[]>(INITIAL_RETAIL_MANAGEMENT_ITEMS);
 
   // Inline Edit Drawer state for Tomato · Grade 1
   const [drawerInputPrice, setDrawerInputPrice] = useState('58.00');

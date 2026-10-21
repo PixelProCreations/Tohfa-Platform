@@ -81,7 +81,7 @@ export function EditRetailPriceScreen({
 
   // Ceiling numeric extraction for calculation
   const ceilingNum = parseFloat(item.ceiling.replace(/[^\d.]/g, '')) || 60;
-  const currentPriceNum = parseFloat(item.retailPrice.replace(/[^\d.]/g, '')) || 55;
+  const _currentPriceNum = parseFloat(item.retailPrice.replace(/[^\d.]/g, '')) || 55;
   const newPriceNum = parseFloat(newPrice);
 
   const hasProposed = !isNaN(newPriceNum) && newPriceNum > 0;
