@@ -23,6 +23,8 @@ import { ProduceListingsScreen } from './ProduceListingsScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
 import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
 import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
+import { AdminAllFarmersScreen, AdminFarmerDetailScreen } from '../farmers';
+import { AdminApplicationDetailScreen } from '../registration';
 import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { HandoverDetailsScreen } from './HandoverDetailsScreen';
@@ -1403,8 +1405,8 @@ export function FarmerModerationQueueScreen({
                   item.status === 'Reported'
                     ? commStyles.badgeReported
                     : item.status === 'Under Review'
-                    ? commStyles.badgeUnderReview
-                    : commStyles.badgeActive
+                      ? commStyles.badgeUnderReview
+                      : commStyles.badgeActive
                 }
               >
                 <Text
@@ -1412,8 +1414,8 @@ export function FarmerModerationQueueScreen({
                     item.status === 'Reported'
                       ? commStyles.badgeReportedText
                       : item.status === 'Under Review'
-                      ? commStyles.badgeUnderReviewText
-                      : commStyles.badgeActiveText
+                        ? commStyles.badgeUnderReviewText
+                        : commStyles.badgeActiveText
                   }
                 >
                   {item.status}
@@ -2088,7 +2090,10 @@ export function FarmerAdminDashboardScreen({
     | 'dispute_detail'
     | 'dispute_timeline'
     | 'dispute_resolution'
+    | 'farmers_management'
   >('none');
+  const [farmerAdminSelectedFarmer, setFarmerAdminSelectedFarmer] = useState<any>(null);
+  const [farmerAdminSelectedApp, setFarmerAdminSelectedApp] = useState<any>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<
     | 'menu'
     | 'disputes'
@@ -2144,60 +2149,61 @@ export function FarmerAdminDashboardScreen({
   interface NavState {
     tab: FarmerAdminTab;
     subView:
-      | 'none'
-      | 'product_listings'
-      | 'produce_listings'
-      | 'produce_history'
-      | 'verification_approval'
-      | 'farmer_profile'
-      | 'handover_history'
-      | 'handover_confirmation'
-      | 'handover_details'
-      | 'admin_activity'
-      | 'notifications'
-      | 'farmer_support'
-      | 'profile'
-      | 'purchases'
-      | 'purchase_orders'
-      | 'purchase_order_detail'
-      | 'purchase_history'
-      | 'confirm_purchase_terms'
-      | 'farmer_handover'
-      | 'collection_confirmation'
-      | 'inputs_pest'
-      | 'approved_inputs'
-      | 'input_detail'
-      | 'pest_library'
-      | 'application_guide'
-      | 'farmer_pest_incidents'
-      | 'pest_incident_detail'
-      | 'market_pricing'
-      | 'fair_price'
-      | 'categories_grades'
-      | 'price_history'
-      | 'retail_pricing'
-      | 'markup_breakdown'
-      | 'audit_schedule'
-      | 'farmer_ratings'
-      | 'disputes'
-      | 'dispute_detail'
-      | 'dispute_timeline'
-      | 'dispute_resolution';
+    | 'none'
+    | 'product_listings'
+    | 'produce_listings'
+    | 'produce_history'
+    | 'verification_approval'
+    | 'farmer_profile'
+    | 'handover_history'
+    | 'handover_confirmation'
+    | 'handover_details'
+    | 'admin_activity'
+    | 'notifications'
+    | 'farmer_support'
+    | 'profile'
+    | 'purchases'
+    | 'purchase_orders'
+    | 'purchase_order_detail'
+    | 'purchase_history'
+    | 'confirm_purchase_terms'
+    | 'farmer_handover'
+    | 'collection_confirmation'
+    | 'inputs_pest'
+    | 'approved_inputs'
+    | 'input_detail'
+    | 'pest_library'
+    | 'application_guide'
+    | 'farmer_pest_incidents'
+    | 'pest_incident_detail'
+    | 'market_pricing'
+    | 'fair_price'
+    | 'categories_grades'
+    | 'price_history'
+    | 'retail_pricing'
+    | 'markup_breakdown'
+    | 'audit_schedule'
+    | 'farmer_ratings'
+    | 'disputes'
+    | 'dispute_detail'
+    | 'dispute_timeline'
+    | 'dispute_resolution'
+    | 'farmers_management';
     moreSubScreen?:
-      | 'menu'
-      | 'disputes'
-      | 'dispute_detail'
-      | 'dispute_timeline'
-      | 'dispute_resolution'
-      | 'community'
-      | 'community_groups'
-      | 'community_group_detail'
-      | 'community_members'
-      | 'community_posts'
-      | 'community_post_detail'
-      | 'community_moderation_queue'
-      | 'community_moderation_review'
-      | undefined;
+    | 'menu'
+    | 'disputes'
+    | 'dispute_detail'
+    | 'dispute_timeline'
+    | 'dispute_resolution'
+    | 'community'
+    | 'community_groups'
+    | 'community_group_detail'
+    | 'community_members'
+    | 'community_posts'
+    | 'community_post_detail'
+    | 'community_moderation_queue'
+    | 'community_moderation_review'
+    | undefined;
     selectedDispute?: DisputeItem | undefined;
     activeIncidentItem?: IncidentItem | undefined;
     activeOrderId?: string | undefined;
@@ -2305,7 +2311,7 @@ export function FarmerAdminDashboardScreen({
   useEffect(() => {
     fetchMe()
       .then((me) => setUser(me))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const displayName = 'Suresh';
@@ -2387,6 +2393,28 @@ export function FarmerAdminDashboardScreen({
             auditInitialView: 'history',
           });
         }}
+      />
+    );
+  }
+
+  // If currently in Farmers Management subview
+  if (subView === 'farmers_management') {
+    return farmerAdminSelectedApp ? (
+      <AdminApplicationDetailScreen
+        application={farmerAdminSelectedApp}
+        onBack={() => setFarmerAdminSelectedApp(null)}
+      />
+    ) : farmerAdminSelectedFarmer ? (
+      <AdminFarmerDetailScreen
+        farmer={farmerAdminSelectedFarmer}
+        onBack={() => setFarmerAdminSelectedFarmer(null)}
+      />
+    ) : (
+      <AdminAllFarmersScreen
+        showBottomNav={false}
+        onBack={() => setSubView('none')}
+        onSelectFarmer={(f) => setFarmerAdminSelectedFarmer(f)}
+        onReviewApplication={(app) => setFarmerAdminSelectedApp(app)}
       />
     );
   }
@@ -3564,19 +3592,19 @@ export function FarmerAdminDashboardScreen({
                   preFilter === 'calendar'
                     ? 'calendar'
                     : preFilter === 'field_visit'
-                    ? 'field_visit'
-                    : preFilter === 'history'
-                    ? 'history'
-                    : preFilter === 'report'
-                    ? 'report'
-                    : 'calendar',
+                      ? 'field_visit'
+                      : preFilter === 'history'
+                        ? 'history'
+                        : preFilter === 'report'
+                          ? 'report'
+                          : 'calendar',
                 auditInitialId: auditId,
                 auditInitialView:
                   preFilter === 'report'
                     ? 'audit_report'
                     : preFilter === 'history'
-                    ? 'history'
-                    : 'calendar',
+                      ? 'history'
+                      : 'calendar',
               });
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
@@ -3826,84 +3854,84 @@ export function FarmerAdminDashboardScreen({
           activeTab === 'Produce' ||
           activeTab === 'Audits' ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
-        <View style={styles.tabBar}>
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => {
-              setNavStack([]);
-              setSubView('none');
-              setMoreSubScreen('menu');
-              setActiveTab('Home');
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Home"
-          >
-            <TabHomeIcon active={activeTab === 'Home'} />
-            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-          </Pressable>
+          <View style={styles.tabBar}>
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setActiveTab('Home');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Home"
+            >
+              <TabHomeIcon active={activeTab === 'Home'} />
+              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+            </Pressable>
 
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => {
-              setNavStack([]);
-              setSubView('none');
-              setMoreSubScreen('menu');
-              setFarmersInternalView('list');
-              setActiveTab('Farmers');
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Farmers"
-          >
-            <TabFarmersIcon active={activeTab === 'Farmers'} />
-            <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
-          </Pressable>
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setFarmersInternalView('list');
+                setActiveTab('Farmers');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Farmers"
+            >
+              <TabFarmersIcon active={activeTab === 'Farmers'} />
+              <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
+            </Pressable>
 
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => {
-              setNavStack([]);
-              setSubView('none');
-              setMoreSubScreen('menu');
-              setActiveTab('Produce');
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Produce"
-          >
-            <TabProduceIcon active={activeTab === 'Produce'} />
-            <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
-          </Pressable>
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setActiveTab('Produce');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Produce"
+            >
+              <TabProduceIcon active={activeTab === 'Produce'} />
+              <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
+            </Pressable>
 
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => {
-              setNavStack([]);
-              setSubView('none');
-              setMoreSubScreen('menu');
-              setActiveTab('Audits');
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Audits"
-          >
-            <TabAuditsIcon active={activeTab === 'Audits'} />
-            <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
-          </Pressable>
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setActiveTab('Audits');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Audits"
+            >
+              <TabAuditsIcon active={activeTab === 'Audits'} />
+              <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
+            </Pressable>
 
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => {
-              setNavStack([]);
-              setSubView('none');
-              setMoreSubScreen('menu');
-              setActiveTab('More');
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="More"
-          >
-            <TabMoreIcon active={activeTab === 'More'} />
-            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
-          </Pressable>
-        </View>
-      )}
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setActiveTab('More');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="More"
+            >
+              <TabMoreIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+            </Pressable>
+          </View>
+        )}
     </SafeAreaView>
   );
 }

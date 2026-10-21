@@ -45,7 +45,7 @@ import {
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
-import { AdminPendingApplicationsScreen } from '../registration';
+import { AdminPendingApplicationsScreen, AdminApplicationDetailScreen } from '../registration';
 import {
   AdminReportsMainScreen,
   AnalyticsDashboardScreen,
@@ -465,6 +465,7 @@ export function TohfaAdminDashboardScreen({
     'listingApproval' | 'scheduleAudit' | 'support' | 'reportBuilder' | 'pendingApplications' | null
   >(null);
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
+  const [selectedAdminApplication, setSelectedAdminApplication] = useState<any>(null);
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
   const [salesSubScreen, setSalesSubScreen] = useState<
     'overview' | 'online' | 'market' | 'horeca' | 'b2b' | 'fulfillment' | 'invoice' | 'returns'
@@ -1389,7 +1390,20 @@ export function TohfaAdminDashboardScreen({
             FARMERS TAB
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Farmers' && (
-          farmerSubScreen === 'map' && selectedAdminFarmer ? (
+          selectedAdminApplication ? (
+            <AdminApplicationDetailScreen
+              application={selectedAdminApplication}
+              onBack={() => setSelectedAdminApplication(null)}
+              onApprove={() => {
+                setSelectedAdminApplication(null);
+                Alert.alert('Approved', 'Application has been approved successfully.');
+              }}
+              onReject={() => {
+                setSelectedAdminApplication(null);
+                Alert.alert('Rejected', 'Application has been rejected.');
+              }}
+            />
+          ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
             <AdminFarmMapScreen
               farmer={selectedAdminFarmer}
               onBack={() => setFarmerSubScreen(null)}
@@ -1410,13 +1424,12 @@ export function TohfaAdminDashboardScreen({
           ) : (
             <AdminAllFarmersScreen
               showBottomNav={false}
-              onBack={() => setActiveTab('Home')}
+              onBack={() => setActiveTab('More')}
               onSelectFarmer={(f) => {
-                if (onNavigate) {
-                  onNavigate('AdminFarmerDetail');
-                } else {
-                  setSelectedAdminFarmer(f);
-                }
+                setSelectedAdminFarmer(f);
+              }}
+              onReviewApplication={(app) => {
+                setSelectedAdminApplication(app);
               }}
             />
           )
@@ -1905,8 +1918,7 @@ export function TohfaAdminDashboardScreen({
             onBack={() => setActiveTab('Home')}
             onSelectOption={(optionId) => {
               if (optionId === 'farmers') {
-                if (onNavigate) onNavigate('AdminAllFarmers');
-                else setActiveTab('Farmers');
+                setActiveTab('Farmers');
               } else if (optionId === 'produce') {
                 setDashboardSubScreen('listingApproval');
                 setActiveTab('Home');
@@ -2058,7 +2070,7 @@ export function TohfaAdminDashboardScreen({
             >
               <TabOperationsIcon
                 color={
-                  activeTab === 'Operations' || activeTab === 'Farmers'
+                  activeTab === 'Operations'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -2066,7 +2078,7 @@ export function TohfaAdminDashboardScreen({
               <Text
                 style={[
                   styles.navTabLabel,
-                  (activeTab === 'Operations' || activeTab === 'Farmers') && styles.navTabLabelActive,
+                  activeTab === 'Operations' && styles.navTabLabelActive,
                 ]}
               >
                 Operations
@@ -2110,7 +2122,10 @@ export function TohfaAdminDashboardScreen({
             >
               <TabMoreIcon
                 color={
-                  activeTab === 'More' || activeTab === 'Reports' || activeTab === 'Profile'
+                  activeTab === 'More' ||
+                  activeTab === 'Farmers' ||
+                  activeTab === 'Reports' ||
+                  activeTab === 'Profile'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -2118,7 +2133,10 @@ export function TohfaAdminDashboardScreen({
               <Text
                 style={[
                   styles.navTabLabel,
-                  (activeTab === 'More' || activeTab === 'Reports' || activeTab === 'Profile') &&
+                  (activeTab === 'More' ||
+                    activeTab === 'Farmers' ||
+                    activeTab === 'Reports' ||
+                    activeTab === 'Profile') &&
                     styles.navTabLabelActive,
                 ]}
               >
