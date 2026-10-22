@@ -40,6 +40,10 @@ export interface OverviewDashboardCardProps {
   style?: StyleProp<ViewStyle>;
   /** Custom value style override */
   valueStyle?: StyleProp<TextStyle>;
+  /** Custom title style override */
+  titleStyle?: StyleProp<TextStyle>;
+  /** If true, keeps title exactly as passed without sentence-casing */
+  preserveCase?: boolean;
   /** Accessibility label */
   accessibilityLabel?: string;
   /** Whether the card is disabled */
@@ -201,6 +205,8 @@ export function OverviewDashboardCard({
   onPress,
   style,
   valueStyle,
+  titleStyle,
+  preserveCase = false,
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
@@ -233,7 +239,7 @@ export function OverviewDashboardCard({
 
   const valStr = String(value);
   const isCurrency = valStr.includes('₹') || valStr.length > 5;
-  const displayTitle = toSentenceCase(title);
+  const displayTitle = preserveCase ? title : toSentenceCase(title);
 
   return (
     <TouchableOpacity
@@ -247,7 +253,7 @@ export function OverviewDashboardCard({
       {titlePosition === 'top' ? (
         <>
           <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, titleStyle]} numberOfLines={2}>
               {displayTitle}
             </Text>
             {renderedIcon ? (
@@ -302,7 +308,7 @@ export function OverviewDashboardCard({
 
           {/* Group title and subtitle cleanly below */}
           <View style={styles.bottomBlock}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, titleStyle]} numberOfLines={2}>
               {displayTitle}
             </Text>
 

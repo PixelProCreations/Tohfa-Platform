@@ -11,50 +11,95 @@
  * and shared transport code has no business hard-depending on one specific
  * role's copy of a token store anyway.
  */
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import type { Problem, ProblemCode } from '@tohfa/shared-types';
 
 export { formatErrorMessage, extractFieldErrors } from './errorService';
 
 /**
- * In development, `http://localhost:3000` works via `adb reverse tcp:3000 tcp:3000`
- * on both physical Android devices and emulators, as well as iOS simulators.
- * If running on an Android emulator without adb reverse, it falls back to 10.0.2.2:3000.
+ * Extracts the dev machine's host/IP from Metro's SourceCode bundle URL.
+ * When running on a physical device over Wi-Fi or USB, NativeModules.SourceCode.scriptURL
+ * contains the real IP (e.g., "http://10.210.219.253:8081/index.bundle?...").
  */
-export let API_BASE_URL = 'http://localhost:3000';
+export function getMetroDevHost(): string | null {
+  try {
+    const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
+    if (scriptURL && typeof scriptURL === 'string') {
+      const match = scriptURL.match(/^https?:\/\/([^/:]+)/);
+      if (match && match[1] && match[1] !== '127.0.0.1') {
+        return match[1];
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Builds candidate dev API base URLs in priority order.
+ */
+export function getDevCandidateBaseUrls(): string[] {
+  const urls: string[] = [];
+  const metroHost = getMetroDevHost();
+  if (metroHost) {
+    urls.push(`http://${metroHost}:3000`);
+  }
+  urls.push('http://localhost:3000');
+  if (Platform.OS === 'android') {
+    urls.push('http://10.0.2.2:3000');
+  }
+  urls.push('http://10.210.219.253:3000');
+  return Array.from(new Set(urls));
+}
+
+/**
+ * In development, automatically detects Metro host, falling back to Android emulator (10.0.2.2)
+ * or USB/localhost (3000).
+ */
+export let API_BASE_URL = (() => {
+  const metroHost = getMetroDevHost();
+  if (metroHost) return `http://${metroHost}:3000`;
+  return Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+})();
 
 export function setApiBaseUrl(url: string): void {
   API_BASE_URL = url;
 }
 
 /**
- * True when `url` is a plausible candidate for the Android-emulator
- * localhost workaround: it names `localhost` and we're actually running on
- * Android, where `localhost` means the emulator itself, not the dev machine
- * hosting the API. Shared by `request()`'s own retry below and by
- * `roles/farmer/api/uploader.ts`'s raw `fetch` of a presigned upload target
- * (`apps/api/src/storage/blobStorage.ts`'s dev-mode `LocalDiskBlobStorage`
- * bakes `http://localhost:3000` into every signed URL unconditionally), which
- * bypasses `request()` entirely and so cannot reuse the try/catch below.
+ * True when `url` is a candidate for the Android host-loopback fallback:
+ * it names `localhost` or `10.0.2.2` and we are running on Android.
  */
 export function isAndroidLocalhostFallbackCandidate(url: string): boolean {
-  return url.includes('localhost') && Platform.OS === 'android';
+  return Platform.OS === 'android' && (url.includes('localhost') || url.includes('10.0.2.2'));
 }
 
-/** 10.0.2.2 is the Android emulator's special alias for the host loopback interface. */
+/**
+ * Swaps between the Android emulator's special alias (10.0.2.2) and
+ * localhost (for physical devices with adb reverse).
+ */
 export function toAndroidLocalhostFallbackUrl(url: string): string {
+  if (url.includes('10.0.2.2')) {
+    return url.replace('10.0.2.2', 'localhost');
+  }
   return url.replace('localhost', '10.0.2.2');
 }
 
-export function resolveUrl(path: string): string {
+export function resolveUrl(path: string, base: string = API_BASE_URL): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
+  if (base === API_BASE_URL && (API_BASE_URL.includes('10.0.2.2') || API_BASE_URL.includes('localhost'))) {
+    const metroHost = getMetroDevHost();
+    if (metroHost && metroHost !== '10.0.2.2' && metroHost !== 'localhost') {
+      API_BASE_URL = `http://${metroHost}:3000`;
+      base = API_BASE_URL;
+    }
+  }
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   if (normalizedPath === '/healthz' || normalizedPath.startsWith('/v1/')) {
-    return `${API_BASE_URL}${normalizedPath}`;
+    return `${base}${normalizedPath}`;
   }
-  return `${API_BASE_URL}/v1${normalizedPath}`;
+  return `${base}/v1${normalizedPath}`;
 }
 
 export class ApiError extends Error {
@@ -253,7 +298,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const deadline = options.timeoutMs === undefined ? null : linkedTimeoutSignal(options.signal, options.timeoutMs);
   const requestSignal = deadline?.signal ?? options.signal;
   const controller = deadline !== null || options.signal ? null : new AbortController();
-  const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
@@ -262,21 +307,34 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       signal: requestSignal ?? controller?.signal,
     });
   } catch (error) {
-    if (isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
+    const primaryUrl = resolveUrl(path);
+    const candidates = getDevCandidateBaseUrls().filter((c) => !primaryUrl.startsWith(c));
+    let lastError: unknown = error;
+    let succeeded = false;
+
+    for (const candidate of candidates) {
+      const fallbackUrl = resolveUrl(path, candidate);
+      const fallbackController = deadline !== null || options.signal ? null : new AbortController();
+      const fallbackTimeoutId = fallbackController ? setTimeout(() => fallbackController.abort(), 2500) : null;
       try {
-        const fallbackUrl = toAndroidLocalhostFallbackUrl(resolveUrl(path));
         response = await fetch(fallbackUrl, {
           method: options.method ?? 'GET',
           headers,
           ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-          ...(requestSignal === undefined ? {} : { signal: requestSignal }),
+          signal: requestSignal ?? fallbackController?.signal,
         });
-        API_BASE_URL = 'http://10.0.2.2:3000';
-      } catch {
-        throw new NetworkError(error);
+        API_BASE_URL = candidate;
+        succeeded = true;
+        if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId);
+        break;
+      } catch (fbErr) {
+        lastError = fbErr;
+        if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId);
       }
-    } else {
-      throw new NetworkError(error);
+    }
+
+    if (!succeeded) {
+      throw new NetworkError(lastError ?? error);
     }
   } finally {
     if (timeoutId) clearTimeout(timeoutId);

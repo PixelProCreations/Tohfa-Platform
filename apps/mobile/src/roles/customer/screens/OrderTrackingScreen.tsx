@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView } from 'react-native';
+import { resolveUrl } from '../../../shell/api/client';
 import { useOrderTracking } from '../api/orders';
 import { colors } from '../theme';
 import { neutral } from '@tohfa/design-tokens';
@@ -28,7 +29,7 @@ export const OrderTrackingScreen = ({
     
     try {
       if (typeof EventSource !== 'undefined') {
-        eventSource = new EventSource(`http://localhost:3000/v1/orders/${orderId}/events`);
+        eventSource = new EventSource(resolveUrl(`/orders/${orderId}/events`));
         eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
           setEvents((prev) => [...prev, data]);

@@ -202,11 +202,11 @@ export const ADMIN_BUTTON_HEIGHT = tokens.size.adminButtonHeight;
 /** Translucent overlays on brand surfaces (e.g. orange header pills and buttons). */
 export const adminOverlay = {
   /** 22% white pill overlay for search and filter buttons on brand orange headers. */
-  whitePill: hex('adminWhitePillOverlay'),
+  whitePill: 'rgba(255, 255, 255, 0.22)',
   /** 38% white pill overlay active/pressed state on brand orange headers. */
-  whitePillActive: hex('adminWhitePillOverlayActive'),
+  whitePillActive: 'rgba(255, 255, 255, 0.38)',
   /** 45% dark scrim for modal backdrops. */
-  scrim: hex('adminScrim'),
+  scrim: 'rgba(0, 0, 0, 0.45)',
 } as const;
 
 export const adminTheme = {
