@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -61,6 +62,10 @@ import {
 } from '../reports';
 import { PLStatementScreen } from '../finance';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
+import { StockLedgerBatchesScreen } from './StockLedgerBatchesScreen';
+import { StockVerificationScreen } from './StockVerificationScreen';
+import { InterWarehouseTransfersScreen } from './InterWarehouseTransfersScreen';
+import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import {
   AuditManagementScreen,
@@ -763,6 +768,7 @@ export function TohfaAdminDashboardScreen({
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
+  const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
 
   // Workforce & Staff State (Screenshots M14-S01, M14-S02, M14-S04, M14-S02b)
   const [workforceSubScreen, setWorkforceSubScreen] = useState<
@@ -1036,17 +1042,17 @@ export function TohfaAdminDashboardScreen({
 
   // Section 5: Employment Details (Screenshots 5 & M14-S02a continuation)
   const [createStaffId, setCreateStaffId] = useState('');
-  const [createStaffRole, setCreateStaffRole] = useState('Warehouse Staff');
+  const [createStaffRole, _setCreateStaffRole] = useState('Warehouse Staff');
   const [createStaffEmploymentType, setCreateStaffEmploymentType] = useState('Select...');
   const [createStaffDepartment, setCreateStaffDepartment] = useState('Select...');
   const [createStaffDesignation, setCreateStaffDesignation] = useState('Select...');
   const [createStaffEmploymentStatus, setCreateStaffEmploymentStatus] = useState('Select...');
   const [createStaffSalaryDetails, setCreateStaffSalaryDetails] = useState('');
   const [createStaffWorkLocation, setCreateStaffWorkLocation] = useState('Select...');
-  const [createStaffWarehouse, setCreateStaffWarehouse] = useState('Main Warehouse, Ooty (WH-MAIN)');
-  const [createStaffWorkSection, setCreateStaffWorkSection] = useState('Loading & Sorting');
-  const [createStaffManager, setCreateStaffManager] = useState('Demo Sub Warehouse Admin');
-  const [createStaffJoiningDate, setCreateStaffJoiningDate] = useState('Today');
+  const [createStaffWarehouse, _setCreateStaffWarehouse] = useState('Main Warehouse, Ooty (WH-MAIN)');
+  const [createStaffWorkSection, _setCreateStaffWorkSection] = useState('Loading & Sorting');
+  const [createStaffManager, _setCreateStaffManager] = useState('Demo Sub Warehouse Admin');
+  const [createStaffJoiningDate, _setCreateStaffJoiningDate] = useState('Today');
 
   // Section 6: Role & Access Management (Screenshots M14-S02a)
   const [createStaffAccountAccess, setCreateStaffAccountAccess] = useState<'login' | 'no_login'>('login');
@@ -1235,7 +1241,8 @@ export function TohfaAdminDashboardScreen({
       value: '3',
       subtitle: '1 low stock · 2 discrepancies',
       onPress: () => {
-        if (onNavigate) onNavigate('MainWarehouseAdmin');
+        setOperationsSubScreen(null);
+        setActiveTab('Operations');
       },
     },
     {
@@ -1334,7 +1341,8 @@ export function TohfaAdminDashboardScreen({
       label: 'Inventory and\nwarehouse',
       icon: <QuickWarehouseIcon />,
       action: () => {
-        if (onNavigate) onNavigate('MainWarehouseAdmin');
+        setOperationsSubScreen(null);
+        setActiveTab('Operations');
       },
     },
     {
@@ -4653,12 +4661,36 @@ export function TohfaAdminDashboardScreen({
             OPERATIONS TAB (M1-S04 · Operations Overview)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Operations' && (
-              <AdminOperationsOverviewScreen
-                onBack={() => setActiveTab('Home')}
-                onExportReports={() => {
-                  Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
-                }}
-              />
+              operationsSubScreen === 'stockLedger' ? (
+                <StockLedgerBatchesScreen
+                  onBack={() => setOperationsSubScreen(null)}
+                />
+              ) : operationsSubScreen === 'stockVerification' ? (
+                <StockVerificationScreen
+                  onBack={() => setOperationsSubScreen(null)}
+                />
+              ) : operationsSubScreen === 'transfers' ? (
+                <InterWarehouseTransfersScreen
+                  onBack={() => setOperationsSubScreen(null)}
+                />
+              ) : operationsSubScreen === 'addWarehouse' ? (
+                <AddWarehouseProfileScreen
+                  onBack={() => setOperationsSubScreen(null)}
+                  onSuccess={() => setOperationsSubScreen(null)}
+                />
+              ) : (
+                <AdminOperationsOverviewScreen
+                  onBack={() => setActiveTab('Home')}
+                  onExportReports={() => {
+                    Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
+                  }}
+                  onNavigateToStockLedger={() => setOperationsSubScreen('stockLedger')}
+                  onNavigateToStockVerification={() => setOperationsSubScreen('stockVerification')}
+                  onNavigateToTransfers={() => setOperationsSubScreen('transfers')}
+                  onPlusAction={() => setOperationsSubScreen('addWarehouse')}
+                  onSelectWarehouse={() => setOperationsSubScreen('addWarehouse')}
+                />
+              )
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
@@ -5416,6 +5448,7 @@ export function TohfaAdminDashboardScreen({
             style={styles.navTabItem}
             onPress={() => {
               setDashboardSubScreen(null);
+              setOperationsSubScreen(null);
               setActiveTab('Home');
             }}
             activeOpacity={0.7}
@@ -5442,6 +5475,7 @@ export function TohfaAdminDashboardScreen({
             style={styles.navTabItem}
             onPress={() => {
               setDashboardSubScreen(null);
+              setOperationsSubScreen(null);
               setActiveTab('WorkQueue');
             }}
             activeOpacity={0.7}
@@ -5464,6 +5498,7 @@ export function TohfaAdminDashboardScreen({
             style={styles.navTabItem}
             onPress={() => {
               setDashboardSubScreen(null);
+              setOperationsSubScreen(null);
               setActiveTab('Operations');
             }}
             activeOpacity={0.7}
@@ -5490,6 +5525,7 @@ export function TohfaAdminDashboardScreen({
             style={styles.navTabItem}
             onPress={() => {
               setDashboardSubScreen(null);
+              setOperationsSubScreen(null);
               setActiveTab('Finance');
             }}
             activeOpacity={0.7}
@@ -5516,6 +5552,7 @@ export function TohfaAdminDashboardScreen({
             style={styles.navTabItem}
             onPress={() => {
               setDashboardSubScreen(null);
+              setOperationsSubScreen(null);
               setActiveTab('More');
             }}
             activeOpacity={0.7}
