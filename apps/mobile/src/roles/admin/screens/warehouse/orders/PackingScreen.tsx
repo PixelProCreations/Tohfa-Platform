@@ -21,7 +21,13 @@
  * that already moved counts as done). The whole order is packed as ordered:
  * the detail sends no order-item ids, so `packedLines` cannot be built (spec
  * gap), and the packed-quantity, packaging, notes and photo fields, which
- * nothing would send, are hidden. The tick list is a packing aid only.
+ * nothing would send, are hidden. The tick lists are a packing aid only.
+ *
+ * The packing step shows the design's generic checklist (Product selected /
+ * Quantity verified / Grade verified, packingChecklist) above the per-line
+ * ticks ("Order Items"). Both are local ticks: nothing from them is sent, and
+ * Confirm Packing does not wait on them. The design's per-item batch ids stay
+ * hidden: AdminOrderDetail carries none (BR-99 allow-list).
  */
 // Design id: M5S07 (Packing), absorbs M5S08 (Confirm Packing)
 import React, { useState } from 'react';
@@ -35,6 +41,7 @@ import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
+import { packingChecklist } from './mappers';
 import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps, PackingStep, WarehouseNavigate } from './types';
 import type { LiveOrderAction } from './useOrdersData';
 
@@ -185,9 +192,10 @@ function WriteError({ error }: { error: unknown }) {
 }
 
 /**
- * The packer's tick list lives in the parent so that stepping back from the
- * confirmation does not wipe what was already ticked. It is a packing aid
- * only: nothing from it is sent (see the header).
+ * The packer's ticks (the generic checks and the order lines) live in the
+ * parent so that stepping back from the confirmation does not wipe what was
+ * already ticked. They are a packing aid only: nothing from them is sent (see
+ * the header). Generic checks are keyed `check:<key>`, apart from line keys.
  */
 function usePackingChecklist() {
   const [checked, setChecked] = useState<Readonly<Record<string, boolean>>>({});
@@ -209,20 +217,36 @@ interface PackingStepViewProps {
 
 function PackingStepView({ order, checklist, canMarkPacked, onBack, onConfirm }: PackingStepViewProps) {
   const checkedCount = order.lines.filter((line) => checklist.checked[line.key] === true).length;
+  const checks = packingChecklist().map((check) => ({ ...check, key: `check:${check.key}` }));
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Header title="Packing" onBack={onBack} />
+        <Header title={t('orders.packing.title')} onBack={onBack} />
 
         <View style={styles.subtitleRow}>
           <Text style={styles.subtitleText}>
-            {order.orderNumber} · {checkedCount} / {order.lines.length} Items
+            {t('orders.packing.subtitle', { order: order.orderNumber, checked: checkedCount, total: order.lines.length })}
           </Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Packing Checklist</Text>
+          <Text style={styles.sectionTitle}>{t('orders.packing.checklistTitle')}</Text>
+          <View style={styles.checklistCard}>
+            {checks.map((check, index) => (
+              <TouchableOpacity
+                key={check.key}
+                style={[styles.checklistItem, index < checks.length - 1 && styles.checklistItemBorder]}
+                activeOpacity={0.7}
+                onPress={() => checklist.toggle(check.key)}
+              >
+                {checklist.checked[check.key] === true ? <GreenCheckboxIcon /> : <EmptyCheckboxIcon />}
+                <Text style={styles.checklistText}>{check.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.sectionTitle}>{t('orders.packing.orderItems')}</Text>
           <View style={styles.checklistCard}>
             {order.lines.map((line, index) => (
               <TouchableOpacity
@@ -251,7 +275,7 @@ function PackingStepView({ order, checklist, canMarkPacked, onBack, onConfirm }:
           <View style={styles.bottomBar}>
             <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onConfirm}>
               <CheckmarkIcon />
-              <Text style={styles.primaryBtnText}>Confirm Packing</Text>
+              <Text style={styles.primaryBtnText}>{t('orders.packing.confirm')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -261,6 +285,13 @@ function PackingStepView({ order, checklist, canMarkPacked, onBack, onConfirm }:
 }
 
 // ─── Step: confirm (folded M5S08) ────────────────────────────────────────────
+
+/** The confirmation's checklist, as the M5S08 design words it. */
+const CONFIRM_CHECKS = [
+  'orders.packing.confirmCheck.allItems',
+  'orders.packing.confirmCheck.quantities',
+  'orders.packing.confirmCheck.completed',
+] as const;
 
 interface ConfirmStepViewProps {
   order: OrderDetailView;
@@ -286,23 +317,23 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Order Packed" onBack={onBack} />
+          <Header title={t('orders.packing.packedTitle')} onBack={onBack} />
 
           <View style={styles.contentPacked}>
             <View style={styles.heroContainer}>
               <View style={styles.successCircleBadge}>
                 <BigSuccessCheckIcon />
               </View>
-              <Text style={styles.heroTitle}>{order.status === 'confirmed' || order.status === 'packed' ? 'Order Packed' : order.statusLabel}</Text>
+              <Text style={styles.heroTitle}>{order.status === 'confirmed' || order.status === 'packed' ? t('orders.packing.packedTitle') : order.statusLabel}</Text>
             </View>
 
             <View style={styles.packedSummaryCard}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Order</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.order')}</Text>
                 <Text style={styles.detailValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Packed at</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.packedAt')}</Text>
                 <Text style={styles.detailValue}>{order.packedLabel ?? t('orders.noValue')}</Text>
               </View>
             </View>
@@ -319,7 +350,7 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
                 onPress={() => markReady.run({}, () => onNavigate?.('M5S09'))}
               >
                 <PersonCheckIcon />
-                <Text style={styles.primaryBtnText}>{markReady.isPending ? t('orders.action.saving') : 'Mark Ready for Pickup'}</Text>
+                <Text style={styles.primaryBtnText}>{markReady.isPending ? t('orders.action.saving') : t('orders.packing.markReady')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -331,22 +362,22 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Header title="Confirm Packing" onBack={onBack} />
+        <Header title={t('orders.packing.confirm')} onBack={onBack} />
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.confirmPromptBox}>
             <QuestionCircleIcon />
-            <Text style={styles.confirmPromptText}>Confirm Packing?</Text>
+            <Text style={styles.confirmPromptText}>{t('orders.packing.confirmPrompt')}</Text>
           </View>
 
           <View style={styles.orderDetailsCard}>
             <View style={styles.twoColRow}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Order</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.order')}</Text>
                 <Text style={styles.detailValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Items</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.items')}</Text>
                 <Text style={styles.detailValue}>
                   {checkedCount} / {order.lines.length}
                 </Text>
@@ -355,21 +386,21 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
 
             <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Total Quantity</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.totalQuantity')}</Text>
                 <Text style={styles.detailValue}>{order.totalGrams === null ? t('orders.noValue') : formatKg(order.totalGrams)}</Text>
               </View>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Customer</Text>
+                <Text style={styles.detailLabel}>{t('orders.packing.field.customer')}</Text>
                 <Text style={styles.detailValue}>{order.buyerName}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.checklistSectionTitle}>Checklist</Text>
-          {['All items checked', 'Quantities verified', 'Packing completed'].map((label) => (
-            <View key={label} style={styles.checklistRowCard}>
+          <Text style={styles.checklistSectionTitle}>{t('orders.packing.confirmChecklist')}</Text>
+          {CONFIRM_CHECKS.map((key) => (
+            <View key={key} style={styles.checklistRowCard}>
               <GreenCheckboxIcon />
-              <Text style={styles.checklistText}>{label}</Text>
+              <Text style={styles.checklistText}>{t(key)}</Text>
             </View>
           ))}
 
@@ -388,7 +419,7 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
               onPress={() => pack.run({}, () => setPackedHere(true))}
             >
               <CheckmarkIcon />
-              <Text style={styles.primaryBtnText}>{pack.isPending ? t('orders.action.saving') : 'Yes, Confirm Packing'}</Text>
+              <Text style={styles.primaryBtnText}>{pack.isPending ? t('orders.action.saving') : t('orders.packing.confirmYes')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -419,7 +450,7 @@ export function PackingScreen({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Packing" onBack={onBack} />
+          <Header title={t('orders.packing.title')} onBack={onBack} />
           {view === 'loading' ? (
             <AdminLoadingState />
           ) : view === 'error' ? (

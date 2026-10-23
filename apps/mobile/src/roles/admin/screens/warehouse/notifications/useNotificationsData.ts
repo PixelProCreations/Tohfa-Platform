@@ -1,7 +1,7 @@
 /**
  * Live data for the notifications area: the admin's own notifications, the
- * unread count for the shells' bell, and the warehouse alerts, with the read /
- * dismiss writes. Thin wrappers over the admin hooks (../../../api/hooks.ts);
+ * unread count for the shells' bell, the system messages visible to them and
+ * the warehouse alerts, with the read / dismiss writes. Thin wrappers over the admin hooks (../../../api/hooks.ts);
  * every decision lives in ./mappers.ts or the API modules, which are tested.
  *
  * Keys: notifications are the signed-in user's own, not a warehouse's, so they
@@ -14,16 +14,20 @@ import { dismissAlert, listAlerts, type AlertItemDto, type AlertListState } from
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
 import {
   listNotifications,
+  listSystemMessages,
   markAllNotificationsRead,
   markNotificationRead,
+  markSystemMessageRead,
   type NotificationDto,
+  type SystemMessageDto,
 } from '../../../api/notifications';
 import { adminKeys } from '../../../api/queryKeys';
-import { toApprovalAlertItem, toNotificationItem } from './mappers';
-import type { ApprovalAlertItem, NotificationItem, WarehouseScope } from './types';
+import { toApprovalAlertItem, toNotificationItem, toSystemMessageRow } from './mappers';
+import type { ApprovalAlertItem, NotificationItem, SystemMessageRow, WarehouseScope } from './types';
 
 const NOTIFICATIONS = 'notifications';
 const ALERTS = 'alerts';
+const SYSTEM_MESSAGES = 'systemMessages';
 
 /** The own notifications list; `unreadOnly` is the server filter behind the Unread tab. */
 export function useNotificationList(unreadOnly: boolean): CursorList<NotificationItem> {
@@ -57,6 +61,32 @@ export function useMarkAllNotificationsRead() {
   return useAdminMutation({
     mutationFn: () => markAllNotificationsRead(),
     invalidates: [adminKeys.module(NOTIFICATIONS)],
+  });
+}
+
+/**
+ * The system messages visible to the viewer (GET /system-messages, BR-65),
+ * newest first, cursor paged. The server picks what is visible from the access
+ * token (scope, role, warehouses), so nothing is sent but the cursor.
+ */
+export function useSystemMessageList(): CursorList<SystemMessageRow> {
+  const map = useCallback((dto: SystemMessageDto) => toSystemMessageRow(dto), []);
+  return useCursorList(
+    adminKeys.scoped(SYSTEM_MESSAGES, undefined, { list: 'all' }),
+    (cursor, signal) => listSystemMessages({ cursor }, signal),
+    map,
+  );
+}
+
+/**
+ * Mark one visible system message read for this user (BR-65: per user, the
+ * first readAt kept on a replay). Like the notification reads it moves no
+ * money and is a server no-op on replay, so no Idempotency-Key is sent.
+ */
+export function useMarkSystemMessageRead() {
+  return useAdminMutation({
+    mutationFn: (id: string) => markSystemMessageRead(id),
+    invalidates: [adminKeys.module(SYSTEM_MESSAGES)],
   });
 }
 

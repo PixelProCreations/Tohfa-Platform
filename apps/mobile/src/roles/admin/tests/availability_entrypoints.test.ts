@@ -170,8 +170,15 @@ describe('Inventory: stock counts and stock adjustments (permission-gated, BR-10
     for (const { name, source } of LIVE_SCREENS) {
       expect({ name, fixtures: /from '\.\/fixtures'/.test(source) }).toEqual({ name, fixtures: false });
       expect({ name, filters: /'M3S16'/.test(source) }).toEqual({ name, filters: false });
-      expect({ name, movementDetail: /'M3S15'/.test(source) }).toEqual({ name, movementDetail: false });
+      // M3S15 is now the live Movement Detail (design M3-16), rendered from the
+      // tapped ledger row. Only the ledger may open it, and only with that row;
+      // the sample screens themselves are deleted (movement_detail.test.ts).
+      const opensMovement = /'M3S15'/.test(source);
+      const withRow = /onNavigate\?\.\('M3S15', movementRouteParams\(movement\)\)/.test(source);
+      expect({ name, movementDetail: opensMovement && !(name === 'StockLedgerScreen' && withRow) }).toEqual({ name, movementDetail: false });
     }
+    expect(fs.existsSync(path.join(SRC, INVENTORY, 'StockMovementDetailScreen.tsx'))).toBe(false);
+    expect(fs.existsSync(path.join(SRC, INVENTORY, 'StockMovementReceiptScreen.tsx'))).toBe(false);
   });
 
   it('Sub dashboard: both verification entry points are gated on stockCounts', () => {
