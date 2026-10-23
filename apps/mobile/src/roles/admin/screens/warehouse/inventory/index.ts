@@ -27,3 +27,11 @@ export {
   type InventoryFlowProps,
 } from './InventoryFlow';
 export type { InventoryRouteParams, InventoryScreenBaseProps } from './types';
+// The Inventory tab overview (8 stat cards + sections), shared by both shells.
+export { MainInventoryDashboard, type ExtraPendingRow, type MainInventoryDashboardProps } from './MainInventoryDashboard';
+export {
+  useMainInventoryOverview,
+  type MainInventoryOverview,
+  type MainInventoryOverviewOptions,
+} from './useMainInventoryOverview';
+export type { MainInventoryTarget, MainInventoryWarehouse } from './mainInventoryMappers';
