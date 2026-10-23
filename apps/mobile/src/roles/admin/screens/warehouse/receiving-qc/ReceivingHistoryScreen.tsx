@@ -11,6 +11,10 @@
  * Filters (onOpenFilters, real GET /warehouses uuids), sent to the server as
  * `warehouseId` and named in the header pill.
  *
+ * Each card names the receipt's warehouse (design M2-15 "Coonoor · Tomato ·
+ * 445/480 KG"): for Main from GET /warehouses, for a Sub scope its own name.
+ * "Received By" is not drawn: the API sends a user uuid only.
+ *
  * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record; a
  * Sub scope sees only its own warehouse (BR-30).
  */
@@ -93,7 +97,7 @@ export function ReceivingHistoryScreen({
     return (
       <WalletScreen {...header}>
         <View style={walletLayout.scrollContent}>
-          <PermissionNote message="You do not have permission to view goods receipts." />
+          <PermissionNote message={t('receiving.receipt.noPermission')} />
         </View>
       </WalletScreen>
     );
@@ -115,16 +119,16 @@ export function ReceivingHistoryScreen({
         <Text style={styles.code}>{r.receiptId}</Text>
         <StatusBadge label={r.resultLabel} tone={receiptTone(r.result)} />
       </View>
-      <Text style={styles.produce}>
-        {r.product}
-        {r.grade !== '' ? ` · ${r.grade}` : ''}
-      </Text>
+      <Text style={styles.produce}>{r.product}</Text>
+      {/* The row's grade is the order's listed grade (the assigned one is the batch's, BR-106). */}
+      {r.grade !== '' ? <Text style={styles.meta}>{t('receiving.detail.listedGradeValue', { grade: r.grade })}</Text> : null}
+      {r.warehouseName !== '' ? <Text style={styles.meta}>{r.warehouseName}</Text> : null}
       <View style={styles.stats}>
         {(
           [
-            ['Received', r.receivedGrams],
-            ['Accepted', r.acceptedGrams],
-            ['Rejected', r.rejectedGrams],
+            [t('receiving.card.received'), r.receivedGrams],
+            [t('receiving.card.accepted'), r.acceptedGrams],
+            [t('receiving.card.rejected'), r.rejectedGrams],
           ] as const
         ).map(([label, grams]) => (
           <View key={label} style={styles.statCol}>
@@ -144,7 +148,7 @@ export function ReceivingHistoryScreen({
     <WalletScreen {...header}>
       <View style={styles.flex}>
         <View style={styles.controls}>
-          <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
+          <SearchBar value={query} onChangeText={setQuery} placeholder={t('receiving.history.search')} />
           <View style={styles.pills}>
             <ChipGroup options={HISTORY_FILTERS} value={filter} onChange={onChangeFilter} labelOf={historyFilterLabel} />
           </View>
@@ -173,7 +177,7 @@ export function ReceivingHistoryScreen({
               <>
                 {hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
                 <View style={styles.spacer} />
-                <WalletButton label="Return to Receiving Dashboard →" variant="outline" onPress={onBack} />
+                <WalletButton label={t('receiving.history.backToDashboard')} variant="outline" onPress={onBack} />
               </>
             }
           />

@@ -343,6 +343,7 @@ export function toIncomingShipment(po: PurchaseOrderDto | PurchaseOrderDetailDto
     totalAmount: po.totalAmount,
     expectedArrival: typeof po.expectedDeliveryDate === 'string' ? formatAdminDay(po.expectedDeliveryDate) : '',
     issuedOn: po.issuedAt === undefined ? '' : formatAdminDay(po.issuedAt),
+    issuedAt: text(po.issuedAt),
     receivedGrams: receipts === undefined ? null : sumGrams(receipts.map((r) => grams(r.grossQtyKg))),
   };
 }

@@ -35,6 +35,10 @@ export type {
  *   counter_offer       <- new: the rbac code inventory.quality.counter_offer
  *                          had no surface (see SPEC_GAPS W4n-2)
  *   review_receiving    <- SubWarehouseReviewReceivingScreen (one-page review)
+ * and three design sub-views built from what the wizard already holds:
+ *   quantity_detail     <- M2-06 "<product> — Quantity" (expected / received / difference)
+ *   quality_summary     <- M2-07 Quality Summary (the checklist counts)
+ *   batch_review        <- M2-13 / M2-14 Batch Creation & Location Assignment Review
  */
 export type ReceivingWizardStep =
   | 'start_receiving'
@@ -55,7 +59,10 @@ export type ReceivingWizardStep =
   | 'grade_verification'
   | 'batch_assignment'
   | 'counter_offer'
-  | 'review_receiving';
+  | 'review_receiving'
+  | 'quantity_detail'
+  | 'quality_summary'
+  | 'batch_review';
 
 /**
  * One product line of a shipment, for the quantity verification table.
@@ -211,6 +218,8 @@ export interface IncomingShipment extends WizardShipmentData {
   expectedArrival: string;
   /** "12 Oct 2026", '' when unknown. */
   issuedOn: string;
+  /** The order's issue instant (ISO), for the Shipment Timeline; undefined when unknown. */
+  issuedAt?: string | undefined;
   /** Gross received over the order's receipts; null when the receipts are not known. */
   receivedGrams: number | null;
 }
@@ -267,7 +276,12 @@ export type ReceivingRoute =
   | 'HistoryDetail'
   | 'QualityIssues'
   | 'Wizard'
-  | 'StorageAssignment';
+  | 'StorageAssignment'
+  | 'ReceivingActivity'
+  | 'PendingQueue'
+  | 'ShipmentProduct'
+  | 'ShipmentTimeline'
+  | 'ReceiptActivity';
 
 export interface ReceivingRouteParams {
   /** Purchase order uuid. */

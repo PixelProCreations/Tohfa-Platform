@@ -2,19 +2,26 @@
  * In-module navigator for the warehouse goods receiving screens, shared by the
  * Main and Sub shells.
  *
- *   Dashboard -> Incoming Shipments -> Shipment Detail -> Goods Receiving wizard
+ *   Dashboard -> Incoming Shipments -> (Quick View) -> Shipment Detail -> Goods Receiving wizard
  *                                   -> Search & Filters (Main: warehouse)
  *             -> Receiving History  -> Receiving History Detail -> Shipment Detail / wizard (resume QC)
  *                                   -> Search & Filters (Main: warehouse + result)
  *             -> Quality Issues     -> wizard (resume QC)
  *             -> Start Receiving    -> Incoming Shipments (pick the order to receive)
+ *             -> Receiving Activity -> Receiving History Detail       (Main, design M2-01)
+ *             -> Pending Queue      -> Shipment Detail                (Main, design M2-01)
+ *   Shipment Detail -> Shipment Product / Shipment Timeline           (design M2-04 sub-views)
+ *   Receiving History Detail -> Receipt Activity (its Timeline tile)  (design M2-12C)
+ * Each sub-view is a route of its own so hardware back returns to its parent.
  *
  * Data is live and owned here (API integration plan, phase 4): each route's
  * container fetches its own data through ./useReceivingData.ts and passes it to
  * the screen. The warehouse every request sends is computed once with
  * receivingWarehouseFilter: a Sub scope always sends its own warehouse uuid
- * (BR-30); the Main view sends none (all warehouses), except on the two lists
- * when Search & Filters picked one (route param `filterWarehouseId`).
+ * (BR-30); the Main view sends none (all warehouses), except on the dashboard
+ * and the lists when a warehouse was picked (route param `filterWarehouseId`,
+ * set by the dashboard's selector or Search & Filters). The dashboard hands
+ * its pick on to every list it opens, so their figures match.
  *
  * The Main scope names no warehouse, so the flow loads GET /warehouses
  * (warehouse.all.view) and names every row's warehouse from its uuid; without
@@ -32,9 +39,10 @@
  *
  * Not offered, because the API has nothing behind them: the storage location
  * assignment screen (storage-ops sample data; the wizard picks a real storage
- * location itself), the receipt timeline and the discrepancy report. Transfer
- * Receiving is offered only while inter-warehouse transfers have an API
- * (availability.ts).
+ * location itself, sent on the quality check, BR-106) and the discrepancy
+ * report (not persisted). The receipt timeline is the Receipt Activity view,
+ * built from what the receipt carries. Transfer Receiving is offered only
+ * while inter-warehouse transfers have an API (availability.ts).
  *
  * Gates: the lists need inventory.batch.view or inventory.goods_receipt.record
  * (each screen renders a note without them); the wizard route needs
@@ -50,6 +58,7 @@ import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useFlowBack } from '../useFlowBack';
 
 import { GoodsReceivingWizardScreen } from './GoodsReceivingWizardScreen';
+import { PendingQueueScreen, ReceivingActivityScreen } from './ReceivingActivityScreens';
 import { IncomingShipmentsScreen } from './IncomingShipmentsScreen';
 import {
   HISTORY_FILTER_STATUS,
@@ -84,6 +93,7 @@ import {
   usePurchaseOrder,
   useReceipt,
   useReceiptHistory,
+  useReceiptBatch,
   useReceivingDashboard,
   useReceivingWrites,
   useShipmentList,
@@ -153,7 +163,10 @@ export interface ReceivingFlowProps {
   onOpenTransferReceiving?: (() => void) | undefined;
   /** Quality Issues "View Operational Issues" (storage-ops), when the host offers it. */
   onOpenOperationalIssues?: (() => void) | undefined;
-  /** Not offered: the API has no receipt timeline. Kept so hosts compile unchanged. */
+  /**
+   * Unused: the receipt's Timeline tile opens the flow's own Receipt Activity
+   * route (design M2-12C). Kept so hosts compile unchanged.
+   */
   onOpenTimeline?: (() => void) | undefined;
   /** Inventory Batch Detail for a batch the API returned (inventory.batch.view). */
   onViewBatch?: ((batchId: string) => void) | undefined;
@@ -247,6 +260,11 @@ export function ReceivingFlow({
     }),
     [scope.warehouseName, warehouseList.options],
   );
+  /** The dashboard selector's choices (the shared ScopeHeader picker takes WarehouseScope rows). */
+  const warehouseOptions = useMemo(
+    () => warehouseList.options.map((w) => ({ warehouseId: w.warehouseId, warehouseName: w.warehouseName })),
+    [warehouseList.options],
+  );
 
   /** BR-30: a Sub scope always sends its own warehouse uuid. */
   const warehouseId = receivingWarehouseFilter(scope, undefined);
@@ -271,6 +289,10 @@ export function ReceivingFlow({
     navigate('Wizard', { wizardStep, shipmentId: purchaseOrderId });
   const openIssue = (issue: QualityIssue) => openWizard('quality_check', issue.purchaseOrderId);
   const openShipment = (purchaseOrderId: string) => navigate('ShipmentDetail', { shipmentId: purchaseOrderId });
+  const startReceiving = (s: IncomingShipment, resume: boolean) =>
+    openWizard(resume ? 'quality_check' : 'start_receiving', s.purchaseOrderId);
+  /** A list opened from the dashboard keeps its warehouse pick (undefined for a Sub scope, BR-30). */
+  const picked = { filterWarehouseId: mainView ? params.filterWarehouseId : undefined };
   const transferReceiving = isAreaAvailable('interWarehouseTransfers', can) ? onOpenTransferReceiving : undefined;
 
   switch (current.screen) {
@@ -293,17 +315,45 @@ export function ReceivingFlow({
           scopeLabel={pickedLabel}
           onOpenFilters={filtersFor('Shipments')}
           onSelectShipment={openShipment}
+          onStartReceiving={startReceiving}
         />
       );
     case 'ShipmentDetail':
+    case 'ShipmentProduct':
+    case 'ShipmentTimeline':
       return params.shipmentId === undefined ? (
-        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} />
+        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} />
       ) : (
         <ShipmentDetailRoute
           {...common}
           {...live}
           purchaseOrderId={params.shipmentId}
-          onStartReceiving={(s, resume) => openWizard(resume ? 'quality_check' : 'start_receiving', s.purchaseOrderId)}
+          view={current.screen === 'ShipmentProduct' ? 'product' : current.screen === 'ShipmentTimeline' ? 'timeline' : 'main'}
+          onOpenProduct={() => navigate('ShipmentProduct', { shipmentId: params.shipmentId })}
+          onOpenTimeline={() => navigate('ShipmentTimeline', { shipmentId: params.shipmentId })}
+          onStartReceiving={startReceiving}
+        />
+      );
+    case 'ReceivingActivity':
+      return (
+        <DashboardListRoute
+          {...common}
+          {...listLive}
+          kind="activity"
+          scopeLabel={pickedLabel}
+          onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
+          onSelectShipment={openShipment}
+        />
+      );
+    case 'PendingQueue':
+      return (
+        <DashboardListRoute
+          {...common}
+          {...listLive}
+          kind="queue"
+          scopeLabel={pickedLabel}
+          onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
+          onSelectShipment={openShipment}
         />
       );
     case 'History':
@@ -319,11 +369,14 @@ export function ReceivingFlow({
         />
       );
     case 'HistoryDetail':
+    case 'ReceiptActivity':
       return (
         <HistoryDetailRoute
           {...common}
           {...live}
+          view={current.screen === 'ReceiptActivity' ? 'activity' : 'main'}
           receiptId={params.receiptId}
+          onNavigateTimeline={() => navigate('ReceiptActivity', { receiptId: params.receiptId })}
           onNavigateShipment={openShipment}
           onNavigateBatch={onViewBatch}
           onTakeAction={(purchaseOrderId) => openWizard('quality_check', purchaseOrderId)}
@@ -331,11 +384,12 @@ export function ReceivingFlow({
       );
     case 'QualityIssues':
       return (
-        <QualityIssuesRoute {...common} {...live} onSelectIssue={openIssue} onOpenOperationalIssues={onOpenOperationalIssues} />
+        // The dashboard's warehouse pick carries over, so the list matches its Awaiting QC tile.
+        <QualityIssuesRoute {...common} {...listLive} onSelectIssue={openIssue} onOpenOperationalIssues={onOpenOperationalIssues} />
       );
     case 'Wizard':
       return params.shipmentId === undefined ? (
-        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} />
+        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} />
       ) : (
         <WizardRoute
           {...common}
@@ -357,16 +411,21 @@ export function ReceivingFlow({
       return (
         <DashboardRoute
           {...common}
-          {...live}
+          {...listLive}
           onTabChange={onTabChange}
+          warehouseOptions={mainView ? warehouseOptions : undefined}
+          selectedWarehouseId={picked.filterWarehouseId}
+          onSelectWarehouse={mainView ? (filterWarehouseId) => setParams({ filterWarehouseId }) : undefined}
           unreadNotifications={unreadNotifications}
           onOpenNotifications={onOpenNotifications}
-          onOpenShipments={(statusTab) => navigate('Shipments', { statusTab })}
-          onOpenHistory={(historyFilter) => navigate('History', { historyFilter })}
-          onOpenQualityIssues={() => navigate('QualityIssues')}
+          onOpenShipments={(statusTab) => navigate('Shipments', { statusTab, ...picked })}
+          onOpenHistory={(historyFilter) => navigate('History', { historyFilter, ...picked })}
+          onOpenQualityIssues={() => navigate('QualityIssues', picked)}
           onSelectIssue={openIssue}
           onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
-          onStartReceiving={() => navigate('Shipments', { statusTab: 'All' })}
+          onStartReceiving={() => navigate('Shipments', { statusTab: 'All', ...picked })}
+          onOpenActivity={mainView ? () => navigate('ReceivingActivity', picked) : undefined}
+          onOpenPendingQueue={mainView ? () => navigate('PendingQueue', picked) : undefined}
           onOpenTransferReceiving={transferReceiving}
         />
       );
@@ -416,6 +475,7 @@ function ShipmentsRoute({
   scopeLabel?: string | undefined;
   onOpenFilters?: (() => void) | undefined;
   onSelectShipment: (purchaseOrderId: string) => void;
+  onStartReceiving?: ((shipment: IncomingShipment, resume: boolean) => void) | undefined;
 }) {
   const list = useShipmentList(warehouseId, naming);
   return (
@@ -438,12 +498,19 @@ function ShipmentDetailRoute({
   naming,
   purchaseOrderId,
   ...props
-}: RouteBase & { purchaseOrderId: string; onStartReceiving: (shipment: IncomingShipment, resume: boolean) => void }) {
+}: RouteBase & {
+  purchaseOrderId: string;
+  view: React.ComponentProps<typeof ShipmentDetailScreen>['view'];
+  onOpenProduct: () => void;
+  onOpenTimeline: () => void;
+  onStartReceiving: (shipment: IncomingShipment, resume: boolean) => void;
+}) {
   const live = usePurchaseOrder(warehouseId, purchaseOrderId, naming);
   return (
     <ShipmentDetailScreen
       {...props}
       shipment={live.shipment}
+      records={live.records}
       isLoading={live.isLoading}
       error={live.error}
       onRetry={live.refresh}
@@ -490,17 +557,22 @@ function HistoryDetailRoute({
   onTakeAction,
   ...props
 }: RouteBase & {
+  view: 'main' | 'activity';
   receiptId: string | undefined;
+  onNavigateTimeline: () => void;
   onNavigateShipment: (purchaseOrderId: string) => void;
   onNavigateBatch?: ((batchId: string) => void) | undefined;
   onTakeAction: (purchaseOrderId: string) => void;
 }) {
   const live = useReceipt(warehouseId, receiptId, naming);
   const rec = live.record;
+  // BR-106: the assigned grade is the batch's; GET /admin/batches/{id} needs inventory.batch.view.
+  const batch = useReceiptBatch(warehouseId, rec?.batchId, props.can(RECEIVING_CODES.batchView));
   return (
     <ReceivingHistoryDetailScreen
       {...props}
       record={rec}
+      batch={batch.batch}
       isLoading={live.isLoading}
       error={live.error}
       onRetry={live.refresh}
@@ -510,6 +582,37 @@ function HistoryDetailRoute({
       onNavigateBatch={onNavigateBatch}
       onTakeAction={rec === undefined ? undefined : () => onTakeAction(rec.purchaseOrderId)}
     />
+  );
+}
+
+/** The dashboard's Receiving Activity and Pending Queue: the dashboard's two lists, for its warehouse. */
+function DashboardListRoute({
+  warehouseId,
+  naming,
+  kind,
+  onSelectRecord,
+  onSelectShipment,
+  ...props
+}: RouteBase & {
+  kind: 'activity' | 'queue';
+  scopeLabel?: string | undefined;
+  onSelectRecord: (receiptId: string) => void;
+  onSelectShipment: (purchaseOrderId: string) => void;
+}) {
+  const live = useReceivingDashboard(warehouseId, naming);
+  const state = {
+    ...props,
+    complete: live.complete,
+    isLoading: live.isLoading,
+    error: live.error,
+    onRetry: live.refresh,
+    onRefresh: live.refresh,
+    isRefreshing: live.isRefreshing,
+  };
+  return kind === 'activity' ? (
+    <ReceivingActivityScreen {...state} records={live.records} onSelectRecord={onSelectRecord} />
+  ) : (
+    <PendingQueueScreen {...state} shipments={live.shipments} onSelectShipment={onSelectShipment} />
   );
 }
 
@@ -576,6 +679,7 @@ function WizardRoute({
       // A receipt awaiting QC is completed, never received again.
       initialStep={pendingReceipt !== undefined ? 'quality_check' : props.initialStep}
       shipment={to === shipment.to ? shipment : { ...shipment, to }}
+      naming={naming}
       pendingReceipt={pendingReceipt}
       storageLocations={locations.options}
       storageLocationsLoading={locations.isLoading}

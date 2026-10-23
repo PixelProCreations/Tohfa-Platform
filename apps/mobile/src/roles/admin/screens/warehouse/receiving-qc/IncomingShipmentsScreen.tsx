@@ -13,22 +13,63 @@
  * warehouse) is offered when the flow passes onOpenFilters; its pick is sent
  * to the server as `warehouseId` and named in the header pill.
  *
- * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record.
+ * Tapping a row opens the Shipment Quick View (design M2-02), a bottom sheet
+ * of the fields the order row carries (receivingViews.ts
+ * shipmentQuickViewRows, an allow-list with no farmer identity), with View
+ * Details and, when the order can be received, Start Receiving. The design's
+ * shipment-type notice is kept as what is true here: every row is a purchase
+ * order raised to a farmer; transfers are another list. There is no Arrived
+ * pill: a purchase order has no arrival step (owner decision).
+ *
+ * Read-only (Start Receiving only opens the wizard). Gate: inventory.batch.view
+ * or inventory.goods_receipt.record; Start Receiving also needs
+ * inventory.goods_receipt.record, resuming a receipt awaiting QC also
+ * inventory.quality_check.perform.
  */
 import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { ChipGroup, HeaderIconButton, ScopeHeader, SlidersIcon, StatusBadge, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { isMainScope, matchesShipmentTab } from './mappers';
-import { PermissionNote, TruckDeliveryIcon, canViewReceiving, shipmentTone } from './ReceivingParts';
+import {
+  ChipGroup,
+  HeaderIconButton,
+  InfoCard,
+  InfoNote,
+  ScopeHeader,
+  SlidersIcon,
+  StatusBadge,
+  WalletButton,
+  WalletScreen,
+  walletLayout,
+} from '../wallet-cashtopup/WalletParts';
+import { isMainScope, isReceivable, matchesShipmentTab } from './mappers';
+import { PermissionNote, RECEIVING_CODES, TruckDeliveryIcon, canViewReceiving, shipmentTone } from './ReceivingParts';
+import { shipmentQuickViewRows } from './receivingViews';
 import type { IncomingShipment, ReceivingLiveStateProps, ShipmentFilterTab, WarehouseScreenBaseProps } from './types';
 
 const TABS: readonly ShipmentFilterTab[] = ['All', 'Expected', 'Receiving', 'QC Pending', 'Completed'];
+
+const TAB_LABEL: Record<
+  ShipmentFilterTab,
+  'receiving.shipmentTab.all' | 'receiving.shipmentTab.expected' | 'receiving.shipmentTab.receiving' | 'receiving.shipmentTab.qcPending' | 'receiving.shipmentTab.completed'
+> = {
+  All: 'receiving.shipmentTab.all',
+  Expected: 'receiving.shipmentTab.expected',
+  Receiving: 'receiving.shipmentTab.receiving',
+  'QC Pending': 'receiving.shipmentTab.qcPending',
+  Completed: 'receiving.shipmentTab.completed',
+};
+
+/** Two quick-view fields per row, as InfoCard lays them out. */
+function pairs<T>(items: readonly T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) out.push(items.slice(i, i + 2));
+  return out;
+}
 
 export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
   /** The warehouse's purchase orders, page by page. */
@@ -42,6 +83,8 @@ export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps, 
   onOpenFilters?: (() => void) | undefined;
   /** Opens a shipment by its purchase order uuid. */
   onSelectShipment: (purchaseOrderId: string) => void;
+  /** Quick View Start Receiving, or resume the receipt awaiting QC (`resume`); the host opens the wizard. */
+  onStartReceiving?: ((shipment: IncomingShipment, resume: boolean) => void) | undefined;
 }
 
 function kg(value: number | null): string {
@@ -73,9 +116,13 @@ export function IncomingShipmentsScreen({
   scopeLabel,
   onOpenFilters,
   onSelectShipment,
+  onStartReceiving,
 }: IncomingShipmentsScreenProps) {
   const [tab, setTab] = useState<ShipmentFilterTab>(initialTab);
+  const [quickView, setQuickView] = useState<IncomingShipment | null>(null);
   const mainView = isMainScope(scope);
+  const canRecord = can(RECEIVING_CODES.receiptRecord);
+  const canQc = can(RECEIVING_CODES.qualityCheck);
 
   const header = {
     title: t('receiving.shipments.title'),
@@ -92,7 +139,7 @@ export function IncomingShipmentsScreen({
     return (
       <WalletScreen {...header}>
         <View style={walletLayout.scrollContent}>
-          <PermissionNote message="You do not have permission to view incoming shipments." />
+          <PermissionNote message={t('receiving.shipments.noPermission')} />
         </View>
       </WalletScreen>
     );
@@ -104,7 +151,7 @@ export function IncomingShipmentsScreen({
   const renderShipment = ({ item: s }: { item: IncomingShipment }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => onSelectShipment(s.purchaseOrderId)}
+      onPress={() => setQuickView(s)}
       activeOpacity={0.8}
       accessibilityRole="button"
     >
@@ -137,8 +184,11 @@ export function IncomingShipmentsScreen({
     <WalletScreen {...header}>
       <View style={styles.flex}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsBar} contentContainerStyle={styles.pills}>
-          <ChipGroup options={TABS} value={tab} onChange={setTab} />
+          <ChipGroup options={TABS} value={tab} onChange={setTab} labelOf={(option) => t(TAB_LABEL[option])} />
         </ScrollView>
+        <View style={styles.notice}>
+          <InfoNote tone="brandSoft">{t('receiving.shipments.typeNotice')}</InfoNote>
+        </View>
 
         {view === 'loading' ? (
           <AdminLoadingState />
@@ -163,7 +213,76 @@ export function IncomingShipmentsScreen({
           />
         )}
       </View>
+
+      {/* Shipment Quick View (M2-02). No translucent scrim token exists, so the
+          backdrop stays clear and the sheet carries the token shadow. */}
+      <Modal visible={quickView !== null} transparent animationType="slide" onRequestClose={() => setQuickView(null)}>
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setQuickView(null)}
+          accessibilityLabel={t('receiving.quickView.close')}
+        >
+          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+            {quickView === null ? null : (
+              <QuickViewBody
+                shipment={quickView}
+                canStart={canRecord && isReceivable(quickView.status)}
+                canResume={canRecord && canQc && quickView.status === 'Awaiting QC' && quickView.pendingReceiptId !== undefined}
+                onViewDetails={() => {
+                  setQuickView(null);
+                  onSelectShipment(quickView.purchaseOrderId);
+                }}
+                onStartReceiving={
+                  onStartReceiving === undefined
+                    ? undefined
+                    : (resume) => {
+                        setQuickView(null);
+                        onStartReceiving(quickView, resume);
+                      }
+                }
+                onClose={() => setQuickView(null)}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </WalletScreen>
+  );
+}
+
+function QuickViewBody({
+  shipment,
+  canStart,
+  canResume,
+  onViewDetails,
+  onStartReceiving,
+  onClose,
+}: {
+  shipment: IncomingShipment;
+  canStart: boolean;
+  canResume: boolean;
+  onViewDetails: () => void;
+  onStartReceiving?: ((resume: boolean) => void) | undefined;
+  onClose: () => void;
+}) {
+  const rows = shipmentQuickViewRows(shipment);
+  return (
+    <>
+      <View style={styles.rowBetween}>
+        <Text style={styles.sheetTitle}>{t('receiving.quickView.title')}</Text>
+        <StatusBadge label={shipment.statusLabel} tone={shipmentTone(shipment.status)} />
+      </View>
+      <InfoCard rows={pairs(rows.map((row) => ({ label: row.label, value: row.value })))} />
+      <WalletButton label={t('receiving.quickView.viewDetails')} variant="outline" onPress={onViewDetails} />
+      {onStartReceiving !== undefined && (canResume || canStart) ? (
+        <WalletButton
+          label={t(canResume ? 'receiving.detail.resumeReceiving' : 'receiving.dashboard.startReceiving')}
+          onPress={() => onStartReceiving(canResume)}
+        />
+      ) : null}
+      <WalletButton label={t('receiving.quickView.close')} variant="neutral" onPress={onClose} />
+    </>
   );
 }
 
@@ -171,6 +290,19 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   pillsBar: { flexGrow: 0, paddingHorizontal: adminSpacing.lg },
   pills: { paddingVertical: adminSpacing.sm },
+  notice: { paddingHorizontal: adminSpacing.lg },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.md,
+    ...adminShadow.lg,
+  },
+  sheetTitle: { ...adminType.sectionHead, color: adminColors.brandDeep },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

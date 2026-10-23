@@ -34,6 +34,7 @@ import {
   type PurchaseOrderDetailDto,
   type PurchaseOrderDto,
 } from '../../../api/receiving';
+import { getBatch, type BatchDto } from '../../../api/inventory';
 import { adminKeys } from '../../../api/queryKeys';
 import { listStorageLocations } from '../../../api/warehouses';
 import { collectPages } from '../../../../../shell/api/pagination';
@@ -245,6 +246,27 @@ export function useReceipt(warehouseId: string | undefined, id: string | undefin
     },
     record,
   };
+}
+
+export interface LiveReceiptBatch extends LiveQueryState {
+  batch: BatchDto | undefined;
+}
+
+/**
+ * The batch a receipt was stocked as (GET /admin/batches/{id}, needs
+ * inventory.batch.view), for its assigned grade (BR-106). Nothing is fetched
+ * while `batchId` is undefined or `enabled` is false.
+ */
+export function useReceiptBatch(warehouseId: string | undefined, batchId: string | undefined, enabled: boolean): LiveReceiptBatch {
+  const on = enabled && batchId !== undefined;
+  // Its own resource name: the inventory area caches the same batch as a mapped
+  // BatchRow under 'batch', and one key must never hold two shapes.
+  const query = useAdminQuery(
+    adminKeys.scoped(INVENTORY, warehouseId, { resource: 'receipt-batch', batchId: batchId ?? null }),
+    (signal) => getBatch(batchId ?? '', signal),
+    { enabled: on },
+  );
+  return { ...queryState(query), isLoading: on && query.isPending, batch: query.data };
 }
 
 export interface LiveStorageLocations extends LiveQueryState {
