@@ -452,8 +452,8 @@ export function MoreScreen({
 }: MoreScreenProps) {
   const isMain = scope.warehouseId === undefined;
   // Derived from scope, never hard-coded: Main spans every warehouse.
-  const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
-  const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
+  const warehouseLabel = isMain ? t('more.scope.all') : scope.warehouseName ?? '';
+  const roleTitle = isMain ? t('more.role.main') : t('more.role.sub');
 
   /** Rows that only the host can open; the rest have an in-screen fallback below. */
   const hostOnly: Readonly<Record<string, (() => void) | undefined>> = {
@@ -604,12 +604,12 @@ export function MoreScreen({
 
   const handleLogoutPress = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to sign out of this account?',
+      t('more.logout.confirmTitle'),
+      t('more.logout.confirmMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('more.logout.cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: t('more.logout.confirm'),
           style: 'destructive',
           onPress: () => {
             if (onLogout) onLogout();
@@ -792,7 +792,7 @@ export function MoreScreen({
           </TouchableOpacity>
 
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>More</Text>
+            <Text style={styles.headerTitle}>{t('more.header.title')}</Text>
             <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>
           </View>
         </View>
@@ -824,7 +824,7 @@ export function MoreScreen({
                 {!isMain && <Text style={styles.warehouseCodeText}>{scope.warehouseCode ?? scope.warehouseId}</Text>}
                 <View style={styles.activeStatusRow}>
                   <View style={styles.activeDot} />
-                  <Text style={styles.activeStatusText}>Active</Text>
+                  <Text style={styles.activeStatusText}>{t('more.status.active')}</Text>
                 </View>
               </View>
             </>
@@ -892,8 +892,8 @@ export function MoreScreen({
             <LogoutIcon color={adminColors.danger.text} size={20} />
           </View>
           <View style={styles.itemInfo}>
-            <Text style={styles.logoutTitle}>Logout</Text>
-            <Text style={styles.itemSubtitle}>Sign out of this account</Text>
+            <Text style={styles.logoutTitle}>{t('more.logout.title')}</Text>
+            <Text style={styles.itemSubtitle}>{t('more.logout.subtitle')}</Text>
           </View>
         </TouchableOpacity>
 
@@ -908,7 +908,7 @@ export function MoreScreen({
           activeOpacity={0.75}
         >
           <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
+          <Text style={styles.navLabel}>{t('more.tab.home')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -917,7 +917,7 @@ export function MoreScreen({
           activeOpacity={0.75}
         >
           <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
+          <Text style={styles.navLabel}>{t('more.tab.receiving')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -926,7 +926,7 @@ export function MoreScreen({
           activeOpacity={0.75}
         >
           <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
+          <Text style={styles.navLabel}>{t('more.tab.inventory')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -934,7 +934,7 @@ export function MoreScreen({
           activeOpacity={1}
         >
           <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
+          <Text style={[styles.navLabel, styles.navLabelActive]}>{t('more.tab.more')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

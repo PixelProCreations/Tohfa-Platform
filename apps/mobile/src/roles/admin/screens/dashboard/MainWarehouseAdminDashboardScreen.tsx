@@ -44,6 +44,7 @@ import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/wareh
 import { capacityTone, nearFullSignal, WAREHOUSE_OVERVIEW_CODES, type CapacityTone } from '../warehouse/warehouse-admin/overviewFigures';
 import { warehouseStatusPill } from '../warehouse/warehouse-admin/mappers';
 import { useStorageAreaTotal } from '../warehouse/warehouse-admin/useWarehouseAdminData';
+import { inventoryEntryOf, operationsEntryOf } from '../warehouse/warehouse-admin/routes';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   NotificationsFlow,
@@ -708,6 +709,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // The warehouse the detail / settings / ledger views open on, and the storage
   // location opened from the list: nothing until the admin picks one.
   const [detailWarehouseId, setDetailWarehouseId] = useState<string | undefined>(undefined);
+  // The warehouse Warehouse Detail's "Open Operations" asked the Operations hub to open on;
+  // undefined = the hub's own pick. Dropped once the admin is back on a tab root (see below).
+  const [operationsWarehouseId, setOperationsWarehouseId] = useState<string | undefined>(undefined);
   // Receiving "View Batch" target: a batch uuid the API returned on a receipt or quality check.
   const [receivingBatchId, setReceivingBatchId] = useState<string | undefined>(undefined);
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
@@ -767,6 +771,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const warehouseOptions: readonly WarehouseScope[] = useMemo(() => toWarehouseOptions(warehouses), [warehouses]);
   const selectedWarehouseId = filterWarehouseId;
   const detailWarehouse = warehouses.find((w) => w.id === detailWarehouseId);
+  const operationsEntry = operationsEntryOf(operationsWarehouseId);
   const filterWarehouse = warehouses.find((w) => w.id === filterWarehouseId);
   const filterLabel = filterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(filterWarehouse.name);
   // Memoised: InventoryFlow restarts its stack whenever initialParams changes identity.
@@ -1117,6 +1122,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     if (tab === 'Receiving') setReceivingSubView('dashboard');
     if (more !== undefined) setMoreSubScreen(more);
   };
+
+  // Warehouse Detail's module links (design M15-03) open on the warehouse shown (BR-30):
+  // Inventory is the Inventory tab with its warehouse filter set to it, Operations the
+  // hub with that warehouse picked.
+  const openInventoryOn = (warehouseId: string) => {
+    const entry = inventoryEntryOf(warehouseId);
+    setFilterWarehouseId(entry.filterWarehouseId);
+    openTab(entry.tab);
+  };
+  const openOperationsOn = (warehouseId: string) => {
+    setOperationsWarehouseId(warehouseId);
+    navigateWh('warehouse_operations');
+  };
+  // The hub's preselection lasts while the admin moves among sub-views (into storage
+  // locations and back); once back on a tab root, the next visit uses the hub's own pick.
+  useEffect(() => {
+    if (whSubView === 'overview') setOperationsWarehouseId(undefined);
+  }, [whSubView]);
 
   // Shared notifications flow (W4): the bell opens the list, Home's alerts /
   // escalations open the approval / exception alerts. MAIN_WAREHOUSE_SCOPE =
@@ -2866,6 +2889,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setMoreSubScreen(null);
                 navigateWh('warehouse_notifications');
               }}
+              onOpenInventory={openInventoryOn}
+              onOpenOperations={openOperationsOn}
             />
           )
         )}
@@ -2931,7 +2956,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <StorageFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
-                initialScreen="Operations"
+                initialScreen={operationsEntry.initialScreen}
+                initialParams={operationsEntry.initialParams}
                 onBack={goBackWh}
                 onOpenModule={openMainModule}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
@@ -2962,6 +2988,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onViewOperationsHistory={() => navigateWh('operations_history')}
                 onViewStaffAttendance={() => navigateWh('staff_attendance')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
+                onOpenInventory={openInventoryOn}
+                onOpenOperations={openOperationsOn}
               />
             ) : whSubView === 'warehouse_notifications' ? (
               renderNotificationsFlow('Notifications')

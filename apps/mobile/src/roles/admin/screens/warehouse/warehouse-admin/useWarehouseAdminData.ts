@@ -7,12 +7,14 @@
  *   GET /warehouses/{id}                  warehouse.own.view       (Main = all)
  *   GET /warehouses/{id}/capacity         warehouse.own.view       (BR-66b)
  *   GET /warehouses/{id}/issues?status=   warehouse.issue.view     (BR-103; `total` is the count)
- *   GET /admin/tasks/summary?warehouseId= task.own.view            (BR-77; `open`)
  *   GET /admin/sub-warehouse-admins       admin.sub_wh_admin.create
  *   POST /admin/sub-warehouse-admins      admin.sub_wh_admin.create (BR-25, BR-81)
  *   GET /warehouses/{id}/storage-locations inventory.batch.view    (BR-79; `total` is the count)
  *   GET /admin/staff-attendance/roll-call  admin.staff.attendance.view (BR-84; staff count)
  *   GET /admin/alerts?type=CAPACITY_NEAR_FULL alert.own.view       (BR-77; near-capacity)
+ *   GET /admin/orders?status=&warehouseId= order.list.view_all     (Pending Orders; one page per status)
+ *   GET /warehouses/{id}/documents         warehouse.document.view  (BR-105; the first row)
+ *   GET /warehouses/{id}/activity          warehouse.activity.view  (BR-104; the newest rows)
  *
  * Each hook takes `enabled`, so a caller without the code fetches nothing and
  * gets no 403. Issue counts ask for one row and read `total`: the list's exact
@@ -21,9 +23,11 @@
 import { useQueries } from '@tanstack/react-query';
 import { listAlerts } from '../../../api/alerts';
 import { useAdminMutation, useAdminQuery } from '../../../api/hooks';
+import { listAdminOrders } from '../../../api/orders';
 import { adminKeys } from '../../../api/queryKeys';
 import { createSubAdmin, listAllSubAdmins, type CreateSubAdminBody, type CreatedSubAdminDto, type SubAdminDto } from '../../../api/subAdmins';
-import { getTaskSummary, type TaskSummaryDto } from '../../../api/tasks';
+import { listWarehouseActivity } from '../../../api/warehouseActivity';
+import { listWarehouseDocuments } from '../../../api/warehouseDocuments';
 import { listWarehouseIssues, type IssueStatusCode } from '../../../api/warehouseIssues';
 import { getRollCall } from '../../../api/attendance';
 import {
@@ -34,13 +38,32 @@ import {
   type WarehouseDto,
 } from '../../../api/warehouses';
 import { istDay } from '../../../utils/datetime';
+import { toDocumentView, type WarehouseDocumentView } from '../profile-settings/mappers_documents';
+import { WAREHOUSE_DOCUMENTS_MODULE } from '../profile-settings/useWarehouseDocuments';
+import type { ActivityRow } from '../storage-ops/mappers';
+import { STORAGE_OPS } from '../storage-ops/useStorageData';
 import { ATTENDANCE_MODULE } from '../staff-attendance/useStaffData';
 import { collectPages, DASHBOARD_PAGE_LIMIT } from '../../dashboard/mappers_mainDashboard';
+import {
+  DETAIL_ACTIVITY_ROWS,
+  FIRST_DOCUMENT_PAGE,
+  PENDING_ORDER_STATUSES,
+  pendingOrdersFigure,
+  pendingOrdersRequests,
+  recentActivityRows,
+  type PendingOrdersFigure,
+} from './detailFigures';
 import { activeStaffCount, nearFullSignalOf, sumStorageAreas, type NearFullSignal } from './overviewFigures';
 
 /** One module for this area's reads, told apart by `resource`, so no other area's key can collide. */
 const AREA = 'warehouseAdmin';
 const SUB_ADMINS = 'subAdmins';
+/**
+ * The orders area's module (orders/useOrdersData.ts): Pending Orders is keyed
+ * under it so packing or handing over an order, which invalidates that module,
+ * refreshes the figure too.
+ */
+const ORDERS = 'orders';
 
 /** One row is enough: the count is the response's `total`. */
 const COUNT_PAGE_SIZE = 1;
@@ -190,12 +213,10 @@ export interface WarehouseDetailData {
   capacity: LiveResult<WarehouseCapacityDto>;
   openIssues: LiveResult<number>;
   inProgressIssues: LiveResult<number>;
-  tasks: LiveResult<TaskSummaryDto>;
 }
 
 export interface WarehouseDetailGates {
   issues: boolean;
-  tasks: boolean;
 }
 
 /** One warehouse's own figures; nothing is fetched without a uuid. */
@@ -219,19 +240,69 @@ export function useWarehouseDetail(warehouseId: string | undefined, gates: Wareh
     (signal) => countIssues(id, 'IN_PROGRESS', signal),
     { enabled: issuesOn },
   );
-  const tasksOn = has && gates.tasks;
-  const tasks = useAdminQuery(
-    adminKeys.scoped(AREA, warehouseId, { resource: 'taskSummary' }),
-    (signal) => getTaskSummary({ warehouseId: id }, signal),
-    { enabled: tasksOn },
-  );
   return {
     warehouse: live(warehouse, has),
     capacity: live(capacity, has),
     openIssues: live(open, issuesOn),
     inProgressIssues: live(inProgress, issuesOn),
-    tasks: live(tasks, tasksOn),
   };
+}
+
+/**
+ * Pending Orders of one warehouse: one page per pending status, read together.
+ * GET /admin/orders has no `total` and takes one status per call, so this is
+ * three requests and never a walk; past one full page a status makes the
+ * figure a lower bound (./detailFigures.ts).
+ */
+export function usePendingOrders(warehouseId: string | undefined, enabled: boolean): LiveResult<PendingOrdersFigure> {
+  const on = enabled && warehouseId !== undefined;
+  const id = warehouseId ?? '';
+  const query = useAdminQuery(
+    adminKeys.scoped(ORDERS, warehouseId, { resource: 'pendingCount', statuses: PENDING_ORDER_STATUSES.join(',') }),
+    async (signal) => pendingOrdersFigure(await Promise.all(pendingOrdersRequests(id).map((params) => listAdminOrders(params, signal)))),
+    { enabled: on },
+  );
+  return live(query, on);
+}
+
+export interface FirstWarehouseDocument {
+  /** Null when the warehouse has no (unarchived) document. */
+  document: WarehouseDocumentView | null;
+  total: number;
+}
+
+/**
+ * The first document of one warehouse's list (soonest expiry first, BR-105).
+ * Keyed under the documents module, so a document change elsewhere refreshes it.
+ */
+export function useFirstWarehouseDocument(warehouseId: string | undefined, enabled: boolean): LiveResult<FirstWarehouseDocument> {
+  const on = enabled && warehouseId !== undefined;
+  const id = warehouseId ?? '';
+  const query = useAdminQuery(
+    adminKeys.scoped(WAREHOUSE_DOCUMENTS_MODULE, warehouseId, { resource: 'first' }),
+    (signal) =>
+      listWarehouseDocuments(id, FIRST_DOCUMENT_PAGE, signal).then((p) => {
+        const first = p.items[0];
+        return { document: first === undefined ? null : toDocumentView(first), total: p.total };
+      }),
+    { enabled: on },
+  );
+  return live(query, on);
+}
+
+/**
+ * The newest activity of one warehouse (BR-104): one page of
+ * DETAIL_ACTIVITY_ROWS, keyed under storage-ops like the full feed.
+ */
+export function useRecentWarehouseActivity(warehouseId: string | undefined, enabled: boolean): LiveResult<ActivityRow[]> {
+  const on = enabled && warehouseId !== undefined;
+  const id = warehouseId ?? '';
+  const query = useAdminQuery(
+    adminKeys.scoped(STORAGE_OPS, warehouseId, { resource: 'activity-recent', limit: DETAIL_ACTIVITY_ROWS }),
+    (signal) => listWarehouseActivity(id, { limit: DETAIL_ACTIVITY_ROWS }, signal).then((p) => recentActivityRows(p.items, new Date())),
+    { enabled: on },
+  );
+  return live(query, on);
 }
 
 /** POST /admin/sub-warehouse-admins; refetches every Sub Warehouse Admin list on success. */

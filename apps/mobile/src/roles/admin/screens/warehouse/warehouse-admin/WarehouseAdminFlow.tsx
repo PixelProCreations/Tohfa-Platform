@@ -1,14 +1,17 @@
 /**
  * In-module navigator for the Main warehouse-admin screens.
  *
- *   Warehouse Overview -> Warehouse City Detail -> Documents / Settings / Capacity
+ *   Warehouse Overview -> Warehouse City Detail -> Documents / Settings / Capacity /
+ *                                                 Staff / Manage Sub Warehouse Admins
  *   Warehouse Overview -> Settings / Capacity / Performance (-> City Detail)
  *   Warehouse Overview -> Manage Sub Warehouse Admins
  *
  * Settings, Documents, Capacity and Performance are not re-implemented: they
  * open the existing shared ProfileFlow / StorageFlow routes, so their own
- * gates apply. Comparison and the Performance hand-offs (operations history,
- * staff attendance) go back to the host, which owns those screens.
+ * gates apply. Comparison, the Performance hand-offs (operations history,
+ * staff attendance) and City Detail's Open Inventory / Open Operations go back
+ * to the host, which owns those screens; the last two carry the warehouse uuid
+ * so the host opens them on it (BR-30).
  *
  * Capacity always opens on the warehouse it was asked about (City Detail, a
  * card's Capacity action) and Manage Capacity Limits on the one the capacity
@@ -69,6 +72,10 @@ export interface WarehouseAdminFlowProps {
   onViewStaffAttendance?: (() => void) | undefined;
   /** Warehouse Management header bell (design M15-01): the host's notifications. */
   onOpenNotifications?: (() => void) | undefined;
+  /** City Detail "Open Inventory": the host's Inventory tab on this warehouse. */
+  onOpenInventory?: ((warehouseId: string) => void) | undefined;
+  /** City Detail "Open Operations": the host's Operations hub on this warehouse. */
+  onOpenOperations?: ((warehouseId: string) => void) | undefined;
 }
 
 export function WarehouseAdminFlow({
@@ -81,6 +88,8 @@ export function WarehouseAdminFlow({
   onViewOperationsHistory,
   onViewStaffAttendance,
   onOpenNotifications,
+  onOpenInventory,
+  onOpenOperations,
 }: WarehouseAdminFlowProps) {
   const [stack, setStack] = useState<WarehouseAdminStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // Live warehouses (GET /warehouses), to turn a name the Performance screen hands back into a server uuid.
@@ -144,6 +153,9 @@ export function WarehouseAdminFlow({
           onOpenSettings={openSettings}
           onOpenCapacity={openCapacity}
           onOpenStaff={(warehouseId) => navigate('Staff', { warehouseId })}
+          onOpenSubAdmins={canOpenWarehouseAdminRoute('ManageSubWarehouseAdmins', can) ? () => navigate('ManageSubWarehouseAdmins') : undefined}
+          onOpenInventory={onOpenInventory}
+          onOpenOperations={onOpenOperations}
         />
       );
     case 'ManageSubWarehouseAdmins':
