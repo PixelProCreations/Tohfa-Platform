@@ -91,15 +91,12 @@ export function PestIncidentDetailScreen({
   onBack,
 }: PestIncidentDetailScreenProps) {
   // Determine display values matching Screenshots 1, 2, 3
-  const displayId = incident?.id
-    ? incident.id === 'PEST-00421'
-      ? 'INC-2026-0007'
-      : incident.id
-    : 'INC-2026-0007';
+  const displayId =
+    incident?.displayId ?? (incident?.id === 'PI-0101' ? 'PI-2026-0007' : (incident?.id ?? 'PI-2026-0007'));
 
   const displayFarmer = incident?.farmer ?? 'Ramesh Kumar';
-  const displayCrop = incident?.crop === 'Carrot' ? 'Tomato' : (incident?.crop ?? 'Tomato');
-  const displayReportId = displayId;
+  const displayCrop = incident?.crop ?? 'Tomato';
+  const displayReportId = incident?.displayReportId ?? 'INC-2026-0007';
   const displayReportedTime = '13 Oct 2026, 08:30';
   const displayPlot = 'PLT-00124-1';
   const displayField = `${displayCrop} · Field 1`;
@@ -335,6 +332,10 @@ export function PestIncidentDetailScreen({
         >
           <Text style={styles.outlineActionBtnText}>Record Admin Review Note</Text>
         </TouchableOpacity>
+
+        <Text style={styles.resolutionDisclaimer}>
+          Whether the TOHFA Admin may mark an incident resolved is not defined, so only the farmer's follow-up changes the status.
+        </Text>
 
 
 

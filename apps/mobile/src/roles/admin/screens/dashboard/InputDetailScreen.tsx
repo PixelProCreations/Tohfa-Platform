@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -8,10 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-import { t } from '../../i18n';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 import { ApprovedInputItem } from './ApprovedInputsScreen';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -30,67 +36,106 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
 export interface InputDetailScreenProps {
   inputItem?: ApprovedInputItem | undefined;
   onBack: () => void;
+  onEdit?: () => void;
+  onDeactivate?: () => void;
 }
 
 export function InputDetailScreen({
   inputItem,
   onBack,
+  onEdit,
+  onDeactivate,
 }: InputDetailScreenProps) {
-  const item = inputItem;
-  const isActive = item?.status === 'Active';
+  const [activeTab, setActiveTab] = useState<'basic' | 'composition' | 'documents' | 'history'>('basic');
+  const [isDeactivated, setIsDeactivated] = useState(false);
+
+  // Derive display values matching Image 5 reference or passed item
+  const name = inputItem?.name || 'Neem Oil Concentrate';
+  const code = inputItem?.code || 'IN-0041';
+  const status = isDeactivated ? 'Inactive' : (inputItem?.status || 'Approved');
+  const isApproved = status === 'Approved';
+
+  const category = inputItem?.category || 'Pest control';
+  const manufacturer = inputItem?.manufacturer || 'GreenGro Organics';
+  const registrationId =
+    inputItem?.code === 'IN-0041' || !inputItem?.code
+      ? 'NEEM-0041-TN'
+      : `${inputItem.code}-TN`;
+
+  const composition =
+    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
+      ? 'Azadirachtin 1500 ppm'
+      : (inputItem.method || 'Organic botanical extract');
+
+  const applicableCrops = inputItem?.applicableCrops
+    ? inputItem.applicableCrops.replace(/^Applicable:\s*/, '')
+    : 'Tomato, Cabbage';
+
+  const dosage =
+    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
+      ? '5 mL per litre of water'
+      : (inputItem.usage || '5 mL per litre of water');
+
+  const applicationMethod =
+    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
+      ? 'Foliar spray, every 10 days'
+      : (inputItem.frequency || 'Foliar spray, every 10 days');
+
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit();
+    } else {
+      Alert.alert('Edit Input', `Editing form for ${name} opened.`);
+    }
+  };
+
+  const handleDeactivate = () => {
+    if (onDeactivate) {
+      onDeactivate();
+    } else {
+      Alert.alert(
+        isDeactivated ? 'Activate Input' : 'Deactivate Input',
+        isDeactivated
+          ? `Are you sure you want to activate ${name}?`
+          : `Are you sure you want to deactivate ${name}? It will be marked as Inactive.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: isDeactivated ? 'Activate' : 'Deactivate',
+            style: isDeactivated ? 'default' : 'destructive',
+            onPress: () => setIsDeactivated(!isDeactivated),
+          },
+        ]
+      );
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header ─── */}
+      {/* ─── Header Banner (Image 5) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel={t('inputDetail.backLabel')}
+            accessibilityLabel="Back to catalog"
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{item?.name ?? ''}</Text>
-        </View>
-
-        {/* Status Row */}
-        {item?.status ? (
-          <View style={styles.headerStatusRow}>
-            <Text style={styles.headerStatusLabel}>{t('inputDetail.statusLabel')}</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                isActive ? styles.badgeActive : styles.badgeDiscontinued,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  isActive ? styles.badgeTextActive : styles.badgeTextDiscontinued,
-                ]}
-              >
-                {item.status}
-              </Text>
-            </View>
+          <View style={styles.headerTextCol}>
+            <Text style={styles.headerTitle}>{name}</Text>
+            <Text style={styles.headerSubtitle}>
+              {code} · {status}
+            </Text>
           </View>
-        ) : null}
+        </View>
       </View>
 
       {/* ─── Scroll Container ─── */}
@@ -99,101 +144,245 @@ export function InputDetailScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Basic Information ─── */}
-        <Text style={styles.sectionHeading}>{t('inputDetail.section.basicInfo')}</Text>
-        <View style={styles.card}>
-          {/* Row 1 */}
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.name')}</Text>
-              <Text style={styles.fieldValue}>{item?.name ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.code')}</Text>
-              <Text style={styles.fieldValue}>{item?.code ?? ''}</Text>
-            </View>
-          </View>
+        {/* ─── Horizontal Segmented Pills (Image 1 reference) ─── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.pillsScrollView}
+          contentContainerStyle={styles.pillsScrollContent}
+        >
+          <TouchableOpacity
+            style={[
+              styles.pillBtn,
+              activeTab === 'basic' && styles.pillBtnActive,
+            ]}
+            onPress={() => setActiveTab('basic')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                activeTab === 'basic' && styles.pillTextActive,
+              ]}
+            >
+              Basic Info
+            </Text>
+          </TouchableOpacity>
 
-          {/* Row 2 */}
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.category')}</Text>
-              <Text style={styles.fieldValue}>{item?.category ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.subcategory')}</Text>
-              <Text style={styles.fieldValue}>{item?.subcategory ?? ''}</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.pillBtn,
+              activeTab === 'composition' && styles.pillBtnActive,
+            ]}
+            onPress={() => setActiveTab('composition')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                activeTab === 'composition' && styles.pillTextActive,
+              ]}
+            >
+              Composition & Usage
+            </Text>
+          </TouchableOpacity>
 
-          {/* Row 3 */}
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.farmingType')}</Text>
-              <Text style={styles.fieldValue}>{item?.farmingType ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.status')}</Text>
-              <Text style={styles.fieldValue}>{item?.status ?? ''}</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.pillBtn,
+              activeTab === 'documents' && styles.pillBtnActive,
+            ]}
+            onPress={() => setActiveTab('documents')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                activeTab === 'documents' && styles.pillTextActive,
+              ]}
+            >
+              Documents
+            </Text>
+          </TouchableOpacity>
 
-          {/* Row 4 */}
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.approvedDate')}</Text>
-              <Text style={styles.fieldValue}>{item?.approvedDate ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.manufacturer')}</Text>
-              <Text style={styles.fieldValue}>{item?.manufacturer ?? ''}</Text>
-            </View>
-          </View>
-        </View>
+          <TouchableOpacity
+            style={[
+              styles.pillBtn,
+              activeTab === 'history' && styles.pillBtnActive,
+            ]}
+            onPress={() => setActiveTab('history')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                activeTab === 'history' && styles.pillTextActive,
+              ]}
+            >
+              Approval & History
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
 
-        {/* ─── 2. Usage Information ─── */}
-        <Text style={styles.sectionHeading}>{t('inputDetail.section.usageInfo')}</Text>
-        <View style={styles.card}>
-          {/* Row 1 */}
-          <View style={styles.colFull}>
-            <Text style={styles.fieldLabel}>{t('inputDetail.label.method')}</Text>
-            <Text style={styles.fieldValue}>{item?.method ?? ''}</Text>
-          </View>
-
-          {/* Row 2 */}
-          <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.usage')}</Text>
-              <Text style={styles.fieldValue}>{item?.usage ?? ''}</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>{t('inputDetail.label.frequency')}</Text>
-              <Text style={styles.fieldValue}>{item?.frequency ?? ''}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── 3. Related Crops ─── */}
-        {item?.crops && item.crops.length > 0 && (
+        {(activeTab === 'basic' || activeTab === 'composition') && (
           <>
-            <Text style={styles.sectionHeading}>{t('inputDetail.section.relatedCrops')}</Text>
-            <View style={styles.card}>
-              <View style={styles.cropsRow}>
-                {item.crops.map((crop) => (
-                  <View key={crop} style={styles.cropPill}>
-                    <Text style={styles.cropPillText}>{crop}</Text>
-                  </View>
-                ))}
+            {/* ─── Section 1: Basic Information ─── */}
+            <Text style={styles.sectionHeading}>Basic Information</Text>
+            <View style={styles.tableCard}>
+              {/* Row 1: Input name */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Input name</Text>
+                <Text style={styles.tableValue}>{name}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 2: Category */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Category</Text>
+                <Text style={styles.tableValue}>{category}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 3: Manufacturer / supplier */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Manufacturer / supplier</Text>
+                <Text style={styles.tableValue}>{manufacturer}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 4: Registration ID */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Registration ID</Text>
+                <Text style={styles.tableValue}>{registrationId}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 5: Record status */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Record status</Text>
+                <Text
+                  style={[
+                    styles.tableValue,
+                    isApproved ? styles.statusApprovedText : styles.statusInactiveText,
+                  ]}
+                >
+                  {status}
+                </Text>
+              </View>
+            </View>
+
+            {/* ─── Section 2: Composition & Usage ─── */}
+            <Text style={styles.sectionHeading}>Composition & Usage</Text>
+            <View style={styles.tableCard}>
+              {/* Row 1: Composition */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Composition</Text>
+                <Text style={styles.tableValue}>{composition}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 2: Applicable crops */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Applicable crops</Text>
+                <Text style={styles.tableValue}>{applicableCrops}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 3: Dosage */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Dosage</Text>
+                <Text style={styles.tableValue}>{dosage}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Row 4: Application method */}
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Application method</Text>
+                <Text style={styles.tableValue}>{applicationMethod}</Text>
               </View>
             </View>
           </>
         )}
 
-        <View style={{ height: adminSpacing.xl }} />
+        {activeTab === 'documents' && (
+          <>
+            <Text style={styles.sectionHeading}>Supporting Documents</Text>
+            <View style={styles.tableCard}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Safety Data Sheet (MSDS)</Text>
+                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening MSDS PDF')}>
+                  <Text style={styles.linkText}>View PDF</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>NPOP Organic Certificate</Text>
+                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Certificate PDF')}>
+                  <Text style={styles.linkText}>View PDF</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Usage Label Spec</Text>
+                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Label PDF')}>
+                  <Text style={styles.linkText}>View PDF</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <>
+            <Text style={styles.sectionHeading}>Approval & History</Text>
+            <View style={styles.tableCard}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>11 Oct 2026</Text>
+                <Text style={styles.tableValue}>Approved by Priya Nair</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>08 Oct 2026</Text>
+                <Text style={styles.tableValue}>Submitted by GreenGro Organics</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>01 Oct 2026</Text>
+                <Text style={styles.tableValue}>Draft created by Agronomy team</Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Space for bottom fixed bar */}
+        <View style={{ height: 90 }} />
       </ScrollView>
-    </SafeAreaView>
+
+      {/* ─── Fixed Bottom Actions Bar (Image 5) ─── */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={handleEdit}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.editBtnText}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.deactivateBtn}
+          onPress={handleDeactivate}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deactivateBtnText}>
+            {isDeactivated ? 'Activate' : 'Deactivate'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
+
+// ─── Styles Strictly Derived from Admin Theme ─────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
@@ -201,17 +390,17 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
   },
 
-  // Header
+  // Header Banner (Image 5)
   header: {
     backgroundColor: adminColors.brand,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: adminSpacing.xs,
+    gap: adminSpacing.xs,
   },
   backBtn: {
     paddingRight: adminSpacing.xs,
@@ -219,44 +408,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   headerTitle: {
-    ...adminType.title,
+    fontSize: 19,
+    fontWeight: '800',
     color: adminColors.onBrand,
     letterSpacing: -0.3,
-    marginLeft: adminSpacing.xs,
   },
-  headerStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 34,
-    marginTop: adminSpacing.xs,
-  },
-  headerStatusLabel: {
-    ...adminType.rowMeta,
+  headerSubtitle: {
+    fontSize: 12.5,
     color: adminColors.onBrand,
     opacity: 0.9,
+    marginTop: 2,
     fontWeight: '500',
-  },
-  statusBadge: {
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-  },
-  statusBadgeText: {
-    ...adminType.caption,
-    fontWeight: '700',
-  },
-  badgeActive: {
-    backgroundColor: adminColors.success.bg,
-  },
-  badgeTextActive: {
-    color: adminColors.success.text,
-  },
-  badgeDiscontinued: {
-    backgroundColor: adminColors.muted,
-  },
-  badgeTextDiscontinued: {
-    color: adminColors.onBrand,
   },
 
   // Scroll Container
@@ -269,62 +436,134 @@ const styles = StyleSheet.create({
     paddingBottom: adminSpacing.xl,
   },
 
-  // Section Heading
-  sectionHeading: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+  // Horizontal Segmented Pills (Image 1 reference)
+  pillsScrollView: {
+    marginBottom: adminSpacing.md,
   },
-
-  // Card Structure
-  card: {
+  pillsScrollContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: adminSpacing.md,
+  },
+  pillBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    ...adminShadow.sm,
+    borderColor: '#D8D1C9',
   },
-  twoColRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: adminSpacing.md,
+  pillBtnActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
-  col: {
-    flex: 1,
-  },
-  colFull: {
-    width: '100%',
-  },
-  fieldLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
-    fontWeight: '500',
-  },
-  fieldValue: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-
-  // Related Crops Row
-  cropsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: adminSpacing.sm,
-  },
-  cropPill: {
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  cropPillText: {
-    ...adminType.caption,
+  pillText: {
+    fontSize: 12.5,
     fontWeight: '700',
     color: adminColors.ink,
   },
+  pillTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '800',
+  },
+
+  // Section Heading
+  sectionHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.xs + 2,
+    paddingHorizontal: 2,
+  },
+
+  // Table Card Structure (Image 5)
+  tableCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: '#EDE7E1',
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 10,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  tableLabel: {
+    fontSize: 13,
+    color: adminColors.muted,
+    flex: 1,
+  },
+  tableValue: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'right',
+    flex: 1.3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  statusApprovedText: {
+    color: '#059669',
+  },
+  statusInactiveText: {
+    color: '#6B7280',
+  },
+  linkText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+
+  // Fixed Bottom Bar (Image 5)
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm + 2,
+    paddingBottom: adminSpacing.lg + 4,
+    backgroundColor: 'rgba(247, 244, 240, 0.98)',
+    borderTopWidth: 1,
+    borderTopColor: '#EDE7E1',
+  },
+  editBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: '#7A2E14',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#7A2E14',
+  },
+  deactivateBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#9E978E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deactivateBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
 });
+

@@ -56,6 +56,8 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
 
 export interface IncidentItem {
   id: string;
+  displayId?: string;
+  displayReportId?: string;
   farmer: string;
   farmerId: string;
   farm: string;
@@ -63,64 +65,352 @@ export interface IncidentItem {
   crop: 'Carrot' | 'Cabbage' | 'Tomato';
   variety: string;
   farmZone: string;
+  plot?: string;
   cropStage: string;
   pest: string;
   scientificName: string;
   severity: 'Low' | 'Medium' | 'High';
   status: 'Ongoing' | 'Resolved';
   detectedDate: string;
+  reportedDate?: string;
+  resolvedDate?: string;
   farmerNotes: string;
   photos: string;
+  photosCount?: string;
   treatmentName: string;
   treatmentDate: string;
   treatmentStatus: string;
   treatmentNotes: string;
+  layoutType?: 'top-details' | 'top-id';
+  actions?: string[];
 }
 
 export const SAMPLE_INCIDENTS: IncidentItem[] = [
   {
-    id: 'PEST-00421',
+    id: 'PI-0101',
+    displayId: 'PI-2026-0007',
+    displayReportId: 'INC-2026-0007',
     farmer: 'Ramesh Kumar',
     farmerId: 'FR-00241',
-    farm: 'Ooty Farm 01',
+    farm: 'Coonoor Farm 01',
+    zone: 'Coonoor',
+    crop: 'Tomato',
+    variety: 'Roma',
+    farmZone: 'plot 1',
+    plot: 'Coonoor, plot 1',
+    cropStage: 'Vegetative',
+    pest: 'Late Blight',
+    scientificName: 'Phytophthora infestans',
+    severity: 'High',
+    status: 'Ongoing',
+    detectedDate: '12 Oct 2026',
+    reportedDate: '12 Oct 2026',
+    farmerNotes: 'Demo farmer report (placeholder).',
+    photos: 'none uploaded',
+    photosCount: '2 photos',
+    treatmentName: 'None linked',
+    treatmentDate: '',
+    treatmentStatus: 'Pending',
+    treatmentNotes: '',
+    layoutType: 'top-details',
+    actions: ['Review Treatment', 'View Incident'],
+  },
+  {
+    id: 'PI-0097',
+    displayId: 'PI-0097',
+    displayReportId: 'INC-2026-0005',
+    farmer: 'Selvi',
+    farmerId: 'FR-00189',
+    farm: 'Coonoor Farm 02',
+    zone: 'Coonoor',
+    crop: 'Cabbage',
+    variety: 'Golden Acre',
+    farmZone: 'plot 2',
+    plot: 'Coonoor, plot 2',
+    cropStage: 'Head Formation',
+    pest: 'Aphid Infestation',
+    scientificName: 'Aphidoidea',
+    severity: 'Medium',
+    status: 'Resolved',
+    detectedDate: '3 Oct 2026',
+    reportedDate: '3 Oct 2026',
+    resolvedDate: '9 Oct 2026',
+    farmerNotes: 'Infestation controlled after treatment.',
+    photos: '1 photo',
+    photosCount: '1 photo',
+    treatmentName: 'Neem-oil foliar spray',
+    treatmentDate: '4 Oct 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Resolved successfully.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
+  },
+  {
+    id: 'PI-0095',
+    displayId: 'PI-0095',
+    displayReportId: 'INC-2026-0004',
+    farmer: 'Murugan',
+    farmerId: 'FR-00112',
+    farm: 'Ooty Farm 04',
+    zone: 'Ooty',
+    crop: 'Carrot',
+    variety: 'Kuroda',
+    farmZone: 'plot 1',
+    plot: 'Ooty, plot 1',
+    cropStage: 'Root Bulking',
+    pest: 'Root Knot Nematode',
+    scientificName: 'Meloidogyne spp.',
+    severity: 'Medium',
+    status: 'Ongoing',
+    detectedDate: '1 Oct 2026',
+    reportedDate: '1 Oct 2026',
+    farmerNotes: 'Stunted root growth observed.',
+    photos: 'none uploaded',
+    photosCount: '0 photos',
+    treatmentName: 'Trichoderma soil drench',
+    treatmentDate: '2 Oct 2026',
+    treatmentStatus: 'In Progress',
+    treatmentNotes: 'Bio-agent applied.',
+    layoutType: 'top-details',
+    actions: ['Review Treatment', 'View Incident'],
+  },
+  {
+    id: 'PI-0092',
+    displayId: 'PI-0092',
+    displayReportId: 'INC-2026-0003',
+    farmer: 'Anand',
+    farmerId: 'FR-00305',
+    farm: 'Kotagiri Farm 01',
+    zone: 'Kotagiri',
+    crop: 'Tomato',
+    variety: 'Arka Rakshak',
+    farmZone: 'plot 3',
+    plot: 'Kotagiri, plot 3',
+    cropStage: 'Flowering',
+    pest: 'Whitefly',
+    scientificName: 'Bemisia tabaci',
+    severity: 'Low',
+    status: 'Resolved',
+    detectedDate: '28 Sep 2026',
+    reportedDate: '28 Sep 2026',
+    resolvedDate: '5 Oct 2026',
+    farmerNotes: 'Yellow sticky traps installed.',
+    photos: '1 photo',
+    photosCount: '1 photo',
+    treatmentName: 'Yellow Sticky Traps',
+    treatmentDate: '29 Sep 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Trap count normalized.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
+  },
+  {
+    id: 'PI-0089',
+    displayId: 'PI-0089',
+    displayReportId: 'INC-2026-0002',
+    farmer: 'Kavitha',
+    farmerId: 'FR-00142',
+    farm: 'Coonoor Farm 03',
+    zone: 'Coonoor',
+    crop: 'Cabbage',
+    variety: 'Sugarloaf',
+    farmZone: 'plot 1',
+    plot: 'Coonoor, plot 1',
+    cropStage: 'Vegetative',
+    pest: 'Diamondback Moth',
+    scientificName: 'Plutella xylostella',
+    severity: 'High',
+    status: 'Ongoing',
+    detectedDate: '25 Sep 2026',
+    reportedDate: '25 Sep 2026',
+    farmerNotes: 'Larval holes seen on leaves.',
+    photos: '2 photos',
+    photosCount: '2 photos',
+    treatmentName: 'Bt spray',
+    treatmentDate: '26 Sep 2026',
+    treatmentStatus: 'In Progress',
+    treatmentNotes: 'Second application scheduled.',
+    layoutType: 'top-details',
+    actions: ['Review Treatment', 'View Incident'],
+  },
+  {
+    id: 'PI-0086',
+    displayId: 'PI-0086',
+    displayReportId: 'INC-2026-0001',
+    farmer: 'Ramesh Kumar',
+    farmerId: 'FR-00241',
+    farm: 'Coonoor Farm 01',
+    zone: 'Coonoor',
+    crop: 'Tomato',
+    variety: 'Roma',
+    farmZone: 'plot 2',
+    plot: 'Coonoor, plot 2',
+    cropStage: 'Seedling',
+    pest: 'Damping Off',
+    scientificName: 'Pythium spp.',
+    severity: 'Medium',
+    status: 'Ongoing',
+    detectedDate: '22 Sep 2026',
+    reportedDate: '22 Sep 2026',
+    farmerNotes: 'Seedling collar rot noticed.',
+    photos: '1 photo',
+    photosCount: '1 photo',
+    treatmentName: 'Copper Oxychloride drench',
+    treatmentDate: '23 Sep 2026',
+    treatmentStatus: 'In Progress',
+    treatmentNotes: 'Drenching applied.',
+    layoutType: 'top-details',
+    actions: ['Review Treatment', 'View Incident'],
+  },
+  {
+    id: 'PI-0083',
+    displayId: 'PI-0083',
+    displayReportId: 'INC-2026-0000',
+    farmer: 'Suresh',
+    farmerId: 'FR-00201',
+    farm: 'Ooty Farm 02',
     zone: 'Ooty',
     crop: 'Carrot',
     variety: 'Nantes',
-    farmZone: 'Plot 2',
+    farmZone: 'plot 4',
+    plot: 'Ooty, plot 4',
     cropStage: 'Vegetative',
-    pest: 'Aphid',
-    scientificName: 'Aphidoidea',
-    severity: 'Medium',
-    status: 'Ongoing',
-    detectedDate: '28 Sep 2026',
-    farmerNotes: 'Noticed on underside of leaves, spreading slowly.',
-    photos: '2 attached',
-    treatmentName: 'Neem-oil foliar spray',
-    treatmentDate: '29 Sep 2026',
-    treatmentStatus: 'Applied',
-    treatmentNotes: 'First application complete, monitoring for improvement.',
+    pest: 'Leaf Blight',
+    scientificName: 'Alternaria dauci',
+    severity: 'Low',
+    status: 'Resolved',
+    detectedDate: '18 Sep 2026',
+    reportedDate: '18 Sep 2026',
+    resolvedDate: '24 Sep 2026',
+    farmerNotes: 'Spots cleared after spray.',
+    photos: 'none uploaded',
+    photosCount: '0 photos',
+    treatmentName: 'Mancozeb foliar spray',
+    treatmentDate: '19 Sep 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Foliage healthy.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
   },
   {
-    id: 'PEST-00398',
-    farmer: 'Selvi',
-    farmerId: 'FR-00189',
-    farm: 'Kotagiri Farm 03',
+    id: 'PI-0080',
+    displayId: 'PI-0080',
+    displayReportId: 'INC-2025-0999',
+    farmer: 'Priya',
+    farmerId: 'FR-00088',
+    farm: 'Kotagiri Farm 02',
     zone: 'Kotagiri',
-    crop: 'Cabbage',
-    variety: 'Golden Acre',
-    farmZone: 'Plot 1',
-    cropStage: 'Head Formation',
-    pest: 'Cabbage Worm',
-    scientificName: 'Pieris rapae',
+    crop: 'Tomato',
+    variety: 'Pusa Ruby',
+    farmZone: 'plot 1',
+    plot: 'Kotagiri, plot 1',
+    cropStage: 'Fruiting',
+    pest: 'Fruit Borer',
+    scientificName: 'Helicoverpa armigera',
     severity: 'High',
     status: 'Resolved',
-    detectedDate: '15 Sep 2026',
-    farmerNotes: 'Holes in outer leaves detected during morning check.',
-    photos: '1 attached',
-    treatmentName: 'Bt biological spray',
-    treatmentDate: '16 Sep 2026',
-    treatmentStatus: 'Applied',
-    treatmentNotes: 'Larval feeding stopped within 48 hours.',
+    detectedDate: '12 Sep 2026',
+    reportedDate: '12 Sep 2026',
+    resolvedDate: '19 Sep 2026',
+    farmerNotes: 'Borer larvae removed and pheromone traps placed.',
+    photos: '2 photos',
+    photosCount: '2 photos',
+    treatmentName: 'Pheromone traps & Neem spray',
+    treatmentDate: '13 Sep 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Infestation arrested.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
+  },
+  {
+    id: 'PI-0077',
+    displayId: 'PI-0077',
+    displayReportId: 'INC-2025-0998',
+    farmer: 'Dhanapal',
+    farmerId: 'FR-00177',
+    farm: 'Ooty Farm 05',
+    zone: 'Ooty',
+    crop: 'Cabbage',
+    variety: 'Golden Acre',
+    farmZone: 'plot 3',
+    plot: 'Ooty, plot 3',
+    cropStage: 'Head Formation',
+    pest: 'Black Rot',
+    scientificName: 'Xanthomonas campestris',
+    severity: 'Medium',
+    status: 'Resolved',
+    detectedDate: '5 Sep 2026',
+    reportedDate: '5 Sep 2026',
+    resolvedDate: '14 Sep 2026',
+    farmerNotes: 'V-shaped lesions treated early.',
+    photos: '1 photo',
+    photosCount: '1 photo',
+    treatmentName: 'Streptocycline spray',
+    treatmentDate: '6 Sep 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Leaves normalized.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
+  },
+  {
+    id: 'PI-0074',
+    displayId: 'PI-0074',
+    displayReportId: 'INC-2025-0997',
+    farmer: 'Mani',
+    farmerId: 'FR-00219',
+    farm: 'Coonoor Farm 04',
+    zone: 'Coonoor',
+    crop: 'Tomato',
+    variety: 'Roma',
+    farmZone: 'plot 2',
+    plot: 'Coonoor, plot 2',
+    cropStage: 'Vegetative',
+    pest: 'Early Blight',
+    scientificName: 'Alternaria solani',
+    severity: 'Low',
+    status: 'Resolved',
+    detectedDate: '1 Sep 2026',
+    reportedDate: '1 Sep 2026',
+    resolvedDate: '7 Sep 2026',
+    farmerNotes: 'Concentric rings spotted on lower leaves.',
+    photos: '1 photo',
+    photosCount: '1 photo',
+    treatmentName: 'Copper spray',
+    treatmentDate: '2 Sep 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Spread arrested.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
+  },
+  {
+    id: 'PI-0071',
+    displayId: 'PI-0071',
+    displayReportId: 'INC-2025-0996',
+    farmer: 'Revathi',
+    farmerId: 'FR-00163',
+    farm: 'Kotagiri Farm 04',
+    zone: 'Kotagiri',
+    crop: 'Carrot',
+    variety: 'Nantes',
+    farmZone: 'plot 2',
+    plot: 'Kotagiri, plot 2',
+    cropStage: 'Seedling',
+    pest: 'Cutworm',
+    scientificName: 'Agrotis ipsilon',
+    severity: 'Low',
+    status: 'Resolved',
+    detectedDate: '25 Aug 2026',
+    reportedDate: '25 Aug 2026',
+    resolvedDate: '30 Aug 2026',
+    farmerNotes: 'Seedling cutting prevented.',
+    photos: 'none uploaded',
+    photosCount: '0 photos',
+    treatmentName: 'Neem cake application',
+    treatmentDate: '26 Aug 2026',
+    treatmentStatus: 'Completed',
+    treatmentNotes: 'Soil treated.',
+    layoutType: 'top-id',
+    actions: ['View Incident', 'History'],
   },
 ];
 
@@ -189,20 +479,11 @@ export function FarmerPestIncidentsScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('farmerPestIncidents.title')}</Text>
-
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setShowFilters(!showFilters)}
-            activeOpacity={0.8}
-            accessibilityLabel="Filter pest incidents"
-          >
-            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Pest Incidents & Treatment</Text>
         </View>
 
         <Text style={styles.headerSubtitle}>
-          {t('farmerPestIncidents.subtitle')}
+          14 incidents · 4 ongoing
         </Text>
       </View>
 
@@ -332,20 +613,32 @@ export function FarmerPestIncidentsScreen({
             <SearchIcon size={18} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
-              placeholder={t('farmerPestIncidents.search.placeholder')}
+              placeholder="Search common or scientific name"
               placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
+            <TouchableOpacity
+              onPress={() => setShowFilters(true)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <FilterSlidersIcon size={20} color={adminColors.brand} />
+            </TouchableOpacity>
           </View>
+        )}
+
+        {/* ─── Records Count ─── */}
+        {!showFilters && (
+          <Text style={styles.recordsCountText}>
+            {filteredIncidents.length} records
+          </Text>
         )}
 
         {/* ─── Incident Cards List ─── */}
         {!showFilters && (
           <View style={styles.listContainer}>
             {filteredIncidents.map((incident) => {
-              const isMedium = incident.severity === 'Medium';
-              const isHigh = incident.severity === 'High';
               const isOngoing = incident.status === 'Ongoing';
 
               return (
@@ -355,54 +648,79 @@ export function FarmerPestIncidentsScreen({
                   onPress={() => onSelectIncident(incident)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.incidentIdText}>{incident.id}</Text>
-                  <Text style={styles.incidentSubline}>
-                    {incident.farmer} · {incident.crop} · {incident.pest}
-                  </Text>
-
-                  {/* Badges Row */}
-                  <View style={styles.badgesRow}>
-                    <View
-                      style={[
-                        styles.severityBadge,
-                        isMedium && styles.badgeMedium,
-                        isHigh && styles.badgeHigh,
-                        !isMedium && !isHigh && styles.badgeLow,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.badgeText,
-                          isMedium && styles.badgeTextMedium,
-                          isHigh && styles.badgeTextHigh,
-                          !isMedium && !isHigh && styles.badgeTextLow,
-                        ]}
-                      >
-                        {incident.severity}
+                  {incident.layoutType === 'top-details' ? (
+                    <>
+                      <Text style={styles.cardMutedMeta}>
+                        {incident.crop} · {incident.plot ?? 'Coonoor, plot 1'} · {incident.pest} · Severity: {incident.severity} · {incident.photosCount ?? '2 photos'}
                       </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        isOngoing ? styles.badgeOngoing : styles.badgeResolved,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.badgeText,
-                          isOngoing ? styles.badgeTextOngoing : styles.badgeTextResolved,
-                        ]}
-                      >
-                        {incident.status}
+                      <Text style={[styles.cardMutedMeta, { marginTop: 2, marginBottom: 8 }]}>
+                        Reported {incident.reportedDate ?? incident.detectedDate}
                       </Text>
-                    </View>
+                      <View style={styles.cardIdRow}>
+                        <Text style={styles.cardIdTitle}>
+                          {incident.id} · {incident.farmer}
+                        </Text>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            isOngoing ? styles.badgeOngoing : styles.badgeResolved,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              isOngoing ? styles.badgeTextOngoing : styles.badgeTextResolved,
+                            ]}
+                          >
+                            {incident.status}
+                          </Text>
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.cardIdRow}>
+                        <Text style={styles.cardIdTitle}>
+                          {incident.id} · {incident.farmer}
+                        </Text>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            isOngoing ? styles.badgeOngoing : styles.badgeResolved,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              isOngoing ? styles.badgeTextOngoing : styles.badgeTextResolved,
+                            ]}
+                          >
+                            {incident.status}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.cardMutedMeta, { marginTop: 4 }]}>
+                        {incident.crop} · {incident.plot ?? 'Coonoor, plot 2'} · {incident.pest} · Severity: {incident.severity} · {incident.photosCount ?? '1 photo'}
+                      </Text>
+                      <Text style={[styles.cardMutedMeta, { marginTop: 2, marginBottom: 8 }]}>
+                        Reported {incident.reportedDate ?? incident.detectedDate}
+                        {incident.resolvedDate ? ` · Resolved ${incident.resolvedDate}` : ''}
+                      </Text>
+                    </>
+                  )}
+
+                  {/* Bottom Action Links */}
+                  <View style={styles.cardActionsRow}>
+                    {(incident.actions ?? ['View Incident']).map((actionText, aIdx) => (
+                      <TouchableOpacity
+                        key={aIdx}
+                        onPress={() => onSelectIncident(incident)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.cardActionLinkText}>{actionText}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-
-                  {/* Detected Date */}
-                  <Text style={styles.detectedDateText}>
-                    Detected {incident.detectedDate}
-                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -494,6 +812,14 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
+  recordsCountText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+  },
+
   // Incident Cards List
   listContainer: {
     gap: adminSpacing.md,
@@ -505,6 +831,37 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     padding: adminSpacing.lg,
     ...adminShadow.sm,
+  },
+  cardMutedMeta: {
+    ...adminType.caption,
+    fontSize: 12.5,
+    color: adminColors.muted,
+    lineHeight: 18,
+  },
+  cardIdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  cardIdTitle: {
+    ...adminType.rowTitle,
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginTop: 6,
+  },
+  cardActionLinkText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.brand,
   },
   incidentIdText: {
     ...adminType.rowTitle,
@@ -528,12 +885,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   statusBadge: {
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 10,
     paddingVertical: 3,
   },
   badgeText: {
     ...adminType.caption,
+    fontSize: 12,
     fontWeight: '700',
   },
   badgeMedium: {
@@ -555,16 +913,16 @@ const styles = StyleSheet.create({
     color: adminColors.success.text,
   },
   badgeOngoing: {
-    backgroundColor: adminColors.info.bg,
+    backgroundColor: '#FEF3E2',
   },
   badgeTextOngoing: {
-    color: adminColors.info.text,
+    color: '#B25E00',
   },
   badgeResolved: {
-    backgroundColor: adminColors.success.bg,
+    backgroundColor: '#EAF5EE',
   },
   badgeTextResolved: {
-    color: adminColors.success.text,
+    color: '#1E7F43',
   },
   detectedDateText: {
     ...adminType.caption,
