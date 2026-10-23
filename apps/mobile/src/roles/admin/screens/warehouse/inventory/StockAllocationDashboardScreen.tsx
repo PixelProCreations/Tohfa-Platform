@@ -1,12 +1,20 @@
-// Design id: M3S07
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
+// Design id: M3S07 (design M3-08 Allocation Dashboard)
+//
+// Read-only: the channel percentages are set by the Super Admin
+// (allocation.channel_percentage.set), so nothing here writes. Tapping a
+// bucket opens its detail sheet, built from the same GET /admin/allocations
+// totals the card shows (allocationBucketDetail). The FCFS note is static
+// text worded from BR-12c and BR-22 only.
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
+import { InfoCard, InfoNote, WalletButton } from '../wallet-cashtopup/WalletParts';
+import { allocationBucketDetail } from './mappers';
 import type {
   AllocationChannelKey,
   AllocationDashboard,
@@ -113,6 +121,8 @@ export function StockAllocationDashboardScreen({
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: rowCount });
   const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));
+  const [selectedChannel, setSelectedChannel] = useState<AllocationChannelKey | undefined>(undefined);
+  const bucket = allocationBucketDetail(dashboard, selectedChannel);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -210,7 +220,14 @@ export function StockAllocationDashboardScreen({
 
           {/* 4 Allocation Cards with curved left colored accent */}
           {allocations.map((alloc) => (
-            <View key={alloc.channel} style={styles.allocationCard}>
+            <TouchableOpacity
+              key={alloc.channel}
+              style={styles.allocationCard}
+              onPress={() => setSelectedChannel(alloc.channel)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={t('inventory.allocation.openDetail', { name: alloc.label })}
+            >
               <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
               <View style={styles.cardContent}>
                 <Text style={[styles.channelName, { color: alloc.titleColor }]}>
@@ -240,19 +257,64 @@ export function StockAllocationDashboardScreen({
                   </View>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
+
+          <InfoNote tone="info">{t('inventory.allocation.fcfsNote')}</InfoNote>
           </>
           ) : null}
 
-          <View style={{ height: 24 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </View>
+
+      {/* Per-bucket detail sheet. No translucent scrim token exists, so the
+          backdrop stays clear and the sheet carries the token shadow. */}
+      <Modal
+        visible={bucket !== undefined}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedChannel(undefined)}
+      >
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setSelectedChannel(undefined)}
+          accessibilityLabel={t('inventory.allocation.detailClose')}
+        >
+          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+            {bucket === undefined ? null : (
+              <>
+                <Text style={styles.sheetTitle}>{bucket.title}</Text>
+                <InfoCard rows={bucket.rows.map((row) => [row])} />
+                <WalletButton
+                  label={t('inventory.allocation.detailClose')}
+                  variant="outline"
+                  onPress={() => setSelectedChannel(undefined)}
+                />
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  bottomSpacer: { height: adminSpacing.xl },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.md,
+    ...adminShadow.lg,
+  },
+  sheetTitle: { ...adminType.sectionHead, color: adminColors.brandDeep },
   incompleteNote: {
     ...adminType.caption,
     color: adminColors.warning.text,
