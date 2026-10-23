@@ -889,7 +889,7 @@ export default function App(): React.JSX.Element {
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
-  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
+  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS ?? []);
   // The admin role the last admin sign-in opened (params.adminRole). Warehouse
   // routes reached from the Sub shell do not all carry it, so remember it for
   // the dev-only demo fallback in useWarehousePermissions.
@@ -2284,7 +2284,7 @@ export default function App(): React.JSX.Element {
             onToggle={(id, value) => {
               // Handle toggle
             }}
-            days={MOCK_DAYS}
+            days={marketDays ?? MOCK_DAYS ?? []}
             onDaysChange={(updatedDays) => {
               // Handle days change
             }}

@@ -20,7 +20,14 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
-import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
+import type {
+  PermissionCheck,
+  ResolvedWalletCustomer,
+  WalletCustomer,
+  WalletTransactionRecord,
+  WarehouseScope,
+  WarehouseScreenBaseProps,
+} from './types';
 import {
   AmountRow,
   Card,
@@ -35,7 +42,11 @@ import {
   walletLayout,
 } from './WalletParts';
 
-export interface CustomerWalletScreenProps extends WarehouseScreenBaseProps {
+export interface CustomerWalletScreenProps extends Partial<Omit<WarehouseScreenBaseProps, 'scope'>> {
+  onBack: () => void;
+  scope?: WarehouseScope | undefined;
+  can?: PermissionCheck | undefined;
+  subtitle?: string | undefined;
   customer?: WalletCustomer | undefined;
   transactions?: readonly WalletTransactionRecord[] | undefined;
   /** Start a cash top-up for this customer. */
@@ -48,9 +59,10 @@ function isDebit(tx: WalletTransactionRecord): boolean {
 }
 
 export function CustomerWalletScreen({
-  scope,
-  can,
+  scope = {},
+  can = () => false,
   onBack,
+  subtitle,
   customer,
   transactions = CUSTOMER_WALLET_TRANSACTIONS,
   onCashTopUp,
@@ -65,17 +77,17 @@ export function CustomerWalletScreen({
     totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
   };
   const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
-  const showTopUp = can('wallet.cash_topup.process') && onCashTopUp !== undefined;
+  const showTopUp = Boolean(can('wallet.cash_topup.process') && onCashTopUp !== undefined);
 
   return (
     <WalletScreen
       title="Customer Wallet"
-      subtitle={active.name}
+      subtitle={subtitle}
       onBack={onBack}
       footer={
         showTopUp ? (
           <WalletFooter>
-            <WalletButton label="Cash Top-Up" icon={<CashIcon />} onPress={() => onCashTopUp(active)} />
+            <WalletButton label="Cash Top-Up" icon={<CashIcon />} onPress={() => onCashTopUp?.(active)} />
           </WalletFooter>
         ) : undefined
       }

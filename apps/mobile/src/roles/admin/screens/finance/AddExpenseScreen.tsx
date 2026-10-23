@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -13,27 +13,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { adminColors, adminShadow, adminSpacing } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  chipActiveBg:  '#FFF2EB',
-  chipActiveText:'#E85226',
-};
-
-// ─── SVG Icons ────────────────────────────────────────────────────────────────
-function BackChevronIcon() {
+function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -42,15 +29,18 @@ function BackChevronIcon() {
   );
 }
 
-const CATEGORIES = [
-  'Warehouse Maintenance',
-  'Electricity & Utilities',
-  'Equipment Repair',
-  'Inter-Warehouse Transport',
-  'Packaging Supplies',
-];
+function ChevronDownIcon({ size = 18, color = '#2D1802' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
-const WAREHOUSES = ['Ooty Main', 'Coonoor Sub', 'Kotagiri Sub', 'Gudalur Sub'];
+const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'UPI', 'Company Card', 'Cheque'];
+const PAYMENT_STATUSES = ['Paid', 'Pending verification', 'Recorded', 'Payment pending'];
+const CATEGORIES = ['Packaging', 'Transport', 'Utilities', 'Maintenance', 'Operational', 'Salary'];
+const WAREHOUSES = ['Main Warehouse, Ooty', 'Sub Warehouse, Coonoor', 'Kotagiri Sub'];
 
 export interface AddExpenseScreenProps {
   onBack: () => void;
@@ -58,20 +48,29 @@ export interface AddExpenseScreenProps {
 }
 
 export function AddExpenseScreen({ onBack, onSuccess }: AddExpenseScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0] ?? 'Warehouse Maintenance');
-  const [selectedWarehouse, setSelectedWarehouse] = useState(WAREHOUSES[0] ?? 'Ooty Main');
+  const [category, setCategory] = useState('Packaging');
   const [amount, setAmount] = useState('');
-  const [notes, setNotes] = useState('');
+  const [warehouse, setWarehouse] = useState('Main Warehouse, Ooty');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [docDescription, setDocDescription] = useState('');
+  const [addedDoc, setAddedDoc] = useState<string | null>(null);
 
-  function handleSubmit() {
+  const [activePicker, setActivePicker] = useState<'category' | 'warehouse' | 'method' | 'status' | null>(null);
+
+  const handleAddDocument = () => {
+    setAddedDoc('invoice_receipt_doc.pdf');
+    Alert.alert('Document Attached', 'invoice_receipt_doc.pdf (142 KB) attached successfully.');
+  };
+
+  const handleSave = () => {
     if (!amount.trim()) {
-      Alert.alert('Missing Field', 'Please enter the expense amount in rupees.');
+      Alert.alert('Required Field', 'Please enter an expense amount.');
       return;
     }
-
     Alert.alert(
-      'Expense Submitted',
-      `Expense voucher for ₹${amount} (${selectedCategory}) submitted for Super Admin review.`,
+      'Expense Saved',
+      `Expense for ₹${amount} (${category}) has been recorded.`,
       [
         {
           text: 'OK',
@@ -82,244 +81,461 @@ export function AddExpenseScreen({ onBack, onSuccess }: AddExpenseScreenProps) {
         },
       ]
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+      {/* ── Top Header Banner ── */}
+      <View style={styles.headerBanner}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBack}
+          activeOpacity={0.8}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Expense Management"
         >
-          {/* Back Button First */}
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-            <BackChevronIcon />
+          <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add expense</Text>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── 1 · Expense Details ── */}
+        <Text style={styles.sectionHeading}>1 · Expense details</Text>
+
+        {/* Category */}
+        <View style={[styles.fieldBlock, { zIndex: activePicker === 'category' ? 50 : 5 }]}>
+          <Text style={styles.fieldLabel}>Category *</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => setActivePicker(activePicker === 'category' ? null : 'category')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.dropdownValueText}>{category || 'Select'}</Text>
+            <ChevronDownIcon size={18} />
           </TouchableOpacity>
-
-          {/* Heading Next */}
-          <Text style={styles.screenTitle}>Log New Expense</Text>
-          <Text style={styles.screenSub}>Submit operational cost voucher for platform approval</Text>
-
-          {/* Form Card */}
-          <View style={styles.formCard}>
-            {/* Category Picker */}
-            <Text style={styles.fieldLabel}>Expense Category</Text>
-            <View style={styles.chipsWrap}>
-              {CATEGORIES.map((cat) => {
-                const isActive = selectedCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.chip, isActive && styles.chipActive]}
-                    onPress={() => setSelectedCategory(cat)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {activePicker === 'category' && (
+            <View style={styles.floatingMenu}>
+              {CATEGORIES.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.menuItem, category === c && styles.menuItemSelected]}
+                  onPress={() => {
+                    setCategory(c);
+                    setActivePicker(null);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.menuItemText, category === c && styles.menuItemTextSelected]}>
+                    {c}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+          )}
+        </View>
 
-            {/* Warehouse Picker */}
-            <Text style={styles.fieldLabel}>Warehouse / Facility</Text>
-            <View style={styles.chipsWrap}>
-              {WAREHOUSES.map((wh) => {
-                const isActive = selectedWarehouse === wh;
-                return (
-                  <TouchableOpacity
-                    key={wh}
-                    style={[styles.chip, isActive && styles.chipActive]}
-                    onPress={() => setSelectedWarehouse(wh)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                      {wh}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+        {/* Amount */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Amount (₹) *</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor="#A0988E"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={setAmount}
+          />
+        </View>
+
+        {/* Warehouse */}
+        <View style={[styles.fieldBlock, { zIndex: activePicker === 'warehouse' ? 40 : 4 }]}>
+          <Text style={styles.fieldLabel}>Warehouse</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => setActivePicker(activePicker === 'warehouse' ? null : 'warehouse')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.dropdownValueText}>{warehouse || 'Select'}</Text>
+            <ChevronDownIcon size={18} />
+          </TouchableOpacity>
+          {activePicker === 'warehouse' && (
+            <View style={styles.floatingMenu}>
+              {WAREHOUSES.map((w) => (
+                <TouchableOpacity
+                  key={w}
+                  style={[styles.menuItem, warehouse === w && styles.menuItemSelected]}
+                  onPress={() => {
+                    setWarehouse(w);
+                    setActivePicker(null);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.menuItemText, warehouse === w && styles.menuItemTextSelected]}>
+                    {w}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+          )}
+        </View>
 
-            {/* Amount Input */}
-            <Text style={styles.fieldLabel}>Amount (₹)</Text>
-            <View style={styles.inputBox}>
-              <Text style={styles.rupeeSymbol}>₹</Text>
-              <TextInput
-                style={styles.textInput}
-                keyboardType="numeric"
-                placeholder="e.g. 4500"
-                placeholderTextColor="#A8A29E"
-                value={amount}
-                onChangeText={setAmount}
-              />
-            </View>
-
-            {/* Notes Input */}
-            <Text style={styles.fieldLabel}>Notes / Vendor Reference</Text>
-            <TextInput
-              style={[styles.textInputArea]}
-              placeholder="e.g. Invoiced by Nilgiri Electricals #INV-9921"
-              placeholderTextColor="#A8A29E"
-              multiline
-              numberOfLines={3}
-              value={notes}
-              onChangeText={setNotes}
-            />
+        {/* Currency (Locked) */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Currency 🔒</Text>
+          <View style={[styles.textInput, styles.lockedInput]}>
+            <Text style={styles.lockedText}>INR</Text>
           </View>
+        </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.8}>
-            <Text style={styles.submitBtnText}>Submit Expense for Approval</Text>
+        {/* Payment Method */}
+        <View style={[styles.fieldBlock, { zIndex: activePicker === 'method' ? 30 : 3 }]}>
+          <Text style={styles.fieldLabel}>Payment method *</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => setActivePicker(activePicker === 'method' ? null : 'method')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.dropdownValueText, !paymentMethod && styles.placeholderText]}>
+              {paymentMethod || 'Select'}
+            </Text>
+            <ChevronDownIcon size={18} />
+          </TouchableOpacity>
+          {activePicker === 'method' && (
+            <View style={styles.floatingMenu}>
+              {PAYMENT_METHODS.map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.menuItem, paymentMethod === m && styles.menuItemSelected]}
+                  onPress={() => {
+                    setPaymentMethod(m);
+                    setActivePicker(null);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.menuItemText, paymentMethod === m && styles.menuItemTextSelected]}>
+                    {m}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Payment Status */}
+        <View style={[styles.fieldBlock, { zIndex: activePicker === 'status' ? 20 : 2 }]}>
+          <Text style={styles.fieldLabel}>Payment status *</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => setActivePicker(activePicker === 'status' ? null : 'status')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.dropdownValueText, !paymentStatus && styles.placeholderText]}>
+              {paymentStatus || 'Select'}
+            </Text>
+            <ChevronDownIcon size={18} />
+          </TouchableOpacity>
+          {activePicker === 'status' && (
+            <View style={styles.floatingMenu}>
+              {PAYMENT_STATUSES.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.menuItem, paymentStatus === s && styles.menuItemSelected]}
+                  onPress={() => {
+                    setPaymentStatus(s);
+                    setActivePicker(null);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.menuItemText, paymentStatus === s && styles.menuItemTextSelected]}>
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ── 3 · Supporting documents ── */}
+        <Text style={[styles.sectionHeading, { marginTop: 22 }]}>3 · Supporting documents</Text>
+        <Text style={styles.fieldLabel}>Receipt or invoice</Text>
+
+        <TouchableOpacity
+          style={styles.addDocBtn}
+          onPress={handleAddDocument}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.addDocBtnText}>Add a document</Text>
+        </TouchableOpacity>
+        <Text style={styles.docLimitsText}>JPG, PNG or PDF, up to 5 MB (proposed limits).</Text>
+
+        <View style={[styles.fieldBlock, { marginTop: 12 }]}>
+          <Text style={styles.fieldLabel}>Document description</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder=""
+            value={docDescription}
+            onChangeText={setDocDescription}
+          />
+        </View>
+
+        {/* ── 4 · Review ── */}
+        <Text style={[styles.sectionHeading, { marginTop: 22 }]}>4 · Review</Text>
+        <View style={styles.reviewCard}>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Category</Text>
+            <Text style={styles.reviewValue}>{category || '—'}</Text>
+          </View>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Amount</Text>
+            <Text style={styles.reviewValue}>{amount ? `₹${amount}` : '—'}</Text>
+          </View>
+          <View style={styles.reviewRow}>
+            <Text style={styles.reviewLabel}>Warehouse</Text>
+            <Text style={styles.reviewValue}>{warehouse || '—'}</Text>
+          </View>
+          <View style={[styles.reviewRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.reviewLabel}>Documents</Text>
+            <Text style={styles.reviewValue}>{addedDoc ? addedDoc : 'None'}</Text>
+          </View>
+        </View>
+
+        {/* Bottom Buttons */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveBtnText}>Save Expense</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: adminSpacing.xxxl }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
+  },
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingTop: 8,
+    paddingHorizontal: adminSpacing.md,
+    paddingBottom: adminSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+    letterSpacing: -0.3,
   },
   scroll: {
     flex: 1,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 28,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: 16,
+    paddingBottom: adminSpacing.xxxl,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  screenTitle: {
-    fontSize: 24,
+  sectionHeading: {
+    fontSize: 14.5,
     fontWeight: '800',
-    color: PALETTE.titleRust,
-    letterSpacing: -0.3,
+    color: '#8A4A00',
+    marginBottom: 10,
   },
-  screenSub: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: PALETTE.labelMuted,
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  formCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    padding: 18,
-    marginBottom: 20,
+  fieldBlock: {
+    position: 'relative',
+    marginBottom: 14,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: PALETTE.ink,
-    marginBottom: 8,
-    marginTop: 12,
+    color: '#1F1714',
+    marginBottom: 5,
   },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 6,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: PALETTE.pageBg,
+  dropdownBox: {
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  chipActive: {
-    backgroundColor: PALETTE.chipActiveBg,
-    borderColor: PALETTE.orange,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.labelMuted,
-  },
-  chipTextActive: {
-    color: PALETTE.chipActiveText,
-    fontWeight: '700',
-  },
-  inputBox: {
+    borderColor: '#D8D0C7',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    backgroundColor: PALETTE.pageBg,
-    height: 48,
+    justifyContent: 'space-between',
   },
-  rupeeSymbol: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    marginRight: 6,
+  dropdownValueText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#1F1714',
+  },
+  placeholderText: {
+    color: '#786F68',
+    fontWeight: '400',
+  },
+  floatingMenu: {
+    position: 'absolute',
+    top: 68,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#4A4A4A',
+    borderRadius: 6,
+    overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 25,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  menuItemSelected: {
+    backgroundColor: '#737373',
+  },
+  menuItemText: {
+    fontSize: 13.5,
+    color: '#1F1714',
+    fontWeight: '500',
+  },
+  menuItemTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   textInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: PALETTE.ink,
-  },
-  textInputArea: {
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 10,
-    padding: 12,
-    backgroundColor: PALETTE.pageBg,
-    fontSize: 13,
-    color: PALETTE.ink,
-    textAlignVertical: 'top',
-    height: 80,
-  },
-  submitBtn: {
-    backgroundColor: PALETTE.orange,
+    height: 44,
     borderRadius: 12,
-    height: 50,
+    borderWidth: 1,
+    borderColor: '#D8D0C7',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    fontSize: 13.5,
+    color: '#1F1714',
+  },
+  lockedInput: {
+    justifyContent: 'center',
+    backgroundColor: '#F7F5F2',
+  },
+  lockedText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#5A524D',
+  },
+  addDocBtn: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: PALETTE.orange,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 3,
+    marginBottom: 6,
   },
-  submitBtnText: {
+  addDocBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.brand,
+  },
+  docLimitsText: {
+    fontSize: 11.5,
+    color: '#786F68',
+    marginBottom: 4,
+  },
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 20,
+    ...adminShadow.sm,
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
+  },
+  reviewLabel: {
+    fontSize: 12.5,
+    color: '#6D6761',
+    fontWeight: '500',
+  },
+  reviewValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1F1714',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  saveBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#D8D0C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  saveBtnText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D8D0C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#4A4A4A',
   },
 });
