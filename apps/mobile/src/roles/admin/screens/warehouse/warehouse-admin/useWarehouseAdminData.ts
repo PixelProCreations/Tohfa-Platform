@@ -10,6 +10,8 @@
  *   GET /admin/tasks/summary?warehouseId= task.own.view            (BR-77; `open`)
  *   GET /admin/sub-warehouse-admins       admin.sub_wh_admin.create
  *   POST /admin/sub-warehouse-admins      admin.sub_wh_admin.create (BR-25, BR-81)
+ *   GET /warehouses/{id}/storage-locations inventory.batch.view    (BR-79; `total` is the count)
+ *   GET /admin/staff-attendance/roll-call  admin.staff.attendance.view (BR-84; staff count)
  *
  * Each hook takes `enabled`, so a caller without the code fetches nothing and
  * gets no 403. Issue counts ask for one row and read `total`: the list's exact
@@ -21,7 +23,17 @@ import { adminKeys } from '../../../api/queryKeys';
 import { createSubAdmin, listAllSubAdmins, type CreateSubAdminBody, type CreatedSubAdminDto, type SubAdminDto } from '../../../api/subAdmins';
 import { getTaskSummary, type TaskSummaryDto } from '../../../api/tasks';
 import { listWarehouseIssues, type IssueStatusCode } from '../../../api/warehouseIssues';
-import { getWarehouse, getWarehouseCapacity, type WarehouseCapacityDto, type WarehouseDto } from '../../../api/warehouses';
+import { getRollCall } from '../../../api/attendance';
+import {
+  getWarehouse,
+  getWarehouseCapacity,
+  listStorageLocations,
+  type WarehouseCapacityDto,
+  type WarehouseDto,
+} from '../../../api/warehouses';
+import { istDay } from '../../../utils/datetime';
+import { ATTENDANCE_MODULE } from '../staff-attendance/useStaffData';
+import { activeStaffCount, sumStorageAreas } from './overviewFigures';
 
 /** One module for this area's reads, told apart by `resource`, so no other area's key can collide. */
 const AREA = 'warehouseAdmin';
@@ -78,6 +90,52 @@ export function useOpenIssueCounts(warehouseIds: readonly string[], enabled: boo
     queries: warehouseIds.map((id) => ({
       queryKey: adminKeys.scoped(AREA, id, { resource: 'issueCount', status: 'OPEN' }),
       queryFn: ({ signal }: { signal: AbortSignal }) => countIssues(id, 'OPEN', signal),
+      enabled,
+    })),
+  });
+  const out = new Map<string, LiveResult<number>>();
+  warehouseIds.forEach((id, i) => {
+    const q = results[i];
+    if (q !== undefined) out.set(id, live(q, enabled));
+  });
+  return out;
+}
+
+/**
+ * Storage areas over `warehouseIds`: the active storage locations of each, from
+ * a one-row page's exact `total` (one small request per warehouse; there are
+ * four, BR-23). Active only: a deactivated location is out of service, and the
+ * Sub snapshot counts storage the same way.
+ */
+export function useStorageAreaTotal(warehouseIds: readonly string[], enabled: boolean) {
+  const ids = [...warehouseIds].sort();
+  return useAdminQuery(
+    adminKeys.scoped(AREA, undefined, { resource: 'storageAreaTotal', ids: ids.join(',') }),
+    async (signal) => {
+      const totals = await Promise.all(
+        ids.map((id) => listStorageLocations(id, { isActive: true, page: 1, pageSize: COUNT_PAGE_SIZE }, signal).then((p) => p.total)),
+      );
+      return sumStorageAreas(totals);
+    },
+    { enabled: enabled && ids.length > 0 },
+  );
+}
+
+/**
+ * Staff count per warehouse uuid, derived from today's (IST) roll call of each
+ * warehouse. One request per warehouse rather than one for all: a Main admin
+ * confined to one warehouse gets 404 for the others, and that must hide their
+ * count, not read as zero staff. The key is the Staff screens' own roll-call
+ * key (useRollCall with the Main scope), so both share the cache and an
+ * attendance write refreshes the count.
+ */
+export function useStaffCounts(warehouseIds: readonly string[], enabled: boolean): Map<string, LiveResult<number>> {
+  const date = istDay(new Date());
+  const results = useQueries({
+    queries: warehouseIds.map((id) => ({
+      queryKey: adminKeys.scoped(ATTENDANCE_MODULE, undefined, { resource: 'roll-call', date, warehouseId: id }),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getRollCall({ date, warehouseId: id }, signal),
+      select: (dto: Awaited<ReturnType<typeof getRollCall>>) => activeStaffCount(dto, id),
       enabled,
     })),
   });

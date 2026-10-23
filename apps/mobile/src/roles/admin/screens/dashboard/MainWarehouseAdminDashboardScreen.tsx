@@ -41,6 +41,8 @@ import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance'
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
+import { capacityTone, nearFullSignal, WAREHOUSE_OVERVIEW_CODES, type CapacityTone } from '../warehouse/warehouse-admin/overviewFigures';
+import { useStorageAreaTotal } from '../warehouse/warehouse-admin/useWarehouseAdminData';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   NotificationsFlow,
@@ -75,7 +77,6 @@ import {
   EMPTY_TRANSFER_FIGURES,
   FIGURE_PLACEHOLDER,
   barWidthPercent,
-  capacityLevel,
   ALERT_TYPE_FILTERS,
   collectPages,
   countDashboardAlerts,
@@ -181,6 +182,23 @@ const PALETTE = {
   greenPillBg: '#E6F7F2',
   brandBrown: '#5C3D2E',
   subTextMuted: '#8C827A',
+};
+
+/**
+ * Capacity pill / bar colours per tone (overviewFigures.capacityTone). The
+ * near-full state is the server's CAPACITY_NEAR_FULL alert, never a client
+ * cut-off (root CLAUDE.md 2.7); "neutral" makes no claim either way.
+ */
+const CAPACITY_PILL: Record<CapacityTone, { bg: string; fg: string; bar: string }> = {
+  over: { bg: PALETTE.redBg, fg: PALETTE.red, bar: PALETTE.red },
+  nearFull: { bg: PALETTE.amberBg, fg: PALETTE.amber, bar: PALETTE.amber },
+  neutral: { bg: PALETTE.borderLight, fg: PALETTE.textMuted, bar: PALETTE.primary },
+};
+/** The Home progress bars keep their design green unless the server flagged the warehouse. */
+const HOME_CAPACITY_BAR: Record<CapacityTone, string> = {
+  over: PALETTE.red,
+  nearFull: PALETTE.goldProgress,
+  neutral: PALETTE.greenProgress,
 };
 
 export type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -836,6 +854,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const perfTodayQuery = useWarehousesPerformance(coveredIds, { from: today, to: today }, canAllView && warehousesQuery.data !== undefined);
   const perfMtdQuery = useWarehousesPerformance(coveredIds, monthToDateRange(now), canAllView && whSubView === 'warehouse_performance');
   const salesMtdQuery = useDashboardSalesSummary(selectedWarehouseId, monthToDateRange(now), canAllView && access.sales && whSubView === 'warehouse_performance');
+  // Storage areas of the covered warehouses (GET /warehouses/{id}/storage-locations `total`, BR-79):
+  // one one-row page per warehouse, read only while Capacity Summary (the one place they show) is open.
+  const canStorageAreas = can(WAREHOUSE_OVERVIEW_CODES.storageAreas);
+  const storageAreasQuery = useStorageAreaTotal(coveredIds, canAllView && canStorageAreas && whSubView === 'warehouse_capacity');
 
   // The newest events of the covered warehouses (GET /warehouses/{id}/activity, BR-104): stock
   // movements, receipts, transfers, issues, returns, documents. Needs warehouse.activity.view.
@@ -852,6 +874,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     live,
   );
   const liveAlerts = alertsQuery.data?.items ?? NO_ALERTS;
+  // Which warehouses the server flags as near full (CAPACITY_NEAR_FULL, system_config's
+  // threshold): drawn on the capacity pills and bars. null until the alerts have loaded.
+  const nearFull = useMemo(() => (alertsQuery.data === undefined ? null : nearFullSignal(alertsQuery.data.items)), [alertsQuery.data]);
 
   // The alerts the caller snoozed (BR-78): read only while that list is shown.
   const snoozedAlertsQuery = useAdminQuery(
@@ -884,6 +909,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const perfMtdSrc = sourceOf(perfMtdQuery);
   const salesMtdSrc = sourceOf(salesMtdQuery);
   const taskSummarySrc = sourceOf(taskSummaryQuery);
+  const storageAreasSrc = sourceOf(storageAreasQuery);
 
   // The Inventory tab overview (8 cards + sections), shared with the Sub shell. Main sends the
   // header filter's warehouse uuid, or none for all of them; the server scopes every read again
@@ -1217,12 +1243,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
                 <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
+              <Text style={styles.subHeaderTitle}>{t('mainDashboard.overview.title')}</Text>
             </View>
           </View>
           <EmptyState
-            title="Multi-warehouse view not available"
-            subtitle="The all-warehouses overview needs warehouse.all.view."
+            title={t('mainDashboard.overview.notAvailable.title')}
+            subtitle={t('mainDashboard.overview.notAvailable.subtitle')}
           />
         </View>
       );
@@ -1235,25 +1261,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
               <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
+            <Text style={styles.subHeaderTitle}>{t('mainDashboard.overview.title')}</Text>
           </View>
           <Text style={styles.subHeaderSubtitle}>{t('mainDashboard.overview.subtitle')}</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <SectionGate sources={[stockSrc, receiptsSrc, ...(access.issues ? [issuesFigSrc] : [])]}>
+          {/* Receipts are today's (IST) exact per-warehouse count from the performance read (BR-80). */}
+          <SectionGate sources={[stockSrc, perfTodayFigSrc, ...(access.issues ? [issuesFigSrc] : [])]}>
           {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {stockFig.warehouses.map((row) => {
-            const level = capacityLevel(row.utilizationBp);
+            const tone = CAPACITY_PILL[capacityTone(row, nearFull)];
             const capLabel = row.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(row.utilizationBp);
-            const capBg =
-              level === 'danger' ? PALETTE.redBg : level === 'warn' ? PALETTE.amberBg : level === 'ok' ? PALETTE.greenBg : PALETTE.borderLight;
-            const capColor =
-              level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.amber : level === 'ok' ? PALETTE.greenText : PALETTE.textMuted;
-            const progColor = level === 'danger' ? PALETTE.red : PALETTE.primary;
             const progWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
             const stockStr = formatKg(row.stockGrams);
-            const receiptsCount = goodsReceipts.filter((g) => g.warehouseId === row.warehouseId).length;
+            const receiptsCount = perfTodayQuery.data?.receiptsByWarehouse[row.warehouseId];
             const whName = row.name;
 
             return (
@@ -1265,27 +1287,27 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               >
                 <View style={styles.whOverviewHeaderRow}>
                   <Text style={styles.whOverviewTitle}>{whName}</Text>
-                  <View style={[styles.whCapacityPill, { backgroundColor: capBg }]}>
-                    <Text style={[styles.whCapacityPillText, { color: capColor }]}>{capLabel}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: tone.bg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: tone.fg }]}>{capLabel}</Text>
                   </View>
                 </View>
 
                 <View style={styles.whProgressBarTrack}>
-                  <View style={[styles.whProgressBarFill, { width: progWidth, backgroundColor: progColor }]} />
+                  <View style={[styles.whProgressBarFill, { width: progWidth, backgroundColor: tone.bar }]} />
                 </View>
 
                 <View style={styles.whOverviewStatsRow}>
                   <View style={styles.whOverviewStatCol}>
-                    <Text style={styles.whOverviewStatLabel}>Stock</Text>
+                    <Text style={styles.whOverviewStatLabel}>{t('mainDashboard.overview.stat.stock')}</Text>
                     <Text style={styles.whOverviewStatVal}>{stockStr}</Text>
                   </View>
                   <View style={styles.whOverviewStatCol}>
-                    <Text style={styles.whOverviewStatLabel}>Receipts</Text>
-                    <Text style={styles.whOverviewStatVal}>{receiptsCount}</Text>
+                    <Text style={styles.whOverviewStatLabel}>{t('mainDashboard.overview.stat.receipts')}</Text>
+                    <Text style={styles.whOverviewStatVal}>{receiptsCount === undefined ? FIGURE_PLACEHOLDER : String(receiptsCount)}</Text>
                   </View>
                   {access.issues ? (
                     <View style={styles.whOverviewStatCol}>
-                      <Text style={styles.whOverviewStatLabel}>Issues</Text>
+                      <Text style={styles.whOverviewStatLabel}>{t('mainDashboard.overview.stat.issues')}</Text>
                       <Text style={styles.whOverviewStatVal}>{issueFig.byWarehouse[row.warehouseId] ?? 0}</Text>
                     </View>
                   ) : null}
@@ -1296,7 +1318,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
           </SectionGate>
 
-          <Text style={styles.overviewSectionHeading}>More Views</Text>
+          <Text style={styles.overviewSectionHeading}>{t('mainDashboard.overview.moreViews')}</Text>
 
           <View style={styles.moreViewsGrid}>
             <TouchableOpacity
@@ -1305,7 +1327,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               activeOpacity={0.8}
             >
               <ScaleBalanceIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Comparison</Text>
+              <Text style={styles.moreViewTileLabel}>{t('mainDashboard.overview.tile.comparison')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1314,7 +1336,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               activeOpacity={0.8}
             >
               <TrendingUpLineIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Performance</Text>
+              <Text style={styles.moreViewTileLabel}>{t('mainDashboard.overview.tile.performance')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1323,7 +1345,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               activeOpacity={0.8}
             >
               <CapacityCircularIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Capacity Summary</Text>
+              <Text style={styles.moreViewTileLabel}>{t('mainDashboard.overview.tile.capacity')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1332,7 +1354,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               activeOpacity={0.8}
             >
               <GearCogIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
+              <Text style={styles.moreViewTileLabel}>{t('mainDashboard.overview.tile.manage')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1535,10 +1557,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
                 <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
+              <Text style={styles.subHeaderTitle}>{t('mainDashboard.capacity.title')}</Text>
             </View>
           </View>
-          <EmptyState title="Not available" subtitle="Capacity summary requires warehouse.all.view." />
+          <EmptyState title={t('mainDashboard.capacity.notAvailable.title')} subtitle={t('mainDashboard.capacity.notAvailable.subtitle')} />
         </View>
       );
     }
@@ -1550,48 +1572,58 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
               <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
+            <Text style={styles.subHeaderTitle}>{t('mainDashboard.capacity.title')}</Text>
           </View>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
+          <Text style={styles.overviewSectionHeading}>{t('mainDashboard.capacity.heading')}</Text>
 
-          <SectionGate sources={[stockSrc]}>
+          <SectionGate sources={[stockSrc, ...(canStorageAreas ? [storageAreasSrc] : [])]}>
           <View style={styles.metricsGridCard}>
             <View style={styles.twoByTwoRow}>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
+                <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.used')}</Text>
                 <Text style={styles.twoByTwoVal}>
                   {stockFig.capacity.warehousesWithCapacity === 0 ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.usedGrams)}
                 </Text>
               </View>
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
+                <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.available')}</Text>
                 <Text style={styles.twoByTwoVal}>
                   {stockFig.capacity.availableGrams === null ? FIGURE_PLACEHOLDER : formatKg(stockFig.capacity.availableGrams)}
                 </Text>
               </View>
             </View>
-            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
+            {/* Design order: Storage Areas beside Utilization; drawn only with inventory.batch.view (BR-79). */}
+            <View style={[styles.twoByTwoRow, styles.twoByTwoRowGap]}>
+              {canStorageAreas ? (
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.storageAreas')}</Text>
+                  <Text style={styles.twoByTwoVal}>
+                    {storageAreasQuery.data === undefined || storageAreasQuery.data === null ? FIGURE_PLACEHOLDER : String(storageAreasQuery.data)}
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Active Warehouses</Text>
-                <Text style={styles.twoByTwoVal}>{stockFig.warehouses.length}</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Utilization</Text>
+                <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.utilization')}</Text>
                 <Text style={styles.twoByTwoVal}>
                   {stockFig.capacity.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(stockFig.capacity.utilizationBp)}
                 </Text>
+              </View>
+            </View>
+            {/* The warehouses the filter covers (not every active one). */}
+            <View style={[styles.twoByTwoRow, styles.twoByTwoRowGap]}>
+              <View style={styles.twoByTwoCol}>
+                <Text style={styles.twoByTwoLabel}>{t('mainDashboard.capacity.warehouses')}</Text>
+                <Text style={styles.twoByTwoVal}>{stockFig.warehouses.length}</Text>
               </View>
             </View>
           </View>
           </SectionGate>
 
           <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Capacity exceptions (a warehouse nearing its configured limit) are flagged here for visibility only — not resolved from this screen.
-            </Text>
+            <Text style={styles.overviewNoticeText}>{t('mainDashboard.capacity.notice')}</Text>
           </View>
         </ScrollView>
       </View>
@@ -2353,14 +2385,14 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Overview</Text>
+                <Text style={styles.sectionHeading}>{t('mainDashboard.overview.title')}</Text>
                 <TouchableOpacity
                   onPress={() => {
                     navigateWh('warehouse_overview');
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.viewAllLink}>View All →</Text>
+                  <Text style={styles.viewAllLink}>{t('mainDashboard.viewAll')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2369,9 +2401,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
               {stockFig.warehouses.map((row) => {
                 const whName = row.name;
-                const level = capacityLevel(row.utilizationBp);
                 const fillWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
-                const fillColor = level === 'danger' ? PALETTE.red : level === 'warn' ? PALETTE.goldProgress : PALETTE.greenProgress;
+                const fillColor = HOME_CAPACITY_BAR[capacityTone(row, nearFull)];
                 return (
                   <TouchableOpacity
                     key={row.warehouseId}
@@ -4055,6 +4086,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  twoByTwoRowGap: { marginTop: adminSpacing.lg },
   twoByTwoCol: {
     flex: 1,
   },

@@ -138,22 +138,10 @@ export function formatUtilization(bp: number): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}%`;
 }
 
-/**
- * How full a warehouse looks on a card. Display only (colour of the bar and
- * pill); no rule depends on it, and system_config has no key for these two
- * cut-offs, so they are named here rather than buried in the screen.
- */
-export const UTILIZATION_WARN_BP = 7500;
-export const UTILIZATION_DANGER_BP = 9000;
-
-export type CapacityLevel = 'none' | 'ok' | 'warn' | 'danger';
-
-export function capacityLevel(bp: number | null): CapacityLevel {
-  if (bp === null) return 'none';
-  if (bp >= UTILIZATION_DANGER_BP) return 'danger';
-  if (bp >= UTILIZATION_WARN_BP) return 'warn';
-  return 'ok';
-}
+// How full a warehouse looks on a card is not decided here: the near-full limit is
+// system_config.alert_capacity_utilization_percent, which reaches the client through
+// the CAPACITY_NEAR_FULL alert (warehouse-admin/overviewFigures.ts capacityTone;
+// root CLAUDE.md 2.7). The client keeps no cut-off of its own.
 
 /** Width in percent of a progress bar. Only the BAR is clamped to its track; the figure beside it never is (BR-66b). */
 export function barWidthPercent(bp: number | null): number {

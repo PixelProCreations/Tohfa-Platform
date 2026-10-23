@@ -12,9 +12,11 @@
  *   GET /warehouses/{id}/issues      OPEN and IN_PROGRESS counts (`total`, BR-103; warehouse.issue.view)
  *   GET /admin/tasks/summary         open work items (`open`, BR-77; task.own.view)
  *   GET /admin/sub-warehouse-admins  assigned SWAs (admin.sub_wh_admin.create)
+ *   GET /warehouses/{id}/performance today's receipts: the IST day's exact
+ *                                    `receiving.goodsReceipts` (BR-80; warehouse.all.view, as this screen)
  *
- * Removed with the fixtures, because no endpoint carries them: today's
- * receipts, staff count (the staff list has no total) and operating hours
+ * Removed with the fixtures, because no endpoint carries them: staff count
+ * (the staff list has no total) and operating hours
  * (the stored JSON has no specified read format; Warehouse Settings shows it).
  * "Pending orders" is now "open tasks" from the task summary, which is what
  * the server actually counts.
@@ -46,6 +48,8 @@ import {
   warehouseKindLabel,
   warehouseStatusLabel,
 } from './mappers';
+import { useTodayPerformance } from '../dashboard-home-more/useDashboardHomeData';
+import { todayReceiptsCount } from './overviewFigures';
 import { useWarehouseDetail, useWarehouseSubAdmins } from './useWarehouseAdminData';
 import {
   CapacityBar,
@@ -102,6 +106,8 @@ function WarehouseCityDetailContent({
   const canStaff = (can(WAREHOUSE_ADMIN_CODES.staffView) || can(WAREHOUSE_ADMIN_CODES.attendanceView)) && onOpenStaff !== undefined;
   const detail = useWarehouseDetail(warehouseId, { issues: canIssues, tasks: canTasks });
   const swas = useWarehouseSubAdmins(warehouseId, canSwa);
+  // This screen already requires warehouse.all.view, the performance read's code.
+  const todayPerf = useTodayPerformance(warehouseId, true);
   const settings = can(WAREHOUSE_ADMIN_CODES.capacitySet) ? onOpenSettings : undefined;
 
   const w = detail.warehouse.data;
@@ -169,6 +175,13 @@ function WarehouseCityDetailContent({
         <KpiRow
           items={[
             { value: figureLabel(detail.capacity, (dto) => toCapacitySummary(dto).usedLabel), label: t('warehouseAdmin.detail.kpi.stock') },
+            {
+              value: figureLabel(todayPerf, (dto) => {
+                const n = todayReceiptsCount(dto);
+                return n === null ? noValue : countLabel(n);
+              }),
+              label: t('warehouseAdmin.detail.kpi.todayReceipts'),
+            },
             {
               value: figureLabel(detail.capacity, (dto) => toCapacitySummary(dto).percentLabel ?? noValue),
               label: t('warehouseAdmin.detail.kpi.utilization'),

@@ -15,12 +15,18 @@
  * `warehouse.issue.view`) and the SWA assignments from GET
  * /admin/sub-warehouse-admins (only with `admin.sub_wh_admin.create`).
  *
+ * Staff per card (design M15-02) is derived from today's roll call (GET
+ * /admin/staff-attendance/roll-call, BR-84, only with
+ * `admin.staff.attendance.view`): no staff list carries a total. It is drawn
+ * only once that warehouse's read succeeded; without the code, while loading or
+ * on an error the stat is absent, never a 0.
+ *
  * Removed with the fixtures, because no endpoint carries them: today's
- * receipts, low-stock trigger, staff count (the staff list is cursor-paged
- * with no total) and the per-card operating hours. The "Near Capacity" status
- * and filter are gone too: no near-capacity threshold is exposed to clients
- * (root CLAUDE.md 2.7), so the only capacity flag is "Over capacity", which is
- * the server's own figure (available below zero). Dropped earlier: 'Add
+ * receipts, low-stock trigger and the per-card operating hours. The "Near
+ * Capacity" status and filter are gone too: the near-capacity threshold is not
+ * a client value (root CLAUDE.md 2.7; it reaches clients only inside a
+ * CAPACITY_NEAR_FULL alert, see ./overviewFigures.ts), so the only capacity
+ * flag here is "Over capacity", the server's own figure (available below zero). Dropped earlier: 'Add
  * Warehouse' (BR-23: four fixed warehouses, no create endpoint; SPEC_GAPS W4x-1).
  */
 import React, { useMemo, useState } from 'react';
@@ -58,7 +64,8 @@ import {
   type CapacitySummaryView,
   type OverviewFilter,
 } from './mappers';
-import { useOpenIssueCounts, useSubAdmins, useWarehouseCapacities } from './useWarehouseAdminData';
+import { WAREHOUSE_OVERVIEW_CODES } from './overviewFigures';
+import { useOpenIssueCounts, useStaffCounts, useSubAdmins, useWarehouseCapacities } from './useWarehouseAdminData';
 import {
   CapacityBar,
   CapacityIcon,
@@ -115,12 +122,14 @@ function WarehouseOverviewContent({
   const canIssues = can(WAREHOUSE_ADMIN_CODES.issueView);
   const canSettings = can(WAREHOUSE_ADMIN_CODES.capacitySet) && onOpenSettings !== undefined;
   const canStaff = can(WAREHOUSE_ADMIN_CODES.staffView);
+  const canStaffCount = can(WAREHOUSE_OVERVIEW_CODES.staffCount);
   const manageSwas = canManage ? onManageSubWarehouseAdmins : undefined;
 
   const warehouses = useWarehouseOptions();
   const ids = useMemo(() => warehouses.options.map((o) => o.warehouseId), [warehouses.options]);
   const capacities = useWarehouseCapacities(ids, true);
   const issueCounts = useOpenIssueCounts(ids, canIssues);
+  const staffCounts = useStaffCounts(ids, canStaffCount);
   const subAdmins = useSubAdmins(canManage);
 
   const visible = useMemo(() => filterWarehouses(warehouses.options, query, filter), [warehouses.options, query, filter]);
@@ -189,6 +198,7 @@ function WarehouseOverviewContent({
             const capacity = capacities.get(w.warehouseId);
             const summary = summaries.get(w.warehouseId);
             const swa = swaNames.get(w.warehouseId);
+            const staffCount = canStaffCount ? staffCounts.get(w.warehouseId)?.data : undefined;
             const badge = !w.isActive
               ? { label: t('warehouseAdmin.status.inactive'), tone: 'danger' as const }
               : summary?.overCapacity
@@ -229,6 +239,7 @@ function WarehouseOverviewContent({
                   {canIssues ? (
                     <Stat label={t('warehouseAdmin.overview.stat.openIssues')} value={figureLabel(issueCounts.get(w.warehouseId), countLabel)} />
                   ) : null}
+                  {staffCount !== undefined ? <Stat label={t('warehouseAdmin.overview.stat.staff')} value={countLabel(staffCount)} /> : null}
                 </View>
                 {managing ? (
                   <>
