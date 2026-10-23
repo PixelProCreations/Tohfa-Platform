@@ -28,118 +28,10 @@ import { StorageFlow } from '../storage-ops';
 import { CustomersFlow } from '../customers';
 import { isAreaAvailable } from '../availability';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { isMoreItemPermitted, MORE_OPTION_GROUPS } from './moreMenu';
 import type { MoreOptionItem, OptionGroup } from './types';
-
-// Menu items whose visibility depends on a docs/rbac.json permission. Items not
-// listed here are shown to every warehouse admin. The server re-checks each of
-// these when the destination screen loads its data.
-// `staff` is not listed: it is the Staff area, shown only when isAreaAvailable
-// says so (admin.staff.list_view: Main own, Sub none, owner decision
-// 2026-10-11, which withdrew warehouse.staff.list_view). See ../availability.ts.
-const ITEM_PERMISSION: Readonly<Record<string, string>> = {
-  finance: 'finance.dashboard.view',
-  reports: 'report.export.file',
-};
-
-const OPTION_GROUPS: OptionGroup[] = [
-  {
-    id: 'operations',
-    title: 'OPERATIONS',
-    items: [
-      {
-        id: 'orders',
-        title: 'Customer Orders',
-        subtitle: 'Manage customer orders and fulfillment',
-        iconType: 'orders',
-      },
-      {
-        id: 'sales',
-        title: 'Direct / Market Sales',
-        subtitle: 'Manage direct and market sales',
-        iconType: 'sales',
-      },
-      {
-        id: 'customers',
-        title: 'Customers',
-        subtitle: 'View customers and purchase activity',
-        iconType: 'customers',
-      },
-    ],
-  },
-  {
-    id: 'finance_transactions',
-    title: 'FINANCE & TRANSACTIONS',
-    items: [
-      {
-        id: 'wallet',
-        title: 'Wallet & Cash Top-Up',
-        subtitle: 'Manage customer wallet cash top-ups',
-        iconType: 'wallet',
-      },
-      {
-        id: 'billing',
-        title: 'Billing & Invoices',
-        subtitle: 'View and manage invoices',
-        iconType: 'billing',
-      },
-      {
-        id: 'returns',
-        title: 'Returns & Issues',
-        subtitle: 'Manage returns and warehouse issues',
-        iconType: 'returns',
-      },
-      {
-        id: 'finance',
-        title: 'Warehouse Finance',
-        subtitle: 'View warehouse financial activity',
-        iconType: 'finance',
-      },
-      {
-        id: 'reports',
-        title: 'Reports',
-        subtitle: 'View warehouse reports and analytics',
-        iconType: 'reports',
-      },
-      {
-        id: 'notifications',
-        title: 'Notifications & Tasks',
-        subtitle: 'View alerts, notifications and assigned tasks',
-        iconType: 'notifications',
-      },
-      {
-        id: 'staff',
-        title: 'Warehouse Staff',
-        subtitle: 'View warehouse staff and attendance',
-        iconType: 'staff',
-      },
-      {
-        id: 'warehouse_operations',
-        title: 'Warehouse Operations',
-        subtitle: 'Manage storage, crates, zones and operations',
-        iconType: 'warehouse_operations',
-      },
-      {
-        id: 'profile',
-        title: 'Warehouse Profile',
-        subtitle: 'View assigned warehouse information',
-        iconType: 'profile',
-      },
-    ],
-  },
-  {
-    id: 'account_settings',
-    title: 'ACCOUNT & SETTINGS',
-    items: [
-      {
-        id: 'settings',
-        title: 'Settings',
-        subtitle: 'Manage account and application settings',
-        iconType: 'settings',
-      },
-    ],
-  },
-];
 
 // â”€â”€â”€ SVG Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -519,6 +411,8 @@ export interface MoreScreenProps extends WarehouseScreenBaseProps {
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
   onNavigateToStorageLocations?: (() => void) | undefined;
+  /** Warehouse Management (design M15, Main only, warehouse.all.view); the row is drawn only when set. */
+  onNavigateToWarehouseManagement?: (() => void) | undefined;
   // Materials, capacity, operational issues and warehouse activity open inside
   // the shared storage-ops hub (StorageFlow), so they need no host callbacks.
   onNavigateToReceiveGoods?: (() => void) | undefined;
@@ -551,6 +445,7 @@ export function MoreScreen({
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
   onNavigateToStorageLocations,
+  onNavigateToWarehouseManagement,
   onNavigateToReceiveGoods,
   onNavigateToStockVerification,
   onLogout,
@@ -571,18 +466,18 @@ export function MoreScreen({
     staff: onNavigateToStaff,
     attendance: onNavigateToAttendance,
     today_attendance: onNavigateToAttendance,
+    warehouse_management: onNavigateToWarehouseManagement,
   };
   const hasDestination = (id: string) => !(id in hostOnly) || hostOnly[id] !== undefined;
 
   // Hide gated rows and any group left empty. Display only: the server enforces.
-  const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
+  const visibleGroups: OptionGroup[] = MORE_OPTION_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
       // A row whose destination this host does not wire is not drawn (no placeholder alert).
       if (!hasDestination(item.id)) return false;
       if (item.id === 'staff') return isAreaAvailable('staff', can);
-      const code = ITEM_PERMISSION[item.id];
-      return code === undefined || can(code);
+      return isMoreItemPermitted(item.id, isMain, can);
     }),
   })).filter((group) => group.items.length > 0);
 
@@ -690,6 +585,9 @@ export function MoreScreen({
         } else {
           setShowHelpSupportScreen(true);
         }
+        break;
+      case 'warehouse_management':
+        onNavigateToWarehouseManagement?.();
         break;
       case 'warehouse_operations':
         if (onNavigateToWarehouseOperations) {
@@ -944,7 +842,7 @@ export function MoreScreen({
         {visibleGroups.map((group) => {
           return (
             <View key={group.id} style={styles.groupContainer}>
-              <Text style={styles.groupTitle}>{group.title}</Text>
+              <Text style={styles.groupTitle}>{t(group.titleKey)}</Text>
 
               <View style={styles.groupCard}>
                 {group.items.map((item, index) => {
@@ -963,9 +861,9 @@ export function MoreScreen({
 
                         {/* Title & Subtitle */}
                         <View style={styles.itemInfo}>
-                          <Text style={styles.itemTitle}>{item.title}</Text>
+                          <Text style={styles.itemTitle}>{t(item.titleKey)}</Text>
                           <Text style={styles.itemSubtitle} numberOfLines={1}>
-                            {item.subtitle}
+                            {t(item.subtitleKey)}
                           </Text>
                         </View>
 

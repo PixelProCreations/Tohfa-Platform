@@ -17,6 +17,7 @@
  */
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { SectionGate } from '../../dashboard/MainDashboardParts';
@@ -24,6 +25,7 @@ import { AdminEmptyState, AdminErrorState } from '../shared/AsyncStates';
 import { figureOrPlaceholder } from '../../dashboard/mappers_mainDashboard';
 import type { MainInventoryTarget } from './mainInventoryMappers';
 import {
+  INVENTORY_CARD_ICON,
   InventoryHealthGrid,
   InventoryInfoNote,
   InventoryListCard,
@@ -32,8 +34,6 @@ import {
   InventoryQuickActionGrid,
   InventoryQuickActionTile,
   InventorySectionHeader,
-  InventoryStatCard,
-  InventoryStatGrid,
   type HealthCell,
 } from './MainInventoryParts';
 import type { MainInventoryOverview } from './useMainInventoryOverview';
@@ -118,18 +118,19 @@ export function MainInventoryDashboard({
       {header}
       <View style={styles.body}>
         {cards.length > 0 ? (
-          <InventoryStatGrid>
+          <OverviewCardsGrid>
             {cards.map((card) => (
-              <InventoryStatCard
+              <OverviewDashboardCard
                 key={card.key}
                 title={card.title}
                 value={card.value}
                 subtitle={card.subtitle}
+                icon={INVENTORY_CARD_ICON[card.key]}
                 tone={card.tone}
                 onPress={() => onOpen(card.target)}
               />
             ))}
-          </InventoryStatGrid>
+          </OverviewCardsGrid>
         ) : (
           <AdminEmptyState title={t('mainDashboard.notAvailable')} />
         )}

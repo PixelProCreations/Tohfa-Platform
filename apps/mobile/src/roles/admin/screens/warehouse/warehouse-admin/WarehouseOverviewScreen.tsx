@@ -21,13 +21,20 @@
  * only once that warehouse's read succeeded; without the code, while loading or
  * on an error the stat is absent, never a 0.
  *
+ * Design M15-01 / M15-02 ("Warehouse Management", opened from the More menu):
+ * the card pill is the real status (Inactive / Over Capacity / Near Capacity /
+ * Active), the SWA shows on every card, and Needs Attention counts warehouses
+ * near or over capacity or without a SWA. "Near Capacity" is never a client
+ * threshold (root CLAUDE.md 2.7): it is the server's CAPACITY_NEAR_FULL alert,
+ * or utilization at or above the thresholdPercent those alerts carry (GET
+ * /admin/alerts, alert.own.view, BR-77; ./overviewFigures.ts capacityTone).
+ * While the alerts are unread, or without the code, no card says "Near
+ * Capacity" and the Needs Attention KPI is not drawn.
+ *
  * Removed with the fixtures, because no endpoint carries them: today's
- * receipts, low-stock trigger and the per-card operating hours. The "Near
- * Capacity" status and filter are gone too: the near-capacity threshold is not
- * a client value (root CLAUDE.md 2.7; it reaches clients only inside a
- * CAPACITY_NEAR_FULL alert, see ./overviewFigures.ts), so the only capacity
- * flag here is "Over capacity", the server's own figure (available below zero). Dropped earlier: 'Add
- * Warehouse' (BR-23: four fixed warehouses, no create endpoint; SPEC_GAPS W4x-1).
+ * receipts, low-stock trigger and the per-card operating hours. Dropped
+ * earlier: 'Add Warehouse' (BR-23: four fixed warehouses, no create endpoint;
+ * SPEC_GAPS W4x-1; owner decision).
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -39,8 +46,10 @@ import { queryViewState } from '../shared/queryViewState';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { WarningTriangleIcon } from '../storage-ops/StorageParts';
 import {
+  BellRingIcon,
   ChipGroup,
   EmptyState,
+  HeaderIconButton,
   InfoNote,
   KpiRow,
   ScopeHeader,
@@ -52,6 +61,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import {
+  combinedSource,
   countLabel,
   figureLabel,
   filterWarehouses,
@@ -61,11 +71,25 @@ import {
   toCapacitySummary,
   warehouseMetaLine,
   warehousesWithoutSubAdmin,
+  warehouseStatusPill,
   type CapacitySummaryView,
   type OverviewFilter,
 } from './mappers';
-import { WAREHOUSE_OVERVIEW_CODES } from './overviewFigures';
-import { useOpenIssueCounts, useStaffCounts, useSubAdmins, useWarehouseCapacities } from './useWarehouseAdminData';
+import {
+  capacityTone,
+  capacityToneInputOf,
+  NEAR_FULL_ALERTS_CODE,
+  needsAttentionIds,
+  WAREHOUSE_OVERVIEW_CODES,
+  type CapacityTone,
+} from './overviewFigures';
+import {
+  useNearFullAlerts,
+  useOpenIssueCounts,
+  useStaffCounts,
+  useSubAdmins,
+  useWarehouseCapacities,
+} from './useWarehouseAdminData';
 import {
   CapacityBar,
   CapacityIcon,
@@ -86,9 +110,12 @@ export interface WarehouseOverviewScreenProps extends WarehouseScreenBaseProps {
   onOpenSettings?: ((warehouseId: string) => void) | undefined;
   onNavigateComparison?: (() => void) | undefined;
   onNavigatePerformance?: (() => void) | undefined;
-  onNavigateCapacitySummary?: (() => void) | undefined;
+  /** Capacity: a card passes its warehouse; the Capacity Summary tile passes none. */
+  onNavigateCapacitySummary?: ((warehouseId?: string) => void) | undefined;
   onManageSubWarehouseAdmins?: (() => void) | undefined;
   onNavigateStaff?: (() => void) | undefined;
+  /** Header bell: the host's notifications. */
+  onOpenNotifications?: (() => void) | undefined;
 }
 
 export function WarehouseOverviewScreen(props: WarehouseOverviewScreenProps) {
@@ -113,6 +140,7 @@ function WarehouseOverviewContent({
   onNavigateCapacitySummary,
   onManageSubWarehouseAdmins,
   onNavigateStaff,
+  onOpenNotifications,
 }: WarehouseOverviewScreenProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<OverviewFilter>('all');
@@ -123,6 +151,7 @@ function WarehouseOverviewContent({
   const canSettings = can(WAREHOUSE_ADMIN_CODES.capacitySet) && onOpenSettings !== undefined;
   const canStaff = can(WAREHOUSE_ADMIN_CODES.staffView);
   const canStaffCount = can(WAREHOUSE_OVERVIEW_CODES.staffCount);
+  const canAlerts = can(NEAR_FULL_ALERTS_CODE);
   const manageSwas = canManage ? onManageSubWarehouseAdmins : undefined;
 
   const warehouses = useWarehouseOptions();
@@ -131,6 +160,7 @@ function WarehouseOverviewContent({
   const issueCounts = useOpenIssueCounts(ids, canIssues);
   const staffCounts = useStaffCounts(ids, canStaffCount);
   const subAdmins = useSubAdmins(canManage);
+  const nearFull = useNearFullAlerts(canAlerts);
 
   const visible = useMemo(() => filterWarehouses(warehouses.options, query, filter), [warehouses.options, query, filter]);
   const summaries = useMemo(() => {
@@ -140,7 +170,19 @@ function WarehouseOverviewContent({
   }, [capacities]);
   const swaNames = useMemo(() => subAdminNamesByWarehouse(subAdmins.data ?? []), [subAdmins.data]);
   const unstaffed = subAdmins.data === undefined ? [] : warehousesWithoutSubAdmin(warehouses.options, subAdmins.data);
-  const overCapacity = warehouses.options.filter((o) => summaries.get(o.warehouseId)?.overCapacity === true);
+  // Each warehouse's capacity state; 'neutral' until its capacity and the alerts are read.
+  const tones = useMemo(() => {
+    const out = new Map<string, CapacityTone>();
+    for (const [id, r] of capacities) {
+      out.set(id, r.data === undefined ? 'neutral' : capacityTone(capacityToneInputOf(r.data), nearFull.data ?? null));
+    }
+    return out;
+  }, [capacities, nearFull.data]);
+  const overCapacity = warehouses.options.filter((o) => tones.get(o.warehouseId) === 'over');
+  const nearCapacity = warehouses.options.filter((o) => tones.get(o.warehouseId) === 'nearFull');
+  const attention = needsAttentionIds(tones, canManage ? new Set(unstaffed.map((w) => w.warehouseId)) : null);
+  // A count from every source it needs, or the placeholder / dash: never a partial number.
+  const attentionSource = combinedSource([...capacities.values(), nearFull, ...(canManage ? [subAdmins] : [])]);
 
   const state = queryViewState({ isLoading: warehouses.isLoading, error: warehouses.error, itemCount: warehouses.options.length });
   const total = warehouses.options.length;
@@ -152,7 +194,15 @@ function WarehouseOverviewContent({
       label: t('warehouseAdmin.overview.kpi.active'),
       tone: 'success' as const,
     },
-    { value: countLabel(overCapacity.length), label: t('warehouseAdmin.overview.kpi.overCapacity'), tone: 'warning' as const },
+    ...(canAlerts
+      ? [
+          {
+            value: figureLabel(attentionSource, () => countLabel(attention.size)),
+            label: t('warehouseAdmin.overview.kpi.needsAttention'),
+            tone: 'warning' as const,
+          },
+        ]
+      : []),
     ...(canManage
       ? [
           {
@@ -169,6 +219,13 @@ function WarehouseOverviewContent({
       title={t('warehouseAdmin.overview.title')}
       subtitle={state === 'ready' ? t('warehouseAdmin.overview.subtitle', { count: String(total) }) : undefined}
       onBack={onBack}
+      headerRight={
+        onOpenNotifications ? (
+          <HeaderIconButton onPress={onOpenNotifications} accessibilityLabel={t('warehouseAdmin.overview.notifications')}>
+            <BellRingIcon size={20} color={adminColors.onBrand} />
+          </HeaderIconButton>
+        ) : undefined
+      }
       headerExtra={<ScopeHeader scope={scope} label={t('warehouseAdmin.scope.all')} />}
     >
       {state === 'loading' ? <AdminLoadingState /> : null}
@@ -199,19 +256,8 @@ function WarehouseOverviewContent({
             const summary = summaries.get(w.warehouseId);
             const swa = swaNames.get(w.warehouseId);
             const staffCount = canStaffCount ? staffCounts.get(w.warehouseId)?.data : undefined;
-            const badge = !w.isActive
-              ? { label: t('warehouseAdmin.status.inactive'), tone: 'danger' as const }
-              : summary?.overCapacity
-                ? { label: t('warehouseAdmin.capacity.over', { percent: summary.percentLabel ?? '' }), tone: 'warning' as const }
-                : summary !== undefined
-                  ? {
-                      label:
-                        summary.percentLabel === null
-                          ? t('warehouseAdmin.capacity.notSet')
-                          : t('warehouseAdmin.capacity.percentUsed', { percent: summary.percentLabel }),
-                      tone: 'success' as const,
-                    }
-                  : undefined;
+            const tone = tones.get(w.warehouseId) ?? 'neutral';
+            const badge = warehouseStatusPill(w.isActive, tone);
             const card = (
               <>
                 <View style={styles.cardTopRow}>
@@ -219,15 +265,16 @@ function WarehouseOverviewContent({
                     <Text style={styles.whName}>{w.warehouseName}</Text>
                     <Text style={styles.meta}>{warehouseMetaLine(w)}</Text>
                   </View>
-                  {badge ? <StatusBadge label={badge.label} tone={badge.tone} /> : null}
+                  <StatusBadge label={badge.label} tone={badge.tone} />
                 </View>
-                <CapacityBar percent={summary?.fillPercent ?? 0} warning={summary?.overCapacity === true} />
+                <CapacityBar percent={summary?.fillPercent ?? 0} warning={tone !== 'neutral'} />
                 <Text style={styles.capacityText}>
                   {figureLabel(capacity, (dto) => {
                     const s = toCapacitySummary(dto);
-                    return s.capacityLabel === null
-                      ? t('warehouseAdmin.capacity.usedOnly', { used: s.usedLabel })
-                      : t('warehouseAdmin.capacity.usedOf', { used: s.usedLabel, capacity: s.capacityLabel });
+                    if (s.capacityLabel === null) return t('warehouseAdmin.capacity.usedOnly', { used: s.usedLabel });
+                    return s.percentLabel === null
+                      ? t('warehouseAdmin.capacity.usedOf', { used: s.usedLabel, capacity: s.capacityLabel })
+                      : t('warehouseAdmin.capacity.percentOf', { percent: s.percentLabel, used: s.usedLabel, capacity: s.capacityLabel });
                   })}
                 </Text>
                 <View style={styles.statsRow}>
@@ -241,18 +288,19 @@ function WarehouseOverviewContent({
                   ) : null}
                   {staffCount !== undefined ? <Stat label={t('warehouseAdmin.overview.stat.staff')} value={countLabel(staffCount)} /> : null}
                 </View>
+                {/* The SWA is on every card (design M15-01), not only while managing. */}
+                {canManage ? (
+                  <View style={styles.statsRow}>
+                    <Stat
+                      label={t('warehouseAdmin.overview.stat.swa')}
+                      value={figureLabel(subAdmins, () =>
+                        swa === undefined ? t('warehouseAdmin.swa.unassigned') : swa.join(t('warehouseAdmin.listSeparator')),
+                      )}
+                    />
+                  </View>
+                ) : null}
                 {managing ? (
                   <>
-                    {canManage ? (
-                      <View style={styles.statsRow}>
-                        <Stat
-                          label={t('warehouseAdmin.overview.stat.swa')}
-                          value={figureLabel(subAdmins, () =>
-                            swa === undefined ? t('warehouseAdmin.swa.unassigned') : swa.join(t('warehouseAdmin.listSeparator')),
-                          )}
-                        />
-                      </View>
-                    ) : null}
                     <View style={styles.actionsRow}>
                       {canSettings ? (
                         <CardAction
@@ -273,7 +321,7 @@ function WarehouseOverviewContent({
                         <CardAction
                           label={t('warehouseAdmin.action.capacity')}
                           icon={<CapacityIcon size={15} />}
-                          onPress={onNavigateCapacitySummary}
+                          onPress={() => onNavigateCapacitySummary(w.warehouseId)}
                         />
                       ) : null}
                     </View>
@@ -302,12 +350,20 @@ function WarehouseOverviewContent({
             );
           })}
 
-          {overCapacity.length > 0 || unstaffed.length > 0 ? (
+          {overCapacity.length > 0 || nearCapacity.length > 0 || unstaffed.length > 0 ? (
             <SectionTitle>{t('warehouseAdmin.overview.section.attention')}</SectionTitle>
           ) : null}
           {overCapacity.map((w) => (
             <InfoNote key={`cap-${w.warehouseId}`} tone="warning" icon={<WarningTriangleIcon color={adminColors.warning.text} />}>
               {t('warehouseAdmin.overview.attention.overCapacity', {
+                name: w.warehouseName,
+                percent: summaries.get(w.warehouseId)?.percentLabel ?? '',
+              })}
+            </InfoNote>
+          ))}
+          {nearCapacity.map((w) => (
+            <InfoNote key={`near-${w.warehouseId}`} tone="warning" icon={<WarningTriangleIcon color={adminColors.warning.text} />}>
+              {t('warehouseAdmin.overview.attention.nearCapacity', {
                 name: w.warehouseName,
                 percent: summaries.get(w.warehouseId)?.percentLabel ?? '',
               })}
@@ -333,7 +389,7 @@ function WarehouseOverviewContent({
               <ViewTile
                 label={t('warehouseAdmin.overview.tile.capacitySummary')}
                 icon={<RefreshIcon />}
-                onPress={onNavigateCapacitySummary}
+                onPress={() => onNavigateCapacitySummary()}
               />
             ) : null}
             {canManage ? (

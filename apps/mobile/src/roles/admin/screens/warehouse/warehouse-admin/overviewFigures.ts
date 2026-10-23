@@ -11,6 +11,8 @@
 import type { AlertItemDto } from '../../../api/alerts';
 import type { RollCallDto } from '../../../api/attendance';
 import type { WarehousePerformanceDto } from '../../../api/warehouseOps';
+import type { WarehouseCapacityDto } from '../../../api/warehouses';
+import { parseKgToGrams } from '../../../money/quantity';
 
 /** The rbac codes the added figures are gated on (docs/rbac.json). */
 export const WAREHOUSE_OVERVIEW_CODES = {
@@ -19,6 +21,9 @@ export const WAREHOUSE_OVERVIEW_CODES = {
   /** GET /admin/staff-attendance/roll-call (BR-84). MAIN own (all four when unassigned). */
   staffCount: 'admin.staff.attendance.view',
 } as const;
+
+/** GET /admin/alerts (BR-77), read for CAPACITY_NEAR_FULL on the Warehouse Management list. MAIN all. */
+export const NEAR_FULL_ALERTS_CODE = 'alert.own.view';
 
 function isCount(n: unknown): n is number {
   return typeof n === 'number' && Number.isInteger(n) && n >= 0;
@@ -117,6 +122,43 @@ export function capacityTone(row: CapacityToneInput, signal: NearFullSignal | nu
   if (signal.warehouseIds.has(row.warehouseId)) return 'nearFull';
   if (signal.thresholdBp !== null && row.utilizationBp >= signal.thresholdBp) return 'nearFull';
   return 'neutral';
+}
+
+/**
+ * The near-full signal from a walked alert list, or null while it is unknown:
+ * not loaded, or cut short by the page cap (a missing alert would read as
+ * "not near full").
+ */
+export function nearFullSignalOf(collected: { items: readonly AlertItemDto[]; complete: boolean } | undefined): NearFullSignal | null {
+  if (collected === undefined || !collected.complete) return null;
+  return nearFullSignal(collected.items);
+}
+
+/** capacityTone's input from GET /warehouses/{id}/capacity: utilization in basis points, available in grams. */
+export function capacityToneInputOf(dto: WarehouseCapacityDto): CapacityToneInput {
+  const set = dto.capacityKg !== null;
+  const percent = dto.utilizationPercent;
+  return {
+    warehouseId: dto.warehouseId,
+    utilizationBp: set && typeof percent === 'number' && Number.isFinite(percent) ? Math.round(percent * 100) : null,
+    availableGrams: set && dto.availableKg !== null ? parseKgToGrams(dto.availableKg) : null,
+  };
+}
+
+/**
+ * The warehouses the Needs Attention KPI counts (design M15-01): near full or
+ * over capacity, or an active Sub warehouse without a SWA. A set, so a
+ * warehouse with two problems counts once. `unstaffedIds` is null when the SWA
+ * list is not read (no admin.sub_wh_admin.create), and then only capacity counts.
+ */
+export function needsAttentionIds(
+  tones: ReadonlyMap<string, CapacityTone>,
+  unstaffedIds: ReadonlySet<string> | null,
+): Set<string> {
+  const out = new Set<string>();
+  for (const [id, tone] of tones) if (tone !== 'neutral') out.add(id);
+  for (const id of unstaffedIds ?? []) out.add(id);
+  return out;
 }
 
 // ─── Staff count (GET /admin/staff-attendance/roll-call, BR-84) ──────────────

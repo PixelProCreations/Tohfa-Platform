@@ -42,6 +42,7 @@ import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../wa
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
 import { capacityTone, nearFullSignal, WAREHOUSE_OVERVIEW_CODES, type CapacityTone } from '../warehouse/warehouse-admin/overviewFigures';
+import { warehouseStatusPill } from '../warehouse/warehouse-admin/mappers';
 import { useStorageAreaTotal } from '../warehouse/warehouse-admin/useWarehouseAdminData';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
@@ -1638,28 +1639,30 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
               <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Manage Warehouses</Text>
+            <Text style={styles.subHeaderTitle}>{t('mainDashboard.manage.title')}</Text>
           </View>
-          <Text style={styles.subHeaderSubtitle}>Configure and monitor warehouse hubs</Text>
+          <Text style={styles.subHeaderSubtitle}>{t('mainDashboard.manage.subtitle')}</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
+          <Text style={styles.overviewSectionHeading}>{t('mainDashboard.manage.section')}</Text>
 
           <SectionGate sources={[warehousesSrc]}>
           {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
           {warehouses.map((wh) => {
             const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
+            // The pill is the warehouse's real status: an inactive one is not drawn green.
+            const pill = warehouseStatusPill(wh.isActive, 'neutral');
             return (
               <View key={wh.id} style={styles.whOverviewCard}>
                 <View style={styles.whOverviewHeaderRow}>
                   <Text style={styles.whOverviewTitle}>{displayName}</Text>
-                  <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
-                    <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>{wh.isActive ? 'Active' : 'Inactive'}</Text>
+                  <View style={[styles.whCapacityPill, { backgroundColor: adminColors[pill.tone].bg }]}>
+                    <Text style={[styles.whCapacityPillText, { color: adminColors[pill.tone].text }]}>{pill.label}</Text>
                   </View>
                 </View>
 
-                <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
+                <Text style={[styles.whOverviewStatLabel, { marginTop: adminSpacing.xs }]}>
                   {[wh.code, wh.address ?? wh.city].filter((part): part is string => typeof part === 'string' && part.trim() !== '').join(' · ')}
                 </Text>
 
@@ -1669,16 +1672,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                     onPress={() => openWarehouseDetail(wh.id)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.manageWhActionText}>View Details</Text>
+                    <Text style={styles.manageWhActionText}>{t('mainDashboard.manage.viewDetails')}</Text>
                   </TouchableOpacity>
 
                   {can('warehouse.capacity.set') && (
                     <TouchableOpacity
                       style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
-                      onPress={() => navigateWh('warehouse_settings')}
+                      onPress={() => {
+                        // Capacity Limits opens on this card's warehouse.
+                        setDetailWarehouseId(wh.id);
+                        navigateWh('warehouse_settings');
+                      }}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
+                      <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>{t('mainDashboard.manage.capacityLimits')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1689,22 +1696,20 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           </SectionGate>
 
           {can('admin.sub_wh_admin.create') && (
-            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
-              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                Manage role access, account status, and credentials for regional sub-warehouse admins.
-              </Text>
+            <View style={[styles.whOverviewCard, { marginTop: adminSpacing.xs, borderColor: PALETTE.border }]}>
+              <Text style={styles.whOverviewTitle}>{t('mainDashboard.manage.swa.title')}</Text>
+              <Text style={[styles.whOverviewStatLabel, { marginTop: adminSpacing.xs }]}>{t('mainDashboard.manage.swa.body')}</Text>
               <TouchableOpacity
-                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
+                style={[styles.manageWhActionBtn, { marginTop: adminSpacing.md, backgroundColor: PALETTE.primary }]}
                 onPress={() => navigateWh('manage_swas')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.manageWhActionText, { color: adminColors.onBrand }]}>Manage SWA Accounts</Text>
+                <Text style={[styles.manageWhActionText, { color: adminColors.onBrand }]}>{t('mainDashboard.manage.swa.action')}</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <View style={{ height: 24 }} />
+          <View style={{ height: adminSpacing.xl }} />
         </ScrollView>
       </View>
     );
@@ -2857,6 +2862,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setMoreSubScreen(null);
                 navigateWh('stock_and_transfer');
               }}
+              onOpenNotifications={() => {
+                setMoreSubScreen(null);
+                navigateWh('warehouse_notifications');
+              }}
             />
           )
         )}
@@ -2872,8 +2881,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             }}
             onLogout={onSignOut}
             onTabChange={handleMoreTabChange}
-            // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view).
+            // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view). The labelled
+            // "Warehouse Management" row (design M15-01) opens the same flow; the card stays a shortcut.
             onProfileCardPress={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
+            onNavigateToWarehouseManagement={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
             onNavigateToWallet={() => setMoreSubScreen('wallet')}
             onNavigateToReturns={() => setMoreSubScreen('returns')}
             onNavigateToFinance={() => setMoreSubScreen('finance')}
@@ -2926,7 +2937,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
                 onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
                 onSelectWarehouse={(whName) => openWarehouseDetail(findWarehouseByName(warehouses, whName)?.id)}
-                onManageCapacity={() => navigateWh('warehouse_settings')}
+                onManageCapacity={(warehouseId) => {
+                  // Settings opens on the warehouse the capacity screen showed, not the last one opened.
+                  setDetailWarehouseId(warehouseId);
+                  navigateWh('warehouse_settings');
+                }}
               />
             ) : whSubView === 'warehouse_overview' ? (
               renderWarehouseOverviewScreen()
@@ -2946,6 +2961,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onNavigateComparison={() => navigateWh('warehouse_comparison')}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
                 onViewStaffAttendance={() => navigateWh('staff_attendance')}
+                onOpenNotifications={() => navigateWh('warehouse_notifications')}
               />
             ) : whSubView === 'warehouse_notifications' ? (
               renderNotificationsFlow('Notifications')

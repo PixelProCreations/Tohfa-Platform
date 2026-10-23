@@ -5,7 +5,9 @@
  * Live, and only what the server stores:
  *   - Capacity limit: GET /warehouses/{id}/capacity, edited with PATCH
  *     .../capacity (warehouse.capacity.set, BR-66). A decimal kg string end to
- *     end, never a float.
+ *     end, never a float. As design M15-05 asks, the dialog says a change never
+ *     modifies inventory (BR-66e), then reviews Current / New / Difference and
+ *     asks "Update warehouse capacity?" before saving (../shared/CapacityReviewPanel).
  *   - Contact phone and operating hours: GET /warehouses/{id}, edited with
  *     PATCH /warehouses/{id} (warehouse.profile.edit, BR-80): E.164 phone, and
  *     the week in the one shape the API accepts.
@@ -29,6 +31,8 @@ import { t } from '../../../i18n';
 import { formatKg, gramsToKgString } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { capacityChangeReview, type CapacityReview } from '../shared/capacityReview';
+import { CapacityReviewPanel, confirmCapacityChange } from '../shared/CapacityReviewPanel';
 import { queryViewState } from '../shared/queryViewState';
 import { Card, CheckIcon, PermissionNote, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { toOperatingWeek } from './mappers';
@@ -90,6 +94,8 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
   const [phoneInput, setPhoneInput] = useState('');
   const [hoursInput, setHoursInput] = useState<OperatingDayForm[]>([]);
   const [inputError, setInputError] = useState<string | null>(null);
+  // The capacity dialog's Review step; null while the admin is still typing.
+  const [capacityReview, setCapacityReview] = useState<CapacityReview | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,6 +128,7 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
 
   const open = (next: Dialog) => {
     setInputError(null);
+    setCapacityReview(null);
     props.onResetCapacity?.();
     props.onResetProfile?.();
     if (next === 'capacity') {
@@ -143,8 +150,12 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
     if (dialog === 'capacity') {
       const parsed = parseCapacityInput(capacityInput);
       if ('errorKey' in parsed) return setInputError(t(parsed.errorKey));
+      // Save on the input step only opens the Review; the PATCH waits for the confirmation.
+      const review = capacityChangeReview(capacity === undefined ? undefined : capacity.capacityGrams, parsed.value);
+      if (review === null) return setInputError(t('warehouseSettings.capacity.error.format'));
       setInputError(null);
-      props.onSaveCapacity(parsed.value, done('warehouseSettings.saved.capacity'));
+      props.onResetCapacity?.();
+      setCapacityReview(review);
     } else if (dialog === 'phone') {
       const parsed = parsePhoneInput(phoneInput);
       if ('errorKey' in parsed) return setInputError(t(parsed.errorKey));
@@ -256,7 +267,9 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
             <Text style={styles.dialogTitle}>{dialogTitle}</Text>
             <Text style={styles.dialogSub}>{warehouseName}</Text>
 
-            {dialog === 'capacity' ? (
+            {dialog === 'capacity' && capacityReview !== null ? (
+              <CapacityReviewPanel review={capacityReview} />
+            ) : dialog === 'capacity' ? (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('warehouseSettings.capacity.inputLabel')}</Text>
                 <TextInput
@@ -267,6 +280,7 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
                   placeholder={t('warehouseSettings.capacity.placeholder')}
                   placeholderTextColor={adminColors.placeholder}
                 />
+                <Text style={styles.hint}>{t('capacityChange.notice')}</Text>
               </View>
             ) : dialog === 'phone' ? (
               <View style={styles.inputGroup}>
@@ -323,15 +337,37 @@ export function WarehouseSettingsScreen(props: WarehouseSettingsScreenProps) {
 
             {inputError ? <Text style={styles.error}>{inputError}</Text> : null}
             {!inputError && serverError ? <Text style={styles.error}>{t(adminErrorKey(serverError))}</Text> : null}
-            <View style={styles.dialogActions}>
-              <WalletButton label={t('warehouseSettings.action.cancel')} variant="neutral" flex onPress={() => setDialog('none')} />
-              <WalletButton
-                label={saving ? t('warehouseSettings.action.saving') : t('warehouseSettings.action.save')}
-                flex
-                disabled={saving}
-                onPress={save}
-              />
-            </View>
+            {dialog === 'capacity' && capacityReview !== null ? (
+              <View style={styles.dialogActions}>
+                <WalletButton label={t('capacityChange.action.back')} variant="neutral" flex onPress={() => setCapacityReview(null)} />
+                <WalletButton
+                  label={saving ? t('capacityChange.action.updating') : t('capacityChange.action.update')}
+                  flex
+                  disabled={saving || capacityReview.unchanged}
+                  onPress={() =>
+                    confirmCapacityChange(capacityReview, () =>
+                      props.onSaveCapacity(capacityReview.newKg, done('warehouseSettings.saved.capacity')),
+                    )
+                  }
+                />
+              </View>
+            ) : (
+              <View style={styles.dialogActions}>
+                <WalletButton label={t('warehouseSettings.action.cancel')} variant="neutral" flex onPress={() => setDialog('none')} />
+                <WalletButton
+                  label={
+                    dialog === 'capacity'
+                      ? t('capacityChange.action.review')
+                      : saving
+                        ? t('warehouseSettings.action.saving')
+                        : t('warehouseSettings.action.save')
+                  }
+                  flex
+                  disabled={saving}
+                  onPress={save}
+                />
+              </View>
+            )}
           </ScrollView>
         </View>
       </Modal>

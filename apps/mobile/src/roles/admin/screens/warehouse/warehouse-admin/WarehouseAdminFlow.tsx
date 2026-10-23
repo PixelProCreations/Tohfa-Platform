@@ -10,6 +10,11 @@
  * gates apply. Comparison and the Performance hand-offs (operations history,
  * staff attendance) go back to the host, which owns those screens.
  *
+ * Capacity always opens on the warehouse it was asked about (City Detail, a
+ * card's Capacity action) and Manage Capacity Limits on the one the capacity
+ * screen shows; only the overview's Capacity Summary tile, which has no
+ * warehouse, leaves the pick to StorageFlow (./routes.ts).
+ *
  * Gates: Overview, City Detail and Performance need `warehouse.all.view`;
  * Manage SWAs needs `admin.sub_wh_admin.create`; Settings needs
  * `warehouse.capacity.set`. navigate() refuses a route without its code and
@@ -23,6 +28,7 @@ import { StaffFlow } from '../staff-attendance';
 import { StorageFlow } from '../storage-ops';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { warehouseIdForName } from './mappers';
+import { capacityEntryOf } from './routes';
 import { ManageSubWarehouseAdminsScreen } from './ManageSubWarehouseAdminsScreen';
 import { WarehouseCityDetailScreen } from './WarehouseCityDetailScreen';
 import { WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
@@ -61,6 +67,8 @@ export interface WarehouseAdminFlowProps {
   onNavigateComparison?: (() => void) | undefined;
   onViewOperationsHistory?: (() => void) | undefined;
   onViewStaffAttendance?: (() => void) | undefined;
+  /** Warehouse Management header bell (design M15-01): the host's notifications. */
+  onOpenNotifications?: (() => void) | undefined;
 }
 
 export function WarehouseAdminFlow({
@@ -72,6 +80,7 @@ export function WarehouseAdminFlow({
   onNavigateComparison,
   onViewOperationsHistory,
   onViewStaffAttendance,
+  onOpenNotifications,
 }: WarehouseAdminFlowProps) {
   const [stack, setStack] = useState<WarehouseAdminStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // Live warehouses (GET /warehouses), to turn a name the Performance screen hands back into a server uuid.
@@ -105,7 +114,7 @@ export function WarehouseAdminFlow({
 
   const openDetail = (warehouseId: string) => navigate('WarehouseCityDetail', { warehouseId });
   const openSettings = (warehouseId: string) => navigate('WarehouseSettings', { warehouseId });
-  const openCapacity = () => navigate('WarehouseCapacity');
+  const openCapacity = (warehouseId?: string) => navigate('WarehouseCapacity', { warehouseId });
 
   switch (current.screen) {
     case 'WarehouseOverview':
@@ -121,6 +130,7 @@ export function WarehouseAdminFlow({
           onNavigateCapacitySummary={openCapacity}
           onManageSubWarehouseAdmins={() => navigate('ManageSubWarehouseAdmins')}
           onNavigateStaff={() => navigate('Staff')}
+          onOpenNotifications={onOpenNotifications}
         />
       );
     case 'WarehouseCityDetail':
@@ -147,16 +157,19 @@ export function WarehouseAdminFlow({
       return (
         <ProfileFlow scope={scope} can={can} initialScreen="WarehouseSettings" initialWarehouseId={params.warehouseId} onBack={back} />
       );
-    case 'WarehouseCapacity':
+    case 'WarehouseCapacity': {
+      const entry = capacityEntryOf(params.warehouseId);
       return (
         <StorageFlow
           scope={scope}
           can={can}
-          initialScreen="Capacity"
+          initialScreen={entry.initialScreen}
+          initialParams={entry.initialParams}
           onBack={back}
-          onManageCapacity={() => navigate('WarehouseSettings')}
+          onManageCapacity={(warehouseId) => navigate('WarehouseSettings', { warehouseId })}
         />
       );
+    }
     case 'WarehousePerformance':
       return (
         <StorageFlow

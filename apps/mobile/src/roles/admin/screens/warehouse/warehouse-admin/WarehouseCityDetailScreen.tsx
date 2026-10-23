@@ -68,7 +68,8 @@ export interface WarehouseCityDetailScreenProps extends WarehouseScreenBaseProps
   warehouseId?: string | undefined;
   onOpenDocuments?: ((warehouseId: string) => void) | undefined;
   onOpenSettings?: ((warehouseId: string) => void) | undefined;
-  onOpenCapacity?: (() => void) | undefined;
+  /** Capacity on this warehouse (its uuid), not the flow's default pick. */
+  onOpenCapacity?: ((warehouseId: string) => void) | undefined;
   onOpenStaff?: ((warehouseId: string) => void) | undefined;
 }
 
@@ -241,7 +242,7 @@ function WarehouseCityDetailContent({
             <ViewTile
               label={t('warehouseAdmin.action.capacity')}
               icon={<CapacityIcon size={22} color={adminColors.brand} />}
-              onPress={onOpenCapacity}
+              onPress={() => onOpenCapacity(w.id)}
             />
           ) : null}
           {canStaff ? (

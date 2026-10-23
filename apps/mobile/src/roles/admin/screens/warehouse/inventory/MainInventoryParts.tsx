@@ -1,58 +1,34 @@
 /**
  * Building blocks of the Inventory tab overview (./MainInventoryDashboard.tsx):
- * stat card, section header, list rows, health grid, movement row and quick
- * action tiles. Admin theme only (colours, type, spacing and radius from
+ * section header, list rows, health grid, movement row and quick action
+ * tiles. Admin theme only (colours, type, spacing and radius from
  * ../../../theme); every string arrives already translated from the caller.
  *
- * Why a stat card of its own: the only shared tile in the admin screens
- * (customers/CustomersParts StatTiles) draws a centred value and label with no
- * subtitle and no attention tone, both of which this design needs, and
- * widening it would change the Customers screens.
+ * The stat cards are the shared OverviewDashboardCard (../../../components);
+ * this file only says which of its built-in icons each card wears, as the
+ * admin-theme Inventory dashboard drew them.
  */
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import type { OverviewCardIcon } from '../../../components';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { QuickActionKey } from './mainInventoryMappers';
+import type { MainInventoryCardKey, QuickActionKey } from './mainInventoryMappers';
 import type { MovementDirection } from './types';
 
-// ─── Stat cards ──────────────────────────────────────────────────────────────
+// ─── Stat card icons ─────────────────────────────────────────────────────────
 
-export interface InventoryStatCardProps {
-  title: string;
-  value: string;
-  subtitle: string;
-  tone: 'default' | 'danger';
-  onPress?: (() => void) | undefined;
-}
-
-/** One KPI card: title, figure, subtitle. Half the grid's width. */
-export function InventoryStatCard({ title, value, subtitle, tone, onPress }: InventoryStatCardProps) {
-  return (
-    <TouchableOpacity
-      style={[styles.statCard, tone === 'danger' && styles.statCardDanger]}
-      onPress={onPress}
-      disabled={onPress === undefined}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-    >
-      <Text style={styles.statTitle} numberOfLines={1}>
-        {title}
-      </Text>
-      <Text style={[styles.statValue, tone === 'danger' && styles.statValueDanger]} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={styles.statSubtitle} numberOfLines={2}>
-        {subtitle}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-/** Two columns of stat cards. */
-export function InventoryStatGrid({ children }: { children: React.ReactNode }) {
-  return <View style={styles.statGrid}>{children}</View>;
-}
+/** The icon on each stat card (decoration only; the figure and target come from the mappers). */
+export const INVENTORY_CARD_ICON: Readonly<Record<MainInventoryCardKey, OverviewCardIcon>> = {
+  totalStock: 'inventory',
+  availableStock: 'box',
+  allocatedStock: 'orders',
+  reservedStock: 'pickup',
+  lowStockItems: 'alert',
+  verificationPending: 'receiving',
+  varianceDetected: 'alert',
+  pendingAdjustments: 'truck',
+};
 
 // ─── Sections ────────────────────────────────────────────────────────────────
 
@@ -293,41 +269,6 @@ function DirectionIcon({ direction }: { direction: MovementDirection }) {
 }
 
 const styles = StyleSheet.create({
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: adminSpacing.md,
-  },
-  statCard: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.md,
-    alignItems: 'flex-start',
-  },
-  statCardDanger: {
-    borderColor: adminColors.danger.border,
-  },
-  statTitle: {
-    ...adminType.caption,
-    color: adminColors.muted,
-  },
-  statValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-    marginTop: adminSpacing.xs,
-  },
-  statValueDanger: {
-    color: adminColors.danger.text,
-  },
-  statSubtitle: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

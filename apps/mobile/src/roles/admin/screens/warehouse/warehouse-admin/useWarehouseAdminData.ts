@@ -12,12 +12,14 @@
  *   POST /admin/sub-warehouse-admins      admin.sub_wh_admin.create (BR-25, BR-81)
  *   GET /warehouses/{id}/storage-locations inventory.batch.view    (BR-79; `total` is the count)
  *   GET /admin/staff-attendance/roll-call  admin.staff.attendance.view (BR-84; staff count)
+ *   GET /admin/alerts?type=CAPACITY_NEAR_FULL alert.own.view       (BR-77; near-capacity)
  *
  * Each hook takes `enabled`, so a caller without the code fetches nothing and
  * gets no 403. Issue counts ask for one row and read `total`: the list's exact
  * count over every matching row, not a page length.
  */
 import { useQueries } from '@tanstack/react-query';
+import { listAlerts } from '../../../api/alerts';
 import { useAdminMutation, useAdminQuery } from '../../../api/hooks';
 import { adminKeys } from '../../../api/queryKeys';
 import { createSubAdmin, listAllSubAdmins, type CreateSubAdminBody, type CreatedSubAdminDto, type SubAdminDto } from '../../../api/subAdmins';
@@ -33,7 +35,8 @@ import {
 } from '../../../api/warehouses';
 import { istDay } from '../../../utils/datetime';
 import { ATTENDANCE_MODULE } from '../staff-attendance/useStaffData';
-import { activeStaffCount, sumStorageAreas } from './overviewFigures';
+import { collectPages, DASHBOARD_PAGE_LIMIT } from '../../dashboard/mappers_mainDashboard';
+import { activeStaffCount, nearFullSignalOf, sumStorageAreas, type NearFullSignal } from './overviewFigures';
 
 /** One module for this area's reads, told apart by `resource`, so no other area's key can collide. */
 const AREA = 'warehouseAdmin';
@@ -145,6 +148,24 @@ export function useStaffCounts(warehouseIds: readonly string[], enabled: boolean
     if (q !== undefined) out.set(id, live(q, enabled));
   });
   return out;
+}
+
+/**
+ * The server's near-full warehouses (CAPACITY_NEAR_FULL, the caller's active
+ * alerts across its scope). Keyed under the 'alerts' module, so dismissing or
+ * snoozing an alert elsewhere refreshes it. `data` stays undefined while the
+ * walk is incomplete: an alert missing from a cut-short list must not read as
+ * "not near full".
+ */
+export function useNearFullAlerts(enabled: boolean): LiveResult<NearFullSignal> {
+  const query = useAdminQuery(
+    adminKeys.scoped('alerts', undefined, { resource: 'list', state: 'active', type: 'CAPACITY_NEAR_FULL' }),
+    (signal) =>
+      collectPages((cursor) => listAlerts({ type: 'CAPACITY_NEAR_FULL', state: 'active', limit: DASHBOARD_PAGE_LIMIT, cursor }, signal)),
+    { enabled },
+  );
+  const result = live(query, enabled);
+  return { ...result, data: nearFullSignalOf(query.data) ?? undefined };
 }
 
 /** Every live Sub Warehouse Admin assignment in scope. */
