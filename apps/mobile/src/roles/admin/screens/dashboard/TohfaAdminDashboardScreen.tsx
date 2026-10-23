@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  LogBox,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +14,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+LogBox.ignoreLogs([
+  'getSystemConfig: /config/farmer lookup failed',
+]);
 import Svg, { Circle, Defs, LinearGradient, Line, Path, Rect, Stop } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
@@ -3931,6 +3936,2213 @@ const produceStyles = StyleSheet.create({
   },
 });
 
+// CUSTOMERS MANAGEMENT MODULE (M1-S07 to M1-S11)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ─── Customer Module Icons ───────────────────────────────────────────────────
+
+function CustomersManagementHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+    </Svg>
+  );
+}
+
+function CircularFilterButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <TouchableOpacity
+      style={customerStyles.circularHeaderBtn}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Filter customers"
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Line x1="4" y1="6" x2="20" y2="6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+        <Line x1="4" y1="12" x2="20" y2="12" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+        <Line x1="4" y1="18" x2="20" y2="18" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+        <Circle cx="15" cy="6" r="2.2" fill="#FFFFFF" />
+        <Circle cx="9" cy="12" r="2.2" fill="#FFFFFF" />
+        <Circle cx="16" cy="18" r="2.2" fill="#FFFFFF" />
+      </Svg>
+    </TouchableOpacity>
+  );
+}
+
+function CircularPlusButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <TouchableOpacity
+      style={customerStyles.circularHeaderBtn}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Add customer"
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
+      </Svg>
+    </TouchableOpacity>
+  );
+}
+
+function CircularEditButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <TouchableOpacity
+      style={customerStyles.circularHeaderBtn}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Edit business details"
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </TouchableOpacity>
+  );
+}
+
+function CustomerDirectoryActionIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GstBuildingActionIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="2" width="16" height="20" rx="2" stroke={color} strokeWidth="2" />
+      <Line x1="9" y1="6" x2="9" y2="6.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="15" y1="6" x2="15" y2="6.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="9" y1="10" x2="9" y2="10.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="15" y1="10" x2="15" y2="10.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="9" y1="14" x2="9" y2="14.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="15" y1="14" x2="15" y2="14.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Path d="M10 22v-4h4v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function LockIcon({ size = 14, color = '#6B7280' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="11" width="16" height="11" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Data Types & Fixtures ───────────────────────────────────────────────────
+
+export interface CustomerItem {
+  id: string;
+  name: string;
+  type: 'Individual' | 'B2B';
+  displayType?: 'online' | 'B2B';
+  status: 'Active' | 'Pending activation' | 'Inactive';
+  phone: string;
+  email?: string;
+  gstStatus?: string;
+  preferredWarehouse: string;
+  ordersVisible?: number;
+  lastPurchase?: string;
+  registrationDate?: string;
+  pickupStates?: string;
+  address?: string;
+  isB2B?: boolean;
+}
+
+export interface CustomerOrderPreview {
+  id: string;
+  status: 'Delivered · Paid' | 'Processing · Pending';
+  statusTone: 'success' | 'warning';
+  line1: string;
+  line2: string;
+}
+
+export interface GstBusinessItem {
+  id: string;
+  legalName: string;
+  businessType: string;
+  contactPerson: string;
+  phone: string;
+  email?: string;
+  status: 'Recorded' | 'Incomplete';
+  gstin: string;
+  gstAddress: string;
+  billingAddressLine1: string;
+  billingAddressLine2?: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  country: string;
+  updatedDate: string;
+  lastUpdatedFull?: string;
+  missingInfo?: string;
+  invoicesIssued?: string;
+  subtext?: string;
+}
+
+const DEFAULT_CUSTOMER: CustomerItem = {
+  id: 'CUS-1012',
+  name: 'Nilgiri Fresh Traders',
+  type: 'B2B',
+  displayType: 'B2B',
+  status: 'Active',
+  phone: '+91 90001 20149',
+  email: '',
+  gstStatus: 'GST Recorded',
+  preferredWarehouse: 'Ooty',
+  ordersVisible: 9,
+  lastPurchase: '1 Oct 2026',
+  registrationDate: '5 Jan 2025 · Added by admin',
+  pickupStates: 'Ooty-Warehouse',
+  address: '44 Industrial Estate, Ooty, Tamil Nadu 643005',
+  isB2B: true,
+};
+
+const CUSTOMERS_DATA: CustomerItem[] = [
+  DEFAULT_CUSTOMER,
+  {
+    id: 'CUS-1013',
+    name: 'Highland Agro Supplies',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0156',
+    email: '',
+    gstStatus: 'GST Missing',
+    preferredWarehouse: 'Coonoor',
+    ordersVisible: 1,
+    lastPurchase: '30 Sep 2026',
+    registrationDate: '12 Feb 2025 · Added by admin',
+    pickupStates: 'Coonoor-Warehouse',
+    address: '12 Hill Cart Road, Coonoor, Tamil Nadu 643101',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1001',
+    name: 'Anitha Raman',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 90001 20149',
+    email: '',
+    gstStatus: 'Not applicable',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 2,
+    lastPurchase: '27 Sep 2026',
+    registrationDate: '5 Jan 2025 · Added by admin',
+    pickupStates: 'Ooty-Warehouse',
+    address: '44 Industrial Estate, Ooty, Tamil Nadu 643005',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1011',
+    name: 'Lakshmi Narayan',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Pending activation',
+    phone: '+91 ••••• 0164',
+    email: '',
+    gstStatus: 'Not applicable',
+    preferredWarehouse: 'No preferred warehouse',
+    ordersVisible: 0,
+    lastPurchase: '',
+    registrationDate: 'Reg. 13 Oct 2026',
+    pickupStates: 'Ooty-Warehouse',
+    address: '15 Fern Hill, Ooty, Tamil Nadu 643004',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1007',
+    name: 'Priya Nair',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0157',
+    email: '',
+    gstStatus: 'Not applicable',
+    preferredWarehouse: 'No preferred warehouse',
+    ordersVisible: 0,
+    lastPurchase: '',
+    registrationDate: 'Reg. 12 Oct 2026',
+    pickupStates: 'Ooty-Warehouse',
+    address: '22 Garden Road, Ooty, Tamil Nadu 643001',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1015',
+    name: 'Hotel Blue Hills',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0172',
+    email: '',
+    gstStatus: 'GST Recorded',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 6,
+    lastPurchase: '8 Oct 2026',
+    registrationDate: '20 Mar 2025 · Added by admin',
+    pickupStates: 'Ooty-Warehouse',
+    address: '1 Lake Road, Ooty, Tamil Nadu 643001',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1018',
+    name: 'Nilgiri Tea & Produce Co',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0188',
+    email: '',
+    gstStatus: 'GST Recorded',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 4,
+    lastPurchase: '2 Oct 2026',
+    registrationDate: '15 Apr 2025 · Added by admin',
+    pickupStates: 'Ooty-Warehouse',
+    address: '12 Commercial Rd, Ooty, Tamil Nadu 643001',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1020',
+    name: 'Western Ghats Cafe',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0195',
+    email: '',
+    gstStatus: 'GST Missing',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 3,
+    lastPurchase: '1 Oct 2026',
+    registrationDate: '2 May 2025 · Added by admin',
+    pickupStates: 'Ooty-Warehouse',
+    address: '5 Charing Cross, Ooty, Tamil Nadu 643001',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1022',
+    name: 'Green Valley Resorts',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0204',
+    email: '',
+    gstStatus: 'GST Recorded',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 5,
+    lastPurchase: '28 Sep 2026',
+    registrationDate: '10 May 2025 · Added by admin',
+    pickupStates: 'Ooty-Warehouse',
+    address: 'Elk Hill, Ooty, Tamil Nadu 643001',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1025',
+    name: 'Hill Top Organics',
+    type: 'B2B',
+    displayType: 'B2B',
+    status: 'Active',
+    phone: '+91 ••••• 0219',
+    email: '',
+    gstStatus: 'GST Recorded',
+    preferredWarehouse: 'Coonoor',
+    ordersVisible: 2,
+    lastPurchase: '25 Sep 2026',
+    registrationDate: '18 May 2025 · Added by admin',
+    pickupStates: 'Coonoor-Warehouse',
+    address: 'Coonoor Rd, Ooty, Tamil Nadu 643002',
+    isB2B: true,
+  },
+  {
+    id: 'CUS-1002',
+    name: 'Kavitha Sundaram',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0221',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 1,
+    lastPurchase: '20 Sep 2026',
+    registrationDate: '15 Jan 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1003',
+    name: 'Ravi Chandran',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0233',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 4,
+    lastPurchase: '18 Sep 2026',
+    registrationDate: '18 Jan 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1004',
+    name: 'Meena Krishnan',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0245',
+    preferredWarehouse: 'Coonoor',
+    ordersVisible: 1,
+    lastPurchase: '15 Sep 2026',
+    registrationDate: '22 Jan 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1005',
+    name: 'Suresh Kumar',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0258',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 3,
+    lastPurchase: '12 Sep 2026',
+    registrationDate: '1 Feb 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1006',
+    name: 'Divya Balaji',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0262',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 2,
+    lastPurchase: '8 Sep 2026',
+    registrationDate: '5 Feb 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1008',
+    name: 'Rajesh Varma',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0270',
+    preferredWarehouse: 'Kotagiri',
+    ordersVisible: 1,
+    lastPurchase: '5 Sep 2026',
+    registrationDate: '12 Feb 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1009',
+    name: 'Deepa Natarajan',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0284',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 2,
+    lastPurchase: '1 Sep 2026',
+    registrationDate: '20 Feb 2025',
+    isB2B: false,
+  },
+  {
+    id: 'CUS-1010',
+    name: 'Saravanan Muthu',
+    type: 'Individual',
+    displayType: 'online',
+    status: 'Active',
+    phone: '+91 ••••• 0299',
+    preferredWarehouse: 'Ooty',
+    ordersVisible: 1,
+    lastPurchase: '28 Aug 2026',
+    registrationDate: '1 Mar 2025',
+    isB2B: false,
+  },
+];
+
+const DEFAULT_GST_BUSINESS: GstBusinessItem = {
+  id: 'CUS-1012',
+  legalName: 'Nilgiri Fresh Traders Pvt Ltd',
+  businessType: 'Wholesale trader',
+  contactPerson: 'Mr. Sundar',
+  phone: '9000012345',
+  email: '',
+  status: 'Recorded',
+  gstin: '33AABCN1234F1Z5',
+  gstAddress: '44 Industrial Estate, Ooty',
+  billingAddressLine1: '44 Industrial Estate',
+  billingAddressLine2: '',
+  city: 'Ooty',
+  state: 'Tamil Nadu',
+  pinCode: '643005',
+  country: 'India',
+  updatedDate: '5 Oct 2026',
+  lastUpdatedFull: '5 Oct 2026, 10:00',
+  missingInfo: 'None',
+  invoicesIssued: 'None',
+  subtext: 'CUS-1012 · B2B · Wholesale trader · Mr. Sundar\nGSTIN 33AABCN1234F1Z5 · 44 Industrial Estate, Ooty, 643005 · Updated 5 Oct 2026',
+};
+
+const GST_BUSINESS_DATA: GstBusinessItem[] = [
+  DEFAULT_GST_BUSINESS,
+  {
+    id: 'CUS-1013',
+    legalName: 'Highland Agro Supplies',
+    businessType: 'Supplier',
+    contactPerson: 'Ms. Rani',
+    phone: '9842109876',
+    email: '',
+    status: 'Incomplete',
+    gstin: '',
+    gstAddress: '',
+    billingAddressLine1: '',
+    city: 'Coonoor',
+    state: 'Tamil Nadu',
+    pinCode: '643101',
+    country: 'India',
+    updatedDate: '24 Sep 2026',
+    lastUpdatedFull: '24 Sep 2026, 15:30',
+    missingInfo: 'GSTIN, Billing Address',
+    invoicesIssued: 'None',
+    subtext: 'CUS-1013 · B2B · Supplier · Ms. Rani\nGSTIN Missing · No billing address recorded · Updated 24 Sep 2026',
+  },
+  {
+    id: 'CUS-1015',
+    legalName: 'Hotel Blue Hills Pvt Ltd',
+    businessType: 'Hotel',
+    contactPerson: 'Chef Arjun',
+    phone: '9789012345',
+    email: '',
+    status: 'Recorded',
+    gstin: '33AABCH5678K1Z2',
+    gstAddress: '1 Lake Road, Ooty',
+    billingAddressLine1: '1 Lake Road',
+    city: 'Ooty',
+    state: 'Tamil Nadu',
+    pinCode: '643001',
+    country: 'India',
+    updatedDate: '8 Oct 2026',
+    lastUpdatedFull: '8 Oct 2026, 11:20',
+    missingInfo: 'None',
+    invoicesIssued: 'None',
+    subtext: 'CUS-1015 · HORECA · Hotel · Chef Arjun\nGSTIN 33AABCH5678K1Z2 · 1 Lake Road, Ooty, 643001 · Updated 8 Oct 2026',
+  },
+  {
+    id: 'CUS-1018',
+    legalName: 'Nilgiri Tea & Produce Co',
+    businessType: 'Distributor',
+    contactPerson: 'Mr. Ramesh',
+    phone: '9443210987',
+    email: '',
+    status: 'Recorded',
+    gstin: '33AAACN9876D1Z4',
+    gstAddress: '12 Commercial Rd, Ooty',
+    billingAddressLine1: '12 Commercial Rd',
+    city: 'Ooty',
+    state: 'Tamil Nadu',
+    pinCode: '643001',
+    country: 'India',
+    updatedDate: '2 Oct 2026',
+    subtext: 'CUS-1018 · B2B · Distributor · Mr. Ramesh\nGSTIN 33AAACN9876D1Z4 · 12 Commercial Rd, Ooty, 643001 · Updated 2 Oct 2026',
+  },
+  {
+    id: 'CUS-1020',
+    legalName: 'Western Ghats Cafe',
+    businessType: 'Cafe',
+    contactPerson: 'Ms. Priya',
+    phone: '9843211223',
+    email: '',
+    status: 'Incomplete',
+    gstin: '',
+    gstAddress: '',
+    billingAddressLine1: '',
+    city: 'Ooty',
+    state: 'Tamil Nadu',
+    pinCode: '643001',
+    country: 'India',
+    updatedDate: '1 Oct 2026',
+    subtext: 'CUS-1020 · HORECA · Cafe · Ms. Priya\nGSTIN Missing · Billing address pending · Updated 1 Oct 2026',
+  },
+  {
+    id: 'CUS-1022',
+    legalName: 'Green Valley Resorts',
+    businessType: 'Resort',
+    contactPerson: 'Mr. David',
+    phone: '9442119988',
+    email: '',
+    status: 'Recorded',
+    gstin: '33AABCG1122F1Z9',
+    gstAddress: 'Elk Hill, Ooty',
+    billingAddressLine1: 'Elk Hill',
+    city: 'Ooty',
+    state: 'Tamil Nadu',
+    pinCode: '643001',
+    country: 'India',
+    updatedDate: '28 Sep 2026',
+    subtext: 'CUS-1022 · HORECA · Resort · Mr. David\nGSTIN 33AABCG1122F1Z9 · Elk Hill, Ooty, 643001 · Updated 28 Sep 2026',
+  },
+  {
+    id: 'CUS-1025',
+    legalName: 'Hill Top Organics',
+    businessType: 'Retailer',
+    contactPerson: 'Mr. Karthik',
+    phone: '9443218877',
+    email: '',
+    status: 'Recorded',
+    gstin: '33AABCH3344J1Z8',
+    gstAddress: 'Coonoor Rd, Ooty',
+    billingAddressLine1: 'Coonoor Rd',
+    city: 'Ooty',
+    state: 'Tamil Nadu',
+    pinCode: '643002',
+    country: 'India',
+    updatedDate: '25 Sep 2026',
+    subtext: 'CUS-1025 · B2B · Retailer · Mr. Karthik\nGSTIN 33AABCH3344J1Z8 · Coonoor Rd, Ooty, 643002 · Updated 25 Sep 2026',
+  },
+];
+
+const CUSTOMER_ORDERS_PREVIEW: CustomerOrderPreview[] = [
+  {
+    id: 'SO-0013',
+    status: 'Delivered · Paid',
+    statusTone: 'success',
+    line1: '1 Oct 2026 · B2B · Potato 120 kg, Tomato 60 kg · ₹12,560.00',
+    line2: 'Main Warehouse, Ooty · Invoice INV-0001',
+  },
+  {
+    id: 'SO-0014',
+    status: 'Processing · Pending',
+    statusTone: 'warning',
+    line1: '13 Oct 2026 · B2B · Beans 80 kg · ₹7,360.00',
+    line2: 'Main Warehouse, Ooty · No invoice yet',
+  },
+];
+
+// ─── Screen 1: Customers Management Screen ───────────────────────────────────
+
+function CustomersManagementScreen({
+  onBack,
+  onOpenDirectory,
+  onOpenGstBusiness,
+}: {
+  onBack: () => void;
+  onOpenDirectory: () => void;
+  onOpenGstBusiness: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const metrics = [
+    { value: '18', label: 'Total Customers' },
+    { value: '2', label: 'New Registrations' },
+    { value: '11', label: 'Individual' },
+    { value: '7', label: 'Business (B2B/HORECA)' },
+    { value: '24', label: 'Recent Orders' },
+    { value: '2', label: 'Business Details Pending' },
+  ];
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBanner}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="custMgmtGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#custMgmtGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleWithIconRow}>
+            <TouchableOpacity
+              onPress={onBack}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={customerStyles.headerBackBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Back to More menu"
+            >
+              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <CustomersManagementHeaderIcon size={22} color="#FFFFFF" />
+            <Text style={customerStyles.headerTitle}>Customers Management</Text>
+          </View>
+          <CircularFilterButton onPress={() => Alert.alert('Filters', 'Filter customer periods.')} />
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search Bar */}
+        <View style={customerStyles.searchBox}>
+          <SearchIcon size={18} color="#8C7E74" />
+          <TextInput
+            style={customerStyles.searchInput}
+            placeholder="Search ID, name, mobile, GSTIN"
+            placeholderTextColor="#8C7E74"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {/* 6 Metric Cards Grid */}
+        <View style={customerStyles.metricsGrid}>
+          {metrics.map((m, idx) => (
+            <View key={idx} style={customerStyles.metricCard}>
+              <Text style={customerStyles.metricValue}>{m.value}</Text>
+              <Text style={customerStyles.metricLabel}>{m.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Helper Note */}
+        <Text style={customerStyles.helperNote}>
+          New registrations, recent orders and the chart follow the period. Total customers and type counts are current totals, not period-based.
+        </Text>
+
+        {/* New registrations this period */}
+        <Text style={customerStyles.sectionHeading}>New registrations this period</Text>
+        <View style={customerStyles.chartCard}>
+          <View style={customerStyles.progressRow}>
+            <Text style={customerStyles.progressLabel}>Week of 7</Text>
+            <View style={customerStyles.progressTrack}>
+              <View style={[customerStyles.progressFill, { width: '40%' }]} />
+            </View>
+            <Text style={customerStyles.progressValue}>1</Text>
+          </View>
+
+          <View style={[customerStyles.progressRow, { marginTop: 12 }]}>
+            <Text style={customerStyles.progressLabel}>Week of 14</Text>
+            <View style={customerStyles.progressTrack}>
+              <View style={[customerStyles.progressFill, { width: '100%' }]} />
+            </View>
+            <Text style={customerStyles.progressValue}>1</Text>
+          </View>
+        </View>
+
+        {/* Recent customers */}
+        <Text style={customerStyles.sectionHeading}>Recent customers</Text>
+        <View style={customerStyles.recentCustomerCard}>
+          <View style={customerStyles.cardTopRow}>
+            <Text style={customerStyles.customerCardTitle}>CUS-1011 · Lakshmi Narayan</Text>
+            <View style={customerStyles.badgePending}>
+              <Text style={customerStyles.badgePendingText}>Pending activation</Text>
+            </View>
+          </View>
+          <Text style={customerStyles.customerCardSubtext}>
+            Individual · +91 ••••• 0164 · Reg. 13 Oct 2026 · No preferred warehouse · No orders yet
+          </Text>
+        </View>
+
+        <View style={customerStyles.recentCustomerCard}>
+          <View style={customerStyles.cardTopRow}>
+            <Text style={customerStyles.customerCardTitle}>CUS-1007 · Priya Nair</Text>
+            <View style={customerStyles.badgeActive}>
+              <Text style={customerStyles.badgeActiveText}>Active</Text>
+            </View>
+          </View>
+          <Text style={customerStyles.customerCardSubtext}>
+            Individual · +91 ••••• 0157 · Reg. 12 Oct 2026 · No preferred warehouse · No orders yet
+          </Text>
+        </View>
+
+        {/* Quick actions */}
+        <Text style={customerStyles.sectionHeading}>Quick actions</Text>
+        <View style={customerStyles.quickActionsRow}>
+          <TouchableOpacity
+            style={customerStyles.quickActionCard}
+            onPress={onOpenDirectory}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Customer Directory"
+          >
+            <CustomerDirectoryActionIcon size={26} color={adminColors.brand} />
+            <Text style={customerStyles.quickActionText}>Customer Directory</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={customerStyles.quickActionCard}
+            onPress={onOpenGstBusiness}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="GST & Business"
+          >
+            <GstBuildingActionIcon size={26} color={adminColors.brand} />
+            <Text style={customerStyles.quickActionText}>GST & Business</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Screen 2: Customer Directory Screen ─────────────────────────────────────
+
+function CustomerDirectoryScreen({
+  onBack,
+  onSelectCustomer,
+  onAddNewCustomer,
+}: {
+  onBack: () => void;
+  onSelectCustomer: (customer: CustomerItem) => void;
+  onAddNewCustomer: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const filtered = CUSTOMERS_DATA.filter((c) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
+  });
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBanner}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="custDirGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#custDirGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleWithIconRow}>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={customerStyles.headerTitle}>Customer Directory</Text>
+          </View>
+          <CircularPlusButton onPress={onAddNewCustomer} />
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search Bar with filter */}
+        <View style={customerStyles.searchBox}>
+          <SearchIcon size={18} color="#8C7E74" />
+          <TextInput
+            style={customerStyles.searchInput}
+            placeholder="Search..."
+            placeholderTextColor="#8C7E74"
+            value={search}
+            onChangeText={setSearch}
+          />
+          <TouchableOpacity onPress={() => Alert.alert('Filter', 'Filter directory.')} activeOpacity={0.7}>
+            <FilterSlidersIcon size={18} color={adminColors.brand} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={customerStyles.directoryCountText}>{filtered.length} customer</Text>
+
+        {filtered.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={customerStyles.customerCard}
+            onPress={() => onSelectCustomer(item)}
+            activeOpacity={0.75}
+          >
+            <View style={customerStyles.cardTopRow}>
+              <Text style={customerStyles.customerCardTitle}>
+                {item.id} · {item.name}
+              </Text>
+              <View style={item.status === 'Active' ? customerStyles.badgeActive : customerStyles.badgePending}>
+                <Text style={item.status === 'Active' ? customerStyles.badgeActiveText : customerStyles.badgePendingText}>
+                  {item.status}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={customerStyles.customerCardMetaLine1}>
+              {item.type} · {item.phone} · {item.gstStatus || 'GST Recorded'} · Preferred: {item.preferredWarehouse}
+            </Text>
+
+            <Text style={customerStyles.customerCardMetaLine2}>
+              {item.ordersVisible !== undefined ? `${item.ordersVisible} orders visible` : 'No orders'}
+              {item.lastPurchase ? ` · Last purchase ${item.lastPurchase}` : ''}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Screen 2b: Add Customer Screen ──────────────────────────────────────────
+
+function AddCustomerScreen({
+  onBack,
+  onSaveCustomer,
+}: {
+  onBack: () => void;
+  onSaveCustomer: (customer: CustomerItem) => void;
+}) {
+  // Form state
+  const [customerName, setCustomerName] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [customerType, setCustomerType] = useState<'Individual' | 'B2B'>('Individual');
+
+  // Address
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [pinCode, setPinCode] = useState('');
+
+  // Business information
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [gstin, setGstin] = useState('');
+  const [bizAddressLine1, setBizAddressLine1] = useState('');
+  const [bizCity, setBizCity] = useState('');
+  const [bizState, setBizState] = useState('');
+  const [bizPinCode, setBizPinCode] = useState('');
+
+  // Preferences
+  const [warehouse, setWarehouse] = useState('None');
+
+  const handleSave = () => {
+    if (!customerName.trim()) {
+      Alert.alert('Required Field', 'Please enter customer name.');
+      return;
+    }
+    if (!mobileNumber.trim()) {
+      Alert.alert('Required Field', 'Please enter mobile number.');
+      return;
+    }
+
+    const newId = `CUS-${1026 + Math.floor(Math.random() * 900)}`;
+    const newCust: CustomerItem = {
+      id: newId,
+      name: customerName.trim(),
+      type: customerType,
+      displayType: customerType === 'B2B' ? 'B2B' : 'online',
+      status: 'Active',
+      phone: mobileNumber.trim(),
+      email: email.trim(),
+      gstStatus: customerType === 'B2B' ? (gstin.trim() ? 'GST Recorded' : 'GST Missing') : 'Not applicable',
+      preferredWarehouse: warehouse !== 'None' ? warehouse : 'No preferred warehouse',
+      ordersVisible: 0,
+      registrationDate: 'Reg. today · Added by admin',
+      pickupStates: warehouse !== 'None' ? warehouse : 'Ooty-Warehouse',
+      address: addressLine1.trim()
+        ? `${addressLine1.trim()}, ${city.trim() || 'Ooty'}, ${state.trim() || 'Tamil Nadu'} ${pinCode.trim()}`
+        : '44 Industrial Estate, Ooty, Tamil Nadu 643005',
+      isB2B: customerType === 'B2B',
+    };
+
+    onSaveCustomer(newCust);
+  };
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBanner}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="addCustGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#addCustGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleWithIconRow}>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={customerStyles.headerTitle}>Add customer</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Personal Information */}
+        <Text style={customerStyles.formSectionTitle}>Personal Information</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            Customer name <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={customerName}
+            onChangeText={setCustomerName}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            Mobile number <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={mobileNumber}
+            onChangeText={setMobileNumber}
+            keyboardType="phone-pad"
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Email</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Customer type</Text>
+          <TouchableOpacity
+            style={customerStyles.formDropdownButton}
+            onPress={() => setCustomerType((prev) => (prev === 'Individual' ? 'B2B' : 'Individual'))}
+            activeOpacity={0.7}
+          >
+            <Text style={customerStyles.formDropdownText}>{customerType}</Text>
+            <ChevronDownIcon size={16} color="#4B5563" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Address */}
+        <Text style={customerStyles.formSectionTitle}>Address</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Address line 1</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={addressLine1}
+            onChangeText={setAddressLine1}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Address line 2</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={addressLine2}
+            onChangeText={setAddressLine2}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>City</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={city}
+            onChangeText={setCity}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>State</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={state}
+            onChangeText={setState}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Pin code</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={pinCode}
+            onChangeText={setPinCode}
+            keyboardType="number-pad"
+            placeholder=""
+          />
+        </View>
+
+        {/* Business information */}
+        <Text style={customerStyles.formSectionTitle}>Business information</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Business/legal name</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={businessName}
+            onChangeText={setBusinessName}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Business type</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={businessType}
+            onChangeText={setBusinessType}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>GSTIN (if applicable)</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={gstin}
+            onChangeText={setGstin}
+            autoCapitalize="characters"
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Business address line 1</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={bizAddressLine1}
+            onChangeText={setBizAddressLine1}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>City</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={bizCity}
+            onChangeText={setBizCity}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>State</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={bizState}
+            onChangeText={setBizState}
+            placeholder=""
+          />
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Pin code</Text>
+          <TextInput
+            style={customerStyles.formInputBoxEditable}
+            value={bizPinCode}
+            onChangeText={setBizPinCode}
+            keyboardType="number-pad"
+            placeholder=""
+          />
+        </View>
+
+        {/* Preferences */}
+        <Text style={customerStyles.formSectionTitle}>Preferences</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Preferred warehouse (optional)</Text>
+          <TouchableOpacity
+            style={customerStyles.formDropdownButton}
+            onPress={() => {
+              const options = ['None', 'Ooty-Warehouse', 'Coonoor-Warehouse', 'Kotagiri-Warehouse'];
+              const curIdx = options.indexOf(warehouse);
+              setWarehouse(options[(curIdx + 1) % options.length] || 'None');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={customerStyles.formDropdownText}>{warehouse}</Text>
+            <ChevronDownIcon size={16} color="#4B5563" />
+          </TouchableOpacity>
+          <Text style={customerStyles.formHelperNote}>Communication preferences are not configured, so they are not collected.</Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      {/* Bottom Action Bar with Save and Cancel */}
+      <View style={customerStyles.addCustomerBottomBar}>
+        <TouchableOpacity
+          style={customerStyles.addCustomerSaveBtn}
+          onPress={handleSave}
+          activeOpacity={0.8}
+        >
+          <Text style={customerStyles.addCustomerSaveText}>Save</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={customerStyles.addCustomerCancelBtn}
+          onPress={onBack}
+          activeOpacity={0.8}
+        >
+          <Text style={customerStyles.addCustomerCancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─── Screen 3: Customer Details Screen ───────────────────────────────────────
+
+function CustomerDetailScreen({
+  customer,
+  onBack,
+}: {
+  customer: CustomerItem | null;
+  onBack: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'Personal' | 'Purchase History' | 'Business'>('Personal');
+
+  const item = customer ?? DEFAULT_CUSTOMER;
+  const isB2B = item.isB2B || item.type === 'B2B';
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBannerDetails}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="custDetailGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#custDetailGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleCol}>
+            <View style={customerStyles.headerTitleWithIconRow}>
+              <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={customerStyles.headerTitle}>Customer details</Text>
+            </View>
+            <Text style={customerStyles.headerSubtitle}>
+              {item.id} · {item.displayType || (isB2B ? 'B2B' : 'online')} · {item.status}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Segmented Tabs */}
+        <View style={customerStyles.segmentedTabsRow}>
+          <TouchableOpacity
+            style={[customerStyles.tabPill, activeTab === 'Personal' && customerStyles.tabPillActive]}
+            onPress={() => setActiveTab('Personal')}
+            activeOpacity={0.8}
+          >
+            <Text style={[customerStyles.tabPillText, activeTab === 'Personal' && customerStyles.tabPillTextActive]}>
+              Personal
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[customerStyles.tabPill, activeTab === 'Purchase History' && customerStyles.tabPillActive]}
+            onPress={() => setActiveTab('Purchase History')}
+            activeOpacity={0.8}
+          >
+            <Text style={[customerStyles.tabPillText, activeTab === 'Purchase History' && customerStyles.tabPillTextActive]}>
+              Purchase History
+            </Text>
+          </TouchableOpacity>
+
+          {isB2B && (
+            <TouchableOpacity
+              style={[customerStyles.tabPill, activeTab === 'Business' && customerStyles.tabPillActive]}
+              onPress={() => setActiveTab('Business')}
+              activeOpacity={0.8}
+            >
+              <Text style={[customerStyles.tabPillText, activeTab === 'Business' && customerStyles.tabPillTextActive]}>
+                Business
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Section Heading */}
+        <Text style={customerStyles.sectionHeading}>Personal details</Text>
+
+        {/* Personal Details Card */}
+        <View style={customerStyles.detailsCard}>
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Customer name</Text>
+            <Text style={customerStyles.detailValue}>{item.name}</Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Customer ID</Text>
+            <Text style={customerStyles.detailValue}>{item.id}</Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Customer type</Text>
+            <Text style={customerStyles.detailValue}>{item.displayType || (isB2B ? 'B2B' : 'online')}</Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Mobile</Text>
+            <Text style={customerStyles.detailValue}>{item.phone}</Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Email</Text>
+            <Text style={customerStyles.detailValue}>{item.email || '—'}</Text>
+          </View>
+
+          <View style={[customerStyles.detailRow, { alignItems: 'flex-start' }]}>
+            <Text style={[customerStyles.detailLabel, { marginTop: 2 }]}>Address</Text>
+            <Text style={[customerStyles.detailValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]}>
+              {item.address || '44 Industrial Estate, Ooty, Tamil Nadu 643005'}
+            </Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Registered</Text>
+            <Text style={customerStyles.detailValue}>{item.registrationDate || '5 Jan 2025 · Added by admin'}</Text>
+          </View>
+
+          <View style={customerStyles.detailRow}>
+            <Text style={customerStyles.detailLabel}>Pickup states</Text>
+            <Text style={customerStyles.detailValue}>{item.pickupStates || 'Ooty-Warehouse'}</Text>
+          </View>
+
+          <View style={[customerStyles.detailRow, { borderBottomWidth: 0 }]}>
+            <Text style={customerStyles.detailLabel}>Status</Text>
+            <Text style={[customerStyles.detailValue, { color: '#137333' }]}>{item.status}</Text>
+          </View>
+        </View>
+
+        {/* Masked note */}
+        <Text style={customerStyles.maskedWarehouseNote}>
+          A warehouse role would see this masked — first name and an initial, no email, and only the city/state/pin.
+        </Text>
+
+        {/* Purchase history preview */}
+        <Text style={customerStyles.sectionHeading}>Purchase history (preview)</Text>
+
+        {CUSTOMER_ORDERS_PREVIEW.map((order) => (
+          <View key={order.id} style={customerStyles.orderPreviewCard}>
+            <View style={customerStyles.cardTopRow}>
+              <Text style={customerStyles.orderCardId}>{order.id}</Text>
+              <View
+                style={
+                  order.statusTone === 'success' ? customerStyles.badgeActive : customerStyles.badgeWarningSoft
+                }
+              >
+                <Text
+                  style={
+                    order.statusTone === 'success'
+                      ? customerStyles.badgeActiveText
+                      : customerStyles.badgeWarningSoftText
+                  }
+                >
+                  {order.status}
+                </Text>
+              </View>
+            </View>
+            <Text style={customerStyles.orderCardLine1}>{order.line1}</Text>
+            <Text style={customerStyles.orderCardLine2}>{order.line2}</Text>
+          </View>
+        ))}
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Screen 4: GST & Business Screen ─────────────────────────────────────────
+
+function GstBusinessScreen({
+  onBack,
+  onSelectBusiness,
+}: {
+  onBack: () => void;
+  onSelectBusiness: (biz: GstBusinessItem) => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const filtered = GST_BUSINESS_DATA.filter((b) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return b.legalName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.gstin.toLowerCase().includes(q);
+  });
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBanner}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="gstBizGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#gstBizGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleWithIconRow}>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={customerStyles.headerTitle}>GST & Business</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search Bar with filter */}
+        <View style={customerStyles.searchBox}>
+          <SearchIcon size={18} color="#8C7E74" />
+          <TextInput
+            style={customerStyles.searchInput}
+            placeholder="Search..."
+            placeholderTextColor="#8C7E74"
+            value={search}
+            onChangeText={setSearch}
+          />
+          <TouchableOpacity onPress={() => Alert.alert('Filter', 'Filter GST businesses.')} activeOpacity={0.7}>
+            <FilterSlidersIcon size={18} color={adminColors.brand} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={customerStyles.directoryCountText}>7 business customers · 2 incomplete</Text>
+
+        {filtered.map((item) => {
+          const isIncomplete = item.status === 'Incomplete';
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[customerStyles.customerCard, isIncomplete && customerStyles.customerCardIncomplete]}
+              onPress={() => onSelectBusiness(item)}
+              activeOpacity={0.75}
+            >
+              <View style={customerStyles.cardTopRow}>
+                <Text style={customerStyles.customerCardTitle}>{item.legalName}</Text>
+                <View style={isIncomplete ? customerStyles.badgeIncomplete : customerStyles.badgeRecorded}>
+                  <Text style={isIncomplete ? customerStyles.badgeIncompleteText : customerStyles.badgeRecordedText}>
+                    {item.status}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={customerStyles.customerCardMetaLine1}>
+                {item.id} · B2B · {item.businessType} · {item.contactPerson}
+              </Text>
+
+              <Text style={customerStyles.customerCardMetaLine2}>
+                {item.gstin ? `GSTIN ${item.gstin} · ` : 'GSTIN Missing · '}
+                {item.gstAddress ? `${item.gstAddress} · ` : 'No billing address recorded · '}
+                Updated {item.updatedDate}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Screen 5: GST & Business Details Screen ─────────────────────────────────
+
+function GstBusinessDetailScreen({
+  business,
+  onBack,
+}: {
+  business: GstBusinessItem | null;
+  onBack: () => void;
+}) {
+  const item = business ?? DEFAULT_GST_BUSINESS;
+
+  return (
+    <View style={customerStyles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Header Banner */}
+      <View style={customerStyles.headerBanner}>
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+          <Defs>
+            <LinearGradient id="gstBizDetailGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={adminColors.brand} />
+              <Stop offset="1" stopColor={adminColors.brand} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#gstBizDetailGrad)" />
+        </Svg>
+
+        <View style={customerStyles.headerTopRow}>
+          <View style={customerStyles.headerTitleWithIconRow}>
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={customerStyles.headerTitle}>GST & Business Details</Text>
+          </View>
+          <CircularEditButton onPress={() => Alert.alert('Edit Mode', 'Edit mode for GST & Business.')} />
+        </View>
+      </View>
+
+      <ScrollView
+        style={customerStyles.scrollContainer}
+        contentContainerStyle={customerStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Summary Box */}
+        <View style={customerStyles.summaryBox}>
+          <View style={customerStyles.summaryBoxRow}>
+            <Text style={customerStyles.summaryBoxLabel}>Missing required information</Text>
+            <Text style={customerStyles.summaryBoxValue}>{item.missingInfo || 'None'}</Text>
+          </View>
+          <View style={customerStyles.summaryBoxRow}>
+            <Text style={customerStyles.summaryBoxLabel}>Invoices issued</Text>
+            <Text style={customerStyles.summaryBoxValue}>{item.invoicesIssued || 'None'}</Text>
+          </View>
+          <View style={[customerStyles.summaryBoxRow, { borderBottomWidth: 0 }]}>
+            <Text style={customerStyles.summaryBoxLabel}>Last updated</Text>
+            <Text style={customerStyles.summaryBoxValue}>{item.lastUpdatedFull || '5 Oct 2026, 10:00'}</Text>
+          </View>
+        </View>
+
+        {/* Section 1: Business Identity */}
+        <Text style={customerStyles.formSectionTitle}>Business Identity</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            Legal/business name <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.legalName}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            Business type <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.businessType}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Contact person</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.contactPerson}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Business phone</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.phone}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Business email</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={[customerStyles.formInputText, { color: '#9CA3AF' }]}>{item.email || ' '}</Text>
+          </View>
+        </View>
+
+        {/* Section 2: GST details */}
+        <Text style={customerStyles.formSectionTitle}>GST details</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>GSTIN</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.gstin || ' '}</Text>
+          </View>
+          <Text style={customerStyles.formHelperNote}>Format is checked. It is recorded, not verified with GST.</Text>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Registered business name</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.legalName}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>GST registered address</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.gstAddress || '44 Industrial Estate, Ooty'}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <View style={customerStyles.formLabelRow}>
+            <Text style={customerStyles.formLabel}>GST registration status</Text>
+            <View style={{ marginLeft: 6 }}>
+              <LockIcon size={13} color="#6B7280" />
+            </View>
+          </View>
+          <View style={[customerStyles.formInputBox, customerStyles.formInputBoxLocked]}>
+            <Text style={[customerStyles.formInputText, customerStyles.formInputTextLocked]}>
+              Not verified (no verification service is integrated)
+            </Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <View style={customerStyles.formLabelRow}>
+            <Text style={customerStyles.formLabel}>Verification reference or date</Text>
+            <View style={{ marginLeft: 6 }}>
+              <LockIcon size={13} color="#6B7280" />
+            </View>
+          </View>
+          <View style={[customerStyles.formInputBox, customerStyles.formInputBoxLocked]}>
+            <Text style={[customerStyles.formInputText, customerStyles.formInputTextLocked]}>
+              Not supported
+            </Text>
+          </View>
+        </View>
+
+        {/* Section 3: Billing address */}
+        <Text style={customerStyles.formSectionTitle}>Billing address</Text>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            Address line 1 <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.billingAddressLine1 || '44 Industrial Estate'}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Address line 2</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={[customerStyles.formInputText, { color: '#9CA3AF' }]}>{item.billingAddressLine2 || ' '}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            City <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.city || 'Ooty'}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            State <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.state || 'Tamil Nadu'}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>
+            PIN code <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.pinCode || '643005'}</Text>
+          </View>
+        </View>
+
+        <View style={customerStyles.formFieldGroup}>
+          <Text style={customerStyles.formLabel}>Country</Text>
+          <View style={customerStyles.formInputBox}>
+            <Text style={customerStyles.formInputText}>{item.country || 'India'}</Text>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Customer Module Stylesheet ───────────────────────────────────────────────
+
+const customerStyles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: '#F8F6F0',
+  },
+  headerBanner: {
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+  },
+  headerBannerDetails: {
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleCol: {
+    flex: 1,
+  },
+  headerTitleWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerBackBtn: {
+    paddingRight: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.88)',
+    marginTop: 4,
+    marginLeft: 34,
+  },
+  circularHeaderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 46,
+    borderWidth: 1,
+    borderColor: '#E8E2D8',
+    marginBottom: 12,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: adminColors.ink,
+    paddingVertical: 0,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  metricCard: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  helperNote: {
+    fontSize: 11,
+    color: '#78716C',
+    marginTop: 14,
+    lineHeight: 16,
+  },
+  sectionHeading: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#451A03',
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  chartCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressLabel: {
+    width: 75,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  progressTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EAE4DC',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: adminColors.brand,
+    borderRadius: 5,
+  },
+  progressValue: {
+    width: 20,
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1F1A17',
+  },
+  recentCustomerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+    marginBottom: 10,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  customerCardTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  badgePending: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgePendingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  badgeActive: {
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgeActiveText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#137333',
+  },
+  badgeRecorded: {
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgeRecordedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#137333',
+  },
+  badgeIncomplete: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgeIncompleteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  customerCardSubtext: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 6,
+    lineHeight: 17,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  directoryCountText: {
+    fontSize: 12.5,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  customerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+    marginBottom: 10,
+  },
+  customerCardIncomplete: {
+    borderColor: '#EF4444',
+    borderWidth: 1.2,
+  },
+  customerCardMetaLine1: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 6,
+  },
+  customerCardMetaLine2: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 3,
+  },
+  segmentedTabsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  tabPill: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+  },
+  tabPillActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  tabPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  tabPillTextActive: {
+    color: '#FFFFFF',
+  },
+  detailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE5DC',
+    borderStyle: 'dashed',
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 13,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  maskedWarehouseNote: {
+    fontSize: 11,
+    color: '#78716C',
+    marginTop: 10,
+    lineHeight: 16,
+  },
+  orderPreviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+    marginBottom: 10,
+  },
+  orderCardId: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  badgeWarningSoft: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  badgeWarningSoftText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  orderCardLine1: {
+    fontSize: 11.5,
+    color: '#4B5563',
+    marginTop: 6,
+  },
+  orderCardLine2: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 3,
+  },
+  summaryBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#EAE4DC',
+    marginBottom: 12,
+  },
+  summaryBoxRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE5DC',
+    borderStyle: 'dashed',
+  },
+  summaryBoxLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  summaryBoxValue: {
+    fontSize: 13,
+    color: adminColors.ink,
+    fontWeight: '800',
+  },
+  formSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#451A03',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  formFieldGroup: {
+    marginBottom: 10,
+  },
+  formLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  formLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  formInputBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  formInputBoxLocked: {
+    backgroundColor: '#EDE8E1',
+    borderColor: '#DDD6CC',
+  },
+  formInputText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  formInputTextLocked: {
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  formHelperNote: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  formInputBoxEditable: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 48,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  formDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 48,
+    paddingHorizontal: 14,
+  },
+  formDropdownText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  addCustomerBottomBar: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F8F6F0',
+    borderTopWidth: 1,
+    borderTopColor: '#EBE4D8',
+  },
+  addCustomerSaveBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCustomerSaveText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  addCustomerCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCustomerCancelText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#374151',
+  },
+});
+
 // ─── Main Screen Component ────────────────────────────────────────────────────
 
 export function TohfaAdminDashboardScreen({
@@ -3950,6 +6162,13 @@ export function TohfaAdminDashboardScreen({
   >(null);
   const [selectedCatalogInput, setSelectedCatalogInput] = useState<CatalogInputItem | undefined>(undefined);
   const [selectedIncident, setSelectedIncident] = useState<IncidentItem | undefined>(undefined);
+
+  // Customers Management Module State (M1-S07 to M1-S11)
+  const [customerScreen, setCustomerScreen] = useState<
+    'management' | 'directory' | 'customer_detail' | 'add_customer' | 'gst_business' | 'gst_business_detail' | null
+  >(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(null);
+  const [selectedGstBusiness, setSelectedGstBusiness] = useState<GstBusinessItem | null>(null);
 
   // Produce Control Module State (Screen 1/2: calendar, Screen 4: zoneBreakdown, Screen 5: cropDetail, Screen 6: harvestForecast, Screen 7: cropHistory)
   const [produceControlScreen, setProduceControlScreen] = useState<
@@ -4776,7 +6995,8 @@ export function TohfaAdminDashboardScreen({
   const displayedActions = showAllActions ? allQuickActions : allQuickActions.slice(0, 6);
   const isInputsScreen = activeTab === 'More' && inputsPestScreen !== null;
   const isProduceScreen = activeTab === 'More' && produceControlScreen !== null;
-  const isBrandHeaderActive = isProduceScreen || isInputsScreen;
+  const isCustomerScreenActive = activeTab === 'More' && customerScreen !== null;
+  const isBrandHeaderActive = isProduceScreen || isInputsScreen || isCustomerScreenActive;
 
   // ─── Workforce & Staff Handlers & Renderers ─────────────────────────────────
 
@@ -8555,6 +10775,604 @@ export function TohfaAdminDashboardScreen({
             </ScrollView>
           )
         )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            WORK QUEUE TAB (M1-S03 · Work Queue)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'WorkQueue' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.workQueueScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header Banner */}
+            <View style={styles.subScreenHeaderBanner}>
+              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+                <Defs>
+                  <LinearGradient id="workQueueGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={adminColors.brand} />
+                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#workQueueGrad)" />
+              </Svg>
+
+              <View style={styles.subScreenHeaderTopRow}>
+                <TouchableOpacity
+                  style={styles.backIconButton}
+                  onPress={() => setActiveTab('Home')}
+                  activeOpacity={0.8}
+                >
+                  <BackArrowWhiteIcon size={22} />
+                </TouchableOpacity>
+                <Text style={styles.subScreenHeaderTitle}>Work Queue</Text>
+                <View style={{ width: 36 }} />
+              </View>
+            </View>
+
+            {/* Search and Filter Box */}
+            <View style={styles.workQueueSearchContainer}>
+              <View style={styles.workQueueSearchBar}>
+                <SearchIcon size={18} color={adminColors.muted} />
+                <TextInput
+                  style={styles.workQueueSearchInput}
+                  placeholder="Search common or scientific name"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={workQueueSearch}
+                  onChangeText={setWorkQueueSearch}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowWorkQueueFilterModal(true)}
+                  activeOpacity={0.7}
+                  style={styles.workQueueFilterTrigger}
+                >
+                  <FilterSlidersIcon size={18} color={adminColors.brand} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Status & pending count row */}
+              <Text style={styles.workQueueCountText}>
+                6 pending · 3 blocked / exception
+              </Text>
+            </View>
+
+            {/* Task Cards List */}
+            <View style={styles.workQueueTaskList}>
+              {workQueueTasks
+                .filter((t) => {
+                  if (!workQueueSearch.trim()) return true;
+                  const q = workQueueSearch.toLowerCase();
+                  return (
+                    t.title.toLowerCase().includes(q) ||
+                    t.name.toLowerCase().includes(q) ||
+                    t.code.toLowerCase().includes(q) ||
+                    t.detail.toLowerCase().includes(q)
+                  );
+                })
+                .map((task) => (
+                  <View key={task.id} style={styles.workQueueCard}>
+                    <View style={styles.workQueueCardTopRow}>
+                      <Text style={styles.workQueueCardTitle}>{task.title}</Text>
+                      <View
+                        style={[
+                          styles.workQueueBadge,
+                          task.badgeTone === 'danger'
+                            ? styles.workQueueBadgeDanger
+                            : styles.workQueueBadgeWarning,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.workQueueBadgeText,
+                            task.badgeTone === 'danger'
+                              ? styles.workQueueBadgeTextDanger
+                              : styles.workQueueBadgeTextWarning,
+                          ]}
+                        >
+                          {task.badge}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.workQueuePersonName}>{task.name}</Text>
+                    <Text style={styles.workQueueTaskCode}>{task.code}</Text>
+                    <Text style={styles.workQueueTaskDetail}>{task.detail}</Text>
+                    <Text style={styles.workQueueTaskCreated}>{task.created}</Text>
+
+                    <TouchableOpacity
+                      style={styles.workQueueActionButton}
+                      onPress={task.onAction}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.workQueueActionText}>{task.actionLabel}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+            </View>
+
+            {/* Screen footer code */}
+            <Text style={styles.screenFooterCode}>M1-S03 · Work Queue</Text>
+            <View style={{ height: adminSpacing.xxl }} />
+          </ScrollView>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            OPERATIONS TAB (M1-S04 · Operations Overview)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Operations' && (
+          <AdminOperationsOverviewScreen
+            onBack={() => setActiveTab('Home')}
+            onExportReports={() => {
+              Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
+            }}
+          />
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            FARMERS TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Farmers' && (
+          selectedAdminApplication ? (
+            <AdminApplicationDetailScreen
+              application={selectedAdminApplication}
+              onBack={() => setSelectedAdminApplication(null)}
+              onApprove={() => {
+                setSelectedAdminApplication(null);
+                Alert.alert('Approved', 'Application has been approved successfully.');
+              }}
+              onReject={() => {
+                setSelectedAdminApplication(null);
+                Alert.alert('Rejected', 'Application has been rejected.');
+              }}
+            />
+          ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
+            <AdminFarmMapScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+            />
+          ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
+            <AdminRatingScorecardScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+              onOpenComplianceTiers={() => { }}
+            />
+          ) : selectedAdminFarmer ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setSelectedAdminFarmer(null)}
+              onOpenFarmMap={() => setFarmerSubScreen('map')}
+              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              showBottomNav={false}
+              onBack={() => setActiveTab('More')}
+              onSelectFarmer={(f) => {
+                setSelectedAdminFarmer(f);
+              }}
+              onReviewApplication={(app) => {
+                setSelectedAdminApplication(app);
+              }}
+            />
+          )
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            FINANCE TAB (M1-S04 · Sales & Finance Overview)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Finance' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.financeScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header Banner */}
+            <View style={styles.subScreenHeaderBanner}>
+              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+                <Defs>
+                  <LinearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={adminColors.brand} />
+                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#financeGrad)" />
+              </Svg>
+
+              <View style={styles.subScreenHeaderTopRow}>
+                <TouchableOpacity
+                  style={styles.backIconButton}
+                  onPress={() => setActiveTab('Home')}
+                  activeOpacity={0.8}
+                >
+                  <BackArrowWhiteIcon size={22} />
+                </TouchableOpacity>
+                <Text style={styles.subScreenHeaderTitle}>Sales & Finance Overview</Text>
+                <TouchableOpacity
+                  style={styles.headerPillIconButton}
+                  onPress={() => setShowFinanceFilterModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ── Section A: Sales overview ── */}
+            <View style={styles.financeSection}>
+              <Text style={styles.financeSectionHeading}>A · Sales overview</Text>
+
+              {/* Order value metrics card */}
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.financeMetricRow}>
+                  <View style={styles.financeMetricHeaderRow}>
+                    <Text style={styles.financeMetricTitle}>Order value</Text>
+                    <Text style={styles.financeMetricValue}>₹71,190</Text>
+                  </View>
+                  <Text style={styles.financeMetricSubtext}>
+                    Gross value of orders placed in the period, excluding cancelled and returned.
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.financeMetricRow}>
+                  <View style={styles.financeMetricHeaderRow}>
+                    <Text style={styles.financeMetricTitle}>Invoiced amount</Text>
+                    <Text style={styles.financeMetricValue}>₹69,570</Text>
+                  </View>
+                  <Text style={styles.financeMetricSubtext}>
+                    Value of B2B and Horeca orders with a generated invoice.
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.financeMetricRow}>
+                  <View style={styles.financeMetricHeaderRow}>
+                    <Text style={styles.financeMetricTitle}>Collected amount</Text>
+                    <Text style={styles.financeMetricValue}>₹69,570</Text>
+                  </View>
+                  <Text style={styles.financeMetricSubtext}>
+                    Value of orders whose payment is Paid.
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.financeMetricRow}>
+                  <View style={styles.financeMetricHeaderRow}>
+                    <Text style={styles.financeMetricTitle}>Refunded amount</Text>
+                    <Text style={styles.financeMetricValue}>₹0</Text>
+                  </View>
+                  <Text style={styles.financeMetricSubtext}>
+                    Refund cases completed in the period.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Orders by status (7) */}
+              <Text style={styles.financeSubHeading}>Orders by status (7)</Text>
+              <View style={styles.kpiTileGrid}>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>2</Text>
+                  <Text style={styles.kpiTileLabel}>Placed</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>0</Text>
+                  <Text style={styles.kpiTileLabel}>Packed</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>0</Text>
+                  <Text style={styles.kpiTileLabel}>Ready for Pickup</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>5</Text>
+                  <Text style={styles.kpiTileLabel}>Delivered</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>0</Text>
+                  <Text style={styles.kpiTileLabel}>Returned</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>0</Text>
+                  <Text style={styles.kpiTileLabel}>Cancelled</Text>
+                </View>
+              </View>
+
+              {/* Sales by channel */}
+              <Text style={styles.financeSubHeading}>Sales by channel</Text>
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Online</Text>
+                  <Text style={styles.summaryRowValue}>₹0</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Live Market</Text>
+                  <Text style={styles.summaryRowValue}>₹1,620</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Horeca</Text>
+                  <Text style={styles.summaryRowValue}>₹20,130</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>B2B</Text>
+                  <Text style={styles.summaryRowValue}>₹49,440</Text>
+                </View>
+              </View>
+
+              {/* B2B and Horeca */}
+              <Text style={styles.financeSubHeading}>B2B and Horeca</Text>
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Orders</Text>
+                  <Text style={styles.summaryRowValue}>5</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Invoices generated / pending</Text>
+                  <Text style={styles.summaryRowValue}>5 / 0</Text>
+                </View>
+              </View>
+
+              <View style={[styles.financeSummaryCard, { marginTop: adminSpacing.sm }]}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Cancelled orders</Text>
+                  <Text style={styles.summaryRowValue}>0</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Returned orders</Text>
+                  <Text style={styles.summaryRowValue}>0</Text>
+                </View>
+              </View>
+
+              <Text style={styles.financeCaptionNote}>
+                Filters applied here: Date range, Sales channel, Warehouse, Customer type, Payment status.
+              </Text>
+            </View>
+
+            {/* ── Section B: Farmer payouts ── */}
+            <View style={styles.financeSection}>
+              <Text style={styles.financeSectionHeading}>B · Farmer payouts</Text>
+
+              <View style={styles.kpiTileGrid}>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>3</Text>
+                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Pending approval</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Successful</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>2</Text>
+                  <Text style={styles.kpiTileLabel}>Failed or on hold</Text>
+                </View>
+              </View>
+
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Payout value requested in the period</Text>
+                  <Text style={styles.summaryRowValue}>₹60,070</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Payouts in the period</Text>
+                  <Text style={styles.summaryRowValue}>5</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ── Section C: Customer refunds ── */}
+            <View style={styles.financeSection}>
+              <Text style={styles.financeSectionHeading}>C · Customer refunds</Text>
+
+              <View style={styles.kpiTileGrid}>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Awaiting review</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Completed</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Failed</Text>
+                </View>
+              </View>
+
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Unresolved complaints</Text>
+                  <Text style={styles.summaryRowValue}>2</Text>
+                </View>
+              </View>
+
+              <Text style={styles.financeCaptionNote}>
+                Refund statuses are current; the date range applies only to the refunded amount above.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.financeOutlineButton}
+                onPress={() => {
+                  if (onNavigate) onNavigate('Customers');
+                  else Alert.alert('Customers', 'Opening customers overview.');
+                }}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.financeOutlineButtonText}>Customers</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Section D: Finance and reconciliation ── */}
+            <View style={styles.financeSection}>
+              <Text style={styles.financeSectionHeading}>D · Finance and reconciliation</Text>
+
+              <View style={styles.kpiTileGrid}>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>2</Text>
+                  <Text style={styles.kpiTileLabel}>Vouchers awaiting approval</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>1</Text>
+                  <Text style={styles.kpiTileLabel}>Reconciliation mismatches</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>3</Text>
+                  <Text style={styles.kpiTileLabel}>Salary payouts to process</Text>
+                </View>
+                <View style={styles.kpiTileItem}>
+                  <Text style={styles.kpiTileValue}>3</Text>
+                  <Text style={styles.kpiTileLabel}>Records awaiting approval</Text>
+                </View>
+              </View>
+
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>
+                    Reconciliation: matched / pending review / mismatch
+                  </Text>
+                  <Text style={styles.summaryRowValue}>1 / 1 / 1</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Voucher value awaiting approval</Text>
+                  <Text style={styles.summaryRowValue}>₹11,000</Text>
+                </View>
+              </View>
+
+              <Text style={styles.financeCaptionNote}>
+                Wallet and ledger figures come from the Accounts & Finance records. Filters other than the vouchers listed do not apply.
+              </Text>
+            </View>
+
+            {/* ── Section E: Price compliance ── */}
+            <View style={styles.financeSection}>
+              <Text style={styles.financeSectionHeading}>E · Price compliance</Text>
+
+              <View style={styles.financeSummaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Retail prices needing action</Text>
+                  <Text style={styles.summaryRowValue}>1</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Retail prices above the ceiling</Text>
+                  <Text style={styles.summaryRowValue}>1</Text>
+                </View>
+              </View>
+
+              <Text style={styles.financeSubHeading}>Fair-price ceiling (reference only)</Text>
+
+              {/* Price compliance table */}
+              <View style={styles.complianceListCard}>
+                {[
+                  {
+                    name: 'Tomato · Grade A',
+                    ceiling: 'Ceiling Rs. 60 · Retail Rs. 55',
+                    status: 'Within ceiling',
+                    tone: 'success' as const,
+                  },
+                  {
+                    name: 'Carrot · Grade A',
+                    ceiling: 'Ceiling Rs. 70 · Retail Rs. 74',
+                    status: 'Above ceiling',
+                    tone: 'danger' as const,
+                  },
+                  {
+                    name: 'Cabbage · Grade B',
+                    ceiling: 'Ceiling Rs. 35 · Retail Rs. 32',
+                    status: 'Needs action',
+                    tone: 'warning' as const,
+                  },
+                  {
+                    name: 'Beans · Grade A',
+                    ceiling: 'Ceiling Rs. 90 · Retail Rs. 84',
+                    status: 'Within ceiling',
+                    tone: 'success' as const,
+                  },
+                  {
+                    name: 'Potato · Grade B',
+                    ceiling: 'Ceiling Rs. 40 · Retail Rs. 38',
+                    status: 'Within ceiling',
+                    tone: 'success' as const,
+                  },
+                  {
+                    name: 'Garlic · Grade A',
+                    ceiling: 'Ceiling Rs. 210 · Retail Rs. 198',
+                    status: 'Within ceiling',
+                    tone: 'success' as const,
+                  },
+                ].map((item, index, arr) => (
+                  <View key={item.name}>
+                    <View style={styles.complianceRow}>
+                      <Text style={styles.complianceItemName}>{item.name}</Text>
+                      <View style={styles.complianceRightCol}>
+                        <Text style={styles.complianceCeilingText}>{item.ceiling}</Text>
+                        <View
+                          style={[
+                            styles.compliancePill,
+                            item.tone === 'success' && styles.compliancePillSuccess,
+                            item.tone === 'danger' && styles.compliancePillDanger,
+                            item.tone === 'warning' && styles.compliancePillWarning,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.compliancePillText,
+                              item.tone === 'success' && styles.compliancePillTextSuccess,
+                              item.tone === 'danger' && styles.compliancePillTextDanger,
+                              item.tone === 'warning' && styles.compliancePillTextWarning,
+                            ]}
+                          >
+                            {item.status}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {index < arr.length - 1 && <View style={styles.summaryDivider} />}
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Export reports full-width button */}
+            <TouchableOpacity
+              style={styles.exportReportsButton}
+              onPress={() => {
+                Alert.alert(
+                  'Export Reports',
+                  'Sales and finance report exported successfully in PDF and Excel formats.'
+                );
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.exportReportsButtonText}>Export reports</Text>
+            </TouchableOpacity>
+
+            {/* Screen footer code */}
+            <Text style={styles.screenFooterCode}>M1-S04 · Sales & Finance Overview</Text>
+            <View style={{ height: adminSpacing.xxl }} />
+          </ScrollView>
+        )}
+
         {/* ══════════════════════════════════════════════════════════════════════
             SALES TAB (Subscreens & Channels)
            ══════════════════════════════════════════════════════════════════════ */}
@@ -8618,7 +11436,48 @@ export function TohfaAdminDashboardScreen({
             MORE TAB (Image 1 Menu Screen)
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'More' && (
-          produceControlScreen === 'calendar' ? (
+          customerScreen === 'management' ? (
+            <CustomersManagementScreen
+              onBack={() => setCustomerScreen(null)}
+              onOpenDirectory={() => setCustomerScreen('directory')}
+              onOpenGstBusiness={() => setCustomerScreen('gst_business')}
+            />
+          ) : customerScreen === 'directory' ? (
+            <CustomerDirectoryScreen
+              onBack={() => setCustomerScreen('management')}
+              onSelectCustomer={(cust) => {
+                setSelectedCustomer(cust);
+                setCustomerScreen('customer_detail');
+              }}
+              onAddNewCustomer={() => setCustomerScreen('add_customer')}
+            />
+          ) : customerScreen === 'add_customer' ? (
+            <AddCustomerScreen
+              onBack={() => setCustomerScreen('directory')}
+              onSaveCustomer={(newCust) => {
+                CUSTOMERS_DATA.unshift(newCust);
+                setCustomerScreen('directory');
+              }}
+            />
+          ) : customerScreen === 'customer_detail' ? (
+            <CustomerDetailScreen
+              customer={selectedCustomer}
+              onBack={() => setCustomerScreen('directory')}
+            />
+          ) : customerScreen === 'gst_business' ? (
+            <GstBusinessScreen
+              onBack={() => setCustomerScreen('management')}
+              onSelectBusiness={(biz) => {
+                setSelectedGstBusiness(biz);
+                setCustomerScreen('gst_business_detail');
+              }}
+            />
+          ) : customerScreen === 'gst_business_detail' ? (
+            <GstBusinessDetailScreen
+              business={selectedGstBusiness}
+              onBack={() => setCustomerScreen('gst_business')}
+            />
+          ) : produceControlScreen === 'calendar' ? (
             <ProduceControlCalendarScreen
               onBack={() => setProduceControlScreen(null)}
               onOpenFilters={() => setShowProduceFiltersModal(true)}
@@ -8715,107 +11574,6 @@ export function TohfaAdminDashboardScreen({
               incident={selectedIncident}
               onBack={() => setInputsPestScreen('pest_incidents')}
             />
-          ) : dashboardSubScreen === 'scheduleAudit' ? (
-            <AuditManagementScreen
-              onBack={() => setDashboardSubScreen(null)}
-              onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
-              onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
-              onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
-              onOpenReportHistory={() => {
-                setReportHistoryReturnScreen('scheduleAudit');
-                setDashboardSubScreen('auditReportHistory');
-              }}
-              onSelectAuditItem={(audit) => {
-                setSelectedAuditId(audit.code);
-                setAuditDetailsReturnScreen('scheduleAudit');
-                setDashboardSubScreen('auditDetailsRecord');
-              }}
-            />
-          ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
-            <AuditScheduleAssignmentScreen
-              onBack={() => setDashboardSubScreen('scheduleAudit')}
-              onViewSchedule={(schedule) => {
-                setSelectedAuditId(schedule.code);
-                setAuditDetailsReturnScreen('auditScheduleAssignment');
-                setDashboardSubScreen('auditDetailsRecord');
-              }}
-              onEditSchedule={(schedule) => {
-                setSelectedAuditId(schedule.code);
-                setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-                setDashboardSubScreen('scheduleAuditForm');
-              }}
-              onReschedule={(schedule) => {
-                setSelectedAuditId(schedule.code);
-                setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-                setDashboardSubScreen('scheduleAuditForm');
-              }}
-            />
-          ) : dashboardSubScreen === 'auditDetailsRecord' ? (
-            <AuditDetailsFarmerRecordsScreen
-              auditId={selectedAuditId}
-              onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-              onEditSchedule={() => {
-                setScheduleAuditFormReturnScreen('auditDetailsRecord');
-                setDashboardSubScreen('scheduleAuditForm');
-              }}
-              onReschedule={() => {
-                setScheduleAuditFormReturnScreen('auditDetailsRecord');
-                setDashboardSubScreen('scheduleAuditForm');
-              }}
-              onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-              onOpenFarmerProfile={() => {
-                if (onNavigate) onNavigate('AdminAllFarmers');
-                else setActiveTab('Farmers');
-              }}
-            />
-          ) : dashboardSubScreen === 'scheduleAuditForm' ? (
-            <ScheduleAuditFormScreen
-              initialAuditId={selectedAuditId}
-              onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-              onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-              onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-            />
-          ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
-            <AuditHistoryComplianceScreen
-              onBack={() => setDashboardSubScreen('scheduleAudit')}
-              onSelectAudit={(audit) => {
-                setSelectedAuditId(audit.code);
-                setAuditDetailsReturnScreen('auditHistoryCompliance');
-                setDashboardSubScreen('auditDetailsRecord');
-              }}
-            />
-          ) : dashboardSubScreen === 'generateAuditReport' ? (
-            <GenerateAuditReportScreen
-              onBack={() => setDashboardSubScreen('scheduleAudit')}
-              onConfigureReport={() => {
-                setDashboardSubScreen('auditReportsTierConfig');
-              }}
-              onGenerateReport={() => {
-                setDashboardSubScreen('auditReportsTierConfig');
-              }}
-            />
-          ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
-            <AuditReportsTierConfigScreen
-              onBack={() => setDashboardSubScreen('generateAuditReport')}
-              onGenerateReportSuccess={() => {
-                setReportHistoryReturnScreen('auditReportsTierConfig');
-                setDashboardSubScreen('auditReportHistory');
-              }}
-            />
-          ) : dashboardSubScreen === 'auditReportHistory' ? (
-            <AuditReportHistoryScreen
-              onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
-              onOpenReportDetails={(_reportId) => {
-                setDashboardSubScreen('auditReportDetails');
-              }}
-            />
-          ) : dashboardSubScreen === 'auditReportDetails' ? (
-            <AuditReportDetailsScreen
-              onBack={() => setDashboardSubScreen('auditReportHistory')}
-              onDownload={() => {
-                Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
-              }}
-            />
           ) : (
             <AdminMoreMenuScreen
               onBack={() => setActiveTab('Home')}
@@ -8830,17 +11588,15 @@ export function TohfaAdminDashboardScreen({
                 } else if (optionId === 'inputs') {
                   setInputsPestScreen('home');
                 } else if (optionId === 'pricing') {
-                  setPricingReturnTab('More');
-                  setDashboardSubScreen('marketPricingHome');
+                  if (onNavigate) onNavigate('RetailPricing');
                 } else if (optionId === 'purchase_sales') {
                   setActiveTab('Finance');
                 } else if (optionId === 'customers') {
-                  if (onNavigate) onNavigate('Customers');
+                  setCustomerScreen('management');
                 } else if (optionId === 'finance') {
                   setActiveTab('Finance');
                 } else if (optionId === 'workforce') {
-                  setWorkforceSubScreen('dashboard');
-                  setActiveTab('Workforce');
+                  if (onNavigate) onNavigate('Staff');
                 } else if (optionId === 'notifications') {
                   setActiveTab('Reports');
                 } else if (optionId === 'community') {
@@ -8852,6 +11608,7 @@ export function TohfaAdminDashboardScreen({
             />
           )
         )}
+
 
             {/* ══════════════════════════════════════════════════════════════════════
             REPORTS TAB
@@ -8946,6 +11703,11 @@ export function TohfaAdminDashboardScreen({
         inputsPestScreen !== 'add_pest' &&
         inputsPestScreen !== 'pest_incidents' &&
         inputsPestScreen !== 'incident_detail' &&
+        customerScreen !== 'directory' &&
+        customerScreen !== 'customer_detail' &&
+        customerScreen !== 'add_customer' &&
+        customerScreen !== 'gst_business' &&
+        customerScreen !== 'gst_business_detail' &&
         (activeTab !== 'Workforce' || workforceSubScreen === 'dashboard') && (
           <View style={styles.bottomNav}>
             {/* Tab 1: Home */}
@@ -8953,9 +11715,10 @@ export function TohfaAdminDashboardScreen({
               style={styles.navTabItem}
               onPress={() => {
                 setDashboardSubScreen(null);
-                setOperationsSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
+                setCustomerScreen(null);
+                setOperationsSubScreen(null);
                 setActiveTab('Home');
               }}
               activeOpacity={0.7}
@@ -8982,9 +11745,10 @@ export function TohfaAdminDashboardScreen({
               style={styles.navTabItem}
               onPress={() => {
                 setDashboardSubScreen(null);
-                setOperationsSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
+                setCustomerScreen(null);
+                setOperationsSubScreen(null);
                 setActiveTab('WorkQueue');
               }}
               activeOpacity={0.7}
@@ -9007,9 +11771,10 @@ export function TohfaAdminDashboardScreen({
               style={styles.navTabItem}
               onPress={() => {
                 setDashboardSubScreen(null);
-                setOperationsSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
+                setCustomerScreen(null);
+                setOperationsSubScreen(null);
                 setActiveTab('Operations');
               }}
               activeOpacity={0.7}
@@ -9036,9 +11801,10 @@ export function TohfaAdminDashboardScreen({
               style={styles.navTabItem}
               onPress={() => {
                 setDashboardSubScreen(null);
-                setOperationsSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
+                setCustomerScreen(null);
+                setOperationsSubScreen(null);
                 setActiveTab('Finance');
               }}
               activeOpacity={0.7}
@@ -9065,9 +11831,9 @@ export function TohfaAdminDashboardScreen({
               style={styles.navTabItem}
               onPress={() => {
                 setDashboardSubScreen(null);
-                setOperationsSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
+                setCustomerScreen(null);
                 setActiveTab('More');
               }}
               activeOpacity={0.7}
@@ -9075,10 +11841,10 @@ export function TohfaAdminDashboardScreen({
               <TabMoreIcon
                 color={
                   activeTab === 'More' ||
-                  activeTab === 'Farmers' ||
-                  activeTab === 'Reports' ||
-                  activeTab === 'Profile' ||
-                  activeTab === 'Workforce'
+                    activeTab === 'Farmers' ||
+                    activeTab === 'Reports' ||
+                    activeTab === 'Profile' ||
+                    activeTab === 'Workforce'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -11998,4 +14764,171 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
 
+  financeScrollContent: {
+    paddingBottom: adminSpacing.xxxl,
+    backgroundColor: adminColors.canvas,
+  },
+  financeSection: {
+    marginTop: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.md,
+  },
+  financeSubHeading: {
+    ...adminType.sectionHead,
+    fontSize: 16,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+  },
+  financeCaptionNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
+  },
+  financeSummaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  kpiTileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
+    justifyContent: 'space-between',
+  },
+  kpiTileItem: {
+    width: '48%',
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.sm,
+    padding: adminSpacing.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  kpiTileLabel: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  kpiTileValue: {
+    ...adminType.body,
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  financeMetricRow: {
+    paddingVertical: adminSpacing.xs,
+  },
+  financeMetricHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  financeMetricTitle: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+  },
+  financeMetricValue: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  financeMetricSubtext: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  financeOutlineButton: {
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginTop: adminSpacing.xs,
+  },
+  financeOutlineButtonText: {
+    ...adminType.body,
+    color: adminColors.brand,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  complianceListCard: {
+    marginTop: adminSpacing.xs,
+  },
+  complianceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.sm,
+  },
+  complianceItemName: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.ink,
+    flex: 1,
+    marginRight: adminSpacing.xs,
+  },
+  complianceRightCol: {
+    alignItems: 'flex-end',
+  },
+  complianceCeilingText: {
+    ...adminType.body,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 4,
+  },
+  compliancePill: {
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  compliancePillSuccess: {
+    backgroundColor: adminColors.success.bg,
+  },
+  compliancePillDanger: {
+    backgroundColor: adminColors.danger.bg,
+  },
+  compliancePillWarning: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  compliancePillText: {
+    ...adminType.caption,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  compliancePillTextSuccess: {
+    color: adminColors.success.text,
+  },
+  compliancePillTextDanger: {
+    color: adminColors.danger.text,
+  },
+  compliancePillTextWarning: {
+    color: adminColors.warning.text,
+  },
+  exportReportsButton: {
+    marginHorizontal: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  exportReportsButtonText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });
+
