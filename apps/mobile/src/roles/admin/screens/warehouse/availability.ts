@@ -10,8 +10,8 @@
  *     (AREAS_WITHOUT_API): the business supports warehouse pickup only, not
  *     delivery dispatch (BR-21; docs/rules.md open contradiction 3). Its screens
  *     stay in the code in case delivery is built later -- a hide, not a delete.
- *     Material handling was dropped as a product decision (2026-10-14); it is
- *     deleted, so it is no area at all. Marking a pickup order ready still uses
+ *     Material Handling was removed entirely, product decision 2026-10-23.
+ *     Marking a pickup order ready still uses
  *     POST .../dispatch.
  *   - Areas that now HAVE a live API are offered on the view permission that
  *     API enforces, the same real permission rule as Staff below. That is not a
