@@ -23,6 +23,12 @@
  * dismiss. Each route's container fetches only its own data. Clear-all and
  * snooze have no control: there is no clear endpoint, and the spec gives no
  * snooze length (only a server maximum), so the app cannot pick one.
+ *
+ * System Messages (M13-04) open from the list: GET /system-messages with a
+ * real mark-read. Unlike the notification screens, the entry and the
+ * mark-read are offered on their codes (systemMessageAccess): those are the
+ * interim codes the endpoints declare, checked here in the flow so the list
+ * and detail screens stay ungated (every role holds notification.own.*).
  */
 import React, { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
@@ -34,12 +40,16 @@ import { ApprovalAlertsScreen, type AlertStateFilter } from './ApprovalAlertsScr
 import { NotificationDetailScreen } from './NotificationDetailScreen';
 import { NOTIFICATION_CODES, liveFilterOf, type LiveNotificationFilter } from './NotificationParts';
 import { NotificationsScreen } from './NotificationsScreen';
+import { systemMessageAccess } from './mappers';
+import { SystemMessagesScreen } from './SystemMessagesScreen';
 import {
   useAlertList,
   useDismissAlert,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useMarkSystemMessageRead,
   useNotificationList,
+  useSystemMessageList,
 } from './useNotificationsData';
 import type {
   ApprovalAlertItem,
@@ -115,6 +125,7 @@ export function NotificationsFlow({
   });
 
   const common = { scope, can, onBack: back, onTabChange };
+  const systemMessages = systemMessageAccess(can);
 
   switch (current.screen) {
     case 'Notifications':
@@ -125,6 +136,7 @@ export function NotificationsFlow({
           onFilterChange={setFilter}
           onSelectNotification={(item) => navigate('NotificationDetail', { notification: item })}
           onOpenTarget={onOpenTarget}
+          onOpenSystemMessages={systemMessages.view ? () => navigate('SystemMessages') : undefined}
         />
       );
     case 'NotificationDetail':
@@ -138,6 +150,8 @@ export function NotificationsFlow({
           onOpenRecord={onOpenAlertRecord}
         />
       );
+    case 'SystemMessages':
+      return <LiveSystemMessagesRoute {...common} access={systemMessages} />;
     default:
       return null;
   }
@@ -160,12 +174,14 @@ function LiveNotificationsRoute({
   onFilterChange,
   onSelectNotification,
   onOpenTarget,
+  onOpenSystemMessages,
   ...common
 }: RouteCommon & {
   filter: LiveNotificationFilter;
   onFilterChange: (filter: LiveNotificationFilter) => void;
   onSelectNotification: (item: NotificationItem) => void;
   onOpenTarget?: ((target: NotificationTarget, item: NotificationItem) => void) | undefined;
+  onOpenSystemMessages?: (() => void) | undefined;
 }) {
   const list = useNotificationList(filter === 'Unread');
   const markRead = useMarkNotificationRead();
@@ -183,6 +199,30 @@ function LiveNotificationsRoute({
       markAllPending={markAll.isPending}
       onSelectNotification={onSelectNotification}
       onOpenTarget={onOpenTarget}
+      onOpenSystemMessages={onOpenSystemMessages}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+/** The System Messages route: GET /system-messages plus the per-user mark-read (BR-65). */
+function LiveSystemMessagesRoute({ access, ...common }: RouteCommon & { access: { markRead: boolean } }) {
+  const list = useSystemMessageList();
+  const markRead = useMarkSystemMessageRead();
+  return (
+    <SystemMessagesScreen
+      {...common}
+      messages={list.items}
+      onMarkRead={access.markRead ? (id) => markRead.mutate(id) : undefined}
+      markingId={markRead.isPending ? markRead.variables : undefined}
+      markError={markRead.error}
+      markErrorId={markRead.isError ? markRead.variables : undefined}
       isLoading={list.isLoading}
       error={list.error}
       onRetry={list.refresh}
