@@ -110,22 +110,6 @@ function MarketPricingIcon({ size = 20, color = adminColors.brand }: { size?: nu
   );
 }
 
-function PurchaseSalesIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z"
-        stroke={color}
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="8" y1="8" x2="16" y2="8" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
-      <Line x1="8" y1="12" x2="16" y2="12" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
-      <Line x1="8" y1="16" x2="12" y2="16" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function CustomersIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -210,7 +194,6 @@ const MENU_ITEMS: MenuItemConfig[] = [
   { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
   { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
   { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
-  { id: 'purchase_sales', label: 'Purchase & Sales', icon: <PurchaseSalesIcon /> },
   { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
   { id: 'finance', label: 'Accounts & Finance', icon: <AccountsFinanceIcon /> },
   { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },

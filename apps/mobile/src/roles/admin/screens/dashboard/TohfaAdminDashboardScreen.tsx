@@ -23,6 +23,7 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components';
+import { makeCan, type Can } from '../../permissions/can';
 import {
   AdminAllFarmersScreen,
   AdminFarmerDetailScreen,
@@ -43,6 +44,7 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
 } from '../sales';
+import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
@@ -60,7 +62,18 @@ import {
   AnnouncementsScreen,
   AllRecentReportsScreen,
 } from '../reports';
-import { PLStatementScreen } from '../finance';
+import {
+  FinancialDashboardScreen,
+  PLStatementScreen,
+} from '../finance';
+import { PurchaseDuesPayoutsScreen } from '../finance/PurchaseDuesPayoutsScreen';
+import { SalesIncomeRevenueScreen } from '../finance/SalesIncomeRevenueScreen';
+import { ExpenseManagementScreen } from '../finance/ExpenseManagementScreen';
+import { InvoicesGstBillingScreen } from '../finance/InvoicesGstBillingScreen';
+import { ReturnsRmaRefundsScreen } from '../finance/ReturnsRmaRefundsScreen';
+import { TransactionHistoryScreen } from '../finance/TransactionHistoryScreen';
+import { CustomerWalletOverviewScreen } from '../finance/CustomerWalletOverviewScreen';
+import { ReportsExportScreen } from '../finance/ReportsExportScreen';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
 import { StockLedgerBatchesScreen } from './StockLedgerBatchesScreen';
 import { StockVerificationScreen } from './StockVerificationScreen';
@@ -296,6 +309,107 @@ function ClockHistoryIcon({ size = 16, color = adminColors.brand }: { size?: num
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
       <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function BankBuildingWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9.5L12 4l9 5.5v1H3v-1z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 10.5v6.5M9 10.5v6.5M15 10.5v6.5M19 10.5v6.5M3 17.5h18M2 20.5h20" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function DownloadWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3v13M7 11l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToPurchaseSalesIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 2h9l5 5v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M8 12h8M8 16h6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GoToDuesPayoutsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="1.9" />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.9" />
+      <Path d="M6 9h.01M18 15h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GoToSalesIncomeIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 17l6-6 4 4 8-8" stroke={color} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 7h7v7" stroke={color} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToExpensesIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="5" width="20" height="14" rx="2.5" stroke={color} strokeWidth="1.9" />
+      <Circle cx="8" cy="12" r="1.5" fill={color} />
+      <Circle cx="16" cy="12" r="1.5" fill={color} />
+      <Rect x="10.5" y="9.5" width="3" height="5" rx="0.8" stroke={color} strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
+function GoToCustomerWalletIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="13" rx="2.5" stroke={color} strokeWidth="1.9" />
+      <Path d="M2 10h20M17 14h3" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+      <Circle cx="15.5" cy="14" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+function GoToInvoiceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M8 13h4M8 17h8" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToReviewReturnsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="1.9" />
+      <Path d="M15 12h-6m0 0l2.5-2.5M9 12l2.5 2.5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToTransactionHistoryIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 3v5h5M12 7v5l3 3" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToReportExportIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3v11M8 10l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -765,6 +879,18 @@ export function TohfaAdminDashboardScreen({
   >('overview');
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
+    const [financeSubScreen, setFinanceSubScreen] = useState<
+    | 'purchaseSales'
+    | 'duesPayouts'
+    | 'salesIncome'
+    | 'expenses'
+    | 'invoicesGst'
+    | 'reviewReturns'
+    | 'transactionHistory'
+    | 'customerWallet'
+    | 'reportExport'
+    | null
+  >(null);
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
@@ -1092,6 +1218,135 @@ export function TohfaAdminDashboardScreen({
     adminName.toLowerCase().includes('admin') || adminName.toLowerCase().includes('platform')
       ? 'Admin'
       : adminName.split(' ')[0] || 'Admin';
+
+  const can = React.useMemo(() => makeCan(user?.permissions), [user?.permissions]);
+
+  const handleExportFinanceReport = () => {
+    if (can('report.export.file') || can('finance.pnl.view') || !user) {
+      Alert.alert(
+        'Export Report',
+        'Accounts & Finance summary report exported successfully in PDF and Excel formats.'
+      );
+    } else {
+      Alert.alert(
+        'Access Restricted',
+        'Your role lacks permission to export finance reports (report.export.file).'
+      );
+    }
+  };
+
+  const handleGoToItem = (itemKey: string) => {
+    switch (itemKey) {
+      case 'purchase_sales':
+        if (can('sales.channel.manage') || can('order.list.view') || can('sales.order.create') || !user) {
+          setFinanceSubScreen('purchaseSales');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission to access Purchase & Sales (sales.channel.manage).'
+          );
+        }
+        break;
+      case 'dues_payouts':
+        if (can('payout.dues.view') || can('payout.farmer.initiate') || can('payout.farmer.approve') || !user) {
+          setFinanceSubScreen('duesPayouts');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Dues & Payouts (payout.dues.view).'
+          );
+        }
+        break;
+      case 'sales_income':
+        if (can('finance.sales_income.view') || !user) {
+          setFinanceSubScreen('salesIncome');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Sales Income (finance.sales_income.view).'
+          );
+        }
+        break;
+      case 'expenses':
+        if (can('finance.expense.log') || !user) {
+          setFinanceSubScreen('expenses');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission to log or view expenses (finance.expense.log).'
+          );
+        }
+        break;
+      case 'customer_wallet':
+        if (can('customer.wallet.view') || can('wallet.cash_topup.process') || can('wallet.manual_credit_debit') || !user) {
+          setFinanceSubScreen('customerWallet');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Customer Wallet operations (customer.wallet.view).'
+          );
+        }
+        break;
+      case 'create_view_invoice':
+        if (
+          can('invoice.generate') ||
+          can('invoice.gst.generate') ||
+          can('invoice.view_own') ||
+          can('sales.sale.create') ||
+          can('sales.channel.manage') ||
+          can('finance.dashboard.view') ||
+          !user
+        ) {
+          setFinanceSubScreen('invoicesGst');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Invoicing (invoice.generate).'
+          );
+        }
+        break;
+      case 'review_returns':
+        if (
+          can('rma.request.process') ||
+          can('rma.refund.approve') ||
+          can('rma.refund.wallet_process') ||
+          can('sales.sale.cancel') ||
+          can('sales.channel.manage') ||
+          can('finance.dashboard.view') ||
+          !user
+        ) {
+          setFinanceSubScreen('reviewReturns');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Returns & RMA (rma.request.process).'
+          );
+        }
+        break;
+      case 'transaction_history':
+        if (can('finance.cash_close.manage') || can('auditlog.view') || !user) {
+          setFinanceSubScreen('transactionHistory');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission for Transaction History (finance.cash_close.manage).'
+          );
+        }
+        break;
+      case 'report_export':
+        if (can('report.export.file') || can('finance.pnl.view') || !user) {
+          setFinanceSubScreen('reportExport');
+        } else {
+          Alert.alert(
+            'Access Restricted',
+            'Your role lacks permission to export finance reports (report.export.file).'
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  };
 
   const handleRefresh = () => {
     const now = new Date();
@@ -4743,422 +4998,400 @@ export function TohfaAdminDashboardScreen({
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
-            FINANCE TAB (M1-S04 · Sales & Finance Overview)
+            FINANCE TAB (Accounts & Finance Dashboard)
            ══════════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'Finance' && (
-              <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.financeScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Header Banner */}
-                <View style={styles.subScreenHeaderBanner}>
-                  <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                    <Defs>
-                      <LinearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0" stopColor={adminColors.brand} />
-                        <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
-                      </LinearGradient>
-                    </Defs>
-                    <Rect width="100%" height="100%" fill="url(#financeGrad)" />
-                  </Svg>
-
-                  <View style={styles.subScreenHeaderTopRow}>
+        {activeTab === 'Finance' && (
+          financeSubScreen === 'purchaseSales' ? (
+            <PurchaseSalesOrdersScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'duesPayouts' ? (
+            <PurchaseDuesPayoutsScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'salesIncome' ? (
+            <SalesIncomeRevenueScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'expenses' ? (
+            <ExpenseManagementScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'invoicesGst' ? (
+            <InvoicesGstBillingScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'reviewReturns' ? (
+            <ReturnsRmaRefundsScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'transactionHistory' ? (
+            <TransactionHistoryScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'customerWallet' ? (
+            <CustomerWalletOverviewScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : financeSubScreen === 'reportExport' ? (
+            <ReportsExportScreen
+              onBack={() => setFinanceSubScreen(null)}
+            />
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.accountsFinanceScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* 1. Header Banner */}
+              <View style={styles.accountsFinanceHeaderBanner}>
+                <View style={styles.accountsFinanceHeaderTopRow}>
+                  <View style={styles.accountsFinanceHeaderTitleGroup}>
                     <TouchableOpacity
-                      style={styles.backIconButton}
+                      style={styles.accountsFinanceBackBtn}
                       onPress={() => setActiveTab('Home')}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Go back to Home"
                     >
-                      <BackArrowWhiteIcon size={22} />
+                      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M19 12H5M12 19l-7-7 7-7"
+                          stroke={adminColors.onBrand}
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
                     </TouchableOpacity>
-                    <Text style={styles.subScreenHeaderTitle}>Sales & Finance Overview</Text>
+                    <BankBuildingWhiteIcon size={24} color={adminColors.onBrand} />
+                    <Text style={styles.accountsFinanceHeaderTitle}>Accounts & Finance</Text>
+                  </View>
+                  <View style={styles.accountsFinanceHeaderActionsRow}>
                     <TouchableOpacity
-                      style={styles.headerPillIconButton}
+                      style={styles.accountsFinanceHeaderPillBtn}
                       onPress={() => setShowFinanceFilterModal(true)}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Filter accounts and finance"
                     >
                       <FilterSlidersIcon size={18} color={adminColors.onBrand} />
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.accountsFinanceHeaderPillBtn}
+                      onPress={handleExportFinanceReport}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Download finance report"
+                    >
+                      <DownloadWhiteIcon size={18} color={adminColors.onBrand} />
+                    </TouchableOpacity>
                   </View>
                 </View>
+                <Text style={styles.accountsFinanceHeaderSubtitle}>Last 30 Days</Text>
+              </View>
 
-                {/* ── Section A: Sales overview ── */}
-                <View style={styles.financeSection}>
-                  <Text style={styles.financeSectionHeading}>A · Sales overview</Text>
+              {/* 2. Subheader */}
+              <View style={styles.accountsFinanceSubheaderRow}>
+                <Text style={styles.accountsFinanceLastUpdated}>Last updated 14 Oct 2026, 06:00</Text>
+              </View>
 
-                  {/* Order value metrics card */}
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.financeMetricRow}>
-                      <View style={styles.financeMetricHeaderRow}>
-                        <Text style={styles.financeMetricTitle}>Order value</Text>
-                        <Text style={styles.financeMetricValue}>₹71,190</Text>
-                      </View>
-                      <Text style={styles.financeMetricSubtext}>
-                        Gross value of orders placed in the period, excluding cancelled and returned.
-                      </Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
+              {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
+              <View style={styles.financeKpiGrid}>
+                <OverviewDashboardCard
+                  title="SALES"
+                  value="₹2,14,600.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="FARMER PURCHASE VALUE"
+                  value="₹1,38,900.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="OUTSTANDING DUES"
+                  value="₹32,450.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="EXPENSES"
+                  value="₹18,200.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="WALLET LIABILITY"
+                  value="₹9,340.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="PENDING PAYOUTS"
+                  value="6"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="REFUNDS"
+                  value="₹1,840.00"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValue}
+                  style={styles.financeKpiCard}
+                />
+                <OverviewDashboardCard
+                  title="NET FINANCIAL SUMMARY"
+                  value="Not defined"
+                  titlePosition="top"
+                  preserveCase
+                  titleStyle={styles.financeKpiCardTitle}
+                  valueStyle={styles.financeKpiCardValueMuted}
+                  style={styles.financeKpiCard}
+                />
+              </View>
 
-                    <View style={styles.financeMetricRow}>
-                      <View style={styles.financeMetricHeaderRow}>
-                        <Text style={styles.financeMetricTitle}>Invoiced amount</Text>
-                        <Text style={styles.financeMetricValue}>₹69,570</Text>
-                      </View>
-                      <Text style={styles.financeMetricSubtext}>
-                        Value of B2B and Horeca orders with a generated invoice.
-                      </Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
+              {/* 4. Disclaimer Note */}
+              <Text style={styles.financeDisclaimerText}>
+                No profit figure is calculated: expenses can't simply be subtracted from sales until the formula is finance-owner approved.
+              </Text>
 
-                    <View style={styles.financeMetricRow}>
-                      <View style={styles.financeMetricHeaderRow}>
-                        <Text style={styles.financeMetricTitle}>Collected amount</Text>
-                        <Text style={styles.financeMetricValue}>₹69,570</Text>
-                      </View>
-                      <Text style={styles.financeMetricSubtext}>
-                        Value of orders whose payment is Paid.
-                      </Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
+              {/* 5. Revenue, expense & purchase (daily) */}
+              <View style={styles.financeSectionBlock}>
+                <Text style={styles.financeSectionHeading}>Revenue, expense & purchase (daily)</Text>
 
-                    <View style={styles.financeMetricRow}>
-                      <View style={styles.financeMetricHeaderRow}>
-                        <Text style={styles.financeMetricTitle}>Refunded amount</Text>
-                        <Text style={styles.financeMetricValue}>₹0</Text>
-                      </View>
-                      <Text style={styles.financeMetricSubtext}>
-                        Refund cases completed in the period.
-                      </Text>
-                    </View>
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Revenue</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '85%', backgroundColor: '#2E8B57' }]} />
                   </View>
-
-                  {/* Orders by status (7) */}
-                  <Text style={styles.financeSubHeading}>Orders by status (7)</Text>
-                  <View style={styles.kpiTileGrid}>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>2</Text>
-                      <Text style={styles.kpiTileLabel}>Placed</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>0</Text>
-                      <Text style={styles.kpiTileLabel}>Packed</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>0</Text>
-                      <Text style={styles.kpiTileLabel}>Ready for Pickup</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>5</Text>
-                      <Text style={styles.kpiTileLabel}>Delivered</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>0</Text>
-                      <Text style={styles.kpiTileLabel}>Returned</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>0</Text>
-                      <Text style={styles.kpiTileLabel}>Cancelled</Text>
-                    </View>
-                  </View>
-
-                  {/* Sales by channel */}
-                  <Text style={styles.financeSubHeading}>Sales by channel</Text>
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Online</Text>
-                      <Text style={styles.summaryRowValue}>₹0</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Live Market</Text>
-                      <Text style={styles.summaryRowValue}>₹1,620</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Horeca</Text>
-                      <Text style={styles.summaryRowValue}>₹20,130</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>B2B</Text>
-                      <Text style={styles.summaryRowValue}>₹49,440</Text>
-                    </View>
-                  </View>
-
-                  {/* B2B and Horeca */}
-                  <Text style={styles.financeSubHeading}>B2B and Horeca</Text>
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Orders</Text>
-                      <Text style={styles.summaryRowValue}>5</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Invoices generated / pending</Text>
-                      <Text style={styles.summaryRowValue}>5 / 0</Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.financeSummaryCard, { marginTop: adminSpacing.sm }]}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Cancelled orders</Text>
-                      <Text style={styles.summaryRowValue}>0</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Returned orders</Text>
-                      <Text style={styles.summaryRowValue}>0</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.financeCaptionNote}>
-                    Filters applied here: Date range, Sales channel, Warehouse, Customer type, Payment status.
-                  </Text>
+                  <Text style={styles.financeProgressValue}>₹2,14,600</Text>
                 </View>
 
-                {/* ── Section B: Farmer payouts ── */}
-                <View style={styles.financeSection}>
-                  <Text style={styles.financeSectionHeading}>B · Farmer payouts</Text>
-
-                  <View style={styles.kpiTileGrid}>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>3</Text>
-                      <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Pending approval</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Successful</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>2</Text>
-                      <Text style={styles.kpiTileLabel}>Failed or on hold</Text>
-                    </View>
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Purchase</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '55%', backgroundColor: adminColors.brand }]} />
                   </View>
-
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Payout value requested in the period</Text>
-                      <Text style={styles.summaryRowValue}>₹60,070</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Payouts in the period</Text>
-                      <Text style={styles.summaryRowValue}>5</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.financeProgressValue}>₹1,38,900</Text>
                 </View>
 
-                {/* ── Section C: Customer refunds ── */}
-                <View style={styles.financeSection}>
-                  <Text style={styles.financeSectionHeading}>C · Customer refunds</Text>
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Expense</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '15%', backgroundColor: '#D97706' }]} />
+                  </View>
+                  <Text style={styles.financeProgressValue}>₹18,200</Text>
+                </View>
+              </View>
 
-                  <View style={styles.kpiTileGrid}>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Awaiting review</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Completed</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Failed</Text>
+              {/* 6. Payment status (statuses the records carry) */}
+              <View style={styles.financeSectionBlock}>
+                <Text style={styles.financeSectionHeading}>Payment status (statuses the records carry)</Text>
+
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Collected</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '82%', backgroundColor: '#2E8B57' }]} />
+                  </View>
+                  <Text style={styles.financeProgressValue}>18</Text>
+                </View>
+
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Pending</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '23%', backgroundColor: '#D97706' }]} />
+                  </View>
+                  <Text style={styles.financeProgressValue}>5</Text>
+                </View>
+
+                <View style={styles.financeProgressRow}>
+                  <Text style={styles.financeProgressLabel}>Failed</Text>
+                  <View style={styles.financeProgressBarTrack}>
+                    <View style={[styles.financeProgressBarFill, { width: '6%', backgroundColor: '#DC2626' }]} />
+                  </View>
+                  <Text style={styles.financeProgressValue}>1</Text>
+                </View>
+              </View>
+
+              {/* 7. By warehouse */}
+              <View style={styles.financeSectionBlock}>
+                <Text style={styles.financeSectionHeading}>By warehouse</Text>
+                <View style={styles.financeWarehouseCard}>
+                  <View style={styles.financeWarehouseRow}>
+                    <Text style={styles.financeWarehouseName}>Main Warehouse, Ooty</Text>
+                    <Text style={styles.financeWarehouseValue}>₹1,20,400.00</Text>
+                  </View>
+                  <View style={styles.financeCardDivider} />
+                  <View style={styles.financeWarehouseRow}>
+                    <Text style={styles.financeWarehouseName}>Coonoor</Text>
+                    <Text style={styles.financeWarehouseValue}>₹58,200.00</Text>
+                  </View>
+                  <View style={styles.financeCardDivider} />
+                  <View style={styles.financeWarehouseRow}>
+                    <Text style={styles.financeWarehouseName}>Kotagiri / Gudalur</Text>
+                    <Text style={styles.financeWarehouseValue}>₹36,000.00</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* 8. Recent transactions */}
+              <View style={styles.financeSectionBlock}>
+                <Text style={styles.financeSectionHeading}>Recent transactions</Text>
+
+                <View style={styles.financeTxnCard}>
+                  <View style={styles.financeTxnHeaderRow}>
+                    <Text style={styles.financeTxnTitle}>SO-0013 · Sale</Text>
+                    <View style={[styles.financeStatusBadge, { backgroundColor: '#D1F2DE' }]}>
+                      <Text style={[styles.financeStatusBadgeText, { color: '#15803D' }]}>Collected</Text>
                     </View>
                   </View>
+                  <Text style={styles.financeTxnSubtext}>₹12,560.00 · Nilgiri Fresh Traders · 1 Oct 2026</Text>
+                </View>
 
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Unresolved complaints</Text>
-                      <Text style={styles.summaryRowValue}>2</Text>
+                <View style={styles.financeTxnCard}>
+                  <View style={styles.financeTxnHeaderRow}>
+                    <Text style={styles.financeTxnTitle}>PY-0005 · Payout</Text>
+                    <View style={[styles.financeStatusBadge, { backgroundColor: '#FDE8E8' }]}>
+                      <Text style={[styles.financeStatusBadgeText, { color: '#DC2626' }]}>Failed</Text>
                     </View>
                   </View>
+                  <Text style={styles.financeTxnSubtext}>₹3,300.00 · Kumar · 6 Oct 2026</Text>
+                </View>
+              </View>
 
-                  <Text style={styles.financeCaptionNote}>
-                    Refund statuses are current; the date range applies only to the refunded amount above.
-                  </Text>
+              {/* 9. Go to Section (RBAC Action Cards Grid) */}
+              <View style={styles.financeSectionBlock}>
+                <Text style={styles.financeSectionHeading}>Go to</Text>
+                <View style={styles.financeGoToGrid}>
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('purchase_sales')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Purchase & Sales"
+                  >
+                    <GoToPurchaseSalesIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Purchase & Sales</Text>
+                  </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.financeOutlineButton}
-                    onPress={() => {
-                      if (onNavigate) onNavigate('Customers');
-                      else Alert.alert('Customers', 'Opening customers overview.');
-                    }}
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('dues_payouts')}
                     activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dues & Payouts"
                   >
-                    <Text style={styles.financeOutlineButtonText}>Customers</Text>
+                    <GoToDuesPayoutsIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Dues & Payouts</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('sales_income')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sales Income & Revenue"
+                  >
+                    <GoToSalesIncomeIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Sales Income & Revenue</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('expenses')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Expenses"
+                  >
+                    <GoToExpensesIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Expenses</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('customer_wallet')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Customer Wallet"
+                  >
+                    <GoToCustomerWalletIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Customer Wallet</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('create_view_invoice')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create or View Invoice"
+                  >
+                    <GoToInvoiceIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Create or View Invoice</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('review_returns')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Review Returns"
+                  >
+                    <GoToReviewReturnsIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Review Returns</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('transaction_history')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="History"
+                  >
+                    <GoToTransactionHistoryIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>History</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.financeGoToCard}
+                    onPress={() => handleGoToItem('report_export')}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Report & Export"
+                  >
+                    <GoToReportExportIcon size={24} color={adminColors.brand} />
+                    <Text style={styles.financeGoToCardTitle}>Report & Export</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
 
-                {/* ── Section D: Finance and reconciliation ── */}
-                <View style={styles.financeSection}>
-                  <Text style={styles.financeSectionHeading}>D · Finance and reconciliation</Text>
+              <View style={{ height: adminSpacing.xxl }} />
+            </ScrollView>
+          )
+        )}
 
-                  <View style={styles.kpiTileGrid}>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>2</Text>
-                      <Text style={styles.kpiTileLabel}>Vouchers awaiting approval</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>1</Text>
-                      <Text style={styles.kpiTileLabel}>Reconciliation mismatches</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>3</Text>
-                      <Text style={styles.kpiTileLabel}>Salary payouts to process</Text>
-                    </View>
-                    <View style={styles.kpiTileItem}>
-                      <Text style={styles.kpiTileValue}>3</Text>
-                      <Text style={styles.kpiTileLabel}>Records awaiting approval</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>
-                        Reconciliation: matched / pending review / mismatch
-                      </Text>
-                      <Text style={styles.summaryRowValue}>1 / 1 / 1</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Voucher value awaiting approval</Text>
-                      <Text style={styles.summaryRowValue}>₹11,000</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.financeCaptionNote}>
-                    Wallet and ledger figures come from the Accounts & Finance records. Filters other than the vouchers listed do not apply.
-                  </Text>
-                </View>
-
-                {/* ── Section E: Price compliance ── */}
-                <View style={styles.financeSection}>
-                  <Text style={styles.financeSectionHeading}>E · Price compliance</Text>
-
-                  <View style={styles.financeSummaryCard}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Retail prices needing action</Text>
-                      <Text style={styles.summaryRowValue}>1</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryRowLabel}>Retail prices above the ceiling</Text>
-                      <Text style={styles.summaryRowValue}>1</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.financeSubHeading}>Fair-price ceiling (reference only)</Text>
-
-                  {/* Price compliance table */}
-                  <View style={styles.complianceListCard}>
-                    {[
-                      {
-                        name: 'Tomato · Grade A',
-                        ceiling: 'Ceiling Rs. 60 · Retail Rs. 55',
-                        status: 'Within ceiling',
-                        tone: 'success' as const,
-                      },
-                      {
-                        name: 'Carrot · Grade A',
-                        ceiling: 'Ceiling Rs. 70 · Retail Rs. 74',
-                        status: 'Above ceiling',
-                        tone: 'danger' as const,
-                      },
-                      {
-                        name: 'Cabbage · Grade B',
-                        ceiling: 'Ceiling Rs. 35 · Retail Rs. 32',
-                        status: 'Needs action',
-                        tone: 'warning' as const,
-                      },
-                      {
-                        name: 'Beans · Grade A',
-                        ceiling: 'Ceiling Rs. 90 · Retail Rs. 84',
-                        status: 'Within ceiling',
-                        tone: 'success' as const,
-                      },
-                      {
-                        name: 'Potato · Grade B',
-                        ceiling: 'Ceiling Rs. 40 · Retail Rs. 38',
-                        status: 'Within ceiling',
-                        tone: 'success' as const,
-                      },
-                      {
-                        name: 'Garlic · Grade A',
-                        ceiling: 'Ceiling Rs. 210 · Retail Rs. 198',
-                        status: 'Within ceiling',
-                        tone: 'success' as const,
-                      },
-                    ].map((item, index, arr) => (
-                      <View key={item.name}>
-                        <View style={styles.complianceRow}>
-                          <Text style={styles.complianceItemName}>{item.name}</Text>
-                          <View style={styles.complianceRightCol}>
-                            <Text style={styles.complianceCeilingText}>{item.ceiling}</Text>
-                            <View
-                              style={[
-                                styles.compliancePill,
-                                item.tone === 'success' && styles.compliancePillSuccess,
-                                item.tone === 'danger' && styles.compliancePillDanger,
-                                item.tone === 'warning' && styles.compliancePillWarning,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.compliancePillText,
-                                  item.tone === 'success' && styles.compliancePillTextSuccess,
-                                  item.tone === 'danger' && styles.compliancePillTextDanger,
-                                  item.tone === 'warning' && styles.compliancePillTextWarning,
-                                ]}
-                              >
-                                {item.status}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        {index < arr.length - 1 && <View style={styles.summaryDivider} />}
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Export reports full-width button */}
-                <TouchableOpacity
-                  style={styles.exportReportsButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Export Reports',
-                      'Sales and finance report exported successfully in PDF and Excel formats.'
-                    );
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.exportReportsButtonText}>Export reports</Text>
-                </TouchableOpacity>
-
-                {/* Screen footer code */}
-                <Text style={styles.screenFooterCode}>M1-S04 · Sales & Finance Overview</Text>
-                <View style={{ height: adminSpacing.xxl }} />
-              </ScrollView>
-            )}
-
-            {/* ══════════════════════════════════════════════════════════════════════
+        {/* ══════════════════════════════════════════════════════════════════════
             SALES TAB (Subscreens & Channels)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Sales' && (
@@ -6816,188 +7049,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // ── Sales & Finance Overview (M1-S04) ──
-  financeScrollContent: {
-    paddingBottom: adminSpacing.xxxl,
-  },
-  financeSection: {
-    paddingHorizontal: adminSpacing.md,
-    marginTop: adminSpacing.md,
-  },
-  financeSectionHeading: {
-    ...adminType.sectionHead,
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-    marginBottom: adminSpacing.xs,
-  },
-  financeSubHeading: {
-    ...adminType.rowTitle,
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.ink,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
-  },
-  financeSummaryCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    ...adminShadow.sm,
-  },
-  financeMetricRow: {
-    paddingVertical: adminSpacing.sm,
-  },
-  financeMetricHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  financeMetricTitle: {
-    ...adminType.body,
-    fontWeight: '600',
-    color: adminColors.ink,
-    fontSize: 13,
-  },
-  financeMetricValue: {
-    ...adminType.body,
-    fontWeight: '800',
-    color: adminColors.ink,
-    fontSize: 14,
-  },
-  financeMetricSubtext: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  kpiTileGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: adminSpacing.xs,
-  },
-  kpiTileItem: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
-    ...adminShadow.sm,
-  },
-  kpiTileValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginBottom: 4,
-  },
-  kpiTileLabel: {
-    ...adminType.caption,
-    fontSize: 12,
-    color: adminColors.muted,
-  },
-  financeCaptionNote: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    fontSize: 10.5,
-    lineHeight: 14,
-    marginTop: adminSpacing.xs,
-    marginBottom: adminSpacing.sm,
-  },
-  financeOutlineButton: {
-    borderWidth: 1,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.full,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: adminColors.card,
-    marginTop: adminSpacing.xs,
-  },
-  financeOutlineButtonText: {
-    ...adminType.body,
-    color: adminColors.brand,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  complianceListCard: {
-    marginTop: adminSpacing.xs,
-  },
-  complianceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.sm,
-  },
-  complianceItemName: {
-    ...adminType.body,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: adminColors.ink,
-    flex: 1,
-    marginRight: adminSpacing.xs,
-  },
-  complianceRightCol: {
-    alignItems: 'flex-end',
-  },
-  complianceCeilingText: {
-    ...adminType.body,
-    fontSize: 12,
-    fontWeight: '700',
-    color: adminColors.ink,
-    marginBottom: 4,
-  },
-  compliancePill: {
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
-  },
-  compliancePillSuccess: {
-    backgroundColor: adminColors.success.bg,
-  },
-  compliancePillDanger: {
-    backgroundColor: adminColors.danger.bg,
-  },
-  compliancePillWarning: {
-    backgroundColor: adminColors.warning.bg,
-  },
-  compliancePillText: {
-    ...adminType.caption,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  compliancePillTextSuccess: {
-    color: adminColors.success.text,
-  },
-  compliancePillTextDanger: {
-    color: adminColors.danger.text,
-  },
-  compliancePillTextWarning: {
-    color: adminColors.warning.text,
-  },
-  exportReportsButton: {
-    marginHorizontal: adminSpacing.md,
-    marginTop: adminSpacing.lg,
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...adminShadow.sm,
-  },
-  exportReportsButtonText: {
-    ...adminType.body,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-    fontSize: 15,
-  },
   screenFooterCode: {
     ...adminType.caption,
     color: adminColors.muted,
@@ -8387,4 +8438,246 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 10,
   },
+
+  // ── Accounts & Finance Screen Styles ──
+  accountsFinanceScrollContent: {
+    paddingBottom: adminSpacing.xxxl,
+    backgroundColor: adminColors.canvas,
+  },
+  accountsFinanceHeaderBanner: {
+    backgroundColor: adminColors.brand,
+    paddingTop: 8,
+    paddingHorizontal: adminSpacing.md,
+    paddingBottom: adminSpacing.md,
+  },
+  accountsFinanceHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  accountsFinanceHeaderTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+  },
+  accountsFinanceBackBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
+  },
+  accountsFinanceHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+    letterSpacing: -0.3,
+  },
+  accountsFinanceHeaderActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accountsFinanceHeaderPillBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountsFinanceHeaderSubtitle: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 10,
+  },
+  accountsFinanceSubheaderRow: {
+    paddingHorizontal: adminSpacing.md,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  accountsFinanceLastUpdated: {
+    fontSize: 12,
+    color: adminColors.muted,
+    fontWeight: '500',
+  },
+  financeKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: adminSpacing.md,
+    rowGap: 10,
+  },
+  financeKpiCard: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    minHeight: 88,
+    ...adminShadow.sm,
+  },
+  financeKpiCardTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: adminColors.muted,
+    letterSpacing: 0.2,
+    marginBottom: 4,
+  },
+  financeKpiCardValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    letterSpacing: -0.3,
+  },
+  financeKpiCardValueMuted: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  financeDisclaimerText: {
+    paddingHorizontal: adminSpacing.md,
+    fontSize: 11,
+    lineHeight: 15,
+    color: adminColors.muted,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  financeSectionBlock: {
+    paddingHorizontal: adminSpacing.md,
+    marginTop: adminSpacing.md,
+  },
+  financeSectionHeading: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    letterSpacing: -0.2,
+    marginBottom: 12,
+  },
+  financeProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  financeProgressLabel: {
+    width: 72,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+  financeProgressBarTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#EBE7DF',
+    borderRadius: 5,
+    marginHorizontal: 10,
+    overflow: 'hidden',
+  },
+  financeProgressBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  financeProgressValue: {
+    width: 84,
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  financeWarehouseCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    ...adminShadow.sm,
+  },
+  financeWarehouseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  financeWarehouseName: {
+    fontSize: 13,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  financeWarehouseValue: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  financeCardDivider: {
+    height: 1,
+    backgroundColor: '#F0ECE4',
+  },
+  financeTxnCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  financeTxnHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  financeTxnTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  financeStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  financeStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  financeTxnSubtext: {
+    fontSize: 12,
+    color: adminColors.muted,
+  },
+  financeGoToGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+  },
+  financeGoToCard: {
+    width: '48.5%',
+    minHeight: 96,
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    ...adminShadow.sm,
+  },
+  financeGoToCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 15,
+  },
+
 });

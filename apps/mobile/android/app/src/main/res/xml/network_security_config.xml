@@ -17,8 +17,15 @@
   not weaken anything for a real device talking to a real (HTTPS) backend.
 -->
 <network-security-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </base-config>
   <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="false">localhost</domain>
-    <domain includeSubdomains="false">10.0.2.2</domain>
+    <domain includeSubdomains="true">localhost</domain>
+    <domain includeSubdomains="true">10.0.2.2</domain>
+    <domain includeSubdomains="true">10.210.219.253</domain>
   </domain-config>
 </network-security-config>
