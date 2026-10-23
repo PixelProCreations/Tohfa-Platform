@@ -118,7 +118,7 @@ export function StockAllocationDashboardScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title="Stock Allocation"
+          title={t('inventory.allocation.title')}
           onBack={onBack}
           showWarehouse={true}
           warehouseName={scope.warehouseName}
@@ -133,7 +133,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <StockTabBoxIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Stock</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.stock')}</Text>
           </TouchableOpacity>
 
           {/* Ledger Tab */}
@@ -143,7 +143,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <LedgerTabIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Ledger</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.ledger')}</Text>
           </TouchableOpacity>
 
           {/* Allocation Tab (Active) */}
@@ -152,7 +152,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.85}
           >
             <AllocationTabIcon color={adminColors.onBrand} />
-            <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
+            <Text style={[styles.tabCardText, styles.activeTabCardText]}>{t('inventory.allocation.tab.allocation')}</Text>
           </TouchableOpacity>
 
           {/* Verify Tab (gated on stock counts, availability.ts) */}
@@ -163,7 +163,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <VerifyTabIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Verify</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.verify')}</Text>
           </TouchableOpacity>
           ) : null}
         </View>
@@ -189,8 +189,9 @@ export function StockAllocationDashboardScreen({
           <>
           {/* Total Stock Split Header & Multi-color Progress Bar */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Total Stock Split</Text>
-            <Text style={styles.sectionSubtitle}>Values from config</Text>
+            <Text style={styles.sectionTitle}>{t('inventory.allocation.splitTitle')}</Text>
+            {/* The bar is each channel's share of the allocated grams, not the configured split percentages. */}
+            <Text style={styles.sectionSubtitle}>{t('inventory.allocation.splitSubtitle')}</Text>
           </View>
 
           {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
@@ -220,22 +221,22 @@ export function StockAllocationDashboardScreen({
                 <View style={styles.statsBoxRow}>
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.allocatedGrams)}</Text>
-                    <Text style={styles.statLabel}>ALLOCATED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.allocated')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.consumedGrams)}</Text>
-                    <Text style={styles.statLabel}>CONSUMED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.consumed')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.reservedGrams)}</Text>
-                    <Text style={styles.statLabel}>RESERVED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.reserved')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.availableGrams)}</Text>
-                    <Text style={styles.statLabel}>AVAILABLE</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.available')}</Text>
                   </View>
                 </View>
               </View>

@@ -13,7 +13,10 @@
  * Live data (API integration plan, phase 5): the rows are GET /admin/orders
  * with status READY_FOR_PICKUP, page by page. The list carries no customer
  * name (BR-101), so a card shows the order number, items, total and when it
- * was placed; the name is on the verify step, from the detail. The bottom
+ * was placed; the name is on the verify step, from the detail. The design's
+ * "Packed 11:15 AM" and "Ready for 2h 15m" stay hidden too: the list row has
+ * no packedAt and no ready-at time, and neither is guessed from placedAt. The
+ * time badge is how long ago the order was placed (placedAt). The bottom
  * action opened verification with no order, so it is gone: every pickup starts
  * from its order's card.
  */
@@ -94,7 +97,7 @@ function OrderCardBody({ order }: { order: OrderListRow }) {
       <View style={styles.packedReadyRow}>
         <Text style={styles.packedTimeText}>{t('orders.ready.placedAt', { at: order.placedLabel })}</Text>
         <View style={styles.readyBadge}>
-          <Text style={styles.readyBadgeText}>Ready</Text>
+          <Text style={styles.readyBadgeText}>{t('orders.ready.badge')}</Text>
         </View>
       </View>
     </>
@@ -142,7 +145,7 @@ export function ReadyForPickupScreen({
           <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
             <BackArrowIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ready for Pickup</Text>
+          <Text style={styles.headerTitle}>{t('orders.ready.title')}</Text>
         </View>
 
         <View style={styles.subtitleRow}>
