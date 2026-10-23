@@ -9,8 +9,9 @@
  *
  * A list row carries no farmer or crop name (the API sends none), so a card
  * shows the poNumber, the grade and the quantities; the detail adds the
- * farmer. The status pills filter what is loaded. Search & Filters is not
- * offered: no list request takes its facets yet.
+ * farmer. The status pills filter what is loaded. Search & Filters (Main: the
+ * warehouse) is offered when the flow passes onOpenFilters; its pick is sent
+ * to the server as `warehouseId` and named in the header pill.
  *
  * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record.
  */
@@ -22,7 +23,7 @@ import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { ChipGroup, ScopeHeader, StatusBadge, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { ChipGroup, HeaderIconButton, ScopeHeader, SlidersIcon, StatusBadge, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { isMainScope, matchesShipmentTab } from './mappers';
 import { PermissionNote, TruckDeliveryIcon, canViewReceiving, shipmentTone } from './ReceivingParts';
 import type { IncomingShipment, ReceivingLiveStateProps, ShipmentFilterTab, WarehouseScreenBaseProps } from './types';
@@ -35,6 +36,10 @@ export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps, 
   onLoadMore?: (() => void) | undefined;
   hasMore?: boolean | undefined;
   initialTab?: ShipmentFilterTab | undefined;
+  /** Main: the warehouse Search & Filters picked, for the header pill (undefined = all). */
+  scopeLabel?: string | undefined;
+  /** Opens Search & Filters; not offered when undefined. */
+  onOpenFilters?: (() => void) | undefined;
   /** Opens a shipment by its purchase order uuid. */
   onSelectShipment: (purchaseOrderId: string) => void;
 }
@@ -65,15 +70,22 @@ export function IncomingShipmentsScreen({
   onLoadMore,
   hasMore = false,
   initialTab = 'All',
+  scopeLabel,
+  onOpenFilters,
   onSelectShipment,
 }: IncomingShipmentsScreenProps) {
   const [tab, setTab] = useState<ShipmentFilterTab>(initialTab);
   const mainView = isMainScope(scope);
 
   const header = {
-    title: 'Incoming Shipments',
+    title: t('receiving.shipments.title'),
     onBack,
-    headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
+    headerRight: onOpenFilters ? (
+      <HeaderIconButton onPress={onOpenFilters} accessibilityLabel={t('receiving.filters.open')}>
+        <SlidersIcon />
+      </HeaderIconButton>
+    ) : undefined,
+    headerExtra: <ScopeHeader scope={scope} label={mainView ? scopeLabel : scope.warehouseName ?? scope.warehouseId} />,
   };
 
   if (!canViewReceiving(can)) {
@@ -88,7 +100,6 @@ export function IncomingShipmentsScreen({
 
   const view = queryViewState({ isLoading, error, itemCount: shipments.length });
   const rows = shipments.filter((s) => matchesShipmentTab(s.status, tab));
-  const unnamed = t('inventory.crop.unnamed');
 
   const renderShipment = ({ item: s }: { item: IncomingShipment }) => (
     <TouchableOpacity
@@ -108,7 +119,8 @@ export function IncomingShipmentsScreen({
         <Text style={styles.meta}>{s.from !== '' ? `${s.from} → ${s.to}` : s.to}</Text>
       ) : null}
       <Text style={styles.produce}>
-        {[s.produce === unnamed ? '' : s.produce, s.grade].filter((part) => part !== '').join(' · ') || s.code}
+        {/* The code is already the card title, so an unnamed crop shows only its grade here. */}
+        {[s.cropName ?? '', s.grade].filter((part) => part !== '').join(' · ') || s.code}
       </Text>
       <View style={styles.stats}>
         {cardStats(s).map(([label, value]) => (

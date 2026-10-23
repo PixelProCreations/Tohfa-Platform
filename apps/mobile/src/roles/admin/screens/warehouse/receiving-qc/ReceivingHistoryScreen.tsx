@@ -7,8 +7,9 @@
  * and absorbs the Main ReceivingHistoryScreen. Live since integration phase 4:
  * GET /admin/goods-receipts, paged, each pill a server-side status filter
  * (ReceivingFlow fetches). The search narrows what is loaded. A row opens
- * ReceivingHistoryDetailScreen. The Main warehouse selector is not offered
- * (its options were fixture codes).
+ * ReceivingHistoryDetailScreen. The Main warehouse is picked in Search &
+ * Filters (onOpenFilters, real GET /warehouses uuids), sent to the server as
+ * `warehouseId` and named in the header pill.
  *
  * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record; a
  * Sub scope sees only its own warehouse (BR-30).
@@ -23,18 +24,18 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/A
 import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
+  HeaderIconButton,
   ScopeHeader,
   SearchBar,
+  SlidersIcon,
   StatusBadge,
   WalletButton,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { isMainScope } from './mappers';
+import { HISTORY_FILTERS, historyFilterLabel, isMainScope } from './mappers';
 import { PermissionNote, canViewReceiving, receiptTone } from './ReceivingParts';
 import type { HistoryFilter, ReceivingLiveStateProps, ReceivingRecord, WarehouseScreenBaseProps } from './types';
-
-const FILTERS: readonly HistoryFilter[] = ['All', 'Awaiting QC', 'Accepted', 'Partial', 'Rejected'];
 
 export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
   /** Receipts for the selected pill, page by page. */
@@ -44,6 +45,10 @@ export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps, R
   /** The selected pill; the flow fetches for it. */
   filter: HistoryFilter;
   onChangeFilter: (filter: HistoryFilter) => void;
+  /** Main: the warehouse Search & Filters picked, for the header pill (undefined = all). */
+  scopeLabel?: string | undefined;
+  /** Opens Search & Filters; not offered when undefined. */
+  onOpenFilters?: (() => void) | undefined;
   /** Opens a receipt by its uuid. */
   onSelectRecord: (receiptId: string) => void;
 }
@@ -66,15 +71,22 @@ export function ReceivingHistoryScreen({
   hasMore = false,
   filter,
   onChangeFilter,
+  scopeLabel,
+  onOpenFilters,
   onSelectRecord,
 }: ReceivingHistoryScreenProps) {
   const [query, setQuery] = useState('');
   const mainView = isMainScope(scope);
 
   const header = {
-    title: 'Receiving History',
+    title: t('receiving.history.title'),
     onBack,
-    headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
+    headerRight: onOpenFilters ? (
+      <HeaderIconButton onPress={onOpenFilters} accessibilityLabel={t('receiving.filters.open')}>
+        <SlidersIcon />
+      </HeaderIconButton>
+    ) : undefined,
+    headerExtra: <ScopeHeader scope={scope} label={mainView ? scopeLabel : scope.warehouseName ?? scope.warehouseId} />,
   };
 
   if (!canViewReceiving(can)) {
@@ -134,7 +146,7 @@ export function ReceivingHistoryScreen({
         <View style={styles.controls}>
           <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
           <View style={styles.pills}>
-            <ChipGroup options={FILTERS} value={filter} onChange={onChangeFilter} />
+            <ChipGroup options={HISTORY_FILTERS} value={filter} onChange={onChangeFilter} labelOf={historyFilterLabel} />
           </View>
         </View>
 

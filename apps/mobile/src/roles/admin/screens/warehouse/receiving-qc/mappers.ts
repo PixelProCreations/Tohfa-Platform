@@ -10,7 +10,9 @@
  * What the server decides is shown as the server sends it; what the API does
  * not carry is not invented: a purchase order has no crop or farmer name on a
  * list row (the detail adds the farmer; a crop name only comes on a receipt),
- * so those show a neutral label until known.
+ * so the produce is labelled by its order code until known (server gap:
+ * `cropName` on PurchaseOrder). The Main view's scope names no warehouse, so
+ * its rows are named from GET /warehouses (warehouseNameFor).
  *
  * Statuses go through exhaustive tables with a fallback for a value the app
  * does not know yet. The server never advances a purchase order past ISSUED
@@ -29,6 +31,7 @@ import type {
   PurchaseOrderDto,
   PurchaseOrderStatus,
   QualityCheckCreate,
+  QualityCheckResultDto,
   QualityCheckParameter,
   QualityOutcome,
 } from '../../../api/receiving';
@@ -41,13 +44,17 @@ import { ApiError, NetworkError } from '../../../../../shell/api/client';
 import { createIdempotencyKeyCache, newIdempotencyKey } from '../../../../../shell/api/idempotency';
 import { gradeLabel } from '../inventory/mappers';
 import type {
+  HistoryFilter,
   IncomingShipment,
+  PermissionCheck,
   QcCriterionId,
   QcResult,
   QualityIssue,
   ReceiptResult,
   ReceivingFilters,
+  ReceivingFilterTarget,
   ReceivingRecord,
+  ReceivingRouteParams,
   ShipmentFilterTab,
   ShipmentStatus,
   StorageBayOption,
@@ -84,18 +91,61 @@ export function isMainScope(scope: WarehouseScope): boolean {
   return scope.warehouseId === undefined;
 }
 
-/** Filters that filter nothing (the Search & Filters screen, which no live list offers yet). */
-export const EMPTY_RECEIVING_FILTERS: ReceivingFilters = {
-  search: '',
-  status: 'All',
-  date: 'All',
-  grade: 'All',
-  source: 'All',
-  product: '',
-  warehouseId: undefined,
-  shipmentType: 'All',
-  result: 'All',
-};
+/** Filters that filter nothing. */
+export const EMPTY_RECEIVING_FILTERS: ReceivingFilters = { warehouseId: undefined, result: 'All' };
+
+/** docs/rbac.json: the code GET /warehouses needs (MAIN all, SUB none). */
+const WAREHOUSE_LIST_CODE = 'warehouse.all.view';
+
+export interface ReceivingFilterFacets {
+  /** The warehouse picker (GET /warehouses -> `warehouseId` on the list). */
+  warehouse: boolean;
+  /** The receipt result (GET /admin/goods-receipts `status`). */
+  result: boolean;
+}
+
+/**
+ * The Search & Filters facets a list can apply. The warehouse facet is Main
+ * only, and only with the code that loads the warehouse list; a Sub scope is
+ * pinned to its own warehouse (BR-30). The result is a goods receipt status,
+ * so it narrows Receiving History, not the purchase order list.
+ */
+export function receivingFilterFacets(scope: WarehouseScope, can: PermissionCheck, target: ReceivingFilterTarget): ReceivingFilterFacets {
+  return { warehouse: isMainScope(scope) && can(WAREHOUSE_LIST_CODE), result: target === 'History' };
+}
+
+/**
+ * True when the screen adds a facet the list does not already have: only the
+ * warehouse (Receiving History already has the result as its pills).
+ */
+export function offersReceivingFilters(scope: WarehouseScope, can: PermissionCheck, target: ReceivingFilterTarget): boolean {
+  return receivingFilterFacets(scope, can, target).warehouse;
+}
+
+/**
+ * The route params an Apply sets on the list it narrows. A Sub scope never
+ * carries a warehouse pick (BR-30; the flow sends its own uuid regardless).
+ */
+export function receivingFilterParams(
+  scope: WarehouseScope,
+  filters: ReceivingFilters,
+  target: ReceivingFilterTarget,
+): Pick<ReceivingRouteParams, 'filterWarehouseId' | 'historyFilter'> {
+  const filterWarehouseId = isMainScope(scope) ? filters.warehouseId : undefined;
+  return target === 'History' ? { filterWarehouseId, historyFilter: filters.result } : { filterWarehouseId };
+}
+
+/** Where a row's warehouse name comes from: a Sub scope's own, or the Main view's GET /warehouses list. */
+export interface WarehouseNaming {
+  warehouseName?: string | undefined;
+  /** Main: warehouse uuid -> name, from GET /warehouses. */
+  warehouseNames?: ReadonlyMap<string, string> | undefined;
+}
+
+/** A warehouse's name, or undefined when neither source knows it. */
+export function warehouseNameFor(warehouseId: string, naming: WarehouseNaming): string | undefined {
+  return naming.warehouseName ?? naming.warehouseNames?.get(warehouseId);
+}
 
 /** True when a shipment shows under an Incoming Shipments status pill. */
 export function matchesShipmentTab(status: ShipmentStatus, tab: ShipmentFilterTab): boolean {
@@ -224,12 +274,32 @@ export const HISTORY_FILTER_STATUS = {
   Accepted: 'ACCEPTED',
   Partial: 'PARTIALLY_ACCEPTED',
   Rejected: 'REJECTED',
-} as const satisfies Record<string, GoodsReceiptStatus | undefined>;
+} as const satisfies Record<HistoryFilter, GoodsReceiptStatus | undefined>;
+
+/** The Receiving History pills, in order (each one a server-side status). */
+export const HISTORY_FILTERS: readonly HistoryFilter[] = ['All', 'Awaiting QC', 'Accepted', 'Partial', 'Rejected'];
+
+const HISTORY_FILTER_LABEL: Record<HistoryFilter, TranslationKey> = {
+  All: 'receiving.historyFilter.all',
+  'Awaiting QC': 'receiving.historyFilter.awaitingQc',
+  Accepted: 'receiving.historyFilter.accepted',
+  Partial: 'receiving.historyFilter.partial',
+  Rejected: 'receiving.historyFilter.rejected',
+};
+
+export function historyFilterLabel(filter: HistoryFilter): string {
+  return t(HISTORY_FILTER_LABEL[filter]);
+}
 
 // ─── Rows ────────────────────────────────────────────────────────────────────
 
-function cropLabel(cropName: string | null | undefined): string {
-  return text(cropName) ?? t('inventory.crop.unnamed');
+/**
+ * The crop name the API sent, else a label naming the order (or receipt) it
+ * belongs to. Never "Unnamed crop", which reads as if the crop had no name,
+ * and never a guessed crop.
+ */
+export function receivingCropLabel(cropName: string | null | undefined, ref: string): string {
+  return text(cropName) ?? t('receiving.crop.ofOrder', { ref });
 }
 
 /** The newest receipt still awaiting its quality check. */
@@ -242,11 +312,9 @@ export function pendingReceiptOf(receipts: readonly GoodsReceiptDto[]): GoodsRec
   return newest;
 }
 
-export interface ShipmentContext {
+export interface ShipmentContext extends WarehouseNaming {
   /** The order's receipts, when known (the detail carries them). */
   receipts?: readonly GoodsReceiptDto[] | undefined;
-  /** Name of the receiving warehouse. */
-  warehouseName?: string | undefined;
 }
 
 /** A purchase order (list row or detail) as the shipment the screens show. */
@@ -258,13 +326,14 @@ export function toIncomingShipment(po: PurchaseOrderDto | PurchaseOrderDetailDto
   return {
     purchaseOrderId: po.id,
     code: po.poNumber,
-    produce: cropLabel(named?.cropName),
+    produce: receivingCropLabel(named?.cropName, po.poNumber),
+    cropName: text(named?.cropName),
     grade: po.grade === undefined ? '' : gradeLabel(po.grade),
     apiGrade: po.grade,
     expectedGrams: grams(po.quantityKg),
     from: text(detail.farmerName) ?? '',
     farmerCode: text(detail.tohfaFarmerId) ?? '',
-    to: ctx.warehouseName ?? '',
+    to: warehouseNameFor(po.warehouseId, ctx) ?? '',
     warehouseId: po.warehouseId,
     receiptIds: receipts?.map((r) => r.id) ?? [],
     pendingReceiptId: receipts === undefined ? undefined : pendingReceiptOf(receipts)?.id,
@@ -278,10 +347,9 @@ export function toIncomingShipment(po: PurchaseOrderDto | PurchaseOrderDetailDto
   };
 }
 
-export interface RecordContext {
+export interface RecordContext extends WarehouseNaming {
   /** Clock for "Today · 10:30 AM"; passed in so the mapper stays pure. */
   now: Date;
-  warehouseName?: string | undefined;
   /** The order's quantity, when the screen knows the order. */
   expectedGrams?: number | null | undefined;
   /** The order's poNumber, when the row does not carry it. */
@@ -294,18 +362,19 @@ export function toReceivingRecord(gr: GoodsReceiptDto, ctx: RecordContext): Rece
   // Before the quality check the server sends 0.000 accepted: that is "not
   // decided yet", not "nothing accepted".
   const checked = result !== 'Awaiting QC';
+  const poNumber = text(gr.poNumber) ?? ctx.poNumber;
   return {
     id: gr.id,
     receiptId: gr.grnNumber,
     purchaseOrderId: gr.purchaseOrderId,
-    shipmentId: text(gr.poNumber) ?? ctx.poNumber ?? '',
+    shipmentId: poNumber ?? '',
     warehouseId: gr.warehouseId,
-    warehouseName: ctx.warehouseName ?? '',
+    warehouseName: warehouseNameFor(gr.warehouseId, ctx) ?? '',
     result,
     resultLabel: receiptResultLabel(result),
     receivedAt: gr.receivedAt,
     date: formatAdminDate(gr.receivedAt, ctx.now),
-    product: cropLabel(gr.cropName),
+    product: receivingCropLabel(gr.cropName, poNumber ?? gr.grnNumber),
     grade: gr.grade === undefined ? '' : gradeLabel(gr.grade),
     expectedGrams: ctx.expectedGrams ?? null,
     receivedGrams: grams(gr.grossQtyKg),
@@ -313,7 +382,50 @@ export function toReceivingRecord(gr: GoodsReceiptDto, ctx: RecordContext): Rece
     rejectedGrams: checked ? grams(gr.rejectedQtyKg) : null,
     rejectionReason: text(gr.rejectionReason),
     vehicleNumber: text(gr.vehicleNumber),
+    batchId: text(gr.batchId),
+    batchCode: text(gr.batchCode),
   };
+}
+
+/** The batch a receipt was stocked as: an id to open and a code to show. */
+export interface ReceiptBatch {
+  id: string;
+  code: string;
+}
+
+/**
+ * The batch to offer after a submit (BR-106: the quality check creates it, so
+ * it is viewed, never assigned afterwards): the one the check returned, else
+ * the one a re-read receipt names (the check's answer was lost). Null when
+ * neither names one (a rejection, or no quality check yet).
+ */
+export function receiptBatchOf(receipt: GoodsReceiptDto, qc: QualityCheckResultDto | null): ReceiptBatch | null {
+  const batch = qc?.batch ?? null;
+  if (batch !== null) return { id: batch.id, code: batch.batchCode };
+  const id = text(receipt.batchId);
+  return id === undefined ? null : { id, code: text(receipt.batchCode) ?? id };
+}
+
+// ─── Grade verification (design M2-08B) ──────────────────────────────────────
+
+export interface GradeVerification {
+  /** noListedGrade: the order has no grade, so there is nothing to compare. */
+  status: 'match' | 'mismatch' | 'noListedGrade';
+  /** On a mismatch, the received weight (the assigned grade applies to the whole receipt, BR-106); else null. */
+  quantityAffectedGrams: number | null;
+}
+
+/**
+ * The order's listed grade against the grade the check assigns. A purchase
+ * order is one crop, and the batch takes the assigned grade for everything
+ * received, so a mismatch affects the whole received weight. The product
+ * itself cannot change on a receipt (QualityCheckCreate has no product), so
+ * there is no product mismatch to derive.
+ */
+export function gradeVerificationOf(listed: Grade | undefined, assigned: Grade, grossGrams: number | null): GradeVerification {
+  if (listed === undefined) return { status: 'noListedGrade', quantityAffectedGrams: null };
+  if (listed === assigned) return { status: 'match', quantityAffectedGrams: null };
+  return { status: 'mismatch', quantityAffectedGrams: grossGrams };
 }
 
 /**

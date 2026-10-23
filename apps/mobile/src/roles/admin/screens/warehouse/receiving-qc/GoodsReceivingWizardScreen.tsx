@@ -7,12 +7,16 @@
  *   start_receiving        the order, the receiver, the vehicle number
  *   quantity_verification  the received (gross) weight, against the ordered quantity
  *   quality_check          the five checklist rows, moisture, visual score, defect notes
- *   grade_verification     the assigned grade (may differ from the listed one)
+ *   grade_verification     the assigned grade (may differ from the listed one); a
+ *                          mismatch shows the quantity affected and a summary,
+ *                          both derived (gradeVerificationOf). No product
+ *                          mismatch: a receipt cannot change its product.
  *   receiving_decision     Accept / Partial Accept / Reject
  *   partial_acceptance     the accepted weight; rejected = received - accepted
  *   receipt_summary        everything above, then submit
  *   batch_assignment       the storage location (from GET /warehouses/{id}/storage-locations)
- *   receipt_confirmation   the real grnNumber, and the batch when the API returns one
+ *   receipt_confirmation   the real grnNumber, and View Batch for the batch the quality
+ *                          check created (BR-106: viewed, never assigned afterwards)
  *   submission_error       the real error, with a retry that cannot record twice
  *   counter_offer          a revised price for the delivered lot, after the receipt exists
  *
@@ -66,10 +70,13 @@ import {
   buildGoodsReceiptBody,
   buildQualityCheckBody,
   createReceivingKeyRing,
+  gradeVerificationOf,
   qcDraftProblem,
+  receiptBatchOf,
   receiptResultLabel,
   receiptResultOf,
   receivingWarehouseFilter,
+  type GradeVerification,
   type QcDraft,
 } from './mappers';
 import {
@@ -198,6 +205,15 @@ function positiveGrams(input: string): number | null {
   return value !== null && value > 0 ? value : null;
 }
 
+/** Design M2-08B "Overall Status" line for a derived grade verification. */
+function gradeSummaryText(check: GradeVerification): string {
+  if (check.status === 'noListedGrade') return t('receiving.grade.statusNoListed');
+  if (check.status === 'match') return t('receiving.grade.statusMatch');
+  return check.quantityAffectedGrams === null
+    ? t('receiving.grade.statusMismatchNoQty')
+    : t('receiving.grade.statusMismatch', { qty: formatKg(check.quantityAffectedGrams) });
+}
+
 /* ─── Main Wizard Component ─── */
 export function GoodsReceivingWizardScreen({
   scope,
@@ -294,8 +310,8 @@ export function GoodsReceivingWizardScreen({
   const expectedProduct = ship.produce;
   const expectedGrade = ship.grade;
   const sourceName = ship.from;
-  /** Destination: the Sub scope's own warehouse, or the order's for Main (all warehouses). */
-  const destinationName = scope.warehouseName ?? ship.to;
+  /** Destination: the Sub scope's own warehouse, or the order's (named from GET /warehouses) for Main. */
+  const destinationName = scope.warehouseName ?? (ship.to === '' ? t('inventory.noValue') : ship.to);
   /** BR-30: a Sub scope always records into its own warehouse uuid. */
   const warehouseId = receivingWarehouseFilter(scope, ship.warehouseId) ?? ship.warehouseId;
   const expectedGrams = ship.expectedGrams;
@@ -319,7 +335,7 @@ export function GoodsReceivingWizardScreen({
   // Grade
   const [assignedGrade, setAssignedGrade] = useState<Grade>(ship.apiGrade ?? 'GRADE_1');
   const actualGrade = gradeLabel(assignedGrade);
-  const gradeMatches = ship.apiGrade === undefined || assignedGrade === ship.apiGrade;
+  const gradeCheck = gradeVerificationOf(ship.apiGrade, assignedGrade, grossGrams);
 
   // Decision: accepted is chosen; rejected is always received - accepted.
   const [acceptedGrams, setAcceptedGrams] = useState<number | null>(null);
@@ -581,7 +597,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Destination</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -605,7 +621,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{receiverName ?? '—'}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Warehouse</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.warehouse')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -889,7 +905,7 @@ export function GoodsReceivingWizardScreen({
   if (currentStep === 'grade_verification') {
     return (
       <View style={styles.container}>
-        {header('Grade & Product Verification', receiptCode)}
+        {header(t('receiving.grade.title'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Grade')}
@@ -897,23 +913,23 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Product</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedProduct')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Grade</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedGrade')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedGrade === '' ? t('inventory.noValue') : expectedGrade}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>Actual Grade</Text>
+          <Text style={styles.inputLabel}>{t('receiving.grade.actualGrade')}</Text>
           <TouchableOpacity
             style={styles.dropdownSelectBox}
             activeOpacity={0.7}
             onPress={() =>
               pickFrom(
-                'Actual Grade',
+                t('receiving.grade.actualGrade'),
                 GRADES.map(grade => ({ label: gradeLabel(grade), onPick: () => setAssignedGrade(grade) })),
               )
             }
@@ -922,12 +938,46 @@ export function GoodsReceivingWizardScreen({
             <ChevronDownIcon />
           </TouchableOpacity>
 
-          <View style={styles.matchChipRow}>
-            <View style={[styles.matchChip, { backgroundColor: gradeMatches ? adminColors.success.bg : adminColors.danger.bg }]}>
-              <Text style={[styles.matchChipText, { color: gradeMatches ? adminColors.success.text : adminColors.danger.text }]}>
-                Grade {gradeMatches ? 'Match' : 'Mismatch'}
-              </Text>
+          {/* No listed grade on the order: nothing to compare, so no Match chip. */}
+          {gradeCheck.status !== 'noListedGrade' ? (
+            <View style={styles.matchChipRow}>
+              <View style={[styles.matchChip, { backgroundColor: gradeCheck.status === 'match' ? adminColors.success.bg : adminColors.danger.bg }]}>
+                <Text style={[styles.matchChipText, { color: gradeCheck.status === 'match' ? adminColors.success.text : adminColors.danger.text }]}>
+                  {t(gradeCheck.status === 'match' ? 'receiving.grade.chipMatch' : 'receiving.grade.chipMismatch')}
+                </Text>
+              </View>
             </View>
+          ) : null}
+
+          {/* Design M2-08B Grade Mismatch Detail, derived: the grade applies to the whole received weight. */}
+          {gradeCheck.status === 'mismatch' ? (
+            <>
+              <Text style={styles.sectionHeader}>{t('receiving.grade.mismatchTitle')}</Text>
+              <View style={styles.whiteCard}>
+                <View style={styles.summaryMetaGrid}>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedGrade')}</Text>
+                    <Text style={styles.summaryMetaVal}>{expectedGrade}</Text>
+                  </View>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.actualGrade')}</Text>
+                    <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
+                  </View>
+                </View>
+                <View style={[styles.summaryMetaGrid, styles.metaGridGap]}>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.quantityAffected')}</Text>
+                    <Text style={styles.summaryMetaVal}>{kg(gradeCheck.quantityAffectedGrams)}</Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : null}
+
+          <Text style={styles.sectionHeader}>{t('receiving.grade.summaryTitle')}</Text>
+          <View style={styles.whiteCard}>
+            <Text style={styles.summaryMetaLabel}>{t('receiving.grade.overallStatus')}</Text>
+            <Text style={styles.summaryMetaVal}>{gradeSummaryText(gradeCheck)}</Text>
           </View>
 
           <NoticeBox text={t('receiving.wizard.gradeNotice')} />
@@ -943,7 +993,7 @@ export function GoodsReceivingWizardScreen({
           >
             <View style={styles.ctaRow}>
               <RightArrowIcon color={adminColors.onBrand} size={18} />
-              <Text style={styles.primaryCtaText}>Continue to Decision</Text>
+              <Text style={styles.primaryCtaText}>{t('receiving.grade.continue')}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -1253,7 +1303,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Destination</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -1388,7 +1438,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{pendingReceipt?.grnNumber ?? t('inventory.noValue')}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Warehouse</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.warehouse')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -1489,7 +1539,11 @@ export function GoodsReceivingWizardScreen({
     const rejectedKg = qc?.rejectedQtyKg ?? (checked ? result.receipt.rejectedQtyKg : undefined);
     const accepted = acceptedKg === undefined ? null : parseKgToGrams(acceptedKg);
     const rejected = rejectedKg === undefined ? null : parseKgToGrams(rejectedKg);
-    const batch = result.qc?.batch ?? null;
+    // BR-106: the batch the quality check created, from its answer or the re-read receipt.
+    const batch = receiptBatchOf(result.receipt, result.qc);
+    // The assigned grade is the check's own answer; nothing is shown when that answer was lost.
+    const confirmedGrade =
+      qc === undefined ? null : gradeVerificationOf(ship.apiGrade, qc.assignedGrade, parseKgToGrams(result.receipt.grossQtyKg));
     const isFullReject = outcome === 'REJECTED';
     const isFullAccept = outcome === 'ACCEPTED';
     const isPartialAccept = outcome === 'PARTIALLY_ACCEPTED';
@@ -1538,13 +1592,21 @@ export function GoodsReceivingWizardScreen({
             </View>
           ) : null}
 
-          {/* The batch, only when the API returns one (it returns none today). */}
+          {confirmedGrade !== null && qc !== undefined ? (
+            <View style={styles.whiteCard}>
+              <Text style={styles.confirmationCardLabel}>{t('receiving.grade.summaryTitle')}</Text>
+              <Text style={styles.confirmationCardValue}>{`${t('receiving.grade.assigned')} · ${gradeLabel(qc.assignedGrade)}`}</Text>
+              <Text style={styles.confirmationCardLabel}>{gradeSummaryText(confirmedGrade)}</Text>
+            </View>
+          ) : null}
+
+          {/* The batch, only when the API names one (BR-106: none on a rejection). */}
           {batch !== null ? (
             <View style={[styles.whiteCard, styles.confirmationRow]}>
               <CrateInventoryIcon color={adminColors.warning.text} size={24} />
               <View style={styles.flex}>
                 <Text style={styles.confirmationCardLabel}>{kg(accepted)}</Text>
-                <Text style={styles.confirmationCardValue}>Batch Created · {batch.batchCode}</Text>
+                <Text style={styles.confirmationCardValue}>{t('receiving.batch.created', { code: batch.code })}</Text>
               </View>
             </View>
           ) : null}
@@ -1557,7 +1619,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => onViewBatch(batch.id)}
               >
                 <QrCodeIcon color={adminColors.onBrand} size={20} />
-                <Text style={styles.actionPrimaryBtnText}>View Batch</Text>
+                <Text style={styles.actionPrimaryBtnText}>{t('receiving.batch.view')}</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -2329,6 +2391,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  metaGridGap: { marginTop: adminSpacing.md },
   summaryMetaCol: {
     flex: 1,
   },

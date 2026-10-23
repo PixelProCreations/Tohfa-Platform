@@ -224,6 +224,8 @@ type WarehouseSubView =
   | 'inventory_allocation'
   | 'inventory_verification'
   | 'inventory_variance'
+  // Receiving "View Batch": the batch a goods receipt was stocked as (BR-106)
+  | 'inventory_batch_detail'
   | 'verify_stock'
   | 'stock_adjustment_approval'
   | 'low_stock_alerts'
@@ -652,6 +654,7 @@ const INVENTORY_ENTRY = {
   inventory_allocation: 'M3S07',
   inventory_verification: 'M3S10',
   inventory_variance: 'M3S12',
+  inventory_batch_detail: 'M3S05',
 } as const;
 
 type InventoryEntryView = keyof typeof INVENTORY_ENTRY;
@@ -686,6 +689,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // The warehouse the detail / settings / ledger views open on, and the storage
   // location opened from the list: nothing until the admin picks one.
   const [detailWarehouseId, setDetailWarehouseId] = useState<string | undefined>(undefined);
+  // Receiving "View Batch" target: a batch uuid the API returned on a receipt or quality check.
+  const [receivingBatchId, setReceivingBatchId] = useState<string | undefined>(undefined);
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
@@ -749,6 +754,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const ledgerParams = useMemo(
     () => (detailWarehouse === undefined ? null : { warehouseName: detailWarehouse.name }),
     [detailWarehouse],
+  );
+  const batchDetailParams = useMemo(
+    () => (receivingBatchId === undefined ? null : { batchId: receivingBatchId }),
+    [receivingBatchId],
   );
   const openWarehouseDetail = (warehouseId: string | undefined) => {
     setDetailWarehouseId(warehouseId);
@@ -1032,6 +1041,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
     setWhSubView(view);
+  };
+
+  /**
+   * Receiving "View Batch" (design M2-12A "Assign Batch"): BR-106 creates the
+   * batch inside the quality check, so receiving only ever opens it, in the
+   * shared inventory batch detail (GET /admin/batches/{id}).
+   */
+  const openReceivingBatch = (batchId: string) => {
+    setReceivingBatchId(batchId);
+    setActiveTab('Home');
+    navigateWh('inventory_batch_detail');
   };
 
   const goBackWh = () => {
@@ -2660,6 +2680,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 setActiveTab('Home');
                 navigateWh('activity_timeline_ops');
               }}
+              onViewBatch={openReceivingBatch}
             />
           )
         )}
@@ -2994,7 +3015,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? ledgerParams : null}
+                initialParams={
+                  whSubView === 'stock_ledger' ? ledgerParams : whSubView === 'inventory_batch_detail' ? batchDetailParams : null
+                }
                 warehouseOptions={warehouseOptions}
                 onBack={goBackWh}
                 onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
@@ -3042,6 +3065,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 }}
                 onOpenOperationalIssues={() => navigateWh('operational_issues')}
                 onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+                onViewBatch={openReceivingBatch}
               />
             ) : whSubView === 'order_fulfilment_ops' ? (
               <OrdersFlow
@@ -3068,6 +3092,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onBack={goBackWh}
                 onOpenOperationalIssues={() => navigateWh('operational_issues')}
                 onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+                onViewBatch={openReceivingBatch}
               />
             ) : whSubView === 'customers_list' ? (
               // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's

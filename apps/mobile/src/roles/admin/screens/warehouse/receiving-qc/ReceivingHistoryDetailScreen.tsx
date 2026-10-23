@@ -16,7 +16,13 @@
  * Scope: another warehouse's receipt is a 404 from the server, shown as "not
  * found", never as a forbidden state (CLAUDE.md 2.1: no existence leak).
  * Gate: inventory.batch.view or inventory.goods_receipt.record to view;
- * the Batch Link tile needs inventory.batch.view and a batch id.
+ * the View Batch tile needs inventory.batch.view and a batch id.
+ *
+ * This is also the design's Receipt Preview (M2-12A), without its printable
+ * GRN (no print endpoint). Its "Assign Batch" is "View Batch" here: BR-106
+ * creates the batch inside the quality check, so there is nothing to assign
+ * afterwards; the tile opens the batch the receipt names (GoodsReceipt
+ * batchId / batchCode) and is hidden when it names none.
  */
 import React from 'react';
 import { RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -173,7 +179,7 @@ export function ReceivingHistoryDetailScreen({
     { key: 'discrepancy', label: 'Discrepancy', icon: <WarningCircleIcon size={24} />, onPress: onNavigateDiscrepancy },
     {
       key: 'batch',
-      label: 'Batch Link',
+      label: t('receiving.batch.view'),
       icon: <QrCodeIcon size={24} />,
       onPress: canViewBatch && batchId !== undefined && onNavigateBatch ? () => onNavigateBatch(batchId) : undefined,
     },
@@ -309,8 +315,8 @@ export function ReceivingHistoryDetailScreen({
             <Text style={styles.sectionHeader}>Receipt Information</Text>
             <View style={styles.listCard}>
               <View style={[styles.listRow, styles.listRowLast]}>
-                <Text style={styles.listLabel}>Batch</Text>
-                <Text style={styles.listValue}>{batchId}</Text>
+                <Text style={styles.listLabel}>{t('receiving.batch.label')}</Text>
+                <Text style={styles.listValue}>{rec.batchCode ?? batchId}</Text>
               </View>
             </View>
           </>

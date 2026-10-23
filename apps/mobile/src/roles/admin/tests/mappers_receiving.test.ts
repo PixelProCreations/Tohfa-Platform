@@ -153,7 +153,8 @@ describe('toIncomingShipment', () => {
     expect(s.purchaseOrderId).toBe(PO_ID);
     expect(s.code).toBe('PO-2026-000031');
     expect(s.from).toBe('');
-    expect(s.produce).toBe(t('inventory.crop.unnamed'));
+    // No crop name on a purchase order (server gap): labelled by its order, not "Unnamed crop".
+    expect(s.produce).toBe(t('receiving.crop.ofOrder', { ref: 'PO-2026-000031' }));
     expect(s.grade).toBe('Grade 1');
     expect(s.apiGrade).toBe('GRADE_1');
     expect(s.to).toBe('Coonoor');
@@ -217,7 +218,8 @@ describe('toReceivingRecord', () => {
     const r = toReceivingRecord(receipt(), { now: NOW });
     expect(r.acceptedGrams).toBeNull();
     expect(r.rejectedGrams).toBeNull();
-    expect(r.product).toBe(t('inventory.crop.unnamed'));
+    // No crop name and no poNumber on the row: labelled by its GRN, not "Unnamed crop".
+    expect(r.product).toBe(t('receiving.crop.ofOrder', { ref: 'GRN-2026-000101' }));
     expect(r.grade).toBe('');
   });
 
