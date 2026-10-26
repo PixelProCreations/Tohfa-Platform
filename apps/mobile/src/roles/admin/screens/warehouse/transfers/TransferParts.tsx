@@ -11,6 +11,7 @@ import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
 import { StatusBadge } from '../wallet-cashtopup/WalletParts';
 import { transferWarehouseLabel } from './fixtures';
+import { transferRouteText, transferRowMeta, type LiveTransferRow } from './transferReceiving';
 import type { TransferItem, TransferStatus, WarehouseScope } from './types';
 
 /** docs/rbac.json codes the transfer screens check (grants in types.ts). */
@@ -119,8 +120,20 @@ export function TransferChevronIcon({ size = 16, color = adminColors.muted }: Ic
   );
 }
 
-/** One transfer card: route, code + produce, status and ETA. */
-export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onPress?: (() => void) | undefined }) {
+interface TransferCardProps {
+  /** Hidden when the viewer cannot name the warehouse. */
+  sourceName: string | undefined;
+  destinationName: string | undefined;
+  meta: string;
+  statusLabel: string;
+  statusTone: AdminTone;
+  eta?: string | undefined;
+  accessibilityLabel: string;
+  onPress?: (() => void) | undefined;
+}
+
+/** The card both the sample rows and the live rows draw (one look). */
+function TransferCard({ sourceName, destinationName, meta, statusLabel, statusTone, eta, accessibilityLabel, onPress }: TransferCardProps) {
   const content = (
     <>
       <View style={styles.topRow}>
@@ -129,19 +142,17 @@ export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onP
         </View>
         <View style={styles.textCol}>
           <View style={styles.routeRow}>
-            <Text style={styles.whName}>{transferWarehouseLabel(transfer.sourceWarehouseId)}</Text>
+            {sourceName !== undefined ? <Text style={styles.whName}>{sourceName}</Text> : null}
             <RouteArrowIcon />
-            <Text style={styles.whName}>{transferWarehouseLabel(transfer.destinationWarehouseId)}</Text>
+            {destinationName !== undefined ? <Text style={styles.whName}>{destinationName}</Text> : null}
           </View>
-          <Text style={styles.meta}>
-            {transfer.code} · {transfer.produce} — {formatTransferKg(transfer.quantityKg)}
-          </Text>
+          <Text style={styles.meta}>{meta}</Text>
         </View>
         {onPress ? <TransferChevronIcon /> : null}
       </View>
       <View style={styles.bottomRow}>
-        <StatusBadge label={transfer.status} tone={TRANSFER_STATUS_TONE[transfer.status]} />
-        {transfer.eta ? <Text style={styles.eta}>{transfer.eta}</Text> : null}
+        <StatusBadge label={statusLabel} tone={statusTone} />
+        {eta ? <Text style={styles.eta}>{eta}</Text> : null}
       </View>
     </>
   );
@@ -152,10 +163,55 @@ export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onP
       onPress={onPress}
       activeOpacity={0.8}
       accessibilityRole="button"
-      accessibilityLabel={`${transfer.code} ${transferRouteLabel(transfer)}`}
+      accessibilityLabel={accessibilityLabel}
     >
       {content}
     </TouchableOpacity>
+  );
+}
+
+/** One transfer card: route, code + produce, status and ETA (sample rows of the transfer list). */
+export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onPress?: (() => void) | undefined }) {
+  return (
+    <TransferCard
+      sourceName={transferWarehouseLabel(transfer.sourceWarehouseId)}
+      destinationName={transferWarehouseLabel(transfer.destinationWarehouseId)}
+      meta={`${transfer.code} · ${transfer.produce} — ${formatTransferKg(transfer.quantityKg)}`}
+      statusLabel={transfer.status}
+      statusTone={TRANSFER_STATUS_TONE[transfer.status]}
+      eta={transfer.eta}
+      accessibilityLabel={`${transfer.code} ${transferRouteLabel(transfer)}`}
+      onPress={onPress}
+    />
+  );
+}
+
+/**
+ * The same card for a live transfer (receiving). A name the viewer cannot
+ * know, the product and the quantity are left out when unknown; the API has
+ * no ETA.
+ */
+export function LiveTransferRowCard({
+  transfer,
+  product,
+  sentGrams,
+  onPress,
+}: {
+  transfer: LiveTransferRow;
+  product?: string | undefined;
+  sentGrams?: number | undefined;
+  onPress?: (() => void) | undefined;
+}) {
+  return (
+    <TransferCard
+      sourceName={transfer.sourceName}
+      destinationName={transfer.destinationName}
+      meta={transferRowMeta(transfer.code, product, sentGrams)}
+      statusLabel={transfer.statusLabel}
+      statusTone={transfer.statusTone}
+      accessibilityLabel={[transfer.code, transferRouteText(transfer)].filter((part) => part !== undefined).join(' ')}
+      onPress={onPress}
+    />
   );
 }
 

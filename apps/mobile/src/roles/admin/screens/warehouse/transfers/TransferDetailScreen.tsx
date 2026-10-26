@@ -1,23 +1,40 @@
 /**
- * Transfer Detail: route, transfer information and the progress timeline of
- * one transfer.
+ * Transfer Detail: route, transfer information and the progress of one
+ * transfer, live (GET /warehouse-transfers/{id}, transfer.inter_warehouse.view).
  *
- * Gate (FINAL_LIST 144): Shared and scope-locked; a transfer outside the
- * scope (Sub: not arriving at its warehouse) renders "not found", no 403 leak.
- * 'Cancel Transfer Request' needs `transfer.inter_warehouse.initiate` (MAIN
- * all, SUB none); 'Receive at Destination' (Track Receiving) needs
- * `transfer.inter_warehouse.receive` (all).
+ * Gate: scope-locked. The server answers 404 for a transfer outside the scope
+ * (BR-30), and a Sub admin is shown only transfers arriving at its own
+ * warehouse; anything else renders "not found", never a 403 leak. 'Receive at
+ * Destination' (Track Receiving) needs `transfer.inter_warehouse.receive` on an
+ * IN_TRANSIT transfer whose destination the scope covers.
+ *
+ * Main (all warehouses) keeps its own layout: the detail grid, Tracking and
+ * Discrepancy. Product is the crop name from a source batch read (Main holds
+ * inventory.batch.view for every warehouse) with the line's grade; hidden
+ * until every line is named. Tracking leaves out the design's Arrived, Quality
+ * Check and Accept / Partial / Reject steps (no API: no arrival status, no
+ * transfer quality check, no decision). Discrepancy shows sent, received and
+ * the variance from the lines; received and variance only once received.
+ *
+ * Sub: the route card (a warehouse it cannot name, i.e. any but its own, is
+ * left out), the information card (vehicle when the API has one; no
+ * initiator name on this contract) and the progress steps from the server's
+ * timestamps. Cancelling is not offered here: Sub never holds
+ * `transfer.inter_warehouse.initiate`, and no cancel write is wired.
  */
-import React, { useState } from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { ApiError } from '../../../../../shell/api/client';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { formatTransferThreshold } from '../../../config/businessThresholds';
+import { kgLabel } from '../receiving-qc/mappers';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   EmptyState,
   InfoCard,
-  InfoNote,
   ScopeHeader,
   SectionTitle,
   StatusBadge,
@@ -28,34 +45,19 @@ import {
   CheckIcon,
   BackArrowIcon,
 } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS, transferWarehouseLabel } from './fixtures';
+import { RouteArrowIcon } from './TransferParts';
 import {
-  formatTransferKg,
-  RouteArrowIcon,
-  TRANSFER_CODES,
-  TRANSFER_STATUS_TONE,
-  transferInScope,
-  transferRouteLabel,
-} from './TransferParts';
-import type { TransferItem, TransferStatus, WarehouseScreenBaseProps } from './types';
+  canReceiveTransfer,
+  mainTrackingSteps,
+  sourceBatchIdsToRead,
+  subProgressSteps,
+  TRANSFER_RECEIVING_CODES,
+  transferProductLabel,
+  transferRouteText,
+} from './transferReceiving';
+import { useTransferBatchFacts, useTransferDetail, useTransferNaming } from './useTransferReceiving';
+import type { WarehouseScreenBaseProps } from './types';
 import { useFlowBack } from '../useFlowBack';
-
-const STEPS = [
-  'Transfer Requested',
-  'Super Admin Approval',
-  'Dispatched from Source',
-  'In Transit',
-  'Arrived at Destination',
-  'Received & Ledger Updated',
-] as const;
-
-/** Last completed step of the timeline for each status. */
-const STEP_INDEX: Record<TransferStatus, number> = {
-  'Pending SA Approval': 1,
-  'In Transit': 3,
-  Arrived: 4,
-  Completed: 5,
-};
 
 function TrackingTrendIcon({ size = 24, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
@@ -98,38 +100,26 @@ function PendingCircleIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-const TRACKING_STEPS = [
-  { label: 'Transfer Created', completed: true },
-  { label: 'Dispatched', completed: true },
-  { label: 'In Transit', completed: true },
-  { label: 'Arrived', completed: false },
-  { label: 'Receiving', completed: false },
-  { label: 'Quantity Verification', completed: false },
-  { label: 'Quality Check', completed: false },
-  { label: 'Accept / Partial / Reject', completed: false },
-  { label: 'Completed', completed: false },
-];
-
 export interface TransferDetailScreenProps extends WarehouseScreenBaseProps {
+  /** The transfer's uuid. */
   transferId?: string | undefined;
-  transfers?: readonly TransferItem[] | undefined;
-  /** Open Transfer Receiving for this transfer. */
+  /** Open Transfer Receiving / the inspection for this transfer. */
   onTrackReceiving?: ((transferId: string) => void) | undefined;
-  /** The request was cancelled (the host removes it / returns to the list). */
-  onCancelTransfer?: ((transferId: string) => void) | undefined;
   onBackToTransfers?: (() => void) | undefined;
 }
 
 type MainSubView = 'detail' | 'tracking' | 'discrepancy';
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.problem.status === 404;
+}
 
 export function TransferDetailScreen({
   scope,
   can,
   onBack,
   transferId,
-  transfers = TRANSFERS,
   onTrackReceiving,
-  onCancelTransfer,
   onBackToTransfers,
 }: TransferDetailScreenProps) {
   const isMain = scope.warehouseId === undefined;
@@ -143,10 +133,33 @@ export function TransferDetailScreen({
     return false;
   });
 
-  const transfer = transfers.find((t) => (t.id === transferId || t.code === transferId) && (isMain || transferInScope(scope, t))) ?? (isMain ? transfers.find((t) => t.code === 'TRF-00284' || t.id === '00284') : undefined);
+  const naming = useTransferNaming(scope, can);
+  const detail = useTransferDetail(scope, can, transferId, naming);
+  // A Sub admin is shown only transfers arriving at its own warehouse (the old transferInScope rule).
+  const transfer =
+    detail.transfer !== undefined && (isMain || detail.transfer.destinationWarehouseId === scope.warehouseId)
+      ? detail.transfer
+      : undefined;
+  const batchIds = useMemo(() => (transfer === undefined ? [] : sourceBatchIdsToRead(scope, can, transfer)), [scope, can, transfer]);
+  const facts = useTransferBatchFacts(scope, batchIds);
+  const product = transfer === undefined ? undefined : transferProductLabel(transfer, facts.cropNames);
+  const notFound =
+    transferId === undefined ||
+    !can(TRANSFER_RECEIVING_CODES.view) ||
+    isNotFound(detail.error) ||
+    (detail.transfer !== undefined && transfer === undefined);
+
+  /** Loading, not found or error, in place of the content (no transfer yet). */
+  const missingState = detail.isLoading ? (
+    <AdminLoadingState />
+  ) : notFound ? (
+    <EmptyState title={t('transfers.detail.notFound.title')} subtitle={t('transfers.detail.notFound.subtitle')} />
+  ) : (
+    <AdminErrorState error={detail.error} onRetry={detail.refresh} />
+  );
 
   if (isMain) {
-    if (mainSubView === 'tracking') {
+    if (mainSubView === 'tracking' && transfer !== undefined) {
       return (
         <SafeAreaView style={mainStyles.safeArea}>
           <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -166,8 +179,8 @@ export function TransferDetailScreen({
             <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
               <Text style={mainStyles.sectionHeading}>Transfer Tracking</Text>
               <View style={mainStyles.trackingList}>
-                {TRACKING_STEPS.map((step) => (
-                  <View key={step.label} style={mainStyles.trackingRow}>
+                {mainTrackingSteps(transfer).map((step) => (
+                  <View key={step.key} style={mainStyles.trackingRow}>
                     {step.completed ? <CompletedCheckIcon size={20} /> : <PendingCircleIcon size={20} />}
                     <Text style={[mainStyles.trackingText, step.completed ? mainStyles.trackingTextDone : mainStyles.trackingTextPending]}>
                       {step.label}
@@ -181,7 +194,7 @@ export function TransferDetailScreen({
       );
     }
 
-    if (mainSubView === 'discrepancy') {
+    if (mainSubView === 'discrepancy' && transfer !== undefined) {
       return (
         <SafeAreaView style={mainStyles.safeArea}>
           <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -202,21 +215,31 @@ export function TransferDetailScreen({
               <Text style={mainStyles.sectionHeading}>Transfer Discrepancy</Text>
               <View style={mainStyles.infoCard}>
                 <View style={mainStyles.gridRow}>
-                  <View style={mainStyles.gridCol}>
-                    <Text style={mainStyles.gridLabel}>Sent</Text>
-                    <Text style={mainStyles.gridValBold}>200 KG</Text>
-                  </View>
-                  <View style={mainStyles.gridCol}>
-                    <Text style={mainStyles.gridLabel}>Received</Text>
-                    <Text style={mainStyles.gridValBold}>195 KG</Text>
-                  </View>
+                  {transfer.sentGrams !== null ? (
+                    <View style={mainStyles.gridCol}>
+                      <Text style={mainStyles.gridLabel}>{t('transfers.detail.sent')}</Text>
+                      <Text style={mainStyles.gridValBold}>{kgLabel(transfer.sentGrams)}</Text>
+                    </View>
+                  ) : (
+                    <View style={mainStyles.gridCol} />
+                  )}
+                  {transfer.receivedGrams !== null ? (
+                    <View style={mainStyles.gridCol}>
+                      <Text style={mainStyles.gridLabel}>{t('transfers.detail.received')}</Text>
+                      <Text style={mainStyles.gridValBold}>{kgLabel(transfer.receivedGrams)}</Text>
+                    </View>
+                  ) : (
+                    <View style={mainStyles.gridCol} />
+                  )}
                 </View>
-                <View style={[mainStyles.gridRow, { marginBottom: 0, marginTop: 4 }]}>
-                  <View style={mainStyles.gridCol}>
-                    <Text style={mainStyles.gridLabel}>Variance</Text>
-                    <Text style={[mainStyles.gridValBold, { color: adminColors.danger.text }]}>-5 KG</Text>
+                {transfer.varianceGrams !== null ? (
+                  <View style={[mainStyles.gridRow, { marginBottom: 0, marginTop: 4 }]}>
+                    <View style={mainStyles.gridCol}>
+                      <Text style={mainStyles.gridLabel}>{t('transfers.detail.variance')}</Text>
+                      <Text style={[mainStyles.gridValBold, { color: adminColors.danger.text }]}>{kgLabel(transfer.varianceGrams)}</Text>
+                    </View>
                   </View>
-                </View>
+                ) : null}
               </View>
 
               <View style={mainStyles.discrepancyAlert}>
@@ -244,59 +267,81 @@ export function TransferDetailScreen({
           </View>
 
           <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
-            <Text style={mainStyles.sectionHeading}>Transfer Detail — TRF-00284</Text>
+            {transfer === undefined ? (
+              missingState
+            ) : (
+              <>
+                <Text style={mainStyles.sectionHeading}>{t('transfers.detail.heading', { code: transfer.code })}</Text>
 
-            <View style={mainStyles.infoCard}>
-              <View style={mainStyles.gridRow}>
-                <View style={mainStyles.gridCol}>
-                  <Text style={mainStyles.gridLabel}>Source</Text>
-                  <Text style={mainStyles.gridValBold}>Coonoor</Text>
-                </View>
-                <View style={mainStyles.gridCol}>
-                  <Text style={mainStyles.gridLabel}>Destination</Text>
-                  <Text style={mainStyles.gridValBold}>Ooty</Text>
-                </View>
-              </View>
+                <View style={mainStyles.infoCard}>
+                  <View style={mainStyles.gridRow}>
+                    {transfer.sourceName !== undefined ? (
+                      <View style={mainStyles.gridCol}>
+                        <Text style={mainStyles.gridLabel}>{t('transfers.detail.source')}</Text>
+                        <Text style={mainStyles.gridValBold}>{transfer.sourceName}</Text>
+                      </View>
+                    ) : (
+                      <View style={mainStyles.gridCol} />
+                    )}
+                    {transfer.destinationName !== undefined ? (
+                      <View style={mainStyles.gridCol}>
+                        <Text style={mainStyles.gridLabel}>{t('transfers.detail.destination')}</Text>
+                        <Text style={mainStyles.gridValBold}>{transfer.destinationName}</Text>
+                      </View>
+                    ) : (
+                      <View style={mainStyles.gridCol} />
+                    )}
+                  </View>
 
-              <View style={mainStyles.gridRow}>
-                <View style={mainStyles.gridCol}>
-                  <Text style={mainStyles.gridLabel}>Product</Text>
-                  <Text style={mainStyles.gridValBold}>Carrot G1</Text>
-                </View>
-                <View style={mainStyles.gridCol}>
-                  <Text style={mainStyles.gridLabel}>Quantity</Text>
-                  <Text style={mainStyles.gridValBold}>200 KG</Text>
-                </View>
-              </View>
+                  <View style={mainStyles.gridRow}>
+                    {product !== undefined ? (
+                      <View style={mainStyles.gridCol}>
+                        <Text style={mainStyles.gridLabel}>{t('transfers.detail.product')}</Text>
+                        <Text style={mainStyles.gridValBold}>{product}</Text>
+                      </View>
+                    ) : (
+                      <View style={mainStyles.gridCol} />
+                    )}
+                    {transfer.sentGrams !== null ? (
+                      <View style={mainStyles.gridCol}>
+                        <Text style={mainStyles.gridLabel}>{t('transfers.detail.quantity')}</Text>
+                        <Text style={mainStyles.gridValBold}>{kgLabel(transfer.sentGrams)}</Text>
+                      </View>
+                    ) : (
+                      <View style={mainStyles.gridCol} />
+                    )}
+                  </View>
 
-              <View style={[mainStyles.gridRow, { marginBottom: 0 }]}>
-                <View style={mainStyles.gridCol}>
-                  <Text style={mainStyles.gridLabel}>Status</Text>
-                  <Text style={mainStyles.gridValBold}>In Transit</Text>
+                  <View style={[mainStyles.gridRow, { marginBottom: 0 }]}>
+                    <View style={mainStyles.gridCol}>
+                      <Text style={mainStyles.gridLabel}>{t('transfers.detail.status')}</Text>
+                      <Text style={mainStyles.gridValBold}>{transfer.statusLabel}</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
-            {/* Action cards row */}
-            <View style={mainStyles.actionCardsRow}>
-              <TouchableOpacity
-                style={mainStyles.actionCard}
-                activeOpacity={0.7}
-                onPress={() => setMainSubView('tracking')}
-              >
-                <TrackingTrendIcon size={24} color={adminColors.warning.text} />
-                <Text style={mainStyles.actionCardText}>Tracking</Text>
-              </TouchableOpacity>
+                {/* Action cards row */}
+                <View style={mainStyles.actionCardsRow}>
+                  <TouchableOpacity
+                    style={mainStyles.actionCard}
+                    activeOpacity={0.7}
+                    onPress={() => setMainSubView('tracking')}
+                  >
+                    <TrackingTrendIcon size={24} color={adminColors.warning.text} />
+                    <Text style={mainStyles.actionCardText}>Tracking</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={mainStyles.actionCard}
-                activeOpacity={0.7}
-                onPress={() => setMainSubView('discrepancy')}
-              >
-                <DiscrepancyAlertIcon size={24} color={adminColors.warning.text} />
-                <Text style={mainStyles.actionCardText}>Discrepancy</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    style={mainStyles.actionCard}
+                    activeOpacity={0.7}
+                    onPress={() => setMainSubView('discrepancy')}
+                  >
+                    <DiscrepancyAlertIcon size={24} color={adminColors.warning.text} />
+                    <Text style={mainStyles.actionCardText}>Discrepancy</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </ScrollView>
         </View>
       </SafeAreaView>
@@ -305,55 +350,38 @@ export function TransferDetailScreen({
 
   if (transfer === undefined) {
     return (
-      <WalletScreen title="Transfer Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Transfer not found" subtitle="This transfer is not available in your warehouse." />
+      <WalletScreen title={t('transfers.detail.title')} onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
+        {missingState}
       </WalletScreen>
     );
   }
 
-  const stepIndex = STEP_INDEX[transfer.status];
-  const canCancel = can(TRANSFER_CODES.initiate) && transfer.status === 'Pending SA Approval';
-  const canTrack =
-    can(TRANSFER_CODES.receive) &&
-    onTrackReceiving !== undefined &&
-    (transfer.status === 'In Transit' || transfer.status === 'Arrived');
-
-  const handleCancel = () => {
-    Alert.alert('Cancel Transfer', `Cancel ${transfer.code}? This request will be withdrawn.`, [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Cancel Transfer',
-        style: 'destructive',
-        onPress: () => {
-          onCancelTransfer?.(transfer.id);
-          (onBackToTransfers ?? onBack)();
-        },
-      },
-    ]);
-  };
+  const steps = subProgressSteps(transfer);
+  const canTrack = canReceiveTransfer(scope, can, transfer) && onTrackReceiving !== undefined;
+  const route = transferRouteText(transfer);
+  const sentText = transfer.sentGrams === null ? undefined : formatKg(transfer.sentGrams);
+  const produceValue =
+    product !== undefined && sentText !== undefined
+      ? t('transfers.detail.produceQty', { product, qty: sentText })
+      : product ?? sentText;
+  const infoFirstRow = [{ label: t('transfers.detail.transferId'), value: transfer.code }];
+  if (produceValue !== undefined) infoFirstRow.push({ label: t('transfers.detail.produce'), value: produceValue });
+  const infoRows = [infoFirstRow];
+  // No initiator name on this contract (initiatedByName not wired), so only the vehicle, when the API has one.
+  if (transfer.vehicleNumber !== undefined) infoRows.push([{ label: t('transfers.detail.vehicle'), value: transfer.vehicleNumber }]);
 
   return (
     <WalletScreen
-      title="Transfer Detail"
-      subtitle={`${transfer.code} · ${transferRouteLabel(transfer)}`}
+      title={t('transfers.detail.title')}
+      subtitle={route === undefined ? transfer.code : t('transfers.detail.subtitle', { code: transfer.code, route })}
       onBack={onBack}
       headerExtra={<ScopeHeader scope={scope} />}
       footer={
         <WalletFooter>
           {canTrack ? (
-            <WalletButton label="Receive at Destination" onPress={() => onTrackReceiving?.(transfer.id)} />
+            <WalletButton label={t('transfers.detail.receiveAtDestination')} onPress={() => onTrackReceiving?.(transfer.id)} />
           ) : null}
-          {canCancel ? (
-            <TouchableOpacity
-              style={styles.dangerButton}
-              onPress={handleCancel}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-            >
-              <Text style={styles.dangerButtonText}>Cancel Transfer Request</Text>
-            </TouchableOpacity>
-          ) : null}
-          <WalletButton label="Back to All Transfers" variant="outline" onPress={onBackToTransfers ?? onBack} />
+          <WalletButton label={t('transfers.detail.backToAll')} variant="outline" onPress={onBackToTransfers ?? onBack} />
         </WalletFooter>
       }
     >
@@ -362,62 +390,43 @@ export function TransferDetailScreen({
           <View style={styles.routeRow}>
             <View style={styles.routeCol}>
               <Text style={styles.routeLabel}>FROM</Text>
-              <Text style={styles.routeValue}>{transferWarehouseLabel(transfer.sourceWarehouseId)}</Text>
+              {transfer.sourceName !== undefined ? <Text style={styles.routeValue}>{transfer.sourceName}</Text> : null}
             </View>
             <View style={styles.routeArrow}>
               <RouteArrowIcon size={18} />
             </View>
             <View style={[styles.routeCol, styles.routeColEnd]}>
               <Text style={styles.routeLabel}>TO</Text>
-              <Text style={styles.routeValue}>{transferWarehouseLabel(transfer.destinationWarehouseId)}</Text>
+              {transfer.destinationName !== undefined ? <Text style={styles.routeValue}>{transfer.destinationName}</Text> : null}
             </View>
           </View>
           <View style={styles.divider} />
           <View style={styles.statusRow}>
-            <StatusBadge label={transfer.status} tone={TRANSFER_STATUS_TONE[transfer.status]} />
-            {transfer.eta ? <Text style={styles.eta}>{transfer.eta}</Text> : null}
+            <StatusBadge label={transfer.statusLabel} tone={transfer.statusTone} />
           </View>
         </View>
 
         <SectionTitle>Transfer Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Transfer ID', value: transfer.code },
-              { label: 'Produce', value: `${transfer.produce} — ${formatTransferKg(transfer.quantityKg)}` },
-            ],
-            [
-              { label: 'Vehicle', value: transfer.vehicle ?? 'Not dispatched' },
-              { label: 'Initiated By', value: transfer.initiatedBy ?? '—' },
-            ],
-          ]}
-        />
+        <InfoCard rows={infoRows} />
 
         <SectionTitle>Transfer Progress</SectionTitle>
         <View style={styles.card}>
-          {STEPS.map((label, idx) => {
-            const done = idx <= stepIndex;
-            const isLast = idx === STEPS.length - 1;
+          {steps.map((step, idx) => {
+            const isLast = idx === steps.length - 1;
+            const nextDone = steps[idx + 1]?.done === true;
             return (
-              <View key={label} style={styles.stepRow}>
+              <View key={step.key} style={styles.stepRow}>
                 <View style={styles.stepRail}>
-                  <View style={[styles.stepDot, done ? styles.stepDotDone : styles.stepDotPending]}>
-                    {done ? <CheckIcon size={11} /> : null}
+                  <View style={[styles.stepDot, step.done ? styles.stepDotDone : styles.stepDotPending]}>
+                    {step.done ? <CheckIcon size={11} /> : null}
                   </View>
-                  {!isLast ? <View style={[styles.stepLine, done && idx < stepIndex && styles.stepLineDone]} /> : null}
+                  {!isLast ? <View style={[styles.stepLine, step.done && nextDone && styles.stepLineDone]} /> : null}
                 </View>
-                <Text style={[styles.stepText, done && styles.stepTextDone]}>{label}</Text>
+                <Text style={[styles.stepText, step.done && styles.stepTextDone]}>{step.label}</Text>
               </View>
             );
           })}
         </View>
-
-        {transfer.status === 'Pending SA Approval' ? (
-          <InfoNote tone="brandSoft">
-            This transfer is at or above {formatTransferThreshold()} and is awaiting Super Admin dual-key sign-off before a
-            dispatch manifest is issued.
-          </InfoNote>
-        ) : null}
       </ScrollView>
     </WalletScreen>
   );

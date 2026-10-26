@@ -1,14 +1,19 @@
 /**
  * In-module navigator for the inter-warehouse transfer screens.
  *
- *   Transfers -> Transfer Detail -> Transfer Receiving -> Transfer Inspection
+ *   Transfers -> Transfer Detail -> (Receive at Destination) Transfer Inspection
  *   Transfers -> Initiate New Transfer
- *   (Transfer Receiving can also be the entry, from the Receiving tab)
+ *   (Transfer Receiving can also be the entry, from the Receiving tab:
+ *    Transfer Receiving -> Transfer Detail -> Transfer Inspection)
  *
  * The screens used to be stitched by the Main shell (whSubView / receiving
  * sub-views with a shell-held transfer list) and by App.tsx keys, none of
- * which passed `scope` / `can`. This flow owns the stack and the (mock)
- * transfer list, so every step gets the viewer's scope and `can`.
+ * which passed `scope` / `can`. This flow owns the stack, so every step gets
+ * the viewer's scope and `can`. Transfer Receiving, Transfer Detail and the
+ * inspection read live data (GET /warehouse-transfers, ids are transfer
+ * uuids) and the inspection records the receipt itself; the (mock) transfer
+ * list below still feeds only the transfer list and Initiate New Transfer,
+ * which are not wired yet.
  *
  * Gate: InitiateNewTransfer needs `transfer.inter_warehouse.initiate` (MAIN
  * all, SUB none, BR-26); navigate() refuses it without the code and the screen
@@ -99,8 +104,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
         <TransferDetailScreen
           {...common}
           transferId={params.transferId}
-          onTrackReceiving={() => navigate('TransferReceiving')}
-          onCancelTransfer={(id) => setTransfers((prev) => prev.filter((t) => t.id !== id))}
+          onTrackReceiving={(id) => navigate('TransferInspection', { transferId: id })}
           onBackToTransfers={backToList}
         />
       );
@@ -127,16 +131,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
         <TransferReceivingInspectionScreen
           {...common}
           transferId={params.transferId}
-          onCompleteTransfer={(id, receivedKg) => {
-            setTransfers((prev) =>
-              prev.map((t) =>
-                t.id === id
-                  ? { ...t, status: 'Completed', receivedKg, qtyMismatch: receivedKg !== t.quantityKg, eta: undefined }
-                  : t,
-              ),
-            );
-            back();
-          }}
+          onCompleteTransfer={() => back()}
         />
       );
     default:

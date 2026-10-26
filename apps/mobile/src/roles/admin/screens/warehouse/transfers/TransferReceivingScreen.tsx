@@ -1,16 +1,31 @@
 /**
- * Transfer Receiving: inter-warehouse arrivals at the destination (counts and
- * the incoming list).
+ * Transfer Receiving (design M2-16): inter-warehouse arrivals at the
+ * destination, live (GET /warehouse-transfers): the counts and the incoming
+ * list.
  *
- * Gate (FINAL_LIST 145): Shared. Sub sees only arrivals whose destination is
- * its own warehouse; Main sees every warehouse's. Start Inspection (the card
- * tap and the bottom action) needs `transfer.inter_warehouse.receive` (all).
- * The header no longer names 'Coonoor ← Kotagiri': routes come from the rows.
+ * Gate: the list needs `transfer.inter_warehouse.view` (SUB own). Sub sees only
+ * transfers INBOUND to its own warehouse (BR-30); Main sees every warehouse's.
+ * Start Inspection (the card tap and the bottom action) needs
+ * `transfer.inter_warehouse.receive` on an IN_TRANSIT transfer whose
+ * destination the scope covers (the server confines the receive to the
+ * destination).
+ *
+ * Tiles: IN TRANSIT is the IN_TRANSIT total, COMPLETED the RECEIVED total and
+ * QTY MISMATCH the RECEIVED transfers flagged hasDiscrepancy. The design's
+ * ARRIVED, RECEIVING PENDING and QUALITY ISSUE tiles are not drawn: the API
+ * has no arrival status (owner decision), "receiving pending" is the same
+ * IN_TRANSIT figure, and a transfer receipt records no quality check. The
+ * header route ('Coonoor ← Kotagiri') comes from the first arrival; the Sent
+ * column from each transfer's lines (the list carries none), hidden until read.
  */
 import React, { useMemo } from 'react';
-import { Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { kgLabel } from '../receiving-qc/mappers';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   EmptyState,
   KpiRow,
@@ -23,13 +38,15 @@ import {
   walletLayout,
   BackArrowIcon,
 } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS } from './fixtures';
-import { PlayCircleIcon, TRANSFER_CODES, TransferRow, transferInScope } from './TransferParts';
-import type { TransferItem, WarehouseScreenBaseProps } from './types';
+import { LiveTransferRowCard, PlayCircleIcon, TRANSFER_CODES } from './TransferParts';
+import { canReceiveTransfer, kpiCountLabel, mismatchTileLabel, receivingRouteSubtitle } from './transferReceiving';
+import { useIncomingTransfers, useReceivedTransfers, useTransferNaming, useTransferSentTotals } from './useTransferReceiving';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface TransferReceivingScreenProps extends WarehouseScreenBaseProps {
-  transfers?: readonly TransferItem[] | undefined;
+  /** Open the inspection of a transfer (its uuid). */
   onStartTransferInspection?: ((transferId: string) => void) | undefined;
+  /** Open a transfer's detail (its uuid). */
   onSelectTransfer?: ((transferId: string) => void) | undefined;
 }
 
@@ -37,11 +54,24 @@ export function TransferReceivingScreen({
   scope,
   can,
   onBack,
-  transfers = TRANSFERS,
   onStartTransferInspection,
   onSelectTransfer,
 }: TransferReceivingScreenProps) {
   const isMain = scope.warehouseId === undefined;
+  const naming = useTransferNaming(scope, can);
+  const incoming = useIncomingTransfers(scope, can, naming);
+  const received = useReceivedTransfers(scope, can);
+  const incomingIds = useMemo(() => incoming.rows.map((row) => row.id), [incoming.rows]);
+  const sentTotals = useTransferSentTotals(scope, incomingIds);
+  const view = queryViewState({ isLoading: incoming.isLoading, error: incoming.error, itemCount: incoming.rows.length });
+  const routeSubtitle = receivingRouteSubtitle(incoming.rows);
+
+  const loadState =
+    view === 'loading' ? (
+      <AdminLoadingState />
+    ) : view === 'error' ? (
+      <AdminErrorState error={incoming.error} onRetry={incoming.refresh} />
+    ) : null;
 
   if (isMain) {
     return (
@@ -56,35 +86,23 @@ export function TransferReceivingScreen({
             </TouchableOpacity>
             <Text style={mainStyles.headerTitle}>Transfer Receiving</Text>
           </View>
-          <Text style={mainStyles.headerSubtitle}>Coonoor ← Kotagiri, and other inter-warehouse arrivals</Text>
+          {routeSubtitle !== undefined ? <Text style={mainStyles.headerSubtitle}>{routeSubtitle}</Text> : null}
         </View>
 
         <ScrollView style={mainStyles.scroll} contentContainerStyle={mainStyles.scrollPad} showsVerticalScrollIndicator={false}>
-          {/* 6 KPI Tiles (Screenshot 2) */}
+          {/* KPI Tiles (Screenshot 2); ARRIVED, RECEIVING PENDING and QUALITY ISSUE have no API (see the header) */}
           <View style={mainStyles.kpiGrid}>
             <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>IN TRANSIT</Text>
-              <Text style={mainStyles.kpiVal}>2</Text>
+              <Text style={mainStyles.kpiLabel}>{t('transfers.receiving.tile.inTransit')}</Text>
+              <Text style={mainStyles.kpiVal}>{kpiCountLabel(incoming.total)}</Text>
             </View>
             <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>ARRIVED</Text>
-              <Text style={mainStyles.kpiVal}>1</Text>
+              <Text style={mainStyles.kpiLabel}>{t('transfers.receiving.tile.qtyMismatch')}</Text>
+              <Text style={mainStyles.kpiVal}>{mismatchTileLabel(received.mismatch)}</Text>
             </View>
             <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>RECEIVING PENDING</Text>
-              <Text style={mainStyles.kpiVal}>1</Text>
-            </View>
-            <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>QTY MISMATCH</Text>
-              <Text style={mainStyles.kpiVal}>1</Text>
-            </View>
-            <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>QUALITY ISSUE</Text>
-              <Text style={mainStyles.kpiVal}>0</Text>
-            </View>
-            <View style={mainStyles.kpiTile}>
-              <Text style={mainStyles.kpiLabel}>COMPLETED</Text>
-              <Text style={mainStyles.kpiVal}>4</Text>
+              <Text style={mainStyles.kpiLabel}>{t('transfers.receiving.tile.completed')}</Text>
+              <Text style={mainStyles.kpiVal}>{kpiCountLabel(received.completed)}</Text>
             </View>
           </View>
 
@@ -99,46 +117,56 @@ export function TransferReceivingScreen({
               <Text style={[mainStyles.tableColHeader, { flex: 1 }]}>SENT</Text>
               <Text style={[mainStyles.tableColHeader, { flex: 1, textAlign: 'right' }]}>STATUS</Text>
             </View>
-            <TouchableOpacity
-              style={mainStyles.tableDataRow}
-              activeOpacity={0.75}
-              onPress={() => (onSelectTransfer ? onSelectTransfer('00284') : onStartTransferInspection?.('00284'))}
-            >
-              <Text style={[mainStyles.tableValBold, { flex: 1.2 }]}>TRF-00284</Text>
-              <Text style={[mainStyles.tableValNormal, { flex: 1.2 }]}>Kotagiri</Text>
-              <Text style={[mainStyles.tableValNormal, { flex: 1 }]}>200 KG</Text>
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <View style={mainStyles.arrivedBadge}>
-                  <Text style={mainStyles.arrivedBadgeText}>Arrived</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            {loadState}
+            {view === 'empty' ? (
+              <AdminEmptyState title={t('transfers.receiving.empty.title')} subtitle={t('transfers.receiving.empty.subtitle')} />
+            ) : null}
+            {view === 'ready'
+              ? incoming.rows.map((row) => {
+                  const sent = sentTotals.get(row.id);
+                  return (
+                    <TouchableOpacity
+                      key={row.id}
+                      style={mainStyles.tableDataRow}
+                      activeOpacity={0.75}
+                      onPress={() => (onSelectTransfer ? onSelectTransfer(row.id) : onStartTransferInspection?.(row.id))}
+                    >
+                      <Text style={[mainStyles.tableValBold, { flex: 1.2 }]}>{row.code}</Text>
+                      <Text style={[mainStyles.tableValNormal, { flex: 1.2 }]}>{row.sourceName ?? ''}</Text>
+                      <Text style={[mainStyles.tableValNormal, { flex: 1 }]}>{sent === undefined ? '' : kgLabel(sent)}</Text>
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        <View style={mainStyles.arrivedBadge}>
+                          <Text style={mainStyles.arrivedBadgeText}>{row.statusLabel}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              : null}
           </View>
         </ScrollView>
       </View>
     );
   }
   const canReceive = can(TRANSFER_CODES.receive);
-  const incoming = useMemo(
-    () => transfers.filter((t) => transferInScope(scope, t) && t.status !== 'Pending SA Approval'),
-    [transfers, scope],
-  );
-  const awaiting = incoming.filter((t) => t.status === 'In Transit' || t.status === 'Arrived');
-  const firstArrived = incoming.find((t) => t.status === 'Arrived');
-  const count = (pred: (t: TransferItem) => boolean) => String(incoming.filter(pred).length);
+  const firstReceivable = incoming.rows.find((row) => canReceiveTransfer(scope, can, row));
 
   const start = canReceive ? onStartTransferInspection : undefined;
 
   return (
     <WalletScreen
-      title="Transfer Receiving"
-      subtitle="Inter-warehouse arrivals"
+      title={t('transfers.receiving.title')}
+      subtitle={t('transfers.receiving.subtitle')}
       onBack={onBack}
       headerExtra={<ScopeHeader scope={scope} />}
       footer={
-        start && firstArrived ? (
+        start && firstReceivable ? (
           <WalletFooter>
-            <WalletButton label="Start Inspection" icon={<PlayCircleIcon />} onPress={() => start(firstArrived.id)} />
+            <WalletButton
+              label={t('transfers.receiving.startInspection')}
+              icon={<PlayCircleIcon />}
+              onPress={() => start(firstReceivable.id)}
+            />
           </WalletFooter>
         ) : !canReceive ? (
           <WalletFooter>
@@ -148,30 +176,29 @@ export function TransferReceivingScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ARRIVED is not drawn: the API has no arrival status (owner decision). */}
+        <KpiRow items={[{ value: kpiCountLabel(incoming.total), label: t('transfers.receiving.tile.inTransit'), tone: 'info' }]} />
         <KpiRow
           items={[
-            { value: count((t) => t.status === 'In Transit'), label: 'IN TRANSIT', tone: 'info' },
-            { value: count((t) => t.status === 'Arrived'), label: 'ARRIVED', tone: 'brandSoft' },
-          ]}
-        />
-        <KpiRow
-          items={[
-            { value: count((t) => t.status === 'Completed'), label: 'RECEIVED', tone: 'success' },
-            { value: count((t) => t.qtyMismatch === true), label: 'QTY MISMATCH', tone: 'danger' },
+            { value: kpiCountLabel(received.completed), label: t('transfers.receiving.tile.received'), tone: 'success' },
+            { value: mismatchTileLabel(received.mismatch), label: t('transfers.receiving.tile.qtyMismatch'), tone: 'danger' },
           ]}
         />
         <SectionTitle>Incoming Transfer List</SectionTitle>
-        {awaiting.length === 0 ? (
-          <EmptyState title="No incoming transfers" subtitle="Nothing is in transit to this warehouse." />
-        ) : (
-          awaiting.map((t) => (
-            <TransferRow
-              key={t.id}
-              transfer={t}
-              onPress={start && t.status === 'Arrived' ? () => start(t.id) : undefined}
-            />
-          ))
-        )}
+        {loadState}
+        {view === 'empty' ? (
+          <EmptyState title={t('transfers.receiving.empty.title')} subtitle={t('transfers.receiving.empty.subtitle')} />
+        ) : null}
+        {view === 'ready'
+          ? incoming.rows.map((row) => (
+              <LiveTransferRowCard
+                key={row.id}
+                transfer={row}
+                sentGrams={sentTotals.get(row.id)}
+                onPress={start && canReceiveTransfer(scope, can, row) ? () => start(row.id) : undefined}
+              />
+            ))
+          : null}
       </ScrollView>
     </WalletScreen>
   );

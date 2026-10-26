@@ -82,7 +82,9 @@ async function walk(
 /** Warehouse names for this viewer (Main: GET /warehouses, shared with the receiving area; Sub: its own only). */
 export function useTransferNaming(scope: WarehouseScope, can: PermissionCheck): TransferNaming {
   const { options } = useReceivingNaming(scope, can);
-  return useMemo(() => transferNamingOf(scope, options), [scope, options]);
+  // Keyed on the values, not the scope object: hosts may pass a new object each render.
+  const { warehouseId, warehouseName } = scope;
+  return useMemo(() => transferNamingOf({ warehouseId, warehouseName }, options), [warehouseId, warehouseName, options]);
 }
 
 export interface IncomingTransfers extends TransferQueryState {
