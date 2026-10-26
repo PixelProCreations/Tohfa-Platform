@@ -9,8 +9,9 @@
  *                     GET /warehouses list (uuids)
  *   Receiving Result  `status` on GET /admin/goods-receipts, so only when opened
  *                     from Receiving History (a purchase order has no result)
- * The design's search box, Date and Shipment Type are not drawn: neither list
- * takes a search text or a date, and transfers are a different list.
+ * The design's search box and Date are not drawn: neither list takes a search
+ * text or a date. Shipment Type is a chip row on Incoming Shipments itself
+ * (incomingTransfers.ts), so a Sub admin, who is not offered this screen, has it too.
  *
  * Nothing is fetched for the lists or mutated here: Apply hands the facets to
  * the flow, which sets them on the list's route params (mappers.ts

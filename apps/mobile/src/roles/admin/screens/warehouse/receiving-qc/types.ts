@@ -227,6 +227,12 @@ export interface IncomingShipment extends WizardShipmentData {
 /** Status pills of the Incoming Shipments list. */
 export type ShipmentFilterTab = 'All' | 'Expected' | 'Receiving' | 'QC Pending' | 'Completed';
 
+/**
+ * The Shipment Type facet of Incoming Shipments (design M2-03): purchase orders
+ * raised to farmers, inbound inter-warehouse transfers, or both.
+ */
+export type ShipmentTypeFilter = 'All' | 'PurchaseOrders' | 'Transfers';
+
 /** Result pills of Receiving History (each is a server-side status filter). */
 export type HistoryFilter = 'All' | 'Awaiting QC' | 'Accepted' | 'Partial' | 'Rejected';
 
@@ -234,8 +240,9 @@ export type HistoryFilter = 'All' | 'Awaiting QC' | 'Accepted' | 'Partial' | 'Re
  * Facets of Receiving Search & Filters (design M2-03), reduced to what the two
  * list endpoints take: `warehouseId` (GET /admin/purchase-orders and
  * /admin/goods-receipts) and the receipt `status` (GET /admin/goods-receipts,
- * the Receiving History pills). Search text, date and shipment type have no
- * query parameter, so they are not facets.
+ * the Receiving History pills). Search text and date have no query parameter,
+ * so they are not facets; the shipment type picks which list is read and lives
+ * on Incoming Shipments (ShipmentTypeFilter below).
  */
 export interface ReceivingFilters {
   /** A Main pick from GET /warehouses; undefined = all warehouses. Never set for a Sub scope (BR-30). */
@@ -281,7 +288,9 @@ export type ReceivingRoute =
   | 'PendingQueue'
   | 'ShipmentProduct'
   | 'ShipmentTimeline'
-  | 'ReceiptActivity';
+  | 'ReceiptActivity'
+  /** An inbound inter-warehouse transfer, received through the transfers area's screen. */
+  | 'TransferInspection';
 
 export interface ReceivingRouteParams {
   /** Purchase order uuid. */
@@ -295,6 +304,10 @@ export interface ReceivingRouteParams {
   filterWarehouseId?: string | undefined;
   /** Search & Filters: the list it was opened from, which its Apply narrows. */
   filterTarget?: ReceivingFilterTarget | undefined;
+  /** Incoming Shipments: the Shipment Type facet (purchase orders, transfers or both). */
+  shipmentType?: ShipmentTypeFilter | undefined;
+  /** Inter-warehouse transfer uuid (TransferInspection). */
+  transferId?: string | undefined;
 }
 
 /** What an API-backed receiving screen gets from the flow to pick its async state and refresh. */

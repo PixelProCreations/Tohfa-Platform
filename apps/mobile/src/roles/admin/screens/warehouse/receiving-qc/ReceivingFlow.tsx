@@ -4,6 +4,7 @@
  *
  *   Dashboard -> Incoming Shipments -> (Quick View) -> Shipment Detail -> Goods Receiving wizard
  *                                   -> Search & Filters (Main: warehouse)
+ *                                   -> Transfer receiving (an inbound transfer row, design M2-16)
  *             -> Receiving History  -> Receiving History Detail -> Shipment Detail / wizard (resume QC)
  *                                   -> Search & Filters (Main: warehouse + result)
  *             -> Quality Issues     -> wizard (resume QC)
@@ -44,6 +45,13 @@
  * built from what the receipt carries. Transfer Receiving is offered only
  * while inter-warehouse transfers have an API (availability.ts).
  *
+ * Incoming Shipments also lists the transfers awaiting receipt at the list
+ * warehouse (GET /warehouse-transfers, IN_TRANSIT; incomingTransfers.ts), with
+ * a Shipment Type facet held in the route params. The rows ask for the same
+ * warehouse as the purchase orders, so a Sub scope sends its own (BR-30). A
+ * row opens the transfers area's receiving screen as a route of this flow, so
+ * back returns to the list; its write invalidates the transfer lists.
+ *
  * Gates: the lists need inventory.batch.view or inventory.goods_receipt.record
  * (each screen renders a note without them); the wizard route needs
  * inventory.goods_receipt.record (navigate() refuses it, and the wizard gates
@@ -57,7 +65,11 @@ import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useFlowBack } from '../useFlowBack';
 
+import { TransferReceivingInspectionScreen } from '../transfers/TransferReceivingInspectionScreen';
+import { useInboundTransfers, useTransferWarehouses } from '../transfers/useTransfersData';
+
 import { GoodsReceivingWizardScreen } from './GoodsReceivingWizardScreen';
+import { canOpenTransferInspection, offersTransferRows } from './incomingTransfers';
 import { PendingQueueScreen, ReceivingActivityScreen } from './ReceivingActivityScreens';
 import { IncomingShipmentsScreen } from './IncomingShipmentsScreen';
 import {
@@ -86,6 +98,7 @@ import type {
   ReceivingRoute,
   ReceivingRouteParams,
   ReceivingWizardStep,
+  ShipmentTypeFilter,
   WarehouseScope,
   WarehouseTab,
 } from './types';
@@ -140,9 +153,10 @@ export function receivingRouteFor(subView: string | undefined): ReceivingStackEn
   return (subView !== undefined ? SUB_VIEW_ROUTE[subView] : undefined) ?? { screen: 'Dashboard' };
 }
 
-/** True when `can` allows opening `route` (only the wizard routes are gated here). */
+/** True when `can` allows opening `route` (only the wizard and transfer receiving routes are gated here). */
 export function canOpenReceivingRoute(route: ReceivingRoute, can: PermissionCheck): boolean {
   if (route === 'Wizard' || route === 'StorageAssignment') return can(RECEIVING_CODES.receiptRecord);
+  if (route === 'TransferInspection') return canOpenTransferInspection(can);
   return true;
 }
 
@@ -291,6 +305,7 @@ export function ReceivingFlow({
   const openShipment = (purchaseOrderId: string) => navigate('ShipmentDetail', { shipmentId: purchaseOrderId });
   const startReceiving = (s: IncomingShipment, resume: boolean) =>
     openWizard(resume ? 'quality_check' : 'start_receiving', s.purchaseOrderId);
+  const openTransfer = (transferId: string) => navigate('TransferInspection', { transferId });
   /** A list opened from the dashboard keeps its warehouse pick (undefined for a Sub scope, BR-30). */
   const picked = { filterWarehouseId: mainView ? params.filterWarehouseId : undefined };
   const transferReceiving = isAreaAvailable('interWarehouseTransfers', can) ? onOpenTransferReceiving : undefined;
@@ -314,15 +329,18 @@ export function ReceivingFlow({
           initialTab={params.statusTab}
           scopeLabel={pickedLabel}
           onOpenFilters={filtersFor('Shipments')}
+          shipmentType={params.shipmentType ?? 'All'}
+          onChangeShipmentType={(shipmentType) => setParams({ shipmentType })}
           onSelectShipment={openShipment}
           onStartReceiving={startReceiving}
+          onSelectTransfer={openTransfer}
         />
       );
     case 'ShipmentDetail':
     case 'ShipmentProduct':
     case 'ShipmentTimeline':
       return params.shipmentId === undefined ? (
-        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} />
+        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} onSelectTransfer={openTransfer} />
       ) : (
         <ShipmentDetailRoute
           {...common}
@@ -389,7 +407,7 @@ export function ReceivingFlow({
       );
     case 'Wizard':
       return params.shipmentId === undefined ? (
-        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} />
+        <ShipmentsRoute {...common} {...live} onSelectShipment={openShipment} onStartReceiving={startReceiving} onSelectTransfer={openTransfer} />
       ) : (
         <WizardRoute
           {...common}
@@ -404,6 +422,10 @@ export function ReceivingFlow({
           onViewReceipt={(receiptId) => navigate('HistoryDetail', { receiptId })}
           onViewHistory={() => navigate('History')}
         />
+      );
+    case 'TransferInspection':
+      return (
+        <TransferReceivingInspectionScreen {...common} transferId={params.transferId} onCompleteTransfer={() => back()} />
       );
     case 'Dashboard':
     case 'StorageAssignment':
@@ -474,21 +496,36 @@ function ShipmentsRoute({
   initialTab?: React.ComponentProps<typeof IncomingShipmentsScreen>['initialTab'];
   scopeLabel?: string | undefined;
   onOpenFilters?: (() => void) | undefined;
+  shipmentType?: ShipmentTypeFilter | undefined;
+  onChangeShipmentType?: ((type: ShipmentTypeFilter) => void) | undefined;
   onSelectShipment: (purchaseOrderId: string) => void;
   onStartReceiving?: ((shipment: IncomingShipment, resume: boolean) => void) | undefined;
+  onSelectTransfer: (transferId: string) => void;
 }) {
   const list = useShipmentList(warehouseId, naming);
+  // Inbound transfers for the same warehouse as the orders (BR-30: a Sub scope's own).
+  const showTransfers = offersTransferRows(props.can);
+  const { nameOf } = useTransferWarehouses(props.scope, props.can);
+  const inbound = useInboundTransfers(warehouseId, nameOf, showTransfers);
+  const refresh = () => {
+    list.refresh();
+    if (showTransfers) inbound.refresh();
+  };
   return (
     <IncomingShipmentsScreen
       {...props}
       shipments={list.items}
-      isLoading={list.isLoading}
-      error={list.error}
-      onRetry={list.refresh}
-      onRefresh={list.refresh}
-      isRefreshing={list.isRefreshing}
-      onLoadMore={list.loadMore}
-      hasMore={list.hasMore}
+      transfers={showTransfers ? inbound.items : undefined}
+      isLoading={list.isLoading || inbound.isLoading}
+      error={list.error ?? inbound.error}
+      onRetry={refresh}
+      onRefresh={refresh}
+      isRefreshing={list.isRefreshing || inbound.isRefreshing}
+      onLoadMore={() => {
+        list.loadMore();
+        inbound.loadMore();
+      }}
+      hasMore={list.hasMore || inbound.hasMore}
     />
   );
 }

@@ -16,10 +16,21 @@
  * Tapping a row opens the Shipment Quick View (design M2-02), a bottom sheet
  * of the fields the order row carries (receivingViews.ts
  * shipmentQuickViewRows, an allow-list with no farmer identity), with View
- * Details and, when the order can be received, Start Receiving. The design's
- * shipment-type notice is kept as what is true here: every row is a purchase
- * order raised to a farmer; transfers are another list. There is no Arrived
- * pill: a purchase order has no arrival step (owner decision).
+ * Details and, when the order can be received, Start Receiving. There is no
+ * Arrived pill: neither a purchase order nor a transfer has an arrival step
+ * (owner decision).
+ *
+ * The design's two shipment types (M2-02 notice, M2-03 Shipment Type): with
+ * transfer.inter_warehouse.view the list also carries the inbound transfers
+ * awaiting receipt (GET /warehouse-transfers, IN_TRANSIT), first, as transfer
+ * rows, and a Shipment Type chip row picks purchase orders, transfers or both
+ * (incomingTransfers.ts). The facet sits on the list rather than in Search &
+ * Filters so a Sub admin, who is not offered Search & Filters (BR-30: it has
+ * no warehouse to pick), has it too. A transfer row shows what the list
+ * header carries (route, number, value, status, day); the quantity and the
+ * produce are on its lines, which only the transfer read returns, so the row
+ * opens the transfer receiving screen (transfer.inter_warehouse.receive, at a
+ * destination the scope covers) where they are shown.
  *
  * Read-only (Start Receiving only opens the wizard). Gate: inventory.batch.view
  * or inventory.goods_receipt.record; Start Receiving also needs
@@ -46,10 +57,20 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { isMainScope, isReceivable, matchesShipmentTab } from './mappers';
+import { transferActions } from '../transfers/mappers';
+import { TransferRow } from '../transfers/TransferParts';
+import type { TransferListItem } from '../transfers/types';
+import { SHIPMENT_TYPE_FILTERS, incomingRows, shipmentTypeLabel, type IncomingRow } from './incomingTransfers';
+import { isMainScope, isReceivable } from './mappers';
 import { PermissionNote, RECEIVING_CODES, TruckDeliveryIcon, canViewReceiving, shipmentTone } from './ReceivingParts';
 import { shipmentQuickViewRows } from './receivingViews';
-import type { IncomingShipment, ReceivingLiveStateProps, ShipmentFilterTab, WarehouseScreenBaseProps } from './types';
+import type {
+  IncomingShipment,
+  ReceivingLiveStateProps,
+  ShipmentFilterTab,
+  ShipmentTypeFilter,
+  WarehouseScreenBaseProps,
+} from './types';
 
 const TABS: readonly ShipmentFilterTab[] = ['All', 'Expected', 'Receiving', 'QC Pending', 'Completed'];
 
@@ -85,6 +106,13 @@ export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps, 
   onSelectShipment: (purchaseOrderId: string) => void;
   /** Quick View Start Receiving, or resume the receipt awaiting QC (`resume`); the host opens the wizard. */
   onStartReceiving?: ((shipment: IncomingShipment, resume: boolean) => void) | undefined;
+  /** Inbound transfers awaiting receipt; undefined when the viewer may not see transfers (no facet, no rows). */
+  transfers?: readonly TransferListItem[] | undefined;
+  /** The Shipment Type facet (the flow keeps it in the route params). */
+  shipmentType?: ShipmentTypeFilter | undefined;
+  onChangeShipmentType?: ((type: ShipmentTypeFilter) => void) | undefined;
+  /** Opens the transfer receiving screen for a transfer uuid. */
+  onSelectTransfer?: ((transferId: string) => void) | undefined;
 }
 
 function kg(value: number | null): string {
@@ -117,6 +145,10 @@ export function IncomingShipmentsScreen({
   onOpenFilters,
   onSelectShipment,
   onStartReceiving,
+  transfers,
+  shipmentType = 'All',
+  onChangeShipmentType,
+  onSelectTransfer,
 }: IncomingShipmentsScreenProps) {
   const [tab, setTab] = useState<ShipmentFilterTab>(initialTab);
   const [quickView, setQuickView] = useState<IncomingShipment | null>(null);
@@ -145,8 +177,19 @@ export function IncomingShipmentsScreen({
     );
   }
 
-  const view = queryViewState({ isLoading, error, itemCount: shipments.length });
-  const rows = shipments.filter((s) => matchesShipmentTab(s.status, tab));
+  const view = queryViewState({ isLoading, error, itemCount: shipments.length + (transfers?.length ?? 0) });
+  const rows = incomingRows({ shipments, transfers: transfers ?? [], type: shipmentType, tab });
+  const offersType = transfers !== undefined && onChangeShipmentType !== undefined;
+
+  /** A transfer opens the receiving screen only where the scope may receive it (the server checks again). */
+  const renderTransfer = (transfer: TransferListItem) => (
+    <TransferRow
+      transfer={transfer}
+      onPress={
+        onSelectTransfer !== undefined && transferActions(scope, can, transfer).receive ? () => onSelectTransfer(transfer.id) : undefined
+      }
+    />
+  );
 
   const renderShipment = ({ item: s }: { item: IncomingShipment }) => (
     <TouchableOpacity
@@ -180,14 +223,24 @@ export function IncomingShipmentsScreen({
     </TouchableOpacity>
   );
 
+  const renderRow = ({ item }: { item: IncomingRow }) =>
+    item.kind === 'transfer' ? renderTransfer(item.transfer) : renderShipment({ item: item.shipment });
+
   return (
     <WalletScreen {...header}>
       <View style={styles.flex}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsBar} contentContainerStyle={styles.pills}>
           <ChipGroup options={TABS} value={tab} onChange={setTab} labelOf={(option) => t(TAB_LABEL[option])} />
         </ScrollView>
+        {offersType ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsBar} contentContainerStyle={styles.typePills}>
+            <ChipGroup options={SHIPMENT_TYPE_FILTERS} value={shipmentType} onChange={onChangeShipmentType} labelOf={shipmentTypeLabel} />
+          </ScrollView>
+        ) : null}
         <View style={styles.notice}>
-          <InfoNote tone="brandSoft">{t('receiving.shipments.typeNotice')}</InfoNote>
+          <InfoNote tone="brandSoft">
+            {t(transfers !== undefined ? 'receiving.shipments.typeNoticeWithTransfers' : 'receiving.shipments.typeNotice')}
+          </InfoNote>
         </View>
 
         {view === 'loading' ? (
@@ -197,8 +250,8 @@ export function IncomingShipmentsScreen({
         ) : (
           <FlatList
             data={rows}
-            keyExtractor={(s) => s.purchaseOrderId}
-            renderItem={renderShipment}
+            keyExtractor={(row) => `${row.kind}:${row.key}`}
+            renderItem={renderRow}
             contentContainerStyle={walletLayout.scrollContent}
             showsVerticalScrollIndicator={false}
             onEndReached={hasMore ? onLoadMore : undefined}
@@ -290,6 +343,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   pillsBar: { flexGrow: 0, paddingHorizontal: adminSpacing.lg },
   pills: { paddingVertical: adminSpacing.sm },
+  typePills: { paddingBottom: adminSpacing.sm },
   notice: { paddingHorizontal: adminSpacing.lg },
   sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
