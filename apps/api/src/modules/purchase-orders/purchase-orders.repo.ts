@@ -23,6 +23,26 @@ import type {
  */
 const CURSOR_TS = `'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`;
 
+/**
+ * BR-122: `%`, `_` and `\` typed by a user are literals in an ILIKE search, not wildcards. The
+ * result is always bound as a parameter and used with `ESCAPE '\'`; it never becomes SQL text.
+ */
+export function likeContains(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+}
+
+/**
+ * BR-122 (the BR-115 convention): `from` / `to` are inclusive Asia/Kolkata days. Written as a range
+ * on the raw timestamptz column (start of the `from` day in IST, up to the start of the day after
+ * `to` in IST), so the comparison stays on the column the list orders and pages by.
+ */
+export function istDayFromSql(column: string, placeholder: string): string {
+  return `${column} >= (${placeholder}::date)::timestamp AT TIME ZONE 'Asia/Kolkata'`;
+}
+export function istDayToSql(column: string, placeholder: string): string {
+  return `${column} < ((${placeholder}::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')`;
+}
+
 export interface PurchaseOrderRow {
   id: string;
   po_number: string;
@@ -259,6 +279,29 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
     if (query.warehouseId) {
       conditions.push(`po.warehouse_id = $${index}`);
       params.push(query.warehouseId);
+      index += 1;
+    }
+
+    // BR-122: a literal, case-insensitive search of the PO number, farmer name and crop name (the
+    // joined `u` and `cm` below). ANDed with the scope filter, so it only narrows the visible set.
+    if (query.q !== undefined) {
+      const at = `$${index}`;
+      conditions.push(
+        `(po.po_number ILIKE ${at} ESCAPE '\\' OR u.full_name ILIKE ${at} ESCAPE '\\' OR cm.name ILIKE ${at} ESCAPE '\\')`,
+      );
+      params.push(likeContains(query.q));
+      index += 1;
+    }
+
+    // BR-122: inclusive Asia/Kolkata days of issued_at, the column this list orders and pages by.
+    if (query.from !== undefined) {
+      conditions.push(istDayFromSql('po.issued_at', `$${index}`));
+      params.push(query.from);
+      index += 1;
+    }
+    if (query.to !== undefined) {
+      conditions.push(istDayToSql('po.issued_at', `$${index}`));
+      params.push(query.to);
       index += 1;
     }
 

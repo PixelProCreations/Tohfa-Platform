@@ -6,6 +6,7 @@ import { scopedWhere, type ResolvedScope } from '../../rbac/requirePermission.js
 import { toBatchView, type BatchRow } from '../inventory/inventory.repo.js';
 import type { BatchView } from '../inventory/inventory.schema.js';
 import { counterOffersRepo } from '../listings/counter-offers.repo.js';
+import { istDayFromSql, istDayToSql, likeContains } from '../purchase-orders/purchase-orders.repo.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import type {
   CreateGoodsReceiptBody,
@@ -964,6 +965,34 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     if (query.purchaseOrderId) {
       conditions.push(`gr.purchase_order_id = $${index}`);
       params.push(query.purchaseOrderId);
+      index += 1;
+    }
+
+    // BR-122: a literal, case-insensitive search of the GRN number, the purchase order's number, the
+    // crop name and the farmer's name. The farmer's name is only matched (EXISTS), never selected:
+    // the row shape is unchanged. ANDed with the scope filter, so it only narrows the visible set.
+    if (query.q !== undefined) {
+      const at = `$${index}`;
+      conditions.push(
+        `(gr.grn_number ILIKE ${at} ESCAPE '\\'
+          OR po.po_number ILIKE ${at} ESCAPE '\\'
+          OR c.name ILIKE ${at} ESCAPE '\\'
+          OR EXISTS (SELECT 1 FROM farmers sf JOIN users su ON su.id = sf.user_id
+                      WHERE sf.id = gr.farmer_id AND su.full_name ILIKE ${at} ESCAPE '\\'))`,
+      );
+      params.push(likeContains(query.q));
+      index += 1;
+    }
+
+    // BR-122: inclusive Asia/Kolkata days of received_at, the column this list orders and pages by.
+    if (query.from !== undefined) {
+      conditions.push(istDayFromSql('gr.received_at', `$${index}`));
+      params.push(query.from);
+      index += 1;
+    }
+    if (query.to !== undefined) {
+      conditions.push(istDayToSql('gr.received_at', `$${index}`));
+      params.push(query.to);
       index += 1;
     }
 

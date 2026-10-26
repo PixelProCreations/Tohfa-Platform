@@ -2971,6 +2971,33 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-122 — The admin purchase-order and goods-receipt lists take a literal text search and an Asia/Kolkata day range that only narrow the scoped set
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C5(a) for the Sub/Main Warehouse Admin intake lists (search and date range); extends BR-30 (scope) and follows the BR-115 date-window convention; `docs/rbac.json` `purchase.order.view`, `inventory.goods_receipt.record` (existing codes, unchanged) |
+| **Status** | DERIVED (the searched fields and the dated columns are UNCONFIRMED: implementer defaults awaiting the owner) |
+| **Layer** | Server-side: `listPurchaseOrdersQuery` / `purchaseOrdersRepo.listPurchaseOrders`, `listGoodsReceiptsQuery` / `goodsReceiptsRepo.listGoodsReceipts`; no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/purchase-orders` and `GET /admin/goods-receipts` accept three more optional query parameters; both queries stay strict (any other key is 422).
+1. **`q`** is trimmed and must then be 1-100 characters (422 otherwise). It keeps a row when ANY of these contains it, case-insensitively: purchase orders: the PO number, the farmer's full name, the crop name; goods receipts: the GRN number, the purchase order's number, the farmer's full name, the crop name. It is a literal substring match: `%`, `_` and `\` typed by the user match those characters only (escaped before the `ILIKE ... ESCAPE '\'`), and the value reaches SQL only as a bound parameter, never as SQL text.
+2. **`from` / `to`** are real calendar dates (`YYYY-MM-DD`, `2026-02-30` is 422), each optional, inclusive Asia/Kolkata days (the BR-115 convention): a purchase order by `issued_at`, a goods receipt by `received_at` (the timestamps each list already orders and pages by). `from` later than `to` is 422 `VALIDATION_FAILED` on `query.to`.
+3. **Only narrowing.** The parameters are ANDed with the existing filters and with the unchanged BR-30 scope filter: they never reveal a row the caller could not already list, and a row outside the scope never matches. A list outside the scope stays an empty page, never 403.
+4. **Paging unchanged.** The order and the cursor are the existing ones (newest first by the dated column; the cursor is that timestamp, its format unchanged, so a cursor issued before this change still works). The filters apply on every page, so following `nextCursor` with the same filters visits each matching row once.
+5. **Farmer name searchable on receipts.** The farmer's name is not on a receipt row, but every role holding `inventory.goods_receipt.record` holds `purchase.order.view` for the same warehouses (`docs/rbac.json`), and the purchase-order list and detail already name the farmer, so the search reveals nothing its caller could not already read. Admin surface only; no farm name, location, GPS or FMB data is searched or returned (BR-16 untouched).
+
+**Failure mode if unenforced.** A search box that treats `%` as "everything" or injects SQL; a date filter that cuts a day at UTC midnight so a lot received at 00:15 IST is filed under the previous day; a search that reaches another warehouse's lots; or pages that skip or repeat rows once a filter is set.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.list-filters.test.ts`)
+- `BR-122a` Both queries accept `q`, `from`, `to`: `q` trimmed and 1-100; dates real `YYYY-MM-DD`; `from > to` refused on `to`; unknown keys still refused.
+- `BR-122b` Over HTTP a blank `q`, an unreal date or `from > to` is 422 `VALIDATION_FAILED` before any SQL.
+- `BR-122c` `q` matches each documented field case-insensitively; `%`, `_` and `\` match literally; an injection string is just text that matches nothing.
+- `BR-122d` `from`/`to` are inclusive Asia/Kolkata days of `issued_at` / `received_at` (a row at 00:15 IST belongs to that IST day, not the UTC one).
+- `BR-122e` A confined caller never matches another warehouse's rows; an unconfined caller does.
+- `BR-122f` With filters set, paging one row at a time returns exactly the full filtered list in order; a cursor in the existing format still works.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

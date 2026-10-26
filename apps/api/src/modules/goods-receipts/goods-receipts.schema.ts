@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
-import { produceGrades } from '../purchase-orders/purchase-orders.schema.js';
+import {
+  fromNotAfterTo,
+  fromNotAfterToIssue,
+  intakeListSearchFields,
+  produceGrades,
+} from '../purchase-orders/purchase-orders.schema.js';
 
 export const qcParameters = [
   'APPEARANCE',
@@ -76,8 +81,11 @@ export const listGoodsReceiptsQuery = z
     warehouseId: z.string().uuid().optional(),
     status: z.enum(grnStatuses).optional(),
     purchaseOrderId: z.string().uuid().optional(),
+    // BR-122: q (GRN / PO number, farmer, crop) and from / to (Asia/Kolkata days of received_at).
+    ...intakeListSearchFields,
   })
-  .strict();
+  .strict()
+  .refine(fromNotAfterTo, fromNotAfterToIssue);
 export type ListGoodsReceiptsQuery = z.infer<typeof listGoodsReceiptsQuery>;
 
 export const createGoodsReceiptBody = z

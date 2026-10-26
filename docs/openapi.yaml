@@ -9551,13 +9551,21 @@ paths:
         Sub Warehouse Admins see only their own warehouse (BR-30); a `warehouseId` outside the
         scope is an empty page, never 403. Each row also carries `farmerName` and `cropName`
         (admin-only surface; joined in the list query, null when the farmer or crop row is missing).
+
+        Search and date range (BR-122, UNCONFIRMED fields): `q` keeps orders whose PO number, farmer
+        name or crop name contains it, case-insensitively and literally (`%`, `_` and `\` are not
+        wildcards). `from` / `to` are inclusive Asia/Kolkata days of `issuedAt`; `from` later than
+        `to` is 422. They only narrow the scoped list; ordering and the cursor are unchanged.
       x-permission: purchase.order.view
-      x-business-rules: [BR-30]
+      x-business-rules: [BR-30, BR-122]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
         - { name: status, in: query, schema: { $ref: '#/components/schemas/PurchaseOrderStatus' } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, description: 'Literal, case-insensitive substring of the PO number, farmer name or crop name; trimmed, 1-100 characters (BR-122).', schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: from, in: query, description: 'First Asia/Kolkata day of `issuedAt`, inclusive (BR-122).', schema: { type: string, format: date } }
+        - { name: to, in: query, description: 'Last Asia/Kolkata day of `issuedAt`, inclusive; not before `from` (BR-122).', schema: { type: string, format: date } }
       responses:
         '200':
           description: Paged purchase orders.
@@ -9571,6 +9579,7 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/purchase-orders/{id}:
@@ -9611,14 +9620,24 @@ paths:
         never a 403 and never a leak; only a read or write BY ID is 404. Each row carries
         `cropName`, `grade` and `poNumber` of its purchase order and `receivedByName` (BR-119); the
         quality-check block is on the detail read only.
+
+        Search and date range (BR-122, UNCONFIRMED fields): `q` keeps receipts whose GRN number,
+        purchase-order number, farmer name or crop name contains it, case-insensitively and literally
+        (`%`, `_` and `\` are not wildcards). The farmer name is searched, not returned: every holder
+        of this permission already reads it on the purchase order. `from` / `to` are inclusive
+        Asia/Kolkata days of `receivedAt`; `from` later than `to` is 422. They only narrow the scoped
+        list; ordering and the cursor are unchanged.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30, BR-119]
+      x-business-rules: [BR-30, BR-119, BR-122]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [AWAITING_QC, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED, COUNTER_OFFERED] } }
         - { name: purchaseOrderId, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, description: 'Literal, case-insensitive substring of the GRN number, PO number, farmer name or crop name; trimmed, 1-100 characters (BR-122).', schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: from, in: query, description: 'First Asia/Kolkata day of `receivedAt`, inclusive (BR-122).', schema: { type: string, format: date } }
+        - { name: to, in: query, description: 'Last Asia/Kolkata day of `receivedAt`, inclusive; not before `from` (BR-122).', schema: { type: string, format: date } }
       responses:
         '200':
           description: Paged goods receipts.
@@ -9632,6 +9651,7 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
     post:
