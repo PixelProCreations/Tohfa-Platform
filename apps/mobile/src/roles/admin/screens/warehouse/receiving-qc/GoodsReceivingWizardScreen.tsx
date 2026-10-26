@@ -217,6 +217,12 @@ export interface GoodsReceivingWizardScreenProps extends WarehouseScreenBaseProp
   /** Step to open on. A step the admin may not perform falls through to the next allowed one. */
   initialStep: ReceivingWizardStep;
   shipment?: WizardShipmentData | undefined;
+  /** The purchase order (uuid) being received; the wizard reads it (GET /admin/purchase-orders/{id}). */
+  purchaseOrderId?: string | undefined;
+  /** A receipt (uuid) of that order to continue (e.g. one awaiting its quality check). */
+  resumeReceiptId?: string | undefined;
+  /** The host's receipt detail for a recorded receipt (uuid). */
+  onViewReceipt?: ((receiptId: string) => void) | undefined;
   /** Name of the admin doing the receiving (Start Receiving "Receiver"). */
   receiverName?: string | undefined;
   onFinish?: (() => void) | undefined;
