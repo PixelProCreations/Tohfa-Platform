@@ -308,5 +308,15 @@
   "receiving.shipment.destination": "சேருமிடம்",
   "receiving.shipment.createdDate": "உருவாக்கப்பட்ட தேதி",
   "receiving.shipment.actualArrival": "உண்மையான வருகை",
-  "receiving.shipment.timelineLink": "காலவரிசை →"
+  "receiving.shipment.timelineLink": "காலவரிசை →",
+
+  "receiving.history.receiptId": "ரசீது எண்",
+  "receiving.history.shipmentId": "சரக்கு எண்",
+  "receiving.history.warehouse": "கிடங்கு",
+  "receiving.history.result": "முடிவு",
+  "receiving.history.receivedBy": "பெற்றவர்",
+  "receiving.history.date": "தேதி",
+  "receiving.history.supplier": "வழங்குநர்",
+  "receiving.history.variance": "வேறுபாடு",
+  "receiving.history.noDiscrepancies": "இந்த ரசீதுக்கு சேதம் அல்லது பொருத்தமின்மை அறிக்கைகள் இல்லை."
 }

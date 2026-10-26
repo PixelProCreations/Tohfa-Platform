@@ -1,38 +1,49 @@
 /**
- * Receiving History Detail (FINAL_LIST #91), shared by the Main and Sub
- * warehouse admins, and the Goods Receiving wizard's receipt_detail step.
+ * Receiving History Detail (design M2-15 "Receipt History Detail", FINAL_LIST
+ * #91), shared by the Main and Sub warehouse admins, and the Goods Receiving
+ * wizard's receipt_detail step.
  *
  * One receipt-detail design instead of three: this screen absorbed
- * SubWarehouseGoodsReceiptDetailScreen (open-variance receipt: status, variance,
- * supplier, notes, "Take Action") and replaces the wizard's inline receipt
- * detail (timeline, QC results, quantity summary). Those sections render when
- * the record carries the data, so a Main and a Sub record show the same layout.
+ * SubWarehouseGoodsReceiptDetailScreen and replaces the wizard's inline
+ * receipt detail. Sections render when the receipt carries the data.
  *
- * Read-only: nothing here mutates. "Take Action" only hands control to the
- * host (the Sub shell opens the wizard's Damage / Mismatch step).
+ * Live data: the receipt by uuid with its latest quality check (useReceipt,
+ * BR-119 / BR-120: received-by and checked-by names, condition levels,
+ * damaged / spoiled, rejection reason, assigned vs listed grade, batch code)
+ * and its purchase order (usePurchaseOrder: the farmer's name as Supplier, an
+ * admin-only surface; never a farm location, BR-16). The timeline lists only
+ * the events the API records (received = the arrival, quality checked); the
+ * Main "Historical Discrepancy" view lists the receipt's persisted damage /
+ * mismatch reports (useReceiptDiscrepancies, BR-121).
  *
- * Scope: a Sub admin sees only receipts of its own warehouse
- * (inventory.batch.view = own, BR-30); a receipt of another warehouse resolves
- * to "not found", never to a forbidden state (CLAUDE.md 2.1: no existence leak).
- * Main (scope.warehouseId undefined) sees all four warehouses.
- * Gate: inventory.batch.view or inventory.goods_receipt.record to view;
- * the Batch Link tile needs inventory.batch.view.
+ * Read-only: nothing here mutates. "Take Action" (a receipt still awaiting
+ * its quality check) and the Discrepancy link only hand control to the host.
+ *
+ * Scope: a receipt of another warehouse answers 404 and resolves to "not
+ * found", never to a forbidden state (CLAUDE.md 2.1: no existence leak).
+ * Gate: inventory.batch.view or inventory.goods_receipt.record to view; the
+ * Batch Link needs inventory.batch.view and a batch on the receipt.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { QC_CRITERIA, findReceivingRecord, isMainScope, recordsInScope } from './fixtures';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   CheckmarkCircleOutlineIcon,
   ClipboardChecklistIcon,
   CrossCircleIcon,
   PermissionNote,
   RECEIVING_CODES,
-  WarningTriangleIcon,
 } from './ReceivingParts';
-import type { ReceiptResult, ReceivingRecord, WarehouseScreenBaseProps } from './types';
+import type { LiveReceiptDetail } from './liveTypes';
+import { isMainScope, kgLabel, receivingWarehouseFilter } from './mappers';
+import { isNotFoundError, liveReceiptTone, receiptTimelineOf } from './receivingLists';
+import { quantityDetailOf } from './receivingViews';
+import { usePurchaseOrder, useReceipt, useReceiptDiscrepancies, useReceivingNaming } from './useReceivingData';
+import type { WarehouseScreenBaseProps } from './types';
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -100,28 +111,31 @@ function TruckIcon({ size = 22, color = adminColors.brand }: { size?: number; co
   );
 }
 
+/** What a host needs to act on the receipt shown (both uuids). */
+export interface ReceiptRef {
+  receiptId: string;
+  purchaseOrderId: string;
+}
+
 export interface ReceivingHistoryDetailScreenProps extends WarehouseScreenBaseProps {
-  /** Receipt to show, looked up in `records` within the scope. */
+  /** The goods receipt (uuid); the screen reads it. */
   receiptId?: string | undefined;
-  /** A record given directly (the wizard's receipt being recorded). Still scope-checked. */
-  record?: ReceivingRecord | undefined;
-  /** Record source (defaults to the shared fixtures until the API serves receipts). */
-  records?: ReceivingRecord[] | undefined;
   onNavigateTimeline?: (() => void) | undefined;
-  onNavigateDiscrepancy?: (() => void) | undefined;
-  onNavigateBatch?: (() => void) | undefined;
-  onNavigateShipment?: (() => void) | undefined;
-  /** Hand an open variance to the host (Sub shell: wizard Damage / Mismatch). Not a mutation. */
-  onTakeAction?: (() => void) | undefined;
+  /** Sub: the Discrepancy tile (the host opens the wizard's Damage / Mismatch step for this receipt). */
+  onNavigateDiscrepancy?: ((receipt: ReceiptRef) => void) | undefined;
+  /** Batch Link: the batch the receipt was stocked as (only when it has one). */
+  onViewBatch?: ((batchId: string) => void) | undefined;
+  /** Shipment Link: the receipt's purchase order (uuid). */
+  onNavigateShipment?: ((purchaseOrderId: string) => void) | undefined;
+  /** A receipt still awaiting its quality check: hand it to the host (resume in the wizard). Not a mutation. */
+  onTakeAction?: ((receipt: ReceiptRef) => void) | undefined;
   /** Label of the bottom return button (the wizard returns to a step, not to the history list). */
   backLabel?: string | undefined;
 }
 
-function resultTone(result: ReceiptResult) {
-  if (result === 'Accepted') return adminColors.success;
-  if (result === 'Rejected') return adminColors.danger;
-  if (result === 'Open') return adminColors.brandSoft;
-  return adminColors.warning;
+/** "480 KG", or '' when the weight is unknown (the row is then hidden). */
+function kg(grams: number | null): string {
+  return grams === null ? '' : kgLabel(grams);
 }
 
 export function ReceivingHistoryDetailScreen({
@@ -129,11 +143,9 @@ export function ReceivingHistoryDetailScreen({
   can,
   onBack,
   receiptId,
-  record,
-  records,
   onNavigateTimeline,
   onNavigateDiscrepancy,
-  onNavigateBatch,
+  onViewBatch,
   onNavigateShipment,
   onTakeAction,
   backLabel = '← Back to Receiving History',
@@ -142,9 +154,15 @@ export function ReceivingHistoryDetailScreen({
   const canViewBatch = can(RECEIVING_CODES.batchView);
   const [historySubView, setHistorySubView] = useState<'detail' | 'timeline' | 'discrepancy'>('detail');
 
-  const visible = (r: ReceivingRecord | undefined): ReceivingRecord | undefined =>
-    r !== undefined && (isMainScope(scope) || r.warehouseId === '' || r.warehouseId === scope.warehouseId) ? r : undefined;
-  const rec = visible(record ?? findReceivingRecord(receiptId, recordsInScope(scope, records))) ?? (isMainScope(scope) ? findReceivingRecord('GRN-000842', recordsInScope(scope, records)) : undefined);
+  const naming = useReceivingNaming(scope, can);
+  const warehouseId = receivingWarehouseFilter(scope, undefined);
+  const read = useReceipt(warehouseId, canView ? receiptId : undefined, naming.naming);
+  const rec: LiveReceiptDetail | undefined = read.receipt;
+  // Same query as the one useReceipt makes for the order's quantity: read once.
+  const order = usePurchaseOrder(warehouseId, rec?.purchaseOrderId, naming.naming);
+  const discrepancies = useReceiptDiscrepancies(warehouseId, historySubView === 'discrepancy' ? rec?.id : undefined);
+  const now = useMemo(() => new Date(), [rec]);
+  const timeline = useMemo(() => (rec === undefined ? [] : receiptTimelineOf(rec, now)), [rec, now]);
 
   const header = (
     <View style={[styles.header, isMainScope(scope) && { backgroundColor: adminColors.brand }]}>
@@ -156,6 +174,19 @@ export function ReceivingHistoryDetailScreen({
       </View>
     </View>
   );
+
+  const notFound = rec === undefined && (receiptId === undefined || isNotFoundError(read.error));
+  if (canView && !notFound && rec === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {header}
+        <View style={styles.container}>
+          {read.isLoading ? <AdminLoadingState /> : <AdminErrorState error={read.error} onRetry={read.refresh} />}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!canView || rec === undefined) {
     return (
@@ -170,6 +201,28 @@ export function ReceivingHistoryDetailScreen({
       </SafeAreaView>
     );
   }
+
+  const ref: ReceiptRef = { receiptId: rec.id, purchaseOrderId: rec.purchaseOrderId };
+  const batchId = rec.batchId;
+  const openBatch = batchId !== undefined && canViewBatch && onViewBatch ? () => onViewBatch(batchId) : undefined;
+  const openShipment = onNavigateShipment ? () => onNavigateShipment(rec.purchaseOrderId) : undefined;
+  // The detail grid: a value the API did not carry is not rendered.
+  const gridRows = [
+    [
+      { label: t('receiving.history.receiptId'), value: rec.receiptId },
+      { label: t('receiving.history.shipmentId'), value: rec.shipmentId },
+    ],
+    [
+      { label: t('receiving.history.warehouse'), value: rec.warehouseName },
+      { label: t('receiving.history.result'), value: rec.resultLabel, pill: true },
+    ],
+    [
+      { label: t('receiving.history.receivedBy'), value: rec.receivedBy ?? '' },
+      { label: t('receiving.history.date'), value: rec.day },
+    ],
+  ]
+    .map((row) => row.filter((f) => f.value !== ''))
+    .filter((row) => row.length > 0);
 
   if (isMainScope(scope)) {
     if (historySubView === 'timeline') {
@@ -189,20 +242,10 @@ export function ReceivingHistoryDetailScreen({
             <Text style={[styles.cardHeading, { color: adminColors.brandDeep, marginBottom: adminSpacing.md }]}>Historical Receiving Timeline</Text>
 
             <View style={[styles.detailCard, { paddingVertical: adminSpacing.md }]}>
-              {[
-                { event: 'Created', time: '24 Sep, 2:10 PM' },
-                { event: 'Arrived', time: '25 Sep, 9:15 AM' },
-                { event: 'Receiving Started', time: '25 Sep, 10:02 AM' },
-                { event: 'Quantity Checked', time: '25 Sep, 10:15 AM' },
-                { event: 'Quality Checked', time: '25 Sep, 10:22 AM' },
-                { event: 'Decision: Partial Accept', time: '25 Sep, 10:30 AM' },
-                { event: 'Batch Assigned', time: '25 Sep, 10:35 AM' },
-                { event: 'Location Assigned', time: '25 Sep, 10:38 AM' },
-                { event: 'Completed', time: '25 Sep, 10:38 AM' },
-              ].map((row, idx, arr) => (
-                <React.Fragment key={row.event}>
+              {timeline.map((row, idx, arr) => (
+                <React.Fragment key={row.key}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: adminSpacing.sm }}>
-                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{row.event}</Text>
+                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{row.title}</Text>
                     <Text style={{ ...adminType.caption, color: adminColors.muted }}>{row.time}</Text>
                   </View>
                   {idx < arr.length - 1 && (
@@ -232,17 +275,27 @@ export function ReceivingHistoryDetailScreen({
           <ScrollView style={[styles.container, { backgroundColor: adminColors.canvas }]} contentContainerStyle={styles.contentPad} showsVerticalScrollIndicator={false}>
             <Text style={[styles.cardHeading, { color: adminColors.brandDeep, marginBottom: adminSpacing.md }]}>Historical Discrepancy</Text>
 
-            <View style={[styles.detailCard, { paddingVertical: adminSpacing.md }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: adminSpacing.sm }}>
-                <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Quantity Mismatch</Text>
-                <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Tomato · -20 KG</Text>
+            {discrepancies.items.length === 0 ? (
+              discrepancies.isLoading ? (
+                <AdminLoadingState />
+              ) : discrepancies.error !== null && discrepancies.error !== undefined ? (
+                <AdminErrorState error={discrepancies.error} onRetry={discrepancies.refresh} />
+              ) : (
+                <AdminEmptyState title={t('receiving.history.noDiscrepancies')} />
+              )
+            ) : (
+              <View style={[styles.detailCard, { paddingVertical: adminSpacing.md }]}>
+                {discrepancies.items.map((d, idx) => (
+                  <React.Fragment key={d.id}>
+                    {idx > 0 && <View style={{ borderBottomWidth: 1, borderBottomColor: adminColors.border, marginVertical: adminSpacing.xs }} />}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: adminSpacing.sm }}>
+                      <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{d.typeLabel}</Text>
+                      <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{`${d.expected} → ${d.actual}`}</Text>
+                    </View>
+                  </React.Fragment>
+                ))}
               </View>
-              <View style={{ borderBottomWidth: 1, borderBottomColor: adminColors.border, marginVertical: adminSpacing.xs }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: adminSpacing.sm }}>
-                <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Grade Mismatch</Text>
-                <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Tomato · G1 → G2</Text>
-              </View>
-            </View>
+            )}
           </ScrollView>
         </SafeAreaView>
       );
@@ -259,42 +312,20 @@ export function ReceivingHistoryDetailScreen({
             <Text style={[styles.cardHeading, { color: adminColors.brandDeep }]}>Receipt History Detail</Text>
 
             <View style={styles.infoGrid}>
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Receipt ID</Text>
-                  <Text style={styles.gridValBold}>{rec.receiptId}</Text>
+              {gridRows.map((row) => (
+                <View key={row.map((f) => f.label).join('|')} style={styles.gridRow}>
+                  {row.map((f) => (
+                    <View key={f.label} style={styles.gridCol}>
+                      <Text style={styles.gridLabel}>{f.label}</Text>
+                      <Text style={styles.gridValBold}>{f.value}</Text>
+                    </View>
+                  ))}
                 </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Shipment ID</Text>
-                  <Text style={styles.gridValBold}>{rec.shipmentId}</Text>
-                </View>
-              </View>
-
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Warehouse</Text>
-                  <Text style={styles.gridValBold}>{rec.warehouseName}</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Result</Text>
-                  <Text style={styles.gridValBold}>{rec.result}</Text>
-                </View>
-              </View>
-
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Received By</Text>
-                  <Text style={styles.gridValBold}>{rec.receivedBy}</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.gridLabel}>Date</Text>
-                  <Text style={styles.gridValBold}>{rec.date}</Text>
-                </View>
-              </View>
+              ))}
             </View>
           </View>
 
-          {/* 4 Action Navigation Tiles (2x2 grid matching Screenshot 1) */}
+          {/* 4 Action Navigation Tiles (2x2 grid matching Screenshot 1); Batch Link only for a stocked receipt */}
           <View style={styles.tilesGrid}>
             <TouchableOpacity
               style={styles.actionTile}
@@ -314,18 +345,20 @@ export function ReceivingHistoryDetailScreen({
               <Text style={styles.tileLabel}>Discrepancy</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionTile}
-              onPress={onNavigateBatch}
-              activeOpacity={0.75}
-            >
-              <QrCodeIcon size={24} color={adminColors.brand} />
-              <Text style={styles.tileLabel}>Batch Link</Text>
-            </TouchableOpacity>
+            {openBatch !== undefined ? (
+              <TouchableOpacity
+                style={styles.actionTile}
+                onPress={openBatch}
+                activeOpacity={0.75}
+              >
+                <QrCodeIcon size={24} color={adminColors.brand} />
+                <Text style={styles.tileLabel}>Batch Link</Text>
+              </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity
               style={styles.actionTile}
-              onPress={onNavigateShipment}
+              onPress={openShipment}
               activeOpacity={0.75}
             >
               <TruckIcon size={24} color={adminColors.brand} />
@@ -337,21 +370,56 @@ export function ReceivingHistoryDetailScreen({
     );
   }
 
-  const tone = resultTone(rec.result);
-  const varianceKg = rec.receivedKg - rec.expectedKg;
-  const variancePct = rec.expectedKg > 0 ? Math.round((Math.abs(varianceKg) / rec.expectedKg) * 100) : 0;
+  const tone = adminColors[liveReceiptTone(rec.result)];
+  const qc = rec.qualityCheck;
+  const quantity = quantityDetailOf(rec.expectedGrams, rec.receivedGrams);
+  const variancePct =
+    quantity.absGrams !== null && rec.expectedGrams !== null && rec.expectedGrams > 0
+      ? Math.round((quantity.absGrams / rec.expectedGrams) * 100)
+      : null;
+  const rejectionReason = qc?.rejectionReasonLabel ?? rec.rejectionReason;
+  const supplier = order.shipment?.from;
   const tiles = [
     { key: 'timeline', label: 'Timeline', icon: <TimelineIcon size={24} />, onPress: onNavigateTimeline },
-    { key: 'discrepancy', label: 'Discrepancy', icon: <WarningCircleIcon size={24} />, onPress: onNavigateDiscrepancy },
     {
-      key: 'batch',
-      label: 'Batch Link',
-      icon: <QrCodeIcon size={24} />,
-      onPress: canViewBatch ? onNavigateBatch : undefined,
+      key: 'discrepancy',
+      label: 'Discrepancy',
+      icon: <WarningCircleIcon size={24} />,
+      onPress: onNavigateDiscrepancy ? () => onNavigateDiscrepancy(ref) : undefined,
     },
-    { key: 'shipment', label: 'Shipment Link', icon: <TruckIcon size={24} />, onPress: onNavigateShipment },
+    { key: 'batch', label: 'Batch Link', icon: <QrCodeIcon size={24} />, onPress: openBatch },
+    { key: 'shipment', label: 'Shipment Link', icon: <TruckIcon size={24} />, onPress: openShipment },
   ].filter(t => t.onPress !== undefined);
-  const showTakeAction = onTakeAction !== undefined && rec.result === 'Open' && can(RECEIVING_CODES.receiptRecord);
+  const showTakeAction = onTakeAction !== undefined && rec.result === 'Awaiting QC' && can(RECEIVING_CODES.receiptRecord);
+  // Receipt information (internal traceability only, BR-16): only the rows the API carries.
+  const infoRows = [
+    { key: 'supplier', label: t('receiving.history.supplier'), value: supplier ?? '' },
+    { key: 'batch', label: t('receiving.doc.batch'), value: canViewBatch ? rec.batchCode ?? '' : '' },
+    { key: 'listedGrade', label: t('receiving.doc.listedGrade'), value: qc?.listedGrade ?? '' },
+    { key: 'assignedGrade', label: t('receiving.doc.assignedGrade'), value: qc?.assignedGrade ?? '' },
+    { key: 'checkedBy', label: t('receiving.doc.checkedBy'), value: qc?.checkedBy ?? '' },
+  ].filter((r) => r.value !== '');
+  const quantityRows = [
+    { key: 'expected', label: t('receiving.stat.expected'), value: kg(rec.expectedGrams) },
+    { key: 'received', label: t('receiving.stat.received'), value: kg(rec.receivedGrams) },
+    {
+      key: 'variance',
+      label: t('receiving.history.variance'),
+      value: quantity.absGrams !== null && quantity.absGrams > 0 && variancePct !== null ? `${kgLabel(quantity.absGrams)} (${variancePct}%)` : '',
+      color: adminColors.danger.text,
+    },
+    { key: 'accepted', label: t('receiving.stat.accepted'), value: kg(rec.acceptedGrams), color: adminColors.success.text },
+    {
+      key: 'rejected',
+      label: t('receiving.stat.rejected'),
+      value: rec.rejectedGrams === null ? '' : `${kgLabel(rec.rejectedGrams)}${rejectionReason ? ` · ${rejectionReason}` : ''}`,
+      color: rec.rejectedGrams !== null && rec.rejectedGrams > 0 ? adminColors.danger.text : undefined,
+    },
+    { key: 'damaged', label: t('receiving.doc.damaged'), value: qc === null ? '' : kg(qc.damagedGrams) },
+    { key: 'spoiled', label: t('receiving.doc.spoiled'), value: qc === null ? '' : kg(qc.spoiledGrams) },
+  ].filter((r) => r.value !== '');
+  const qcPoints = qc?.points ?? [];
+  const notes = qc?.defectNotes;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -364,40 +432,22 @@ export function ReceivingHistoryDetailScreen({
           <Text style={styles.cardHeading}>Receipt History Detail</Text>
 
           <View style={styles.infoGrid}>
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Receipt ID</Text>
-                <Text style={styles.gridValBold}>{rec.receiptId}</Text>
+            {gridRows.map((row) => (
+              <View key={row.map((f) => f.label).join('|')} style={styles.gridRow}>
+                {row.map((f) => (
+                  <View key={f.label} style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>{f.label}</Text>
+                    {'pill' in f && f.pill ? (
+                      <View style={[styles.resultPill, { backgroundColor: tone.bg }]}>
+                        <Text style={[styles.resultPillText, { color: tone.text }]}>{f.value}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.gridValBold}>{f.value}</Text>
+                    )}
+                  </View>
+                ))}
               </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Shipment ID</Text>
-                <Text style={styles.gridValBold}>{rec.shipmentId}</Text>
-              </View>
-            </View>
-
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Warehouse</Text>
-                <Text style={styles.gridValBold}>{rec.warehouseName}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Result</Text>
-                <View style={[styles.resultPill, { backgroundColor: tone.bg }]}>
-                  <Text style={[styles.resultPillText, { color: tone.text }]}>{rec.result}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Received By</Text>
-                <Text style={styles.gridValBold}>{rec.receivedBy}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Date</Text>
-                <Text style={styles.gridValBold}>{rec.date}</Text>
-              </View>
-            </View>
+            ))}
           </View>
 
           {/* Product & Quantity Sub-strip */}
@@ -405,15 +455,17 @@ export function ReceivingHistoryDetailScreen({
             <View>
               <Text style={styles.stripLabel}>Product Received</Text>
               <Text style={styles.stripVal}>
-                {rec.product} · {rec.grade}
+                {rec.grade !== '' ? `${rec.product} · ${rec.grade}` : rec.product}
               </Text>
             </View>
-            <View style={styles.stripRight}>
-              <Text style={styles.stripLabel}>Accepted / Expected</Text>
-              <Text style={[styles.stripVal, { color: adminColors.brand }]}>
-                {rec.acceptedKg} KG / {rec.expectedKg} KG
-              </Text>
-            </View>
+            {rec.acceptedGrams !== null && rec.expectedGrams !== null ? (
+              <View style={styles.stripRight}>
+                <Text style={styles.stripLabel}>Accepted / Expected</Text>
+                <Text style={[styles.stripVal, { color: adminColors.brand }]}>
+                  {kgLabel(rec.acceptedGrams)} / {kgLabel(rec.expectedGrams)}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -430,90 +482,67 @@ export function ReceivingHistoryDetailScreen({
         )}
 
         {/* ─── Quantity summary (absorbed SW Goods Receipt Detail + wizard detail) ─── */}
-        <Text style={styles.sectionHeader}>Quantity Summary</Text>
-        <View style={styles.listCard}>
-          <View style={styles.listRow}>
-            <Text style={styles.listLabel}>Expected</Text>
-            <Text style={styles.listValue}>{rec.expectedKg} KG</Text>
-          </View>
-          <View style={styles.listRow}>
-            <Text style={styles.listLabel}>Received</Text>
-            <Text style={styles.listValue}>{rec.receivedKg} KG</Text>
-          </View>
-          {varianceKg !== 0 && (
-            <View style={styles.listRow}>
-              <Text style={styles.listLabel}>Variance</Text>
-              <Text style={[styles.listValue, { color: adminColors.danger.text }]}>
-                {Math.abs(varianceKg)} KG ({variancePct}%)
-              </Text>
+        {quantityRows.length > 0 && (
+          <>
+            <Text style={styles.sectionHeader}>Quantity Summary</Text>
+            <View style={styles.listCard}>
+              {quantityRows.map((row, idx) => (
+                <View key={row.key} style={[styles.listRow, idx === quantityRows.length - 1 && styles.listRowLast]}>
+                  <Text style={styles.listLabel}>{row.label}</Text>
+                  <Text style={[styles.listValue, row.color !== undefined && { color: row.color }]}>{row.value}</Text>
+                </View>
+              ))}
             </View>
-          )}
-          <View style={styles.listRow}>
-            <Text style={styles.listLabel}>Accepted</Text>
-            <Text style={[styles.listValue, { color: adminColors.success.text }]}>{rec.acceptedKg} KG</Text>
-          </View>
-          <View style={[styles.listRow, styles.listRowLast]}>
-            <Text style={styles.listLabel}>Rejected</Text>
-            <Text style={[styles.listValue, rec.rejectedKg > 0 && { color: adminColors.danger.text }]}>
-              {rec.rejectedKg} KG{rec.rejectionReason ? ` · ${rec.rejectionReason}` : ''}
-            </Text>
-          </View>
-        </View>
+          </>
+        )}
 
-        {/* ─── Receipt information: supplier / batch (internal traceability only, BR-16) ─── */}
-        {(rec.supplier !== undefined || (rec.batchId !== undefined && canViewBatch)) && (
+        {/* ─── Receipt information: supplier / batch / grades / inspector (internal traceability only, BR-16) ─── */}
+        {infoRows.length > 0 && (
           <>
             <Text style={styles.sectionHeader}>Receipt Information</Text>
             <View style={styles.listCard}>
-              {rec.supplier !== undefined && (
-                <View style={[styles.listRow, !(rec.batchId !== undefined && canViewBatch) && styles.listRowLast]}>
-                  <Text style={styles.listLabel}>Supplier</Text>
-                  <Text style={styles.listValue}>{rec.supplier}</Text>
+              {infoRows.map((row, idx) => (
+                <View key={row.key} style={[styles.listRow, idx === infoRows.length - 1 && styles.listRowLast]}>
+                  <Text style={styles.listLabel}>{row.label}</Text>
+                  <Text style={styles.listValue}>{row.value}</Text>
                 </View>
-              )}
-              {rec.batchId !== undefined && canViewBatch && (
-                <View style={[styles.listRow, styles.listRowLast]}>
-                  <Text style={styles.listLabel}>Batch</Text>
-                  <Text style={styles.listValue}>{rec.batchId}</Text>
-                </View>
-              )}
+              ))}
             </View>
           </>
         )}
 
-        {/* ─── QC results ─── */}
-        {rec.qcResults !== undefined && (
+        {/* ─── QC results (the recorded check, BR-120) ─── */}
+        {qcPoints.length > 0 && (
           <>
             <Text style={styles.sectionHeader}>QC Results</Text>
             <View style={styles.listCard}>
-              {QC_CRITERIA.map((crit, idx) => {
-                const r = rec.qcResults?.[crit.id] ?? 'pass';
-                return (
-                  <View key={crit.id} style={[styles.listRow, idx === QC_CRITERIA.length - 1 && styles.listRowLast]}>
-                    <Text style={styles.listLabel}>{crit.title}</Text>
-                    {r === 'pass' ? (
-                      <CheckmarkCircleOutlineIcon color={adminColors.success.text} size={18} />
-                    ) : r === 'fail' ? (
-                      <CrossCircleIcon color={adminColors.danger.text} size={18} />
-                    ) : (
-                      <WarningTriangleIcon color={adminColors.warning.text} size={16} />
-                    )}
-                  </View>
-                );
-              })}
+              {qcPoints.map((point, idx) => (
+                <View key={point.criterionId} style={[styles.listRow, idx === qcPoints.length - 1 && styles.listRowLast]}>
+                  <Text style={styles.listLabel}>
+                    {point.conditionLabel !== undefined
+                      ? `${t(`receiving.wizard.qc.${point.criterionId}`)} · ${point.conditionLabel}`
+                      : t(`receiving.wizard.qc.${point.criterionId}`)}
+                  </Text>
+                  {point.result === 'pass' ? (
+                    <CheckmarkCircleOutlineIcon color={adminColors.success.text} size={18} />
+                  ) : (
+                    <CrossCircleIcon color={adminColors.danger.text} size={18} />
+                  )}
+                </View>
+              ))}
             </View>
           </>
         )}
 
-        {/* ─── Timeline ─── */}
-        {rec.timeline !== undefined && rec.timeline.length > 0 && (
+        {/* ─── Timeline (the events the API records) ─── */}
+        {timeline.length > 0 && (
           <>
             <Text style={styles.sectionHeader}>Timeline</Text>
             <View style={styles.timelineCard}>
-              {rec.timeline.map((evt, idx) => {
-                const isLast = idx === (rec.timeline?.length ?? 0) - 1;
+              {timeline.map((evt, idx) => {
+                const isLast = idx === timeline.length - 1;
                 return (
-                  <View key={`${evt.title}-${evt.time}`} style={styles.timelineRow}>
+                  <View key={evt.key} style={styles.timelineRow}>
                     <View style={styles.timelineLineCol}>
                       <View style={styles.timelineDotOuter}>
                         <View style={styles.timelineDotInner} />
@@ -531,18 +560,18 @@ export function ReceivingHistoryDetailScreen({
           </>
         )}
 
-        {/* ─── Notes ─── */}
-        {rec.notes !== undefined && (
+        {/* ─── Notes (the inspector's defect notes) ─── */}
+        {notes !== undefined && (
           <>
             <Text style={styles.sectionHeader}>Notes</Text>
             <View style={styles.listCard}>
-              <Text style={styles.notesText}>{rec.notes}</Text>
+              <Text style={styles.notesText}>{notes}</Text>
             </View>
           </>
         )}
 
         {showTakeAction && (
-          <TouchableOpacity style={styles.primaryBtn} onPress={onTakeAction} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => onTakeAction?.(ref)} activeOpacity={0.8}>
             <ClipboardChecklistIcon color={adminColors.onBrand} size={18} />
             <Text style={styles.primaryBtnText}>Take Action</Text>
           </TouchableOpacity>

@@ -1832,5 +1832,15 @@
   "receiving.shipment.destination": "Destination",
   "receiving.shipment.createdDate": "Created Date",
   "receiving.shipment.actualArrival": "Actual Arrival",
-  "receiving.shipment.timelineLink": "Timeline →"
+  "receiving.shipment.timelineLink": "Timeline →",
+
+  "receiving.history.receiptId": "Receipt ID",
+  "receiving.history.shipmentId": "Shipment ID",
+  "receiving.history.warehouse": "Warehouse",
+  "receiving.history.result": "Result",
+  "receiving.history.receivedBy": "Received By",
+  "receiving.history.date": "Date",
+  "receiving.history.supplier": "Supplier",
+  "receiving.history.variance": "Variance",
+  "receiving.history.noDiscrepancies": "No damage or mismatch reports for this receipt."
 }
