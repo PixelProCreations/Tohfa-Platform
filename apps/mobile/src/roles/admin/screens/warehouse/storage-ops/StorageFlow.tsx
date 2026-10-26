@@ -282,13 +282,20 @@ export function StorageFlow({
         <WarehouseActivityScreen
           {...common}
           initialPreset={params.activityPreset}
-          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
           onOpenModule={openModule}
           onExport={onExportActivity}
         />
       );
     case 'ActivityDetail':
-      return <ActivityDetailScreen {...common} activityId={params.activityId} onOpenModule={openModule} />;
+      return (
+        <ActivityDetailScreen
+          {...common}
+          activity={params.activity}
+          activityId={params.activityId}
+          onOpenModule={openModule}
+        />
+      );
     case 'OperationalIssues':
       return (
         <OperationalIssuesScreen

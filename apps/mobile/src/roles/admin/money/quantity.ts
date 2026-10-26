@@ -65,8 +65,12 @@ function groupIndian(digits: string): string {
  * relying on Intl, whose locale data varies on Hermes.
  */
 export function formatKg(grams: number): string {
+  return t('unit.kg', { value: formatKgNumber(grams) });
+}
+
+/** 1250000 -> "1,250", 12350 -> "12.35": formatKg without the unit, for a figure whose label already says kg. */
+export function formatKgNumber(grams: number): string {
   const { negative, kg, fraction } = splitGrams(grams);
   const trimmed = fraction.replace(/0+$/, '');
-  const value = `${negative ? '-' : ''}${groupIndian(kg)}${trimmed ? `.${trimmed}` : ''}`;
-  return t('unit.kg', { value });
+  return `${negative ? '-' : ''}${groupIndian(kg)}${trimmed ? `.${trimmed}` : ''}`;
 }
