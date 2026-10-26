@@ -3807,20 +3807,6 @@ export function FarmerAdminDashboardScreen({
               <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
             </Pressable>
 
-            <Pressable
-              style={styles.tabItem}
-              onPress={() => {
-                setNavStack([]);
-                setSubView('none');
-                setMoreSubScreen('menu');
-                setActiveTab('Produce');
-              }}
-              accessibilityRole="tab"
-              accessibilityLabel="Produce"
-            >
-              <TabProduceIcon active={activeTab === 'Produce'} />
-              <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
-            </Pressable>
 
             <Pressable
               style={styles.tabItem}
