@@ -11,36 +11,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
-import type { QcCriterion, QualityIssue, ReceiptResult, ShipmentStatus } from './types';
+import type { LiveQualityIssue } from './liveTypes';
+import type { QcCriterion } from './types';
 
-/** Badge tone of a shipment status (the old per-row hex pairs, by meaning). */
-export function shipmentTone(status: ShipmentStatus): AdminTone {
-  switch (status) {
-    case 'Expected':
-      return 'brandSoft';
-    case 'Arrived':
-    case 'Completed':
-      return 'success';
-    case 'Receiving':
-      return 'info';
-    case 'Awaiting QC':
-    case 'Partially Accepted':
-      return 'warning';
-    default:
-      return 'danger';
-  }
-}
-
-/** Badge tone of a receipt result. */
-export function receiptTone(result: ReceiptResult): AdminTone {
-  if (result === 'Accepted') return 'success';
-  if (result === 'Rejected') return 'danger';
-  if (result === 'Open') return 'brandSoft';
-  return 'warning';
-}
-
-/** Accent tone of a QC issue. */
-export function qualityIssueTone(kind: QualityIssue['kind']): AdminTone {
+/** Accent tone of a receiving QC issue (the API backs one kind: a receipt awaiting its quality check). */
+export function qualityIssueTone(kind: LiveQualityIssue['kind']): AdminTone {
   return kind === 'QC Pending' ? 'warning' : 'danger';
 }
 

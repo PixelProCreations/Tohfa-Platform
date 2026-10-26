@@ -318,5 +318,9 @@
   "receiving.history.date": "தேதி",
   "receiving.history.supplier": "வழங்குநர்",
   "receiving.history.variance": "வேறுபாடு",
-  "receiving.history.noDiscrepancies": "இந்த ரசீதுக்கு சேதம் அல்லது பொருத்தமின்மை அறிக்கைகள் இல்லை."
+  "receiving.history.noDiscrepancies": "இந்த ரசீதுக்கு சேதம் அல்லது பொருத்தமின்மை அறிக்கைகள் இல்லை.",
+
+  "receiving.issues.pendingChecks": "நிலுவையில் உள்ள சோதனைகள்",
+  "receiving.issues.rejected": "நிராகரிக்கப்பட்டவை",
+  "receiving.issues.partiallyAccepted": "பகுதியாக ஏற்கப்பட்டவை"
 }

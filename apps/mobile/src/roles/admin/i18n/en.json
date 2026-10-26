@@ -1842,5 +1842,9 @@
   "receiving.history.date": "Date",
   "receiving.history.supplier": "Supplier",
   "receiving.history.variance": "Variance",
-  "receiving.history.noDiscrepancies": "No damage or mismatch reports for this receipt."
+  "receiving.history.noDiscrepancies": "No damage or mismatch reports for this receipt.",
+
+  "receiving.issues.pendingChecks": "Pending Checks",
+  "receiving.issues.rejected": "Rejected",
+  "receiving.issues.partiallyAccepted": "Partially Accepted"
 }
