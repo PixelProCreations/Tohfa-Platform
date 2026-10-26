@@ -127,6 +127,8 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
 
   const createMockRepo = (overrides?: Partial<GoodsReceiptsRepo>): GoodsReceiptsRepo => ({
     nextGrnNumber: async () => 'GRN-2026-000001',
+    // BR-124: not exercised here (goods-receipts.document.test.ts covers it); stubbed to satisfy the type.
+    findDocumentContext: async () => null,
     insertGoodsReceipt: async (_tx, data) => ({
       id: sampleGRN.id,
       grn_number: 'GRN-2026-000001',

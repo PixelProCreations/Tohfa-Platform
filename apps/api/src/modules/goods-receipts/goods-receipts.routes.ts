@@ -102,6 +102,25 @@ goodsReceiptsRouter.get(
   }),
 );
 
+// GET /v1/admin/goods-receipts/:id/document — the printable goods receipt note (BR-124).
+// inventory.goods_receipt.record: the code every other goods-receipt read uses.
+goodsReceiptsRouter.get(
+  '/:id/document',
+  requireAuth,
+  requirePermission('inventory.goods_receipt.record'),
+  validate({ params: goodsReceiptIdParams }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', goodsReceiptIdParams);
+
+    // Set before the read, so the 404 is not kept by a shared cache either.
+    res.set('Cache-Control', 'no-store');
+    const result = await goodsReceiptsService.getDocument(actor, scope, id);
+    res.json(result);
+  }),
+);
+
 // GET /v1/admin/goods-receipts — list goods receipts with warehouse scoping
 goodsReceiptsRouter.get(
   '/',

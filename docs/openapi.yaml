@@ -9732,6 +9732,43 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/goods-receipts/{id}/document:
+    get:
+      tags: [Purchase]
+      operationId: getGoodsReceiptDocument
+      summary: The printable goods receipt note (derived, read-only)
+      description: |
+        UNCONFIRMED DEFAULT (owner approval pending, BR-124): a printable goods receipt note, mirroring
+        the BR-75 expense voucher. It is a structured JSON document DERIVED at read time from the
+        receipt, its purchase order, its latest quality check, its packages and the number of its
+        discrepancy reports; nothing is stored or written, and the same state always yields the same
+        document. The client renders and prints it; no server PDF is produced. Sent with
+        `Cache-Control: no-store`.
+
+        Scoped exactly as `GET /admin/goods-receipts/{id}` (BR-30): another warehouse's receipt is the
+        same 404 as an id that does not exist. Admin surface only: the farmer appears by id and full
+        name (already readable on the purchase order by every holder of this permission); no farm
+        name, location, GPS, FMB data, phone, e-mail, price or money field is returned.
+      x-permission: inventory.goods_receipt.record
+      x-business-rules: [BR-30, BR-124]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: The goods receipt note.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceiptDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/goods-receipts/{id}/quality-check:
     post:
       tags: [Purchase]
@@ -20448,6 +20485,106 @@ components:
               oneOf:
                 - { $ref: '#/components/schemas/QualityCheck' }
                 - { type: 'null' }
+
+    GoodsReceiptDocument:
+      type: object
+      additionalProperties: false
+      description: 'BR-124 (UNCONFIRMED format and field set): the printable goods receipt note, derived at read time. Admin surface only.'
+      required: [documentType, goodsReceiptId, grnNumber, status, purchaseOrder, warehouse, farmer, crop, grade, quantities, packages, vehicleNumber, receivedBy, receivedAt, batchCode, qualityCheck, discrepancyCount]
+      properties:
+        documentType: { type: string, enum: [GOODS_RECEIPT_NOTE] }
+        goodsReceiptId: { type: string, format: uuid }
+        grnNumber: { type: string, examples: [GRN-2026-008812] }
+        status: { type: string, enum: [AWAITING_QC, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED, COUNTER_OFFERED] }
+        purchaseOrder:
+          type: object
+          additionalProperties: false
+          required: [id, poNumber]
+          properties:
+            id: { type: string, format: uuid }
+            poNumber: { type: string }
+        warehouse:
+          type: object
+          additionalProperties: false
+          required: [id, code, name]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: [string, 'null'] }
+            name: { type: [string, 'null'] }
+        farmer:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          description: The farmer's id and full name only; never a farm name, location, phone or e-mail.
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: [string, 'null'] }
+        crop:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: [string, 'null'] }
+        grade:
+          type: object
+          additionalProperties: false
+          required: [listed, assigned]
+          properties:
+            listed: { $ref: '#/components/schemas/Grade' }
+            assigned:
+              description: The quality check's assigned grade; null before a check.
+              oneOf:
+                - { $ref: '#/components/schemas/Grade' }
+                - { type: 'null' }
+        quantities:
+          type: object
+          additionalProperties: false
+          required: [grossQtyKg, acceptedQtyKg, rejectedQtyKg, damagedQtyKg, spoiledQtyKg]
+          properties:
+            grossQtyKg: { $ref: '#/components/schemas/Quantity' }
+            acceptedQtyKg: { $ref: '#/components/schemas/Quantity' }
+            rejectedQtyKg: { $ref: '#/components/schemas/Quantity' }
+            damagedQtyKg: { type: [string, 'null'], description: 'BR-120 part of the rejected quantity; null before a check.' }
+            spoiledQtyKg: { type: [string, 'null'], description: 'BR-120 part of the rejected quantity; null before a check.' }
+        packages:
+          description: 'BR-123: null when no package count was recorded.'
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [count, unit]
+              properties:
+                count: { type: integer, minimum: 1 }
+                unit: { $ref: '#/components/schemas/GoodsReceiptPackageUnit' }
+            - { type: 'null' }
+        vehicleNumber: { type: [string, 'null'] }
+        receivedBy: { $ref: '#/components/schemas/DocumentPerson' }
+        receivedAt: { type: string, format: date-time }
+        batchCode: { type: [string, 'null'], description: 'BR-106: the batch the accepted goods were stocked as; null until stocked.' }
+        qualityCheck:
+          description: Summary of the latest quality check; null before a check.
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [outcome, assignedGrade, rejectionReasonCode, passedPoints, totalPoints, checkedBy, checkedAt]
+              properties:
+                outcome: { type: string, enum: [ACCEPTED, PARTIALLY_ACCEPTED, REJECTED] }
+                assignedGrade: { $ref: '#/components/schemas/Grade' }
+                rejectionReasonCode: { type: [string, 'null'] }
+                passedPoints: { type: integer, minimum: 0 }
+                totalPoints: { type: integer, minimum: 0 }
+                checkedBy: { $ref: '#/components/schemas/DocumentPerson' }
+                checkedAt: { type: string, format: date-time }
+            - { type: 'null' }
+        discrepancyCount: { type: integer, minimum: 0, description: 'BR-121: how many damage / mismatch reports the receipt carries.' }
+
+    DocumentPerson:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: [string, 'null'], description: '`users.full_name`; null when the user row is missing.' }
 
     GoodsReceiptDiscrepancyType:
       type: string

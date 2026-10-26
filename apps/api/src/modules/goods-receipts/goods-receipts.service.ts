@@ -24,6 +24,7 @@ import {
   type QcOutcome,
   type CreateGoodsReceiptBody,
   type GoodsReceiptDetailResponse,
+  type GoodsReceiptDocumentResponse,
   type GoodsReceiptDiscrepancyCreateBody,
   type GoodsReceiptDiscrepancyResponse,
   type GoodsReceiptResponse,
@@ -79,6 +80,13 @@ export interface GoodsReceiptsService {
     scope: ResolvedScope,
     id: string,
   ): Promise<GoodsReceiptDetailResponse>;
+
+  /** BR-124: the printable goods receipt note, derived at read time; another warehouse's is 404. */
+  getDocument(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+  ): Promise<GoodsReceiptDocumentResponse>;
 
   list(
     actor: Actor,
@@ -750,6 +758,59 @@ export function createGoodsReceiptsService(
       // no path to another warehouse's data.
       const qualityCheck = await repo.findQualityCheckByGoodsReceiptId(db, id);
       return { ...grn, qualityCheck };
+    },
+
+    async getDocument(
+      _actor: Actor,
+      scope: ResolvedScope,
+      id: string,
+    ): Promise<GoodsReceiptDocumentResponse> {
+      // BR-124 / BR-30b: the receipt detail's own scoped read; another warehouse's receipt is the
+      // same 404 as an unknown one, and nothing below is read until it passed.
+      const grn = await repo.findGoodsReceiptById(db, id, confineToAssignedWarehouses(scope));
+      if (grn === null) throw goodsReceiptNotFound(id);
+      const context = await repo.findDocumentContext(db, id);
+      if (context === null) throw goodsReceiptNotFound(id);
+      const qc = await repo.findQualityCheckByGoodsReceiptId(db, id);
+
+      // Built field by field (an allow-list): nothing a read model gains later reaches the paper.
+      return {
+        documentType: 'GOODS_RECEIPT_NOTE',
+        goodsReceiptId: grn.id,
+        grnNumber: grn.grnNumber,
+        status: grn.status,
+        purchaseOrder: { id: grn.purchaseOrderId, poNumber: grn.poNumber ?? '' },
+        warehouse: { id: grn.warehouseId, code: context.warehouseCode, name: context.warehouseName },
+        farmer: { id: grn.farmerId, name: context.farmerName },
+        crop: { id: context.cropId, name: grn.cropName ?? null },
+        grade: { listed: grn.grade as ProduceGrade, assigned: qc?.assignedGrade ?? null },
+        quantities: {
+          grossQtyKg: grn.grossQtyKg,
+          acceptedQtyKg: grn.acceptedQtyKg,
+          rejectedQtyKg: grn.rejectedQtyKg,
+          damagedQtyKg: qc?.damagedQtyKg ?? null,
+          spoiledQtyKg: qc?.spoiledQtyKg ?? null,
+        },
+        packages:
+          grn.packageCount != null && grn.packageUnit != null ? { count: grn.packageCount, unit: grn.packageUnit } : null,
+        vehicleNumber: grn.vehicleNumber ?? null,
+        receivedBy: { id: grn.receivedBy, name: grn.receivedByName ?? null },
+        receivedAt: grn.receivedAt,
+        batchCode: grn.batchCode ?? null,
+        qualityCheck:
+          qc === null
+            ? null
+            : {
+                outcome: qc.outcome,
+                assignedGrade: qc.assignedGrade,
+                rejectionReasonCode: qc.rejectionReasonCode ?? null,
+                passedPoints: (qc.items ?? []).filter((item) => item.passed).length,
+                totalPoints: (qc.items ?? []).length,
+                checkedBy: { id: qc.checkedBy, name: qc.checkedByName ?? null },
+                checkedAt: qc.checkedAt,
+              },
+        discrepancyCount: context.discrepancyCount,
+      };
     },
 
     async list(

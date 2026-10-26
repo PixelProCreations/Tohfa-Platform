@@ -347,6 +347,56 @@ export const goodsReceiptDetailResponse = goodsReceiptResponse.extend({
 });
 export type GoodsReceiptDetailResponse = z.infer<typeof goodsReceiptDetailResponse>;
 
+/** docs/openapi.yaml DocumentPerson: a user named on a printed document, id and full name only. */
+const documentPerson = z.object({ id: z.string().uuid(), name: z.string().nullable() }).strict();
+
+/**
+ * docs/openapi.yaml GoodsReceiptDocument (BR-124): the printable goods receipt note. Strict, so it
+ * is an allow-list: a field added to a read model cannot reach the printed note by accident, and no
+ * farm name, location, phone, e-mail or price is ever in it.
+ */
+export const goodsReceiptDocumentResponse = z
+  .object({
+    documentType: z.literal('GOODS_RECEIPT_NOTE'),
+    goodsReceiptId: z.string().uuid(),
+    grnNumber: z.string(),
+    status: z.enum(grnStatuses),
+    purchaseOrder: z.object({ id: z.string().uuid(), poNumber: z.string() }).strict(),
+    warehouse: z.object({ id: z.string().uuid(), code: z.string().nullable(), name: z.string().nullable() }).strict(),
+    farmer: documentPerson,
+    crop: z.object({ id: z.string().uuid(), name: z.string().nullable() }).strict(),
+    grade: z.object({ listed: z.enum(produceGrades), assigned: z.enum(produceGrades).nullable() }).strict(),
+    quantities: z
+      .object({
+        grossQtyKg: z.string(),
+        acceptedQtyKg: z.string(),
+        rejectedQtyKg: z.string(),
+        damagedQtyKg: z.string().nullable(),
+        spoiledQtyKg: z.string().nullable(),
+      })
+      .strict(),
+    packages: z.object({ count: z.number().int(), unit: z.enum(packageUnits) }).strict().nullable(),
+    vehicleNumber: z.string().nullable(),
+    receivedBy: documentPerson,
+    receivedAt: z.string(),
+    batchCode: z.string().nullable(),
+    qualityCheck: z
+      .object({
+        outcome: z.enum(qcOutcomes),
+        assignedGrade: z.enum(produceGrades),
+        rejectionReasonCode: z.enum(qcRejectionReasonCodes).nullable(),
+        passedPoints: z.number().int(),
+        totalPoints: z.number().int(),
+        checkedBy: documentPerson,
+        checkedAt: z.string(),
+      })
+      .strict()
+      .nullable(),
+    discrepancyCount: z.number().int(),
+  })
+  .strict();
+export type GoodsReceiptDocumentResponse = z.infer<typeof goodsReceiptDocumentResponse>;
+
 /**
  * BR-121 (UNCONFIRMED sets and bounds): a persisted damage / mismatch report on a goods receipt.
  * Mirrored by the CHECK constraints of migration 0077 and by docs/openapi.yaml

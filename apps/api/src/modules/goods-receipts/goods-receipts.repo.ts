@@ -201,8 +201,22 @@ export interface InsertDiscrepancyData {
   createdBy: string;
 }
 
+/**
+ * BR-124: what the printed note needs beyond the receipt read. Only the farmer's full name is read
+ * from the farmer: no farm, location, phone or e-mail column is ever selected here.
+ */
+export interface GoodsReceiptDocumentContext {
+  cropId: string;
+  warehouseCode: string | null;
+  warehouseName: string | null;
+  farmerName: string | null;
+  discrepancyCount: number;
+}
+
 export interface GoodsReceiptsRepo {
   nextGrnNumber(tx: Executor): Promise<string>;
+  /** BR-124: call only for a receipt that already passed the caller's scope filter. */
+  findDocumentContext(tx: Executor, goodsReceiptId: string): Promise<GoodsReceiptDocumentContext | null>;
   insertGoodsReceipt(
     tx: Executor,
     data: CreateGoodsReceiptBody & { farmerId: string; receivedBy: string },
@@ -311,6 +325,25 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     );
     const num = (result.rows[0]?.seq ?? '1').padStart(6, '0');
     return `GRN-${year}-${num}`;
+  },
+
+  async findDocumentContext(tx: Executor, goodsReceiptId: string): Promise<GoodsReceiptDocumentContext | null> {
+    // LEFT JOINs: a missing warehouse, farmer or user row is a null name, never a missing document.
+    const result = await tx.query<GoodsReceiptDocumentContext>(
+      `SELECT po.crop_id AS "cropId",
+              w.code AS "warehouseCode",
+              w.name AS "warehouseName",
+              fu.full_name AS "farmerName",
+              (SELECT count(*)::int FROM goods_receipt_discrepancies d WHERE d.goods_receipt_id = gr.id) AS "discrepancyCount"
+         FROM goods_receipts gr
+         JOIN purchase_orders po ON po.id = gr.purchase_order_id
+         LEFT JOIN warehouses w ON w.id = gr.warehouse_id
+         LEFT JOIN farmers f ON f.id = gr.farmer_id
+         LEFT JOIN users fu ON fu.id = f.user_id
+        WHERE gr.id = $1`,
+      [goodsReceiptId],
+    );
+    return result.rows[0] ?? null;
   },
 
   async insertGoodsReceipt(

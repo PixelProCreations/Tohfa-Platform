@@ -3023,6 +3023,34 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-124 — A printable goods receipt note is a derived, read-only JSON document inside the receipt's scope
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C5(c) for a printable GRN on the Sub Warehouse Admin intake screen; mirrors BR-75 (the expense voucher: a derived, read-only JSON document the client prints); extends BR-30 (scope), BR-119 / BR-120 / BR-121 / BR-123 (what the receipt reads already carry); `docs/rbac.json` `inventory.goods_receipt.record` (existing code, unchanged) |
+| **Status** | DERIVED (the format, JSON for the client to print rather than a server PDF, and the field set are UNCONFIRMED: implementer defaults awaiting the owner) |
+| **Layer** | Server-side: `apps/api/src/modules/goods-receipts/` (`getDocument`, `findDocumentContext`); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Endpoint and permission.** `GET /admin/goods-receipts/{id}/document` (`inventory.goods_receipt.record`, the code of every other receipt read). No new permission code.
+2. **Scope.** The receipt is read with exactly the scoping of `GET /admin/goods-receipts/{id}` (BR-30, narrowed to the assigned warehouses): another warehouse's receipt is the same 404 as an unknown id. Everything else in the document is read only after that check, so it adds no path to another warehouse's data.
+3. **Derived, never stored.** The document is built from the receipt, its purchase order, the latest quality check (BR-119/BR-120), the package fields (BR-123) and the count of its discrepancy reports (BR-121) at read time. Nothing is written and no audit row is added (a read). It carries no generated number or print time of its own, so the same state always yields the same document; the GRN number is the receipt's.
+4. **Content.** `documentType` `GOODS_RECEIPT_NOTE`; the GRN number, receipt id and status; the purchase order (id, number); the warehouse (id, code, name); the farmer (id and full name); the crop (id, name); the grade (`listed`, the purchase order's, and `assigned`, the quality check's, `null` before a check); the gross, accepted and rejected quantities and the damaged and spoiled parts (`null` before a check); the packages (`null` when none were recorded); the vehicle number; who received it and when; the batch code once stocked; a quality-check summary (`null` before a check: outcome, assigned grade, rejection reason code, the five points' passed count, inspector id and name, checked at); and the number of discrepancy reports. No price or money field.
+5. **No farm identity (BR-16 boundary).** Admin surface only. The farmer appears by id (already on the receipt read) and full name (already on the purchase-order list and detail for every holder of this permission: the same roles hold `purchase.order.view` for the same warehouses in `docs/rbac.json`). No farm name, farm location, district, GPS, FMB data, phone or e-mail is read or returned; the response is an allow-list (strict schema).
+6. **Format.** `application/json` with `Cache-Control: no-store` (also on its 404). The client renders and prints it, as it does the BR-75 voucher. A server-rendered PDF is not built: the repository's PDF facility (`pdfkit`, used by invoices and audit reports) could produce one later without changing this contract (UNCONFIRMED: flagged for the owner).
+
+**Failure mode if unenforced.** The printed note shows another warehouse's delivery, leaks the farm's location onto paper that leaves the warehouse, or differs from what the receipt screen shows; or a shared cache keeps a copy of a farmer's delivery.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.document.test.ts`)
+- `BR-124a` Permission wiring: 401 without a token; 403 for Farmer, Customer and Farmer Admin naming `inventory.goods_receipt.record`; a malformed id 422.
+- `BR-124b` The 200 carries `Cache-Control: no-store` and the document as the service built it.
+- `BR-124c` Before the quality check: the exact document, with `qualityCheck`, `grade.assigned`, damaged and spoiled `null`, `packages` `null` when none, `discrepancyCount` 0.
+- `BR-124d` After a check with a breakdown, packages and reports: the summary, the parts, the packages, the batch code and the report count match what was recorded; nothing is written by the read.
+- `BR-124e` Another warehouse's receipt is the same 404 as an unknown id for a confined caller; an unconfined caller reads it.
+- `BR-124f` The key set is pinned and no farm name, district or other farm-identifying value appears anywhere in the document.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
