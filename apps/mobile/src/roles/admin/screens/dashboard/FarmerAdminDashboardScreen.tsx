@@ -15,13 +15,13 @@ import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
 import { t } from '../../i18n';
-import { AdminProfileScreen } from './AdminProfileScreen';
 import { FarmerAdminProfileScreen } from './FarmerAdminProfileScreen';
 import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
-import { FarmerProduceTabScreen } from './FarmerProduceTabScreen';
+import { FarmerProduceDetailScreen } from './FarmerProduceDetailScreen';
+import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
 import { ProduceListingsScreen } from './ProduceListingsScreen';
+import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
-import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
 import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
 import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
@@ -36,7 +36,6 @@ import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
 import { FarmerDisputeResolutionScreen } from './FarmerDisputeResolutionScreen';
 import { type DisputeItem, INITIAL_DISPUTES } from './fixtures';
 import { FarmersDirectoryScreen } from './FarmersDirectoryScreen';
-import { FarmerPurchasesScreen } from './FarmerPurchasesScreen';
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
@@ -46,7 +45,7 @@ import { CollectionConfirmationScreen } from './CollectionConfirmationScreen';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, type ApprovedInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
-import { PestLibraryScreen, type PestItem, SAMPLE_PESTS } from './PestLibraryScreen';
+import { PestLibraryScreen, type PestItem } from './PestLibraryScreen';
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
@@ -59,7 +58,7 @@ import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
 import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
-import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
 export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
@@ -80,16 +79,6 @@ function ShieldHeaderIcon({ size = 20, color = adminColors.onBrand }: { size?: n
   );
 }
 
-function ShieldBoxIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        fill={color}
-      />
-    </Svg>
-  );
-}
 
 function BellHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -233,21 +222,7 @@ function ExactScalesIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
-// Exact Gavel / Mediation Icon (Matching Screenshot 4 1000%)
-function ExactGavelIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Sound block base at bottom left */}
-      <Rect x="3.5" y="19.2" width="8.8" height="2.2" rx="0.4" fill={color} />
-      {/* Upper slanted mallet block */}
-      <Polygon points="3.0,8.0 9.8,1.2 11.8,3.2 5.0,10.0" fill={color} />
-      {/* Lower slanted mallet block (parallel) */}
-      <Polygon points="5.8,10.8 12.6,4.0 14.6,6.0 7.8,12.8" fill={color} />
-      {/* Mallet handle pointing down-right */}
-      <Polygon points="10.4,10.2 12.0,8.6 19.8,16.4 18.2,18.0" fill={color} />
-    </Svg>
-  );
-}
+
 function CheckmarkCircleIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -385,7 +360,7 @@ function TabFarmersIcon({ active }: { active: boolean }) {
   return <PeopleGroupIcon size={21} color={color} />;
 }
 
-function TabProduceIcon({ active }: { active: boolean }) {
+function _TabProduceIcon({ active }: { active: boolean }) {
   const color = active ? adminColors.brand : adminColors.muted;
   const leafColor = active ? adminColors.brandDeep : adminColors.muted;
   return <TomatoProduceIcon size={21} color={color} leafColor={leafColor} />;
@@ -1647,7 +1622,7 @@ const commStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.headerIcon.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1977,7 +1952,7 @@ const commStyles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -2028,21 +2003,34 @@ const commStyles = StyleSheet.create({
   },
 });
 
+export type AuditScheduleInitialView =
+  | 'history'
+  | 'audit_detail'
+  | 'audit_report'
+  | 'list'
+  | 'detail'
+  | 'schedule_visit'
+  | 'inspection'
+  | 'calendar'
+  | 'calendar_view'
+  | 'audit_details_m5'
+  | 'pdf_viewer';
+
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface FarmerAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string, params?: any) => void;
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   initialTab?: FarmerAdminTab;
 }
 
 export function FarmerAdminDashboardScreen({
   onSignOut,
-  onNavigate,
+  onNavigate: _onNavigate,
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
-  const [user, setUser] = useState<UserMe | null>(null);
+  const [_user, setUser] = useState<UserMe | null>(null);
 
   // Accordion state: both collapsed by default as in left design mockup
   const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
@@ -2051,6 +2039,9 @@ export function FarmerAdminDashboardScreen({
   const [subView, setSubView] = useState<
     | 'none'
     | 'product_listings'
+    | 'produce_listing_details'
+    | 'farmer_produce_detail'
+    | 'counter_offer'
     | 'produce_listings'
     | 'produce_history'
     | 'verification_approval'
@@ -2105,84 +2096,80 @@ export function FarmerAdminDashboardScreen({
     | 'community_moderation_review'
   >('menu');
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | undefined>(undefined);
-  const [disputeDetailReturnTo, setDisputeDetailReturnTo] = useState<'menu' | 'disputes'>('menu');
-  const [timelineReturnTo, setTimelineReturnTo] = useState<'menu' | 'disputes' | 'dispute_detail'>('dispute_detail');
   const [selectedCommunityGroup, setSelectedCommunityGroup] = useState<CommunityGroup>(COMMUNITY_GROUPS[0]!);
   const [selectedCommunityPost, setSelectedCommunityPost] = useState<CommunityPost>(COMMUNITY_POSTS[0]!);
   const [selectedModerationItem, setSelectedModerationItem] = useState<CommunityModerationItem>(
     COMMUNITY_MODERATION_ITEMS[0]!
   );
-  const [postDetailReturnTo, setPostDetailReturnTo] = useState<'community' | 'community_posts'>('community');
-  const [postsReturnTo, setPostsReturnTo] = useState<'community' | 'community_group_detail'>('community_group_detail');
   const [communityPostsFilter, setCommunityPostsFilter] = useState<'all' | 'reported'>('all');
   const [activeHandoverId, setActiveHandoverId] = useState<string>('HO-2026-0002');
   const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
   const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
   const [activeIncidentItem, setActiveIncidentItem] = useState<IncidentItem | undefined>(undefined);
   const [selectedPestItem, setSelectedPestItem] = useState<PestItem | undefined>(undefined);
-  const [pestIncidentsReturnSubView, setPestIncidentsReturnSubView] = useState<'inputs_pest' | 'application_guide' | 'pest_incident_detail'>('inputs_pest');
   const [selectedRetailItem, setSelectedRetailItem] = useState<RetailPriceItem | undefined>(undefined);
-  const [breakdownReturnSubView, setBreakdownReturnSubView] = useState<'fair_price' | 'retail_pricing'>('retail_pricing');
   const [pestIncidentsInitialFilters, setPestIncidentsInitialFilters] = useState<boolean>(false);
-  const [pestLibraryReturnSubView, setPestLibraryReturnSubView] = useState<'inputs_pest' | 'pest_incident_detail'>('inputs_pest');
-  const [appGuideReturnSubView, setAppGuideReturnSubView] = useState<'inputs_pest' | 'pest_incident_detail'>('inputs_pest');
   const [selectedPestForIncident, setSelectedPestForIncident] = useState<string | undefined>(undefined);
   const [listingInitialFilter, setListingInitialFilter] = useState<'all' | 'pending' | 'counter'>('all');
-  const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders' | 'purchase_order_detail'>('none');
-  const [purchaseOrderDetailReturnSubView, setPurchaseOrderDetailReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
-  const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
-  const [purchaseOrderReturnSubView, setPurchaseOrderReturnSubView] = useState<'purchase_orders' | 'dispute_detail'>('purchase_orders');
   const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view'>('calendar');
   const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
-  const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
-  const [auditReturnSubView, setAuditReturnSubView] = useState<'none' | 'farmer_profile' | 'verification_approval'>('none');
-  const [farmerProfileReturnSubView, setFarmerProfileReturnSubView] = useState<'none' | 'audit_schedule' | 'verification_approval' | 'pest_incident_detail'>('none');
-  const [incidentReturnSubView, setIncidentReturnSubView] = useState<'inputs_pest' | 'farmer_pest_incidents'>('inputs_pest');
+  const [auditInitialView, setAuditInitialView] = useState<AuditScheduleInitialView | undefined>(undefined);
   const [farmersInternalView, setFarmersInternalView] = useState<'list' | 'search_filter' | 'profile'>('list');
+
+  const [activeProduceFarmerName, setActiveProduceFarmerName] = useState<string>('Ramesh Kumar');
+  const [activeProduceFarmerId, setActiveProduceFarmerId] = useState<string>('FR-00241');
+  const [activeProduceZone, setActiveProduceZone] = useState<string>('Coonoor');
+  const [activeProduceCrop, setActiveProduceCrop] = useState<string>('Tomato');
+  const [activeProduceGrade, setActiveProduceGrade] = useState<string>('Grade 1');
+  const [activeProduceQuantity, setActiveProduceQuantity] = useState<number>(145);
+  const [activeProduceApproved, setActiveProduceApproved] = useState<boolean>(false);
 
   // Navigation History Stack to ensure all back icons navigate to the exact previous screen
   interface NavState {
     tab: FarmerAdminTab;
     subView:
-    | 'none'
-    | 'product_listings'
-    | 'produce_listings'
-    | 'produce_history'
-    | 'verification_approval'
-    | 'farmer_profile'
-    | 'handover_history'
-    | 'handover_confirmation'
-    | 'handover_details'
-    | 'admin_activity'
-    | 'notifications'
-    | 'farmer_support'
-    | 'profile'
-    | 'purchases'
-    | 'purchase_orders'
-    | 'purchase_order_detail'
-    | 'purchase_history'
-    | 'confirm_purchase_terms'
-    | 'farmer_handover'
-    | 'collection_confirmation'
-    | 'inputs_pest'
-    | 'approved_inputs'
-    | 'input_detail'
-    | 'pest_library'
-    | 'application_guide'
-    | 'farmer_pest_incidents'
-    | 'pest_incident_detail'
-    | 'market_pricing'
-    | 'fair_price'
-    | 'categories_grades'
-    | 'price_history'
-    | 'retail_pricing'
-    | 'markup_breakdown'
-    | 'audit_schedule'
-    | 'farmer_ratings'
-    | 'disputes'
-    | 'dispute_detail'
-    | 'dispute_timeline'
-    | 'dispute_resolution';
+      | 'none'
+      | 'product_listings'
+      | 'produce_listing_details'
+      | 'farmer_produce_detail'
+      | 'counter_offer'
+      | 'produce_listings'
+      | 'produce_history'
+      | 'verification_approval'
+      | 'farmer_profile'
+      | 'handover_history'
+      | 'handover_confirmation'
+      | 'handover_details'
+      | 'admin_activity'
+      | 'notifications'
+      | 'farmer_support'
+      | 'profile'
+      | 'purchases'
+      | 'purchase_orders'
+      | 'purchase_order_detail'
+      | 'purchase_history'
+      | 'confirm_purchase_terms'
+      | 'farmer_handover'
+      | 'collection_confirmation'
+      | 'inputs_pest'
+      | 'approved_inputs'
+      | 'input_detail'
+      | 'pest_library'
+      | 'application_guide'
+      | 'farmer_pest_incidents'
+      | 'pest_incident_detail'
+      | 'market_pricing'
+      | 'fair_price'
+      | 'categories_grades'
+      | 'price_history'
+      | 'retail_pricing'
+      | 'markup_breakdown'
+      | 'audit_schedule'
+      | 'farmer_ratings'
+      | 'disputes'
+      | 'dispute_detail'
+      | 'dispute_timeline'
+      | 'dispute_resolution';
     moreSubScreen?:
     | 'menu'
     | 'disputes'
@@ -2211,9 +2198,16 @@ export function FarmerAdminDashboardScreen({
     listingInitialFilter?: ('all' | 'pending' | 'counter') | undefined;
     auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view') | undefined;
     auditInitialId?: string | undefined;
-    auditInitialView?: any;
+    auditInitialView?: AuditScheduleInitialView | undefined;
     selectedPestForIncident?: string | undefined;
     communityPostsFilter?: ('all' | 'reported') | undefined;
+    activeProduceFarmerName?: string | undefined;
+    activeProduceFarmerId?: string | undefined;
+    activeProduceZone?: string | undefined;
+    activeProduceCrop?: string | undefined;
+    activeProduceGrade?: string | undefined;
+    activeProduceQuantity?: number | undefined;
+    activeProduceApproved?: boolean | undefined;
   }
 
   const [navStack, setNavStack] = useState<NavState[]>([]);
@@ -2239,6 +2233,13 @@ export function FarmerAdminDashboardScreen({
       auditInitialView,
       selectedPestForIncident,
       communityPostsFilter,
+      activeProduceFarmerName,
+      activeProduceFarmerId,
+      activeProduceZone,
+      activeProduceCrop,
+      activeProduceGrade,
+      activeProduceQuantity,
+      activeProduceApproved,
     };
 
     setNavStack((prev) => [...prev, currentSnapshot]);
@@ -2262,6 +2263,13 @@ export function FarmerAdminDashboardScreen({
     if (next.auditInitialView !== undefined) setAuditInitialView(next.auditInitialView);
     if (next.selectedPestForIncident !== undefined) setSelectedPestForIncident(next.selectedPestForIncident);
     if (next.communityPostsFilter !== undefined) setCommunityPostsFilter(next.communityPostsFilter);
+    if (next.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(next.activeProduceFarmerName);
+    if (next.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(next.activeProduceFarmerId);
+    if (next.activeProduceZone !== undefined) setActiveProduceZone(next.activeProduceZone);
+    if (next.activeProduceCrop !== undefined) setActiveProduceCrop(next.activeProduceCrop);
+    if (next.activeProduceGrade !== undefined) setActiveProduceGrade(next.activeProduceGrade);
+    if (next.activeProduceQuantity !== undefined) setActiveProduceQuantity(next.activeProduceQuantity);
+    if (next.activeProduceApproved !== undefined) setActiveProduceApproved(next.activeProduceApproved);
   };
 
   const goBack = (fallbackTab: FarmerAdminTab = 'Home') => {
@@ -2288,6 +2296,13 @@ export function FarmerAdminDashboardScreen({
       if (prev.auditInitialView !== undefined) setAuditInitialView(prev.auditInitialView);
       if (prev.selectedPestForIncident !== undefined) setSelectedPestForIncident(prev.selectedPestForIncident);
       if (prev.communityPostsFilter !== undefined) setCommunityPostsFilter(prev.communityPostsFilter);
+      if (prev.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(prev.activeProduceFarmerName);
+      if (prev.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(prev.activeProduceFarmerId);
+      if (prev.activeProduceZone !== undefined) setActiveProduceZone(prev.activeProduceZone);
+      if (prev.activeProduceCrop !== undefined) setActiveProduceCrop(prev.activeProduceCrop);
+      if (prev.activeProduceGrade !== undefined) setActiveProduceGrade(prev.activeProduceGrade);
+      if (prev.activeProduceQuantity !== undefined) setActiveProduceQuantity(prev.activeProduceQuantity);
+      if (prev.activeProduceApproved !== undefined) setActiveProduceApproved(prev.activeProduceApproved);
     } else {
       if (subView !== 'none') {
         setSubView('none');
@@ -2301,6 +2316,7 @@ export function FarmerAdminDashboardScreen({
 
   // Modal State for details
   const [modalItem, setModalItem] = useState<{ title: string; content: string } | null>(null);
+  const [completedProduceNames, setCompletedProduceNames] = useState<string[]>([]);
 
   useEffect(() => {
     fetchMe()
@@ -2315,6 +2331,159 @@ export function FarmerAdminDashboardScreen({
     return (
       <FarmerProductListingsScreen
         onBack={() => goBack()}
+        completedProduceNames={completedProduceNames}
+        onSelectFarmerDetails={(group, item) => {
+          const fullName = group.farmerName.includes('Kumar')
+            ? group.farmerName
+            : `${group.farmerName} Kumar`;
+          setActiveProduceFarmerName(fullName);
+          setActiveProduceFarmerId(group.farmerId);
+          setActiveProduceZone(group.zone);
+          setActiveProduceCrop(item.cropName);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          pushNavigation({
+            subView: 'produce_listing_details',
+            activeProduceFarmerName: fullName,
+            activeProduceFarmerId: group.farmerId,
+            activeProduceZone: group.zone,
+            activeProduceCrop: item.cropName,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+          });
+        }}
+        onSelectFarmerProduce={(group, item) => {
+          const fullName = group.farmerName.includes('Kumar')
+            ? group.farmerName
+            : `${group.farmerName} Kumar`;
+          setActiveProduceFarmerName(fullName);
+          setActiveProduceFarmerId(group.farmerId);
+          setActiveProduceZone(group.zone);
+          setActiveProduceCrop(item.cropName);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+            activeProduceFarmerName: fullName,
+            activeProduceFarmerId: group.farmerId,
+            activeProduceZone: group.zone,
+            activeProduceCrop: item.cropName,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Produce Listing Details subview (Ramesh Kumar - PL-001245)
+  if (subView === 'produce_listing_details') {
+    return (
+      <ProduceListingDetailsScreen
+        listingId="PL-001245"
+        cropName={activeProduceCrop || 'Tomato'}
+        grade={activeProduceGrade || 'Grade 1'}
+        farmerName={activeProduceFarmerName || 'Ramesh Kumar'}
+        farmerId={activeProduceFarmerId || 'FR-00241'}
+        zone={activeProduceZone || 'Coonoor'}
+        farmingMethod="Organic"
+        quantityKg={activeProduceQuantity || 50}
+        harvestDate="28 Sep 2026"
+        qualityInfo={`${activeProduceGrade || 'Grade 1'}, no visible defects`}
+        pricePerKg={100}
+        fairPriceCeiling={105}
+        effectiveFrom="1 Sep 2026"
+        showChips={false}
+        showQuantityRequirement={false}
+        onBack={() => goBack()}
+        onReviewListing={() => {
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+          });
+        }}
+        onNavigateToVerification={() => {
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Produce Detail subview (e.g. Ramesh Kumar Farm)
+  if (subView === 'farmer_produce_detail') {
+    return (
+      <FarmerProduceDetailScreen
+        farmerName={activeProduceFarmerName}
+        farmerId={activeProduceFarmerId}
+        zone={activeProduceZone}
+        farmingMethod="Organic"
+        completedProduceNames={completedProduceNames}
+        onBack={() => goBack()}
+        onApproveAll={() => {
+          setCompletedProduceNames((prev) => {
+            const added = ['Tomato', 'Beans'];
+            return Array.from(new Set([...prev, ...added]));
+          });
+        }}
+        onNavigateToCounterOffer={(item, isApproved) => {
+          setActiveProduceCrop(item.name);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          setActiveProduceApproved(isApproved);
+          pushNavigation({
+            subView: 'counter_offer',
+            activeProduceCrop: item.name,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+            activeProduceApproved: isApproved,
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Counter Offer subview
+  if (subView === 'counter_offer') {
+    return (
+      <FarmerCounterOfferScreen
+        cropName={activeProduceCrop}
+        grade={activeProduceGrade}
+        receivedKg={activeProduceQuantity}
+        isTohfaAdminApproved={activeProduceApproved}
+        onBack={() => goBack()}
+        onAcceptOffer={() => {
+          if (activeProduceCrop) {
+            setCompletedProduceNames((prev) =>
+              prev.includes(activeProduceCrop) ? prev : [...prev, activeProduceCrop]
+            );
+          }
+        }}
+        onSubmitCounter={() => {
+          if (activeProduceCrop) {
+            setCompletedProduceNames((prev) =>
+              prev.includes(activeProduceCrop) ? prev : [...prev, activeProduceCrop]
+            );
+          }
+        }}
+        onBackToListing={() => {
+          const crop = activeProduceCrop || 'Tomato';
+          setCompletedProduceNames((prev) =>
+            prev.includes(crop) ? prev : [...prev, crop]
+          );
+          goBack();
+        }}
+        onViewListingDetails={() => {
+          pushNavigation({
+            subView: 'produce_listing_details',
+            activeProduceFarmerName,
+            activeProduceFarmerId,
+            activeProduceZone,
+            activeProduceCrop,
+            activeProduceGrade,
+            activeProduceQuantity,
+          });
+        }}
       />
     );
   }
@@ -2341,22 +2510,26 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // If currently in S-03 Produce Verification & Approval subview, render it with back navigation
+  // If currently in Produce Verification & Approval subview, render FarmerProduceDetailScreen
   if (subView === 'verification_approval') {
     return (
-      <ProduceVerificationApprovalScreen
-        listingId="PL-001245"
-        cropName="Tomato"
-        farmerName="Ramesh Kumar"
+      <FarmerProduceDetailScreen
+        farmerName={activeProduceFarmerName}
+        farmerId={activeProduceFarmerId}
+        zone={activeProduceZone}
+        farmingMethod="Organic"
         onBack={() => goBack()}
-        onSubmitSuccess={() => goBack()}
-        onViewListing={() => pushNavigation({ subView: 'product_listings' })}
-        onViewFarmerProfile={() => pushNavigation({ subView: 'farmer_profile' })}
-        onNavigateAuditHistory={() => {
+        onNavigateToCounterOffer={(item, isApproved) => {
+          setActiveProduceCrop(item.name);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          setActiveProduceApproved(isApproved);
           pushNavigation({
-            subView: 'audit_schedule',
-            auditInitialFilter: 'history',
-            auditInitialView: 'history',
+            subView: 'counter_offer',
+            activeProduceCrop: item.name,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+            activeProduceApproved: isApproved,
           });
         }}
       />
@@ -2878,7 +3051,7 @@ export function FarmerAdminDashboardScreen({
           setAuditInitialFilter('calendar');
           goBack();
         }}
-        onNavigateFarmerProfile={(farmerId) => {
+        onNavigateFarmerProfile={(_farmerId) => {
           pushNavigation({ subView: 'farmer_profile' });
         }}
         onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
@@ -3096,61 +3269,6 @@ export function FarmerAdminDashboardScreen({
               </OverviewCardsGrid>
             </View>
 
-            {/* 4. Handover History Section */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Handover History</Text>
-              <TouchableOpacity
-                onPress={() => pushNavigation({ subView: 'handover_history' })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Handover Card 1 */}
-            <View style={styles.historyCard}>
-              <Text style={styles.historyCardTitle}>HO-2026-0002 · Handover</Text>
-              <Text style={styles.historyMeta}>6 Oct 2026 · 1 collection</Text>
-              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
-              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
-
-              <View style={styles.statusPillCompleted}>
-                <Text style={styles.statusPillCompletedText}>Completed</Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'handover_confirmation',
-                    activeHandoverId: 'HO-2026-0002',
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardActionLink}>View Details</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Handover Card 2 */}
-            <View style={styles.historyCard}>
-              <Text style={styles.historyCardTitle}>COL-0006 · Collection</Text>
-              <Text style={styles.historyMeta}>5 Oct 2026 · Selvi - FR-00242</Text>
-              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
-              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
-              <Text style={styles.historySubBold}>In HO-2026-0002</Text>
-
-              <TouchableOpacity
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'handover_history',
-                    activeHandoverId: 'HO-2026-0002',
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardActionLink}>View Details</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* 5. Needs Your Attention Section */}
             <Text style={styles.sectionTitle}>Needs Your Attention</Text>

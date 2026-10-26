@@ -12,7 +12,9 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
-import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
+import { FarmerProduceDetailScreen, type FarmProduceItem } from './FarmerProduceDetailScreen';
+import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
+import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -73,13 +75,13 @@ export interface FarmerListingGroup {
 
 const MOCK_FARMERS_DATA: FarmerListingGroup[] = [
   {
-    farmerId: 'FR-00189',
+    farmerId: 'FR-00241',
     farmerName: 'Ramesh',
     avatarInitial: 'R',
     zone: 'Coonoor',
     products: [
       {
-        id: 'L-101',
+        id: 'PL-001245',
         cropName: 'Tomato',
         grade: 'Grade 1',
         quantityKg: 50,
@@ -89,7 +91,7 @@ const MOCK_FARMERS_DATA: FarmerListingGroup[] = [
         zone: 'Coonoor',
       },
       {
-        id: 'L-102',
+        id: 'PL-001246',
         cropName: 'Carrot',
         grade: 'Grade 1',
         quantityKg: 30,
@@ -99,7 +101,7 @@ const MOCK_FARMERS_DATA: FarmerListingGroup[] = [
         zone: 'Coonoor',
       },
       {
-        id: 'L-103',
+        id: 'PL-001247',
         cropName: 'Beans',
         grade: 'Grade 2',
         quantityKg: 20,
@@ -219,18 +221,41 @@ const MOCK_FARMERS_DATA: FarmerListingGroup[] = [
 export interface FarmerProductListingsScreenProps {
   onBack: () => void;
   onNavigateDetail?: (listingId: string) => void;
+  onSelectFarmerProduce?: (farmer: FarmerListingGroup, item: ProductListingItem) => void;
+  onSelectFarmerDetails?: (farmer: FarmerListingGroup, item: ProductListingItem) => void;
+  completedProduceNames?: string[];
 }
 
 export function FarmerProductListingsScreen({
   onBack,
-  onNavigateDetail,
+  onNavigateDetail: _onNavigateDetail,
+  onSelectFarmerProduce,
+  onSelectFarmerDetails,
+  completedProduceNames,
 }: FarmerProductListingsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedZone, setSelectedZone] = useState<'All' | 'Coonoor' | 'Ooty'>('All');
   const [selectedCrop, setSelectedCrop] = useState<'All' | 'Tomato' | 'Carrot' | 'Beans' | 'Onion' | 'Potato'>('All');
   const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2'>('All');
-  const [selectedListingForReview, setSelectedListingForReview] = useState<ProductListingItem | null>(null);
+  const [selectedFarmerForDetails, setSelectedFarmerForDetails] = useState<{
+    farmer: FarmerListingGroup;
+    product: ProductListingItem;
+  } | null>(null);
+  const [selectedFarmerForProduce, setSelectedFarmerForProduce] = useState<{
+    group: FarmerListingGroup;
+    selectedItem: ProductListingItem;
+  } | null>(null);
+  const [selectedProduceForCounter, setSelectedProduceForCounter] = useState<{
+    item: FarmProduceItem;
+    isApproved: boolean;
+  } | null>(null);
+  const [localApprovedProduceNames, setLocalApprovedProduceNames] = useState<string[]>([]);
+
+  const activeApprovedProduceNames = useMemo(() => {
+    const merged = new Set([...(completedProduceNames || []), ...localApprovedProduceNames]);
+    return Array.from(merged);
+  }, [completedProduceNames, localApprovedProduceNames]);
 
   // Filter Farmers and their Product Listings
   const filteredFarmerGroups = useMemo(() => {
@@ -271,10 +296,97 @@ export function FarmerProductListingsScreen({
     setSearchQuery('');
   };
 
-  if (selectedListingForReview) {
+  // Sub-screen 2: Counter Offer Screen
+  if (selectedProduceForCounter) {
     return (
-      <ProduceVerificationApprovalScreen
-        onBack={() => setSelectedListingForReview(null)}
+      <FarmerCounterOfferScreen
+        cropName={selectedProduceForCounter.item.name}
+        grade={selectedProduceForCounter.item.grade}
+        receivedKg={selectedProduceForCounter.item.quantityKg}
+        isTohfaAdminApproved={selectedProduceForCounter.isApproved}
+        onBack={() => setSelectedProduceForCounter(null)}
+        onAcceptOffer={() => {
+          const crop = selectedProduceForCounter.item.name;
+          setLocalApprovedProduceNames((prev) => (prev.includes(crop) ? prev : [...prev, crop]));
+        }}
+        onSubmitCounter={() => {
+          const crop = selectedProduceForCounter.item.name;
+          setLocalApprovedProduceNames((prev) => (prev.includes(crop) ? prev : [...prev, crop]));
+        }}
+        onBackToListing={() => {
+          const crop = selectedProduceForCounter.item.name;
+          setLocalApprovedProduceNames((prev) => (prev.includes(crop) ? prev : [...prev, crop]));
+          setSelectedProduceForCounter(null);
+        }}
+      />
+    );
+  }
+
+  // Sub-screen 1: Farmer Produce Detail Screen ("Ramesh Kumar Farm")
+  if (selectedFarmerForProduce) {
+    const fullName = selectedFarmerForProduce.group.farmerName.includes('Kumar')
+      ? selectedFarmerForProduce.group.farmerName
+      : `${selectedFarmerForProduce.group.farmerName} Kumar`;
+
+    return (
+      <FarmerProduceDetailScreen
+        farmerName={fullName}
+        farmerId={selectedFarmerForProduce.group.farmerId}
+        zone={selectedFarmerForProduce.group.zone}
+        farmingMethod="Organic"
+        completedProduceNames={activeApprovedProduceNames}
+        onBack={() => setSelectedFarmerForProduce(null)}
+        onApproveAll={() => {
+          setLocalApprovedProduceNames((prev) => {
+            const added = ['Tomato', 'Beans'];
+            return Array.from(new Set([...prev, ...added]));
+          });
+        }}
+        onNavigateToCounterOffer={(produceItem, isApproved) => {
+          setSelectedProduceForCounter({ item: produceItem, isApproved });
+        }}
+      />
+    );
+  }
+
+  // Sub-screen 3: Produce Listing Details Screen (Ramesh Kumar - PL-001245)
+  if (selectedFarmerForDetails) {
+    const fullName = selectedFarmerForDetails.farmer.farmerName.includes('Kumar')
+      ? selectedFarmerForDetails.farmer.farmerName
+      : `${selectedFarmerForDetails.farmer.farmerName} Kumar`;
+
+    return (
+      <ProduceListingDetailsScreen
+        listingId={selectedFarmerForDetails.product.id}
+        cropName={selectedFarmerForDetails.product.cropName}
+        grade={selectedFarmerForDetails.product.grade}
+        farmerName={fullName}
+        farmerId={selectedFarmerForDetails.farmer.farmerId}
+        zone={selectedFarmerForDetails.farmer.zone}
+        farmingMethod="Organic"
+        quantityKg={selectedFarmerForDetails.product.quantityKg}
+        harvestDate="28 Sep 2026"
+        qualityInfo={`${selectedFarmerForDetails.product.grade}, no visible defects`}
+        pricePerKg={selectedFarmerForDetails.product.pricePerKg}
+        fairPriceCeiling={selectedFarmerForDetails.product.pricePerKg + 5}
+        effectiveFrom="1 Sep 2026"
+        showChips={false}
+        showQuantityRequirement={false}
+        onBack={() => setSelectedFarmerForDetails(null)}
+        onReviewListing={() => {
+          const detail = selectedFarmerForDetails;
+          setSelectedFarmerForProduce({
+            group: detail.farmer,
+            selectedItem: detail.product,
+          });
+        }}
+        onNavigateToVerification={() => {
+          const detail = selectedFarmerForDetails;
+          setSelectedFarmerForProduce({
+            group: detail.farmer,
+            selectedItem: detail.product,
+          });
+        }}
       />
     );
   }
@@ -295,7 +407,7 @@ export function FarmerProductListingsScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('farmerProductListings.title') || 'Farmer Produce Listing'}</Text>
+          <Text style={styles.headerTitle}>Farmer Product Listings</Text>
 
           <TouchableOpacity
             style={[styles.filterBtn, showFilterPanel && styles.filterBtnActive]}
@@ -313,9 +425,9 @@ export function FarmerProductListingsScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Subtitle Counter */}
+        {/* Subtitle Counter Matching Screenshot 2 */}
         <Text style={styles.counterText}>
-          {totalFilteredCount} {t('farmerProductListings.subtitle')}
+          {`${totalFilteredCount} pending · ${filteredFarmerGroups.length} farmers`}
         </Text>
 
         {/* Search Bar */}
@@ -323,7 +435,7 @@ export function FarmerProductListingsScreen({
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder={t('farmerProductListings.search.placeholder')}
+            placeholder="Listing ID, Farmer, Product, Crop"
             placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -422,23 +534,37 @@ export function FarmerProductListingsScreen({
         {/* ─── Farmer Groups & Product Items List ─── */}
         {filteredFarmerGroups.map((group) => (
           <View key={group.farmerId} style={styles.farmerCard}>
-            {/* Farmer Header Info */}
-            <View style={styles.farmerHeader}>
+            {/* Farmer Header Info - Clicking farmer name opens Produce Listing Details (Image 3) */}
+            <TouchableOpacity
+              style={styles.farmerHeader}
+              onPress={() => {
+                if (onSelectFarmerDetails && group.products[0]) {
+                  onSelectFarmerDetails(group, group.products[0]);
+                } else if (group.products[0]) {
+                  setSelectedFarmerForDetails({
+                    farmer: group,
+                    product: group.products[0],
+                  });
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityLabel={`View ${group.farmerName} listing details`}
+            >
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>{group.avatarInitial}</Text>
               </View>
               <View style={styles.farmerInfoCol}>
                 <Text style={styles.farmerName}>{group.farmerName}</Text>
                 <Text style={styles.farmerSub}>
-                  {group.farmerId} · {group.zone}
+                  {`${group.products.length} pending listings`}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <Text style={styles.listedProductsLabel}>{t('farmerProductListings.label.listedProducts')}</Text>
             <View style={styles.productsDivider} />
 
-            {/* Product Items */}
+            {/* Product Items - Clicking opens Ramesh Farm */}
             {group.products.map((item, index) => (
               <TouchableOpacity
                 key={item.id}
@@ -447,10 +573,13 @@ export function FarmerProductListingsScreen({
                   index < group.products.length - 1 && styles.productRowBorder,
                 ]}
                 onPress={() => {
-                  if (onNavigateDetail) {
-                    onNavigateDetail(item.id);
+                  if (onSelectFarmerProduce) {
+                    onSelectFarmerProduce(group, item);
                   } else {
-                    setSelectedListingForReview(item);
+                    setSelectedFarmerForProduce({
+                      group,
+                      selectedItem: item,
+                    });
                   }
                 }}
                 activeOpacity={0.7}
@@ -458,9 +587,15 @@ export function FarmerProductListingsScreen({
                 {/* Row 1: Crop Name & Status Badge */}
                 <View style={styles.productTopLine}>
                   <Text style={styles.cropName}>{item.cropName}</Text>
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingBadgeText}>{t('farmerProductListings.badge.pending')}</Text>
-                  </View>
+                  {activeApprovedProduceNames.includes(item.cropName) ? (
+                    <View style={styles.completedBadge}>
+                      <Text style={styles.completedBadgeText}>Approved</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>Pending View</Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Row 2: Grade, Quantity & Price */}
@@ -733,15 +868,28 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   pendingBadge: {
-    backgroundColor: adminColors.warning.bg,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 3.5,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
   },
   pendingBadgeText: {
     ...adminType.caption,
+    fontSize: 11,
     fontWeight: '700',
-    color: adminColors.warning.text,
+    color: adminColors.muted,
+  },
+  completedBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+  },
+  completedBadgeText: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: adminColors.success.text,
   },
   productMeta: {
     ...adminType.rowMeta,
