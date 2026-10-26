@@ -1820,5 +1820,17 @@
 
   "receiving.filters.reset": "Reset",
   "receiving.filters.apply": "Apply Filters",
-  "receiving.filters.all": "All"
+  "receiving.filters.all": "All",
+
+  "transfers.inspection.failed.title": "Could not record the receipt",
+
+  "receiving.shipment.shipmentId": "Shipment ID",
+  "receiving.shipment.type": "Type",
+  "receiving.shipment.typeFarmerAdmin": "Farmer/Admin Consolidated",
+  "receiving.shipment.typeTransfer": "Inter-Warehouse Transfer",
+  "receiving.shipment.source": "Source",
+  "receiving.shipment.destination": "Destination",
+  "receiving.shipment.createdDate": "Created Date",
+  "receiving.shipment.actualArrival": "Actual Arrival",
+  "receiving.shipment.timelineLink": "Timeline →"
 }

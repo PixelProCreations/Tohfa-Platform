@@ -296,5 +296,17 @@
 
   "receiving.filters.reset": "மீட்டமை",
   "receiving.filters.apply": "வடிகட்டிகளைப் பயன்படுத்து",
-  "receiving.filters.all": "அனைத்தும்"
+  "receiving.filters.all": "அனைத்தும்",
+
+  "transfers.inspection.failed.title": "பெறுதலைப் பதிவு செய்ய முடியவில்லை",
+
+  "receiving.shipment.shipmentId": "சரக்கு எண்",
+  "receiving.shipment.type": "வகை",
+  "receiving.shipment.typeFarmerAdmin": "விவசாயி/நிர்வாகி ஒருங்கிணைந்தது",
+  "receiving.shipment.typeTransfer": "கிடங்குகளுக்கு இடையிலான இடமாற்றம்",
+  "receiving.shipment.source": "மூலம்",
+  "receiving.shipment.destination": "சேருமிடம்",
+  "receiving.shipment.createdDate": "உருவாக்கப்பட்ட தேதி",
+  "receiving.shipment.actualArrival": "உண்மையான வருகை",
+  "receiving.shipment.timelineLink": "காலவரிசை →"
 }

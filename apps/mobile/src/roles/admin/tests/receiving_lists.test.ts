@@ -7,6 +7,7 @@
  * Pure (screens/warehouse/receiving-qc/receivingLists.ts, receivingNav.ts).
  */
 import { describe, expect, it } from 'vitest';
+import { ApiError, NetworkError } from '../../../shell/api/client';
 import { t } from '../i18n';
 import type { LiveReceipt, LiveReceiptDetail, LiveShipment } from '../screens/warehouse/receiving-qc/liveTypes';
 import {
@@ -16,6 +17,7 @@ import {
   filterHistoryRows,
   historyRowStats,
   intakeListsFor,
+  isNotFoundError,
   liveReceiptTone,
   liveShipmentTone,
   mainKpiValues,
@@ -428,5 +430,14 @@ describe('Shipment Detail progress stage presses', () => {
       params: { receiptId: 'gr-9' },
     });
     expect(progressStageTarget('Decision', { purchaseOrderId: po, receivable: false })).toBeNull();
+  });
+});
+
+describe('a detail read outside the scope or for an unknown id is "not found", never an error to retry', () => {
+  it('404 / NOT_FOUND is not found; anything else is an error', () => {
+    expect(isNotFoundError(new ApiError({ type: 'about:blank', title: 'Not found', status: 404, code: 'NOT_FOUND' }))).toBe(true);
+    expect(isNotFoundError(new ApiError({ type: 'about:blank', title: 'Boom', status: 500, code: 'INTERNAL' }))).toBe(false);
+    expect(isNotFoundError(new NetworkError('offline'))).toBe(false);
+    expect(isNotFoundError(null)).toBe(false);
   });
 });

@@ -10,12 +10,15 @@
  * never a sample, never a 0 for "unknown"). Pure, so plain-Node vitest covers
  * it (../../../tests/receiving_lists.test.ts). Weights are integer grams.
  */
+import { ApiError } from '../../../../../shell/api/client';
 import { t } from '../../../i18n';
 import type { AdminTone } from '../../../theme';
 import { formatAdminDate, istDay } from '../../../utils/datetime';
 import { kgLabel, type IntakeFilterParams } from './mappers';
 import type { LiveReceipt, LiveReceiptDetail, LiveReceiptResult, LiveShipment, LiveShipmentStatus, LiveShipmentTypeFilter } from './liveTypes';
 import type { PendingQueueSection, ReceivingOverview } from './receivingViews';
+
+const NOT_FOUND_STATUS = 404;
 
 // ─── M2-01 dashboard figures ─────────────────────────────────────────────────
 
@@ -258,6 +261,17 @@ export function receiptTimelineOf(r: LiveReceiptDetail, now: Date): ReceiptTimel
     });
   }
   return out;
+}
+
+// ─── Errors ──────────────────────────────────────────────────────────────────
+
+/**
+ * A detail read answered 404: an id outside the caller's scope (the server
+ * answers not found, never 403, CLAUDE.md 2.1) or one that does not exist.
+ * The screen shows its "not found" note, not an error to retry.
+ */
+export function isNotFoundError(error: unknown): boolean {
+  return error instanceof ApiError && (error.is('NOT_FOUND') || error.problem.status === NOT_FOUND_STATUS);
 }
 
 // ─── Badge tones ─────────────────────────────────────────────────────────────
