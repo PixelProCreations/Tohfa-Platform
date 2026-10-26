@@ -66,6 +66,14 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
+function CloseIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function CertCheckIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -909,6 +917,9 @@ export function AuditScheduleScreen({
     }
     return defaultRec;
   });
+
+  // Small Document Popup state
+  const [showDocumentModal, setShowDocumentModal] = useState<boolean>(false);
 
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
@@ -1938,18 +1949,8 @@ export function AuditScheduleScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Audit Details</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <Text style={{ ...adminType.caption, color: adminColors.onBrand, fontWeight: '600' }}>
-                {record.type || 'Internal'}
-              </Text>
-              <Text style={{ color: adminColors.onBrand, fontWeight: '700' }}>·</Text>
-              <View style={styles.auditDetailsHeaderPill}>
-                <Text style={styles.auditDetailsHeaderPillText}>
-                  {record.badge || 'Upcoming'}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.screenHeaderTitle}>Audit AUD-2026-0042</Text>
+            <Text style={styles.screenHeaderSub}>Status: Inprogress</Text>
           </View>
         </View>
 
@@ -2040,7 +2041,7 @@ export function AuditScheduleScreen({
           <Text style={styles.detailSectionTitle}>Documents</Text>
           <TouchableOpacity
             style={styles.documentRowCard}
-            onPress={() => setCurrentView('pdf_viewer')}
+            onPress={() => setShowDocumentModal(true)}
             activeOpacity={0.8}
           >
             <PdfDocIcon size={20} color={adminColors.brand} />
@@ -2090,91 +2091,88 @@ export function AuditScheduleScreen({
             </View>
           </View>
 
-
-
           <View style={{ height: 40 }} />
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: CHECKLIST PDF VIEWER (Image 3)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'pdf_viewer') {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.canvas }}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {/* ── Document Viewer Small Modal Popup ── */}
+        <Modal
+          visible={showDocumentModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDocumentModal(false)}
+        >
+          <View style={styles.docModalOverlay}>
+            <View style={styles.docModalCard}>
+              {/* Header */}
+              <View style={styles.docModalHeader}>
+                <View style={styles.docModalHeaderLeft}>
+                  <PdfDocIcon size={22} color={adminColors.brand} />
+                  <Text style={styles.docModalHeaderTitle}>Checklist.pdf</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowDocumentModal(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <CloseIcon size={20} color={adminColors.muted} />
+                </TouchableOpacity>
+              </View>
 
-        {/* ── Terracotta Header (Image 3) ── */}
-        <View style={styles.pdfHeader}>
-          <TouchableOpacity
-            onPress={() => setCurrentView('audit_details_m5')}
-            activeOpacity={0.7}
-            style={{ padding: 4 }}
-          >
-            <PdfDocIcon size={24} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <Text style={styles.pdfHeaderTitle}>Checklist.pdf</Text>
-        </View>
+              {/* Meta details */}
+              <View style={styles.docModalMetaRow}>
+                <View style={styles.detCol}>
+                  <Text style={styles.detLabel}>Type</Text>
+                  <Text style={styles.detValue}>PDF</Text>
+                </View>
+                <View style={styles.detCol}>
+                  <Text style={styles.detLabel}>Audit</Text>
+                  <Text style={styles.detValue}>{record.id || 'AUD-2026-0042'}</Text>
+                </View>
+              </View>
 
-        {/* ── Body: Type & Audit Card ── */}
-        <View style={styles.pdfMetaCard}>
-          <View style={styles.detCol}>
-            <Text style={styles.detLabel}>Type</Text>
-            <Text style={styles.detValue}>PDF</Text>
-          </View>
-          <View style={styles.detCol}>
-            <Text style={styles.detLabel}>Audit</Text>
-            <Text style={styles.detValue}>AUD-2026-0042</Text>
-          </View>
-        </View>
+              {/* PDF Preview Content Area */}
+              <View style={styles.docModalPreviewBox}>
+                <View style={{ alignItems: 'center', marginVertical: 14, opacity: 0.4 }}>
+                  <PdfDocIcon size={48} color={adminColors.muted} />
+                  <Text style={styles.docModalPreviewTitle}>
+                    Audit Checklist Document Preview
+                  </Text>
+                  <Text style={styles.docModalPreviewSubtitle}>
+                    {record.id || 'AUD-2026-0042'} · Official Inspection Checklist
+                  </Text>
+                </View>
 
-        {/* ── PDF Preview Content Area ── */}
-        <View style={styles.pdfPreviewArea}>
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={{ alignItems: 'center', marginVertical: 30, opacity: 0.25 }}>
-              <PdfDocIcon size={72} color={adminColors.muted} />
-              <Text style={{ ...adminType.rowTitle, color: adminColors.muted, marginTop: 12 }}>
-                Audit Checklist Document Preview
-              </Text>
-              <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: 4 }}>
-                AUD-2026-0042 · Official Inspection Checklist
-              </Text>
+                {/* Simulated document lines */}
+                <View style={{ gap: 8, opacity: 0.15 }}>
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '90%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '100%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '75%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '85%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '60%' }} />
+                </View>
+              </View>
+
+              {/* Bottom Buttons: Download & Close */}
+              <View style={styles.docModalBtnRow}>
+                <TouchableOpacity
+                  style={styles.docModalDownloadBtn}
+                  onPress={() => Alert.alert('Download', 'Downloading Checklist.pdf')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.docModalDownloadBtnText}>Download</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.docModalCloseBtn}
+                  onPress={() => setShowDocumentModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.docModalCloseBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {/* Simulated document lines */}
-            <View style={{ gap: 10, opacity: 0.15 }}>
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '90%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '100%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '75%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '85%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '60%' }} />
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* ── Bottom Bar: Download + Close (Image 3) ── */}
-        <View style={styles.pdfBottomBarRow}>
-          <TouchableOpacity
-            style={styles.pdfDownloadBtn}
-            onPress={() => Alert.alert('Download', 'Downloading Checklist.pdf')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.pdfDownloadBtnText}>Download</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pdfCloseBtn}
-            onPress={() => setCurrentView('audit_details_m5')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.pdfCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -2344,33 +2342,6 @@ export function AuditScheduleScreen({
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        {/* Bottom Action Buttons: Support Audit & Schedule Field Visit (Image 2) */}
-        <View style={styles.detailBottomActionRow}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={() => {
-              setPreviousView('detail');
-              setCurrentView('audit_inspection');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Support Audit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.secondaryWhiteBtn, { borderColor: adminColors.brand }]}
-            onPress={() => {
-              setPreviousView('detail');
-              setCurrentView('schedule_visit');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.secondaryWhiteBtnText, { color: adminColors.brand, fontWeight: '700' }]}>
-              Schedule Field Visit
-            </Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
@@ -2697,288 +2668,7 @@ export function AuditScheduleScreen({
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN 2: SCHEDULE FIELD VISIT SCREEN (Screenshot 3)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'schedule_visit') {
-    return (
-      <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* Solid Theme Orange Header */}
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            style={styles.headerBackBtn}
-            onPress={() => {
-              if (initialView === 'schedule_visit' || initialTypeFilter === 'field_visit') {
-                onBack();
-              } else if (previousView === 'calendar') {
-                setCurrentView('calendar');
-              } else {
-                setCurrentView('detail');
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Schedule Field Visit</Text>
-            <Text style={styles.screenHeaderSub}>Status: Upcoming</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.detailScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.detailSectionTitle}>Schedule Field Visit</Text>
-
-          {/* Select Available Date */}
-          <Text style={styles.fieldSectionLabel}>Select Available Date</Text>
-          <View style={styles.pillsRow}>
-            {(['08 Oct', '09 Oct', '10 Oct'] as const).map((d) => {
-              const active = visitDate === d;
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.smallPill, active ? styles.smallPillActive : styles.smallPillInactive]}
-                  onPress={() => setVisitDate(d)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.smallPillText, active ? styles.smallPillTextActive : styles.smallPillTextInactive]}>
-                    {d}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Select Time */}
-          <Text style={[styles.fieldSectionLabel, { marginTop: 16 }]}>Select Time</Text>
-          <View style={styles.pillsRow}>
-            {(['10:00 AM', '2:00 PM'] as const).map((t) => {
-              const active = visitTime === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.smallPill, active ? styles.smallPillActive : styles.smallPillInactive]}
-                  onPress={() => setVisitTime(t)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.smallPillText, active ? styles.smallPillTextActive : styles.smallPillTextInactive]}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Visit Notes */}
-          <Text style={[styles.fieldSectionLabel, { marginTop: 16 }]}>Visit Notes</Text>
-          <View style={styles.visitNotesCard}>
-            <TextInput
-              style={styles.visitNotesInput}
-              placeholder="Optional notes"
-              placeholderTextColor={adminColors.muted}
-              value={visitNotes}
-              onChangeText={setVisitNotes}
-              multiline
-            />
-          </View>
-        </ScrollView>
-
-        {/* Sticky Bottom Actions */}
-        <View style={styles.detailBottomActionRow}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={handleConfirmScheduleVisit}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Confirm</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryWhiteBtn}
-            onPress={() => setCurrentView('detail')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryWhiteBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN 5: AUDIT INSPECTION SCREEN (Screenshots 1 & 2)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'audit_inspection') {
-    const completedCount = Object.values(completedSections).filter(Boolean).length;
-    const totalSectionsCount = INSPECTION_SECTIONS.length;
-    const missingCount = Math.max(0, totalSectionsCount - completedCount);
-
-    return (
-      <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* Orange Header */}
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            style={styles.headerBackBtn}
-            onPress={() => {
-              if (previousView === 'audit_details_m5') {
-                setCurrentView('audit_details_m5');
-              } else {
-                setCurrentView('detail');
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Audit Inspection</Text>
-            <Text style={styles.screenHeaderSub}>
-              {selectedRecord?.id || 'AUD-2026-0042'} · {selectedRecord?.farmerName || 'Ramesh Kumar'}
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.detailScrollPad}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Audit ID & Farmer Info Card (2x3 Grid) */}
-          <View style={styles.detailCard}>
-            <View style={styles.detailGridRow}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Audit ID</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.id || 'AUD-2026-0042'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Type</Text>
-                <Text style={styles.detailMetaValue}>Internal Audit</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Farmer</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.farmerName || 'Ramesh Kumar'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Farm</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.farm || 'Ramesh Organic Farm'}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Date</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.date || '15 Oct 2026'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Auditor</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.auditor || 'Suresh Kumar'}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Progress Card */}
-          <View style={[styles.detailCard, { marginTop: 12 }]}>
-            <Text style={styles.progressCardTitle}>
-              {completedCount} of {totalSectionsCount} sections complete
-            </Text>
-            <Text style={styles.progressCardSub}>
-              {completedCount === 0
-                ? `${totalSectionsCount} required fields are still missing`
-                : missingCount > 0
-                ? `${missingCount} sections remaining`
-                : 'All sections completed'}
-            </Text>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${(completedCount / totalSectionsCount) * 100}%` }]} />
-            </View>
-          </View>
-
-          {/* Section: Inspection sections */}
-          <Text style={styles.inspectionSectionsTitle}>Inspection sections</Text>
-
-          {INSPECTION_SECTIONS.map((sec) => {
-            const isDone = !!completedSections[sec.id];
-            return (
-              <TouchableOpacity
-                key={sec.id}
-                style={styles.inspectionSectionCard}
-                onPress={() => {
-                  setCurrentStep(sec.id);
-                  setCurrentView('inspection_step');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.stepNumCircle, isDone && styles.stepNumCircleDone]}>
-                  <Text style={[styles.stepNumText, isDone && styles.stepNumTextDone]}>{sec.id}</Text>
-                </View>
-
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={styles.stepCardTitle}>{sec.title}</Text>
-                  <Text style={[styles.stepCardSub, isDone && { color: adminColors.success.text, fontWeight: '700' }]}>
-                    {isDone ? 'Completed' : sec.requiredLeft}
-                  </Text>
-                </View>
-
-                <Text style={[styles.stepCardStatus, isDone && styles.stepCardStatusDone]}>
-                  {isDone ? 'Completed' : 'Not Started'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={{ height: 16 }} />
-        </ScrollView>
-
-        {/* Bottom Actions matching Image 1: Review & Submit and Save Draft */}
-        <View style={styles.inspectionBottomBar}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={() => {
-              setCompletedInspectionScore(82);
-              setSelectedRecord((prev) => ({
-                ...prev,
-                score: '82/100',
-                previousSummary: {
-                  date: prev.previousSummary?.date || '15 Oct 2026',
-                  score: '82/100',
-                },
-              }));
-              Alert.alert('Audit Inspection', 'Inspection form submitted successfully! Audit rating generated: 82/100.', [
-                { text: 'View Summary', onPress: () => setCurrentView('audit_details_m5') },
-              ]);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Review & Submit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.saveDraftBtn}
-            onPress={() => {
-              Alert.alert('Draft Saved', 'Your audit inspection progress has been saved as draft.');
-              if (previousView === 'audit_details_m5') {
-                setCurrentView('audit_details_m5');
-              } else {
-                setCurrentView('detail');
-              }
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.saveDraftBtnText}>Save Draft</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ───────────────────────────────────────────────────────────────────────────
   // SCREEN 6: INSPECTION STEP DETAIL SCREEN (Screenshots 3 & 4)
@@ -3003,8 +2693,8 @@ export function AuditScheduleScreen({
       } else {
         Alert.alert(
           'Inspection Completed',
-          'All 4 sections have been successfully completed! Returning to Audit Inspection overview.',
-          [{ text: 'OK', onPress: () => setCurrentView('audit_inspection') }]
+          'All 4 sections have been successfully completed! Returning to Audit details.',
+          [{ text: 'OK', onPress: () => setCurrentView('detail') }]
         );
       }
     };
@@ -3496,7 +3186,7 @@ export function AuditScheduleScreen({
               setStep12ExpandedCategory(null);
               setStepDropdownAOpen(false);
               setStepDropdownBOpen(false);
-              setCurrentView('audit_inspection');
+              setCurrentView('detail');
             }}
             activeOpacity={0.7}
           >
@@ -6103,21 +5793,21 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   badgeCancelled: {
-    backgroundColor: '#FDE8E8',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeCancelledText: {
     ...adminType.caption,
     fontWeight: '700',
-    color: '#E53935',
+    color: adminColors.danger.text,
   },
   badgeUpcoming: {
     backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeUpcomingText: {
     ...adminType.caption,
@@ -6125,37 +5815,37 @@ const styles = StyleSheet.create({
     color: adminColors.warning.text,
   },
   badgeScheduled: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: adminColors.info.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeScheduledText: {
     ...adminType.caption,
     fontWeight: '700',
-    color: '#1976D2',
+    color: adminColors.info.text,
   },
   badgeInProgress: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: adminColors.purple.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeInProgressText: {
     ...adminType.caption,
     fontWeight: '700',
-    color: '#00838F',
+    color: adminColors.purple.text,
   },
   badgeCompleted: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeCompletedText: {
     ...adminType.caption,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: adminColors.success.text,
   },
 
   // ─── Filter Bottom Sheet Modal (Image 1) ───
@@ -9358,5 +9048,104 @@ const styles = StyleSheet.create({
   outlineScheduleVisitBtnText: {
     ...adminType.body,
     color: adminColors.ink,
+  },
+
+  // ─── Small Document Popup Styles ───
+  docModalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  docModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: 20,
+    ...adminShadow.lg,
+  },
+  docModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  docModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  docModalHeaderTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    color: adminColors.ink,
+  },
+  docModalMetaRow: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.canvas,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: 16,
+  },
+  docModalPreviewBox: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 20,
+  },
+  docModalPreviewTitle: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  docModalPreviewSubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  docModalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  docModalDownloadBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docModalDownloadBtnText: {
+    ...adminType.button,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  docModalCloseBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docModalCloseBtnText: {
+    ...adminType.button,
+    color: adminColors.ink,
+    fontWeight: '700',
   },
 });

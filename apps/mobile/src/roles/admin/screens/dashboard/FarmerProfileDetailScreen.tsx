@@ -623,33 +623,9 @@ export function FarmerProfileDetailScreen({
           </>
         )}
 
-        {/* ─── TAB 6: RATINGS (Screenshots 3 & 4) ─── */}
+        {/* ─── TAB 6: RATINGS ─── */}
         {activeTab === 'Ratings' && (
           <>
-            {/* Overall Rating Card (78/100) */}
-            <View style={styles.farmRatingHeroCard}>
-              <Text style={styles.farmRatingHeroScore}>78 / 100</Text>
-              <Text style={styles.farmRatingHeroLabel}>OVERALL RATING</Text>
-              <Text style={styles.farmRatingHeroDate}>Last rated 15 Oct 2026</Text>
-            </View>
-
-            {/* Category Scores */}
-            <Text style={styles.farmRatingSectionTitle}>Category Scores</Text>
-            <View style={styles.detailsCard}>
-              {FARM_RATING_CATEGORIES.map((cat, idx) => (
-                <View
-                  key={cat.name}
-                  style={[
-                    styles.farmRatingCategoryRow,
-                    idx === FARM_RATING_CATEGORIES.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <Text style={styles.farmRatingCategoryName}>{cat.name}</Text>
-                  <Text style={styles.farmRatingCategoryScore}>{cat.score}</Text>
-                </View>
-              ))}
-            </View>
-
             {/* Farm Information */}
             <Text style={styles.farmRatingSectionTitle}>Farm Information</Text>
             <View style={styles.detailsCard}>

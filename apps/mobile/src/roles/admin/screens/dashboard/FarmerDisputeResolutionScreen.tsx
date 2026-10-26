@@ -89,15 +89,14 @@ function ResizeGripIcon({ size = 12, color = adminColors.muted }: { size?: numbe
   );
 }
 
-function CheckmarkCircleSuccessIcon({ size = 52 }: { size?: number }) {
+function CheckmarkCircleSuccessIcon({ size = 72 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 56 56" fill="none">
-      <Circle cx="28" cy="28" r="27" fill={adminColors.success.bg} />
-      <Circle cx="28" cy="28" r="19" stroke={adminColors.success.text} strokeWidth="2.2" />
+    <Svg width={size} height={size} viewBox="0 0 72 72" fill="none">
+      <Circle cx="36" cy="36" r="35" fill={adminColors.success.bg} stroke={adminColors.success.border} strokeWidth="1.5" />
       <Path
-        d="M20 28.5l5.5 5.5 11-11"
+        d="M23 36.5l9 9 17-17"
         stroke={adminColors.success.text}
-        strokeWidth="2.6"
+        strokeWidth="3.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -200,7 +199,7 @@ export function FarmerDisputeResolutionScreen({
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Dispute Resolution</Text>
             <Text style={styles.headerSubtitle}>
-              {dispute.id} · {dispute.status}
+              {dispute.id} · {isSavedSuccessfully ? 'Resolved' : dispute.status}
             </Text>
           </View>
         </View>
@@ -215,41 +214,43 @@ export function FarmerDisputeResolutionScreen({
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.successIconBadgeWrap}>
-              <CheckmarkCircleSuccessIcon size={56} />
+              <CheckmarkCircleSuccessIcon size={72} />
             </View>
 
             <Text style={styles.successTitle}>Resolution Saved Successfully</Text>
             <Text style={styles.successSub}>Confirmed by the mediation desk</Text>
 
             {/* Summary Confirmation Card */}
-            <View style={styles.card}>
-              <View style={styles.twoColRow}>
-                <View style={styles.colLeft}>
-                  <Text style={styles.fieldLabel}>Dispute</Text>
-                  <Text style={styles.fieldValueBold}>{dispute.id}</Text>
+            <View style={styles.successCard}>
+              <View style={styles.successCardRow}>
+                <View style={styles.successColLeft}>
+                  <Text style={styles.successFieldLabel}>Dispute</Text>
+                  <Text style={styles.successFieldValue}>{dispute.id}</Text>
                 </View>
-                <View style={styles.colRight}>
-                  <Text style={styles.fieldLabel}>Updated Status</Text>
-                  <Text style={[styles.fieldValueBold, { color: adminColors.success.text }]}>
-                    Resolved
-                  </Text>
+                <View style={styles.successColRight}>
+                  <Text style={styles.successFieldLabel}>Updated Status</Text>
+                  <View style={styles.resolvedBadge}>
+                    <Text style={styles.resolvedBadgeText}>Resolved</Text>
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.fullWidthFieldLast}>
-                <Text style={styles.fieldLabel}>Outcome</Text>
-                <Text style={styles.fieldValueBold}>{outcome}</Text>
+              <View style={styles.successCardDivider} />
+
+              <View style={styles.successCardOutcomeRow}>
+                <Text style={styles.successFieldLabel}>Outcome</Text>
+                <Text style={styles.successFieldValue}>{outcome}</Text>
               </View>
             </View>
 
             <TouchableOpacity
-              style={styles.primaryBtn}
+              style={styles.successBackBtn}
               onPress={handleFinishAndReturn}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Back to Disputes"
             >
-              <Text style={styles.primaryBtnText}>Back to Disputes</Text>
+              <Text style={styles.successBackBtnText}>Back to Disputes</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -438,13 +439,7 @@ export function FarmerDisputeResolutionScreen({
               </TouchableOpacity>
             </View>
 
-            {/* 4. Authority Notice Box (Screenshot 2) */}
-            <View style={styles.authorityNoticeBox}>
-              <InfoCircleIcon size={18} color={adminColors.warning.text} />
-              <Text style={styles.authorityNoticeText}>
-                Refunds, payouts, amount changes and other financial adjustments are outside the Farmer Admin's authority. No escalation route is configured, so recording this outcome will not escalate it.
-              </Text>
-            </View>
+
 
             {validationError && (
               <View style={styles.errorBanner}>
@@ -1098,28 +1093,104 @@ const styles = StyleSheet.create({
   // Success State View
   successContainer: {
     flex: 1,
+    backgroundColor: adminColors.canvas,
   },
   successContentPad: {
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.xl,
+    paddingTop: 36,
     paddingBottom: 40,
     alignItems: 'center',
   },
   successIconBadgeWrap: {
-    marginBottom: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   successTitle: {
     ...adminType.title,
     color: adminColors.ink,
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: -0.3,
+    marginBottom: 6,
   },
   successSub: {
-    ...adminType.rowMeta,
+    ...adminType.body,
     color: adminColors.muted,
-    fontSize: 12.5,
+    fontSize: 13.5,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 28,
+  },
+  successCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    marginBottom: 24,
+    ...adminShadow.sm,
+  },
+  successCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  successColLeft: {
+    flex: 1,
+  },
+  successColRight: {
+    alignItems: 'flex-end',
+  },
+  successFieldLabel: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  successFieldValue: {
+    ...adminType.body,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  resolvedBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  resolvedBadgeText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  successCardDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 14,
+    opacity: 0.6,
+  },
+  successCardOutcomeRow: {
+    width: '100%',
+  },
+  successBackBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  successBackBtnText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

@@ -235,9 +235,9 @@ export function FarmerProductListingsScreen({
 }: FarmerProductListingsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [selectedZone, setSelectedZone] = useState<'All' | 'Coonoor' | 'Ooty'>('All');
-  const [selectedCrop, setSelectedCrop] = useState<'All' | 'Tomato' | 'Carrot' | 'Beans' | 'Onion' | 'Potato'>('All');
+  const [selectedStatus, setSelectedStatus] = useState<'All' | 'Pending Review'>('All');
   const [selectedGrade, setSelectedGrade] = useState<'All' | 'Grade 1' | 'Grade 2'>('All');
+  const [selectedZone, setSelectedZone] = useState<'All' | 'Coonoor' | 'Ooty'>('All');
   const [selectedFarmerForDetails, setSelectedFarmerForDetails] = useState<{
     farmer: FarmerListingGroup;
     product: ProductListingItem;
@@ -263,9 +263,11 @@ export function FarmerProductListingsScreen({
 
     return MOCK_FARMERS_DATA.map((farmer) => {
       const filteredProducts = farmer.products.filter((product) => {
-        if (selectedZone !== 'All' && farmer.zone !== selectedZone) return false;
-        if (selectedCrop !== 'All' && product.cropName !== selectedCrop) return false;
+        if (selectedStatus === 'Pending Review' && product.status !== 'Pending') {
+          return false;
+        }
         if (selectedGrade !== 'All' && product.grade !== selectedGrade) return false;
+        if (selectedZone !== 'All' && farmer.zone !== selectedZone) return false;
 
         if (q) {
           const matchCrop = product.cropName.toLowerCase().includes(q);
@@ -283,16 +285,16 @@ export function FarmerProductListingsScreen({
         products: filteredProducts,
       };
     }).filter((farmer) => farmer.products.length > 0);
-  }, [searchQuery, selectedZone, selectedCrop, selectedGrade]);
+  }, [searchQuery, selectedStatus, selectedGrade, selectedZone]);
 
   const totalFilteredCount = useMemo(() => {
     return filteredFarmerGroups.reduce((acc, curr) => acc + curr.products.length, 0);
   }, [filteredFarmerGroups]);
 
   const handleClearFilters = () => {
-    setSelectedZone('All');
-    setSelectedCrop('All');
+    setSelectedStatus('All');
     setSelectedGrade('All');
+    setSelectedZone('All');
     setSearchQuery('');
   };
 
@@ -442,48 +444,31 @@ export function FarmerProductListingsScreen({
           />
         </View>
 
-        {/* ─── Expandable Filter Panel ─── */}
+        {/* ─── Expandable Filter Panel (Matching Image 2) ─── */}
         {showFilterPanel && (
           <View style={styles.filterCard}>
-            <View style={styles.filterTitleRow}>
-              <FilterSlidersIcon size={18} color={adminColors.brandDeep} />
-              <Text style={styles.filterTitle}>{t('farmerProductListings.filters.title')}</Text>
-            </View>
-
-            {/* Filter by Zone */}
-            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.zone')}</Text>
+            {/* Filter by Status */}
+            <Text style={styles.filterSectionLabel}>Status</Text>
             <View style={styles.chipsRow}>
-              {(['All', 'Coonoor', 'Ooty'] as const).map((z) => {
-                const active = selectedZone === z;
+              {(['All', 'Pending Review'] as const).map((s) => {
+                const active = selectedStatus === s;
                 return (
                   <TouchableOpacity
-                    key={z}
-                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
-                    onPress={() => setSelectedZone(z)}
+                    key={s}
+                    style={[
+                      styles.filterChip,
+                      active ? styles.filterChipActive : styles.filterChipInactive,
+                    ]}
+                    onPress={() => setSelectedStatus(s)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
-                      {z === 'All' ? t('farmerProductListings.filter.all') : z}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Filter by Crop */}
-            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.crop')}</Text>
-            <View style={styles.chipsRow}>
-              {(['All', 'Tomato', 'Carrot', 'Beans', 'Onion', 'Potato'] as const).map((c) => {
-                const active = selectedCrop === c;
-                return (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
-                    onPress={() => setSelectedCrop(c)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
-                      {c === 'All' ? t('farmerProductListings.filter.all') : c}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        active ? styles.filterChipTextActive : styles.filterChipTextInactive,
+                      ]}
+                    >
+                      {s}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -491,19 +476,55 @@ export function FarmerProductListingsScreen({
             </View>
 
             {/* Filter by Grade */}
-            <Text style={styles.filterSectionLabel}>{t('farmerProductListings.filter.grade')}</Text>
+            <Text style={styles.filterSectionLabel}>Grade</Text>
             <View style={styles.chipsRow}>
               {(['All', 'Grade 1', 'Grade 2'] as const).map((g) => {
                 const active = selectedGrade === g;
                 return (
                   <TouchableOpacity
                     key={g}
-                    style={[styles.filterChip, active ? styles.filterChipActive : styles.filterChipInactive]}
+                    style={[
+                      styles.filterChip,
+                      active ? styles.filterChipActive : styles.filterChipInactive,
+                    ]}
                     onPress={() => setSelectedGrade(g)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.filterChipText, active ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
-                      {g === 'All' ? t('farmerProductListings.filter.all') : g}
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        active ? styles.filterChipTextActive : styles.filterChipTextInactive,
+                      ]}
+                    >
+                      {g}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Filter by Zone */}
+            <Text style={styles.filterSectionLabel}>Zone</Text>
+            <View style={styles.chipsRow}>
+              {(['All', 'Coonoor', 'Ooty'] as const).map((z) => {
+                const active = selectedZone === z;
+                return (
+                  <TouchableOpacity
+                    key={z}
+                    style={[
+                      styles.filterChip,
+                      active ? styles.filterChipActive : styles.filterChipInactive,
+                    ]}
+                    onPress={() => setSelectedZone(z)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        active ? styles.filterChipTextActive : styles.filterChipTextInactive,
+                      ]}
+                    >
+                      {z}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -517,7 +538,7 @@ export function FarmerProductListingsScreen({
                 onPress={() => setShowFilterPanel(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.applyBtnText}>{t('farmerProductListings.filter.apply')}</Text>
+                <Text style={styles.applyBtnText}>Apply</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -525,7 +546,7 @@ export function FarmerProductListingsScreen({
                 onPress={handleClearFilters}
                 activeOpacity={0.8}
               >
-                <Text style={styles.clearBtnText}>{t('farmerProductListings.filter.clear')}</Text>
+                <Text style={styles.clearBtnText}>Clear</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -790,8 +811,8 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     ...adminType.body,
-    fontWeight: '700',
-    color: adminColors.muted,
+    fontWeight: '800',
+    color: adminColors.ink,
   },
 
   // ─── Farmer Card ───

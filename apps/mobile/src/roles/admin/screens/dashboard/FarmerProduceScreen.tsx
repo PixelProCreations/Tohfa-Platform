@@ -11,6 +11,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -152,32 +153,39 @@ export function FarmerProduceScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2x2 Summary Metric Cards */}
-        <View style={styles.kpiGrid}>
-          {/* TOTAL LISTINGS */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.totalListings')}</Text>
-            <Text style={styles.kpiValueDark}>18</Text>
-          </View>
-
-          {/* PENDING */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.pending')}</Text>
-            <Text style={styles.kpiValueAmber}>03</Text>
-          </View>
-
-          {/* APPROVED */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.approved')}</Text>
-            <Text style={styles.kpiValueDark}>12</Text>
-          </View>
-
-          {/* REJECTED */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>{t('farmerProduce.kpi.rejected')}</Text>
-            <Text style={styles.kpiValueRed}>03</Text>
-          </View>
-        </View>
+        {/* 2x2 Summary Metric Cards (Static Display Only) */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+          <OverviewDashboardCard
+            value="18"
+            title={t('farmerProduce.kpi.totalListings')}
+            subtitle="All listings"
+            icon="orders"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="03"
+            title={t('farmerProduce.kpi.pending')}
+            subtitle="Needs review"
+            icon="orders"
+            tone="warning"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="12"
+            title={t('farmerProduce.kpi.approved')}
+            subtitle="Verified ready"
+            icon="pickup"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="03"
+            title={t('farmerProduce.kpi.rejected')}
+            subtitle="Needs attention"
+            icon="box"
+            tone="danger"
+            disabled
+          />
+        </OverviewCardsGrid>
 
         {/* Filter Pills Row */}
         <View style={styles.filterPillsRow}>
