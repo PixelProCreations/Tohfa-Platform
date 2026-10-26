@@ -111,6 +111,14 @@ function qualityCheckStocks(outcome: QcOutcome, grade: ProduceGrade, acceptedQty
   return (outcome === 'ACCEPTED' || outcome === 'PARTIALLY_ACCEPTED') && grade !== 'REJECT' && acceptedQtyKg > 0;
 }
 
+/**
+ * A Quantity decimal string (at most 3 decimals) as integer grams, so quantity sums are compared
+ * exactly rather than as floats (BR-120). Exact for every value numeric(12,3) can hold.
+ */
+function kgToGrams(kg: string): number {
+  return Math.round(Number(kg) * 1000);
+}
+
 /** uq_inventory_batches_goods_receipt_id (migration 0070) decided a race the row lock did not see. */
 function isReceiptAlreadyStocked(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
@@ -403,10 +411,48 @@ export function createGoodsReceiptsService(
           });
         }
 
-        if (rejectedQty > 0 && !input.rejectionReason && !input.defectNotes) {
+        if (rejectedQty > 0 && !input.rejectionReason && !input.defectNotes && input.rejectionReasonCode === undefined) {
           throw new AppError('VALIDATION_FAILED', {
-            detail: 'A non-zero rejected quantity requires a rejection reason or defect notes.',
+            detail: 'A non-zero rejected quantity requires a rejection reason, a rejection reason code or defect notes.',
           });
+        }
+
+        // BR-120: damaged and spoiled are a breakdown OF the rejected quantity, never in addition to
+        // it, so with accepted + rejected <= gross above they can never make the books hold more than
+        // arrived. They never change what is stocked (accepted quantity only, BR-106). Integer grams.
+        const rejectedGrams = kgToGrams(input.rejectedQtyKg ?? '0');
+        const damagedGrams = kgToGrams(input.damagedQtyKg ?? '0');
+        const spoiledGrams = kgToGrams(input.spoiledQtyKg ?? '0');
+        if (damagedGrams + spoiledGrams > rejectedGrams) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: `damagedQtyKg (${input.damagedQtyKg}) + spoiledQtyKg (${input.spoiledQtyKg}) cannot exceed rejectedQtyKg (${input.rejectedQtyKg}): they are parts of the rejected quantity.`,
+          });
+        }
+        if (input.rejectionReasonCode !== undefined && rejectedGrams === 0) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'rejectionReasonCode needs a non-zero rejectedQtyKg.',
+          });
+        }
+
+        // BR-120: a crop mismatch is recorded only (the batch keeps the purchase order's crop), but
+        // it must name a real crop other than the ordered one, for no more than arrived.
+        if (input.actualCropId !== undefined) {
+          const crop = await repo.findCropMismatchContext(tx, goodsReceiptId, input.actualCropId);
+          if (crop === null || !crop.actualCropExists) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: `actualCropId "${input.actualCropId}" is not a known crop.`,
+            });
+          }
+          if (crop.purchaseOrderCropId === input.actualCropId) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: "actualCropId is the purchase order's own crop; omit it when the right crop was delivered.",
+            });
+          }
+          if (kgToGrams(input.cropMismatchQtyKg ?? '0') > kgToGrams(grn.grossQtyKg)) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: `cropMismatchQtyKg (${input.cropMismatchQtyKg}) cannot exceed grossQtyKg (${grn.grossQtyKg}).`,
+            });
+          }
         }
 
         // 4. One transaction: the claim, the quality check & items, the GRN status, the batch the
@@ -426,7 +472,9 @@ export function createGoodsReceiptsService(
           input.outcome,
           acceptedQtyKg,
           Number(rejectedQty).toFixed(3),
-          input.rejectionReason ?? input.defectNotes,
+          // The free-text note first, as before; a structured code alone also satisfies the
+          // receipt's "rejected needs a reason" CHECK (BR-120).
+          input.rejectionReason ?? input.defectNotes ?? input.rejectionReasonCode,
         );
 
         // Audit log (BR-35), through the shared helper on this transaction. It used to be a raw

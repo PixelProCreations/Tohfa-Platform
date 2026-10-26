@@ -9688,9 +9688,10 @@ paths:
         the same 404 as an id that does not exist, also for a Sub Warehouse Admin whose grant is
         `all`. The receipt carries `receivedByName` and `qualityCheck`: the receipt's latest quality
         check with its items and `checkedByName`, or `null` before any check (BR-119). The check is
-        read only after the receipt passed the scope filter.
+        read only after the receipt passed the scope filter. It includes the BR-120 breakdown,
+        condition levels, crop mismatch and rejection reason code as recorded.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30, BR-119]
+      x-business-rules: [BR-30, BR-119, BR-120]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
       responses:
@@ -9730,8 +9731,16 @@ paths:
         target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
         attempt is not remembered. A replayed check
         is not the "already checked" 409 and creates no second batch or `RECEIPT` ledger row (BR-106).
+
+        Breakdown and classification (BR-120, all optional; every value set is UNCONFIRMED):
+        `damagedQtyKg` and `spoiledQtyKg` are parts OF `rejectedQtyKg` (their sum may not exceed it,
+        422) and never change what is stocked: the batch is still `acceptedQtyKg` only. Each item may
+        carry a `condition` level. `actualCropId` with `cropMismatchQtyKg` records that a different
+        crop was delivered (stored only; the batch keeps the purchase order's crop). `rejectionReasonCode`
+        is a structured reason and needs a non-zero `rejectedQtyKg`; the free-text `rejectionReason`
+        stays an optional note. A non-zero `rejectedQtyKg` needs the code, the note or `defectNotes`.
       x-permission: inventory.quality_check.perform
-      x-business-rules: [BR-30, BR-37, BR-12, BR-106, BR-118]
+      x-business-rules: [BR-30, BR-37, BR-12, BR-106, BR-118, BR-120]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -9745,6 +9754,15 @@ paths:
               outcome: PARTIALLY_ACCEPTED
               acceptedQtyKg: '220.000'
               rejectedQtyKg: '30.000'
+              damagedQtyKg: '12.000'
+              spoiledQtyKg: '8.000'
+              rejectionReasonCode: PHYSICAL_DAMAGE
+              items:
+                - { parameter: APPEARANCE, score: 7, passed: true, condition: GOOD }
+                - { parameter: SIZE_UNIFORMITY, score: 8, passed: true, condition: GOOD }
+                - { parameter: MOISTURE, score: 7, passed: true, measuredValue: 12.4, condition: FAIR }
+                - { parameter: DAMAGE_PEST, score: 5, passed: false, condition: POOR, remarks: Bruising on the top layer. }
+                - { parameter: FRESHNESS, score: 8, passed: true, condition: GOOD }
               moisturePct: 12.4
               visualScore: 7
               defectNotes: Minor surface bruising on 30 kg.
@@ -20312,12 +20330,34 @@ components:
 
     QualityCheckCreate:
       type: object
-      required: [assignedGrade, outcome, acceptedQtyKg]
+      additionalProperties: false
+      required: [assignedGrade, outcome, acceptedQtyKg, items]
       properties:
         assignedGrade: { $ref: '#/components/schemas/Grade' }
         outcome: { type: string, enum: [ACCEPTED, PARTIALLY_ACCEPTED, REJECTED] }
         acceptedQtyKg: { $ref: '#/components/schemas/Quantity' }
         rejectedQtyKg: { $ref: '#/components/schemas/Quantity' }
+        rejectionReason: { type: string, description: 'Free-text note on the rejection, kept as before. Optional (BR-120).' }
+        rejectionReasonCode: { $ref: '#/components/schemas/QcRejectionReasonCode' }
+        damagedQtyKg:
+          type: string
+          pattern: '^[0-9]{1,9}(\.[0-9]{1,3})?$'
+          description: 'Part OF `rejectedQtyKg` that was physically damaged; `damagedQtyKg + spoiledQtyKg <= rejectedQtyKg` (else 422). Never stocked. Omitted means `0.000` (BR-120).'
+        spoiledQtyKg:
+          type: string
+          pattern: '^[0-9]{1,9}(\.[0-9]{1,3})?$'
+          description: Part OF `rejectedQtyKg` that was spoiled. Never stocked. Omitted means `0.000` (BR-120).
+        actualCropId: { type: string, format: uuid, description: 'The crop actually delivered, when it is not the purchase order''s crop. Requires `cropMismatchQtyKg`; an unknown crop or the order''s own crop is 422. Stored only: the batch keeps the order''s crop (BR-120, UNCONFIRMED).' }
+        cropMismatchQtyKg:
+          type: string
+          pattern: '^[0-9]{1,9}(\.[0-9]{1,3})?$'
+          description: The quantity of the mismatched crop; above zero, at most `grossQtyKg`; only with `actualCropId` (BR-120).
+        items:
+          type: array
+          minItems: 5
+          maxItems: 5
+          description: The 5-point check, exactly one item per parameter (a missing or duplicate parameter is 422).
+          items: { $ref: '#/components/schemas/QualityCheckItemCreate' }
         moisturePct: { type: number, minimum: 0, maximum: 100 }
         visualScore: { type: integer, minimum: 0, maximum: 10 }
         defectNotes: { type: string, maxLength: 500 }
@@ -20325,6 +20365,29 @@ components:
         priceAdjustment: { $ref: '#/components/schemas/Money', description: 'Signed per-kg adjustment when the assigned grade differs from the listed grade.' }
         storageLocation: { type: string, maxLength: 40, description: 'Copied to the batch the accepted goods are stocked as (BR-106).' }
         expiryOn: { type: string, format: date, description: 'A real calendar date, else 422. Copied to the batch (BR-106); the batch expiry is null when omitted.' }
+
+    QualityCheckItemCreate:
+      type: object
+      additionalProperties: false
+      required: [parameter, passed]
+      properties:
+        parameter: { type: string, enum: [APPEARANCE, SIZE_UNIFORMITY, MOISTURE, DAMAGE_PEST, FRESHNESS] }
+        score: { type: integer, minimum: 0, maximum: 10 }
+        passed: { type: boolean }
+        measuredValue: { type: number, minimum: 0, maximum: 9999999.999, description: 'Stored as numeric(10,3).' }
+        remarks: { type: string, maxLength: 500 }
+        photoKeys: { type: array, maxItems: 5, default: [], items: { type: string } }
+        condition: { $ref: '#/components/schemas/QcConditionLevel' }
+
+    QcConditionLevel:
+      type: string
+      enum: [EXCELLENT, GOOD, FAIR, POOR, UNACCEPTABLE]
+      description: 'Graded condition of one quality-check point, best to worst (BR-120, UNCONFIRMED set). `passed` stays required and is not derived from it.'
+
+    QcRejectionReasonCode:
+      type: string
+      enum: [BELOW_GRADE, PHYSICAL_DAMAGE, SPOILAGE, PEST_OR_DISEASE, MOISTURE_OUT_OF_RANGE, FOREIGN_MATTER, WRONG_CROP, OTHER]
+      description: 'Structured reason for a rejected quantity (BR-120, UNCONFIRMED set). Needs a non-zero `rejectedQtyKg`.'
 
     QualityCheck:
       type: object
@@ -20347,6 +20410,15 @@ components:
         checkedByName: { type: [string, 'null'], description: '`users.full_name` of `checkedBy`; on the receipt read only (BR-119).' }
         checkedAt: { type: string, format: date-time }
         items: { type: array, items: { $ref: '#/components/schemas/QualityCheckItem' } }
+        damagedQtyKg: { $ref: '#/components/schemas/Quantity', description: 'Part of `rejectedQtyKg` (BR-120); `0.000` when not given.' }
+        spoiledQtyKg: { $ref: '#/components/schemas/Quantity', description: 'Part of `rejectedQtyKg` (BR-120); `0.000` when not given.' }
+        rejectionReasonCode:
+          oneOf:
+            - { $ref: '#/components/schemas/QcRejectionReasonCode' }
+            - { type: 'null' }
+        actualCropId: { type: [string, 'null'], format: uuid, description: The crop actually delivered when it differed from the purchase order's (BR-120). }
+        actualCropName: { type: [string, 'null'], description: '`crop_master.name` of `actualCropId`.' }
+        cropMismatchQtyKg: { type: [string, 'null'], description: 'Quantity of the mismatched crop, as a decimal string (BR-120).' }
 
     QualityCheckItem:
       type: object
@@ -20358,9 +20430,13 @@ components:
         parameter: { type: string, enum: [APPEARANCE, SIZE_UNIFORMITY, MOISTURE, DAMAGE_PEST, FRESHNESS] }
         score: { type: [integer, 'null'], minimum: 0, maximum: 10 }
         passed: { type: boolean }
-        measuredValue: { type: [number, 'null'] }
+        measuredValue: { type: [string, 'null'], description: 'The stored numeric(10,3) as a decimal string, e.g. "12.500" (the request sends a number).' }
         remarks: { type: [string, 'null'] }
         photoKeys: { type: array, items: { type: string } }
+        condition:
+          oneOf:
+            - { $ref: '#/components/schemas/QcConditionLevel' }
+            - { type: 'null' }
 
     RejectedGoodsDisposal:
       type: object

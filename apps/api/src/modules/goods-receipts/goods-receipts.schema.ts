@@ -14,6 +14,36 @@ export type QcParameter = (typeof qcParameters)[number];
 export const qcOutcomes = ['ACCEPTED', 'PARTIALLY_ACCEPTED', 'REJECTED'] as const;
 export type QcOutcome = (typeof qcOutcomes)[number];
 
+/**
+ * BR-120 (UNCONFIRMED sets): a graded condition per quality-check point, best to worst, and the
+ * structured reasons for a rejected quantity. Mirrored by the CHECK constraints of migration 0076
+ * and by docs/openapi.yaml QcConditionLevel / QcRejectionReasonCode.
+ */
+export const qcConditionLevels = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'UNACCEPTABLE'] as const;
+export type QcConditionLevel = (typeof qcConditionLevels)[number];
+
+export const qcRejectionReasonCodes = [
+  'BELOW_GRADE',
+  'PHYSICAL_DAMAGE',
+  'SPOILAGE',
+  'PEST_OR_DISEASE',
+  'MOISTURE_OUT_OF_RANGE',
+  'FOREIGN_MATTER',
+  'WRONG_CROP',
+  'OTHER',
+] as const;
+export type QcRejectionReasonCode = (typeof qcRejectionReasonCodes)[number];
+
+/**
+ * docs/openapi.yaml Quantity without the sign: a non-negative decimal string with at most 3
+ * decimals. The regex runs before any `Number` so the value reaches SQL as the string the client
+ * sent (numeric(12,3)), never through a JS float.
+ */
+const qcQuantity = /^[0-9]{1,9}(\.[0-9]{1,3})?$/;
+
+/** quality_check_items.measured_value is numeric(10,3): the largest value the column can hold. */
+const MEASURED_VALUE_COLUMN_MAX = 9_999_999.999;
+
 export const grnStatuses = [
   'AWAITING_QC',
   'ACCEPTED',
@@ -63,14 +93,16 @@ export const createGoodsReceiptBody = z
   .strict();
 export type CreateGoodsReceiptBody = z.infer<typeof createGoodsReceiptBody>;
 
+/** docs/openapi.yaml QualityCheckItemCreate (BR-120: documented and validated strictly). */
 export const qualityCheckItemInput = z
   .object({
     parameter: z.enum(qcParameters),
     score: z.number().int().min(0).max(10).optional(),
     passed: z.boolean(),
-    measuredValue: z.number().optional(),
-    remarks: z.string().optional(),
-    photoKeys: z.array(z.string()).default([]),
+    measuredValue: z.number().finite().min(0).max(MEASURED_VALUE_COLUMN_MAX).optional(),
+    remarks: z.string().max(500).optional(),
+    photoKeys: z.array(z.string()).max(5).default([]),
+    condition: z.enum(qcConditionLevels).optional(),
   })
   .strict();
 export type QualityCheckItemInput = z.infer<typeof qualityCheckItemInput>;
@@ -89,9 +121,43 @@ export const qualityCheckCreateBody = z
         message: 'rejectedQtyKg must be non-negative',
       }),
     rejectionReason: z.string().optional(),
+    // BR-120: a structured reason next to the free-text note above.
+    rejectionReasonCode: z.enum(qcRejectionReasonCodes).optional(),
+    // BR-120: parts OF rejectedQtyKg (the service checks the sum), never stocked. Omitted means
+    // 0.000 (the column default); optional rather than a Zod default so existing callers that build
+    // a parsed body by hand keep compiling.
+    damagedQtyKg: z
+      .string()
+      .regex(qcQuantity, 'damagedQtyKg must be a non-negative decimal string with at most 3 decimal places')
+      .optional(),
+    spoiledQtyKg: z
+      .string()
+      .regex(qcQuantity, 'spoiledQtyKg must be a non-negative decimal string with at most 3 decimal places')
+      .optional(),
+    // BR-120: the crop actually delivered when it is not the purchase order's, and how much of it.
+    actualCropId: z.string().uuid('actualCropId must be a valid UUID').optional(),
+    cropMismatchQtyKg: z
+      .string()
+      .regex(qcQuantity, 'cropMismatchQtyKg must be a non-negative decimal string with at most 3 decimal places')
+      .refine((val) => Number(val) > 0, { message: 'cropMismatchQtyKg must be greater than 0' })
+      .optional(),
     items: z
       .array(qualityCheckItemInput)
-      .length(5, 'Quality check must contain all 5 required parameters (BR-30)'),
+      .length(5, 'Quality check must contain all 5 required parameters (BR-30)')
+      .superRefine((items, ctx) => {
+        // Five items are not five points unless each parameter appears once (BR-120).
+        const seen = new Set<string>();
+        for (const item of items) {
+          if (seen.has(item.parameter)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Quality check parameter "${item.parameter}" appears more than once; each of the 5 must appear exactly once`,
+            });
+            return;
+          }
+          seen.add(item.parameter);
+        }
+      }),
     moisturePct: z.number().min(0).max(100).optional(),
     visualScore: z.number().int().min(0).max(10).optional(),
     defectNotes: z.string().max(500).optional(),
@@ -105,7 +171,24 @@ export const qualityCheckCreateBody = z
       .refine(isCalendarDate, { message: 'expiryOn must be a real calendar date in YYYY-MM-DD format' })
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    // BR-120: a crop mismatch names the crop AND the quantity, or neither.
+    if (body.actualCropId !== undefined && body.cropMismatchQtyKg === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['cropMismatchQtyKg'],
+        message: 'cropMismatchQtyKg is required with actualCropId',
+      });
+    }
+    if (body.cropMismatchQtyKg !== undefined && body.actualCropId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['actualCropId'],
+        message: 'actualCropId is required with cropMismatchQtyKg',
+      });
+    }
+  });
 export type QualityCheckCreateBody = z.infer<typeof qualityCheckCreateBody>;
 
 /*
@@ -182,9 +265,13 @@ export const qualityCheckItemResponse = z.object({
   parameter: z.enum(qcParameters),
   score: z.number().nullable().optional(),
   passed: z.boolean(),
-  measuredValue: z.number().nullable().optional(),
+  // numeric(10,3) reaches the wire as a decimal string (pool.ts keeps NUMERIC as text); typed
+  // loosely so the in-memory test repos that echo the request's number still type-check.
+  measuredValue: z.union([z.string(), z.number()]).nullable().optional(),
   remarks: z.string().nullable().optional(),
   photoKeys: z.array(z.string()),
+  // BR-120: null when the inspector gave no condition.
+  condition: z.enum(qcConditionLevels).nullable().optional(),
 });
 export type QualityCheckItemResponse = z.infer<typeof qualityCheckItemResponse>;
 
@@ -205,6 +292,13 @@ export const qualityCheckResponse = z.object({
   checkedByName: z.string().nullable().optional(),
   checkedAt: z.string(),
   items: z.array(qualityCheckItemResponse).optional(),
+  // BR-120 additions, as stored ("0.000" / null when not given).
+  damagedQtyKg: z.string().optional(),
+  spoiledQtyKg: z.string().optional(),
+  rejectionReasonCode: z.enum(qcRejectionReasonCodes).nullable().optional(),
+  actualCropId: z.string().uuid().nullable().optional(),
+  actualCropName: z.string().nullable().optional(),
+  cropMismatchQtyKg: z.string().nullable().optional(),
 });
 export type QualityCheckResponse = z.infer<typeof qualityCheckResponse>;
 

@@ -2910,6 +2910,37 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-120 — A quality check breaks its rejected quantity into damaged and spoiled, grades each point's condition, records a crop mismatch and a structured rejection reason, without changing what is stocked
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C3 for the Sub Warehouse Admin quality-check screen (damaged / spoiled quantities, graded condition levels, delivered-crop mismatch, rejection reason codes, documented `items[]`); extends BR-106 (stocking unchanged) and BR-118 (idempotency unchanged); `docs/rbac.json` `inventory.quality_check.perform` (existing code) |
+| **Status** | DERIVED (every value set below is UNCONFIRMED: an implementer default awaiting the owner) |
+| **Layer** | Server-side: `apps/api/src/modules/goods-receipts/` (`qualityCheckCreateBody`, `recordQualityCheck`); `quality_checks` / `quality_check_items` columns and CHECK constraints of `db/migrations/0076_quality_check_breakdown.sql` |
+| **Scope** | Track 1 |
+
+**Rule.** On `POST /admin/goods-receipts/{id}/quality-check`, every addition is optional, so a request without them behaves exactly as before:
+1. **Damaged and spoiled are a breakdown of the rejected quantity.** `damagedQtyKg` and `spoiledQtyKg` (Quantity strings, at most 3 decimals, non-negative; omitted means `0.000`) name the parts of `rejectedQtyKg` that were physically damaged or spoiled; the rest of the rejected quantity is rejected for other reasons. The server refuses (422 `VALIDATION_FAILED`, nothing written) `damagedQtyKg + spoiledQtyKg > rejectedQtyKg`, compared in integer grams, never as floats. With the existing `acceptedQtyKg + rejectedQtyKg <= grossQtyKg` this keeps accepted + damaged + spoiled within what was received. The database enforces the same (`quality_checks_breakdown_chk`).
+2. **Stock is unchanged (BR-106).** The batch is created exactly as before, for `acceptedQtyKg` only. Damaged and spoiled quantities are never stocked, never written to `stock_ledger`, never change the receipt's `accepted_qty_kg` / `rejected_qty_kg` (which stay as given), the purchase order or a payout.
+3. **Condition levels.** Each `items[]` point may carry `condition`, one of `EXCELLENT`, `GOOD`, `FAIR`, `POOR`, `UNACCEPTABLE` (UNCONFIRMED set; stored in `quality_check_items.condition`, CHECK-constrained). `passed` stays required and is not derived from it, and the two are not cross-checked (UNCONFIRMED).
+4. **Crop mismatch.** `actualCropId` names the crop that was actually delivered when it is not the purchase order's crop, with `cropMismatchQtyKg` (> 0, at most `grossQtyKg`), the quantity affected. They come together or not at all (422 otherwise; database CHECK too). An unknown crop, or the purchase order's own crop, is 422. They are STORED ONLY (`quality_checks.actual_crop_id`, `crop_mismatch_qty_kg`): the batch is still created under the purchase order's crop and no quantity moves, because no rule says otherwise (UNCONFIRMED; flagged for the owner: whether mismatched produce should be rejected, stocked under the actual crop, or held).
+5. **Rejection reason codes.** `rejectionReasonCode` is one of `BELOW_GRADE`, `PHYSICAL_DAMAGE`, `SPOILAGE`, `PEST_OR_DISEASE`, `MOISTURE_OUT_OF_RANGE`, `FOREIGN_MATTER`, `WRONG_CROP`, `OTHER` (UNCONFIRMED set), stored in `quality_checks.rejection_reason_code` (CHECK-constrained column, not a reference table: the set is part of the HTTP contract and the Zod schema, so a table could not change it without a deploy anyway; the same pattern as `quality_check_items.parameter`). It needs a non-zero `rejectedQtyKg` (422 otherwise). The free-text `rejectionReason` stays as an optional note. A non-zero rejected quantity still needs a reason: the code, the note or `defectNotes` (any one; the code alone now satisfies it). The receipt's `rejection_reason` is the note, else `defectNotes`, else the code.
+6. **`items[]` documented and validated strictly.** Exactly 5 points, one per parameter (`APPEARANCE`, `SIZE_UNIFORMITY`, `MOISTURE`, `DAMAGE_PEST`, `FRESHNESS`; a duplicate is 422); `score` integer 0-10; `passed` boolean (required); `measuredValue` a finite number from 0 to 9999999.999 (the `numeric(10,3)` column); `remarks` at most 500 characters; `photoKeys` at most 5; `condition` as in item 3; unknown keys 422.
+7. **Read back.** Everything stored is returned on the quality check of the POST response and of the `GET /admin/goods-receipts/{id}` block (BR-119): `damagedQtyKg`, `spoiledQtyKg`, `rejectionReasonCode`, `actualCropId`, `actualCropName`, `cropMismatchQtyKg` and each item's `condition`. The audit row of the check carries them (no free text beyond what it already carried).
+8. **Idempotency unchanged (BR-118).** The new fields are part of the request a key is bound to: a replay with the same body returns the original result; the same key with a different breakdown is 409 `IDEMPOTENCY_KEY_REUSED`.
+
+**Failure mode if unenforced.** Damaged or spoiled kilograms are counted on top of the rejected ones and the books show more produce than arrived, or a breakdown silently changes what is stocked; or the warehouse cannot say why a lot was rejected in a form anyone can count, and a wrong-crop delivery disappears into a free-text note.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.qc-model.test.ts`)
+- `BR-120a` `items[]` validation: five distinct parameters, score, `measuredValue` range, remarks and photo limits, `condition` values, unknown keys.
+- `BR-120b` Damaged + spoiled above the rejected quantity is 422 and writes nothing; at or below it is recorded; quantities are decimal strings with at most 3 decimals.
+- `BR-120c` Stock is unchanged: with a breakdown the batch, the `RECEIPT` ledger row and the receipt's accepted / rejected quantities equal what the same check without a breakdown produces.
+- `BR-120d` A crop mismatch is stored with its quantity and returned with the crop's name; the batch keeps the purchase order's crop; an unknown crop, the order's own crop, a quantity above gross, or one field without the other is 422.
+- `BR-120e` A rejection reason code is stored and returned; an unknown code is 422; a code with nothing rejected is 422; a code alone satisfies the reason requirement.
+- `BR-120f` The receipt read (BR-119) returns every stored addition, including each item's `condition`; a check without additions reads back zeros and nulls.
+- `BR-120g` A replay with the same key and body returns the same result and stocks once; the same key with a different breakdown is 409 `IDEMPOTENCY_KEY_REUSED`.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

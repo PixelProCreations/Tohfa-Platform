@@ -182,6 +182,8 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       })),
     }),
     findQualityCheckByGoodsReceiptId: async () => null,
+    // BR-120 crop mismatch; the real SQL runs in goods-receipts.qc-model.test.ts.
+    findCropMismatchContext: async () => ({ purchaseOrderCropId: samplePO.cropId, actualCropExists: true }),
     updateGoodsReceiptStatus: async () => {},
     insertQualityCounterOffer: mockQualityOffer,
     // The quality counter-offer negotiates on the listing behind the receipt; the real SQL of

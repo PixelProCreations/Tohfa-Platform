@@ -166,6 +166,12 @@ export interface InsertInventoryBatchData {
   expiryOn: string | null;
 }
 
+/** BR-120: what validating a crop mismatch needs; null for an unknown receipt. */
+export interface CropMismatchContext {
+  purchaseOrderCropId: string;
+  actualCropExists: boolean;
+}
+
 export interface InsertReceiptMovementData {
   batchId: string;
   warehouseId: string;
@@ -205,6 +211,12 @@ export interface GoodsReceiptsRepo {
     tx: Executor,
     goodsReceiptId: string,
   ): Promise<QualityCheckResponse | null>;
+  /** BR-120: the receipt's purchase-order crop and whether `actualCropId` names a crop at all. */
+  findCropMismatchContext(
+    tx: Executor,
+    goodsReceiptId: string,
+    actualCropId: string,
+  ): Promise<CropMismatchContext | null>;
   updateGoodsReceiptStatus(
     tx: Executor,
     id: string,
@@ -398,7 +410,10 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       checkedBy: string;
     },
   ): Promise<QualityCheckResponse> {
+    // BR-120: the breakdown, reason code and crop mismatch are stored on the check; the mismatched
+    // crop's name is joined onto the inserted row in the same statement.
     const qcSql = `
+      WITH ins AS (
       INSERT INTO quality_checks (
         goods_receipt_id,
         warehouse_id,
@@ -412,9 +427,15 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         photo_keys,
         checked_by,
         expiry_on,
-        storage_location
+        storage_location,
+        damaged_qty_kg,
+        spoiled_qty_kg,
+        rejection_reason_code,
+        actual_crop_id,
+        crop_mismatch_qty_kg
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13,
+              $14::numeric, $15::numeric, $16, $17, $18::numeric)
       RETURNING
         id,
         goods_receipt_id AS "goodsReceiptId",
@@ -428,7 +449,16 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         defect_notes AS "defectNotes",
         COALESCE(photo_keys, '{}') AS "photos",
         checked_by AS "checkedBy",
-        checked_at AS "checkedAt"
+        checked_at AS "checkedAt",
+        damaged_qty_kg::text AS "damagedQtyKg",
+        spoiled_qty_kg::text AS "spoiledQtyKg",
+        rejection_reason_code AS "rejectionReasonCode",
+        actual_crop_id AS "actualCropId",
+        crop_mismatch_qty_kg::text AS "cropMismatchQtyKg"
+      )
+      SELECT ins.*, ac.name AS "actualCropName"
+        FROM ins
+        LEFT JOIN crop_master ac ON ac.id = ins."actualCropId"
     `;
 
     const qcValues = [
@@ -446,6 +476,11 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       // Stored so a batch deferred by a quality counter-offer is stocked with them later (BR-106).
       data.expiryOn ?? null,
       data.storageLocation ?? null,
+      data.damagedQtyKg ?? '0.000',
+      data.spoiledQtyKg ?? '0.000',
+      data.rejectionReasonCode ?? null,
+      data.actualCropId ?? null,
+      data.cropMismatchQtyKg ?? null,
     ];
 
     const qcResult = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
@@ -465,9 +500,10 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
           passed,
           measured_value,
           remarks,
-          photo_keys
+          photo_keys,
+          condition
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING
           id,
           quality_check_id AS "qualityCheckId",
@@ -476,7 +512,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
           passed,
           measured_value AS "measuredValue",
           remarks,
-          COALESCE(photo_keys, '{}') AS "photoKeys"
+          COALESCE(photo_keys, '{}') AS "photoKeys",
+          condition
       `;
 
       const itemValues = [
@@ -487,6 +524,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         item.measuredValue ?? null,
         item.remarks ?? null,
         item.photoKeys,
+        item.condition ?? null,
       ];
 
       const itemRes = await tx.query<QualityCheckItemResponse>(itemSql, itemValues);
@@ -518,10 +556,18 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(qc.photo_keys, '{}') AS "photos",
         qc.checked_by AS "checkedBy",
         cu.full_name AS "checkedByName",
-        qc.checked_at AS "checkedAt"
+        qc.checked_at AS "checkedAt",
+        qc.damaged_qty_kg::text AS "damagedQtyKg",
+        qc.spoiled_qty_kg::text AS "spoiledQtyKg",
+        qc.rejection_reason_code AS "rejectionReasonCode",
+        qc.actual_crop_id AS "actualCropId",
+        ac.name AS "actualCropName",
+        qc.crop_mismatch_qty_kg::text AS "cropMismatchQtyKg"
       FROM quality_checks qc
       -- BR-119: the inspector's display name (admin surface); a missing user is a null name.
       LEFT JOIN users cu ON cu.id = qc.checked_by
+      -- BR-120: the crop actually delivered, when it differed from the purchase order's.
+      LEFT JOIN crop_master ac ON ac.id = qc.actual_crop_id
       WHERE qc.goods_receipt_id = $1
       -- A receipt is checked once (recordQualityCheck needs AWAITING_QC); the latest wins if not.
       ORDER BY qc.checked_at DESC, qc.created_at DESC
@@ -544,7 +590,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         passed,
         measured_value AS "measuredValue",
         remarks,
-        COALESCE(photo_keys, '{}') AS "photoKeys"
+        COALESCE(photo_keys, '{}') AS "photoKeys",
+        condition
       FROM quality_check_items
       WHERE quality_check_id = $1
       ORDER BY created_at, id
@@ -554,6 +601,22 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       ...qc,
       items: itemsRes.rows,
     };
+  },
+
+  async findCropMismatchContext(
+    tx: Executor,
+    goodsReceiptId: string,
+    actualCropId: string,
+  ): Promise<CropMismatchContext | null> {
+    const result = await tx.query<CropMismatchContext>(
+      `SELECT po.crop_id AS "purchaseOrderCropId",
+              EXISTS (SELECT 1 FROM crop_master c WHERE c.id = $2) AS "actualCropExists"
+         FROM goods_receipts gr
+         JOIN purchase_orders po ON po.id = gr.purchase_order_id
+        WHERE gr.id = $1`,
+      [goodsReceiptId, actualCropId],
+    );
+    return result.rows[0] ?? null;
   },
 
   async updateGoodsReceiptStatus(
