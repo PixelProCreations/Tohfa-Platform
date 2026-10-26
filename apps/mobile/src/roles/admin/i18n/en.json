@@ -1816,5 +1816,9 @@
   "receiving.wizard.activity.batch": "Batch {{code}}",
   "receiving.wizard.outcome.accept": "Accept",
   "receiving.wizard.outcome.partial": "Partial Accept",
-  "receiving.wizard.outcome.reject": "Reject"
+  "receiving.wizard.outcome.reject": "Reject",
+
+  "receiving.filters.reset": "Reset",
+  "receiving.filters.apply": "Apply Filters",
+  "receiving.filters.all": "All"
 }

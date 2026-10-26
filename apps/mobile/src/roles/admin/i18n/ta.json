@@ -292,5 +292,9 @@
   "receiving.wizard.activity.batch": "தொகுதி {{code}}",
   "receiving.wizard.outcome.accept": "ஏற்பு",
   "receiving.wizard.outcome.partial": "பகுதி ஏற்பு",
-  "receiving.wizard.outcome.reject": "நிராகரிப்பு"
+  "receiving.wizard.outcome.reject": "நிராகரிப்பு",
+
+  "receiving.filters.reset": "மீட்டமை",
+  "receiving.filters.apply": "வடிகட்டிகளைப் பயன்படுத்து",
+  "receiving.filters.all": "அனைத்தும்"
 }
