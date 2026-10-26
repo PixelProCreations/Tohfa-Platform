@@ -15,6 +15,7 @@ import { AppError } from '../../http/problem.js';
 import { isMicroTimestamp } from '../../http/microTimestamp.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
+import type { CustomerSort } from './customers.schema.js';
 
 export interface CustomerAccess {
   /** Warehouses the customer must be seen at (BR-91); null = not confined. */
@@ -185,6 +186,57 @@ export function decodeNameKey(raw: string): NameKey {
   const [name, id] = decodeParts(raw, 'n');
   if (!UUID.test(id)) invalidCursor();
   return { name, id };
+}
+
+/**
+ * BR-115: the keyset of a customer list sorted by anything other than the default `name`.
+ * `value` is the last row's sort value as the repo printed it (`sortCursor`): the name, a
+ * microsecond UTC created_at (a millisecond one would skip rows created in the same millisecond),
+ * the lifetime value as a 2-decimal string, or the order count as an integer string.
+ */
+export interface SortKey {
+  sort: CustomerSort;
+  value: string;
+  id: string;
+}
+
+const SORT_VALUE: Record<string, (value: string) => boolean> = {
+  name: () => true,
+  createdAt: isMicroTimestamp,
+  lifetimeValue: (value) => /^[0-9]{1,14}\.[0-9]{2}$/.test(value),
+  totalOrders: (value) => /^[0-9]{1,10}$/.test(value),
+};
+
+/** The default `name` sort keeps the original `n` cursor, so cursors issued before BR-115 still page. */
+export function encodeSortKey(key: SortKey): string {
+  if (key.sort === 'name') return encodeNameKey({ name: key.value, id: key.id });
+  return encode(['s', key.sort, key.value, key.id]);
+}
+
+/** 422 unless `raw` was minted by `encodeSortKey` for this same `sort`. */
+export function decodeSortKey(raw: string, sort: CustomerSort): SortKey {
+  if (sort === 'name') {
+    const { name, id } = decodeNameKey(raw);
+    return { sort, value: name, id };
+  }
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 4 &&
+      parsed[0] === 's' &&
+      parsed[1] === sort &&
+      typeof parsed[2] === 'string' &&
+      typeof parsed[3] === 'string' &&
+      UUID.test(parsed[3]) &&
+      SORT_VALUE[sort.replace(/^-/, '')]?.(parsed[2]) === true
+    ) {
+      return { sort, value: parsed[2], id: parsed[3] };
+    }
+  } catch {
+    // fall through to the 422
+  }
+  return invalidCursor();
 }
 
 export function encodeTimeKey(key: TimeKey): string {

@@ -10,12 +10,13 @@ import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import {
   fulfilmentRepo,
   type AdminOrderDetailRecord,
+  type AdminOrderListRecord,
   type FulfilmentRepo,
 } from './fulfilment.repo.js';
 import { adminOrderDetailResponse, type AdminOrderDetailResponse } from './fulfilment.schema.js';
 import type {
   AdminOrdersQuery,
-  AdminOrderSummary,
+  AdminOrderListItem,
   AdminOrderDetail,
   AssignWarehouseRequest,
   PackOrderRequest,
@@ -51,7 +52,7 @@ export interface FulfilmentService {
   listAdminOrders(
     scope: ResolvedScope,
     query: AdminOrdersQuery,
-  ): Promise<{ items: AdminOrderSummary[]; page: { nextCursor: string | null; hasMore: boolean } }>;
+  ): Promise<{ items: AdminOrderListItem[]; page: { nextCursor: string | null; hasMore: boolean } }>;
 
   getAdminOrder(
     actor: Actor,
@@ -112,12 +113,37 @@ export interface FulfilmentService {
 /**
  * BR-92: `*` for every character but the last four, e.g. `+919876543210` -> `*********3210`; four
  * characters or fewer are masked fully. Same output as the sales read (`MaskedMobile`). Applied for
- * every scope on the admin order detail: like `Sale`, the response never carries a full mobile.
+ * every scope on the admin order detail and list (BR-99, BR-101): like `Sale`, the response never
+ * carries a full mobile.
  */
 export function maskMobile(mobile: string | null): string | null {
   if (mobile === null) return null;
   if (mobile.length <= 4) return '*'.repeat(Math.max(mobile.length, 1));
   return `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
+}
+
+/**
+ * BR-101 allow-list serializer for one `GET /admin/orders` item (openapi `AdminOrderSummary`). Every
+ * documented key is named here and nothing else, so a column joined into the list query later (a farm,
+ * batch or customer id) cannot reach the wire (BR-16). The owner amendment of 2026-10-23 adds exactly
+ * the buyer's name and mobile, the mobile masked by the same `maskMobile` as the detail (BR-92).
+ */
+export function toAdminOrderListItem(record: AdminOrderListRecord): AdminOrderListItem {
+  return {
+    id: record.id,
+    orderNumber: record.orderNumber,
+    status: record.status,
+    channel: record.channel,
+    fulfillmentType: record.fulfillmentType,
+    warehouseId: record.warehouseId,
+    itemCount: record.itemCount,
+    totalAmount: record.totalAmount,
+    paymentStatus: record.paymentStatus,
+    deliveryDate: record.deliveryDate,
+    placedAt: record.placedAt,
+    customerName: record.buyerName ?? null,
+    customerMobileMasked: maskMobile(record.buyerMobile ?? null),
+  };
 }
 
 /**
@@ -251,7 +277,7 @@ export function createFulfilmentService(opts: {
       // the page is simply empty (BR-30). A 403 would confirm the other warehouse's orders exist.
       const { items, nextCursor, hasMore } = await repo.listAdminOrders(db, scope, query);
 
-      return { items, page: { nextCursor, hasMore } };
+      return { items: items.map(toAdminOrderListItem), page: { nextCursor, hasMore } };
     },
 
     async getAdminOrder(actor, scope, orderId) {

@@ -67,8 +67,19 @@ export const purchaseOrderDetailResponse = purchaseOrderResponse.extend({
 });
 export type PurchaseOrderDetailResponse = z.infer<typeof purchaseOrderDetailResponse>;
 
+/**
+ * A row of GET /admin/purchase-orders (openapi `PurchaseOrderListItem`): the purchase order plus
+ * the farmer's and crop's display names. Admin-only surface (`purchase.order.view`), so naming the
+ * farmer here is not a BR-16 leak; null when the farmer, its user or the crop row is missing.
+ */
+export const purchaseOrderListItem = purchaseOrderResponse.extend({
+  farmerName: z.string().nullable(),
+  cropName: z.string().nullable(),
+});
+export type PurchaseOrderListItem = z.infer<typeof purchaseOrderListItem>;
+
 export const listPurchaseOrdersResponse = z.object({
-  items: z.array(purchaseOrderResponse),
+  items: z.array(purchaseOrderListItem),
   page: z.object({
     nextCursor: z.string().nullable(),
     hasMore: z.boolean(),

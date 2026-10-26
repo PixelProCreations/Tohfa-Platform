@@ -10,6 +10,30 @@ export const listInvoicesQuery = z.object({
 });
 export type ListInvoicesQuery = z.infer<typeof listInvoicesQuery>;
 
+/**
+ * GET /v1/invoices/summary: the list's filters, without paging (openapi `summarizeInvoices`). The
+ * same fields and formats as `listInvoicesQuery`, so a screen can pass one filter set to both.
+ */
+export const invoiceSummaryQuery = listInvoicesQuery.pick({ type: true, fromDate: true, toDate: true });
+export type InvoiceSummaryQuery = z.infer<typeof invoiceSummaryQuery>;
+
+export const invoiceStatuses = ['DRAFT', 'ISSUED', 'CANCELLED', 'CREDIT_NOTED'] as const;
+export const invoiceTypes = ['SALE_RETAIL', 'SALE_B2B', 'PURCHASE_FARMER', 'PAYOUT', 'SUBSCRIPTION'] as const;
+
+const summaryMoney = z.string().regex(/^[0-9]{1,14}\.[0-9]{2}$/);
+const summaryCount = z.number().int().min(0);
+
+/** openapi `InvoiceSummary`. Strict: the tests parse every response with it. */
+export const invoiceSummaryResponse = z
+  .object({
+    count: summaryCount,
+    totalAmount: summaryMoney,
+    byStatus: z.array(z.object({ status: z.enum(invoiceStatuses), count: summaryCount, totalAmount: summaryMoney }).strict()),
+    byType: z.array(z.object({ type: z.enum(invoiceTypes), count: summaryCount, totalAmount: summaryMoney }).strict()),
+  })
+  .strict();
+export type InvoiceSummary = z.infer<typeof invoiceSummaryResponse>;
+
 export const invoiceIdParams = z.object({
   id: z.string().uuid(),
 });

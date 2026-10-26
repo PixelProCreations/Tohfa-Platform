@@ -107,6 +107,17 @@ interface AdminOrderDetailRow {
 
 const isoOrNull = (value: Date | null): string | null => (value === null ? null : value.toISOString());
 
+/**
+ * What `listAdminOrders` loads per row (BR-101). Internal: the service serializes it through the
+ * `toAdminOrderListItem` allow-list, which masks `buyerMobile` (BR-92), so the raw number never
+ * leaves the service. The buyer is the one the detail names (BR-99): the registered customer, else
+ * the walk-in buyer of a counter sale. No farm column is selected (BR-16).
+ */
+export interface AdminOrderListRecord extends AdminOrderSummary {
+  buyerName: string | null;
+  buyerMobile: string | null;
+}
+
 interface FulfilmentOrderRow {
   id: string;
   orderNumber: string;
@@ -119,6 +130,8 @@ interface FulfilmentOrderRow {
   paymentStatus: string;
   deliveryDate: string | null;
   placedAt: string | Date;
+  buyerName: string | null;
+  buyerMobile: string | null;
   /** Microsecond UTC text of placed_at, for the keyset cursor only (never in a response). */
   placedAtCursor: string;
 }
@@ -170,7 +183,7 @@ export interface FulfilmentRepo {
     db: Executor,
     scope: ResolvedScope,
     query: AdminOrdersQuery,
-  ): Promise<{ items: AdminOrderSummary[]; nextCursor: string | null; hasMore: boolean }>;
+  ): Promise<{ items: AdminOrderListRecord[]; nextCursor: string | null; hasMore: boolean }>;
 
   findOrderForFulfilment(
     db: Executor,
@@ -294,8 +307,14 @@ export const fulfilmentRepo: FulfilmentRepo = {
              o.total_amount::text AS "totalAmount", o.payment_status AS "paymentStatus",
              o.delivery_date::text AS "deliveryDate", o.placed_at AS "placedAt",
              ${MICRO_TS_SQL('o.placed_at')} AS "placedAtCursor",
-             (SELECT count(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS "itemCount"
+             (SELECT count(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS "itemCount",
+             -- BR-101 owner amendment 2026-10-23: the buyer, as the detail (BR-99) names it. Joined
+             -- here, not looked up per row; LEFT JOINs so a walk-in sale (no customer) still lists.
+             CASE WHEN o.customer_id IS NOT NULL THEN u.full_name ELSE o.walk_in_name END AS "buyerName",
+             CASE WHEN o.customer_id IS NOT NULL THEN u.mobile ELSE o.walk_in_mobile END AS "buyerMobile"
         FROM orders o
+        LEFT JOIN customers c ON c.id = o.customer_id
+        LEFT JOIN users u ON u.id = c.user_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY o.placed_at DESC, o.id DESC
         LIMIT $${idx}
@@ -315,6 +334,8 @@ export const fulfilmentRepo: FulfilmentRepo = {
       paymentStatus: r.paymentStatus,
       deliveryDate: r.deliveryDate,
       placedAt: new Date(r.placedAt).toISOString(),
+      buyerName: r.buyerName,
+      buyerMobile: r.buyerMobile,
     }));
 
     let nextCursor: string | null = null;

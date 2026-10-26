@@ -87,6 +87,15 @@ export interface AdminOrderSummary {
   placedAt: string;
 }
 
+/**
+ * GET /admin/orders list item (openapi `AdminOrderSummary`, BR-101 owner amendment 2026-10-23): the
+ * summary plus the buyer's name and BR-92-masked mobile. Built only by `toAdminOrderListItem`.
+ */
+export interface AdminOrderListItem extends AdminOrderSummary {
+  customerName: string | null;
+  customerMobileMasked: string | null;
+}
+
 export interface AdminOrderDetail extends AdminOrderSummary {
   subtotal: Money;
   deliveryFee: Money;

@@ -10,7 +10,8 @@
  *   - A Sub Warehouse Admin sees only its warehouse; a `warehouseId` filter naming another
  *     warehouse is an EMPTY list, never 403 (BR-30: a 403 confirms the other warehouse's data).
  *   - scope `all` (MAIN_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN) sees every warehouse; the filter narrows.
- *   - The list item is an allow-list: no farm identity and no buyer PII at any depth (BR-16).
+ *   - The list item is an allow-list: no farm identity at any depth (BR-16); the only buyer data is
+ *     `customerName` and the BR-92-masked `customerMobileMasked` (owner amendment 2026-10-23).
  *
  * The HTTP layer mounts `adminFulfilmentRouter` on a local express app (as fulfilment.detail.test.ts
  * does). The handler reads through the shared pool, so the fixture rows are COMMITTED and removed in
@@ -37,10 +38,30 @@ const WH_B = '10000000-0000-4000-8000-0000000000b2';
 /** Any key that could carry a farm identity (BR-16, BR-90) or buyer PII (BR-92). */
 const FORBIDDEN_KEY = /farm|village|gps|fmb|latitude|longitude|^lat$|^lng$|batch|source|allocation|plot|mobile|phone|address|customer|walkIn|otp|hash/i;
 
+/**
+ * Any key that could carry a farm identity (BR-16, BR-90). The owner amendment of 2026-10-23 to
+ * BR-101 changed NOTHING here: this is asserted with no exception at any depth.
+ */
+const FARM_KEY = /farm|village|gps|fmb|latitude|longitude|^lat$|^lng$|batch|source|allocation|plot/i;
+
+/**
+ * BR-101, owner amendment 2026-10-23: the ONLY two buyer keys a list item may carry, and only at the
+ * top level of an item. Every other FORBIDDEN_KEY match (customerId, walkInMobile, address, otp ...)
+ * is still a failure.
+ */
+const OWNER_APPROVED_BUYER_KEYS = ['customerName', 'customerMobileMasked'] as const;
+const isOwnerApprovedBuyerPath = (path: string): boolean =>
+  OWNER_APPROVED_BUYER_KEYS.some((key) => new RegExp(`^\\$\\[\\d+\\]\\.${key}$`).test(path));
+
 const LIST_ITEM_KEYS = [
   'channel', 'deliveryDate', 'fulfillmentType', 'id', 'itemCount', 'orderNumber', 'paymentStatus', 'placedAt',
-  'status', 'totalAmount', 'warehouseId',
+  'status', 'totalAmount', 'warehouseId', ...OWNER_APPROVED_BUYER_KEYS,
 ].sort();
+
+/** BR-92 format, written out here so the test does not borrow the implementation's masker. */
+const MASKED_MOBILE = /^\*+[0-9]{0,4}$/;
+const expectedMask = (mobile: string): string =>
+  mobile.length <= 4 ? '*'.repeat(Math.max(mobile.length, 1)) : `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
 
 function keysMatching(pattern: RegExp, value: unknown, path = '$'): string[] {
   if (Array.isArray(value)) return value.flatMap((item, i) => keysMatching(pattern, item, `${path}[${i}]`));
@@ -127,6 +148,49 @@ describe('admin order list service (fake repo)', () => {
         status: 409,
       });
       expect(vi.mocked(repo.updateOrderStatus), channel).not.toHaveBeenCalled();
+    }
+  });
+
+  it('BR-101e: the list item is an allow-list — the buyer name and BR-92-masked mobile only; farm fields and raw buyer PII on the record never reach the item', async () => {
+    const rawMobile = '+919876543210';
+    const base = {
+      id: newId(), orderNumber: 'OL-UNIT-1', status: 'CONFIRMED', channel: 'ONLINE', fulfillmentType: 'PICKUP',
+      warehouseId: WH_A, itemCount: 2, totalAmount: '10.00', paymentStatus: 'PAID', deliveryDate: null,
+      placedAt: '2026-10-23T05:06:07.000Z',
+    };
+    const record = {
+      ...base,
+      buyerName: 'Asha Buyer',
+      buyerMobile: rawMobile,
+      // None of these may ever reach the response (BR-16, BR-20, BR-92).
+      farmerId: newId(), sourceFarmerId: newId(), farmName: 'Green Acres Farm', farmerName: 'Ravi Farmer',
+      farmLocation: 'Kotagiri village', gps: '11.41,76.70', fmbNumber: 'FMB-123', customerId: newId(),
+      walkInMobile: rawMobile, deliveryAddressId: newId(), deliveryOtpHash: 'deadbeef',
+    };
+    const noBuyer = { ...base, id: newId(), buyerName: null, buyerMobile: null };
+    const repo = {
+      listAdminOrders: vi.fn(async () => ({ items: [record, noBuyer], nextCursor: null, hasMore: false })),
+    } as unknown as FulfilmentRepo;
+    const service = createFulfilmentService({ repo, db: {} as Executor });
+    const main: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.MAIN_WH_ADMIN, permission: PERMISSION });
+
+    const out = await service.listAdminOrders(main, { limit: 20 });
+    const [item, empty] = out.items as unknown as Array<Record<string, unknown>>;
+    expect(Object.keys(item!).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(Object.keys(empty!).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(item!['customerName']).toBe('Asha Buyer');
+    expect(item!['customerMobileMasked']).toBe('*********3210');
+    expect(item!['customerMobileMasked']).toBe(expectedMask(rawMobile));
+    expect(item!['customerMobileMasked']).toMatch(MASKED_MOBILE);
+    // Null-safe: an order that records no buyer name or mobile is null, never '' or a crash.
+    expect(empty!['customerName']).toBeNull();
+    expect(empty!['customerMobileMasked']).toBeNull();
+
+    expect(keysMatching(FARM_KEY, out)).toEqual([]);
+    expect(keysMatching(FORBIDDEN_KEY, out.items).filter((path) => !isOwnerApprovedBuyerPath(path))).toEqual([]);
+    const json = JSON.stringify(out);
+    for (const leaked of ['Green Acres Farm', 'Ravi Farmer', 'Kotagiri village', '11.41,76.70', 'FMB-123', 'deadbeef', rawMobile, rawMobile.slice(-5)]) {
+      expect(json, leaked).not.toContain(leaked);
     }
   });
 
@@ -389,15 +453,56 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
     expect(bad.body.code).toBe('VALIDATION_FAILED');
   });
 
-  it('BR-101e (HTTP): a list item is the documented allow-list — no farm identity and no buyer PII at any depth', async () => {
+  // BR-101 owner amendment 2026-10-23: the item now carries the buyer's name and BR-92-masked mobile.
+  // Everything else this test refused before it still refuses: no farm-identity key at any depth, no
+  // other buyer key (customerId, walkIn*, address, otp ...), and no run of the stored mobile's digits
+  // beyond the last four.
+  it('BR-101e (HTTP): a list item is the documented allow-list — buyer name and masked mobile only, no farm identity and no other buyer PII at any depth', async () => {
     if (!ready) return;
     const res = await list('super', { deliveryDate });
+    expect(res.status).toBe(200);
     expect(res.body.items.length).toBe(2);
     for (const item of res.body.items as Array<Record<string, unknown>>) {
       expect(Object.keys(item).sort()).toEqual(LIST_ITEM_KEYS);
+      expect(item['customerName']).toBe('HTTP List Buyer');
+      expect(item['customerMobileMasked']).toBe(expectedMask(customerMobile));
+      expect(item['customerMobileMasked']).toMatch(MASKED_MOBILE);
     }
-    expect(keysMatching(FORBIDDEN_KEY, res.body.items)).toEqual([]);
-    expect(JSON.stringify(res.body)).not.toContain(customerMobile.slice(-6));
-    expect(JSON.stringify(res.body)).not.toContain('HTTP List Buyer');
+    expect(keysMatching(FARM_KEY, res.body)).toEqual([]);
+    expect(keysMatching(FORBIDDEN_KEY, res.body.items).filter((path) => !isOwnerApprovedBuyerPath(path))).toEqual([]);
+    const json = JSON.stringify(res.body);
+    expect(json).not.toContain(customerMobile);
+    expect(json).not.toContain(customerMobile.slice(-6));
+    expect(json).not.toContain(customerMobile.slice(-5));
+  });
+
+  it('BR-101e (HTTP): a walk-in counter sale (no customer) lists the walk-in buyer, masked like the detail; the Sub admin of another warehouse sees nothing', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    // A delivery date no other test in this file uses (their years are 2090-2099).
+    const walkInDate = `2089-${deliveryDate.slice(5)}`;
+    const walkInMobile = '+919812345678';
+    const o = await pool.query<{ id: string }>(
+      `INSERT INTO orders (order_number, customer_id, walk_in_name, walk_in_mobile, warehouse_id, channel, subtotal, total_amount,
+                           payment_method, payment_status, status, delivery_date)
+       VALUES ($1, NULL, 'Counter Walk-in', $2, $3, 'DIRECT', 1.10, 1.10, 'CASH', 'PAID', 'CONFIRMED', $4::date) RETURNING id`,
+      [`OL-WALK-${newId().slice(0, 12)}`, walkInMobile, gudalur, walkInDate],
+    );
+    created.orders.push(o.rows[0]!.id);
+
+    const res = await list('super', { deliveryDate: walkInDate });
+    expect(res.status).toBe(200);
+    expect(ids(res.body)).toEqual([o.rows[0]!.id]);
+    const item = res.body.items[0] as Record<string, unknown>;
+    expect(Object.keys(item).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(item['customerName']).toBe('Counter Walk-in');
+    expect(item['customerMobileMasked']).toBe(expectedMask(walkInMobile));
+    expect(keysMatching(FARM_KEY, res.body)).toEqual([]);
+    expect(JSON.stringify(res.body)).not.toContain(walkInMobile.slice(-5));
+
+    // Scope unchanged by the amendment: the Coonoor Sub admin gets an empty page, not this buyer.
+    const sub = await list('sub', { deliveryDate: walkInDate });
+    expect(sub.status).toBe(200);
+    expect(sub.body).toEqual({ items: [], page: { nextCursor: null, hasMore: false } });
   });
 });

@@ -24,15 +24,55 @@ export type CustomerStatusFilter = (typeof customerStatusFilters)[number];
 const cursorField = z.string().min(1).max(512).optional();
 const limitField = z.coerce.number().int().min(1).max(100).default(20);
 
+/**
+ * BR-115: the sort allow-list. `-` prefix = descending; ties break on the customer id in the same
+ * direction, and the keyset cursor carries (sort value, id), so every key pages stably. Only keys
+ * that are never null are offered (`lastActivityAt` is nullable and is deliberately not a sort key).
+ */
+export const customerSorts = [
+  'name',
+  '-name',
+  'createdAt',
+  '-createdAt',
+  'lifetimeValue',
+  '-lifetimeValue',
+  'totalOrders',
+  '-totalOrders',
+] as const;
+export type CustomerSort = (typeof customerSorts)[number];
+
+const produceGrades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'] as const;
+
+/** A real calendar date, `YYYY-MM-DD` (2026-02-30 is refused, not rolled over). */
+const calendarDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, 'Must be a real calendar date');
+
 export const listCustomersQuery = z
   .object({
     q: z.string().trim().min(1).max(100).optional(),
     status: z.enum(customerStatusFilters).optional(),
+    /** BR-115: purchase filters (one purchase line must match all of crop, grade and the window). */
+    crop: z.string().uuid('crop must be a crop id (UUID)').optional(),
+    grade: z.enum(produceGrades).optional(),
+    /** Inclusive Asia/Kolkata day of the purchase (`orders.placed_at`). */
+    from: calendarDate.optional(),
+    to: calendarDate.optional(),
+    sort: z.enum(customerSorts).default('name'),
     cursor: cursorField,
     limit: limitField,
   })
-  .strict();
-export type ListCustomersQuery = z.infer<typeof listCustomersQuery>;
+  .strict()
+  .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {
+    message: '"from" must be earlier than or equal to "to"',
+    path: ['to'],
+  });
+/** `sort` is optional for in-process callers (jobs, tests); the service defaults it to `name`. */
+export type ListCustomersQuery = Omit<z.output<typeof listCustomersQuery>, 'sort'> & { sort?: CustomerSort | undefined };
 
 export const pageQuery = z.object({ cursor: cursorField, limit: limitField }).strict();
 export type PageQuery = z.infer<typeof pageQuery>;
@@ -87,6 +127,10 @@ export const adminCustomerListItemSchema = z
     lastActivityAt: isoDateTime.nullable(),
     piiMasked: z.boolean(),
     createdAt: isoDateTime,
+    /** BR-115: the number of rows `/issues` lists for this actor (return requests). */
+    issueCount: z.number().int().min(0),
+    /** BR-115: the number of rows `/support-tickets` lists (the customer's support tickets). */
+    ticketCount: z.number().int().min(0),
   })
   .strict();
 export type AdminCustomerListItem = z.infer<typeof adminCustomerListItemSchema>;

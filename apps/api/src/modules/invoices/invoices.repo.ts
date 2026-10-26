@@ -1,6 +1,6 @@
 import type { Executor } from "../../db/pool.js";
 import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
-import type { InvoiceDetailResponse, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
+import type { InvoiceDetailResponse, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
   id: string;
@@ -124,6 +124,38 @@ export interface InvoicesRepo {
     visibility: InvoiceVisibility,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
+  /**
+   * One row per (status, type) present among the invoices `visibility` covers, after the list's
+   * filters. Same predicate as `listInvoices` (`visibilitySql` + `listFilterSql`), so the summary
+   * counts exactly the rows the list pages through. `totalPaise` is integer paise as text.
+   */
+  summarizeInvoices(db: Executor, visibility: InvoiceVisibility, query: InvoiceSummaryQuery): Promise<InvoiceSummaryGroup[]>;
+}
+
+export interface InvoiceSummaryGroup {
+  status: string;
+  invoiceType: string;
+  count: number;
+  /** SUM(total_amount) in integer paise, as text (bigint never passes through a float). */
+  totalPaise: string;
+}
+
+/** The list's filters (type, issue-date window) as SQL on `invoices`; appends to `values`. */
+function listFilterSql(query: InvoiceSummaryQuery, values: unknown[]): string[] {
+  const conditions: string[] = [];
+  if (query.type) {
+    values.push(query.type);
+    conditions.push("invoice_type = $" + values.length);
+  }
+  if (query.fromDate) {
+    values.push(query.fromDate);
+    conditions.push("issue_date >= $" + values.length);
+  }
+  if (query.toDate) {
+    values.push(query.toDate);
+    conditions.push("issue_date <= $" + values.length);
+  }
+  return conditions;
 }
 
 export const invoicesRepo: InvoicesRepo = {
@@ -306,22 +338,7 @@ export const invoicesRepo: InvoicesRepo = {
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }> {
     const values: unknown[] = [];
-    const conditions: string[] = [visibilitySql(visibility, values)];
-
-    if (query.type) {
-      values.push(query.type);
-      conditions.push("invoice_type = $" + values.length);
-    }
-
-    if (query.fromDate) {
-      values.push(query.fromDate);
-      conditions.push("issue_date >= $" + values.length);
-    }
-
-    if (query.toDate) {
-      values.push(query.toDate);
-      conditions.push("issue_date <= $" + values.length);
-    }
+    const conditions: string[] = [visibilitySql(visibility, values), ...listFilterSql(query, values)];
 
     if (query.cursor) {
       values.push(query.cursor);
@@ -365,5 +382,21 @@ export const invoicesRepo: InvoicesRepo = {
         hasMore,
       },
     };
+  },
+
+  async summarizeInvoices(db: Executor, visibility: InvoiceVisibility, query: InvoiceSummaryQuery): Promise<InvoiceSummaryGroup[]> {
+    const values: unknown[] = [];
+    const conditions: string[] = [visibilitySql(visibility, values), ...listFilterSql(query, values)];
+    // total_amount is numeric(14,2), so `* 100` is an exact integer: the sum is paise, cast to
+    // bigint text so it never passes through a float on its way to fromPaise().
+    const result = await db.query<{ status: string; invoice_type: string; count: number; total_paise: string }>(
+      "SELECT status::text AS status, invoice_type::text AS invoice_type, count(*)::int AS count, " +
+        "COALESCE(sum(total_amount * 100), 0)::bigint::text AS total_paise " +
+        "FROM invoices WHERE " +
+        conditions.join(" AND ") +
+        " GROUP BY status, invoice_type",
+      values,
+    );
+    return result.rows.map((r) => ({ status: r.status, invoiceType: r.invoice_type, count: r.count, totalPaise: r.total_paise }));
   },
 };

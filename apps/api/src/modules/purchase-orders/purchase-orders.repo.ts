@@ -6,7 +6,7 @@ import type {
   PoStatus,
   ProduceGrade,
   PurchaseOrderDetailResponse,
-  PurchaseOrderResponse,
+  PurchaseOrderListItem,
 } from './purchase-orders.schema.js';
 
 /**
@@ -73,7 +73,7 @@ export interface PurchaseOrdersRepo {
     tx: Executor,
     scope: ResolvedScope,
     query: ListPurchaseOrdersQuery,
-  ): Promise<{ items: PurchaseOrderResponse[]; nextCursor: string | null; hasMore: boolean }>;
+  ): Promise<{ items: PurchaseOrderListItem[]; nextCursor: string | null; hasMore: boolean }>;
   findGoodsReceiptsByPoId(tx: Executor, poId: string): Promise<GoodsReceiptSummary[]>;
 }
 
@@ -230,7 +230,7 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
     tx: Executor,
     scope: ResolvedScope,
     query: ListPurchaseOrdersQuery,
-  ): Promise<{ items: PurchaseOrderResponse[]; nextCursor: string | null; hasMore: boolean }> {
+  ): Promise<{ items: PurchaseOrderListItem[]; nextCursor: string | null; hasMore: boolean }> {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let index = 1;
@@ -282,22 +282,31 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         po.status,
         po.expected_delivery_date::text AS "expectedDeliveryDate",
         po.issued_at AS "issuedAt",
-        to_char(po.issued_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorIssuedAt"
+        to_char(po.issued_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorIssuedAt",
+        u.full_name AS "farmerName",
+        cm.name AS "cropName"
       FROM purchase_orders po
+      -- Display names for the admin list, joined here so a page is one query (no per-row lookup).
+      -- LEFT JOINs: a missing farmer, user or crop row yields null names, never a dropped PO.
+      LEFT JOIN farmers f ON f.id = po.farmer_id
+      LEFT JOIN users u ON u.id = f.user_id
+      LEFT JOIN crop_master cm ON cm.id = po.crop_id
       ${whereClause}
       ORDER BY po.issued_at DESC
       ${limitClause}
     `;
 
     const result = await tx.query<
-      Omit<PurchaseOrderResponse, 'issuedAt'> & { issuedAt: Date; cursorIssuedAt: string }
+      Omit<PurchaseOrderListItem, 'issuedAt'> & { issuedAt: Date; cursorIssuedAt: string }
     >(sql, params);
     const hasMore = result.rows.length > limit;
     const rawItems = hasMore ? result.rows.slice(0, limit) : result.rows;
     const nextCursor =
       hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursorIssuedAt : null;
-    const items: PurchaseOrderResponse[] = rawItems.map(({ cursorIssuedAt: _cursor, ...row }) => ({
+    const items: PurchaseOrderListItem[] = rawItems.map(({ cursorIssuedAt: _cursor, ...row }) => ({
       ...row,
+      farmerName: row.farmerName ?? null,
+      cropName: row.cropName ?? null,
       issuedAt: row.issuedAt.toISOString(),
     }));
 

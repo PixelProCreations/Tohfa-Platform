@@ -113,7 +113,7 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     },
     findPurchaseOrderByListingId: async () => null,
     listPurchaseOrders: async () => ({
-      items: [formatPoRowToResponse(samplePoRow)],
+      items: [{ ...formatPoRowToResponse(samplePoRow), farmerName: 'Farmer Murugan', cropName: 'Carrot' }],
       nextCursor: null,
       hasMore: false,
     }),
@@ -401,7 +401,74 @@ describe('Purchase order timestamps are ISO-8601 on the wire (docs/openapi.yaml:
     expect(Object.keys(page.items[0]!)).not.toContain('cursorIssuedAt');
   });
 
+  it('BR-30: list rows carry farmerName and cropName from ONE joined query (no per-row lookup), null when the join finds nothing', async () => {
+    const sql: string[] = [];
+    const tx = {
+      query: async (text: string) => {
+        sql.push(text);
+        return {
+          rows: [
+            { ...poFields, id: 'a', issuedAt: new Date('2026-10-05T07:42:36.490Z'), cursorIssuedAt: '2026-10-05T07:42:36.490266Z', farmerName: 'Murugan', cropName: 'Carrot' },
+            { ...poFields, id: 'b', issuedAt: new Date('2026-10-04T07:42:36.100Z'), cursorIssuedAt: '2026-10-04T07:42:36.100999Z', farmerName: null, cropName: null },
+          ],
+        };
+      },
+    } as unknown as Executor;
+    const page = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, { limit: 10 } as never);
+
+    expect(sql).toHaveLength(1);
+    expect(sql[0]).toMatch(/LEFT JOIN farmers/);
+    expect(sql[0]).toMatch(/LEFT JOIN crop_master/);
+    expect(page.items[0]).toMatchObject({ farmerName: 'Murugan', cropName: 'Carrot' });
+    expect(page.items[1]).toMatchObject({ farmerName: null, cropName: null });
+  });
+
   describeIfDatabase('against PostgreSQL (rolled-back transaction)', () => {
+    it('BR-30: GET /admin/purchase-orders rows name the farmer and the crop; another warehouse scope still sees nothing', async (ctx) => {
+      if (!(await requireDatabaseTables('purchase_orders', 'produce_listings', 'crop_master'))) return ctx.skip();
+      const { pool } = await import('../../db/pool.js');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = client as unknown as Executor;
+        const fixture = await insertPurchaseOrder(tx);
+        const expected = await client.query<{ farmer_name: string; crop_name: string }>(
+          `SELECT u.full_name AS farmer_name, cm.name AS crop_name
+             FROM purchase_orders po
+             JOIN farmers f ON f.id = po.farmer_id
+             JOIN users u ON u.id = f.user_id
+             JOIN crop_master cm ON cm.id = po.crop_id
+            WHERE po.id = $1`,
+          [fixture.purchaseOrderId],
+        );
+
+        const page = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, {
+          limit: 100,
+          warehouseId: fixture.warehouseId,
+        } as never);
+        expect(page.items.map((i) => i.id)).toEqual([fixture.purchaseOrderId]);
+        expect(page.items[0]).toMatchObject({
+          farmerName: expected.rows[0]!.farmer_name,
+          cropName: expected.rows[0]!.crop_name,
+        });
+
+        const otherWarehouse = aScope({
+          level: ScopeLevel.OWN,
+          permission: 'purchase.order.view',
+          roleCode: RoleCode.SUB_WH_ADMIN,
+          warehouseIds: [IDS.warehouseCoonoor],
+        });
+        const hidden = await purchaseOrdersRepo.listPurchaseOrders(tx, otherWarehouse, {
+          limit: 100,
+          warehouseId: fixture.warehouseId,
+        } as never);
+        expect(hidden.items).toEqual([]);
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
+
     afterAll(async () => {
       const { closePool } = await import('../../db/pool.js');
       await closePool();
