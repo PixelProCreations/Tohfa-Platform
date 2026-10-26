@@ -2861,6 +2861,28 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-118 — Warehouse intake and order fulfilment writes are idempotent (Idempotency-Key)
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): `docs/openapi.yaml` `IdempotencyKeyHeader` (`required: true`) on these six POSTs; root `CLAUDE.md` §2.4. Specification gap closed: the header was declared on all six but ignored by the server. The contract is BR-68's, unchanged. |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/http/idempotency.ts` over `idempotency_keys` (`0045_listing_idempotency.sql`), used by `goods-receipts.service.ts` and `orders/fulfilment.service.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /admin/goods-receipts`, `POST /admin/goods-receipts/{id}/quality-check`, `POST /admin/goods-receipts/{id}/counter-offer`, `POST /admin/orders/{id}/pack`, `POST /admin/orders/{id}/dispatch` and `POST /admin/orders/{id}/verify-otp` require an `Idempotency-Key`. A missing or blank key is 422 `VALIDATION_FAILED` naming `header.Idempotency-Key`, and nothing is written. The key is claimed first, inside the same transaction as the operation, so a replay of the same request by the same user returns the original status and body and writes nothing: no second goods receipt, quality check, inventory batch, `RECEIPT` stock-ledger row or channel allocation (BR-106, BR-37, BR-12), no second counter-offer round (BR-11), no second `order_status_history` row, no second audit row (BR-35), no OTP attempt and no repeated notification or order event. A replayed quality check is not the "already checked" 409 and a replayed pack, dispatch or verify-otp is not `INVALID_STATE_TRANSITION`. The same key with a different request (body, target id or operation) is 409 `IDEMPOTENCY_KEY_REUSED` and writes nothing. A refused attempt (any 4xx or 5xx) is not remembered and the key stays usable; a wrong OTP still counts its attempt (BR-20) because the attempt counter is written outside the refused transaction. Keys are scoped to the acting user and retained 24 hours.
+
+**Known client gap.** The mobile admin app sends the header on all six. The admin-web goods-receipt and fulfilment services do not send it yet, so those admin-web actions are refused 422 until they do (client follow-up, not a server default).
+
+**Failure mode if unenforced.** A retry after a dropped response on a weak warehouse connection records a second goods receipt for one delivery, a second quality check and a second stock batch for one lot (double the sellable stock, and a farmer apparently paid for twice the produce), opens a second counter-offer round, or turns a pack or a handover that succeeded into a spurious 409 that the admin reads as a failure.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.idempotency.test.ts`, `apps/api/src/modules/orders/fulfilment.idempotency.test.ts`)
+- `BR-118a` A missing or blank key on each of the six operations is 422 `VALIDATION_FAILED` naming `header.Idempotency-Key`; nothing is written.
+- `BR-118b` A replay with the same key and request returns the identical status and body and leaves exactly one effect: one receipt and one audit row; one quality check, one batch, one `RECEIPT` ledger row and one batch audit row; one counter-offer round; one `order_status_history` row and one audit row per pack, dispatch and verify-otp, with the OTP attempt counter unchanged.
+- `BR-118c` The same key with a different body or a different target is 409 `IDEMPOTENCY_KEY_REUSED`; nothing more is written.
+- `BR-118d` A refused attempt is not remembered: a wrong OTP counts one attempt and its key can be used again.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

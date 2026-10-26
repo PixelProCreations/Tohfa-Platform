@@ -9640,8 +9640,14 @@ paths:
         A caller confined to assigned warehouses who names another warehouse, or a purchase order
         destined for another warehouse, gets the same 404 as for an id that does not exist, and
         nothing is written.
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-37, BR-118]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -9710,8 +9716,15 @@ paths:
         outcome stocks nothing. `batch` is then `null`. A receipt that is already stocked is
         409 `CONFLICT` and nothing is written. Another warehouse's receipt is the same 404 as
         an id that does not exist, and nothing is written (BR-30).
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered. A replayed check
+        is not the "already checked" 409 and creates no second batch or `RECEIPT` ledger row (BR-106).
       x-permission: inventory.quality_check.perform
-      x-business-rules: [BR-30, BR-37, BR-12, BR-106]
+      x-business-rules: [BR-30, BR-37, BR-12, BR-106, BR-118]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -9778,8 +9791,15 @@ paths:
         price as the cost); a reject or a lapse stocks nothing. A receipt already stocked by its quality
         check, or with no quality check, is not stocked by the accept. What happens next to the receipt
         status, the purchase order and the payout is not specified and is not changed by this endpoint.
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered. A replay opens
+        no second round and sends no second notification.
       x-permission: inventory.quality.counter_offer
-      x-business-rules: [BR-10, BR-11, BR-30, BR-106]
+      x-business-rules: [BR-10, BR-11, BR-30, BR-106, BR-118]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -9802,7 +9822,8 @@ paths:
             `CONFLICT`: a counter-offer on the lot's listing is still PENDING (a second quality
             counter-offer on the same receipt, or a farmer counter waiting for an answer), or a concurrent
             request won the round. `COUNTER_LIMIT_REACHED`: the listing has used every round (BR-11).
-            `INVALID_STATE_TRANSITION`: the lot's listing is not ACCEPTED. Nothing is written.
+            `INVALID_STATE_TRANSITION`: the lot's listing is not ACCEPTED. `IDEMPOTENCY_KEY_REUSED`: the
+            `Idempotency-Key` was already used for a different request (BR-118). Nothing is written.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -11090,9 +11111,17 @@ paths:
       tags: [Fulfilment]
       operationId: packOrder
       summary: Mark the order packed
-      description: Consumes the reserved batches FEFO and appends `SALE` rows to the stock ledger (BR-37). Only valid from `CONFIRMED`.
+      description: |
+        Consumes the reserved batches FEFO and appends `SALE` rows to the stock ledger (BR-37). Only valid from `CONFIRMED`.
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered. A replayed pack
+        is not `INVALID_STATE_TRANSITION` and writes no second `order_status_history` row.
       x-permission: order.mark_packed
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-37, BR-118]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -11121,7 +11150,9 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: The order is not in a state that allows packing.
+          description: |
+            `INVALID_STATE_TRANSITION`: the order is not in a state that allows packing.
+            `IDEMPOTENCY_KEY_REUSED`: the `Idempotency-Key` was already used for a different request (BR-118).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -11132,6 +11163,7 @@ paths:
                 detail: Cannot pack an order in status DISPATCHED.
                 code: INVALID_STATE_TRANSITION
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K7
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/orders/{id}/dispatch:
@@ -11143,8 +11175,15 @@ paths:
         Transitions a packed order to `OUT_FOR_DELIVERY`. Track 1 fulfils every order by
         warehouse pickup (BR-21), so this path is specified but not enabled — see
         `docs/rules.md` open contradiction 3.
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered. A replayed
+        dispatch is not `INVALID_STATE_TRANSITION` and writes no second `order_status_history` row.
       x-permission: order.dispatch
-      x-business-rules: [BR-21]
+      x-business-rules: [BR-21, BR-118]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -11169,6 +11208,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/orders/{id}/verify-otp:
@@ -11180,8 +11220,17 @@ paths:
         Used for both doorstep delivery and warehouse pickup (BR-20, BR-21). Success moves
         the order to `DELIVERED` and releases the settlement due to the farmer. Three
         wrong codes lock the OTP and require it to be reissued.
+
+        Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
+        with the same key and body returns the original status and body and writes nothing (no second
+        row, ledger row, history row, audit row or notification); the same key with a different body or
+        target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
+        attempt is not remembered. A replayed
+        verification returns the original 200 body: it counts no OTP attempt and writes no second
+        `order_status_history` row. A wrong OTP is refused, so its key is not remembered, but the attempt
+        it used is still counted (BR-20).
       x-permission: order.pickup_otp.verify
-      x-business-rules: [BR-20, BR-21, BR-30]
+      x-business-rules: [BR-20, BR-21, BR-30, BR-118]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -11205,8 +11254,15 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `INVALID_STATE_TRANSITION`: the order cannot be handed over from its current status, or has no OTP.
+            `IDEMPOTENCY_KEY_REUSED`: the `Idempotency-Key` was already used for a different request (BR-118).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
-          description: The OTP did not match.
+          description: The OTP did not match (`OTP_INVALID`), or the `Idempotency-Key` header is missing (`VALIDATION_FAILED`).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }

@@ -22,6 +22,7 @@
  *   2. the real app router over HTTP, on committed rows this suite removes afterwards.
  */
 import type { Server } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import request from 'supertest';
 import { z } from 'zod';
@@ -357,7 +358,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const lot = await w.lot();
     const windowHours = await windowHoursFromConfig(w.tx);
     const before = Date.now();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     const after = Date.now();
 
     const body = documentedCounterOffer.parse(offer);
@@ -436,7 +437,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const lot = await w.lot();
     await w.tx.query(`UPDATE system_config SET value = '6'::jsonb WHERE key = 'counter_offer_window_hours'`);
     const before = Date.now();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     const after = Date.now();
     const expiresAt = new Date(offer.expiresAt).getTime();
     expect(expiresAt).toBeGreaterThanOrEqual(before + 6 * HOUR_MS);
@@ -449,7 +450,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const lot = await w.lot();
     await w.tx.query(`UPDATE system_config SET value = '0'::jsonb WHERE key = 'counter_offer_window_hours'`);
     await expectAppError(
-      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY),
+      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID()),
       'INTERNAL',
       500,
     );
@@ -462,7 +463,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const lot = await w.lot();
     await insertClosedRound(w.tx, lot.listingId, 1, w.adminId);
     await insertClosedRound(w.tx, lot.listingId, 2, lot.farmerUserId);
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     expect(offer.round).toBe(3);
     expect((await offersOf(w.tx, lot.listingId)).map((o) => [o.round, o.actor, o.goods_receipt_id])).toEqual([
       [1, 'ADMIN', null],
@@ -475,7 +476,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const lot = await w.lot();
     for (const round of [1, 2, 3, 4]) await insertClosedRound(w.tx, lot.listingId, round, round % 2 === 1 ? w.adminId : lot.farmerUserId);
     await expectAppError(
-      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY),
+      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID()),
       'COUNTER_LIMIT_REACHED',
       409,
     );
@@ -487,9 +488,9 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: a second quality counter-offer on the same receipt while the first is PENDING is 409 CONFLICT and changes nothing', async (w) => {
     const lot = await w.lot();
-    const first = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const first = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     await expectAppError(
-      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, { ...OFFER_BODY, pricePerKg: '44.00' }),
+      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, { ...OFFER_BODY, pricePerKg: '44.00' }, randomUUID()),
       'CONFLICT',
       409,
     );
@@ -506,7 +507,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, {
       pricePerKg: '46.50',
       quantityKg: '90.000',
-    });
+    }, randomUUID());
     expect(offer).toMatchObject({ round: 1, pricePerKg: '46.50', quantityKg: '90.000', message: null });
     expect(await receiptState(w.tx, lot.goodsReceiptId)).toEqual({
       status: 'COUNTER_OFFERED',
@@ -524,7 +525,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
       [lot.listingId, w.adminId],
     );
     await expectAppError(
-      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY),
+      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID()),
       'INVALID_STATE_TRANSITION',
       409,
     );
@@ -534,7 +535,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: an unknown receipt id is 404 NOT_FOUND', async (w) => {
     await expectAppError(
-      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, newId(), OFFER_BODY),
+      w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, newId(), OFFER_BODY, randomUUID()),
       'NOT_FOUND',
       404,
     );
@@ -542,7 +543,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: the farmer accepts the quality counter-offer through the existing respondAccept: listing ACCEPTED at the offer terms, offer ACCEPTED', async (w) => {
     const lot = await w.lot();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     const farmer = w.farmer(lot);
     const listing = await w.counterOffers.respondAccept(farmer.actor, farmer.scope, lot.listingId, offer.id, newId());
     expect(listing).toMatchObject({ id: lot.listingId, status: 'ACCEPTED', finalPricePerKg: '45.00', finalQuantityKg: '100.000' });
@@ -553,7 +554,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: the farmer rejects the quality counter-offer: the listing returns to ACCEPTED (its prior state, it has a purchase order), not to PENDING_APPROVAL', async (w) => {
     const lot = await w.lot();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     const farmer = w.farmer(lot);
     const view = await w.counterOffers.respondReject(farmer.actor, farmer.scope, lot.listingId, offer.id, 'Price too low', newId());
     expect(view).toMatchObject({ id: offer.id, status: 'REJECTED', listingId: lot.listingId });
@@ -567,7 +568,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: the farmer counters the quality counter-offer: round 2 opens as a FARMER offer on the same listing, which stays COUNTER_OFFERED', async (w) => {
     const lot = await w.lot();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     const farmer = w.farmer(lot);
     const counter = await w.counterOffers.respondCounter(
       farmer.actor,
@@ -587,7 +588,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10b: the expiry sweep lapses an unanswered quality counter-offer and returns the listing to ACCEPTED, not PENDING_APPROVAL', async (w) => {
     const lot = await w.lot();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
     await w.tx.query(
       `UPDATE counter_offers SET created_at = now() - interval '2 days', expires_at = now() - interval '1 day' WHERE id = $1`,
       [offer.id],
@@ -627,7 +628,7 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
 
   dbIt('BR-10: the listing module still reads counter_offers with the new column: the admin queue and the farmer listing show the quality counter-offer as the active offer', async (w) => {
     const lot = await w.lot();
-    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY);
+    const offer = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.mainScope, lot.goodsReceiptId, OFFER_BODY, randomUUID());
 
     const queue = await counterOffersRepo.listAdminQueue(w.tx, { status: 'COUNTER_OFFERED', limit: 100 });
     const queued = queue.items.find((item) => (item as { id: string }).id === lot.listingId) as
@@ -725,7 +726,7 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
       customerId: null,
     });
 
-    const created = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).send(OFFER_BODY);
+    const created = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.headers['content-type']).toMatch(/^application\/json/);
     const offer = documentedCounterOffer.parse(created.body);
@@ -741,7 +742,7 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
       respondedAt: null,
     });
 
-    const repeat = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).send(OFFER_BODY);
+    const repeat = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(repeat.status).toBe(409);
     expect(repeat.headers['content-type']).toMatch(/^application\/problem\+json/);
     expect(repeat.body.code).toBe('CONFLICT');
@@ -759,19 +760,19 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
 
   httpIt('BR-10: no token is 401, FARMER and CUSTOMER are 403, an unknown receipt or another warehouse\'s receipt is 404 and a malformed price or quantity is 422, all problem+json and nothing written', async () => {
     const lot = await newLot();
-    const anonymous = await request(server).post(url(lot.goodsReceiptId)).send(OFFER_BODY);
+    const anonymous = await request(server).post(url(lot.goodsReceiptId)).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(anonymous.status).toBe(401);
     expect(anonymous.headers['content-type']).toMatch(/^application\/problem\+json/);
     for (const role of ['farmerOther', 'customer']) {
-      const denied = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens[role]!}`).send(OFFER_BODY);
+      const denied = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens[role]!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
       expect(denied.status, role).toBe(403);
       expect(denied.headers['content-type']).toMatch(/^application\/problem\+json/);
     }
-    const unknown = await request(server).post(url(newId())).set('Authorization', `Bearer ${tokens['main']!}`).send(OFFER_BODY);
+    const unknown = await request(server).post(url(newId())).set('Authorization', `Bearer ${tokens['main']!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(unknown.status).toBe(404);
     expect(unknown.body.code).toBe('NOT_FOUND');
     // An Ooty receipt seen by the Coonoor Sub Warehouse Admin: the same 404, never a 403 (BR-30b).
-    const foreign = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['subCoonoor']!}`).send(OFFER_BODY);
+    const foreign = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['subCoonoor']!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(foreign.status).toBe(404);
     expect(foreign.body.code).toBe('NOT_FOUND');
     // docs/openapi.yaml CounterOfferCreate: Money has at most 2 decimals, Quantity at most 3, no exponent.
@@ -787,6 +788,7 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
       const invalid = await request(server)
         .post(url(lot.goodsReceiptId))
         .set('Authorization', `Bearer ${tokens['main']!}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ ...OFFER_BODY, ...bad });
       expect(invalid.status, JSON.stringify(bad)).toBe(422);
       expect(invalid.headers['content-type']).toMatch(/^application\/problem\+json/);
@@ -798,7 +800,7 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
   httpIt('BR-11: over HTTP a listing with no rounds left is 409 COUNTER_LIMIT_REACHED problem+json', async () => {
     const lot = await newLot();
     for (const round of [1, 2, 3, 4]) await insertClosedRound(db, lot.listingId, round, round % 2 === 1 ? IDS.userSuperAdmin : lot.farmerUserId);
-    const res = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).send(OFFER_BODY);
+    const res = await request(server).post(url(lot.goodsReceiptId)).set('Authorization', `Bearer ${tokens['main']!}`).set('Idempotency-Key', randomUUID()).send(OFFER_BODY);
     expect(res.status).toBe(409);
     expect(res.headers['content-type']).toMatch(/^application\/problem\+json/);
     expect(res.body.code).toBe('COUNTER_LIMIT_REACHED');

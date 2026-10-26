@@ -15,6 +15,7 @@ import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { fulfilmentRepo, type FulfilmentRepo } from './fulfilment.repo.js';
 import { createFulfilmentService } from './fulfilment.service.js';
 
@@ -63,7 +64,7 @@ function harness(opts: {
     committed = true;
     return result;
   };
-  const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
+  const service = createFulfilmentService({ repo, db: {} as Executor, runTx, idempotency: createInMemoryIdempotencyStore() });
   const actor = { userId: newId(), roles: [{ code: RoleCode.MAIN_WH_ADMIN }], farmerId: null, customerId: null };
   const main: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.MAIN_WH_ADMIN, permission: PERMISSION });
   return { orderId, tx, repo, service, actor, main, wasCommitted: () => committed };
@@ -144,8 +145,8 @@ describe('pack / dispatch status updates that match no row (fake repo) — BR-85
       const h = harness({ unlocked: { status: 'CONFIRMED', channel: 'ONLINE' }, locked: null, updatedRows: 0 });
       const call =
         action === 'pack'
-          ? h.service.packOrder(h.actor, h.main, h.orderId, {})
-          : h.service.dispatchOrder(h.actor, h.main, h.orderId, {});
+          ? h.service.packOrder(h.actor, h.main, h.orderId, {}, newId())
+          : h.service.dispatchOrder(h.actor, h.main, h.orderId, {}, newId());
       await expect(call, action).rejects.toMatchObject({ code: 'CONFLICT', status: 409 });
       expect(h.tx.statements.some((sql) => /audit_log/i.test(sql)), action).toBe(false);
       expect(h.wasCommitted(), action).toBe(false);

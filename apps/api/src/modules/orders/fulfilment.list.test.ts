@@ -25,7 +25,9 @@ import type { Server } from 'node:http';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { randomUUID } from 'node:crypto';
 import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import type { FulfilmentRepo } from './fulfilment.repo.js';
 import { encodeAdminOrderCursor } from './fulfilment.cursor.js';
 import { adminOrdersQuerySchema } from './fulfilment.schema.js';
@@ -115,14 +117,14 @@ describe('admin order list service (fake repo)', () => {
       incrementOtpAttempts: vi.fn(),
     } as unknown as FulfilmentRepo;
     const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
-    const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
+    const service = createFulfilmentService({ repo, db: {} as Executor, runTx, idempotency: createInMemoryIdempotencyStore() });
     const actor = { userId: newId(), roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: newId() };
     const customer: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.CUSTOMER, customerId: actor.customerId });
     for (const call of [
       () => service.assignWarehouse(actor, customer, order.id, { warehouseId: WH_B }),
-      () => service.packOrder(actor, customer, order.id, {}),
-      () => service.dispatchOrder(actor, customer, order.id, {}),
-      () => service.verifyOtp(actor, customer, order.id, { otp: '1234' }),
+      () => service.packOrder(actor, customer, order.id, {}, newId()),
+      () => service.dispatchOrder(actor, customer, order.id, {}, newId()),
+      () => service.verifyOtp(actor, customer, order.id, { otp: '1234' }, newId()),
     ]) {
       await expect(call()).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
     }
@@ -352,6 +354,7 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
       const res = await request(server)
         .post(`/v1/admin/orders/${coonoorOrder}/${action}`)
         .set('Authorization', auth('customer'))
+        .set('Idempotency-Key', randomUUID())
         .send(body);
       expect(res.status, action).toBe(403);
       expect(res.body.code, action).toBe('FORBIDDEN');

@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
@@ -7,6 +8,7 @@ import { signAccessToken } from '../../auth/jwt.js';
 import { AppError } from '../../http/problem.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { Executor } from '../../db/pool.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
 import { resolveScope, type ResolvedScope } from '../../rbac/requirePermission.js';
 import {
@@ -241,7 +243,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
 
   const noAllocation = async (): Promise<void> => {};
   const createTestService = (overrides?: Partial<GoodsReceiptsRepo>) =>
-    createGoodsReceiptsService(createMockRepo(overrides), mockRunTx, mockDb, noAllocation);
+    createGoodsReceiptsService(createMockRepo(overrides), mockRunTx, mockDb, noAllocation, createInMemoryIdempotencyStore());
 
   it('BR-30a: Sub Warehouse Admin creates goods receipt for their assigned warehouse', async () => {
     const service = createTestService();
@@ -253,7 +255,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       photos: [],
     };
 
-    const res = await service.createGoodsReceipt(mockActorSubWhOoty, mockScopeSubWhOoty, input);
+    const res = await service.createGoodsReceipt(mockActorSubWhOoty, mockScopeSubWhOoty, input, randomUUID());
     expect(res).toBeDefined();
     expect(res.warehouseId).toBe(WH_OOTY);
     expect(res.status).toBe('AWAITING_QC');
@@ -271,7 +273,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     };
 
     await expect(
-      service.createGoodsReceipt(mockActorSubWhOoty, mockScopeSubWhOoty, input),
+      service.createGoodsReceipt(mockActorSubWhOoty, mockScopeSubWhOoty, input, randomUUID()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e).toBeInstanceOf(AppError);
@@ -319,7 +321,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     };
 
     await expect(
-      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input),
+      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input, randomUUID()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e.status).toBe(422);
@@ -344,7 +346,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     };
 
     await expect(
-      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input),
+      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input, randomUUID()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e.status).toBe(422);
@@ -371,7 +373,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       priceAdjustment: '0.00',
     };
 
-    const res = await service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input);
+    const res = await service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input, randomUUID());
     expect(res.qualityCheck).toBeDefined();
     expect(res.qualityCheck.outcome).toBe('ACCEPTED');
     expect(res.qualityCheck.items).toHaveLength(5);
@@ -424,6 +426,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       async (_input, tx) => {
         record('allocation')(tx);
       },
+      createInMemoryIdempotencyStore(),
     );
     const res = await service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, {
       assignedGrade: 'GRADE_2',
@@ -435,7 +438,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       photos: [],
       priceAdjustment: '-4.00',
       storageLocation: 'A-04-R2',
-    });
+    }, randomUUID());
     expect(res.batch).not.toBeNull();
     expect(Object.keys(txSeen).sort()).toEqual(
       ['allocation', 'audit:inventory.batch.assign', 'audit:inventory.quality_check.perform', 'batch', 'ledger', 'qualityCheck'].sort(),
@@ -462,6 +465,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       },
       mockDb,
       noAllocation,
+      createInMemoryIdempotencyStore(),
     );
     await expect(
       service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, {
@@ -472,7 +476,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
         items: valid5PointItems,
         photos: [],
         priceAdjustment: '0.00',
-      }),
+      }, randomUUID()),
     ).rejects.toThrow('disk full');
     expect(runnerSawError).toBe(true);
   });
@@ -494,7 +498,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       items: valid5PointItems,
       photos: [],
       priceAdjustment: '0.00',
-    });
+    }, randomUUID());
     expect(res.batch).toBeNull();
     expect(inserted).toBe(false);
   });
@@ -517,6 +521,7 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
         quantityKg: '250.000',
         message: 'Downgraded to Grade 2 due to size variation; offering Rs 45/kg',
       },
+      randomUUID(),
     );
 
     expect(offer).toBeDefined();
@@ -897,10 +902,10 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
     ];
     const since = await dbNow();
     for (const { method, path, body } of routes) {
-      const anonymous = await request(server)[method](path).send(body);
+      const anonymous = await request(server)[method](path).set('Idempotency-Key', randomUUID()).send(body);
       expect(anonymous.status, `${method} ${path} anonymous`).toBe(401);
       for (const role of ['farmer', 'customer', 'farmerAdmin']) {
-        const res = await request(server)[method](path).set('Authorization', auth(role)).send(body);
+        const res = await request(server)[method](path).set('Authorization', auth(role)).set('Idempotency-Key', randomUUID()).send(body);
         expect(res.status, `${method} ${path} as ${role}`).toBe(403);
         expect(res.headers['content-type']).toContain('application/problem+json');
         expect(res.body.code).toBe('FORBIDDEN');
@@ -954,10 +959,12 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
       const foreign = await request(server)
         .post(`/v1/admin/goods-receipts/${receiptB}/${action}`)
         .set('Authorization', auth('subA'))
+        .set('Idempotency-Key', randomUUID())
         .send(body);
       const missing = await request(server)
         .post(`/v1/admin/goods-receipts/${random}/${action}`)
         .set('Authorization', auth('subA'))
+        .set('Idempotency-Key', randomUUID())
         .send(body);
       expect(foreign.status, `${action} ${JSON.stringify(foreign.body)}`).toBe(404);
       expect(missing.status, action).toBe(404);
@@ -985,7 +992,7 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
     const randomPo = newId();
     const randomWh = newId();
     const post = (body: Record<string, unknown>) =>
-      request(server).post('/v1/admin/goods-receipts').set('Authorization', auth('subA')).send({ grossQtyKg: '10.000', ...body });
+      request(server).post('/v1/admin/goods-receipts').set('Authorization', auth('subA')).set('Idempotency-Key', randomUUID()).send({ grossQtyKg: '10.000', ...body });
 
     // Own warehouse named, foreign purchase order: must not disclose the order or its warehouse.
     const foreignPo = await post({ purchaseOrderId: poB.purchaseOrderId, warehouseId: whA });
@@ -1049,6 +1056,7 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
     const qc = await request(server)
       .post(`/v1/admin/goods-receipts/${receiptB}/quality-check`)
       .set('Authorization', auth('mainA'))
+      .set('Idempotency-Key', randomUUID())
       .send(QC_BODY);
     expect(qc.status).toBe(404);
     expect(await sideEffects(receiptB, whB, since)).toEqual(UNTOUCHED);
@@ -1076,7 +1084,7 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
         warehouseId: whA,
         grossQtyKg: '100.000',
         photos: [],
-      });
+      }, randomUUID());
       expect(created.warehouseId).toBe(whA);
       expect(created.status).toBe('AWAITING_QC');
 
@@ -1085,7 +1093,7 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
       expect(ids).toEqual(expect.arrayContaining([created.id, receiptA]));
       expect(ids).not.toContain(receiptB);
 
-      const checked = await service.recordQualityCheck(actor, qcScope!, created.id, qualityCheckCreateBody.parse(QC_BODY));
+      const checked = await service.recordQualityCheck(actor, qcScope!, created.id, qualityCheckCreateBody.parse(QC_BODY), randomUUID());
       expect(checked.qualityCheck.goodsReceiptId).toBe(created.id);
       expect(checked.qualityCheck.items).toHaveLength(5);
       const after = await service.getById(actor, recordScope!, created.id);

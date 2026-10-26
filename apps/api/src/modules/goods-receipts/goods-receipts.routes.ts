@@ -25,7 +25,7 @@ goodsReceiptsRouter.post(
     const scope = requireScope(req.scope);
     const body = getValidated(req, 'body', createGoodsReceiptBody);
 
-    const result = await goodsReceiptsService.createGoodsReceipt(actor, scope, body);
+    const result = await goodsReceiptsService.createGoodsReceipt(actor, scope, body, req.header('idempotency-key'));
     res.status(201).json(result);
   }),
 );
@@ -42,7 +42,7 @@ goodsReceiptsRouter.post(
     const { id } = getValidated(req, 'params', goodsReceiptIdParams);
     const body = getValidated(req, 'body', qualityCheckCreateBody);
 
-    const result = await goodsReceiptsService.recordQualityCheck(actor, scope, id, body);
+    const result = await goodsReceiptsService.recordQualityCheck(actor, scope, id, body, req.header('idempotency-key'));
     res.status(201).json(result);
   }),
 );
@@ -59,7 +59,7 @@ goodsReceiptsRouter.post(
     const { id } = getValidated(req, 'params', goodsReceiptIdParams);
     const body = getValidated(req, 'body', qualityCounterOfferBody);
 
-    const result = await goodsReceiptsService.createQualityCounterOffer(actor, scope, id, body);
+    const result = await goodsReceiptsService.createQualityCounterOffer(actor, scope, id, body, req.header('idempotency-key'));
     res.status(201).json(result);
   }),
 );
