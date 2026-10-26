@@ -1699,21 +1699,6 @@
       "source": "reqs 6.2"
     },
     {
-      "code": "inventory.material_handling.manage",
-      "module": "Inventory & Warehouse",
-      "description": "Manage material handling and warehouse materials.",
-      "grants": {
-        "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
-        "SUB_WH_ADMIN": "own",
-        "FARMER": "none",
-        "CUSTOMER": "none"
-      },
-      "source": "reqs 6.2"
-    },
-    {
       "code": "warehouse.all.view",
       "module": "Inventory & Warehouse",
       "description": "View all 4 warehouses on a consolidated dashboard.",
@@ -3710,6 +3695,13 @@
       "roleMatrix": "not separately stated",
       "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
       "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1."
+    },
+    {
+      "topic": "Material handling (inventory.material_handling.manage)",
+      "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, MAIN_WH_ADMIN all, SUB_WH_ADMIN own (reqs 6.2)",
+      "roleMatrix": "not separately stated",
+      "precedence": "product owner decision 2026-10-23 (explicit, supersedes reqs 6.2 for this row and the 2026-10-14 hide-only decision)",
+      "decision": "Permission `inventory.material_handling.manage` REMOVED. Product owner decision 2026-10-23 (supersedes the 2026-10-14 hide-only decision): Material Handling is out of scope for the mobile admin app and the API has no route for it. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants."
     },
     {
       "topic": "Admin edit/delete of farmer certification records (certification.manage_any)",

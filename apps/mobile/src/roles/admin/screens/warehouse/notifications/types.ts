@@ -131,8 +131,26 @@ export interface ApprovalAlertItem {
   snoozedUntil?: string | undefined;
 }
 
+/**
+ * One system message (announcement) visible to the viewer (GET /system-messages,
+ * BR-65). Only what the API carries: it has no message type / category and no
+ * human message number (a uuid and a SYSTEM_WIDE / WAREHOUSE / ROLE scope), so
+ * the design's "Message Type" and "Message ID" have no field here.
+ */
+export interface SystemMessageRow {
+  id: string;
+  title: string;
+  message: string;
+  /** The viewer's own read state (read state is per user). */
+  isRead: boolean;
+  /** "25 Sep 2026": the IST day it started showing (startsAt). */
+  date: string;
+  /** "08:00 PM – 09:00 PM", "From 08:00 PM" (no end) or with the end day when it differs. */
+  window: string;
+}
+
 /** Routes of NotificationsFlow. The old App.tsx keys map onto these (NOTIFICATIONS_ROUTE_ENTRY). */
-export type NotificationsRoute = 'Notifications' | 'NotificationDetail' | 'ApprovalAlerts';
+export type NotificationsRoute = 'Notifications' | 'NotificationDetail' | 'ApprovalAlerts' | 'SystemMessages';
 
 /** Params a NotificationsFlow route can carry. */
 export interface NotificationsRouteParams {

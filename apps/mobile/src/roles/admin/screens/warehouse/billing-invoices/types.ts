@@ -164,6 +164,8 @@ export interface InvoiceTaxRow {
 
 /** Everything the live invoice detail shows: what GET /invoices/{id} returns, nothing more. */
 export interface InvoiceDetailView extends InvoiceRow {
+  /** The order uuid the invoice names (Invoice.orderId), or null; never shown, only matched (invoiceOrderContext). */
+  orderId: string | null;
   placeOfSupply: string | null;
   gstApplicable: boolean;
   gstInclusive: boolean;
@@ -173,6 +175,23 @@ export interface InvoiceDetailView extends InvoiceRow {
   taxRows: InvoiceTaxRow[];
   totalPaise: Paise | null;
   totalLabel: string;
+}
+
+/**
+ * The order an invoice is shown for (M5-18): the admin order detail the order
+ * invoice screen already holds. Structural, so OrderDetailView fits as is.
+ */
+export interface InvoiceOrderRef {
+  id: string;
+  orderNumber: string;
+  buyerName: string;
+}
+
+/** What the order adds to its invoice: the number and the buyer's name, nothing else (BR-92: no mobile). */
+export interface InvoiceOrderContext {
+  orderNumber: string;
+  /** Null when the order names no buyer; the row is then hidden. */
+  customerName: string | null;
 }
 
 /** A day of the history layout. */
@@ -249,4 +268,6 @@ export interface BillingRouteParams {
   /** Post-sale entry: open the wizard on its Review step with this summary. */
   review?: InvoiceReviewData | undefined;
   layout?: InvoiceListLayout | undefined;
+  /** The history chip the list opens on (the GST tile opens 'B2B'); omitted = 'All'. */
+  historyChip?: InvoiceHistoryChip | undefined;
 }

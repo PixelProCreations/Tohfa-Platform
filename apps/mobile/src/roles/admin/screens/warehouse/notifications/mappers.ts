@@ -20,13 +20,14 @@ import type { AlertItemDto, AlertType, WorklistParams, WorklistRefType } from '.
 import type { NotificationDto, SystemMessageDto } from '../../../api/notifications';
 import { hasKey, t, type TranslationKey } from '../../../i18n';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
-import { formatAdminDate, formatAdminDay, relativeTime } from '../../../utils/datetime';
+import { formatAdminDate, formatAdminDay, formatAdminTime, relativeTime } from '../../../utils/datetime';
 import type {
   AlertRecordTarget,
   ApprovalAlertItem,
   NotificationCategory,
   NotificationItem,
   NotificationTarget,
+  SystemMessageRow,
 } from './types';
 
 /** The category a notification falls back to when `data` says nothing the app knows. */
@@ -115,6 +116,49 @@ export function toSystemMessageItem(dto: SystemMessageDto, now: Date): Notificat
     timestamp: relativeTime(dto.startsAt, now),
     isRead: dto.isRead,
     date: formatAdminDate(dto.startsAt, now),
+  };
+}
+
+// ─── System Messages (M13-04) ────────────────────────────────────────────────
+
+/**
+ * docs/rbac.json codes the system-message endpoints declare. There is no
+ * dedicated system-message code, so the API reuses the own-notification ones
+ * (docs/openapi.yaml "INTERIM permission", BR-65).
+ */
+export const SYSTEM_MESSAGE_CODES = {
+  view: 'notification.own.view',
+  markRead: 'notification.own.mark_read',
+} as const;
+
+/** Whether to offer the System Messages entry and its mark-read (display only; the server checks again). */
+export function systemMessageAccess(can: (code: string) => boolean): { view: boolean; markRead: boolean } {
+  const view = can(SYSTEM_MESSAGE_CODES.view);
+  return { view, markRead: view && can(SYSTEM_MESSAGE_CODES.markRead) };
+}
+
+/**
+ * When the message applies, in IST: "08:00 PM – 09:00 PM" on one day, the end
+ * day added when it ends on a later day, "From 08:00 PM" with no end.
+ */
+export function systemMessageWindow(startsAt: string, endsAt: string | null): string {
+  const from = formatAdminTime(startsAt);
+  if (endsAt === null) return t('systemMessages.window.openEnded', { from });
+  const endTime = formatAdminTime(endsAt);
+  const endDay = formatAdminDay(endsAt);
+  const to = endDay === formatAdminDay(startsAt) ? endTime : t('datetime.dayAndTime', { day: endDay, time: endTime });
+  return t('systemMessages.window.range', { from, to });
+}
+
+/** A system message as the M13-04 list shows it: only fields the API carries (no type, no scope). */
+export function toSystemMessageRow(dto: SystemMessageDto): SystemMessageRow {
+  return {
+    id: dto.id,
+    title: dto.title,
+    message: dto.body,
+    isRead: dto.isRead,
+    date: formatAdminDay(dto.startsAt),
+    window: systemMessageWindow(dto.startsAt, dto.endsAt),
   };
 }
 

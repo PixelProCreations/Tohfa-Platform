@@ -11,8 +11,12 @@
  * so is the capacity-alert threshold (no system_config key exists for it).
  *
  * Set Capacity (PATCH /warehouses/{id}/capacity) needs
- * `warehouse.capacity.set` (Main all, Sub none). "Manage Capacity Limits"
- * still opens Warehouse Settings when the host provides it.
+ * `warehouse.capacity.set` (Main all, Sub none). As design M15-05 asks, the
+ * form says a change never modifies inventory (BR-66e), then shows Current /
+ * New / Difference and asks "Update warehouse capacity?" before the PATCH
+ * (../shared/CapacityReviewPanel). No targets: BR-80 says they are not built.
+ * "Manage Capacity Limits" still opens Warehouse Settings when the host
+ * provides it, on this screen's warehouse.
  */
 // Design id: M4-S07
 import React, { useMemo, useState } from 'react';
@@ -20,8 +24,11 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
+import { parseKgToGrams } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { capacityChangeReview, type CapacityReview } from '../shared/capacityReview';
+import { CapacityReviewPanel, confirmCapacityChange } from '../shared/CapacityReviewPanel';
 import { InfoNote, KpiRow, LockIcon, SectionTitle, StatusBadge, WalletButton, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { locationStockOf, parseCapacityInput, toCapacityView, toLocationRow } from './mappers';
 import { ProgressBar, STORAGE_CODES } from './StorageParts';
@@ -33,8 +40,8 @@ export interface WarehouseCapacityScreenProps extends WarehouseScreenBaseProps {
   warehouse: StorageWarehouse;
   /** View Capacity History (host: warehouse activity). */
   onViewHistory?: (() => void) | undefined;
-  /** Manage Capacity Limits (host: Warehouse Settings); shown only with warehouse.capacity.set. */
-  onManageCapacity?: (() => void) | undefined;
+  /** Manage Capacity Limits (host: Warehouse Settings) on this warehouse; shown only with warehouse.capacity.set. */
+  onManageCapacity?: ((warehouseId: string | undefined) => void) | undefined;
 }
 
 export function WarehouseCapacityScreen({ can, onBack, warehouse, onViewHistory, onManageCapacity }: WarehouseCapacityScreenProps) {
@@ -48,6 +55,9 @@ export function WarehouseCapacityScreen({ can, onBack, warehouse, onViewHistory,
     return locations.items.map((l) => toLocationRow(l, locationStockOf(batches.stockByCode, l.code), now));
   }, [locations.items, batches.stockByCode]);
   const none = t('storageOps.notAvailable');
+  // The stored capacity for the review: null when none is set, undefined until it is read.
+  const currentGrams =
+    capacity.capacity === undefined ? undefined : capacity.capacity.capacityKg === null ? null : parseKgToGrams(capacity.capacity.capacityKg) ?? undefined;
 
   return (
     <WalletScreen title={t('storageOps.capacity.title')} onBack={onBack} headerExtra={warehouse.header}>
@@ -81,10 +91,10 @@ export function WarehouseCapacityScreen({ can, onBack, warehouse, onViewHistory,
             </>
           )}
 
-          {canSet ? <SetCapacityForm warehouseId={warehouse.warehouseId} /> : null}
+          {canSet ? <SetCapacityForm warehouseId={warehouse.warehouseId} currentGrams={currentGrams} /> : null}
           {canSet && onManageCapacity ? (
             <View style={styles.spaced}>
-              <WalletButton label={t('storageOps.capacity.manage')} variant="outline" onPress={onManageCapacity} />
+              <WalletButton label={t('storageOps.capacity.manage')} variant="outline" onPress={() => onManageCapacity(warehouse.warehouseId)} />
             </View>
           ) : null}
           {!canSet ? (
@@ -130,27 +140,56 @@ export function WarehouseCapacityScreen({ can, onBack, warehouse, onViewHistory,
   );
 }
 
-/** PATCH /warehouses/{id}/capacity; only rendered with warehouse.capacity.set. */
-function SetCapacityForm({ warehouseId }: { warehouseId: string | undefined }) {
+/**
+ * PATCH /warehouses/{id}/capacity; only rendered with warehouse.capacity.set.
+ * Edit -> Review (Current / New / Difference) -> confirm -> PATCH.
+ */
+function SetCapacityForm({ warehouseId, currentGrams }: { warehouseId: string | undefined; currentGrams: number | null | undefined }) {
   const [input, setInput] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
+  const [review, setReview] = useState<CapacityReview | null>(null);
   const set = useSetCapacity(warehouseId);
 
-  const save = () => {
+  const startReview = () => {
     const parsed = parseCapacityInput(input);
-    if (!parsed.ok || parsed.value === null) {
+    const next = parsed.ok && parsed.value !== null ? capacityChangeReview(currentGrams, parsed.value) : null;
+    if (next === null) {
       setMessage(t(parsed.ok ? 'storageOps.capacity.error.invalid' : parsed.error));
       return;
     }
     setMessage(undefined);
-    set.mutate(parsed.value, {
+    set.reset();
+    setReview(next);
+  };
+
+  const update = (confirmed: CapacityReview) => {
+    set.mutate(confirmed.newKg, {
       onSuccess: () => {
         setInput('');
-        setMessage(t('storageOps.capacity.saved'));
+        setReview(null);
+        setMessage(t('capacityChange.success'));
       },
       onError: (err) => setMessage(t(adminErrorKey(err))),
     });
   };
+
+  if (review !== null) {
+    return (
+      <View style={styles.form}>
+        <CapacityReviewPanel review={review} />
+        {message !== undefined ? <Text style={styles.error}>{message}</Text> : null}
+        <View style={styles.actions}>
+          <WalletButton label={t('capacityChange.action.back')} variant="neutral" flex onPress={() => setReview(null)} />
+          <WalletButton
+            label={set.isPending ? t('capacityChange.action.updating') : t('capacityChange.action.update')}
+            flex
+            disabled={set.isPending || review.unchanged}
+            onPress={() => confirmCapacityChange(review, () => update(review))}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.form}>
@@ -163,8 +202,9 @@ function SetCapacityForm({ warehouseId }: { warehouseId: string | undefined }) {
         placeholder={t('storageOps.capacity.placeholder')}
         placeholderTextColor={adminColors.placeholder}
       />
+      <Text style={styles.muted}>{t('capacityChange.notice')}</Text>
       {message !== undefined ? <Text style={styles.muted}>{message}</Text> : null}
-      <WalletButton label={t('storageOps.save')} disabled={set.isPending} onPress={save} />
+      <WalletButton label={t('capacityChange.action.review')} onPress={startReview} />
     </View>
   );
 }
@@ -184,6 +224,7 @@ const styles = StyleSheet.create({
   muted: { ...adminType.rowMeta, color: adminColors.muted },
   error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
   spaced: { marginTop: adminSpacing.md },
+  actions: { flexDirection: 'row', gap: adminSpacing.sm },
   form: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

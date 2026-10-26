@@ -24,10 +24,13 @@ import type { AdminTone } from '../../../theme';
 import { formatAdminDay } from '../../../utils/datetime';
 import { moneyToPaise } from '../orders/mappers';
 import type {
+  BillingRouteParams,
   InvoiceDayGroup,
   InvoiceDetailView,
   InvoiceHistoryChip,
   InvoiceLineView,
+  InvoiceOrderContext,
+  InvoiceOrderRef,
   InvoiceRow,
   InvoiceTaxRow,
   InvoiceUiStatus,
@@ -82,6 +85,14 @@ const HISTORY_TYPE: Readonly<Record<InvoiceHistoryChip, InvoiceType | undefined>
 export function historyTypeFilter(chip: InvoiceHistoryChip): InvoiceType | undefined {
   return HISTORY_TYPE[chip];
 }
+
+/**
+ * Where the Main hub's GST Invoice tile goes (M9-05): the history layout on
+ * its B2B chip, i.e. GET /invoices?type=SALE_B2B. GST applies only to B2B and
+ * Horeca sales (BR-15), and the chip stays visible, so the filter is never a
+ * hidden one. Viewing only: there is no create-invoice route.
+ */
+export const GST_INVOICE_LIST_PARAMS: Readonly<BillingRouteParams> = { layout: 'history', historyChip: 'B2B' };
 
 // ─── Status and type ─────────────────────────────────────────────────────────
 
@@ -190,6 +201,7 @@ export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
   const taxablePaise = moneyToPaise(dto.taxableAmount);
   return {
     ...row,
+    orderId: typeof dto.orderId === 'string' && UUID_RE.test(dto.orderId) ? dto.orderId : null,
     placeOfSupply: typeof dto.placeOfSupply === 'string' && dto.placeOfSupply !== '' ? dto.placeOfSupply : null,
     gstApplicable: dto.gstApplicable === true,
     gstInclusive: dto.gstInclusive === true,
@@ -200,6 +212,22 @@ export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
     totalPaise: row.amountPaise,
     totalLabel: row.amountLabel,
   };
+}
+
+/**
+ * The Order No. and Customer rows of an order's invoice (M5-18). GET
+ * /invoices/{id} carries neither, so they come from the order detail the
+ * screen already holds, and only when the invoice names that very order: a
+ * stale or mismatched order never labels another invoice. Only the buyer's
+ * name is copied; a mobile never reaches the invoice view (BR-92).
+ */
+export function invoiceOrderContext(
+  invoice: Pick<InvoiceDetailView, 'orderId'>,
+  order: InvoiceOrderRef | undefined,
+): InvoiceOrderContext | null {
+  if (order === undefined || invoice.orderId === null || invoice.orderId !== order.id) return null;
+  const name = order.buyerName.trim();
+  return { orderNumber: order.orderNumber, customerName: name === '' ? null : name };
 }
 
 /** The history layout: rows grouped by issue day, in the order the server sent them (newest first). */

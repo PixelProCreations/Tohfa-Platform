@@ -7,15 +7,23 @@
  * an IN_TRANSIT transfer whose destination the scope covers. There is no
  * separate "arrived" state on the server: a transfer is IN_TRANSIT until it is
  * received.
+ *
+ * Tiles (design M2-16), on the shared OverviewDashboardCard: In Transit and
+ * Completed are the list's `total` for IN_TRANSIT and RECEIVED; Qty Mismatch
+ * counts the RECEIVED transfers flagged `hasDiscrepancy` (receiptViews.ts).
+ * The design's Arrived, Receiving Pending and Quality Issue tiles are not
+ * drawn: the API has no arrival step (owner decision), "receiving pending" is
+ * the same IN_TRANSIT figure, and a transfer receipt records no quality check.
  */
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
+import { adminSpacing } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
-  KpiRow,
   PermissionNote,
   ScopeHeader,
   SectionTitle,
@@ -25,8 +33,9 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { TRANSFER_CODES, transferActions } from './mappers';
+import { discrepancyTileValue } from './receiptViews';
 import { TransferRow } from './TransferParts';
-import { useTransferList, useTransferStatusCounts, useTransferWarehouses } from './useTransfersData';
+import { useTransferDiscrepancyTally, useTransferList, useTransferStatusCounts, useTransferWarehouses } from './useTransfersData';
 import type { WarehouseScreenBaseProps } from './types';
 
 export interface TransferReceivingScreenProps extends WarehouseScreenBaseProps {
@@ -38,6 +47,8 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
   const { nameOf } = useTransferWarehouses(scope, can);
   const list = useTransferList(scope, 'IN_TRANSIT', nameOf);
   const counts = useTransferStatusCounts(scope);
+  const mismatch = useTransferDiscrepancyTally(scope);
+  const countOrUnknown = (n: number | undefined) => (n === undefined ? t('transfers.kpi.unknown') : String(n));
   const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
   const start = canReceive ? onStartTransferInspection : undefined;
 
@@ -56,12 +67,28 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <KpiRow
-          items={[
-            { value: counts.IN_TRANSIT === undefined ? t('transfers.kpi.unknown') : String(counts.IN_TRANSIT), label: t('transfers.kpi.inTransit'), tone: 'info' },
-            { value: counts.RECEIVED === undefined ? t('transfers.kpi.unknown') : String(counts.RECEIVED), label: t('transfers.kpi.received'), tone: 'success' },
-          ]}
-        />
+        <OverviewCardsGrid style={styles.grid}>
+          <OverviewDashboardCard
+            value={countOrUnknown(counts.IN_TRANSIT)}
+            title={t('transfers.receiving.tile.inTransit')}
+            subtitle={t('transfers.receiving.tile.inTransitSub')}
+            icon="truck"
+          />
+          <OverviewDashboardCard
+            value={discrepancyTileValue(mismatch.tally, { loading: mismatch.isLoading, error: mismatch.error })}
+            title={t('transfers.receiving.tile.qtyMismatch')}
+            subtitle={t('transfers.receiving.tile.qtyMismatchSub')}
+            icon="alert"
+            tone="warning"
+          />
+          <OverviewDashboardCard
+            value={countOrUnknown(counts.RECEIVED)}
+            title={t('transfers.receiving.tile.completed')}
+            subtitle={t('transfers.receiving.tile.completedSub')}
+            icon="box"
+            tone="success"
+          />
+        </OverviewCardsGrid>
         <SectionTitle>{t('transfers.receiving.section')}</SectionTitle>
         {view === 'loading' ? <AdminLoadingState /> : null}
         {view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
@@ -84,3 +111,7 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
     </WalletScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  grid: { marginBottom: adminSpacing.md },
+});

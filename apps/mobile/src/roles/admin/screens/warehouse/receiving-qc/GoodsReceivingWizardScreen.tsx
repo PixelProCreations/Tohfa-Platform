@@ -4,18 +4,36 @@
  *
  * One wizard records one delivery against one purchase order, on the real API
  * (integration plan phase 4):
- *   start_receiving        the order, the receiver, the vehicle number
+ *   start_receiving        the order, the receiver, the vehicle number, and the
+ *                          receiver's confirmation that the goods are physically
+ *                          here (design M2-05: a required gate for Continue; it
+ *                          records nothing and is not a purchase-order status,
+ *                          there is no arrival step)
  *   quantity_verification  the received (gross) weight, against the ordered quantity
+ *   quantity_detail        M2-06 "<product> — Quantity": expected / received /
+ *                          difference and the shortage or excess detail
  *   quality_check          the five checklist rows, moisture, visual score, defect notes
- *   grade_verification     the assigned grade (may differ from the listed one)
+ *   quality_summary        M2-07 Quality Summary: the checklist counts
+ *   grade_verification     the assigned grade (may differ from the listed one); a
+ *                          mismatch shows the quantity affected and a summary,
+ *                          both derived (gradeVerificationOf). No product
+ *                          mismatch: a receipt cannot change its product.
  *   receiving_decision     Accept / Partial Accept / Reject
  *   partial_acceptance     the accepted weight; rejected = received - accepted
  *   receipt_summary        everything above, then submit
  *   batch_assignment       the storage location (from GET /warehouses/{id}/storage-locations)
- *   receipt_confirmation   the real grnNumber, and the batch when the API returns one
+ *   batch_review           M2-13 / M2-14 review: product, assigned grade, accepted
+ *                          quantity, warehouse and location before the submit
+ *   receipt_confirmation   the real grnNumber, and View Batch for the batch the quality
+ *                          check created (BR-106: viewed, never assigned afterwards)
  *   submission_error       the real error, with a retry that cannot record twice
  *   counter_offer          a revised price for the delivered lot, after the receipt exists
  *
+ * Every submit asks first (design M2-10 "Confirm Acceptance?", M2-13 "Confirm
+ * Batch Assignment?", M2-14 "Confirm Location Assignment?"): one Alert, because
+ * BR-106 creates the batch with its storage location inside the one quality
+ * check, so all three confirm the same POST (receivingViews.ts
+ * receivingSubmitConfirmation; it promises a batch only when one is created).
  * Submitting is POST /admin/goods-receipts, then POST .../quality-check
  * (./submission.ts). The server ignores the Idempotency-Key on both (server
  * gap), so the created receipt is kept and a failed quality check retries only
@@ -29,6 +47,8 @@
  * receipt detail (the host's Receiving History serves those). Photos are not
  * offered: the uploader is farmer-only. Rejection reasons are reference data
  * the API does not serve, so a rejection is explained in the defect notes.
+ * "Needs Attention" on a checklist row is sent as a failed row: the quality
+ * check API takes pass / fail only (known data gap, explained on screen).
  *
  * Gates (docs/rbac.json; `can` only decides what to render, the server checks
  * again, CLAUDE.md 2.1). A gated step is skipped, never shown disabled:
@@ -66,12 +86,24 @@ import {
   buildGoodsReceiptBody,
   buildQualityCheckBody,
   createReceivingKeyRing,
+  gradeVerificationOf,
   qcDraftProblem,
+  receiptBatchOf,
   receiptResultLabel,
   receiptResultOf,
   receivingWarehouseFilter,
+  type GradeVerification,
   type QcDraft,
+  type WarehouseNaming,
 } from './mappers';
+import {
+  batchResultOf,
+  qcSummaryOf,
+  quantityDetailOf,
+  receivingSubmitConfirmation,
+  stocksBatch,
+  storageLocationLabel,
+} from './receivingViews';
 import {
   AlertCircleOutlineIcon,
   BackArrowIcon,
@@ -123,6 +155,8 @@ export interface GoodsReceivingWizardScreenProps extends WarehouseScreenBaseProp
   initialStep: ReceivingWizardStep;
   /** The purchase order being received (GET /admin/purchase-orders/{id}). */
   shipment: WizardShipmentData;
+  /** Names the batch's warehouse on the result card (the scope's own, or GET /warehouses for Main). */
+  naming?: WarehouseNaming | undefined;
   /** A receipt of this order still awaiting QC: the wizard completes it instead of creating another. */
   pendingReceipt?: GoodsReceiptDto | undefined;
   /** The receiving warehouse's storage locations. */
@@ -159,10 +193,12 @@ const STEPS_WITHOUT_API: ReadonlySet<ReceivingWizardStep> = new Set<ReceivingWiz
 /** Where a step the admin may not perform falls through to. */
 const STEP_FALLBACK: Partial<Record<ReceivingWizardStep, ReceivingWizardStep>> = {
   quality_check: 'receipt_summary',
+  quality_summary: 'receipt_summary',
   grade_verification: 'receipt_summary',
   receiving_decision: 'receipt_summary',
   partial_acceptance: 'receiving_decision',
   batch_assignment: 'receipt_summary',
+  batch_review: 'receipt_summary',
 };
 
 /** The grades a quality check may assign (docs/openapi.yaml Grade). */
@@ -176,12 +212,12 @@ const ALL_PASS: Record<QcCriterionId, QcResult> = {
   freshness: 'pass',
 };
 
-/** Received - Expected, as the absorbed Quantity Verification rule states (never typed by the user). */
-function lineStatus(line: ShipmentLineItem): 'Shortage' | 'Excess' | 'Match' {
-  if (line.expectedGrams === null || line.receivedGrams === null) return 'Match';
-  const diff = line.receivedGrams - line.expectedGrams;
-  return diff < 0 ? 'Shortage' : diff > 0 ? 'Excess' : 'Match';
-}
+/** Quantity status labels (M2-06). */
+const QTY_STATUS_LABEL = {
+  Shortage: 'receiving.qtyDetail.shortage',
+  Excess: 'receiving.qtyDetail.excess',
+  Match: 'receiving.qtyDetail.match',
+} as const;
 
 function kg(value: number | null): string {
   return value === null ? t('inventory.noValue') : formatKg(value);
@@ -198,6 +234,15 @@ function positiveGrams(input: string): number | null {
   return value !== null && value > 0 ? value : null;
 }
 
+/** Design M2-08B "Overall Status" line for a derived grade verification. */
+function gradeSummaryText(check: GradeVerification): string {
+  if (check.status === 'noListedGrade') return t('receiving.grade.statusNoListed');
+  if (check.status === 'match') return t('receiving.grade.statusMatch');
+  return check.quantityAffectedGrams === null
+    ? t('receiving.grade.statusMismatchNoQty')
+    : t('receiving.grade.statusMismatch', { qty: formatKg(check.quantityAffectedGrams) });
+}
+
 /* ─── Main Wizard Component ─── */
 export function GoodsReceivingWizardScreen({
   scope,
@@ -205,6 +250,7 @@ export function GoodsReceivingWizardScreen({
   onBack,
   initialStep,
   shipment: ship,
+  naming = {},
   pendingReceipt,
   storageLocations = [],
   storageLocationsLoading = false,
@@ -227,12 +273,14 @@ export function GoodsReceivingWizardScreen({
     if (STEPS_WITHOUT_API.has(step)) return false;
     switch (step) {
       case 'quality_check':
+      case 'quality_summary':
       case 'grade_verification':
       case 'receiving_decision':
         return canRecord && canQc;
       case 'partial_acceptance':
         return canRecord && canQc && canReject;
       case 'batch_assignment':
+      case 'batch_review':
         return canRecord && canQc && canBatch;
       case 'counter_offer':
         return canRecord && canCounter;
@@ -294,8 +342,8 @@ export function GoodsReceivingWizardScreen({
   const expectedProduct = ship.produce;
   const expectedGrade = ship.grade;
   const sourceName = ship.from;
-  /** Destination: the Sub scope's own warehouse, or the order's for Main (all warehouses). */
-  const destinationName = scope.warehouseName ?? ship.to;
+  /** Destination: the Sub scope's own warehouse, or the order's (named from GET /warehouses) for Main. */
+  const destinationName = scope.warehouseName ?? (ship.to === '' ? t('inventory.noValue') : ship.to);
   /** BR-30: a Sub scope always records into its own warehouse uuid. */
   const warehouseId = receivingWarehouseFilter(scope, ship.warehouseId) ?? ship.warehouseId;
   const expectedGrams = ship.expectedGrams;
@@ -319,7 +367,7 @@ export function GoodsReceivingWizardScreen({
   // Grade
   const [assignedGrade, setAssignedGrade] = useState<Grade>(ship.apiGrade ?? 'GRADE_1');
   const actualGrade = gradeLabel(assignedGrade);
-  const gradeMatches = ship.apiGrade === undefined || assignedGrade === ship.apiGrade;
+  const gradeCheck = gradeVerificationOf(ship.apiGrade, assignedGrade, grossGrams);
 
   // Decision: accepted is chosen; rejected is always received - accepted.
   const [acceptedGrams, setAcceptedGrams] = useState<number | null>(null);
@@ -420,10 +468,36 @@ export function GoodsReceivingWizardScreen({
     }
   };
 
-  /** Summary -> Batch & Storage when allowed and something was accepted, else submit straight away. */
+  /** BR-106: the check stocks a batch only for an accepted quantity above zero and a grade other than REJECT. */
+  const willStock = canQc && stocksBatch(acceptedGrams, assignedGrade);
+
+  /**
+   * M2-10 / M2-13 / M2-14: one confirmation, then the submit. The three design
+   * dialogs confirm the same POST (the quality check creates the batch with
+   * its storage location, BR-106), so the copy says what this submit does.
+   */
+  const confirmSubmit = () => {
+    if (submittingRef.current || draftProblem !== null || grossGrams === null) return;
+    const confirmation = receivingSubmitConfirmation({
+      canQc,
+      grossGrams,
+      acceptedGrams: canQc ? acceptedGrams : null,
+      rejectedGrams: canQc ? rejectedGrams : null,
+      assignedGrade,
+      product: expectedProduct,
+      warehouseName: destinationName,
+      storageLabel: selectedLocationCode === undefined ? undefined : storageLocationLabel(selectedLocationCode, storageLocations),
+    });
+    Alert.alert(confirmation.title, confirmation.body, [
+      { text: t('receiving.confirm.cancel'), style: 'cancel' },
+      { text: t('receiving.confirm.ok'), onPress: () => void handleConfirmGoodsReceipt() },
+    ]);
+  };
+
+  /** Summary -> Batch & Storage when a batch will be created and the admin may place it, else confirm and submit. */
   const handleSummaryConfirm = () => {
-    if (isAllowed('batch_assignment') && (acceptedGrams ?? 0) > 0) goToStep('batch_assignment');
-    else void handleConfirmGoodsReceipt();
+    if (isAllowed('batch_assignment') && willStock) goToStep('batch_assignment');
+    else confirmSubmit();
   };
 
   const pickFrom = (title: string, options: readonly { label: string; onPick: () => void }[]) => {
@@ -550,7 +624,7 @@ export function GoodsReceivingWizardScreen({
   if (currentStep === 'start_receiving') {
     return (
       <View style={styles.container}>
-        {header('Start Receiving')}
+        {header(t('receiving.wizard.startTitle'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Shipment')}
@@ -581,7 +655,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Destination</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -605,21 +679,24 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{receiverName ?? '—'}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Warehouse</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.warehouse')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
           </View>
 
+          {/* Design M2-05: a required gate ("confirm the physical shipment has arrived
+              first"). It records nothing and sets no order status: there is no
+              arrival step, recording the receipt is the arrival. */}
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setArrivalConfirmed(prev => !prev)}
             activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: arrivalConfirmed }}
           >
             <CheckboxSquareIcon checked={arrivalConfirmed} />
-            <Text style={styles.checkboxText}>
-              I confirm that the physical shipment has arrived and I am starting the receiving inspection.
-            </Text>
+            <Text style={styles.checkboxText}>{t('receiving.wizard.arrivalConfirm')}</Text>
           </TouchableOpacity>
 
           <Text style={styles.sectionHeader}>Physical Information</Text>
@@ -638,12 +715,14 @@ export function GoodsReceivingWizardScreen({
         </ScrollView>
 
         <View style={styles.bottomBar}>
+          {!arrivalConfirmed ? <Text style={styles.gateHint}>{t('receiving.wizard.arrivalRequired')}</Text> : null}
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, !arrivalConfirmed && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
+            disabled={!arrivalConfirmed}
             onPress={() => goToStep('quantity_verification')}
           >
-            <Text style={styles.primaryCtaText}>Continue to Quantity Check  →</Text>
+            <Text style={styles.primaryCtaText}>{t('receiving.wizard.continueToQuantity')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -657,7 +736,7 @@ export function GoodsReceivingWizardScreen({
     const difference = grossGrams !== null && expectedGrams !== null ? grossGrams - expectedGrams : null;
     return (
       <View style={styles.container}>
-        {header('Quantity Verification')}
+        {header(t('receiving.wizard.quantityTitle'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Quantity')}
@@ -684,50 +763,57 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
               <Text style={styles.statTileNumber}>{kg(expectedGrams)}</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tileExpected')}</Text>
             </View>
 
             <View style={styles.statTile}>
               <Text style={styles.statTileNumber}>{kg(grossGrams)}</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tileReceived')}</Text>
             </View>
 
             <View style={styles.statTile}>
               <Text style={[styles.statTileNumber, difference !== null && difference !== 0 && styles.valueDanger]}>
                 {signedKg(difference)}
               </Text>
-              <Text style={styles.statTileLabel}>DIFFERENCE</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tileDifference')}</Text>
             </View>
           </View>
 
-          {/* Absorbed QuantityVerificationScreen: one row per product line with its status */}
-          <Text style={styles.sectionHeader}>Items on this Shipment</Text>
+          {/* Absorbed QuantityVerificationScreen: one row per product line with its
+              status; a row opens its quantity detail (M2-06). */}
+          <Text style={styles.sectionHeader}>{t('receiving.wizard.itemsOnShipment')}</Text>
           {shipmentLines.map(line => {
-            const status = lineStatus(line);
+            const detail = quantityDetailOf(line.expectedGrams, line.receivedGrams);
             const tone =
-              status === 'Shortage' ? adminColors.warning : status === 'Excess' ? adminColors.info : adminColors.success;
-            const diff =
-              line.receivedGrams !== null && line.expectedGrams !== null ? line.receivedGrams - line.expectedGrams : null;
+              detail.status === 'Shortage' ? adminColors.warning : detail.status === 'Excess' ? adminColors.info : adminColors.success;
             return (
-              <View key={line.product} style={styles.shipmentItemCard}>
+              <TouchableOpacity
+                key={line.product}
+                style={styles.shipmentItemCard}
+                activeOpacity={0.8}
+                onPress={() => goToStep('quantity_detail')}
+                accessibilityRole="button"
+              >
                 <View style={styles.shipmentItemTopRow}>
                   <Text style={styles.shipmentItemTitle}>{line.product}</Text>
-                  {line.receivedGrams !== null ? (
+                  {detail.status !== null ? (
                     <View style={[styles.redBadgePill, { backgroundColor: tone.bg }]}>
                       <Text style={[styles.redBadgeText, { color: tone.text }]}>
-                        {status === 'Match' ? status : `${status} ${signedKg(diff)}`}
+                        {detail.status === 'Match'
+                          ? t(QTY_STATUS_LABEL.Match)
+                          : `${t(QTY_STATUS_LABEL[detail.status])} ${signedKg(detail.differenceGrams)}`}
                       </Text>
                     </View>
                   ) : null}
                 </View>
                 <Text style={styles.shipmentItemDesc}>
-                  Expected <Text style={styles.inlineStrong}>{kg(line.expectedGrams)}</Text> · Received <Text style={styles.inlineStrong}>{kg(line.receivedGrams)}</Text>
+                  {t('receiving.wizard.expectedReceived', { expected: kg(line.expectedGrams), received: kg(line.receivedGrams) })}
                 </Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
 
-          <NoticeBox text="Difference is always calculated as Received - Expected — the user never types the difference directly." />
+          <NoticeBox text={t('receiving.wizard.differenceNotice')} />
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -740,7 +826,77 @@ export function GoodsReceivingWizardScreen({
             onPress={() => goToStep(canQc ? 'quality_check' : 'receipt_summary')}
           >
             <Text style={styles.primaryCtaText}>
-              {canQc ? 'Continue to Quality Check  →' : t('receiving.wizard.continueToSummary')}
+              {canQc ? t('receiving.wizard.continueToQc') : t('receiving.wizard.continueToSummary')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     SCREEN 2B: Quantity detail (design M2-06 sub-view), derived from the
+     ordered and the typed weight; the difference is never typed.
+     ────────────────────────────────────────────────────────── */
+  if (currentStep === 'quantity_detail') {
+    const detail = quantityDetailOf(expectedGrams, grossGrams);
+    const rows: [string, string][] = [
+      [t('receiving.qtyDetail.expected'), kg(expectedGrams)],
+      [t('receiving.qtyDetail.received'), kg(grossGrams)],
+      [t('receiving.qtyDetail.difference'), signedKg(detail.differenceGrams)],
+      [t('receiving.qtyDetail.status'), detail.status === null ? t('inventory.noValue') : t(QTY_STATUS_LABEL[detail.status])],
+    ];
+    return (
+      <View style={styles.container}>
+        {header(t('receiving.qtyDetail.title', { product: expectedProduct }), receiptCode)}
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.decisionTableCard}>
+            {rows.map(([label, value], idx) => (
+              <View key={label} style={[styles.decisionTableRow, idx === rows.length - 1 && styles.noBorder]}>
+                <Text style={styles.decisionTableLabel}>{label}</Text>
+                <Text style={styles.decisionTableValue}>{value}</Text>
+              </View>
+            ))}
+          </View>
+
+          {detail.status === 'Shortage' || detail.status === 'Excess' ? (
+            <>
+              <Text style={styles.sectionHeader}>
+                {t(detail.status === 'Shortage' ? 'receiving.qtyDetail.shortageDetail' : 'receiving.qtyDetail.excessDetail')}
+              </Text>
+              <View style={styles.decisionTableCard}>
+                <View style={styles.decisionTableRow}>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.qtyDetail.expected')}</Text>
+                  <Text style={styles.decisionTableValue}>{kg(expectedGrams)}</Text>
+                </View>
+                <View style={styles.decisionTableRow}>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.qtyDetail.received')}</Text>
+                  <Text style={styles.decisionTableValue}>{kg(grossGrams)}</Text>
+                </View>
+                <View style={[styles.decisionTableRow, styles.noBorder]}>
+                  <Text style={styles.decisionTableLabel}>{t(QTY_STATUS_LABEL[detail.status])}</Text>
+                  <Text style={[styles.decisionTableValue, styles.valueDanger]}>{kg(detail.absGrams)}</Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+
+          {detail.status === null ? <NoticeBox text={t('receiving.qtyDetail.notYet')} /> : null}
+          <NoticeBox text={t('receiving.wizard.differenceNotice')} />
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.primaryCtaBtn, grossGrams === null && styles.primaryCtaBtnDisabled]}
+            activeOpacity={0.85}
+            disabled={grossGrams === null}
+            onPress={() => goToStep(canQc ? 'quality_check' : 'receipt_summary')}
+          >
+            <Text style={styles.primaryCtaText}>
+              {canQc ? t('receiving.wizard.continueToQc') : t('receiving.wizard.continueToSummary')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -755,7 +911,7 @@ export function GoodsReceivingWizardScreen({
   if (currentStep === 'quality_check') {
     return (
       <View style={styles.container}>
-        {header('Quality Check', `${expectedProduct} · ${expectedGrade} · ${t('receiving.wizard.receivedQty', { qty: kg(grossGrams) })}`)}
+        {header(t('receiving.wizard.qualityTitle'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Quality')}
@@ -778,11 +934,11 @@ export function GoodsReceivingWizardScreen({
                   { color: qcIssueCount > 0 ? adminColors.warning.text : adminColors.success.text },
                 ]}
               >
-                {qcIssueCount > 0 ? 'Issue' : 'OK'}
+                {t(qcIssueCount > 0 ? 'receiving.qc.badgeIssue' : 'receiving.qc.badgeOk')}
               </Text>
             </View>
           </View>
-          <NoticeBox text="Freshness and condition scales use configured backend values only — no invented numerical scoring system." />
+          <NoticeBox text={t('receiving.qc.scaleNotice')} />
 
           {QC_CRITERIA.map(crit => {
             const currentVal = qcStatusMap[crit.id];
@@ -863,7 +1019,15 @@ export function GoodsReceivingWizardScreen({
             placeholderTextColor={adminColors.placeholder}
           />
 
-          <View style={{ height: 100 }} />
+          {/* Known data gap: the API takes pass / fail per row, so Needs Attention is sent as a fail. */}
+          {qcSummaryOf(qcStatusMap).attention > 0 ? <NoticeBox text={t('receiving.qc.attentionSentAsFail')} /> : null}
+
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => goToStep('quality_summary')}>
+            <ReceiptPaperIcon color={adminColors.brand} size={18} />
+            <Text style={styles.actionCardText}>{t('receiving.qcSummary.title')}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.bottomSpacer} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
@@ -883,13 +1047,62 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
+     SCREEN 3A: Quality Summary (design M2-07 sub-view), from the checklist the
+     wizard holds. One purchase order is one product. Damaged quantity is not
+     drawn: the check records rows as pass / fail, not a damaged weight.
+     ────────────────────────────────────────────────────────── */
+  if (currentStep === 'quality_summary') {
+    const summary = qcSummaryOf(qcStatusMap);
+    const rows: [string, string][] = [
+      [t('receiving.qcSummary.productsChecked'), String(summary.productsChecked)],
+      [t('receiving.qcSummary.productsPassed'), String(summary.productsPassed)],
+      [t('receiving.qcSummary.productsWithIssues'), String(summary.productsWithIssues)],
+      [t('receiving.qcSummary.checksPassed'), t('receiving.qcSummary.ofTotal', { n: String(summary.passed), total: String(summary.criteria) })],
+      [t('receiving.qcSummary.needsAttention'), String(summary.attention)],
+      [t('receiving.qcSummary.failed'), String(summary.failed)],
+    ];
+    return (
+      <View style={styles.container}>
+        {header(t('receiving.qcSummary.title'), receiptCode)}
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.decisionTableCard}>
+            {rows.map(([label, value], idx) => (
+              <View key={label} style={[styles.decisionTableRow, idx === rows.length - 1 && styles.noBorder]}>
+                <Text style={styles.decisionTableLabel}>{label}</Text>
+                <Text style={styles.decisionTableValue}>{value}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={styles.sectionHeader}>{expectedProduct}</Text>
+          <View style={styles.qcSummaryCard}>{qcSummaryRows(qcStatusMap)}</View>
+
+          {summary.attention > 0 ? <NoticeBox text={t('receiving.qc.attentionSentAsFail')} /> : null}
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.primaryCtaBtn} activeOpacity={0.85} onPress={() => goToStep('grade_verification')}>
+            <View style={styles.ctaRow}>
+              <Text style={styles.primaryCtaText}>{t('receiving.wizard.continueToGrade')}</Text>
+              <RightArrowIcon color={adminColors.onBrand} size={18} />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  /* ──────────────────────────────────────────────────────────
      SCREEN 3B: Grade Verification. The product cannot change on a receipt;
      the assigned grade may differ from the listed one. Match is DERIVED.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'grade_verification') {
     return (
       <View style={styles.container}>
-        {header('Grade & Product Verification', receiptCode)}
+        {header(t('receiving.grade.title'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Grade')}
@@ -897,23 +1110,23 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Product</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedProduct')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Grade</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedGrade')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedGrade === '' ? t('inventory.noValue') : expectedGrade}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>Actual Grade</Text>
+          <Text style={styles.inputLabel}>{t('receiving.grade.actualGrade')}</Text>
           <TouchableOpacity
             style={styles.dropdownSelectBox}
             activeOpacity={0.7}
             onPress={() =>
               pickFrom(
-                'Actual Grade',
+                t('receiving.grade.actualGrade'),
                 GRADES.map(grade => ({ label: gradeLabel(grade), onPick: () => setAssignedGrade(grade) })),
               )
             }
@@ -922,12 +1135,46 @@ export function GoodsReceivingWizardScreen({
             <ChevronDownIcon />
           </TouchableOpacity>
 
-          <View style={styles.matchChipRow}>
-            <View style={[styles.matchChip, { backgroundColor: gradeMatches ? adminColors.success.bg : adminColors.danger.bg }]}>
-              <Text style={[styles.matchChipText, { color: gradeMatches ? adminColors.success.text : adminColors.danger.text }]}>
-                Grade {gradeMatches ? 'Match' : 'Mismatch'}
-              </Text>
+          {/* No listed grade on the order: nothing to compare, so no Match chip. */}
+          {gradeCheck.status !== 'noListedGrade' ? (
+            <View style={styles.matchChipRow}>
+              <View style={[styles.matchChip, { backgroundColor: gradeCheck.status === 'match' ? adminColors.success.bg : adminColors.danger.bg }]}>
+                <Text style={[styles.matchChipText, { color: gradeCheck.status === 'match' ? adminColors.success.text : adminColors.danger.text }]}>
+                  {t(gradeCheck.status === 'match' ? 'receiving.grade.chipMatch' : 'receiving.grade.chipMismatch')}
+                </Text>
+              </View>
             </View>
+          ) : null}
+
+          {/* Design M2-08B Grade Mismatch Detail, derived: the grade applies to the whole received weight. */}
+          {gradeCheck.status === 'mismatch' ? (
+            <>
+              <Text style={styles.sectionHeader}>{t('receiving.grade.mismatchTitle')}</Text>
+              <View style={styles.whiteCard}>
+                <View style={styles.summaryMetaGrid}>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.expectedGrade')}</Text>
+                    <Text style={styles.summaryMetaVal}>{expectedGrade}</Text>
+                  </View>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.actualGrade')}</Text>
+                    <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
+                  </View>
+                </View>
+                <View style={[styles.summaryMetaGrid, styles.metaGridGap]}>
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.grade.quantityAffected')}</Text>
+                    <Text style={styles.summaryMetaVal}>{kg(gradeCheck.quantityAffectedGrams)}</Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : null}
+
+          <Text style={styles.sectionHeader}>{t('receiving.grade.summaryTitle')}</Text>
+          <View style={styles.whiteCard}>
+            <Text style={styles.summaryMetaLabel}>{t('receiving.grade.overallStatus')}</Text>
+            <Text style={styles.summaryMetaVal}>{gradeSummaryText(gradeCheck)}</Text>
           </View>
 
           <NoticeBox text={t('receiving.wizard.gradeNotice')} />
@@ -943,7 +1190,7 @@ export function GoodsReceivingWizardScreen({
           >
             <View style={styles.ctaRow}>
               <RightArrowIcon color={adminColors.onBrand} size={18} />
-              <Text style={styles.primaryCtaText}>Continue to Decision</Text>
+              <Text style={styles.primaryCtaText}>{t('receiving.grade.continue')}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -1225,7 +1472,7 @@ export function GoodsReceivingWizardScreen({
      SCREEN 5: Receipt Summary
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receipt_summary') {
-    const goesToBatch = isAllowed('batch_assignment') && (acceptedGrams ?? 0) > 0;
+    const goesToBatch = isAllowed('batch_assignment') && willStock;
     const blocked = isSubmitting || draftProblem !== null;
     return (
       <View style={styles.container}>
@@ -1253,7 +1500,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaVal}>{sourceName === '' ? t('inventory.noValue') : sourceName}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Destination</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
@@ -1351,12 +1598,12 @@ export function GoodsReceivingWizardScreen({
               ) : goesToBatch ? (
                 <>
                   <QrCodeIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.primaryCtaText}>Assign Batch & Storage</Text>
+                  <Text style={styles.primaryCtaText}>{t('receiving.wizard.toBatchStorage')}</Text>
                 </>
               ) : (
                 <>
                   <CheckmarkCircleOutlineIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.primaryCtaText}>Confirm Goods Receipt</Text>
+                  <Text style={styles.primaryCtaText}>{t('receiving.wizard.confirmReceipt')}</Text>
                 </>
               )}
             </View>
@@ -1373,48 +1620,44 @@ export function GoodsReceivingWizardScreen({
   if (currentStep === 'batch_assignment') {
     return (
       <View style={styles.container}>
-        {header('Batch Assignment', receiptCode)}
+        {header(t('receiving.batchAssign.title'), receiptCode)}
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Batch')}
 
-          <NoticeBox text="Acceptance creates an inventory batch with warehouse, crop, grade, source reference, and storage information, plus a RECEIPT ledger movement — never a manual balance edit." />
+          <NoticeBox text={t('receiving.batchAssign.notice')} />
 
-          <Text style={styles.sectionHeader}>Batch Information</Text>
+          <Text style={styles.sectionHeader}>{t('receiving.batchAssign.info')}</Text>
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Goods Receipt</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.batchAssign.goodsReceipt')}</Text>
                 <Text style={styles.summaryMetaVal}>{pendingReceipt?.grnNumber ?? t('inventory.noValue')}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Warehouse</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.warehouse')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.batchAssign.product')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade</Text>
-                <Text style={styles.summaryMetaVal}>{actualGrade} (actual)</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.batchAssign.grade')}</Text>
+                <Text style={styles.summaryMetaVal}>{t('receiving.batchAssign.gradeActual', { grade: actualGrade })}</Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Accepted Quantity</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.batchAssign.acceptedQty')}</Text>
                 <Text style={styles.summaryMetaVal}>{kg(acceptedGrams)}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Unit</Text>
-                <Text style={styles.summaryMetaVal}>KG</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.sectionHeader}>Storage Bay</Text>
+          <Text style={styles.sectionHeader}>{t('receiving.batchAssign.storage')}</Text>
           {storageLocationsLoading ? (
             <ActivityIndicator color={adminColors.brand} />
           ) : storageLocations.length === 0 ? (
@@ -1447,19 +1690,78 @@ export function GoodsReceivingWizardScreen({
             </View>
           )}
 
-          <NoticeBox text="Source farmer information is for internal traceability only and is never exposed in customer-facing product UI." />
+          <NoticeBox text={t('receiving.batchAssign.traceNotice')} />
 
           {draftProblem !== null ? <Text style={styles.problemText}>{t(QC_DRAFT_PROBLEM_MESSAGE[draftProblem])}</Text> : null}
 
-          <View style={{ height: 100 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[styles.primaryCtaBtn, (isSubmitting || draftProblem !== null) && styles.primaryCtaBtnDisabled]}
+            style={[styles.primaryCtaBtn, draftProblem !== null && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={isSubmitting || draftProblem !== null}
-            onPress={() => void handleConfirmGoodsReceipt()}
+            disabled={draftProblem !== null}
+            onPress={() => goToStep('batch_review')}
+          >
+            <View style={styles.ctaRow}>
+              <RightArrowIcon color={adminColors.onBrand} size={18} />
+              <Text style={styles.primaryCtaText}>{t('receiving.batchAssign.reviewCta')}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     SCREEN 5C: Batch & Location review (design M2-13 "Review Before Creating
+     Batch" and M2-14 "Location Assignment Review" in one, since BR-106 creates
+     the batch with its location in the one quality check). The batch code is
+     the server's (BATCH-<year>-<seq>), shown only after the submit.
+     ────────────────────────────────────────────────────────── */
+  if (currentStep === 'batch_review') {
+    const blocked = isSubmitting || draftProblem !== null;
+    const rows: [string, string][] = [
+      [t('receiving.batchAssign.product'), expectedProduct],
+      [t('receiving.batchAssign.grade'), actualGrade],
+      [t('receiving.batchAssign.acceptedQty'), kg(acceptedGrams)],
+      [t('receiving.wizard.warehouse'), destinationName],
+      [
+        t('receiving.batchReview.location'),
+        selectedLocationCode === undefined ? t('receiving.batchReview.noLocation') : storageLocationLabel(selectedLocationCode, storageLocations),
+      ],
+    ];
+    return (
+      <View style={styles.container}>
+        {header(t('receiving.batchReview.title'), receiptCode)}
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {stepper('Batch')}
+
+          <Text style={styles.sectionHeader}>{t('receiving.batchReview.heading')}</Text>
+          <View style={styles.decisionTableCard}>
+            {rows.map(([label, value], idx) => (
+              <View key={label} style={[styles.decisionTableRow, idx === rows.length - 1 && styles.noBorder]}>
+                <Text style={styles.decisionTableLabel}>{label}</Text>
+                <Text style={styles.decisionTableValue}>{value}</Text>
+              </View>
+            ))}
+          </View>
+
+          <NoticeBox text={t('receiving.batchReview.codeNotice')} />
+
+          {draftProblem !== null ? <Text style={styles.problemText}>{t(QC_DRAFT_PROBLEM_MESSAGE[draftProblem])}</Text> : null}
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.primaryCtaBtn, blocked && styles.primaryCtaBtnDisabled]}
+            activeOpacity={0.85}
+            disabled={blocked}
+            onPress={confirmSubmit}
           >
             <View style={styles.ctaRow}>
               {isSubmitting ? (
@@ -1467,7 +1769,7 @@ export function GoodsReceivingWizardScreen({
               ) : (
                 <>
                   <CheckmarkCircleOutlineIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.primaryCtaText}>Confirm Goods Receipt</Text>
+                  <Text style={styles.primaryCtaText}>{t('receiving.batchReview.confirmCta')}</Text>
                 </>
               )}
             </View>
@@ -1489,7 +1791,13 @@ export function GoodsReceivingWizardScreen({
     const rejectedKg = qc?.rejectedQtyKg ?? (checked ? result.receipt.rejectedQtyKg : undefined);
     const accepted = acceptedKg === undefined ? null : parseKgToGrams(acceptedKg);
     const rejected = rejectedKg === undefined ? null : parseKgToGrams(rejectedKg);
-    const batch = result.qc?.batch ?? null;
+    // BR-106: the batch the quality check created, from its answer or the re-read receipt.
+    const batch = receiptBatchOf(result.receipt, result.qc);
+    // ... with the warehouse and storage location the check answered with (none after a re-read).
+    const batchResult = batchResultOf(result.receipt, result.qc, naming, storageLocations);
+    // The assigned grade is the check's own answer; nothing is shown when that answer was lost.
+    const confirmedGrade =
+      qc === undefined ? null : gradeVerificationOf(ship.apiGrade, qc.assignedGrade, parseKgToGrams(result.receipt.grossQtyKg));
     const isFullReject = outcome === 'REJECTED';
     const isFullAccept = outcome === 'ACCEPTED';
     const isPartialAccept = outcome === 'PARTIALLY_ACCEPTED';
@@ -1538,14 +1846,34 @@ export function GoodsReceivingWizardScreen({
             </View>
           ) : null}
 
-          {/* The batch, only when the API returns one (it returns none today). */}
+          {confirmedGrade !== null && qc !== undefined ? (
+            <View style={styles.whiteCard}>
+              <Text style={styles.confirmationCardLabel}>{t('receiving.grade.summaryTitle')}</Text>
+              <Text style={styles.confirmationCardValue}>{`${t('receiving.grade.assigned')} · ${gradeLabel(qc.assignedGrade)}`}</Text>
+              <Text style={styles.confirmationCardLabel}>{gradeSummaryText(confirmedGrade)}</Text>
+            </View>
+          ) : null}
+
+          {/* The batch, only when the API names one (BR-106: none on a rejection). */}
           {batch !== null ? (
-            <View style={[styles.whiteCard, styles.confirmationRow]}>
-              <CrateInventoryIcon color={adminColors.warning.text} size={24} />
-              <View style={styles.flex}>
-                <Text style={styles.confirmationCardLabel}>{kg(accepted)}</Text>
-                <Text style={styles.confirmationCardValue}>Batch Created · {batch.batchCode}</Text>
+            <View style={styles.whiteCard}>
+              <View style={styles.confirmationRow}>
+                <CrateInventoryIcon color={adminColors.warning.text} size={24} />
+                <View style={styles.flex}>
+                  <Text style={styles.confirmationCardLabel}>{kg(batchResult?.quantityGrams ?? accepted)}</Text>
+                  <Text style={styles.confirmationCardValue}>{t('receiving.batch.created', { code: batch.code })}</Text>
+                </View>
               </View>
+              {/* Each field only when the API answered with it (BR-106 copies the location onto the batch). */}
+              {batchResult?.warehouseName !== undefined ? (
+                <Text style={styles.confirmationCardLabel}>{t('receiving.result.warehouse', { warehouse: batchResult.warehouseName })}</Text>
+              ) : null}
+              {batchResult?.storageLocation !== undefined ? (
+                <Text style={styles.confirmationCardLabel}>{t('receiving.result.location', { location: batchResult.storageLocation })}</Text>
+              ) : null}
+              {batchResult?.grade !== undefined ? (
+                <Text style={styles.confirmationCardLabel}>{t('receiving.result.grade', { grade: batchResult.grade })}</Text>
+              ) : null}
             </View>
           ) : null}
 
@@ -1557,7 +1885,7 @@ export function GoodsReceivingWizardScreen({
                 onPress={() => onViewBatch(batch.id)}
               >
                 <QrCodeIcon color={adminColors.onBrand} size={20} />
-                <Text style={styles.actionPrimaryBtnText}>View Batch</Text>
+                <Text style={styles.actionPrimaryBtnText}>{t('receiving.batch.view')}</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -1658,6 +1986,9 @@ export function GoodsReceivingWizardScreen({
   return null;
 }
 
+
+/** Space under a scrolled step so its last field clears the fixed bottom bar (layout geometry, as the inline 100s were). */
+const BOTTOM_BAR_CLEARANCE = 100;
 
 /* ─── Stylesheet matching uploaded mockups ─── */
 const styles = StyleSheet.create({
@@ -2329,6 +2660,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  metaGridGap: { marginTop: adminSpacing.md },
   summaryMetaCol: {
     flex: 1,
   },
@@ -3077,6 +3409,9 @@ const styles = StyleSheet.create({
   confirmationCardValue: { ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink },
   confirmationRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   confirmationActions: { gap: adminSpacing.md, marginTop: adminSpacing.sm },
+  noBorder: { borderBottomWidth: 0 },
+  bottomSpacer: { height: BOTTOM_BAR_CLEARANCE },
+  gateHint: { ...adminType.caption, color: adminColors.muted, textAlign: 'center', marginBottom: adminSpacing.sm },
   confirmationActionBtn: { justifyContent: 'flex-start', paddingHorizontal: adminSpacing.lg, gap: adminSpacing.md, marginBottom: 0 },
   errorBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: adminSpacing.xl },
   errorBadge: { backgroundColor: adminColors.danger.bg, width: 68, height: 68, borderRadius: 34, marginBottom: adminSpacing.lg },

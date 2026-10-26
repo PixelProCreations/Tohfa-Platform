@@ -25,8 +25,9 @@
  *    `rejectionReason` the spec does not list). Neither is in the spec.
  *  - GoodsReceipt rows also carry `poNumber`, `cropName` and `grade`, which the
  *    spec omits; they are typed optional and only used when present.
- *  - The quality check returns `batch: null` (no batch is created yet), so the
- *    app shows a batch only when one comes back.
+ *  - The batch the accepted goods were stocked as (BR-106) comes back on the
+ *    quality check answer (`batch`) and on every receipt (`batchId`,
+ *    `batchCode`, null until stocked); the app shows one only when it is sent.
  *
  * No UI imports, so the Main Warehouse admin can reuse this module.
  */
@@ -90,6 +91,10 @@ export interface GoodsReceiptDto {
   /** A user uuid only; the spec carries no name. */
   receivedBy?: string;
   receivedAt: string;
+  /** BR-106: the batch this receipt was stocked as; null until accepted goods are stocked. */
+  batchId?: string | null;
+  /** BR-106: that batch's code (`BATCH-<year>-<6 digits>`). */
+  batchCode?: string | null;
   /** Sent by the server, not in the spec (spec gap). */
   poNumber?: string;
   /** Sent by the server, not in the spec (spec gap). */
