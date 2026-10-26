@@ -105,6 +105,19 @@ const DEFAULT_FARMER_DATA: FarmerProfileData = {
   auditStatus: 'Upcoming',
 };
 
+const FARM_RATING_CATEGORIES = [
+  { name: 'Certification & Compliance', score: '8/10' },
+  { name: 'Soil & Land Management', score: '7/10' },
+  { name: 'Farming Practices', score: '8/10' },
+  { name: 'Environmental Sustainability', score: '7/10' },
+  { name: 'Produce Quality & Yield', score: '8/10' },
+  { name: 'Traceability & Transparency', score: '9/10' },
+  { name: 'Social & Labor Practices', score: '7/10' },
+  { name: 'Financial & Operational', score: '8/10' },
+  { name: 'Market & Buyer Relations', score: '8/10' },
+  { name: 'Innovation & Improvement', score: '8/10' },
+];
+
 export function FarmerProfileDetailScreen({
   farmer,
   onBack,
@@ -610,39 +623,75 @@ export function FarmerProfileDetailScreen({
           </>
         )}
 
-        {/* ─── TAB 6: RATINGS ─── */}
+        {/* ─── TAB 6: RATINGS (Screenshots 3 & 4) ─── */}
         {activeTab === 'Ratings' && (
           <>
+            {/* Overall Rating Card (78/100) */}
+            <View style={styles.farmRatingHeroCard}>
+              <Text style={styles.farmRatingHeroScore}>78 / 100</Text>
+              <Text style={styles.farmRatingHeroLabel}>OVERALL RATING</Text>
+              <Text style={styles.farmRatingHeroDate}>Last rated 15 Oct 2026</Text>
+            </View>
+
+            {/* Category Scores */}
+            <Text style={styles.farmRatingSectionTitle}>Category Scores</Text>
+            <View style={styles.detailsCard}>
+              {FARM_RATING_CATEGORIES.map((cat, idx) => (
+                <View
+                  key={cat.name}
+                  style={[
+                    styles.farmRatingCategoryRow,
+                    idx === FARM_RATING_CATEGORIES.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <Text style={styles.farmRatingCategoryName}>{cat.name}</Text>
+                  <Text style={styles.farmRatingCategoryScore}>{cat.score}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Farm Information */}
+            <Text style={styles.farmRatingSectionTitle}>Farm Information</Text>
             <View style={styles.detailsCard}>
               <View style={styles.rowTwoCol}>
                 <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Overall Score</Text>
-                  <Text style={styles.valBold}>4.6 ★</Text>
+                  <Text style={styles.labelMuted}>Farm</Text>
+                  <Text style={styles.valBold}>Ooty Farm 01</Text>
                 </View>
                 <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Quality Consistency</Text>
-                  <Text style={styles.valBold}>96% Accept Rate</Text>
+                  <Text style={styles.labelMuted}>Zone</Text>
+                  <Text style={styles.valBold}>Ooty</Text>
                 </View>
               </View>
-
               <View style={[styles.rowTwoCol, styles.rowSpacing]}>
                 <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Farm Quality</Text>
-                  <Text style={styles.valBold}>4.7 / 5.0</Text>
+                  <Text style={styles.labelMuted}>Farmer Since</Text>
+                  <Text style={styles.valBold}>2023</Text>
                 </View>
                 <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Compliance</Text>
-                  <Text style={styles.valBold}>4.6 / 5.0</Text>
+                  <Text style={styles.labelMuted}>Last Audit</Text>
+                  <Text style={styles.valBold}>15 Oct 2026</Text>
                 </View>
               </View>
             </View>
 
+            {/* Rating History */}
+            <Text style={styles.farmRatingSectionTitle}>Rating History</Text>
+            <View style={styles.farmRatingHistoryCard}>
+              <Text style={styles.labelMuted}>12 Sep 2026</Text>
+              <Text style={styles.valBold}>Rating: 4.6 · Zone: Coonoor</Text>
+            </View>
+            <View style={styles.farmRatingHistoryCard}>
+              <Text style={styles.labelMuted}>01 Aug 2026</Text>
+              <Text style={styles.valBold}>Rating: 4.4 · Zone: Coonoor</Text>
+            </View>
+
             <TouchableOpacity
-              style={styles.outlineActionBtn}
+              style={[styles.outlineActionBtn, { marginTop: adminSpacing.sm }]}
               onPress={() => setShowRatingsScreen(true)}
               activeOpacity={0.8}
             >
-              <Text style={styles.outlineActionBtnText}>View All Ratings</Text>
+              <Text style={styles.outlineActionBtnText}>View Full Farm Rating</Text>
             </TouchableOpacity>
           </>
         )}
@@ -969,5 +1018,71 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: adminSpacing.xxl,
+  },
+
+  // Farm Rating styles (Screenshots 3 & 4)
+  farmRatingHeroCard: {
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.xl,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  farmRatingHeroScore: {
+    ...adminType.kpiValue,
+    fontSize: 36,
+    lineHeight: 42,
+    color: adminColors.onBrand,
+    letterSpacing: -0.5,
+  },
+  farmRatingHeroLabel: {
+    ...adminType.caption,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+    letterSpacing: 0.8,
+    marginTop: 4,
+  },
+  farmRatingHeroDate: {
+    ...adminType.caption,
+    fontWeight: '500',
+    color: adminColors.onBrand,
+    opacity: 0.95,
+    marginTop: 4,
+  },
+  farmRatingSectionTitle: {
+    ...adminType.rowTitle,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    fontSize: 15,
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  farmRatingCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  farmRatingCategoryName: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  farmRatingCategoryScore: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  farmRatingHistoryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    marginBottom: 8,
   },
 });

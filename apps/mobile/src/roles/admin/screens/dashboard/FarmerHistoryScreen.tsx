@@ -174,25 +174,16 @@ export function FarmerHistoryScreen({
       id: 'hist-2',
       event: 'Farm audit completed',
       date: '25 Sep',
-      fullDate: '28 Sep 2026',
+      fullDate: '25 Sep 2026',
       reference: 'AUD-00125',
       status: 'Recorded',
       category: 'Audit',
     },
     {
-      id: 'hist-3',
-      event: 'Certification document viewed',
-      date: '20 Sep',
-      fullDate: '28 Sep 2026',
-      reference: 'DOC-00125',
-      status: 'Recorded',
-      category: 'Farm',
-    },
-    {
       id: 'hist-4',
       event: 'Farmer rating updated',
       date: '12 Sep',
-      fullDate: '28 Sep 2026',
+      fullDate: '12 Sep 2026',
       reference: 'RAT-00042',
       status: 'Recorded',
       category: 'Rating',
@@ -202,7 +193,7 @@ export function FarmerHistoryScreen({
       id: 'hist-5',
       event: 'Produce listing approved',
       date: '05 Sep',
-      fullDate: '28 Sep 2026',
+      fullDate: '05 Sep 2026',
       reference: 'PL-001230',
       status: 'Recorded',
       category: 'Produce',
@@ -317,18 +308,14 @@ export function FarmerHistoryScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-
-
         {/* Year Section Header */}
-        <Text style={styles.yearHeader}>{t('farmerHistory.year.2026')}</Text>
+        <Text style={styles.yearHeader}>2026</Text>
 
-        {/* History Cards */}
-        {filteredItems.map((item) => {
+        {/* History Cards (Screenshot 5) */}
+        {historyItems.map((item) => {
           let icon = <TomatoProduceIcon size={22} color={adminColors.warning.text} />;
           if (item.event === 'Farm audit completed') {
             icon = <BadgeCheckIcon size={22} color={adminColors.success.text} />;
-          } else if (item.event === 'Certification document viewed') {
-            icon = <DocumentViewIcon size={22} color={adminColors.muted} />;
           } else if (item.event === 'Farmer rating updated') {
             icon = <StarOutlineIcon size={22} color={adminColors.warning.text} />;
           } else if (item.event === 'Produce listing approved') {
@@ -339,7 +326,13 @@ export function FarmerHistoryScreen({
             <TouchableOpacity
               key={item.id}
               style={styles.historyCard}
-              onPress={() => setSelectedHistory(item)}
+              onPress={() => {
+                if (item.navigateToRatings) {
+                  setShowRatingsScreen(true);
+                } else {
+                  setSelectedHistory(item);
+                }
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.historyIconCol}>{icon}</View>
@@ -471,9 +464,10 @@ const styles = StyleSheet.create({
   yearHeader: {
     ...adminType.caption,
     fontWeight: '800',
-    color: adminColors.muted,
+    color: adminColors.ink,
     letterSpacing: 0.3,
-    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.md,
   },
 
   // History Card
@@ -481,30 +475,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   historyIconCol: {
     width: 32,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   historyTextCol: {
     flex: 1,
-    paddingLeft: adminSpacing.xs,
+    paddingLeft: adminSpacing.sm,
   },
   historyTitle: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   historySubtitle: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
-    marginTop: 3,
+    marginTop: 2,
   },
 
   // Detail View
