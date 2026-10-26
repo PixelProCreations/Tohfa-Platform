@@ -236,6 +236,11 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       nextCursor: null,
       hasMore: false,
     }),
+    // BR-121 reports are not exercised here; see goods-receipts.discrepancies.test.ts.
+    insertDiscrepancy: async () => {
+      throw new Error('insertDiscrepancy is not used by this suite');
+    },
+    listDiscrepancies: async () => ({ items: [], nextCursor: null, hasMore: false }),
     ...overrides,
   });
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
 import { produceGrades } from '../purchase-orders/purchase-orders.schema.js';
 
@@ -308,6 +309,81 @@ export const goodsReceiptDetailResponse = goodsReceiptResponse.extend({
   qualityCheck: qualityCheckResponse.nullable(),
 });
 export type GoodsReceiptDetailResponse = z.infer<typeof goodsReceiptDetailResponse>;
+
+/**
+ * BR-121 (UNCONFIRMED sets and bounds): a persisted damage / mismatch report on a goods receipt.
+ * Mirrored by the CHECK constraints of migration 0077 and by docs/openapi.yaml
+ * GoodsReceiptDiscrepancyType / GoodsReceiptDiscrepancyStatus / GoodsReceiptDiscrepancyCreate.
+ */
+export const discrepancyTypes = ['QUANTITY', 'QUALITY', 'CROP_MISMATCH', 'DAMAGE', 'OTHER'] as const;
+export type DiscrepancyType = (typeof discrepancyTypes)[number];
+
+/** OPEN only: no resolve step exists yet (BR-121.5), so nothing can be created in another status. */
+export const discrepancyStatuses = ['OPEN'] as const;
+export type DiscrepancyStatus = (typeof discrepancyStatuses)[number];
+
+/** Trimmed first, so a value of spaces is the 422 "required", never a blank row (BR-121.2). */
+const discrepancyText = (field: string, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${field} must not be blank`)
+    .max(max, `${field} must be at most ${max} characters`);
+
+export const goodsReceiptDiscrepancyCreateBody = z
+  .object({
+    type: z.enum(discrepancyTypes),
+    expected: discrepancyText('expected', 200),
+    actual: discrepancyText('actual', 200),
+    // Accepted so a client may send the documented row shape; only OPEN, the status every report is
+    // created in (BR-121.2). A client can never create a report already closed.
+    status: z.enum(discrepancyStatuses).optional(),
+    note: discrepancyText('note', 500).optional(),
+  })
+  .strict();
+export type GoodsReceiptDiscrepancyCreateBody = z.infer<typeof goodsReceiptDiscrepancyCreateBody>;
+
+export const listGoodsReceiptDiscrepanciesQuery = z
+  .object({
+    // Opaque keyset cursor (http/keysetCursor.ts); anything this list did not produce is 422.
+    cursor: z
+      .string()
+      .max(512)
+      .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.goodsReceiptDiscrepancies, raw) !== null, {
+        message: 'Invalid cursor.',
+      })
+      .optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListGoodsReceiptDiscrepanciesQuery = z.infer<typeof listGoodsReceiptDiscrepanciesQuery>;
+
+/** docs/openapi.yaml GoodsReceiptDiscrepancy. */
+export const goodsReceiptDiscrepancyResponse = z
+  .object({
+    id: z.string().uuid(),
+    goodsReceiptId: z.string().uuid(),
+    warehouseId: z.string().uuid(),
+    type: z.enum(discrepancyTypes),
+    expected: z.string(),
+    actual: z.string(),
+    status: z.enum(discrepancyStatuses),
+    note: z.string().nullable(),
+    createdBy: z.string().uuid(),
+    createdByName: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .strict();
+export type GoodsReceiptDiscrepancyResponse = z.infer<typeof goodsReceiptDiscrepancyResponse>;
+
+export const listGoodsReceiptDiscrepanciesResponse = z.object({
+  items: z.array(goodsReceiptDiscrepancyResponse),
+  page: z.object({
+    nextCursor: z.string().nullable(),
+    hasMore: z.boolean(),
+  }),
+});
+export type ListGoodsReceiptDiscrepanciesResponse = z.infer<typeof listGoodsReceiptDiscrepanciesResponse>;
 
 export const listGoodsReceiptsResponse = z.object({
   items: z.array(goodsReceiptResponse),

@@ -24,7 +24,11 @@ import {
   type QcOutcome,
   type CreateGoodsReceiptBody,
   type GoodsReceiptDetailResponse,
+  type GoodsReceiptDiscrepancyCreateBody,
+  type GoodsReceiptDiscrepancyResponse,
   type GoodsReceiptResponse,
+  type ListGoodsReceiptDiscrepanciesQuery,
+  type ListGoodsReceiptDiscrepanciesResponse,
   type ListGoodsReceiptsQuery,
   type ListGoodsReceiptsResponse,
   type QualityCheckCreateBody,
@@ -81,6 +85,23 @@ export interface GoodsReceiptsService {
     scope: ResolvedScope,
     query: ListGoodsReceiptsQuery,
   ): Promise<ListGoodsReceiptsResponse>;
+
+  /** BR-121: an OPEN damage / mismatch report on a receipt in scope; Idempotency-Key required. */
+  createDiscrepancy(
+    actor: Actor,
+    scope: ResolvedScope,
+    goodsReceiptId: string,
+    input: GoodsReceiptDiscrepancyCreateBody,
+    idempotencyKey?: string,
+  ): Promise<GoodsReceiptDiscrepancyResponse>;
+
+  /** BR-121: the receipt's reports, newest first; another warehouse's receipt is 404. */
+  listDiscrepancies(
+    actor: Actor,
+    scope: ResolvedScope,
+    goodsReceiptId: string,
+    query: ListGoodsReceiptDiscrepanciesQuery,
+  ): Promise<ListGoodsReceiptDiscrepanciesResponse>;
 }
 
 export type QualityCheckResult = { qualityCheck: QualityCheckResponse; batch: BatchView | null };
@@ -95,7 +116,17 @@ const OPERATION = {
   createReceipt: 'inventory.goods_receipt.record',
   qualityCheck: 'inventory.quality_check.perform',
   qualityCounterOffer: 'inventory.quality.counter_offer',
+  // Not a permission code: the report shares inventory.quality_check.perform with the quality check,
+  // and a key sent to one must never replay the other.
+  discrepancy: 'inventory.goods_receipt.discrepancy',
 } as const;
+
+/** One 404 for an unknown receipt and another warehouse's (BR-30b): the body never tells them apart. */
+function goodsReceiptNotFound(goodsReceiptId: string): AppError {
+  return new AppError('NOT_FOUND', {
+    detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
+  });
+}
 
 /** BR-12 channel allocation of a new batch, on the caller's transaction. Injected for unit tests. */
 export type BatchAllocator = (input: AllocateBatchInput, tx: Executor) => Promise<unknown>;
@@ -739,6 +770,80 @@ export function createGoodsReceiptsService(
           hasMore: res.hasMore,
         },
       };
+    },
+
+    async createDiscrepancy(
+      actor: Actor,
+      scope: ResolvedScope,
+      goodsReceiptId: string,
+      input: GoodsReceiptDiscrepancyCreateBody,
+      idempotencyKey?: string,
+    ): Promise<GoodsReceiptDiscrepancyResponse> {
+      // BR-121.6: every create on this module requires the key (BR-118 convention).
+      const key = requireIdempotencyKey(idempotencyKey);
+
+      // `status` is accepted only as OPEN and every report is created OPEN (BR-121.2), so OPEN sent
+      // and OPEN by default are the same request: it is left out of what the key is bound to.
+      const report = { type: input.type, expected: input.expected, actual: input.actual, note: input.note ?? null };
+
+      // One transaction for the claim, the report and its audit row (BR-35): a refused request
+      // leaves no claim and no row, and a replay returns before anything is written.
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<GoodsReceiptDiscrepancyResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.discrepancy,
+          request: { goodsReceiptId, body: report },
+        });
+        if (idem.replay) return idem.response;
+
+        // BR-30b: another warehouse's receipt is the same 404 as an unknown one, before any write.
+        const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));
+        if (grn === null) throw goodsReceiptNotFound(goodsReceiptId);
+
+        // Any receipt status (BR-121.4, UNCONFIRMED): damage is often found after the check. Nothing
+        // but the report and its audit row is written: no receipt, check, batch or ledger change.
+        const created = await repo.insertDiscrepancy(tx, {
+          goodsReceiptId,
+          ...report,
+          createdBy: actor.userId,
+        });
+
+        await repo.recordAudit(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'inventory.quality_check.perform',
+          entityType: 'goods_receipt_discrepancy',
+          entityId: created.id,
+          warehouseId: created.warehouseId,
+          after: {
+            goodsReceiptId: created.goodsReceiptId,
+            type: created.type,
+            expected: created.expected,
+            actual: created.actual,
+            status: created.status,
+            note: created.note,
+          },
+        });
+
+        await idem.complete(created);
+        return created;
+      });
+    },
+
+    async listDiscrepancies(
+      _actor: Actor,
+      scope: ResolvedScope,
+      goodsReceiptId: string,
+      query: ListGoodsReceiptDiscrepanciesQuery,
+    ): Promise<ListGoodsReceiptDiscrepanciesResponse> {
+      // A read BY receipt id, so the same 404 as the receipt detail (BR-30b), not an empty page: an
+      // empty page for another warehouse's receipt and a 404 for an unknown one would tell them apart.
+      const grn = await repo.findGoodsReceiptById(db, goodsReceiptId, confineToAssignedWarehouses(scope));
+      if (grn === null) throw goodsReceiptNotFound(goodsReceiptId);
+
+      const res = await repo.listDiscrepancies(db, goodsReceiptId, query);
+      return { items: res.items, page: { nextCursor: res.nextCursor, hasMore: res.hasMore } };
     },
   };
 }

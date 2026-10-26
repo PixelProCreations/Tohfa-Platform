@@ -2941,6 +2941,36 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-121 — A goods receipt carries persisted damage and mismatch reports, created OPEN inside the receipt's scope, audited, and never touching stock
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C4 for the Sub Warehouse Admin intake screen (a persisted damage / mismatch report on a receipt); extends BR-30 (scope), BR-35 (audit), BR-118 (idempotency convention of this module); `docs/rbac.json` `inventory.quality_check.perform` and `inventory.goods_receipt.record` (existing codes, unchanged) |
+| **Status** | DERIVED (the type set, the status set, the text bounds and "any receipt status" are UNCONFIRMED: implementer defaults awaiting the owner) |
+| **Layer** | Server-side: `apps/api/src/modules/goods-receipts/` (`goodsReceiptDiscrepancyCreateBody`, `createDiscrepancy`, `listDiscrepancies`); table `goods_receipt_discrepancies` with its CHECK constraints (`db/migrations/0077_goods_receipt_discrepancies.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Endpoints and permissions.** `POST /admin/goods-receipts/{id}/discrepancies` records a report (`inventory.quality_check.perform`: reporting damage or a mismatch on delivered goods is part of inspecting them). `GET /admin/goods-receipts/{id}/discrepancies` lists the receipt's reports (`inventory.goods_receipt.record`, the code every other receipt read uses). No new permission code.
+2. **Body.** `type` is one of `QUANTITY`, `QUALITY`, `CROP_MISMATCH`, `DAMAGE`, `OTHER` (UNCONFIRMED set). `expected` and `actual` are required free text, trimmed, 1-200 characters after trimming (UNCONFIRMED bound): what the paperwork said and what arrived, in the inspector's words. `note` is optional, trimmed, 1-500 characters. `status` is optional and, when given, must be `OPEN`, the only status (UNCONFIRMED): the field is accepted so a client may send the documented row shape, but a report can never be created already closed while no resolve step exists. Unknown keys are 422.
+3. **Scope.** The receipt must exist and be inside the caller's warehouse scope, narrowed to the assigned warehouses exactly as the receipt detail read (BR-30). Another warehouse's receipt is the same 404 as an unknown id on both POST and GET, and nothing is written. The row's `warehouse_id` is taken from the receipt in the inserting SQL, never from the request, and a composite foreign key keeps it equal to the receipt's warehouse.
+4. **Create.** The row is created `OPEN` with `created_by` = the caller, together with one audit row (`inventory.quality_check.perform`, entity `goods_receipt_discrepancy`, after image of the row) in the same transaction (BR-35). A report is accepted whatever the receipt's status (UNCONFIRMED: damage is often found after the quality check). Recording one changes nothing else: not the receipt, its quality check, any batch, the stock ledger, the purchase order or a payout (BR-106 unchanged).
+5. **No update path.** There is no endpoint that resolves, edits or deletes a report. That is a specification gap (who closes a report, with what outcome) left for the owner; the status column is CHECK-constrained to `OPEN` until then, so adding a status is a new migration.
+6. **Idempotent (BR-118 convention).** Every create on this module requires an `Idempotency-Key`, so this one does too: a missing or blank key is 422 naming `header.Idempotency-Key`; a replay with the same key and request by the same user returns the original body and writes nothing (one report, one audit row); the same key with a different body or receipt is 409 `IDEMPOTENCY_KEY_REUSED`; a refused attempt is not remembered.
+7. **Read.** Newest first (`created_at DESC, id DESC`), cursor-paged with the standard envelope (`cursor`, `limit` 1-100 default 20, `page`), keyset on `(created_at, id)` so tied timestamps are neither skipped nor repeated; a cursor this list did not produce is 422. A receipt with no reports is an empty page. Each row carries `createdByName` (admin surface only, not a BR-16 leak).
+
+**Failure mode if unenforced.** A damage or mismatch found at intake survives only as a photo or a chat message and is lost by the next shift; or a Sub admin files a report against another warehouse's receipt (or learns that it exists); or a retried submit on a weak connection files the same report twice; or a client creates a report already marked closed and it never reaches anyone.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.discrepancies.test.ts`)
+- `BR-121a` Permission wiring: POST needs `inventory.quality_check.perform`, GET `inventory.goods_receipt.record`; 401 without a token; 403 for Farmer, Customer and Farmer Admin; nothing is written.
+- `BR-121b` Body validation: the type set; `expected`/`actual` trimmed, required, at most 200; `note` at most 500; `status` only `OPEN`; unknown keys 422.
+- `BR-121c` A report on a receipt in scope is stored `OPEN` with the receipt's warehouse and the caller as `createdBy`, with one audit row in the same transaction; the receipt, its quality check and stock are unchanged.
+- `BR-121d` Another warehouse's receipt and an unknown id are the same 404 on POST and GET, and nothing is written.
+- `BR-121e` The Idempotency-Key is required; a replay returns the same body and writes one row and one audit row; the same key with a different body or receipt is 409 `IDEMPOTENCY_KEY_REUSED`.
+- `BR-121f` The list is newest first, pages without skipping or repeating, refuses a foreign cursor, and is empty for a receipt without reports.
+- `BR-121g` The database refuses a type or status outside the sets, a blank `expected`/`actual`, and a `warehouse_id` that is not the receipt's.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

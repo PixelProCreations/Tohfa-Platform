@@ -1,5 +1,7 @@
 import { writeAuditLog, type AuditEntry } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { scopedWhere, type ResolvedScope } from '../../rbac/requirePermission.js';
 import { toBatchView, type BatchRow } from '../inventory/inventory.repo.js';
 import type { BatchView } from '../inventory/inventory.schema.js';
@@ -7,8 +9,11 @@ import { counterOffersRepo } from '../listings/counter-offers.repo.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import type {
   CreateGoodsReceiptBody,
+  DiscrepancyType,
+  GoodsReceiptDiscrepancyResponse,
   GoodsReceiptResponse,
   GrnStatus,
+  ListGoodsReceiptDiscrepanciesQuery,
   ListGoodsReceiptsQuery,
   QcOutcome,
   QualityCheckCreateBody,
@@ -181,6 +186,16 @@ export interface InsertReceiptMovementData {
   createdBy: string | null;
 }
 
+/** BR-121: one damage / mismatch report. `warehouseId` is not here: the SQL takes the receipt's. */
+export interface InsertDiscrepancyData {
+  goodsReceiptId: string;
+  type: DiscrepancyType;
+  expected: string;
+  actual: string;
+  note: string | null;
+  createdBy: string;
+}
+
 export interface GoodsReceiptsRepo {
   nextGrnNumber(tx: Executor): Promise<string>;
   insertGoodsReceipt(
@@ -250,6 +265,37 @@ export interface GoodsReceiptsRepo {
     scope: ResolvedScope,
     query: ListGoodsReceiptsQuery,
   ): Promise<{ items: GoodsReceiptResponse[]; nextCursor: string | null; hasMore: boolean }>;
+  /** BR-121: inserts an OPEN report in the receipt's own warehouse; the caller has scope-checked the receipt. */
+  insertDiscrepancy(tx: Executor, data: InsertDiscrepancyData): Promise<GoodsReceiptDiscrepancyResponse>;
+  /** BR-121: one receipt's reports, newest first, keyset-paged on (created_at, id). */
+  listDiscrepancies(
+    tx: Executor,
+    goodsReceiptId: string,
+    query: ListGoodsReceiptDiscrepanciesQuery,
+  ): Promise<{ items: GoodsReceiptDiscrepancyResponse[]; nextCursor: string | null; hasMore: boolean }>;
+}
+
+/**
+ * BR-121: the columns of a report as the API returns them, with the reporter's name. `d` is the
+ * report row, `u` the LEFT JOINed users row.
+ */
+const DISCREPANCY_COLUMNS = `
+  d.id,
+  d.goods_receipt_id AS "goodsReceiptId",
+  d.warehouse_id AS "warehouseId",
+  d.type,
+  d.expected,
+  d.actual,
+  d.status,
+  d.note,
+  d.created_by AS "createdBy",
+  u.full_name AS "createdByName",
+  d.created_at AS "createdAt"`;
+
+type DiscrepancyRow = Omit<GoodsReceiptDiscrepancyResponse, 'createdAt'> & { createdAt: Date };
+
+function toDiscrepancyResponse(row: DiscrepancyRow): GoodsReceiptDiscrepancyResponse {
+  return { ...row, createdByName: row.createdByName ?? null, createdAt: row.createdAt.toISOString() };
 }
 
 export const goodsReceiptsRepo: GoodsReceiptsRepo = {
@@ -989,5 +1035,60 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     }));
 
     return { items, nextCursor, hasMore };
+  },
+
+  async insertDiscrepancy(tx: Executor, data: InsertDiscrepancyData): Promise<GoodsReceiptDiscrepancyResponse> {
+    // The warehouse is the receipt's, read in this statement, never taken from the request; the
+    // composite foreign key (migration 0077) refuses any other. status takes its default, OPEN.
+    const result = await tx.query<DiscrepancyRow>(
+      `WITH ins AS (
+         INSERT INTO goods_receipt_discrepancies (goods_receipt_id, warehouse_id, type, expected, actual, note, created_by)
+         SELECT gr.id, gr.warehouse_id, $2, $3, $4, $5, $6
+           FROM goods_receipts gr
+          WHERE gr.id = $1
+         RETURNING *
+       )
+       SELECT ${DISCREPANCY_COLUMNS}
+         FROM ins d
+         LEFT JOIN users u ON u.id = d.created_by`,
+      [data.goodsReceiptId, data.type, data.expected, data.actual, data.note, data.createdBy],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error(`goods receipt ${data.goodsReceiptId} vanished inside its own transaction`);
+    return toDiscrepancyResponse(row);
+  },
+
+  async listDiscrepancies(
+    tx: Executor,
+    goodsReceiptId: string,
+    query: ListGoodsReceiptDiscrepanciesQuery,
+  ): Promise<{ items: GoodsReceiptDiscrepancyResponse[]; nextCursor: string | null; hasMore: boolean }> {
+    const params: unknown[] = [goodsReceiptId];
+    const conditions = ['d.goods_receipt_id = $1'];
+    if (query.cursor !== undefined && query.cursor.length > 0) {
+      // Keyset on (created_at, id), matching the ORDER BY, so tied timestamps are neither skipped
+      // nor repeated (http/keysetCursor.ts).
+      const after = requireKeysetCursor(CURSOR_TAGS.goodsReceiptDiscrepancies, query.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(d.created_at, d.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+    }
+    params.push(query.limit + 1);
+    const result = await tx.query<DiscrepancyRow & { cursorTs: string }>(
+      `SELECT ${DISCREPANCY_COLUMNS}, ${MICRO_TS_SQL('d.created_at')} AS "cursorTs"
+         FROM goods_receipt_discrepancies d
+         LEFT JOIN users u ON u.id = d.created_by
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY d.created_at DESC, d.id DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+    const hasMore = result.rows.length > query.limit;
+    const rows = hasMore ? result.rows.slice(0, query.limit) : result.rows;
+    const last = rows[rows.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.goodsReceiptDiscrepancies, { ts: last.cursorTs, id: last.id })
+        : null;
+    return { items: rows.map(({ cursorTs: _cursorTs, ...row }) => toDiscrepancyResponse(row)), nextCursor, hasMore };
   },
 };

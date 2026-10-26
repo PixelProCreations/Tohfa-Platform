@@ -9789,6 +9789,87 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/goods-receipts/{id}/discrepancies:
+    get:
+      tags: [Purchase]
+      operationId: listGoodsReceiptDiscrepancies
+      summary: List the damage and mismatch reports of a goods receipt
+      description: |
+        The receipt's persisted damage / mismatch reports, newest first (`createdAt` descending, ties
+        by id), cursor-paged with the standard envelope (BR-121). The receipt is read with the same
+        warehouse scoping as `GET /admin/goods-receipts/{id}` (BR-30): another warehouse's receipt is
+        the same 404 as an id that does not exist. A receipt with no reports is an empty page. A
+        cursor this list did not produce is 422.
+      x-permission: inventory.goods_receipt.record
+      x-business-rules: [BR-30, BR-121]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: One page of the receipt's reports, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/GoodsReceiptDiscrepancy' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    post:
+      tags: [Purchase]
+      operationId: createGoodsReceiptDiscrepancy
+      summary: Report damage or a mismatch on a goods receipt
+      description: |
+        Persists one damage / mismatch report on the receipt (BR-121): a `type`, what was `expected`
+        and what was `actual`ly found, and an optional `note`. The report is created `OPEN`; `status`
+        may be sent but only as `OPEN` (no resolve or close endpoint exists yet: a specification gap,
+        BR-121). Every value set and text bound is UNCONFIRMED. A report is accepted whatever the
+        receipt's status and changes nothing else: not the receipt, its quality check, any batch, the
+        stock ledger, the purchase order or a payout. One audit row is written in the same
+        transaction (BR-35). Another warehouse's receipt is the same 404 as an id that does not
+        exist, and nothing is written (BR-30).
+
+        Idempotent (BR-118 convention, BR-121): the `Idempotency-Key` is claimed before anything is
+        written. A replay with the same key and body returns the original status and body and writes
+        nothing (no second report, no second audit row); the same key with a different body or target
+        is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused attempt is
+        not remembered.
+      x-permission: inventory.quality_check.perform
+      x-business-rules: [BR-30, BR-35, BR-118, BR-121]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoodsReceiptDiscrepancyCreate' }
+            example:
+              type: DAMAGE
+              expected: 10 crates intact
+              actual: 2 crates crushed in transit
+              note: Photos taken at the dock.
+      responses:
+        '201':
+          description: Report recorded, `OPEN`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoodsReceiptDiscrepancy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/goods-receipts/{id}/counter-offer:
     post:
       tags: [Purchase]
@@ -20327,6 +20408,49 @@ components:
               oneOf:
                 - { $ref: '#/components/schemas/QualityCheck' }
                 - { type: 'null' }
+
+    GoodsReceiptDiscrepancyType:
+      type: string
+      description: 'BR-121 (UNCONFIRMED set): what kind of damage or mismatch was found at intake.'
+      enum: [QUANTITY, QUALITY, CROP_MISMATCH, DAMAGE, OTHER]
+
+    GoodsReceiptDiscrepancyStatus:
+      type: string
+      description: 'BR-121 (UNCONFIRMED set): `OPEN` is the only status; no resolve or close endpoint exists yet.'
+      enum: [OPEN]
+
+    GoodsReceiptDiscrepancyCreate:
+      type: object
+      additionalProperties: false
+      description: |
+        `POST /admin/goods-receipts/{id}/discrepancies` (BR-121). Text fields are trimmed before the
+        length checks; a value that is blank after trimming is 422. Bounds are UNCONFIRMED.
+      required: [type, expected, actual]
+      properties:
+        type: { $ref: '#/components/schemas/GoodsReceiptDiscrepancyType' }
+        expected: { type: string, minLength: 1, maxLength: 200, description: What the paperwork or purchase order said. }
+        actual: { type: string, minLength: 1, maxLength: 200, description: What actually arrived. }
+        status:
+          allOf: [{ $ref: '#/components/schemas/GoodsReceiptDiscrepancyStatus' }]
+          description: Optional; only `OPEN` is accepted, and a report is always created `OPEN`.
+        note: { type: string, minLength: 1, maxLength: 500 }
+
+    GoodsReceiptDiscrepancy:
+      type: object
+      description: A persisted damage / mismatch report on a goods receipt (BR-121). Admin surface only.
+      required: [id, goodsReceiptId, warehouseId, type, expected, actual, status, note, createdBy, createdByName, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        goodsReceiptId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid, description: The receipt's warehouse, copied from the receipt by the server. }
+        type: { $ref: '#/components/schemas/GoodsReceiptDiscrepancyType' }
+        expected: { type: string }
+        actual: { type: string }
+        status: { $ref: '#/components/schemas/GoodsReceiptDiscrepancyStatus' }
+        note: { type: [string, 'null'] }
+        createdBy: { type: string, format: uuid }
+        createdByName: { type: [string, 'null'], description: '`users.full_name` of `createdBy`; null when missing.' }
+        createdAt: { type: string, format: date-time }
 
     QualityCheckCreate:
       type: object

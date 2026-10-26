@@ -5,7 +5,9 @@ import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
   createGoodsReceiptBody,
+  goodsReceiptDiscrepancyCreateBody,
   goodsReceiptIdParams,
+  listGoodsReceiptDiscrepanciesQuery,
   listGoodsReceiptsQuery,
   qualityCheckCreateBody,
   qualityCounterOfferBody,
@@ -61,6 +63,42 @@ goodsReceiptsRouter.post(
 
     const result = await goodsReceiptsService.createQualityCounterOffer(actor, scope, id, body, req.header('idempotency-key'));
     res.status(201).json(result);
+  }),
+);
+
+// POST /v1/admin/goods-receipts/:id/discrepancies — report damage or a mismatch (BR-121).
+// inventory.quality_check.perform: reporting what is wrong with delivered goods is part of inspecting them.
+goodsReceiptsRouter.post(
+  '/:id/discrepancies',
+  requireAuth,
+  requirePermission('inventory.quality_check.perform'),
+  validate({ params: goodsReceiptIdParams, body: goodsReceiptDiscrepancyCreateBody }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', goodsReceiptIdParams);
+    const body = getValidated(req, 'body', goodsReceiptDiscrepancyCreateBody);
+
+    const result = await goodsReceiptsService.createDiscrepancy(actor, scope, id, body, req.header('idempotency-key'));
+    res.status(201).json(result);
+  }),
+);
+
+// GET /v1/admin/goods-receipts/:id/discrepancies — the receipt's reports, newest first (BR-121).
+// inventory.goods_receipt.record: the code every other goods-receipt read uses.
+goodsReceiptsRouter.get(
+  '/:id/discrepancies',
+  requireAuth,
+  requirePermission('inventory.goods_receipt.record'),
+  validate({ params: goodsReceiptIdParams, query: listGoodsReceiptDiscrepanciesQuery }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', goodsReceiptIdParams);
+    const query = getValidated(req, 'query', listGoodsReceiptDiscrepanciesQuery);
+
+    const result = await goodsReceiptsService.listDiscrepancies(actor, scope, id, query);
+    res.json(result);
   }),
 );
 
