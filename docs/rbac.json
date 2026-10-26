@@ -460,10 +460,10 @@
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "none",
         "SUB_WH_ADMIN": "none",
-        "FARMER": "own",
+        "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.1 + matrix \u00a72"
+      "source": "reqs 6.1 + matrix \u00a72; FARMER tightened from own to none by owner decision 2026-10-23 (BR-108): this code gates only PATCH /admin/farmers/{id}, and a farmer edits itself through PATCH /farmers/me (farmer.profile.edit_own)"
     },
     {
       "code": "farmer.profile.edit_locked_field",
@@ -820,10 +820,10 @@
         "FARMER_ADMIN": "view",
         "MAIN_WH_ADMIN": "view",
         "SUB_WH_ADMIN": "view",
-        "FARMER": "view",
+        "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix \u00a72"
+      "source": "matrix \u00a72; FARMER tightened from view to none by owner decision 2026-10-23 (BR-108): this code gates only GET /admin/farmers/{id}/subscription"
     },
     {
       "code": "farmer.weather.view_own",
@@ -1626,7 +1626,7 @@
     {
       "code": "inventory.stock_ledger.view_all",
       "module": "Inventory & Warehouse",
-      "description": "View the append-only stock ledger across all 4 warehouses.",
+      "description": "View the append-only stock ledger across all 4 warehouses. Has no route of its own: GET /admin/stock-ledger serves the all-warehouse read through `inventory.stock_ledger.view_own`, which every role holding this code also holds at `all`.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -3066,6 +3066,21 @@
       "source": "reqs 6.4 / 2.5"
     },
     {
+      "code": "admin.farmer_admin.assign_zones",
+      "module": "Workforce & Staff",
+      "description": "Replace the set of zones a Farmer Admin is assigned to (PUT /admin/accounts/{id}/zones). A Farmer Admin is created bound to exactly one zone; further zones are added only through this code.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-23 by owner decision of 2026-10-23: a new Farmer Admin is bound to exactly one zone at creation, and more zones are added later only by Super Admin or TOHFA Admin (BR-113)"
+    },
+    {
       "code": "admin.main_wh_admin.create",
       "module": "Workforce & Staff",
       "description": "Create a Main Warehouse Admin account.",
@@ -3109,12 +3124,12 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix \u00a710 \u2014 TA/MW restricted to roles below their own"
+      "source": "matrix \u00a710; grants owner-confirmed 2026-10-23 exactly as written: SUPER_ADMIN all; TOHFA_ADMIN and FARMER_ADMIN conditional under LOWER_ROLES_ONLY (only an account whose highest role is strictly below the actor\u2019s own); MAIN_WH_ADMIN and SUB_WH_ADMIN none (BR-110; Open contradictions #30 resolved). An earlier wording of this note that named TA/MW is superseded by that decision"
     },
     {
       "code": "admin.promotion.approve",
       "module": "Workforce & Staff",
-      "description": "Approve or reject a warehouse admin promotion.",
+      "description": "Approve or reject a warehouse admin promotion. Approval is gated by this code (POST /admin/promotions/{id}/approve); rejection by admin.promotion.reject, which carries the same grants.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "none",
@@ -3125,6 +3140,51 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 5.3 FR-A01 \u2014 SA only"
+    },
+    {
+      "code": "admin.promotion.request",
+      "module": "Workforce & Staff",
+      "description": "Request the promotion of an admin account into a higher admin role (POST /admin/promotions). The request stays PENDING until admin.promotion.approve or admin.promotion.reject decides it.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-23, owner request 2026-10-23: promotion create path (BR-117). UNCONFIRMED: who may request is not specified by any requirement; SA and TA all, everyone else none"
+    },
+    {
+      "code": "admin.promotion.view",
+      "module": "Workforce & Staff",
+      "description": "List and read admin promotion requests (GET /admin/promotions, GET /admin/promotions/{id}).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-23, owner request 2026-10-23: promotion create path (BR-117). Mirrors admin.promotion.request: SA and TA all, everyone else none"
+    },
+    {
+      "code": "admin.promotion.reject",
+      "module": "Workforce & Staff",
+      "description": "Reject a pending admin promotion request (POST /admin/promotions/{id}/reject). No role changes.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-23, owner request 2026-10-23: promotion create path (BR-117). Mirrors admin.promotion.approve (reqs 5.3 FR-A01 \u2014 SA only)"
     },
     {
       "code": "admin.decision.override",
@@ -3294,7 +3354,7 @@
     {
       "code": "support.ticket.view_all",
       "module": "Notifications & Reports",
-      "description": "View all support tickets.",
+      "description": "View all support tickets. Currently has no route: the BR-60 farmer-ticket admin routes (/admin/support-tickets*) are gated by `support.ticket.manage_any`, and farmer_support_tickets has no warehouse column to scope the MAIN_WH_ADMIN/SUB_WH_ADMIN `view` grants on.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -3543,8 +3603,8 @@
       "topic": "Audit log scope for Main Warehouse Admin",
       "reqsCh6": "own",
       "roleMatrix": "view (all)",
-      "precedence": "reqs Ch.6",
-      "decision": "MAIN_WH_ADMIN gets `own`. Confirm with client."
+      "precedence": "reqs Ch.6; owner decision 2026-10-23",
+      "decision": "Resolved by owner decision 2026-10-23: MAIN_WH_ADMIN keeps `own` on `auditlog.view`, meaning ONLY its assigned warehouse (not all four warehouses). A Main Warehouse Admin with no assigned warehouse sees an empty list (fail closed), and an entry tied to no warehouse (`warehouse_id IS NULL`) never matches `own`. Implemented in apps/api/src/modules/audit-log/ (BR-30, BR-35)."
     },
     {
       "topic": "Set warehouse capacity",
@@ -3642,7 +3702,7 @@
       "reqsCh6": "MAIN_WH_ADMIN = own on customer list, sales income reports, manage sales channels",
       "roleMatrix": "MAIN_WH_ADMIN = own on admin staff list (§10); warehouse roster is an owner-decision code",
       "precedence": "owner decision 2026-10-09, SUPERSEDED (grants kept at the Ch.6 value)",
-      "decision": "Superseded. MAIN_WH_ADMIN keeps `own` on customer.list.view, finance.sales_income.view, sales.channel.manage and admin.staff.list_view (the Ch.6/matrix values, owner-confirmed 2026-10-11 as meaning all four warehouses). The server resolves Main's `own` to every warehouse in apps/api/src/rbac/warehouseScope.ts rather than widening the grant to `all`. SUB_WH_ADMIN `own` = its assigned warehouse. `auditlog.view` MAIN `own` remains the separate open audit-log conflict above."
+      "decision": "Superseded. MAIN_WH_ADMIN keeps `own` on customer.list.view, finance.sales_income.view, sales.channel.manage and admin.staff.list_view (the Ch.6/matrix values, owner-confirmed 2026-10-11 as meaning all four warehouses). The server resolves Main's `own` to every warehouse in apps/api/src/rbac/warehouseScope.ts rather than widening the grant to `all`. SUB_WH_ADMIN `own` = its assigned warehouse. `auditlog.view` MAIN `own` is governed by the separate audit-log conflict above (resolved by owner decision 2026-10-23: the assigned warehouse only, not all four)."
     },
     {
       "topic": "Edit farm rating category scores (farmer.rating.edit)",

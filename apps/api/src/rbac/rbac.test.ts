@@ -1125,6 +1125,41 @@ const GRANT_CASES: readonly GrantCase[] = [
   { permission: 'support.ticket.respond', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-97d: not a Farmer Admin duty.' },
   { permission: 'support.ticket.respond', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-97d: farmers have no admin access.' },
   { permission: 'support.ticket.respond', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-97d: customers have no admin access.' },
+  // --- BR-108 tightening (owner decision 2026-10-23): these two codes gate only the ADMIN farmer
+  // routes (/admin/farmers*); a farmer edits and reads itself through /farmers/me*, never here. ---
+  { permission: 'farmer.profile.edit', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-108: a farmer does not reach its own row through PATCH /admin/farmers/{id} (owner decision 2026-10-23).' },
+  { permission: 'farmer.subscription.view_tier_limits', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-108: a farmer does not reach its own row through GET /admin/farmers/{id}/subscription (owner decision 2026-10-23).' },
+  { permission: 'farmer.profile.edit', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-108: the tightening leaves the admin grants unchanged.' },
+  // --- BR-113: Farmer Admin zones (spec gap, owner decision 2026-10-23: Super Admin and TOHFA Admin only). ---
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-113: SA adds zones to a Farmer Admin.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-113: TA adds zones to a Farmer Admin.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-113: a Farmer Admin never widens its own (or a peer\'s) zone scope.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-113: owner decision names SA and TA only.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-113: owner decision names SA and TA only.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-113: farmers have no admin access.' },
+  { permission: 'admin.farmer_admin.assign_zones', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-113: customers have no admin access.' },
+  // --- BR-117: promotion request create/list/reject (spec gap, owner request 2026-10-23: promotion create path). ---
+  { permission: 'admin.promotion.request', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-117: SA and TA may request a promotion (owner request 2026-10-23).' },
+  { permission: 'admin.promotion.request', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-117: SA and TA may request a promotion (owner request 2026-10-23).' },
+  { permission: 'admin.promotion.request', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA request promotions.' },
+  { permission: 'admin.promotion.request', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA request promotions.' },
+  { permission: 'admin.promotion.request', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA request promotions.' },
+  { permission: 'admin.promotion.request', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA request promotions.' },
+  { permission: 'admin.promotion.request', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA request promotions.' },
+  { permission: 'admin.promotion.view', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-117: SA and TA read promotion requests (owner request 2026-10-23).' },
+  { permission: 'admin.promotion.view', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-117: SA and TA read promotion requests (owner request 2026-10-23).' },
+  { permission: 'admin.promotion.view', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA read promotion requests.' },
+  { permission: 'admin.promotion.view', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA read promotion requests.' },
+  { permission: 'admin.promotion.view', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA read promotion requests.' },
+  { permission: 'admin.promotion.view', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA read promotion requests.' },
+  { permission: 'admin.promotion.view', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-117: only SA and TA read promotion requests.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  { permission: 'admin.promotion.reject', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
 ];
 
 describe('docs/rbac.json grants', () => {

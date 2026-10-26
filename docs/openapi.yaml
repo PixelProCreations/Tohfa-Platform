@@ -27,6 +27,11 @@ info:
     * `x-additional-permissions` (rare) — further codes the route ALSO requires, checked before
       `x-permission`; the operation description says why. `pnpm spec:drift` checks they exist in
       `docs/rbac.json`.
+    * `x-permission-any-of` (rare) — used INSTEAD of `x-permission` when the code that applies
+      depends on the request body (e.g. `POST /admin/accounts`, where the role being created picks
+      the `admin.<role>.create` code). The route is refused 403 unless the caller holds at least one
+      of the listed codes; the handler then requires the specific code for the request. `pnpm
+      spec:drift` and the contract test check every listed code exists in `docs/rbac.json`.
     * `x-business-rules` — the client-locked business rules the handler enforces
       server-side. Rules are never enforced only in the client.
 
@@ -5170,6 +5175,281 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/farmers:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: listAdminFarmers
+      summary: Farmer directory (admin)
+      description: |
+        Cursor-paginated farmer directory, newest first (`createdAt` DESC, then `id` DESC), for the
+        admin console and the admin mobile app (BR-108). Filters combine with AND:
+        `q` matches the farmer's name or registered mobile (case-insensitive substring), `status` is the
+        ACCOUNT status (`users.status`), `zoneId` the farmer's current zone, `ratingTier` the tier of the
+        farmer's overall rating.
+
+        `ratingTier` is resolved at read time from `rating_tier_config` (the generation with the latest
+        `effective_from` that is not in the future), never from a literal and never from the cached
+        `farmers.rating_tier_code` (BR-04a). A farmer never rated has `ratingTier: null` and matches no
+        `ratingTier` filter.
+
+        Scope (`farmer.profile.view_all`): SUPER_ADMIN and TOHFA_ADMIN see every farmer. A FARMER_ADMIN
+        (`view`) sees only farmers whose current zone is one of its assigned zones; a SUB_WH_ADMIN (`view`)
+        only farmers whose zone belongs to its warehouse; a MAIN_WH_ADMIN (`view`, no scope dimension)
+        sees every farmer. A farmer outside the caller's scope is simply absent and a filter that names
+        only such farmers is an empty 200 page, never 403 (root CLAUDE.md 2.1).
+
+        Admin-only data: nothing here is served to a customer, and the customer catalog serializer is
+        untouched (BR-16). Aadhaar is never part of a list item.
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-108, BR-04, BR-16]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive substring of the farmer's full name or registered mobile.
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: status
+          in: query
+          required: false
+          description: Account status (`users.status`).
+          schema: { $ref: '#/components/schemas/AdminFarmerAccountStatus' }
+        - name: zoneId
+          in: query
+          required: false
+          description: The farmer's current zone. A zone outside the caller's scope gives an empty page.
+          schema: { type: string, format: uuid }
+        - name: ratingTier
+          in: query
+          required: false
+          description: Tier of the overall rating, resolved from `rating_tier_config` at read time (BR-04a).
+          schema: { $ref: '#/components/schemas/AdminFarmerRatingTierCode' }
+      responses:
+        '200':
+          description: One page of farmers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getAdminFarmer
+      summary: Farmer profile (admin)
+      description: |
+        One farmer's profile for admins (BR-108): identity and account state, the zone, the address,
+        the land locations (one farmer is ONE operation with land in several locations: each `farms`
+        row is a land location and its `plots` are the zones inside it), a certification summary, and
+        the overall rating with its tier.
+
+        Aadhaar is masked: only `aadhaarLast4` is returned; the full number is never stored (BR-33b).
+        `rating.ratingTier` is resolved at read time from `rating_tier_config` (BR-04a), exactly as in
+        `GET /admin/farmers`. The certification summary counts live (not deleted) certificates; "expired"
+        and "qualifying" use today's Asia/Kolkata date, and only a VERIFIED, unexpired PGS or NPOP
+        certificate is qualifying (BR-02).
+
+        404 means the farmer does not exist, is deleted, or is outside the caller's scope (a Farmer Admin
+        asking for a farmer of another zone): the two cases are indistinguishable on purpose (root
+        CLAUDE.md 2.1, same convention as `GET /admin/farmers/{id}/rating`). Scope as in `GET /admin/farmers`.
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-108, BR-04, BR-33]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The farmer profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farmer Profile & Certifications]
+      operationId: updateAdminFarmer
+      summary: Edit a farmer's profile (admin)
+      description: |
+        Edits a farmer's personal and address details (BR-108). Send at least one field.
+
+        Locked fields (BR-33): `mobile` and `aadhaarLast4` (and the key `aadhaar`) may be changed only by
+        a caller who also holds `farmer.profile.edit_locked_field` (SUPER_ADMIN only). For anyone else,
+        sending any locked key, with any value, is `403 FIELD_LOCKED` and NOTHING in the request is
+        applied. For a SUPER_ADMIN, `mobile` must be E.164 and unique among live users (`409 CONFLICT`
+        otherwise) and `aadhaarLast4` must be four digits; the key `aadhaar` is always `422` because the
+        full Aadhaar number is never stored (BR-33b, Decision 8). Unknown keys are 422.
+
+        A real change writes one `farmer.profile.edit` audit row in the same transaction, with before and
+        after images of the edited profile (Aadhaar as its last four digits only) and the changed field
+        names; a change of a locked field is recorded the same way. A request that repeats the current
+        values succeeds and writes nothing.
+
+        Scope (`farmer.profile.edit`): SUPER_ADMIN and TOHFA_ADMIN `all`; every other role, FARMER included
+        (owner decision 2026-10-23: a farmer edits itself through `PATCH /farmers/me`, never here), is 403.
+        A farmer that does not exist or is deleted is 404.
+      x-permission: farmer.profile.edit
+      x-business-rules: [BR-108, BR-33, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminFarmerUpdateRequest' }
+            example: { fullName: Murugan Selvam, village: Ithalar, pincode: '643001' }
+      responses:
+        '200':
+          description: The updated profile, same shape as `GET /admin/farmers/{id}`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/documents:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: listAdminFarmerDocuments
+      summary: A farmer's uploaded KYC and farm documents (admin)
+      description: |
+        The farmer's live (not deleted) `farmer_documents` rows, oldest first, with their verification
+        state (BR-108). Each file is returned only as a short-lived signed read URL (15 minutes, the
+        BR-54c lifetime); the storage key is never returned. Aadhaar never appears in a document row.
+
+        Scope (`farmer.document.view`): SUPER_ADMIN and TOHFA_ADMIN `all`; FARMER_ADMIN `view`, confined to
+        farmers of its own zones; FARMER `own` (its own farmer only). A farmer that does not exist or is
+        outside scope is 404, indistinguishable from a missing farmer; a farmer with no document is an
+        empty `items` list.
+      x-permission: farmer.document.view
+      x-business-rules: [BR-108, BR-54]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The farmer's documents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDocumentListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/documents/{docId}/verify:
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: verifyAdminFarmerDocument
+      summary: Manually verify a farmer's document (admin)
+      description: |
+        Marks one of the farmer's documents VERIFIED, recording the acting admin as `verifiedBy` and the
+        time as `verifiedAt` (BR-108). Verification is a human act; there is no automated path (BR-02b's
+        principle applied to KYC documents). No request body.
+
+        Idempotent by rule (BR-108): verifying a document that is already VERIFIED changes nothing (the
+        original `verifiedBy` and `verifiedAt` are kept), writes no audit row, and answers 200 with the
+        current document. An UNVERIFIED or REJECTED document becomes VERIFIED and its reject reason is
+        cleared. The row is locked for the decision, so two concurrent verifies record one verification
+        and one audit row.
+
+        A real verification writes one `farmer.document.verify` audit row in the same transaction, with
+        before and after images of the verification state (never the storage key).
+
+        Scope (`farmer.document.verify`): SUPER_ADMIN and TOHFA_ADMIN only. A farmer or document that does
+        not exist, is deleted, or a document that belongs to another farmer, is 404.
+      x-permission: farmer.document.verify
+      x-business-rules: [BR-108, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: docId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The document after verification (or unchanged, if it was already VERIFIED).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/bank-accounts:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: listAdminFarmerBankAccounts
+      summary: A farmer's payout destinations (admin)
+      description: |
+        The farmer's live (not deleted) bank accounts and UPI ids, default first, then newest first
+        (BR-108, BR-53). The account number is masked: only `accountNumberLast4` is returned, and the
+        provider token is never returned (BR-53a). Reading is not audited: BR-35 and BR-53 audit
+        mutations only.
+
+        Scope (`farmer.bank_account.view`): SUPER_ADMIN and TOHFA_ADMIN only. A farmer that does not exist
+        or is deleted is 404; a farmer with no destination is an empty `items` list.
+      x-permission: farmer.bank_account.view
+      x-business-rules: [BR-108, BR-53]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The farmer's payout destinations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerPayoutDestinationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/subscription:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getAdminFarmerSubscription
+      summary: A farmer's subscription and the free-tier limits applied to it (admin)
+      description: |
+        The farmer's current subscription row, if any (the ACTIVE one, otherwise the one with the latest
+        period end), and the free-tier limits applied to the farmer (BR-108, BR-14).
+
+        BR-14: the free-tier limits are undefined in both source documents and must not be invented. The
+        free-tier gate is `system_config.free_tier_limits_enabled`, which ships `false`; while it is not
+        `true` no limit is applied and `freeTierLimits.listingLimit` is null ("not configured"), whatever
+        placeholder `free_tier_listing_limit` holds. Only when the gate is on does `listingLimit` carry
+        the value the `POST /listings` gate applies. No number is ever produced by this endpoint itself.
+
+        Scope (`farmer.subscription.view_tier_limits`): SUPER_ADMIN and TOHFA_ADMIN `all`; FARMER_ADMIN,
+        SUB_WH_ADMIN and MAIN_WH_ADMIN `view`, scoped as in `GET /admin/farmers`; FARMER and CUSTOMER are
+        403 (FARMER tightened to `none` by owner decision 2026-10-23). Out of scope or missing is 404.
+      x-permission: farmer.subscription.view_tier_limits
+      x-business-rules: [BR-108, BR-14]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Subscription and free-tier limits.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/farmers/{id}/rating:
     get:
       tags: [Farm Rating]
@@ -9266,7 +9546,10 @@ paths:
       tags: [Purchase]
       operationId: listPurchaseOrders
       summary: Purchase orders raised to farmers
-      description: Sub Warehouse Admins see only their own warehouse (BR-30).
+      description: |
+        Sub Warehouse Admins see only their own warehouse (BR-30); a `warehouseId` outside the
+        scope is an empty page, never 403. Each row also carries `farmerName` and `cropName`
+        (admin-only surface; joined in the list query, null when the farmer or crop row is missing).
       x-permission: purchase.order.view
       x-business-rules: [BR-30]
       parameters:
@@ -9283,7 +9566,7 @@ paths:
                 type: object
                 required: [items, page]
                 properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/PurchaseOrder' } }
+                  items: { type: array, items: { $ref: '#/components/schemas/PurchaseOrderListItem' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -9529,6 +9812,34 @@ paths:
                 status: 409
                 code: COUNTER_LIMIT_REACHED
                 detail: This lot's listing has no counter-offer rounds left.
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/inventory/overview:
+    get:
+      tags: [Inventory]
+      operationId: getInventoryOverview
+      summary: Inventory overview (one aggregate for the admin inventory tab)
+      description: |
+        Spec gap (owner request 2026-10-23, BR-116). Read-only aggregate inside the caller's
+        warehouse scope: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) covers every live
+        warehouse; a Sub Warehouse Admin's figures cover only its own warehouse. Out-of-scope data
+        is simply absent (zeros, never 403, BR-30). Per-warehouse stock is the BR-100 free shelf of
+        ACTIVE batches. Near-expiry and low-stock counts use the BR-77 alert definitions and the
+        `system_config` thresholds `alert_batch_expiry_days` and `low_stock_threshold_kg`; a missing
+        or unusable threshold makes its count `null`. The verification counts never include the
+        `DISPUTED` status, which is never written (BR-107). No farmer, batch or customer id is
+        returned (BR-16). No audit row.
+      x-permission: inventory.batch.view
+      x-business-rules: [BR-116, BR-100, BR-77, BR-107, BR-30, BR-16]
+      responses:
+        '200':
+          description: The overview.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InventoryOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -10673,10 +10984,13 @@ paths:
         through `/orders`). In addition, the warehouse scope fails closed for any non-warehouse
         scope (`scopeDimension` outside warehouse). A Sub Warehouse Admin with no warehouse assigned gets 403
         `WAREHOUSE_SCOPE_VIOLATION` (a provisioning error, from requirePermission). Items carry no
-        farm identity and no buyer PII. Paging is keyset on (`placedAt`, `id`) at microsecond
-        precision; a `cursor` this endpoint did not return is 422 `VALIDATION_FAILED`.
+        farm identity (BR-16). Owner amendment 2026-10-23 (BR-101): an item carries the buyer's
+        `customerName` and `customerMobileMasked` (masked to its last four digits for every scope,
+        BR-92), the same buyer the order detail names; no other buyer PII. Paging is keyset on
+        (`placedAt`, `id`) at microsecond precision; a `cursor` this endpoint did not return is 422
+        `VALIDATION_FAILED`.
       x-permission: order.list.view_all
-      x-business-rules: [BR-101, BR-30]
+      x-business-rules: [BR-101, BR-30, BR-16, BR-92]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -10693,7 +11007,7 @@ paths:
                 type: object
                 required: [items, page]
                 properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminOrderSummary' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -11315,6 +11629,41 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /invoices/summary:
+    get:
+      tags: [Payouts & Invoices]
+      operationId: summarizeInvoices
+      summary: Invoice KPI tiles (counts and totals by status and by type)
+      description: |
+        Counts and totals over exactly the invoices `GET /invoices` returns the same caller for the
+        same filters: one visibility rule (`invoice.view_own`; `all` for SUPER_ADMIN, TOHFA_ADMIN and
+        MAIN_WH_ADMIN; a Sub Warehouse Admin only invoices of orders placed at its assigned
+        warehouse, BR-30; a farmer or customer only their own, BR-36). A scope that reaches no
+        invoice gets 200 with every count 0 and every amount `0.00`, never 403, so the answer does
+        not reveal whether another warehouse has invoices. FARMER_ADMIN holds no grant (403).
+
+        `byStatus` lists every `InvoiceStatus` and `byType` every `InvoiceType`, in enum order,
+        zero-filled. `count` and `totalAmount` cover every status (cancelled and credit-noted
+        invoices included; read them from `byStatus` to exclude them). Amounts are summed in integer
+        paise and returned as `Money`. Takes the list's filters (`type`, `fromDate`, `toDate` on the
+        issue date, inclusive), without paging.
+      x-permission: invoice.view_own
+      x-business-rules: [BR-30, BR-36]
+      parameters:
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/InvoiceType' } }
+        - { name: fromDate, in: query, schema: { type: string, format: date } }
+        - { name: toDate, in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: The summary of the visible invoices.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvoiceSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /invoices/{id}:
@@ -12456,19 +12805,32 @@ paths:
       operationId: getAuditLog
       summary: Immutable system audit log
       description: |
-        Every privileged action is recorded here. Warehouse admins see only entries scoped
-        to their own warehouse (BR-30). Entries are append-only and are never redacted.
+        Every privileged action is recorded here (BR-35), newest first (`at` DESC, then `id` DESC).
+        Entries are append-only and are never redacted; there is no route that edits or deletes one.
+
+        Scope (`auditlog.view`): SUPER_ADMIN and TOHFA_ADMIN (`all`) see every entry. A warehouse
+        admin (`own`) sees only entries whose `warehouseId` is one of its assigned warehouses (BR-30):
+        an entry of another warehouse, or one tied to no warehouse, is simply absent, and a filter that
+        names only such entries is an empty 200 page, never 403. Owner-confirmed 2026-10-23 (docs/rbac.json
+        conflict "Audit log scope for Main Warehouse Admin", resolved): a MAIN_WH_ADMIN's `own` is ONLY
+        its assigned warehouse. One with no assigned warehouse is not widened to "all four warehouses"
+        as on the four permissions the 2026-10-11 owner decision covers; its `own` scope has nothing to
+        match and the list is empty.
+
+        Filters combine with AND. `action` is an exact action code; `from` / `to` are inclusive
+        bounds on `at` and must carry an offset. `from` after `to` is 422. Paging is the opaque
+        keyset cursor of `CursorParam`; a cursor this list did not produce is 422.
       x-permission: auditlog.view
       x-business-rules: [BR-30, BR-35]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
-        - { name: actorId, in: query, schema: { type: string, format: uuid } }
-        - { name: action, in: query, schema: { type: string, examples: [payout.approve, listing.approve] } }
-        - { name: entityType, in: query, schema: { type: string } }
-        - { name: entityId, in: query, schema: { type: string, format: uuid } }
-        - { name: from, in: query, schema: { type: string, format: date-time } }
-        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - $ref: '#/components/parameters/AuditLogActorIdParam'
+        - $ref: '#/components/parameters/AuditLogActionParam'
+        - $ref: '#/components/parameters/AuditLogEntityTypeParam'
+        - $ref: '#/components/parameters/AuditLogEntityIdParam'
+        - $ref: '#/components/parameters/AuditLogFromParam'
+        - $ref: '#/components/parameters/AuditLogToParam'
       responses:
         '200':
           description: Paged audit entries.
@@ -12482,6 +12844,528 @@ paths:
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audit-log/export:
+    get:
+      tags: [Platform]
+      operationId: exportAuditLogCsv
+      summary: Export the system audit log as a CSV file
+      description: |
+        CSV export of `GET /admin/audit-log` with the same filters (`actorId`, `action`, `entityType`,
+        `entityId`, `from`, `to`) and the same order, without paging. SUPER_ADMIN only
+        (`auditlog.export`, BR-35: "SUPER_ADMIN may read and export"); every other role is 403.
+
+        The file is `text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="audit-log.csv"`,
+        `Cache-Control: no-store`. Columns, in order: `id, at, actor_id, actor_type, actor_role, action,
+        entity_type, entity_id, warehouse_id, outcome, changed_fields, correlation_id, ip, before, after`.
+        `changed_fields` is `;`-joined; `before` / `after` are the stored JSON images as text. Every cell
+        passes the same CSV injection guard and RFC 4180 quoting as the report exports (`ReportExportCsv`).
+
+        A file with more data rows than `system_config.export_max_rows` (default 50000, the report
+        exports' key) is 422 on `query.to` asking the caller to narrow the filters; it is never
+        truncated. A successful export writes one `audit_log` row (`auditlog.export`, entity type
+        `audit_log`, an after image of the filters and the row count) in the same transaction as the
+        read, so the exported file never contains its own row. A refused export writes none.
+        UNCONFIRMED defaults: the column set, the file name and the reuse of `export_max_rows` are not
+        in any client document.
+      x-permission: auditlog.export
+      x-business-rules: [BR-35]
+      parameters:
+        - $ref: '#/components/parameters/AuditLogActorIdParam'
+        - $ref: '#/components/parameters/AuditLogActionParam'
+        - $ref: '#/components/parameters/AuditLogEntityTypeParam'
+        - $ref: '#/components/parameters/AuditLogEntityIdParam'
+        - $ref: '#/components/parameters/AuditLogFromParam'
+        - $ref: '#/components/parameters/AuditLogToParam'
+      responses:
+        '200':
+          description: The CSV file.
+          headers:
+            Content-Disposition:
+              description: Always `attachment; filename="audit-log.csv"`.
+              schema: { type: string }
+            Cache-Control: { $ref: '#/components/headers/ReportExportCacheControl' }
+          content:
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /roles:
+    get:
+      tags: [Platform]
+      operationId: listRoles
+      summary: Role definitions and their granted permissions
+      description: |
+        Read-only. Every role with its code, name, hierarchy level (1 = highest authority) and scope
+        dimension, and the permissions the role is granted with their scope (`all`, `own`, `view`,
+        `conditional`) and, for `conditional`, the predicate name (BR-109). Roles are ordered by
+        level, then code; permissions by code. A permission the role holds at `none` is omitted.
+
+        The data comes from the `roles`, `permissions` and `role_permissions` tables, which
+        `db/seed/002_permissions.js` syncs from `docs/rbac.json`. There is no write route here:
+        editing a grant is `role.permission.edit` and is not built.
+
+        Scope (`role.definition.view`): SUPER_ADMIN and TOHFA_ADMIN (`all`), FARMER_ADMIN,
+        MAIN_WH_ADMIN and SUB_WH_ADMIN (`view`) read the same, unfiltered list (role definitions are
+        not warehouse, zone or farmer rows). FARMER and CUSTOMER are 403.
+      x-permission: role.definition.view
+      x-business-rules: [BR-109]
+      responses:
+        '200':
+          description: Every role, with its granted permissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RoleDefinition' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /roles/{code}:
+    get:
+      tags: [Platform]
+      operationId: getRole
+      summary: One role definition and its granted permissions
+      description: |
+        The same object as one item of `GET /roles` (BR-109). An unknown role code is 404.
+        Scope as `GET /roles`.
+      x-permission: role.definition.view
+      x-business-rules: [BR-109]
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64, example: TOHFA_ADMIN }
+      responses:
+        '200':
+          description: The role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleDefinition' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/accounts:
+    post:
+      tags: [Platform]
+      operationId: createAdminAccount
+      summary: Create a Super, TOHFA, Farmer or Main Warehouse Admin account
+      description: |
+        Creates an admin account of the requested `role` (BR-28, BR-112). The permission that applies
+        depends on that role: `admin.super_admin.create`, `admin.tohfa_admin.create`,
+        `admin.farmer_admin.create` or `admin.main_wh_admin.create` (`x-permission-any-of` below; a
+        caller holding none of the five `admin.*.create` codes is 403 before the body is read). With
+        the grants in `docs/rbac.json` that is exactly the BR-28 hierarchy: SUPER_ADMIN creates every
+        role; TOHFA_ADMIN creates FARMER_ADMIN only; MAIN_WH_ADMIN creates none of these. A caller that
+        passes the route gate but lacks the code for the requested role is 403 `FORBIDDEN`, and the
+        refused attempt is recorded as one `DENIED` audit row (BR-28b, BR-35b). Every create grant is
+        `all`; the `LOWER_ROLES_ONLY` predicate is evaluated as well and applies only if a create grant
+        ever becomes `conditional`.
+
+        `role: SUB_WH_ADMIN` is refused 422 `VALIDATION_FAILED` on `body.role`: Sub Warehouse Admins
+        are created only by `POST /admin/sub-warehouse-admins` (BR-81), which enforces their warehouse
+        binding and per-warehouse cap. This endpoint does not duplicate it.
+
+        A FARMER_ADMIN is bound to exactly ONE zone at creation: `zoneId` is required for that role
+        (missing is 422 on `body.zoneId`) and refused for every other role (422). An unknown, deleted or
+        inactive zone is 422 `VALIDATION_FAILED` on `body.zoneId`. More zones are added later only with
+        `PUT /admin/accounts/{id}/zones` (BR-113).
+
+        Credential (the same mechanism as `POST /admin/sub-warehouse-admins`): the account is created
+        `ACTIVE` with NO password and signs in only after the existing `POST /auth/forgot-password`
+        and `POST /auth/reset-password` flow sets one. No credential is generated, returned or logged.
+        The admin code (`ADM-001` ...) is generated. A mobile number that is already registered is
+        409 `CONFLICT` and is never echoed: an admin is never attached to an existing account.
+
+        Account, admin profile (with `created_by`), role assignment and ONE audit row (action code =
+        the role's create permission, entity type `user`; masked: role, zone and admin code, never the
+        name or the mobile) are one transaction (BR-35).
+      x-permission-any-of: [admin.super_admin.create, admin.tohfa_admin.create, admin.farmer_admin.create, admin.main_wh_admin.create, admin.sub_wh_admin.create]
+      x-business-rules: [BR-28, BR-112, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAccountCreate' }
+      responses:
+        '201':
+          description: Admin account created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAccountCreated' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/accounts/{id}/zones:
+    put:
+      tags: [Platform]
+      operationId: setFarmerAdminZones
+      summary: Replace the zones a Farmer Admin is assigned to
+      description: |
+        Replaces the zone set of the Farmer Admin `id` (BR-113). A Farmer Admin is created bound to
+        exactly one zone (`POST /admin/accounts`, BR-112); further zones are added (or removed) only
+        here, by SUPER_ADMIN or TOHFA_ADMIN (`admin.farmer_admin.assign_zones`, owner decision
+        2026-10-23; every other role is 403).
+
+        `zoneIds` is a non-empty list of distinct zone ids. Each must name a live, active zone (422
+        `VALIDATION_FAILED` on `body.zoneIds` otherwise, nothing written). The target must be a live
+        admin account holding a live FARMER_ADMIN assignment; anything else is 404.
+
+        Replace semantics: assignments for zones not in the list are ended, one assignment is added per
+        new zone, kept zones are untouched. A list equal (as a set) to the current zones is a no-op:
+        200 with the current zones, no write and no audit row. A real change writes one
+        `admin.farmer_admin.assign_zones` audit row (entity type `user`) with before/after zone lists
+        in the same transaction; after commit, access tokens issued before the change are rejected so
+        the next refresh carries the new zones (sessions are not revoked).
+
+        UNCONFIRMED: replace (not add-only) semantics; a DISABLED Farmer Admin's zones may still be
+        changed.
+      x-permission: admin.farmer_admin.assign_zones
+      x-business-rules: [BR-113, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmerAdminZonesRequest' }
+      responses:
+        '200':
+          description: The Farmer Admin's zones after the call.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerAdminZones' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/accounts/{id}/disable:
+    post:
+      tags: [Platform]
+      operationId: disableAdminAccount
+      summary: Disable an admin account and revoke its sessions
+      description: |
+        Disables the admin account `id` (a user of type ADMIN holding at least one live admin role
+        assignment) and revokes every live session and refresh token it holds (BR-110). Access tokens
+        already issued are rejected from the moment the change commits (the same per-user
+        invalidation stamp a password change uses; it fails open if Redis is unavailable).
+
+        Rules, in the order they are checked (BR-110):
+        1. An admin may not disable their own account: 403 `FORBIDDEN`, nothing read or written.
+        2. A user that does not exist, is deleted, or is not an admin account (no live admin role) is 404.
+        3. `admin.account.disable` grants SUPER_ADMIN `all` and TOHFA_ADMIN and FARMER_ADMIN
+           `conditional` with the `LOWER_ROLES_ONLY` predicate: a conditional actor may only disable
+           an account whose highest-authority role is strictly lower (numerically greater level) than
+           the actor's own; equal or higher is 403 `FORBIDDEN` with nothing written. With the levels
+           in `docs/rbac.json` that is TOHFA_ADMIN -> FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN and
+           FARMER_ADMIN -> SUB_WH_ADMIN. MAIN_WH_ADMIN and SUB_WH_ADMIN hold `none` (403).
+        4. Disabling the last ACTIVE SUPER_ADMIN is 409 `CONFLICT` (UNCONFIRMED safety default).
+        5. Idempotent: an account that is already DISABLED is 200 with its current state, unchanged
+           (the original `disabledAt` / `disabledBy` / `disabledReason` kept), and no audit row.
+
+        A real disable sets `status = DISABLED`, `disabledAt`, `disabledBy` and `disabledReason`,
+        revokes the sessions and refresh tokens, and writes one `admin.account.disable` audit row
+        (entity type `user`) with before/after images of the account state, all in one transaction.
+
+        Owner-confirmed 2026-10-23: the grants are kept exactly as written in `docs/rbac.json`
+        (FARMER_ADMIN `conditional`, MAIN_WH_ADMIN `none`); see BR-110 and Open contradictions #30
+        (resolved).
+      x-permission: admin.account.disable
+      x-business-rules: [BR-110, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisableAdminAccountRequest' }
+      responses:
+        '200':
+          description: The account after the disable (or unchanged, if it was already DISABLED).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAccountStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/promotions:
+    get:
+      tags: [Platform]
+      operationId: listPromotionRequests
+      summary: List admin promotion requests
+      description: |
+        Promotion requests, newest first (`createdAt` DESC, then `id` DESC), BR-117. `admin.promotion.view`
+        (SUPER_ADMIN and TOHFA_ADMIN `all`; every other role 403). The grant has no `own` dimension, so
+        a scope that is not `all` reads an empty page, never 403 (root CLAUDE.md section 2.1).
+
+        Filters combine with AND: `status` (exact) and `targetUserId`. Paging is the opaque keyset
+        cursor of `CursorParam`; a cursor this list did not produce is 422. Read-only: no audit row.
+      x-permission: admin.promotion.view
+      x-business-rules: [BR-117, BR-114]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/PromotionStatusParam'
+        - $ref: '#/components/parameters/PromotionTargetUserIdParam'
+      responses:
+        '200':
+          description: Paged promotion requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PromotionRequest' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Platform]
+      operationId: createPromotionRequest
+      summary: Request the promotion of an admin account
+      description: |
+        Creates a `PENDING` promotion request (BR-117) that a SUPER_ADMIN later approves
+        (`approvePromotionRequest`, BR-114) or rejects (`rejectPromotionRequest`).
+        `admin.promotion.request` (SUPER_ADMIN and TOHFA_ADMIN `all`; every other role 403).
+
+        Rules, in the order they are checked (each refusal writes nothing):
+        1. `toRole` is SUPER_ADMIN, TOHFA_ADMIN or MAIN_WH_ADMIN and `reason` is 1-500 characters
+           after trimming; anything else is 422 (UNCONFIRMED defaults, see BR-114 and BR-117).
+        2. Requesting a promotion of your own account is 403 `FORBIDDEN`.
+        3. The target must be a live admin account (a user of type ADMIN, not deleted, holding at least
+           one live role assignment); otherwise 404. Its `fromRole` is its highest-authority live
+           role; two live roles tied at that level is 409 `CONFLICT` (ambiguous).
+        4. `toRole` must be strictly higher (numerically lower level in `docs/rbac.json`) than
+           `fromRole`, otherwise 422 on `body.toRole`.
+        5. `LOWER_ROLES_ONLY` sanity check against the requester's own role level (UNCONFIRMED): the
+           target's `fromRole` must be strictly below the requester's role, and `toRole` may not be
+           above it; otherwise 403 `FORBIDDEN`. A SUPER_ADMIN always passes.
+        6. The target already has a `PENDING` request: 409 `CONFLICT`.
+
+        On success the request, with `requestedBy` = the caller, and one `admin.promotion.request`
+        audit row (entity type `promotion_request`, after image) are written in one transaction. No
+        role, session or token changes until approval.
+      x-permission: admin.promotion.request
+      x-business-rules: [BR-117, BR-114, BR-28, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePromotionRequest' }
+      responses:
+        '201':
+          description: The new PENDING request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PromotionRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/promotions/{id}:
+    get:
+      tags: [Platform]
+      operationId: getPromotionRequest
+      summary: Read one admin promotion request
+      description: |
+        One promotion request (BR-117). `admin.promotion.view` (SUPER_ADMIN and TOHFA_ADMIN `all`;
+        every other role 403). An unknown id, or any id for a scope that is not `all`, is 404 (never
+        403, which would confirm the row exists). Read-only: no audit row.
+      x-permission: admin.promotion.view
+      x-business-rules: [BR-117, BR-114]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PromotionRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/promotions/{id}/approve:
+    post:
+      tags: [Platform]
+      operationId: approvePromotionRequest
+      summary: Approve a pending admin promotion request
+      description: |
+        Approves the promotion request `id` (BR-114). SUPER_ADMIN only (`admin.promotion.approve`;
+        every other role is 403). An unknown id is 404; a request that is not `PENDING` is 409
+        `INVALID_STATE_TRANSITION` and nothing is written. Approving a promotion of your own account
+        is 403. The target must still be a live admin account holding a live assignment of the
+        request's `fromRole`; otherwise the request is stale: 409 `CONFLICT`, nothing written.
+
+        In one transaction: the target's live `fromRole` assignments are ended, one `toRole`
+        assignment is added (no warehouse, no zone), the request becomes `APPROVED` with
+        `decidedBy`, `decidedAt` and the optional `note`, every live session and refresh token of the
+        target is revoked, and one `admin.promotion.approve` audit row (entity type
+        `promotion_request`) records before/after images. After commit the target's access tokens
+        issued before the approval are rejected.
+
+        Requests are created by `createPromotionRequest`, listed by `listPromotionRequests` and
+        rejected by `rejectPromotionRequest` (BR-117). UNCONFIRMED: `toRole` is limited to
+        SUPER_ADMIN, TOHFA_ADMIN and MAIN_WH_ADMIN; the old role is ended, not kept (see BR-114 and
+        Open contradictions #31).
+      x-permission: admin.promotion.approve
+      x-business-rules: [BR-114, BR-28, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovePromotionRequest' }
+      responses:
+        '200':
+          description: The request after approval.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PromotionRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/promotions/{id}/reject:
+    post:
+      tags: [Platform]
+      operationId: rejectPromotionRequest
+      summary: Reject a pending admin promotion request
+      description: |
+        Rejects the promotion request `id` (BR-117). `admin.promotion.reject` (SUPER_ADMIN `all`, the
+        same grant as approve; every other role 403). An unknown id is 404; a request that is not
+        `PENDING` is 409 `INVALID_STATE_TRANSITION`; rejecting a promotion of your own account is
+        403. Each refusal writes nothing.
+
+        In one transaction the request becomes `REJECTED` with `decidedBy`, `decidedAt` and the
+        optional `note`, and one `admin.promotion.reject` audit row (entity type `promotion_request`)
+        records before/after images. No role, session or token of the target changes.
+      x-permission: admin.promotion.reject
+      x-business-rules: [BR-117, BR-114, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RejectPromotionRequest' }
+      responses:
+        '200':
+          description: The request after rejection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PromotionRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/rating-tiers:
+    patch:
+      tags: [Farm Rating]
+      operationId: configureRatingTiers
+      summary: Replace the rating tier bands (new config generation)
+      description: |
+        Writes a new generation of `rating_tier_config` (BR-04, BR-111). The body names all four tiers,
+        `POOR`, `MODERATE`, `GOOD`, `EXCELLENT`, once each and in that order. Bands use the table's
+        convention: `minScore` inclusive, `maxScore` exclusive, `null` = unbounded. They must cover the
+        0-100 score range with no gap and no overlap: the first `minScore` is 0, each `maxScore` equals
+        the next tier's `minScore`, every non-last band has `minScore < maxScore`, the last tier's
+        `maxScore` is null and its `minScore` is at most 100. Scores carry at most 2 decimals. Anything
+        else is 422 `VALIDATION_FAILED` naming the offending field. `label` is optional and defaults to
+        the tier's label in the current generation; the tier colour is carried forward unchanged.
+
+        Generations: tiers are read everywhere from the generation with the latest `effective_from` on
+        or before today (BR-04a). This call writes the generation effective today; a second change on
+        the same day replaces today's generation (unique per tier and day), and earlier generations are
+        never touched. Audit-derived farm ratings already stored keep their stored tier; audit reads and
+        the farmer directory resolve the tier at read time, so they follow the new bands immediately.
+        Submitting bands identical to the current generation is a no-op: 200, no write, no audit row.
+
+        A real change writes one audit row (`farmer.rating.configure_tiers`, entity type
+        `rating_tier_config`) with before/after images of the bands, in the same transaction.
+
+        The same store backs audit compliance tiers (BR-04, product decision 2026-10-01), so
+        `PATCH /admin/audit-tier-thresholds` writes the same generation. SUPER_ADMIN only.
+      x-permission: farmer.rating.configure_tiers
+      x-business-rules: [BR-04, BR-111, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TierBandsRequest' }
+      responses:
+        '200':
+          description: The generation now in effect.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TierBandsGeneration' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audit-tier-thresholds:
+    patch:
+      tags: [Audits]
+      operationId: configureAuditTierThresholds
+      summary: Replace the audit compliance tier thresholds (new config generation)
+      description: |
+        Audit compliance tiers are read from `rating_tier_config`, the same store as the farm rating
+        tiers (BR-04, "Extension to audits", product decision 2026-10-01): there is one scale and one
+        set of thresholds. This operation therefore has exactly the body, validation, generation
+        behaviour, no-op rule and response of `PATCH /admin/rating-tiers` (BR-111); only the permission
+        and the audit row's action code (`audit.tier.configure_thresholds`) differ. SUPER_ADMIN only.
+      x-permission: audit.tier.configure_thresholds
+      x-business-rules: [BR-04, BR-111, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TierBandsRequest' }
+      responses:
+        '200':
+          description: The generation now in effect.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TierBandsGeneration' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /healthz:
@@ -13651,8 +14535,16 @@ paths:
         Masking (BR-92): for an `own` actor every item carries `piiMasked: true`, `mobileMasked` and
         no `mobile` or `email` key at all. Scope `all` actors get the full values. Masking is driven
         by the resolved scope, never by a role check. See `q` for search.
+
+        Purchase filters and sort (BR-115): `crop`, `grade`, `from` and `to` keep only customers with
+        at least ONE purchase line (an order neither `PENDING_PAYMENT` nor `CANCELLED`, as
+        `/purchases` defines it) that matches every one given on the same line; for an `own` actor
+        that line must be at one of its warehouses. They only narrow the visible set and do not
+        change `summary`. `sort` picks the order; the cursor carries the sort value and the id, so
+        a cursor minted for another `sort` is 422 `VALIDATION_FAILED`. Every item also carries
+        `issueCount` and `ticketCount`.
       x-permission: customer.list.view
-      x-business-rules: [BR-91, BR-92, BR-98]
+      x-business-rules: [BR-91, BR-92, BR-98, BR-115]
       parameters:
         - name: q
           in: query
@@ -13666,6 +14558,22 @@ paths:
             full number cannot be recovered digit by digit through the filter (BR-92).
           schema: { type: string, minLength: 1, maxLength: 100 }
         - { $ref: '#/components/parameters/CustomerStatusFilterParam' }
+        - { name: crop, in: query, description: 'A `crop_master` id: the customer bought this crop (BR-115).', schema: { type: string, format: uuid } }
+        - { name: grade, in: query, description: 'The customer bought produce of this grade (BR-115).', schema: { $ref: '#/components/schemas/Grade' } }
+        - { name: from, in: query, description: 'Inclusive Asia/Kolkata day of the purchase (`placedAt`), a real YYYY-MM-DD date. Must be <= `to` (BR-115).', schema: { type: string, format: date } }
+        - { name: to, in: query, description: 'Inclusive Asia/Kolkata day of the purchase, a real YYYY-MM-DD date (BR-115).', schema: { type: string, format: date } }
+        - name: sort
+          in: query
+          description: |
+            Allow-list (BR-115). A leading `-` sorts descending; ties break on the customer id in the
+            same direction. `name` (the default) is the customer's name, `createdAt` the registration
+            instant, `lifetimeValue` the paid, non-cancelled, non-returned order total (compared as a
+            number), `totalOrders` the non-cancelled order count; for an `own` actor the last two
+            count only its warehouses' orders (BR-91g). `lastActivityAt` is not offered (nullable).
+          schema:
+            type: string
+            enum: [name, -name, createdAt, -createdAt, lifetimeValue, -lifetimeValue, totalOrders, -totalOrders]
+            default: name
         - { $ref: '#/components/parameters/CursorParam' }
         - { $ref: '#/components/parameters/LimitParam' }
       responses:
@@ -14501,6 +15409,54 @@ components:
         `to - from` may not exceed `system_config.finance_report_max_range_days` (366 when no row exists),
         the finance reports' own cap, else 422.
       schema: { type: string, format: date }
+    AuditLogActorIdParam:
+      name: actorId
+      in: query
+      required: false
+      description: Only entries by this user (`audit_log.actor_id`).
+      schema: { type: string, format: uuid }
+    AuditLogActionParam:
+      name: action
+      in: query
+      required: false
+      description: Exact action code (`audit_log.action_code`), e.g. a permission code.
+      schema: { type: string, minLength: 1, maxLength: 120, examples: [payout.approve, listing.approve] }
+    AuditLogEntityTypeParam:
+      name: entityType
+      in: query
+      required: false
+      description: Exact entity type, e.g. `payout`.
+      schema: { type: string, minLength: 1, maxLength: 64 }
+    AuditLogEntityIdParam:
+      name: entityId
+      in: query
+      required: false
+      description: Only entries about this row.
+      schema: { type: string, format: uuid }
+    AuditLogFromParam:
+      name: from
+      in: query
+      required: false
+      description: Inclusive lower bound on `at`, an ISO 8601 date-time with an offset.
+      schema: { type: string, format: date-time }
+    AuditLogToParam:
+      name: to
+      in: query
+      required: false
+      description: Inclusive upper bound on `at`, an ISO 8601 date-time with an offset, not before `from`.
+      schema: { type: string, format: date-time }
+    PromotionStatusParam:
+      name: status
+      in: query
+      required: false
+      description: Only promotion requests in this status.
+      schema: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+    PromotionTargetUserIdParam:
+      name: targetUserId
+      in: query
+      required: false
+      description: Only promotion requests for this admin account.
+      schema: { type: string, format: uuid }
     CursorParam:
       name: cursor
       in: query
@@ -15016,6 +15972,211 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer }
+
+    RoleDefinition:
+      type: object
+      description: A role from the `roles` table with the grants `role_permissions` holds for it (BR-109).
+      required: [code, name, level, scopeDimension, summary, permissions]
+      properties:
+        code: { type: string, example: TOHFA_ADMIN }
+        name: { type: string }
+        level: { type: integer, minimum: 1, description: Hierarchy level; 1 is the highest authority. }
+        scopeDimension:
+          type: [string, 'null']
+          enum: [warehouse_id, zone_id, farmer_id, customer_id, null]
+        summary: { type: [string, 'null'] }
+        permissions:
+          type: array
+          description: Granted permissions only (scope `none` is omitted), ordered by code.
+          items: { $ref: '#/components/schemas/RolePermissionGrant' }
+
+    RolePermissionGrant:
+      type: object
+      required: [code, module, description, scope, predicate]
+      properties:
+        code: { type: string, example: farmer.profile.view_all }
+        module: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [all, own, view, conditional] }
+        predicate:
+          type: [string, 'null']
+          description: The predicate a `conditional` grant is evaluated with; null otherwise.
+
+    DisableAdminAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional free-text reason, stored as `users.disabled_reason` and in the audit row.
+
+    AdminAccountStatus:
+      type: object
+      description: The account state of an admin user (BR-110). Never carries the mobile, email or password hash.
+      required: [id, fullName, status, roles, disabledAt, disabledBy, disabledReason]
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, DISABLED] }
+        roles:
+          type: array
+          description: Codes of the account's live role assignments.
+          items: { type: string }
+        disabledAt: { type: [string, 'null'], format: date-time }
+        disabledBy: { type: [string, 'null'], format: uuid }
+        disabledReason: { type: [string, 'null'] }
+
+    AdminAccountCreate:
+      type: object
+      additionalProperties: false
+      required: [role, fullName, mobile]
+      description: |
+        BR-112. No password, email, status or admin code: the account starts ACTIVE with no password
+        (set through the forgot-password flow) and the admin code is generated. `zoneId` is required
+        for FARMER_ADMIN and refused for every other role. `SUB_WH_ADMIN` is accepted by the schema
+        but refused by the endpoint (use `POST /admin/sub-warehouse-admins`).
+      properties:
+        role: { type: string, enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN] }
+        fullName: { type: string, minLength: 1, maxLength: 120 }
+        mobile: { type: string, pattern: '^\+[1-9][0-9]{7,14}$', description: E.164; the login identifier; never returned., example: '+919876500001' }
+        zoneId: { type: [string, 'null'], format: uuid }
+
+    AdminAccountCreated:
+      type: object
+      description: The created admin account (BR-112). Never carries the mobile, email or any credential.
+      required: [userId, adminCode, fullName, role, status, zoneIds, assignedAt]
+      properties:
+        userId: { type: string, format: uuid }
+        adminCode: { type: string, example: ADM-001 }
+        fullName: { type: string }
+        role: { type: string, enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN] }
+        status: { type: string, enum: [ACTIVE] }
+        zoneIds:
+          type: array
+          description: The FARMER_ADMIN's single zone at creation; empty for every other role.
+          items: { type: string, format: uuid }
+        assignedAt: { type: string, format: date-time }
+
+    FarmerAdminZonesRequest:
+      type: object
+      additionalProperties: false
+      required: [zoneIds]
+      description: The complete new zone set (BR-113). Non-empty, distinct.
+      properties:
+        zoneIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, format: uuid }
+
+    ApprovePromotionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional decision note, stored on the request and in the audit row.
+
+    CreatePromotionRequest:
+      type: object
+      additionalProperties: false
+      required: [targetUserId, toRole, reason]
+      properties:
+        targetUserId:
+          type: string
+          format: uuid
+          description: The admin account to promote. Not the caller.
+        toRole:
+          type: string
+          enum: [SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN]
+          description: Strictly higher than the target's current highest role (UNCONFIRMED target set, BR-114).
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Why the promotion is requested; trimmed. Stored on the request and in the audit row.
+
+    RejectPromotionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional decision note, stored on the request and in the audit row.
+
+    PromotionRequest:
+      type: object
+      description: An admin promotion request (BR-114). Never carries the target's mobile, email or credential.
+      required: [id, targetUserId, fromRole, toRole, requestedBy, reason, status, decidedBy, decidedAt, decisionNote, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        targetUserId: { type: string, format: uuid }
+        fromRole: { type: string, enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN] }
+        toRole: { type: string, enum: [SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN] }
+        requestedBy: { type: string, format: uuid }
+        reason: { type: [string, 'null'] }
+        status: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decisionNote: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    FarmerAdminZones:
+      type: object
+      required: [userId, zoneIds]
+      properties:
+        userId: { type: string, format: uuid }
+        zoneIds:
+          type: array
+          description: The Farmer Admin's live zones, sorted.
+          items: { type: string, format: uuid }
+
+    TierBandInput:
+      type: object
+      additionalProperties: false
+      required: [code, minScore, maxScore]
+      properties:
+        code: { type: string, enum: [POOR, MODERATE, GOOD, EXCELLENT] }
+        label: { type: string, minLength: 1, maxLength: 60 }
+        minScore: { type: number, minimum: 0, maximum: 100 }
+        maxScore: { type: [number, 'null'], minimum: 0, maximum: 100 }
+
+    TierBandsRequest:
+      type: object
+      additionalProperties: false
+      required: [tiers]
+      description: All four tiers, ascending, contiguous, covering 0-100 with the last band unbounded (BR-111).
+      properties:
+        tiers:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { $ref: '#/components/schemas/TierBandInput' }
+
+    TierBand:
+      type: object
+      required: [code, label, minScore, maxScore, sortOrder]
+      properties:
+        code: { type: string, enum: [POOR, MODERATE, GOOD, EXCELLENT] }
+        label: { type: string }
+        minScore: { type: number, description: Inclusive. }
+        maxScore: { type: [number, 'null'], description: Exclusive; null = unbounded. }
+        sortOrder: { type: integer }
+
+    TierBandsGeneration:
+      type: object
+      required: [effectiveFrom, tiers]
+      properties:
+        effectiveFrom: { type: string, format: date }
+        tiers:
+          type: array
+          items: { $ref: '#/components/schemas/TierBand' }
 
     Problem:
       type: object
@@ -16346,6 +17507,279 @@ components:
             ]
         score: { type: [integer, 'null'], minimum: 0, maximum: 10 }
         maxScore: { type: integer, enum: [10] }
+
+    AdminFarmerAccountStatus:
+      type: string
+      description: The farmer's account status (`users.status`).
+      enum: [PENDING, ACTIVE, DISABLED]
+
+    AdminFarmerRatingTierCode:
+      type: string
+      description: A `rating_tier_config.tier_code` (BR-04). The bands themselves are configuration, never literals.
+      enum: [POOR, MODERATE, GOOD, EXCELLENT]
+
+    AdminFarmerRatingTier:
+      type: object
+      description: The tier of an overall rating, resolved at read time from `rating_tier_config` (BR-04a).
+      required: [code, label]
+      properties:
+        code: { $ref: '#/components/schemas/AdminFarmerRatingTierCode' }
+        label: { type: string, description: '`rating_tier_config.label`.' }
+
+    AdminFarmerZone:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    AdminFarmerListItem:
+      type: object
+      description: One farmer in the admin directory (BR-108). Admin-only; never served to a customer (BR-16).
+      required: [id, tohfaFarmerId, fullName, mobile, accountStatus, applicationStatus, kycStatus, zone, overallRating, ratingTier, landLocationCount, isMarketBlocked, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tohfaFarmerId: { type: string }
+        fullName: { type: string }
+        mobile: { type: string, description: Registered mobile, E.164. }
+        accountStatus: { $ref: '#/components/schemas/AdminFarmerAccountStatus' }
+        applicationStatus: { type: string, enum: [SUBMITTED, DOCS_REVIEW, FARM_VERIFICATION, AUDIT, APPROVED, REJECTED] }
+        kycStatus: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        zone:
+          oneOf:
+            - { $ref: '#/components/schemas/AdminFarmerZone' }
+            - { type: 'null' }
+        overallRating: { type: [number, 'null'], description: '`farmers.overall_rating` (0-100), null when never rated.' }
+        ratingTier:
+          oneOf:
+            - { $ref: '#/components/schemas/AdminFarmerRatingTier' }
+            - { type: 'null' }
+        landLocationCount: { type: integer, minimum: 0, description: Live land locations (`farms` rows). }
+        isMarketBlocked: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    AdminFarmerListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminFarmerListItem' }
+        page: { $ref: '#/components/schemas/PageMeta' }
+
+    AdminFarmerPlot:
+      type: object
+      description: A zone (`plots` row) inside a land location.
+      required: [id, name, areaAcres, soilType, irrigationType, sunExposure]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        areaAcres: { type: [number, 'null'] }
+        soilType: { type: [string, 'null'] }
+        irrigationType: { type: [string, 'null'] }
+        sunExposure: { type: [string, 'null'] }
+
+    AdminFarmerLandLocation:
+      type: object
+      description: |
+        One land location of the farmer's single operation (a live `farms` row) with its zones. Admin-only:
+        BR-16 forbids every field here in a customer response.
+      required: [id, name, surveyNumber, areaAcres, address, village, taluk, district, centroid, hasBoundary, isPrimary, plots]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        surveyNumber: { type: [string, 'null'] }
+        areaAcres: { type: [number, 'null'] }
+        address: { type: [string, 'null'] }
+        village: { type: [string, 'null'] }
+        taluk: { type: [string, 'null'] }
+        district: { type: string }
+        centroid:
+          oneOf:
+            - type: object
+              required: [lat, lng]
+              properties:
+                lat: { type: number }
+                lng: { type: number }
+            - { type: 'null' }
+        hasBoundary: { type: boolean, description: True when an FMB boundary polygon is recorded. }
+        isPrimary: { type: boolean }
+        plots:
+          type: array
+          items: { $ref: '#/components/schemas/AdminFarmerPlot' }
+
+    AdminFarmerCertificationSummary:
+      type: object
+      description: |
+        Counts over the farmer's live certificates. `expired` and `qualifying` use today's Asia/Kolkata
+        date; `qualifying` counts VERIFIED, unexpired PGS/NPOP certificates (BR-02).
+      required: [total, verified, unverified, rejected, expired, qualifying, nextQualifyingExpiry]
+      properties:
+        total: { type: integer, minimum: 0 }
+        verified: { type: integer, minimum: 0 }
+        unverified: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        expired: { type: integer, minimum: 0 }
+        qualifying: { type: integer, minimum: 0 }
+        nextQualifyingExpiry: { type: [string, 'null'], format: date, description: Earliest expiry among qualifying certificates. }
+
+    AdminFarmerDetail:
+      type: object
+      description: |
+        A farmer's profile for admins (BR-108). Aadhaar is masked to its last four digits; the full number
+        is never stored or returned (BR-33b).
+      required: [id, tohfaFarmerId, fullName, mobile, email, accountStatus, applicationStatus, kycStatus, zone, aadhaarLast4, dob, gender, farmingExperienceYears, address, isMarketBlocked, marketBlockReason, landLocations, certificationSummary, rating, approvedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        tohfaFarmerId: { type: string }
+        fullName: { type: string }
+        mobile: { type: string, description: Registered mobile, E.164. Locked field (BR-33). }
+        email: { type: [string, 'null'] }
+        accountStatus: { $ref: '#/components/schemas/AdminFarmerAccountStatus' }
+        applicationStatus: { type: string, enum: [SUBMITTED, DOCS_REVIEW, FARM_VERIFICATION, AUDIT, APPROVED, REJECTED] }
+        kycStatus: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        zone:
+          oneOf:
+            - { $ref: '#/components/schemas/AdminFarmerZone' }
+            - { type: 'null' }
+        aadhaarLast4: { type: [string, 'null'], pattern: '^[0-9]{4}$', description: Masked Aadhaar, last four digits only. Locked field (BR-33). }
+        dob: { type: [string, 'null'], format: date }
+        gender: { type: [string, 'null'], enum: [MALE, FEMALE, OTHER, UNDISCLOSED, null] }
+        farmingExperienceYears: { type: [integer, 'null'] }
+        address:
+          type: object
+          required: [line1, line2, village, taluk, district, pincode]
+          properties:
+            line1: { type: [string, 'null'] }
+            line2: { type: [string, 'null'] }
+            village: { type: [string, 'null'] }
+            taluk: { type: [string, 'null'] }
+            district: { type: string }
+            pincode: { type: [string, 'null'] }
+        isMarketBlocked: { type: boolean }
+        marketBlockReason: { type: [string, 'null'] }
+        landLocations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminFarmerLandLocation' }
+        certificationSummary: { $ref: '#/components/schemas/AdminFarmerCertificationSummary' }
+        rating:
+          type: object
+          required: [overallRating, ratingTier]
+          properties:
+            overallRating: { type: [number, 'null'] }
+            ratingTier:
+              oneOf:
+                - { $ref: '#/components/schemas/AdminFarmerRatingTier' }
+                - { type: 'null' }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    AdminFarmerUpdateRequest:
+      type: object
+      description: |
+        Send at least one field. `mobile`, `aadhaarLast4` and `aadhaar` are LOCKED (BR-33): any value of
+        any of them is `403 FIELD_LOCKED` unless the caller holds `farmer.profile.edit_locked_field`
+        (SUPER_ADMIN), and then nothing in the request is applied. `aadhaar` (a full number) is always
+        refused, 422 for a SUPER_ADMIN, because the full number is never stored.
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: [string, 'null'], format: email, maxLength: 254 }
+        dob: { type: [string, 'null'], format: date }
+        gender: { type: [string, 'null'], enum: [MALE, FEMALE, OTHER, UNDISCLOSED, null] }
+        farmingExperienceYears: { type: [integer, 'null'], minimum: 0, maximum: 120 }
+        addressLine1: { type: [string, 'null'], maxLength: 200 }
+        addressLine2: { type: [string, 'null'], maxLength: 200 }
+        village: { type: [string, 'null'], maxLength: 120 }
+        taluk: { type: [string, 'null'], maxLength: 120 }
+        district: { type: string, minLength: 1, maxLength: 120 }
+        pincode: { type: [string, 'null'], pattern: '^[1-9][0-9]{5}$' }
+        mobile: { description: 'Locked field (BR-33). SUPER_ADMIN only; E.164, e.g. `+919812345678`.' }
+        aadhaarLast4: { description: 'Locked field (BR-33). SUPER_ADMIN only; exactly four digits.' }
+        aadhaar: { description: Locked field (BR-33). Never accepted; the full Aadhaar number is never stored. }
+
+    AdminFarmerDocument:
+      type: object
+      description: One `farmer_documents` row. The storage key is never returned; the file is reachable only through `readUrl`.
+      required: [id, docType, mimeType, sizeBytes, isMandatory, verificationStatus, verifiedBy, verifiedAt, rejectReason, uploadedAt, readUrl]
+      properties:
+        id: { type: string, format: uuid }
+        docType: { type: string, enum: [ID_PROOF, ADDRESS_PROOF, FARM_DOC, CERTIFICATE, BANK_PROOF, PHOTO] }
+        mimeType: { type: string }
+        sizeBytes: { type: [integer, 'null'] }
+        isMandatory: { type: boolean }
+        verificationStatus: { type: string, enum: [UNVERIFIED, VERIFIED, REJECTED] }
+        verifiedBy: { type: [string, 'null'], format: uuid }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+        rejectReason: { type: [string, 'null'] }
+        uploadedAt: { type: string, format: date-time }
+        readUrl: { type: [string, 'null'], description: Signed read URL valid for 15 minutes (BR-54c). }
+
+    AdminFarmerDocumentListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminFarmerDocument' }
+
+    AdminFarmerPayoutDestination:
+      type: object
+      description: A bank account (`kind` BANK) or UPI id (`kind` UPI). The account number is masked to its last four digits (BR-53a).
+      required: [id, kind, accountHolderName, accountNumberLast4, ifsc, bankName, branchName, upiVpa, isVerified, isDefault, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [BANK, UPI] }
+        accountHolderName: { type: string }
+        accountNumberLast4: { type: [string, 'null'], pattern: '^[0-9]{4}$' }
+        ifsc: { type: [string, 'null'] }
+        bankName: { type: [string, 'null'] }
+        branchName: { type: [string, 'null'] }
+        upiVpa: { type: [string, 'null'] }
+        isVerified: { type: boolean }
+        isDefault: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    AdminFarmerPayoutDestinationListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminFarmerPayoutDestination' }
+
+    AdminFarmerSubscription:
+      type: object
+      description: A farmer's subscription and the free-tier limits applied to it (BR-14).
+      required: [farmerId, current, freeTierLimits]
+      properties:
+        farmerId: { type: string, format: uuid }
+        current:
+          description: The ACTIVE subscription row, otherwise the one with the latest period end; null when the farmer has none.
+          oneOf:
+            - type: object
+              required: [tier, status, periodStart, periodEnd]
+              properties:
+                tier: { type: string, enum: [FREE, PAID] }
+                status: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED, WAIVED] }
+                periodStart: { type: string, format: date }
+                periodEnd: { type: string, format: date }
+            - { type: 'null' }
+        freeTierLimits:
+          type: object
+          required: [enforced, listingLimit]
+          properties:
+            enforced:
+              type: boolean
+              description: '`system_config.free_tier_limits_enabled` is `true`. Ships `false` (BR-14b).'
+            listingLimit:
+              type: [integer, 'null']
+              description: |
+                Not configured: null while `enforced` is false (BR-14 forbids inventing a limit, and the seeded
+                `free_tier_listing_limit` is an unenforced placeholder). When enforced, the value the
+                `POST /listings` gate applies; null if that value is missing or not a whole number.
 
     FarmRating:
       type: object
@@ -18736,6 +20170,16 @@ components:
         expectedDeliveryDate: { type: [string, 'null'], format: date }
         issuedAt: { type: string, format: date-time }
 
+    PurchaseOrderListItem:
+      description: A row of `GET /admin/purchase-orders`. Admin-only, so the farmer's name is not a BR-16 leak.
+      allOf:
+        - $ref: '#/components/schemas/PurchaseOrder'
+        - type: object
+          required: [farmerName, cropName]
+          properties:
+            farmerName: { type: [string, 'null'], description: The farmer's full name; null when the farmer or its user row is missing. }
+            cropName: { type: [string, 'null'], description: '`crop_master.name`; null when the crop row is missing.' }
+
     PurchaseOrderDetail:
       allOf:
         - $ref: '#/components/schemas/PurchaseOrder'
@@ -18952,6 +20396,39 @@ components:
       additionalProperties: false
       properties:
         reason: { type: string, minLength: 5, maxLength: 500 }
+
+    InventoryOverview:
+      type: object
+      description: |
+        `GET /admin/inventory/overview` (BR-116). Every figure is confined to the caller's warehouse
+        scope. Counts are integers; a threshold-based count is `null` when its `system_config`
+        threshold is missing or unusable. Quantities are kilograms as three-decimal strings.
+      additionalProperties: false
+      required: [warehouses, nearExpiryBatchCount, lowStockCount, pendingAdjustmentCount, unreconciledVerificationCount, varianceUnreconciledVerificationCount, thresholds]
+      properties:
+        warehouses:
+          type: array
+          description: One row per live warehouse in scope, ordered by name.
+          items:
+            type: object
+            additionalProperties: false
+            required: [warehouseId, name, availableQtyKg]
+            properties:
+              warehouseId: { type: string, format: uuid }
+              name: { type: string }
+              availableQtyKg: { $ref: '#/components/schemas/Quantity', description: 'Sum of the BR-100 free shelf over ACTIVE batches.' }
+        nearExpiryBatchCount: { type: [integer, 'null'], minimum: 0, description: 'ACTIVE batches with stock expiring within alert_batch_expiry_days (past expiry included), BR-77d.' }
+        lowStockCount: { type: [integer, 'null'], minimum: 0, description: 'Warehouse + crop + grade groups whose ACTIVE stock is below low_stock_threshold_kg, BR-77e.' }
+        pendingAdjustmentCount: { type: integer, minimum: 0, description: 'Stock adjustments awaiting a decision (PENDING), BR-37.' }
+        unreconciledVerificationCount: { type: integer, minimum: 0, description: 'Stock verifications in status RECORDED, BR-107.' }
+        varianceUnreconciledVerificationCount: { type: integer, minimum: 0, description: 'RECORDED stock verifications with a non-zero variance, BR-107.' }
+        thresholds:
+          type: object
+          additionalProperties: false
+          required: [nearExpiryDays, lowStockThresholdKg]
+          properties:
+            nearExpiryDays: { type: [integer, 'null'], minimum: 0, description: 'system_config.alert_batch_expiry_days as used, or null when unusable.' }
+            lowStockThresholdKg: { type: [string, 'null'], description: 'system_config.low_stock_threshold_kg as used (decimal string), or null when unusable.' }
 
     StockVerification:
       type: object
@@ -19177,6 +20654,25 @@ components:
         deliveryDate: { type: [string, 'null'], format: date }
         placedAt: { type: string, format: date-time }
 
+    AdminOrderSummary:
+      description: |
+        `GET /admin/orders` list item (BR-101, owner amendment 2026-10-23): the `OrderSummary`
+        fields plus the buyer's name and masked mobile, and nothing else. No farm identity
+        (`farmerId`, farm name, location, GPS, FMB: BR-16), no customer id, no full mobile, e-mail,
+        address or OTP. The buyer is the one the order detail names (`AdminOrderDetail.buyer`): the
+        registered customer, or the walk-in buyer of a counter sale with no customer.
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          required: [customerName, customerMobileMasked]
+          properties:
+            customerName: { type: [string, 'null'], description: 'The buyer name; null when the order records none.' }
+            customerMobileMasked:
+              description: The buyer mobile masked to its last four digits for every scope (BR-92); null when none is stored.
+              oneOf:
+                - $ref: '#/components/schemas/MaskedMobile'
+                - type: 'null'
+
     Order:
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
@@ -19343,6 +20839,37 @@ components:
         gstApplicable: { type: boolean, description: True only for B2B and Horeca (BR-15). }
         status: { type: string, enum: [DRAFT, ISSUED, CANCELLED, CREDIT_NOTED] }
         pdfUrl: { type: [string, 'null'], format: uri }
+
+    InvoiceSummary:
+      type: object
+      description: '`GET /invoices/summary`. Every amount is a sum in integer paise rendered as Money.'
+      additionalProperties: false
+      required: [count, totalAmount, byStatus, byType]
+      properties:
+        count: { type: integer, minimum: 0, description: Every visible invoice matching the filters, all statuses. }
+        totalAmount: { $ref: '#/components/schemas/Money' }
+        byStatus:
+          type: array
+          description: One entry per invoice status, in this order, zero-filled.
+          items:
+            type: object
+            additionalProperties: false
+            required: [status, count, totalAmount]
+            properties:
+              status: { type: string, enum: [DRAFT, ISSUED, CANCELLED, CREDIT_NOTED] }
+              count: { type: integer, minimum: 0 }
+              totalAmount: { $ref: '#/components/schemas/Money' }
+        byType:
+          type: array
+          description: One entry per `InvoiceType`, in enum order, zero-filled.
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, count, totalAmount]
+            properties:
+              type: { $ref: '#/components/schemas/InvoiceType' }
+              count: { type: integer, minimum: 0 }
+              totalAmount: { $ref: '#/components/schemas/Money' }
 
     InvoiceDetail:
       allOf:
@@ -19528,18 +21055,26 @@ components:
 
     AuditLogEntry:
       type: object
-      required: [id, actorId, action, entityType, at]
+      description: |
+        One `audit_log` row (BR-35). `actorId` is null for SYSTEM and JOB actors. `before` / `after`
+        are the stored JSON images exactly as written (any JSON value, or null).
+      required: [id, actorId, actorType, actorRole, action, entityType, entityId, warehouseId, outcome, before, after, changedFields, correlationId, ip, at]
       properties:
         id: { type: string, format: uuid }
-        actorId: { type: string, format: uuid }
-        actorRole: { type: string }
+        actorId: { type: [string, 'null'], format: uuid }
+        actorType: { type: string, enum: [USER, SYSTEM, JOB, ANONYMOUS] }
+        actorRole: { type: [string, 'null'] }
         action: { type: string, examples: [payout.approve] }
         entityType: { type: string, examples: [payout] }
         entityId: { type: [string, 'null'], format: uuid }
         warehouseId: { type: [string, 'null'], format: uuid }
-        before: { type: [object, 'null'], additionalProperties: true }
-        after: { type: [object, 'null'], additionalProperties: true }
-        correlationId: { type: string }
+        outcome: { type: string, enum: [ALLOWED, DENIED, ERROR] }
+        before:
+          description: Row image before the change; any JSON value, or null.
+        after:
+          description: Row image after the change; any JSON value, or null.
+        changedFields: { type: [array, 'null'], items: { type: string } }
+        correlationId: { type: [string, 'null'], format: uuid }
         ip: { type: [string, 'null'] }
         at: { type: string, format: date-time }
 
@@ -20741,7 +22276,7 @@ components:
         `mobile` and `email` are ABSENT (not null) — only `name`, `mobileMasked` and `customerCode`
         identify the customer (BR-92). Scope `all` actors also receive `mobile` and `email`.
         No farm field ever appears (BR-16).
-      required: [id, customerCode, name, mobileMasked, customerType, status, isNew, preferredWarehouseId, totalOrders, lastActivityAt, piiMasked, createdAt]
+      required: [id, customerCode, name, mobileMasked, customerType, status, isNew, preferredWarehouseId, totalOrders, lastActivityAt, piiMasked, createdAt, issueCount, ticketCount]
       additionalProperties: false
       properties:
         id: { type: string, format: uuid }
@@ -20758,6 +22293,14 @@ components:
         lastActivityAt: { type: [string, 'null'], format: date-time }
         piiMasked: { type: boolean, description: True when the caller's scope is `own` (BR-92). }
         createdAt: { type: string, format: date-time }
+        issueCount:
+          type: integer
+          minimum: 0
+          description: 'Return requests of this customer, counted exactly as `GET /admin/customers/{customerId}/issues` lists them for the same caller (confined to its warehouses through the order for `own`, BR-91g, BR-115).'
+        ticketCount:
+          type: integer
+          minimum: 0
+          description: 'Support tickets of this customer, counted exactly as `GET /admin/customers/{customerId}/support-tickets` lists them (BR-115).'
 
     AdminCustomerListResponse:
       type: object

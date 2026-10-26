@@ -64,4 +64,7 @@ export const CURSOR_TAGS = {
   inventoryBatches: 'ib',
   stockLedger: 'sl',
   allocations: 'al',
+  auditLog: 'au',
+  adminFarmers: 'fm',
+  promotionRequests: 'pr',
 } as const;

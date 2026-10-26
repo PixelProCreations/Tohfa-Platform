@@ -612,6 +612,8 @@ See also BR-66.
 
 **Note (2026-10-13, inventory list paging).** `GET /admin/batches`, `GET /admin/stock-ledger` and `GET /admin/allocations` page with an opaque keyset cursor on `(created_at, id)` that matches their `ORDER BY created_at DESC, id DESC`, the same scheme as the wallet and admin-order lists. Their cursor used to be the last row's id alone, which skipped or repeated rows (uuids are not time-ordered) and turned a non-uuid cursor into a 500. Contract: paging with any page size returns every row exactly once in order, including rows whose `created_at` ties to the microsecond; a cursor the list did not produce (a bare uuid, garbage, another list's cursor) is 422 `VALIDATION_FAILED`. Tests: `BR-30` (batches), `BR-37` (stock ledger) and `BR-12` (allocations) in `apps/api/src/modules/inventory/inventory.paging.test.ts`.
 
+**Note (2026-10-23, audit log; owner-confirmed 2026-10-23).** `GET /admin/audit-log` (`auditlog.view`) applies `own` as a WHERE clause on `audit_log.warehouse_id`. For a MAIN_WH_ADMIN `own` means ONLY its assigned warehouse, not all four warehouses (owner decision 2026-10-23, resolving the rbac.json conflict "Audit log scope for Main Warehouse Admin" and *Open contradictions* #4): a Main admin with no assigned warehouse sees an empty list (fail closed), and an entry tied to no warehouse (`warehouse_id IS NULL`) never matches `own`. Tests: `BR-30: ...` in `apps/api/src/modules/audit-log/audit-log.test.ts`. See BR-35.
+
 See also BR-66.
 
 ---
@@ -713,6 +715,7 @@ See also BR-66.
 **Test contract.**
 - `BR-35a` A direct `UPDATE`/`DELETE` against the audit table as the application DB role fails on permissions.
 - `BR-35b` A denied request (403) still produces an audit row recording the attempt.
+- Read and export (2026-10-23): `GET /admin/audit-log` (`auditlog.view`) and `GET /admin/audit-log/export` (`auditlog.export`, SUPER_ADMIN only) in `apps/api/src/modules/audit-log/`. The router registers GET routes only. `own` scope is a WHERE clause on `audit_log.warehouse_id` (BR-30): another warehouse's entry, or one tied to no warehouse, is absent from the page, never 403. Owner-confirmed 2026-10-23 (the rbac.json conflict "Audit log scope for Main Warehouse Admin" is resolved): a MAIN_WH_ADMIN's `own` is ONLY its assigned warehouse, so one with no assigned warehouse sees an empty list (not widened to all four warehouses). The export is a CSV capped by `system_config.export_max_rows` (422 over the cap, never truncated) and writes one `auditlog.export` row on the read's transaction. Tests: `BR-30: ...` and `BR-35: ...` in `apps/api/src/modules/audit-log/audit-log.test.ts`.
 - `BR-35c` Certificates (`apps/api/src/modules/certifications/certifications.test.ts`): every certificate write writes exactly one `audit_log` row with the same client, inside the write's transaction — `certification.create` (farmer `POST`, after image only), `certification.verify` / `certification.unverify` (admin, before and after images including note, portal reference or reason), `certification.update` / `certification.delete` (farmer, BR-49/BR-50), `certification.admin_update` / `certification.admin_delete` (TOHFA staff, BR-51). Images carry the certificate fields and verification state only (no farmer id, no credentials). A refused write (validation, duplicate number, unknown or deleted id) and a no-op `PATCH` write none, and a unit of work that rolls back takes its audit row with it. Tests: `BR-35c: a farmer recording a certificate writes one certification.create audit row — the farmer as actor, the new certificate as entity, an after image and no before image`; `BR-35c: an admin verify writes one certification.verify audit row — the admin as actor, UNVERIFIED before, VERIFIED after with the note and portal reference`; `BR-35c: an admin unverify writes one certification.unverify audit row — the admin as actor, VERIFIED before, REJECTED after with the reason`; `BR-35c: a write that is refused leaves no audit row — a create refused by BR-48 or by a number on record, a verify or unverify of an unknown or deleted certificate`; `BR-35c (PostgreSQL): create, verify and unverify each write exactly one audit row naming their actor, in the caller's transaction; a unit of work that rolls back leaves no audit row`.
 
 ---
@@ -2376,7 +2379,9 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders` (`order.list.view_all`) filters in SQL with `warehouseScopeFilter` on the resolved scope; the action routes (`assign-warehouse`, `pack`, `dispatch`, `verify-otp`) also apply `warehouseVisible` after loading the order |
 | **Scope** | Track 1 |
 
-**Rule.** `docs/rbac.json` grants CUSTOMER `none` on `order.list.view_all` (customers view their own orders via `/orders` through `order.view_own`), so a CUSTOMER token gets `403 FORBIDDEN` from `requirePermission` on `GET /admin/orders` and detail. In addition, the list is confined by the resolved scope: even if granted or scoped, a scope whose winning role is not warehouse admin or higher fails closed (`FALSE` filter, 404 on detail). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
+**Rule.** `docs/rbac.json` grants CUSTOMER `none` on `order.list.view_all` (customers view their own orders via `/orders` through `order.view_own`), so a CUSTOMER token gets `403 FORBIDDEN` from `requirePermission` on `GET /admin/orders` and detail. In addition, the list is confined by the resolved scope: even if granted or scoped, a scope whose winning role is not warehouse admin or higher fails closed (`FALSE` filter, 404 on detail). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`, `customerName` and `customerMobileMasked`: no farm identity (no `farmerId`, farm name, farm location, GPS or FMB, BR-16) and no other buyer PII (no customer id, full mobile, e-mail, address or OTP). `customerName` and `customerMobileMasked` describe the BUYER exactly as the order detail does (BR-99 `buyer.name` / `buyer.mobileMasked`): the registered customer's name and mobile, or the walk-in buyer's for a counter sale with no customer; the mobile is masked to its last four digits for every scope by the same masker as the detail (BR-92 format); either is `null` when the order carries none. They are read in the list query itself (a LEFT JOIN, no per-row lookup). The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
+
+**Owner amendment 2026-10-23.** The admin mobile order queue needs to show who the order is for. The owner amended this rule to allow exactly two buyer fields on the list item, `customerName` and the masked mobile `customerMobileMasked` (BR-92). Nothing else changes: the scope confinement, the CUSTOMER/FARMER/FARMER_ADMIN 403s, the empty-not-403 filter and every farm-identity prohibition stand as before.
 
 **Failure mode if unenforced.** Any customer with the app lists every order of every customer and warehouse (order numbers, totals, channels, warehouses), and a Sub admin learns from a 403 that another warehouse has orders on a given day.
 
@@ -2385,7 +2390,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-101b` 401 without a token; FARMER and FARMER_ADMIN get 403 on the list.
 - `BR-101c` A Sub admin lists only its warehouse; `warehouseId` of another warehouse is `200` with an empty page, the same body as an unknown warehouse id, never 403.
 - `BR-101d` MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN list both warehouses; `warehouseId` narrows to one.
-- `BR-101e` A list item's key set equals the documented set; no farm-identity, buyer, mobile, address or OTP key at any depth.
+- `BR-101e` A list item's key set equals the documented set; no farm-identity, address or OTP key at any depth, and no buyer or mobile key other than the two allowed by the owner amendment of 2026-10-23 (`customerName`, `customerMobileMasked`). `customerMobileMasked` equals the BR-92 mask of the buyer's stored mobile (`*` for every character but the last four), the full mobile (and any run of more than four of its digits) never appears in the JSON, and no farmer's name appears either.
 
 ---
 
@@ -2583,6 +2588,279 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-108 — The admin farmer directory and profile are scope-confined, masked, locked-field-aware and audited
+| | |
+|---|---|
+| **Source** | Added 2026-10-23 for the admin farmer screens as a derived rule and approved as a whole by the owner the same day: Requirements v1.0 §6.1 (Farmers Management rows), Matrix §2; grants in `docs/rbac.json` (`farmer.profile.view_all`, `farmer.profile.edit`, `farmer.profile.edit_locked_field`, `farmer.document.view`, `farmer.document.verify`, `farmer.bank_account.view`, `farmer.subscription.view_tier_limits`); no detailed requirement or screen spec exists |
+| **Status** | LOCKED (owner-approved 2026-10-23; the specifics under *UNCONFIRMED defaults* below were not addressed by the owner and remain implementer defaults) |
+| **Layer** | Server-side, `apps/api/src/modules/admin-farmers/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Directory** `GET /admin/farmers`: cursor pages (newest first), filters `q` (name or mobile substring), `status` (account status), `zoneId`, `ratingTier` combined with AND.
+2. **Scope is a WHERE clause.** SUPER_ADMIN, TOHFA_ADMIN and MAIN_WH_ADMIN (no scope dimension, `view`) see every farmer; a FARMER_ADMIN only farmers whose CURRENT zone (`farmers.zone_id`) is one of its assigned zones (`user_roles.zone_id`); a SUB_WH_ADMIN only farmers whose zone belongs to its warehouse; a FARMER (which holds a grant only on `farmer.document.view`, `own`) only itself. FARMER holds `none` on `farmer.profile.edit` and `farmer.subscription.view_tier_limits` (owner decision 2026-10-23), so it cannot reach even its own row through `PATCH /admin/farmers/{id}` or `GET /admin/farmers/{id}/subscription` (403); it uses `/farmers/me*`. The same filter as `GET /admin/farmers/{id}/rating` (`farm-ratings.repo.ts`). A farmer outside scope is absent from a list (empty page, never 403) and is the same 404 as a missing farmer on every `/admin/farmers/{id}*` route.
+3. **Profile** `GET /admin/farmers/{id}`: land locations are the farmer's live `farms` rows with their live `plots` (one operation, several locations); a certification summary; the overall rating with its tier resolved at read time from `rating_tier_config` (BR-04a, never a literal). Aadhaar only as `aadhaarLast4` (BR-33b).
+4. **Edit** `PATCH /admin/farmers/{id}`: `mobile`, `aadhaarLast4` and `aadhaar` are locked (BR-33). Without `farmer.profile.edit_locked_field` any of them is 403 `FIELD_LOCKED` and nothing is applied. `aadhaar` (a full number) is always refused (422 for a SUPER_ADMIN): it is never stored. A real change writes one `farmer.profile.edit` audit row in the same transaction with before/after images (Aadhaar last 4 only) and the changed field names; a no-op writes nothing.
+5. **Documents** `GET /admin/farmers/{id}/documents` lists live `farmer_documents` rows with 15-minute signed read URLs, never storage keys. `POST .../documents/{docId}/verify` sets VERIFIED with the acting admin and time, under a row lock. **Verifying an already VERIFIED document is a no-op**: 200 with the document unchanged (original verifier and time kept) and no audit row. A real verification writes one `farmer.document.verify` audit row in the same transaction. A document of another farmer is 404.
+6. **Payout destinations** `GET /admin/farmers/{id}/bank-accounts`: account number masked to the last 4 digits; the provider token is never returned (BR-53a). Reads are not audited (BR-35 and BR-53 audit mutations only).
+7. **Subscription** `GET /admin/farmers/{id}/subscription`: free-tier limits are null ("not configured") while `system_config.free_tier_limits_enabled` is not `true`, whatever the placeholder `free_tier_listing_limit` holds (BR-14). No number is invented by this endpoint.
+8. Nothing here changes a customer-facing response (BR-16).
+
+**UNCONFIRMED defaults.** `status` filters the account status (`users.status`), not the application status. `zoneId` is not editable through the profile PATCH (zone reassignment changes Farmer Admin scope and has no rule yet). A mobile change does not revoke the farmer's sessions (not specified). FARMER still holds `own` on `farmer.document.view`, so it can list its OWN documents through `GET /admin/farmers/{id}/documents` (the owner's 2026-10-23 tightening named only the edit and subscription codes). The Farmer Admin's zone confinement comes from its role's `zone_id` scope dimension (`scopedWhere`), not from an `OWN_ZONE_ONLY` predicate: `docs/rbac.json` attaches no predicate to these codes.
+
+**Failure mode if unenforced.** A Farmer Admin browses farmers of other zones, a TOHFA Admin swaps a farmer's login mobile (account takeover), an Aadhaar or account number leaks into an admin response or an audit image, a double click records two verifications, or an admin screen shows a free-tier limit nobody agreed to.
+
+**Test contract.** (`apps/api/src/modules/admin-farmers/admin-farmers.test.ts`)
+- `BR-108a` Scope: the SQL filter per role; a Farmer Admin gets an empty page / 404 for a farmer of another zone, never 403; Main sees all, Sub only its warehouse's zones.
+- `BR-108b` Directory filters, keyset paging and query validation.
+- `BR-108c` Profile: land locations from `farms`/`plots`, certification summary, Aadhaar last 4 only.
+- `BR-108d` Locked fields and the audited edit (with BR-33a, BR-35).
+- `BR-108e` Document list and the idempotent, audited verify.
+- `BR-108f` Payout destinations masked, unaudited reads.
+- `BR-108g` Permission wiring: 401 without a token, 403 for roles holding `none`; a FARMER is 403 on the edit and subscription routes even for its own row.
+- Also: `BR-04a` (tier from config), `BR-14b` (limits null while the gate is off), `BR-16` (catalog serializer unchanged), `BR-33a`/`BR-33b`.
+
+---
+
+### BR-109 — Role definitions are read-only data synced from rbac.json
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed, added 2026-10-23): Matrix §10 `View role definitions` (`role.definition.view`); `db/seed/002_permissions.js` |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/roles/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `GET /roles` and `GET /roles/{code}` read the `roles`, `permissions` and `role_permissions` tables (synced from `docs/rbac.json` by the seed), never a copy in code. Each role carries its code, name, hierarchy level, scope dimension, summary and its granted permissions with their scope and, for `conditional`, the predicate. A grant of `none` is omitted.
+2. An unknown role code is 404.
+3. Role definitions are not warehouse, zone or farmer rows: every role holding `role.definition.view` (SA/TA `all`; FA/MW/SW `view`) reads the same list. There is no write route (`role.permission.edit` is not built).
+
+**Failure mode if unenforced.** An admin screen shows grants that differ from what the server enforces, or a farmer or customer reads the platform's authorization map.
+
+**Test contract.** (`apps/api/src/modules/roles/roles.test.ts`)
+- `BR-109a` The response is built from the permission tables (a changed grant row changes the response) and omits `none` grants.
+- `BR-109b` An unknown code is 404.
+- `BR-109c` Permission wiring: 401 without a token; 403 for FARMER and CUSTOMER; GET only.
+
+---
+
+### BR-110 — Disabling an admin account is hierarchical, never self, never the last Super Admin, idempotent and revokes every session
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed, added 2026-10-23): Matrix §10 `Disable admin account` (`admin.account.disable`, predicate `LOWER_ROLES_ONLY`); BR-28 (hierarchy); BR-35 (audit) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/admin-accounts/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `POST /admin/accounts/{id}/disable` targets an admin account: a live user of type ADMIN with at least one live role assignment. Anything else is 404.
+2. **No self-disable.** An admin may not disable their own account, whatever their grant (403, nothing written).
+3. **Hierarchy.** SUPER_ADMIN holds `all`. TOHFA_ADMIN and FARMER_ADMIN hold `conditional` with `LOWER_ROLES_ONLY`: the target's highest-authority role level must be numerically greater than the actor's level (equal or higher is 403, nothing written). MAIN_WH_ADMIN and SUB_WH_ADMIN hold `none`.
+4. **Last Super Admin.** Disabling the only remaining ACTIVE SUPER_ADMIN is 409 `CONFLICT` (UNCONFIRMED safety default; with rule 2 in place it is a defence in depth, reachable only by an actor whose own account is no longer active).
+5. **Idempotent.** An already DISABLED account is 200 with its state unchanged and no audit row.
+6. A real disable sets `users.status = DISABLED` with `disabled_at`, `disabled_by`, `disabled_reason`, revokes every live session and refresh token, and writes one `admin.account.disable` audit row with before/after images, all in one transaction. After commit, access tokens issued before the disable are rejected (the per-user invalidation stamp of `auth/tokenInvalidation.ts`, fail-open on a Redis outage).
+
+**Who may disable: owner-confirmed 2026-10-23.** The `docs/rbac.json` grants of `admin.account.disable` are confirmed exactly as written: SUPER_ADMIN `all`; TOHFA_ADMIN and FARMER_ADMIN `conditional` under `LOWER_ROLES_ONLY`; MAIN_WH_ADMIN and SUB_WH_ADMIN `none`. With the role levels a TOHFA_ADMIN may disable FARMER_ADMIN, MAIN_WH_ADMIN and SUB_WH_ADMIN accounts, and a FARMER_ADMIN (level 3) may disable SUB_WH_ADMIN (level 4) accounts and nothing else. The permission's former `source` note ("TA/MW restricted to roles below their own"), which contradicted the grants, was reworded on 2026-10-23 to record this decision; no grant changed. *Open contradictions* #30 is resolved. Rule 4 (last Super Admin) remains an UNCONFIRMED safety default. No reactivation route exists for admin accounts (BR-34 covers farmers only).
+
+**Failure mode if unenforced.** A TOHFA Admin locks out the Super Admin, an admin locks themselves out, the platform is left with no active Super Admin, a disabled admin keeps a working session, or a retried request records two disables.
+
+**Test contract.** (`apps/api/src/modules/admin-accounts/admin-accounts.test.ts`)
+- `BR-110a` An admin disabling their own account is 403 and nothing is written.
+- `BR-110b` `LOWER_ROLES_ONLY`: a conditional actor disabling an equal or higher account is 403; a lower one succeeds; SUPER_ADMIN may disable another SUPER_ADMIN.
+- `BR-110c` Disabling the last ACTIVE SUPER_ADMIN is 409.
+- `BR-110d` An already DISABLED account is a 200 no-op with no audit row.
+- `BR-110e` A real disable revokes sessions and refresh tokens and writes one audit row in the same transaction; access tokens are invalidated after commit.
+- `BR-110f` A non-admin or missing user is 404; permission wiring (401, 403 for MAIN/SUB/FARMER/CUSTOMER).
+
+---
+
+### BR-111 — Tier thresholds are replaced as a whole, contiguous generation covering 0-100
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed, added 2026-10-23): BR-04 (tiers are data in `rating_tier_config`, one scale for farm ratings and audits); `farmer.rating.configure_tiers` and `audit.tier.configure_thresholds` (SUPER_ADMIN only) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/tier-config/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `PATCH /admin/rating-tiers` (`farmer.rating.configure_tiers`) and `PATCH /admin/audit-tier-thresholds` (`audit.tier.configure_thresholds`) both write `rating_tier_config`, the single store BR-04 assigns to farm-rating and audit tiers. They differ only in permission and audit action code.
+2. The body names `POOR`, `MODERATE`, `GOOD`, `EXCELLENT` once each, in that order. Bands are `minScore` inclusive, `maxScore` exclusive, null unbounded: the first `minScore` is 0, each `maxScore` equals the next `minScore`, every non-last band has `minScore < maxScore`, the last band has `maxScore` null and `minScore` <= 100, scores have at most 2 decimals. Otherwise 422 `VALIDATION_FAILED` and nothing is written.
+3. The write is a new generation effective today (`effective_from = CURRENT_DATE`); a second change the same day replaces today's generation; earlier generations are never modified. Labels default to the current generation's, colours are carried forward. The threshold values themselves are never literals in the service.
+4. Bands identical to the current generation are a no-op (200, no write, no audit row). A real change writes one audit row with before/after band images in the same transaction.
+
+**Failure mode if unenforced.** A gap leaves some scores with no tier, an overlap gives one score two tiers, or an edit rewrites history so past tiers can no longer be explained.
+
+**Test contract.** (`apps/api/src/modules/tier-config/tier-config.test.ts`)
+- `BR-111a` Gaps, overlaps, a first band not at 0, a bounded last band, a wrong tier order and empty bands are 422 and write nothing.
+- `BR-111b` A valid body writes today's generation, and the tier a score maps to follows it (BR-04a); earlier generations are unchanged.
+- `BR-111c` Identical bands are a no-op; a real change writes one audit row with before/after, with the endpoint's own action code.
+- `BR-111d` Permission wiring: SUPER_ADMIN only on both routes.
+
+---
+
+### BR-112 — Admin accounts are created one role at a time, by the role's own create permission, with no credential
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-23) implementing BR-28 (LOCKED) for `POST /admin/accounts`; owner decisions 2026-10-23: the first credential is "kept as it is" (the BR-81 Sub Warehouse Admin mechanism), and a new Farmer Admin is bound to exactly one zone at creation |
+| **Status** | DERIVED (the two owner decisions above are approved; items marked UNCONFIRMED are implementer defaults) |
+| **Layer** | Server-side, `apps/api/src/modules/admin-accounts/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `POST /admin/accounts` creates one SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN or MAIN_WH_ADMIN account. The route admits a caller holding any `admin.*.create` code; the service then requires the code for the requested role (`admin.<role>.create`) from the caller's resolved grants. Lacking it is 403 `FORBIDDEN` and writes one `DENIED` audit row (BR-28b, BR-35b) in its own transaction; nothing else is written. With `docs/rbac.json` this is exactly the BR-28 table. `LOWER_ROLES_ONLY` is evaluated too and only bites if a create grant becomes `conditional`.
+2. `role: SUB_WH_ADMIN` is 422 `VALIDATION_FAILED` on `body.role`, pointing at `POST /admin/sub-warehouse-admins` (BR-81); the two paths are never duplicated.
+3. A FARMER_ADMIN names exactly one `zoneId` (missing is 422); any other role naming one is 422. The zone must exist, be live and active (422 otherwise).
+4. Credential: the account is `ACTIVE` with no password, exactly as BR-81a; it signs in only after the forgot-password / reset-password flow. No credential is generated, returned or logged. A taken mobile is 409 and never echoed.
+5. Account, admin profile (`created_by` = the creator), one role assignment and ONE audit row (action code = the role's create permission; image = role, zone ids and admin code, never the name or the mobile) are one transaction.
+
+**UNCONFIRMED defaults.** The generated admin code is `ADM-` plus a zero-padded number from one sequence for all four roles (`admin_account_code_seq`, migration 0072). The response carries no mobile (as BR-81).
+
+**Failure mode if unenforced.** A Main Warehouse Admin or TOHFA Admin mints a Super Admin (BR-28), a Farmer Admin is created with no zone and fails every zone-scoped request, or a password is generated and leaked through a response or a log.
+
+**Test contract.** (`apps/api/src/modules/admin-accounts/admin-accounts.test.ts`)
+- `BR-28a` Over the 4 roles this endpoint creates x 5 admin actors, exactly the allowed pairs of `creationRules` succeed; every other pair is 403.
+- `BR-28b` MAIN_WH_ADMIN creating a SUPER_ADMIN is 403 and one `DENIED` audit row records the attempt; no account is created.
+- `BR-112a` SUB_WH_ADMIN is 422 pointing at the sub-admins endpoint; nothing is written.
+- `BR-112b` FARMER_ADMIN needs exactly one existing, active zone; other roles may not name one.
+- `BR-112c` The account is ACTIVE with no password hash; account, profile, assignment and one masked audit row in one transaction; a taken mobile is 409.
+- `BR-112d` Permission wiring: 401 without a token; 403 for FARMER_ADMIN, SUB_WH_ADMIN, FARMER, CUSTOMER at the route.
+
+---
+
+### BR-113 — A Farmer Admin's zones are replaced as a whole, only by Super Admin or TOHFA Admin
+| | |
+|---|---|
+| **Source** | Owner decision 2026-10-23: a new Farmer Admin is bound to exactly one zone (BR-112); more zones are added later only by Super Admin or TOHFA Admin. New permission `admin.farmer_admin.assign_zones` (spec gap, added to `docs/rbac.json` the same day). Scope dimension `zone_id` (`docs/rbac.json` `scopeFilters`) |
+| **Status** | DERIVED (who may assign is owner-approved; items marked UNCONFIRMED are implementer defaults) |
+| **Layer** | Server-side, `apps/api/src/modules/admin-accounts/`; one live `user_roles` row per (Farmer Admin, zone), migration 0073 |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `PUT /admin/accounts/{id}/zones` (`admin.farmer_admin.assign_zones`: SUPER_ADMIN and TOHFA_ADMIN `all`, every other role `none`) takes a non-empty list of distinct zone ids and REPLACES the Farmer Admin's zone set: live FARMER_ADMIN assignments for zones not in the list are ended (`valid_to`), one assignment is added per new zone (`assigned_by` = the actor). Every zone must exist, be live and active (422 otherwise, nothing written).
+2. The target must be a live ADMIN user with at least one live FARMER_ADMIN assignment; anything else is 404.
+3. **Idempotent.** A list equal (as a set) to the current zones is 200 with no write and no audit row.
+4. A real change writes one `admin.farmer_admin.assign_zones` audit row with before/after zone lists in the same transaction. After commit, access tokens issued before the change are rejected (the per-user invalidation stamp), so the next refresh re-reads the zones.
+
+**UNCONFIRMED defaults.** Replace semantics (the owner said "add"; replacing lets the same call also remove a zone, which needs the same authority). A DISABLED Farmer Admin's zones may still be changed. Sessions are not revoked (the refresh path re-reads roles); only access tokens are invalidated.
+
+**Failure mode if unenforced.** A Farmer Admin widens its own zone scope, a zone change leaves a stale token reading a removed zone until it expires, or a retried request records two changes.
+
+**Test contract.** (`apps/api/src/modules/admin-accounts/admin-accounts.zones.test.ts`)
+- `BR-113a` Permission wiring: SUPER_ADMIN and TOHFA_ADMIN only; 401 without a token.
+- `BR-113b` Empty, duplicate or malformed lists, unknown or inactive zones are 422 and write nothing; a non-Farmer-Admin target is 404.
+- `BR-113c` Replace semantics: removed zones ended, new zones added, kept zones untouched; one audit row with before/after; tokens invalidated after commit.
+- `BR-113d` An identical list is a no-op (no write, no audit row, no invalidation).
+
+---
+
+### BR-114 — Approving a promotion request moves the role binding once, revokes the target's sessions and is audited
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-23): Requirements v1.0 §5.3 FR-A01 via `docs/rbac.json` `admin.promotion.approve` ("Approve or reject a warehouse admin promotion", SUPER_ADMIN only); owner decision 2026-10-23: create the promotion-request table; BR-28 (hierarchy), BR-35 (audit) |
+| **Status** | DERIVED (UNCONFIRMED: no requirement describes the promotion workflow; every specific below is an implementer default, see *Open contradictions* #31) |
+| **Layer** | Server-side, `apps/api/src/modules/admin-promotions/`; table `promotion_requests` (migration 0074) |
+| **Scope** | Track 1 (approve; create, list, read and reject are BR-117) |
+
+**Rule.**
+1. `promotion_requests` holds one request per (target admin, from role, to role) with status `PENDING`, `APPROVED` or `REJECTED`. Both roles are admin roles; `to_role` is SUPER_ADMIN, TOHFA_ADMIN or MAIN_WH_ADMIN and strictly higher (numerically lower level) than `from_role`; a target has at most one `PENDING` request; a decided request names who decided and when. All enforced by table constraints.
+2. `POST /admin/promotions/{id}/approve` (`admin.promotion.approve`, SUPER_ADMIN `all`, every other role 403). Unknown id is 404. A request that is not `PENDING` is 409 `INVALID_STATE_TRANSITION` and nothing is written.
+3. An actor may not approve a promotion of their own account (403). An actor whose grant is not `all` may not approve a promotion into a role above their own (403; unreachable while only SUPER_ADMIN holds the code).
+4. The target must be a live admin account still holding a live `from_role` assignment; otherwise 409 `CONFLICT` (the request is stale) and nothing is written.
+5. In one transaction: every live `from_role` assignment of the target is ended, one `to_role` assignment is added (no warehouse, no zone; skipped if already held), the request becomes `APPROVED` with `decided_by`, `decided_at` and the optional note, every live session and refresh token of the target is revoked (as BR-110e), and one `admin.promotion.approve` audit row is written with before/after images. After commit the target's access tokens are invalidated.
+
+**Create path (2026-10-23).** The former gap (no endpoint or permission code to create, list or reject a request, so approve was unusable in production) is closed by BR-117: `POST /admin/promotions` creates the request this rule approves, `GET /admin/promotions[/{id}]` reads them and `POST /admin/promotions/{id}/reject` rejects one.
+
+**Failure mode if unenforced.** A request is approved twice, a stale request promotes an account that has since changed role, a promoted admin keeps a session carrying the old role, or an admin promotes themselves.
+
+**Test contract.** (`apps/api/src/modules/admin-promotions/admin-promotions.test.ts`)
+- `BR-114a` Permission wiring: SUPER_ADMIN only; 401 without a token.
+- `BR-114b` Unknown id 404; a non-PENDING request is 409 `INVALID_STATE_TRANSITION` with nothing written.
+- `BR-114c` Approving your own promotion is 403; a stale request (target no longer holds `from_role`) is 409.
+- `BR-114d` A real approval ends the old role, adds the new one, marks the request APPROVED, revokes sessions and refresh tokens, writes one audit row, and invalidates tokens after commit.
+- `BR-114e` The table refuses a second PENDING request for the same target, a `to_role` that is not higher than `from_role`, and a non-admin role.
+
+---
+
+### BR-115 — The admin customer list's purchase filters, sort and counts only narrow the visible set and page stably
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-23): the admin mobile customer screens ask for grade, crop, date-range and sort filters and per-customer issue and ticket counts; no requirement defines them. Extends BR-91 and BR-92 |
+| **Status** | DERIVED (UNCONFIRMED: the meaning of the filters is an implementer reading, see *Open contradictions* #32) |
+| **Layer** | Server-side, `apps/api/src/modules/customers/` (`GET /admin/customers`, `customer.list.view`); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `crop` (a `crop_master` id), `grade` (a produce grade), `from` and `to` (inclusive Asia/Kolkata days of `orders.placed_at`, real dates, `from <= to`, else 422) keep only customers with at least ONE purchase line matching every filter given, on the same line. A purchase line is an `order_items` row of an order that is neither `PENDING_PAYMENT` nor `CANCELLED` (the `/purchases` definition); for an `own` actor the order must be at one of its warehouses (BR-91g). The customer has no grade of its own: `grade` is the grade of the produce bought.
+2. The filters only narrow the BR-91 visible set (BR-91d); `summary` keeps counting the whole visible set (BR-91e).
+3. `sort` is an allow-list: `name` (default), `createdAt`, `lifetimeValue`, `totalOrders`, each optionally prefixed `-` for descending. Ties break on the customer id in the same direction. The keyset cursor carries (sort value, id); the default `name` sort keeps the original cursor format. A cursor minted for another sort is 422 `VALIDATION_FAILED`. Nullable keys (`lastActivityAt`) are not offered.
+4. Every list item carries `issueCount` (the customer's return requests, confined to the actor's warehouses through the order for `own`, exactly what `/issues` lists) and `ticketCount` (the customer's support tickets, exactly what `/support-tickets` lists). Counts only: no issue or ticket text reaches the list. The same roles hold `customer.list.view`, `customer.issues.view` and `customer.support_history.view` at the same levels in `docs/rbac.json`, so a count reveals nothing its holder could not already list.
+5. One SQL statement per page: the counts are scalar subqueries of the list query, never a query per row.
+
+**Failure mode if unenforced.** A Sub admin filtering by crop learns of a customer it cannot see, or of purchases at another warehouse; a sort without the id in the cursor skips or repeats customers across pages; a count that disagrees with the drill-down misleads the admin.
+
+**Test contract.** (`apps/api/src/modules/customers/customers.list-filters.test.ts`)
+- `BR-115a` `sort` accepts exactly the eight values (default `name`); `grade` must be a produce grade, `crop` a uuid, `from`/`to` real dates with `from <= to`.
+- `BR-115b` The filters keep only customers with one line matching all of them; cancelled and unpaid orders do not count; the date window is the Asia/Kolkata day; for an `own` actor a purchase at another warehouse does not count and an out-of-scope customer never appears; an `all` actor sees every warehouse's purchases.
+- `BR-115c` `issueCount` and `ticketCount` equal the lengths of `/issues` and `/support-tickets` for the same actor, for `own` and `all`.
+- `BR-115d` Every sort key in both directions, paged one row at a time, returns the same rows in the same order as one full page (ties included); `lifetimeValue` compares numerically; a cursor from another sort is 422.
+
+---
+
+### BR-116 — The admin inventory overview is a read-only aggregate inside the caller's warehouse scope, built from the existing definitions
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-23): owner request for one aggregate behind the admin mobile Main inventory tab; no requirement defines it. Extends BR-30, BR-77, BR-100 and BR-107 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/inventory-overview/` (`GET /admin/inventory/overview`, `inventory.batch.view`); no schema change; thresholds from `system_config` (`alert_batch_expiry_days`, `low_stock_threshold_kg`, seeded by `0052` / the reference seed) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Permission and scope.** `inventory.batch.view` (Super, TOHFA, Main `all`; Sub `own`; Farmer Admin, Farmer, Customer `none` → 403). The scope is the shared warehouse scope (`warehouseScopeFilter`): `all` sees every live warehouse; a Sub admin sees only its warehouse, so every figure (per-warehouse stock and every count) covers its warehouse only. A scope that is not warehouse-shaped reads zeros and an empty warehouse list, never 403 and never another warehouse's figures (BR-30).
+2. **Stock by warehouse.** One row per live (not deleted) warehouse in scope, with `availableQtyKg` = the sum over its `ACTIVE` batches of the BR-100 free shelf (`shelfFreeSql`: `qty_available` minus cart holds and pending UPI counter-sale holds, never below zero), the same definition every availability read uses. A warehouse with no stock is listed with `0.000`.
+3. **Near-expiry and low-stock counts** use the BR-77 alert definitions verbatim (the same SQL branches): `nearExpiryBatchCount` = `ACTIVE` batches with stock expiring within `alert_batch_expiry_days` (past expiry included); `lowStockCount` = warehouse + crop + grade groups whose `ACTIVE` stock is below `low_stock_threshold_kg`. They count the condition, not any one admin's dismiss or snooze state. A missing or unusable threshold makes that count `null` (not computed) and echoes `null` as the threshold, never a hard-coded default.
+4. **Adjustment and count backlog.** `pendingAdjustmentCount` = stock adjustments `PENDING` (BR-37). `unreconciledVerificationCount` = batch-level stock verifications `RECORDED` (BR-107). `varianceUnreconciledVerificationCount` = those `RECORDED` with a non-zero variance (under BR-107 a `RECORDED` count always has one, so the two agree today; the figure is kept separate so it stays right if that ever changes). `DISPUTED` is never written (BR-107.4): the overview neither queries for nor reports it.
+5. A handful of aggregate queries per request, never one per warehouse or batch. Read-only: nothing is written and no audit row. No farmer, batch or customer identifier is returned (BR-16).
+
+**Failure mode if unenforced.** A Sub admin learns another warehouse's stock or backlog from a dashboard; the tab shows stock a counter sale already took; its near-expiry and low-stock badges disagree with the alerts list; or a threshold silently falls back to a number nobody configured.
+
+**Test contract.** (`apps/api/src/modules/inventory-overview/inventory-overview.test.ts`)
+- `BR-116a` The query is strict (an unknown parameter is 422); the response key set is pinned, counts are integers or `null`, quantities are three-decimal strings.
+- `BR-116b` Per-warehouse stock is the BR-100 free shelf of `ACTIVE` batches: a cart hold and a pending UPI counter sale reduce it, a non-`ACTIVE` batch does not count, and a warehouse with no stock is `0.000`.
+- `BR-116c` Near-expiry and low-stock counts follow `alert_batch_expiry_days` and `low_stock_threshold_kg`; changing the config changes the count; a missing or unusable value is `null`.
+- `BR-116d` Pending adjustments, `RECORDED` verifications and `RECORDED` non-zero-variance verifications are counted; `APPROVED`/`REJECTED` adjustments and `RECONCILED` counts are not.
+- `BR-116e` Scope: a Sub admin's figures exclude another warehouse's batches, adjustments and counts and list only its warehouse; `all` sees all four; a non-warehouse scope reads empty and zero.
+- `BR-116f` (BR-107) No query issued by the overview names `DISPUTED`, and the response carries no `DISPUTED` key or value.
+- `BR-116g` 401 without a token; 403 for Farmer Admin, Farmer and Customer; 200 for Super, TOHFA, Main and Sub.
+
+---
+
+### BR-117 — Promotion requests are created for a lower admin only, one pending per target, and rejected without any role change
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-23): owner request 2026-10-23 "promotion create path" (approve, BR-114, had nothing to approve); `docs/rbac.json` `admin.promotion.request`, `admin.promotion.view`, `admin.promotion.reject` (spec-gap codes added the same day); BR-28 (hierarchy), BR-35 (audit) |
+| **Status** | DERIVED (UNCONFIRMED: who may request, the target roles and the details below are implementer defaults; see *Open contradictions* #31) |
+| **Layer** | Server-side, `apps/api/src/modules/admin-promotions/`; table `promotion_requests` (migration 0074, unchanged) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Permissions.** `POST /admin/promotions` (`admin.promotion.request`) and `GET /admin/promotions`, `GET /admin/promotions/{id}` (`admin.promotion.view`): SUPER_ADMIN and TOHFA_ADMIN `all` (UNCONFIRMED: no requirement says who may request). `POST /admin/promotions/{id}/reject` (`admin.promotion.reject`): SUPER_ADMIN `all` only, mirroring `admin.promotion.approve`. Every other role 403.
+2. **Create.** The body is `targetUserId`, `toRole` (SUPER_ADMIN, TOHFA_ADMIN or MAIN_WH_ADMIN, the BR-114 UNCONFIRMED set) and `reason` (1-500 characters after trimming; required, UNCONFIRMED); unknown keys are 422. Checked in this order, each refusal writing nothing: the caller is the target → 403; the target is not a live admin (missing, deleted, not of type ADMIN, or with no live admin role assignment) → 404; `fromRole` is the target's highest-authority live role, derived by the server (two live roles tied at that level, e.g. FARMER_ADMIN and MAIN_WH_ADMIN, → 409 `CONFLICT`); `toRole` not strictly higher than `fromRole` → 422 on `body.toRole`; **LOWER_ROLES_ONLY sanity** against the requester's own role level, whatever its grant level: the target must be strictly below the requester and `toRole` may not be above it → 403 (UNCONFIRMED; a SUPER_ADMIN always passes, a TOHFA_ADMIN may request FARMER_ADMIN/MAIN_WH_ADMIN/SUB_WH_ADMIN → MAIN_WH_ADMIN or TOHFA_ADMIN, never SUPER_ADMIN); the target already has a `PENDING` request → 409 `CONFLICT` (the target row is locked; the partial unique index is the backstop and its violation is also 409). On success the `PENDING` row (`requestedBy` = caller) and one `admin.promotion.request` audit row (after image) are written in one transaction. No role, session or token changes until approval (BR-114).
+3. **Reject.** Unknown id → 404; not `PENDING` → 409 `INVALID_STATE_TRANSITION`; the caller is the target → 403. Otherwise, in one transaction, the request becomes `REJECTED` with `decidedBy`, `decidedAt` and the optional note (1-500 characters), and one `admin.promotion.reject` audit row records before/after images. No role, session or token of the target changes. A rejected (or approved) request is never decided again; a new request may then be created for the same target.
+4. **Reads.** Newest first on (`createdAt`, `id`) with the opaque keyset cursor (a foreign cursor is 422), filters `status` and `targetUserId`, `limit` 1-100 (default 20). `admin.promotion.view` has no `own` dimension: a scope that is not `all` reads an empty page and 404 by id, never 403. Reads write nothing.
+
+**Failure mode if unenforced.** An admin requests their own promotion, a TOHFA Admin queues a promotion to Super Admin, a peer or senior is "promoted" by a junior, two pending requests for one account race each other to approval, or a rejection silently changes a role.
+
+**Test contract.** (`apps/api/src/modules/admin-promotions/admin-promotions.requests.test.ts`; grants in `apps/api/src/rbac/rbac.test.ts`)
+- `BR-117a` Permission wiring: create/list/read SUPER_ADMIN and TOHFA_ADMIN; reject SUPER_ADMIN only; 401 without a token; malformed id, body or query 422 before any SQL.
+- `BR-117b` Create validation: schema (toRole set, reason, strict); self 403; non-admin or role-less target 404; `toRole` not higher 422; tied highest roles 409.
+- `BR-117c` LOWER_ROLES_ONLY sanity against the requester's role.
+- `BR-117d` One `PENDING` per target: 409, including the unique-index race.
+- `BR-117e` A create writes the `PENDING` row with the derived `fromRole` and one audit row in the same transaction; no role change; the created request can be approved (BR-114).
+- `BR-117f` Reject: 404, 409 for a decided request, 403 for self, `REJECTED` with note and one audit row, no role or token change; approve after reject is 409; a new request may follow.
+- `BR-117g` Reads: filters, stable keyset paging, 404 for an unknown id, empty/404 for a non-`all` scope with no SQL.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -2590,7 +2868,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | 1 | Audit scoring scale (BR-04) | §2.1: "max 100 points" and tiers `<650 / 650-700 / 700-749 / 750+` in the same bullet | §9 repeats both verbatim | `rating_tier_config` now carries a second, later-`effective_from` generation with the client-confirmed 0-100 bands (`POOR`<50, `MODERATE` 50-69, `GOOD` 70-84, `EXCELLENT`>=85); the 2025-01-01 placeholder rows are kept as history, not read by `resolveTierForScore` any more | resolved for Farm Rating (BR-06), recorded for completeness |
 | 2 | Automation (BR-38) | FR-F06/FR-F07: auto-reminders, system-suggested treatments, weather risk indicators; §2.2 automatic B2B/Horeca allocation | Principle 5: "All data is entered manually... No automated processes" | No advisory automation; only the three rule-enforcement jobs | requires client confirmation |
 | 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | requires client confirmation |
-| 4 | Audit log scope for Main Warehouse Admin | §6.4: `View audit logs` MW = `Own` | §15: `View system audit logs` MW = `View` (all) | MAIN_WH_ADMIN = `own` (Ch.6 precedence) | requires client confirmation |
+| 4 | Audit log scope for Main Warehouse Admin | §6.4: `View audit logs` MW = `Own` | §15: `View system audit logs` MW = `View` (all) | MAIN_WH_ADMIN = `own` (Ch.6 precedence), meaning ONLY its assigned warehouse: a Main admin with no assigned warehouse sees an empty list, and an entry with no warehouse never matches `own` (`apps/api/src/modules/audit-log/`, BR-30, BR-35) | **Resolved 2026-10-23** (owner decision: the assigned warehouse only, not all four) |
 | 5 | Set warehouse capacity | §6.2: SA = Y, TA = Y, MW = Y | §7: SUPER_ADMIN only; TA = N, MW = N | SA/TA/MW may set (Ch.6 precedence); matrix is stricter. MW = all; the new capacity is not checked against current stock (BR-66) | requires client confirmation |
 | 6 | Wallet write authority for MW/SW | §6.3 `Wallet management (customers)`: MW = Y, SW = Own | §8: manual credit/debit is SA/TA only; MW/SW get view | MW = all, SW = own (Ch.6 precedence) — the loosest reading of a money-moving grant | requires client confirmation, priority |
 | 7 | Bank refunds for MW/SW | §6.3 `Process returns (RMA)`: MW = Y, SW = Y (blanket) | §6: bank refund SA/TA only; MW/SW limited to wallet refunds | Bank refund restricted to SA/TA (matrix adds detail Ch.6 omits) | requires client confirmation |
@@ -2613,6 +2891,9 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | 27 | New permission codes (BR-74, BR-77, BR-79, BR-80, BR-82, BR-83, BR-84) | Not stated | No such rows | Added to `docs/rbac.json` as spec gaps pending owner approval (12 codes; `finance.expense.approve` and `finance.expense_category.manage` were removed on 2026-10-11 with BR-73): `finance.cash_close.manage`, `task.own.view`, `alert.own.view`, `warehouse.storage_location.manage`, `warehouse.profile.edit`, `auth.profile.edit_own`, `notification.own.admin_preferences`, `help.article.view`, `help.article.manage`, `admin.staff.manage`, `admin.staff.attendance.view`, `admin.staff.attendance.mark` | requires owner approval |
 | 28 | Admin notification categories (BR-82) | Not stated | Not stated | The 14 admin categories are stored preferences only: no admin domain event maps to them yet, so toggling one suppresses nothing | requires owner decision (event mapping) |
 | 29 | Sub Warehouse sales and customers surface (BR-85 to BR-98) | Not stated | No such rows | Decisions D1-D11 were approved by the owner on 2026-10-11; the codes, error codes and schema below are the implementer's names for them and were **approved by the owner on 2026-10-11**, on condition that implementation, database and documentation agree (reconciled the same day: openapi enums now list `DISPATCHED` and wallet `CLOSED`; derived issue/ticket fields documented in BR-91h and BR-97; `support_messages` made append-only by migration 0066; `order_number_seq` owned by migration 0065; the reply route's double gate `customer.support_history.view` + `support.ticket.respond` kept by owner decision). New permission codes added to `docs/rbac.json` as spec gaps (12): `customer.detail.view`, `customer.purchase_history.view`, `customer.wallet.view`, `customer.issues.view`, `customer.support_history.view`, `sales.sale.create`, `sales.history.view`, `sales.dashboard.view`, `sales.market_day.view`, `sales.horeca.view`, `sales.b2b.view`, `payment.record` (Sub = `own`, Super Admin and TOHFA Admin = `all`, Main = `own` on the `*.view` codes and `none` on `sales.sale.create` and `payment.record`; Farmer Admin, Farmer, Customer = `none`). New error codes: `SALE_PRICE_CHANGED` (409), `SALE_STOCK_CHANGED` (409), `WALKIN_WALLET_NOT_ALLOWED` (422), `PAYMENT_PENDING` (409), `PAYMENT_AMOUNT_INSUFFICIENT` (422), and `SALE_CHANNEL_NOT_SUPPORTED` (501) only if no existing not-implemented code applies. New schema (migrations 0059+): `orders.channel` value `DIRECT`; `orders.customer_id` nullable with `walk_in_name`, `walk_in_mobile` and the one-identity CHECK; `sale_payments`; append-only `sale_attempts`; the gap-free invoice number counter; `system_config` keys `retail_gst_rate_percent` (0) and `active_customer_window_days` (90). Existing codes reused: `customer.list.view`, `support.ticket.respond`. D9 (masked mobile for `own` scope) overrules BR-64d for the customer list and detail only; the customers report keeps BR-64d. GST rounding (per invoice, half-up) is the implementer's choice. COD behaviour (contradiction 9) is unchanged by this work: no COD payment method exists in a sale | **Resolved 2026-10-11** (decisions and codes approved by the owner) |
+| 30 | Who may disable an admin account (BR-110) | Not in this repository (Ch.6 unavailable) | §10 `Disable admin account`: rbac.json grants SA = all, TA = conditional, FA = conditional, MW = none, SW = none, but its source note reads "TA/MW restricted to roles below their own" | Grants implemented as written in `docs/rbac.json` with `LOWER_ROLES_ONLY` by role level: TA may disable FA/MW/SW accounts, FA may disable SW accounts only, MW none. The contradicting source note was reworded on 2026-10-23 to record the decision; no grant changed | **Resolved 2026-10-23** (owner decision: keep the grants exactly as written) |
+| 31 | Admin promotion workflow (BR-114) | §5.3 FR-A01 (via rbac.json): SUPER_ADMIN approves or rejects a warehouse admin promotion; no workflow, eligibility, or who may request | §10 `admin.promotion.approve` SA only; no create/list/reject rows | Owner decision 2026-10-23: create the request table. Implemented: `promotion_requests` (migration 0074), approve (BR-114) and, on the owner request of 2026-10-23 for a create path, create/list/read/reject (BR-117) with new spec-gap codes `admin.promotion.request` and `admin.promotion.view` (SUPER_ADMIN and TOHFA_ADMIN `all`) and `admin.promotion.reject` (SUPER_ADMIN only, mirroring approve). UNCONFIRMED defaults: who may request (SA and TA); target roles limited to SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN (a FARMER_ADMIN needs a zone, a SUB_WH_ADMIN a warehouse, which a request does not carry); `fromRole` derived as the target's highest live role (a tie is 409); a LOWER_ROLES_ONLY check against the requester's own level; `reason` required; the old role is ended, not kept; the target's sessions are revoked on approval; self-request and self-decision are refused; decision notes are optional | requires owner confirmation (who may request, target roles, the defaults listed) |
+| 32 | Admin customer list filters (BR-115) | Not stated | Not stated | The mobile asks for grade, crop, date and sort filters on the customer list. `customers` has no grade column, so `grade`, `crop` and `from`/`to` are read as "bought produce of this grade / this crop / in this window" on one purchase line (non-cancelled, non-unpaid order). `sort` offers name, registration date, lifetime value and order count. Issues are return requests, tickets are support tickets | requires owner confirmation (whether a customer grade or tier was meant) |
 
 ---
 
