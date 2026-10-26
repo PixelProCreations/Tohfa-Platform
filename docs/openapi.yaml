@@ -1183,9 +1183,10 @@ paths:
         page, never 403 (BR-30, BR-102). Filters: `status`; `warehouseId` (either side); `direction`
         (`INBOUND` = `warehouseId` is the destination, `OUTBOUND` = it is the source), which requires
         `warehouseId` (422 without it). Strict query. List items carry the transfer header only
-        (no `lines`); read one transfer for its lines.
+        (no `lines`); read one transfer for its lines. Each item carries `receiptNumber` (`null`
+        until received) and `initiatedByName` (BR-126).
       x-permission: transfer.inter_warehouse.view
-      x-business-rules: [BR-30, BR-102]
+      x-business-rules: [BR-30, BR-102, BR-126]
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [PENDING_APPROVAL, IN_TRANSIT, RECEIVED, CANCELLED] } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -1257,9 +1258,9 @@ paths:
         A Sub Warehouse Admin reads only a transfer whose source or destination is its warehouse;
         any other transfer and an unknown id are the same 404 `NOT_FOUND` (BR-30, BR-102). Lines
         carry batch id and code, crop id, grade, quantities, cost, value and the destination batch,
-        never a farmer id (BR-16).
+        never a farmer id (BR-16). Received lines also carry the receive details of BR-126.
       x-permission: transfer.inter_warehouse.view
-      x-business-rules: [BR-16, BR-30, BR-102]
+      x-business-rules: [BR-16, BR-30, BR-102, BR-126]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
@@ -1322,10 +1323,19 @@ paths:
         `receiptNote` (422 on `body.receiptNote`); the shortfall is not written off. For each line
         with a positive quantity a new `ACTIVE` destination batch is created (same crop, grade,
         cost and expiry as the source batch; code `<source batch code>/<transfer number>`) and one
-        `TRANSFER_IN` ledger row adds the quantity. Status becomes `RECEIVED`. One masked
-        `transfer.inter_warehouse.receive` audit row (never the receipt note).
+        `TRANSFER_IN` ledger row adds the quantity. Status becomes `RECEIVED` and the transfer gets
+        its `receiptNumber` (`TGR-<year>-<6 digits>`). One masked `transfer.inter_warehouse.receive`
+        audit row (never the receipt note).
+
+        Optional per line (BR-126; a body of only `itemId` and `qtyReceivedKg` behaves as before):
+        `damagedQtyKg` / `spoiledQtyKg` are parts of the shortfall `qtySentKg - qtyReceivedKg` and
+        are never stocked (their sum above the shortfall is 422 on `body.lines.{i}.damagedQtyKg`;
+        the destination is credited exactly `qtyReceivedKg`); `condition` (the BR-120 level set);
+        `actualGrade` and `actualProductId` (a live crop, else 422), stored only, the destination
+        batch keeps the source crop and grade; `storageLocationId` (a live, ACTIVE location of the
+        destination, else 422) and `storageLocation` (text), copied to the destination batch.
       x-permission: transfer.inter_warehouse.receive
-      x-business-rules: [BR-30, BR-35, BR-102]
+      x-business-rules: [BR-30, BR-35, BR-102, BR-125, BR-126]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -23562,7 +23572,19 @@ components:
             properties:
               itemId: { type: string, format: uuid, description: The line id (`WarehouseTransferLine.id`). }
               qtyReceivedKg: { type: string, pattern: '^\d{1,9}(\.\d{1,3})?$', description: 'From 0 to qtySentKg.', example: '12.000' }
+              damagedQtyKg: { type: string, pattern: '^\d{1,9}(\.\d{1,3})?$', description: 'Part of the shortfall (qtySentKg - qtyReceivedKg) that arrived damaged; never stocked. damaged + spoiled <= shortfall, else 422. Omitted means 0 (BR-126).' }
+              spoiledQtyKg: { type: string, pattern: '^\d{1,9}(\.\d{1,3})?$', description: Part of the shortfall that arrived spoiled; never stocked. Omitted means 0 (BR-126). }
+              condition: { $ref: '#/components/schemas/TransferReceiveCondition' }
+              actualGrade: { type: string, enum: [GRADE_1, GRADE_2, GRADE_3, REJECT], description: 'The grade the destination judged; stored only (BR-126, UNCONFIRMED).' }
+              actualProductId: { type: string, format: uuid, description: 'The product (crop) the destination says arrived; a live crop, else 422. Stored only (BR-126, UNCONFIRMED).' }
+              storageLocationId: { type: string, format: uuid, description: 'A live, ACTIVE storage location of the destination warehouse (else 422); linked to the destination batch (BR-125, BR-126).' }
+              storageLocation: { type: string, minLength: 1, maxLength: 40, description: 'Free-text location label copied to the destination batch; the location''s code when omitted and storageLocationId is given (BR-126).' }
         receiptNote: { type: string, minLength: 1, maxLength: 1000, description: Required when any line is received short. }
+
+    TransferReceiveCondition:
+      type: string
+      enum: [EXCELLENT, GOOD, FAIR, POOR, UNACCEPTABLE]
+      description: The condition of a received transfer line; the BR-120 level set (BR-126, UNCONFIRMED).
 
     WarehouseTransferCancel:
       type: object
@@ -23574,7 +23596,7 @@ components:
     WarehouseTransferLine:
       type: object
       description: One transfer line. Never carries the source farmer (BR-16).
-      required: [id, batchId, batchCode, cropId, grade, qtySentKg, qtyReceivedKg, varianceKg, costPerKg, lineValue, destBatchId]
+      required: [id, batchId, batchCode, cropId, grade, qtySentKg, qtyReceivedKg, varianceKg, costPerKg, lineValue, destBatchId, damagedQtyKg, spoiledQtyKg, condition, actualGrade, actualProductId, actualProductName, storageLocationId, storageLocation]
       properties:
         id: { type: string, format: uuid }
         batchId: { type: string, format: uuid, description: The source batch. }
@@ -23593,14 +23615,25 @@ components:
           nullable: true
           description: round(qtySentKg x costPerKg x 100) paise; null when costPerKg is null.
         destBatchId: { type: string, format: uuid, nullable: true, description: The batch created at the destination; null until received or when 0 was received. }
+        damagedQtyKg: { type: string, nullable: true, pattern: '^\d+\.\d{3}$', description: 'Part of the shortfall that arrived damaged; null until received (BR-126).' }
+        spoiledQtyKg: { type: string, nullable: true, pattern: '^\d+\.\d{3}$', description: 'Part of the shortfall that arrived spoiled; null until received (BR-126).' }
+        condition:
+          allOf: [{ $ref: '#/components/schemas/TransferReceiveCondition' }]
+          nullable: true
+        actualGrade: { type: string, nullable: true, enum: [GRADE_1, GRADE_2, GRADE_3, REJECT], description: Stored only (BR-126). }
+        actualProductId: { type: string, format: uuid, nullable: true, description: Stored only (BR-126). }
+        actualProductName: { type: string, nullable: true, description: The name of actualProductId (BR-126). }
+        storageLocationId: { type: string, format: uuid, nullable: true, description: Where the received line was put (BR-126). }
+        storageLocation: { type: string, nullable: true, description: The location label of the received line (BR-126). }
 
     WarehouseTransferSummary:
       type: object
       description: The transfer header (list items carry no lines).
-      required: [id, transferNumber, fromWarehouseId, toWarehouseId, status, totalValue, hasUnvaluedLines, requiresApproval, hasDiscrepancy, vehicleNumber, notes, receiptNote, cancelReason, initiatedBy, approvedBy, approvedAt, dispatchedAt, receivedBy, receivedAt, cancelledBy, cancelledAt, createdAt, updatedAt]
+      required: [id, transferNumber, receiptNumber, fromWarehouseId, toWarehouseId, status, totalValue, hasUnvaluedLines, requiresApproval, hasDiscrepancy, vehicleNumber, notes, receiptNote, cancelReason, initiatedBy, initiatedByName, approvedBy, approvedAt, dispatchedAt, receivedBy, receivedAt, cancelledBy, cancelledAt, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         transferNumber: { type: string, example: TRF-000001 }
+        receiptNumber: { type: string, nullable: true, description: 'Transfer goods receipt number, set when RECEIVED; null before (BR-126).', example: TGR-2026-000001 }
         fromWarehouseId: { type: string, format: uuid }
         toWarehouseId: { type: string, format: uuid }
         status: { type: string, enum: [PENDING_APPROVAL, IN_TRANSIT, RECEIVED, CANCELLED] }
@@ -23613,6 +23646,7 @@ components:
         receiptNote: { type: string, nullable: true }
         cancelReason: { type: string, nullable: true }
         initiatedBy: { type: string, format: uuid }
+        initiatedByName: { type: string, nullable: true, description: 'Full name of the initiating user; null when missing (BR-126).' }
         approvedBy: { type: string, format: uuid, nullable: true }
         approvedAt: { type: string, format: date-time, nullable: true }
         dispatchedAt: { type: string, format: date-time, nullable: true }

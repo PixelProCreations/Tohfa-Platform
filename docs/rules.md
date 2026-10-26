@@ -3083,6 +3083,38 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-126 — A transfer receipt carries a TGR number, per-line damage and spoilage within the shortfall, condition, the actual grade and product, and a storage location copied to the destination batch, without changing stock
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C7 for the Sub/Main Warehouse Admin transfer screens; owner rules of 2026-10-26: no `ARRIVED` status, no reject endpoint, no discrepancy resolve or status endpoint (deferred), the discrepancy stays the existing derived flag; extends BR-102 (transfers), BR-120 (the breakdown guard and the condition set), BR-125 (locations); `docs/rbac.json` `transfer.inter_warehouse.view`, `transfer.inter_warehouse.receive` (existing codes, unchanged) |
+| **Status** | DERIVED (storing the actual grade and product without acting on them, and the breakdown-of-the-shortfall reading, are UNCONFIRMED: implementer defaults awaiting the owner) |
+| **Layer** | Server-side: `apps/api/src/modules/warehouse-transfers/`; `stock_transfers.receipt_number`, `stock_transfer_receipt_number_seq` and the receive-line columns of `stock_transfer_items` with their CHECK constraints (`db/migrations/0080_transfer_receipt_details.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Receipt number.** Receiving a transfer gives it a `receiptNumber` `TGR-<year>-<6 digits>` (Asia/Kolkata year) from `stock_transfer_receipt_number_seq`, the `GRN-`/`BATCH-` pattern: one counter across years, never reset, unique. It is set in the statement that marks the transfer `RECEIVED`; every `RECEIVED` transfer has one and no other has (database CHECK). Transfers received before this rule were numbered by the migration in `received_at` order. A replayed receive (BR-102 `Idempotency-Key`) returns the same number and draws none.
+2. **Initiator name.** Every transfer the API returns (list rows, detail, create, approve, receive, cancel) carries `initiatedByName` (`users.full_name` of `initiated_by`, joined in the same query, `null` when missing). Admin surface only, not a BR-16 leak.
+3. **Damaged and spoiled are a breakdown of the shortfall.** A receive line may carry `damagedQtyKg` and `spoiledQtyKg` (decimal strings, at most 3 decimals, non-negative; omitted means `0.000`): the parts of `qtySentKg - qtyReceivedKg` that arrived damaged or spoiled and were therefore NOT received into stock. `damagedQtyKg + spoiledQtyKg > qtySentKg - qtyReceivedKg` is 422 `VALIDATION_FAILED` on `body.lines.{i}.damagedQtyKg` (integer grams, nothing written); the database enforces the same. So the destination is credited exactly `qtyReceivedKg`, as before (one `TRANSFER_IN` row into a new batch): stock math is unchanged, and a damaged quantity is, like any shortfall, a discrepancy that needs the `receiptNote` (BR-102 item 5). Received lines read back their breakdown (`'0.000'` when none); lines not yet received read `null`.
+4. **Condition.** A receive line may carry `condition`, one of the BR-120 levels `EXCELLENT`, `GOOD`, `FAIR`, `POOR`, `UNACCEPTABLE` (CHECK-constrained).
+5. **Actual grade and product, stored only.** A receive line may carry `actualGrade` (a grade of the `produce_grade` master set; anything else is 422) and `actualProductId` (a live `crop_master` row, the product; an unknown or deleted one is 422 on `body.lines.{i}.actualProductId`). They are STORED and returned (`actualProductName` joined) but change nothing: the destination batch keeps the source batch's crop and grade, because no rule says otherwise (UNCONFIRMED, flagged for the owner).
+6. **Storage location per line.** A receive line may carry `storageLocationId` (a live, ACTIVE location of the DESTINATION warehouse, else 422 on `body.lines.{i}.storageLocationId`) and/or `storageLocation` (text, 1-40 characters). Both are stored on the line and copied to the destination batch (`inventory_batches.storage_location_id` / `storage_location`, BR-125); with only the id, the text is the location's code. A line received as 0 creates no batch, so the location stays on the line only.
+7. **Backward compatible.** Every addition is optional: a body of only `itemId` and `qtyReceivedKg` per line behaves exactly as before, and the `Idempotency-Key` binds the body as before (a replay returns the stored response; the same key with an added or changed field is 409 `IDEMPOTENCY_KEY_REUSED`).
+8. **Audit.** The receive audit row's after image also carries the `receiptNumber` and, per line, the item id, quantities, breakdown, condition, actual grade and product and location id; never the receipt note or the location text (BR-35).
+9. **Not built (owner, 2026-10-26).** No `ARRIVED` status, no `POST /warehouse-transfers/{id}/reject`, no discrepancy resolve or status endpoint. `hasDiscrepancy` stays the derived flag of BR-102 (a line received short).
+
+**Failure mode if unenforced.** Damaged kilograms are counted on top of the shortfall and the books hold more than was sent, or a damaged entry silently changes what the destination is credited; a received load has no document number to file against; or a batch is put away with no record of where.
+
+**Test contract.** (`apps/api/src/modules/warehouse-transfers/warehouse-transfers.receive-details.test.ts`)
+- `BR-126a` Schema: the new line fields are optional and strict (decimal strings, the condition set, the grade set, UUIDs, text 1-40); an old body still parses unchanged.
+- `BR-126b` A receipt gets `TGR-<year>-<6+ digits>`; a later receipt gets a higher number; before receipt it is `null`; list and detail carry it and `initiatedByName`.
+- `BR-126c` Damaged + spoiled above the shortfall is 422 and writes nothing; within it the destination batch and the `TRANSFER_IN` row equal what the same receipt without a breakdown produces; the breakdown reads back.
+- `BR-126d` Condition, actual grade and actual product are stored and returned; an unknown product is 422; the destination batch keeps the source crop and grade.
+- `BR-126e` A storage location of the destination is copied to the batch (id and text, the code when no text); one of another warehouse, an unknown or an inactive one is 422 and nothing is written.
+- `BR-126f` A replay returns the same receipt number and writes nothing twice; the same key with an added field is 409 `IDEMPOTENCY_KEY_REUSED`.
+- `BR-126g` The database refuses a breakdown above the shortfall and a `RECEIVED` transfer without a receipt number.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
