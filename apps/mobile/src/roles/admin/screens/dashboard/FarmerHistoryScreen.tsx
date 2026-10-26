@@ -1,9 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  PanResponder,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -161,24 +157,8 @@ export function FarmerHistoryScreen({
   farmerId = '',
   onBack,
 }: FarmerHistoryScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null);
   const [showRatingsScreen, setShowRatingsScreen] = useState<boolean>(false);
-
-  // Category scrollbar dynamic tracking
-  const categoryScrollRef = useRef<ScrollView>(null);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [trackWidth, setTrackWidth] = useState(240);
-  const maxScrollWidthRef = useRef(300);
-
-  const categories = [
-    { key: 'All', label: t('farmerHistory.category.all') },
-    { key: 'Profile', label: t('farmerHistory.category.profile') },
-    { key: 'Farm', label: t('farmerHistory.category.farm') },
-    { key: 'Produce', label: t('farmerHistory.category.produce') },
-    { key: 'Audit', label: t('farmerHistory.category.audit') },
-    { key: 'Rating', label: t('farmerHistory.category.rating') },
-  ];
 
   const historyItems: HistoryItem[] = [
     {
@@ -229,53 +209,7 @@ export function FarmerHistoryScreen({
     },
   ];
 
-  const filteredItems = useMemo(() => {
-    if (selectedCategory === 'All') return historyItems;
-    return historyItems.filter((item) => item.category === selectedCategory);
-  }, [historyItems, selectedCategory]);
-
-  const handleCategoryScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const maxScroll = contentSize.width - layoutMeasurement.width;
-    maxScrollWidthRef.current = maxScroll;
-    if (maxScroll > 0) {
-      setScrollProgress(Math.max(0, Math.min(1, contentOffset.x / maxScroll)));
-    }
-  };
-
-  const thumbWidth = 70;
-  const maxThumbTranslate = Math.max(0, trackWidth - thumbWidth);
-  const thumbLeft = scrollProgress * maxThumbTranslate;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        const available = trackWidth - thumbWidth;
-        if (available > 0) {
-          const ratio = Math.max(0, Math.min(1, gestureState.dx / available));
-          setScrollProgress(ratio);
-          categoryScrollRef.current?.scrollTo({
-            x: ratio * maxScrollWidthRef.current,
-            animated: false,
-          });
-        }
-      },
-      onPanResponderGrant: (evt) => {
-        const touchX = evt.nativeEvent.locationX;
-        const available = trackWidth - thumbWidth;
-        if (available > 0) {
-          const ratio = Math.max(0, Math.min(1, (touchX - thumbWidth / 2) / available));
-          setScrollProgress(ratio);
-          categoryScrollRef.current?.scrollTo({
-            x: ratio * maxScrollWidthRef.current,
-            animated: true,
-          });
-        }
-      },
-    })
-  ).current;
+  const filteredItems = historyItems;
 
   // ─── IF NAVIGATING TO FARMER RATINGS ───
   if (showRatingsScreen) {
@@ -383,72 +317,7 @@ export function FarmerHistoryScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Category Filter Chips with Interactive Slider */}
-        <View style={styles.chipsSection}>
-          <ScrollView
-            ref={categoryScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsScrollContent}
-            onScroll={handleCategoryScroll}
-            scrollEventThrottle={16}
-          >
-            {categories.map(({ key, label }) => {
-              const active = selectedCategory === key;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.categoryChip, active ? styles.categoryChipActive : styles.categoryChipInactive]}
-                  onPress={() => setSelectedCategory(key)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.categoryChipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
 
-          {/* Slider track below category chips */}
-          <View
-            style={styles.sliderBarWrap}
-            onLayout={(e: LayoutChangeEvent) => {
-              setTrackWidth(e.nativeEvent.layout.width - 44);
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => categoryScrollRef.current?.scrollTo({ x: 0, animated: true })}
-              activeOpacity={0.7}
-              style={styles.sliderArrowTouch}
-            >
-              <Text style={styles.sliderArrowText}>◀</Text>
-            </TouchableOpacity>
-
-            <View
-              style={styles.sliderTrack}
-              {...panResponder.panHandlers}
-            >
-              <View
-                style={[
-                  styles.sliderThumb,
-                  {
-                    width: thumbWidth,
-                    transform: [{ translateX: thumbLeft }],
-                  },
-                ]}
-              />
-            </View>
-
-            <TouchableOpacity
-              onPress={() => categoryScrollRef.current?.scrollToEnd({ animated: true })}
-              activeOpacity={0.7}
-              style={styles.sliderArrowTouch}
-            >
-              <Text style={styles.sliderArrowText}>▶</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Year Section Header */}
         <Text style={styles.yearHeader}>{t('farmerHistory.year.2026')}</Text>

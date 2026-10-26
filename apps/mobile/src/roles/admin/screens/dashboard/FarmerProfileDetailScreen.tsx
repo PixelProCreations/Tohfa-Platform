@@ -14,10 +14,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { FarmerActivityScreen } from './FarmerActivityScreen';
 import { FarmerProduceScreen } from './FarmerProduceScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
-import { FarmerIssuesScreen } from './FarmerIssuesScreen';
 import { FarmerHistoryScreen } from './FarmerHistoryScreen';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
@@ -92,7 +90,7 @@ export interface FarmerProfileDetailScreenProps {
   onNavigateAuditHistory?: (() => void) | undefined;
 }
 
-type TabKey = 'Overview' | 'Farm' | 'Documents' | 'Audits' | 'Produce' | 'Ratings' | 'Activity' | 'History' | 'Issues';
+type TabKey = 'Overview' | 'Farm' | 'Documents' | 'Audits' | 'Produce' | 'Ratings' | 'History';
 
 const DEFAULT_FARMER_DATA: FarmerProfileData = {
   farmerId: 'FR-00241',
@@ -123,10 +121,8 @@ export function FarmerProfileDetailScreen({
   };
   const [activeTab, setActiveTab] = useState<TabKey>('Overview');
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [showActivityScreen, setShowActivityScreen] = useState<boolean>(false);
   const [showProduceScreen, setShowProduceScreen] = useState<boolean>(false);
   const [showRatingsScreen, setShowRatingsScreen] = useState<boolean>(false);
-  const [showIssuesScreen, setShowIssuesScreen] = useState<boolean>(false);
   const [showHistoryScreen, setShowHistoryScreen] = useState<boolean>(false);
 
   // Tab scrollbar dynamic state
@@ -142,9 +138,7 @@ export function FarmerProfileDetailScreen({
     { key: 'Audits', label: t('farmerProfileDetail.tab.audits') },
     { key: 'Produce', label: t('farmerProfileDetail.tab.produce') },
     { key: 'Ratings', label: t('farmerProfileDetail.tab.ratings') },
-    { key: 'Activity', label: t('farmerProfileDetail.tab.activity') },
     { key: 'History', label: t('farmerProfileDetail.tab.history') },
-    { key: 'Issues', label: t('farmerProfileDetail.tab.issues') },
   ];
 
   const panResponder = useRef(
@@ -178,9 +172,6 @@ export function FarmerProfileDetailScreen({
   const handleTabPress = (tab: TabKey, index: number) => {
     setActiveTab(tab);
     setSelectedDocId(null);
-    if (tab === 'Issues') {
-      setShowIssuesScreen(true);
-    }
     tabScrollRef.current?.scrollTo({
       x: Math.max(0, index * 70 - 40),
       animated: true,
@@ -212,32 +203,12 @@ export function FarmerProfileDetailScreen({
     );
   }
 
-  if (showActivityScreen) {
-    return (
-      <FarmerActivityScreen
-        farmerName={activeFarmer.name}
-        farmerId={activeFarmer.farmerId}
-        onBack={() => setShowActivityScreen(false)}
-      />
-    );
-  }
-
   if (showHistoryScreen) {
     return (
       <FarmerHistoryScreen
         farmerName={activeFarmer.name}
         farmerId={activeFarmer.farmerId}
         onBack={() => setShowHistoryScreen(false)}
-      />
-    );
-  }
-
-  if (showIssuesScreen) {
-    return (
-      <FarmerIssuesScreen
-        farmerName={activeFarmer.name}
-        farmerId={activeFarmer.farmerId}
-        onBack={() => setShowIssuesScreen(false)}
       />
     );
   }
@@ -676,44 +647,7 @@ export function FarmerProfileDetailScreen({
           </>
         )}
 
-        {/* ─── TAB 7: ACTIVITY ─── */}
-        {activeTab === 'Activity' && (
-          <>
-            <View style={styles.detailsCard}>
-              <View style={styles.rowTwoCol}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Recent Activity</Text>
-                  <Text style={styles.valBold}>Produce Listing Submitted</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Last Event Time</Text>
-                  <Text style={styles.valBold}>Today, 10:24 AM</Text>
-                </View>
-              </View>
-
-              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Total Batches</Text>
-                  <Text style={styles.valBold}>18 Listed</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Last Handover</Text>
-                  <Text style={styles.valBold}>HO-2026-0002</Text>
-                </View>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={() => setShowActivityScreen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineActionBtnText}>View Activity</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ─── TAB 8: HISTORY ─── */}
+        {/* ─── TAB 7: HISTORY ─── */}
         {activeTab === 'History' && (
           <>
             <View style={styles.detailsCard}>
@@ -746,47 +680,6 @@ export function FarmerProfileDetailScreen({
               activeOpacity={0.8}
             >
               <Text style={styles.outlineActionBtnText}>View History</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ─── TAB 9: ISSUES ─── */}
-        {activeTab === 'Issues' && (
-          <>
-            <TouchableOpacity
-              style={styles.detailsCard}
-              onPress={() => setShowIssuesScreen(true)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.rowTwoCol}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Open Issues</Text>
-                  <Text style={[styles.valBold, styles.valRejected]}>02 Open</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>In Progress</Text>
-                  <Text style={[styles.valBold, styles.valPending]}>01 Pending</Text>
-                </View>
-              </View>
-
-              <View style={[styles.rowTwoCol, styles.rowSpacing]}>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Resolved</Text>
-                  <Text style={[styles.valBold, styles.valResolved]}>08 Resolved</Text>
-                </View>
-                <View style={styles.colHalf}>
-                  <Text style={styles.labelMuted}>Latest ID</Text>
-                  <Text style={styles.valBold}>ISS-00125</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={() => setShowIssuesScreen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineActionBtnText}>View All Issues</Text>
             </TouchableOpacity>
           </>
         )}
