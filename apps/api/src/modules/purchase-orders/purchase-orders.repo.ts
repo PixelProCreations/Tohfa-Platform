@@ -45,6 +45,8 @@ export interface PurchaseOrderRow {
   updated_at: Date | null;
   farmer_name?: string;
   tohfa_farmer_id?: string;
+  /** BR-119: crop_master.name, joined by the reads that return a row; null when the crop is missing. */
+  crop_name?: string | null;
 }
 
 export interface InsertPurchaseOrderData {
@@ -92,7 +94,10 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
     data: InsertPurchaseOrderData,
   ): Promise<PurchaseOrderRow> {
     const poNumber = await this.nextPoNumber(tx);
+    // BR-119: the crop name is joined onto the inserted row in the same statement, so the approval
+    // response can name the crop without a second lookup.
     const sql = `
+      WITH ins AS (
       INSERT INTO purchase_orders (
         po_number,
         farmer_id,
@@ -127,6 +132,10 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         cancellation_reason,
         created_at,
         updated_at
+      )
+      SELECT ins.*, cm.name AS crop_name
+        FROM ins
+        LEFT JOIN crop_master cm ON cm.id = ins.crop_id
     `;
 
     const values = [
@@ -153,27 +162,29 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
   ): Promise<PurchaseOrderRow | null> {
     const sql = `
       SELECT
-        id,
-        po_number,
-        farmer_id,
-        listing_id,
-        warehouse_id,
-        crop_id,
-        grade,
-        quantity_kg,
-        price_per_kg,
-        total_amount,
-        status,
-        issued_by,
-        issued_at,
-        expected_delivery_date,
-        cancelled_by,
-        cancelled_at,
-        cancellation_reason,
-        created_at,
-        updated_at
-      FROM purchase_orders
-      WHERE listing_id = $1
+        po.id,
+        po.po_number,
+        po.farmer_id,
+        po.listing_id,
+        po.warehouse_id,
+        po.crop_id,
+        po.grade,
+        po.quantity_kg,
+        po.price_per_kg,
+        po.total_amount,
+        po.status,
+        po.issued_by,
+        po.issued_at,
+        po.expected_delivery_date,
+        po.cancelled_by,
+        po.cancelled_at,
+        po.cancellation_reason,
+        po.created_at,
+        po.updated_at,
+        cm.name AS crop_name
+      FROM purchase_orders po
+      LEFT JOIN crop_master cm ON cm.id = po.crop_id
+      WHERE po.listing_id = $1
     `;
     const result = await tx.query<PurchaseOrderRow>(sql, [listingId]);
     return result.rows[0] ?? null;
@@ -205,10 +216,13 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
         po.expected_delivery_date::text AS "expectedDeliveryDate",
         po.issued_at AS "issuedAt",
         u.full_name AS "farmerName",
-        f.tohfa_farmer_id AS "tohfaFarmerId"
+        f.tohfa_farmer_id AS "tohfaFarmerId",
+        cm.name AS "cropName"
       FROM purchase_orders po
       LEFT JOIN farmers f ON f.id = po.farmer_id
       LEFT JOIN users u ON u.id = f.user_id
+      -- BR-119: LEFT JOIN, so a missing crop row is a null name, never a missing purchase order.
+      LEFT JOIN crop_master cm ON cm.id = po.crop_id
       WHERE po.id = $1 AND ${scopeFilter.sql}
     `;
 
@@ -221,6 +235,7 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
     const receipts = await this.findGoodsReceiptsByPoId(tx, id);
     return {
       ...row,
+      cropName: row.cropName ?? null,
       issuedAt: row.issuedAt.toISOString(),
       goodsReceipts: receipts,
     };
@@ -314,25 +329,34 @@ export const purchaseOrdersRepo: PurchaseOrdersRepo = {
   },
 
   async findGoodsReceiptsByPoId(tx: Executor, poId: string): Promise<GoodsReceiptSummary[]> {
+    // BR-119: every receipt of one purchase order is of that order's crop; joined here, once for
+    // all of them, never looked up per receipt.
     const sql = `
       SELECT
-        id,
-        grn_number AS "grnNumber",
-        purchase_order_id AS "purchaseOrderId",
-        warehouse_id AS "warehouseId",
-        gross_qty_kg::text AS "grossQtyKg",
-        accepted_qty_kg::text AS "acceptedQtyKg",
-        rejected_qty_kg::text AS "rejectedQtyKg",
-        status,
-        created_at AS "receivedAt"
-      FROM goods_receipts
-      WHERE purchase_order_id = $1
-      ORDER BY created_at ASC
+        gr.id,
+        gr.grn_number AS "grnNumber",
+        gr.purchase_order_id AS "purchaseOrderId",
+        gr.warehouse_id AS "warehouseId",
+        gr.gross_qty_kg::text AS "grossQtyKg",
+        gr.accepted_qty_kg::text AS "acceptedQtyKg",
+        gr.rejected_qty_kg::text AS "rejectedQtyKg",
+        gr.status,
+        gr.created_at AS "receivedAt",
+        cm.name AS "cropName"
+      FROM goods_receipts gr
+      JOIN purchase_orders po ON po.id = gr.purchase_order_id
+      LEFT JOIN crop_master cm ON cm.id = po.crop_id
+      WHERE gr.purchase_order_id = $1
+      ORDER BY gr.created_at ASC
     `;
     const result = await tx.query<Omit<GoodsReceiptSummary, 'receivedAt'> & { receivedAt: Date }>(
       sql,
       [poId],
     );
-    return result.rows.map((row) => ({ ...row, receivedAt: row.receivedAt.toISOString() }));
+    return result.rows.map((row) => ({
+      ...row,
+      cropName: row.cropName ?? null,
+      receivedAt: row.receivedAt.toISOString(),
+    }));
   },
 };

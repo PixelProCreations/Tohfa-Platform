@@ -164,6 +164,8 @@ export const goodsReceiptResponse = z.object({
   photos: z.array(z.string()),
   status: z.enum(grnStatuses),
   receivedBy: z.string().uuid(),
+  // BR-119: users.full_name of received_by (admin surface); null when the user row is missing.
+  receivedByName: z.string().nullable().optional(),
   receivedAt: z.string(),
   poNumber: z.string().optional(),
   cropName: z.string().optional(),
@@ -199,10 +201,19 @@ export const qualityCheckResponse = z.object({
   defectNotes: z.string().nullable().optional(),
   photos: z.array(z.string()),
   checkedBy: z.string().uuid(),
+  // BR-119: users.full_name of checked_by, on the receipt read only.
+  checkedByName: z.string().nullable().optional(),
   checkedAt: z.string(),
   items: z.array(qualityCheckItemResponse).optional(),
 });
 export type QualityCheckResponse = z.infer<typeof qualityCheckResponse>;
+
+/** docs/openapi.yaml GoodsReceiptDetail: GET /admin/goods-receipts/{id} (BR-119). */
+export const goodsReceiptDetailResponse = goodsReceiptResponse.extend({
+  /** The receipt's latest quality check with its items; null before any check. */
+  qualityCheck: qualityCheckResponse.nullable(),
+});
+export type GoodsReceiptDetailResponse = z.infer<typeof goodsReceiptDetailResponse>;
 
 export const listGoodsReceiptsResponse = z.object({
   items: z.array(goodsReceiptResponse),

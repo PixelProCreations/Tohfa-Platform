@@ -23,6 +23,7 @@ import {
   qcParameters,
   type QcOutcome,
   type CreateGoodsReceiptBody,
+  type GoodsReceiptDetailResponse,
   type GoodsReceiptResponse,
   type ListGoodsReceiptsQuery,
   type ListGoodsReceiptsResponse,
@@ -68,11 +69,12 @@ export interface GoodsReceiptsService {
     idempotencyKey?: string,
   ): Promise<QualityCounterOfferResponse>;
 
+  /** BR-119: the receipt with its latest quality check (null before any check). */
   getById(
     actor: Actor,
     scope: ResolvedScope,
     id: string,
-  ): Promise<GoodsReceiptResponse>;
+  ): Promise<GoodsReceiptDetailResponse>;
 
   list(
     actor: Actor,
@@ -318,6 +320,7 @@ export function createGoodsReceiptsService(
           photos: grnRow.photo_keys ?? [],
           status: grnRow.status,
           receivedBy: grnRow.received_by,
+          receivedByName: grnRow.received_by_name ?? null,
           receivedAt: grnRow.received_at instanceof Date ? grnRow.received_at.toISOString() : String(grnRow.received_at),
           poNumber: po.poNumber,
           cropName: po.cropName,
@@ -654,14 +657,17 @@ export function createGoodsReceiptsService(
       _actor: Actor,
       scope: ResolvedScope,
       id: string,
-    ): Promise<GoodsReceiptResponse> {
+    ): Promise<GoodsReceiptDetailResponse> {
       const grn = await repo.findGoodsReceiptById(db, id, confineToAssignedWarehouses(scope));
       if (grn === null) {
         throw new AppError('NOT_FOUND', {
           detail: `Goods receipt "${id}" was not found or is outside your warehouse scope (BR-30b).`,
         });
       }
-      return grn;
+      // BR-119: read only once the receipt itself passed the scope filter above, so the check adds
+      // no path to another warehouse's data.
+      const qualityCheck = await repo.findQualityCheckByGoodsReceiptId(db, id);
+      return { ...grn, qualityCheck };
     },
 
     async list(

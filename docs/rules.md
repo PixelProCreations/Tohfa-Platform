@@ -2886,6 +2886,30 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-119 — The admin purchase-order and goods-receipt reads carry crop and people names and the receipt's quality check, inside the unchanged scope
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" for the Sub/Main Warehouse Admin mobile intake screens (C1 crop names, C2 quality-check block and names); `docs/rbac.json` `purchase.order.view`, `inventory.goods_receipt.record` (existing codes, unchanged); BR-30 (scope), BR-16 (customer anonymity, not touched) |
+| **Status** | DERIVED |
+| **Layer** | Server-side read models: `apps/api/src/modules/purchase-orders/purchase-orders.repo.ts`, `apps/api/src/modules/goods-receipts/goods-receipts.repo.ts` / `.service.ts` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Crop name (C1).** Every purchase order the admin API returns carries `cropName` (`crop_master.name`): the list row (already, BR-30 note), `GET /admin/purchase-orders/{id}`, and the `purchaseOrder` of the listing approval response. Each goods receipt nested in the purchase-order detail carries the same `cropName`. Joined in the query that reads the rows (`LEFT JOIN crop_master`), never looked up per row; `null` when the crop row is missing, never a dropped row.
+2. **Receiver name (C2).** Every goods receipt the admin API returns (`GET /admin/goods-receipts`, `GET /admin/goods-receipts/{id}`, the create response) carries `receivedByName` (`users.full_name` of `received_by`, `LEFT JOIN`, `null` when missing). Admin-only surface, so a staff name is not a BR-16 leak.
+3. **Quality-check block (C2).** `GET /admin/goods-receipts/{id}` carries `qualityCheck`: the receipt's latest quality check with its five items (`assignedGrade`, `listedGrade`, `outcome`, quantities, `defectNotes`, `checkedBy`, `checkedByName`, `checkedAt`, `items`, and the BR-120 additions), or `null` when the receipt has not been checked. It is read only after the receipt itself passed the scope filter, so it adds no new path to another warehouse's data. The list rows do not carry it (one detail read, never N per page).
+4. **Scope unchanged.** The filters are exactly BR-30's: another warehouse's purchase order or receipt is the same 404 as an unknown id; a list outside the scope is empty. No response here is a customer response; nothing in BR-16's allow-list changes.
+
+**Failure mode if unenforced.** The intake screens show ids instead of crops and people, or fetch a name per row; or the quality check a Sub admin recorded cannot be shown back, so the next admin re-inspects or approves blind.
+
+**Test contract.** (`apps/api/src/modules/purchase-orders/purchase-orders.test.ts`, `apps/api/src/modules/goods-receipts/goods-receipts.read-model.test.ts`)
+- `BR-119a` Purchase-order detail and each nested receipt carry `cropName` from one joined query per read (no per-row lookup); `null` when the crop is missing; the BR-30 scope still hides another warehouse's order.
+- `BR-119b` The approval response's `purchaseOrder` carries `cropName` (the insert and the existing-order read join the crop).
+- `BR-119c` A receipt read and list rows carry `receivedByName`.
+- `BR-119d` A receipt read before its check has `qualityCheck: null`; after the check it returns the recorded check with five items, `checkedBy` and `checkedByName`; another warehouse's receipt is still 404 for a confined Sub admin.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

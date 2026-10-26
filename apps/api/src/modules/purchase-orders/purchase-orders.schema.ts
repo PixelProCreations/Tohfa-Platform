@@ -43,6 +43,8 @@ export const purchaseOrderResponse = z.object({
   status: z.enum(poStatuses),
   expectedDeliveryDate: z.string().nullable().optional(),
   issuedAt: z.string(),
+  // BR-119: crop_master.name, joined in the read; null when the crop row is missing.
+  cropName: z.string().nullable().optional(),
 });
 export type PurchaseOrderResponse = z.infer<typeof purchaseOrderResponse>;
 
@@ -56,6 +58,8 @@ export const goodsReceiptSummary = z.object({
   rejectedQtyKg: z.string().optional(),
   status: z.string(),
   receivedAt: z.string(),
+  // BR-119: the purchase order's crop name, joined in the receipts query (no per-row lookup).
+  cropName: z.string().nullable().optional(),
 });
 export type GoodsReceiptSummary = z.infer<typeof goodsReceiptSummary>;
 

@@ -44,6 +44,8 @@ export interface GoodsReceiptRow {
   vehicle_number: string | null;
   photo_keys: string[];
   received_by: string;
+  /** BR-119: users.full_name of received_by, joined onto the inserted row. */
+  received_by_name?: string | null;
   received_at: Date;
   created_at: Date;
   updated_at: Date | null;
@@ -253,7 +255,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     data: CreateGoodsReceiptBody & { farmerId: string; receivedBy: string },
   ): Promise<GoodsReceiptRow> {
     const grnNumber = await this.nextGrnNumber(tx);
+    // BR-119: the receiver's name is joined onto the inserted row in the same statement.
     const sql = `
+      WITH ins AS (
       INSERT INTO goods_receipts (
         grn_number,
         purchase_order_id,
@@ -283,6 +287,10 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         received_at,
         created_at,
         updated_at
+      )
+      SELECT ins.*, u.full_name AS received_by_name
+        FROM ins
+        LEFT JOIN users u ON u.id = ins.received_by
     `;
 
     const values = [
@@ -354,6 +362,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
+        ru.full_name AS "receivedByName",
         gr.received_at AS "receivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
@@ -365,6 +374,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       JOIN crop_master c ON c.id = po.crop_id
       -- BR-106: at most one batch per receipt (uq_inventory_batches_goods_receipt_id), so no fan-out.
       LEFT JOIN inventory_batches ib ON ib.goods_receipt_id = gr.id
+      -- BR-119: the receiver's display name (admin surface); a missing user is a null name.
+      LEFT JOIN users ru ON ru.id = gr.received_by
       WHERE gr.id = $1 AND ${scopeFilter.sql}
     `;
 
@@ -373,7 +384,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       [id, ...scopeFilter.params],
     );
     const row = result.rows[0];
-    return row ? { ...row, receivedAt: row.receivedAt.toISOString() } : null;
+    return row
+      ? { ...row, receivedByName: row.receivedByName ?? null, receivedAt: row.receivedAt.toISOString() }
+      : null;
   },
 
   async insertQualityCheckWithItems(
@@ -504,9 +517,15 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         qc.defect_notes AS "defectNotes",
         COALESCE(qc.photo_keys, '{}') AS "photos",
         qc.checked_by AS "checkedBy",
+        cu.full_name AS "checkedByName",
         qc.checked_at AS "checkedAt"
       FROM quality_checks qc
+      -- BR-119: the inspector's display name (admin surface); a missing user is a null name.
+      LEFT JOIN users cu ON cu.id = qc.checked_by
       WHERE qc.goods_receipt_id = $1
+      -- A receipt is checked once (recordQualityCheck needs AWAITING_QC); the latest wins if not.
+      ORDER BY qc.checked_at DESC, qc.created_at DESC
+      LIMIT 1
     `;
     const result = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
       sql,
@@ -514,7 +533,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     );
     const qcRaw = result.rows[0];
     if (!qcRaw) return null;
-    const qc = { ...qcRaw, checkedAt: qcRaw.checkedAt.toISOString() };
+    const qc = { ...qcRaw, checkedByName: qcRaw.checkedByName ?? null, checkedAt: qcRaw.checkedAt.toISOString() };
 
     const itemsSql = `
       SELECT
@@ -528,6 +547,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(photo_keys, '{}') AS "photoKeys"
       FROM quality_check_items
       WHERE quality_check_id = $1
+      ORDER BY created_at, id
     `;
     const itemsRes = await tx.query<QualityCheckItemResponse>(itemsSql, [qc.id]);
     return {
@@ -873,6 +893,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
+        ru.full_name AS "receivedByName",
         gr.received_at AS "receivedAt",
         to_char(gr.received_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorReceivedAt",
         po.po_number AS "poNumber",
@@ -884,6 +905,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN crop_master c ON c.id = po.crop_id
       LEFT JOIN inventory_batches ib ON ib.goods_receipt_id = gr.id
+      -- BR-119: joined in the page query, never looked up per row.
+      LEFT JOIN users ru ON ru.id = gr.received_by
       ${whereClause}
       ORDER BY gr.received_at DESC
       ${limitClause}
@@ -898,6 +921,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursorReceivedAt : null;
     const items: GoodsReceiptResponse[] = rawItems.map(({ cursorReceivedAt: _cursor, ...row }) => ({
       ...row,
+      receivedByName: row.receivedByName ?? null,
       receivedAt: row.receivedAt.toISOString(),
     }));
 

@@ -9292,9 +9292,10 @@ paths:
         Approval accepts the listing at its asking price (or at the accepted counter-offer
         price) and issues a purchase order to the destination warehouse. A Farmer Admin
         approving their own listing is refused with 403 `SELF_APPROVAL_FORBIDDEN`; the
-        listing is auto-routed to another admin (BR-29).
+        listing is auto-routed to another admin (BR-29). The returned `purchaseOrder` carries
+        `cropName` (BR-119).
       x-permission: listing.approve
-      x-business-rules: [BR-07, BR-29]
+      x-business-rules: [BR-07, BR-29, BR-119]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -9579,9 +9580,11 @@ paths:
       summary: Purchase order detail with receipts
       description: |
         Returns one purchase order with its goods receipts and settlement state. A Sub Warehouse
-        Admin sees only orders for its own warehouse (BR-30).
+        Admin sees only orders for its own warehouse (BR-30). The order and each nested goods
+        receipt carry `cropName` (`crop_master.name`, joined in the read, null when the crop row is
+        missing; BR-119).
       x-permission: purchase.order.view
-      x-business-rules: [BR-30]
+      x-business-rules: [BR-30, BR-119]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -9605,9 +9608,11 @@ paths:
         sees only its assigned warehouses; a Main, Super or Tohfa admin with no assigned warehouse
         sees all four. A `warehouseId` naming a warehouse the caller cannot reach is an empty
         page (200), the same as an unknown warehouse: a cross-scope list is an empty result set,
-        never a 403 and never a leak; only a read or write BY ID is 404.
+        never a 403 and never a leak; only a read or write BY ID is 404. Each row carries
+        `cropName`, `grade` and `poNumber` of its purchase order and `receivedByName` (BR-119); the
+        quality-check block is on the detail read only.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30]
+      x-business-rules: [BR-30, BR-119]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -9681,17 +9686,19 @@ paths:
       description: |
         Returns goods receipt by ID with warehouse scoping (BR-30). Another warehouse's receipt is
         the same 404 as an id that does not exist, also for a Sub Warehouse Admin whose grant is
-        `all`.
+        `all`. The receipt carries `receivedByName` and `qualityCheck`: the receipt's latest quality
+        check with its items and `checkedByName`, or `null` before any check (BR-119). The check is
+        read only after the receipt passed the scope filter.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30]
+      x-business-rules: [BR-30, BR-119]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
       responses:
         '200':
-          description: Goods receipt details.
+          description: Goods receipt details with its quality check.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/GoodsReceipt' }
+              schema: { $ref: '#/components/schemas/GoodsReceiptDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -20233,6 +20240,7 @@ components:
         status: { $ref: '#/components/schemas/PurchaseOrderStatus' }
         expectedDeliveryDate: { type: [string, 'null'], format: date }
         issuedAt: { type: string, format: date-time }
+        cropName: { type: [string, 'null'], description: '`crop_master.name`, joined in the read; null when the crop row is missing (BR-119). Admin surface only.' }
 
     PurchaseOrderListItem:
       description: A row of `GET /admin/purchase-orders`. Admin-only, so the farmer's name is not a BR-16 leak.
@@ -20281,9 +20289,26 @@ components:
         photos: { type: array, items: { type: string, format: uri } }
         status: { type: string, enum: [AWAITING_QC, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED, COUNTER_OFFERED] }
         receivedBy: { type: string, format: uuid }
+        receivedByName: { type: [string, 'null'], description: '`users.full_name` of `receivedBy`; null when missing (BR-119). Admin surface only.' }
         receivedAt: { type: string, format: date-time }
+        poNumber: { type: string, description: The purchase order's number. Not on the receipts nested in a purchase-order detail. }
+        cropName: { type: [string, 'null'], description: '`crop_master.name` of the purchase order''s crop (BR-119).' }
+        grade: { $ref: '#/components/schemas/Grade', description: The purchase order's (listed) grade. Not on the receipts nested in a purchase-order detail. }
         batchId: { type: [string, 'null'], format: uuid, description: 'BR-106: the inventory batch this receipt was stocked as; null until accepted goods are stocked.' }
         batchCode: { type: [string, 'null'], description: 'BR-106: that batch''s code (`BATCH-<year>-<6 digits>`).', examples: [BATCH-2026-000123] }
+
+    GoodsReceiptDetail:
+      description: '`GET /admin/goods-receipts/{id}`: the receipt with its quality check (BR-119).'
+      allOf:
+        - $ref: '#/components/schemas/GoodsReceipt'
+        - type: object
+          required: [qualityCheck]
+          properties:
+            qualityCheck:
+              description: The receipt's latest quality check; null when it has not been checked.
+              oneOf:
+                - { $ref: '#/components/schemas/QualityCheck' }
+                - { type: 'null' }
 
     QualityCheckCreate:
       type: object
@@ -20316,8 +20341,26 @@ components:
         defectNotes: { type: [string, 'null'] }
         photos: { type: array, items: { type: string, format: uri } }
         priceAdjustment: { $ref: '#/components/schemas/Money' }
+        warehouseId: { type: string, format: uuid }
+        listedGrade: { $ref: '#/components/schemas/Grade' }
         checkedBy: { type: string, format: uuid }
+        checkedByName: { type: [string, 'null'], description: '`users.full_name` of `checkedBy`; on the receipt read only (BR-119).' }
         checkedAt: { type: string, format: date-time }
+        items: { type: array, items: { $ref: '#/components/schemas/QualityCheckItem' } }
+
+    QualityCheckItem:
+      type: object
+      description: One point of the 5-point check, as stored.
+      required: [id, qualityCheckId, parameter, passed, photoKeys]
+      properties:
+        id: { type: string, format: uuid }
+        qualityCheckId: { type: string, format: uuid }
+        parameter: { type: string, enum: [APPEARANCE, SIZE_UNIFORMITY, MOISTURE, DAMAGE_PEST, FRESHNESS] }
+        score: { type: [integer, 'null'], minimum: 0, maximum: 10 }
+        passed: { type: boolean }
+        measuredValue: { type: [number, 'null'] }
+        remarks: { type: [string, 'null'] }
+        photoKeys: { type: array, items: { type: string } }
 
     RejectedGoodsDisposal:
       type: object
