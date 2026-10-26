@@ -100,6 +100,7 @@ import {
   INITIAL_DISPUTES,
 } from './fixtures';
 import { FarmerDisputesFilterScreen } from './FarmerDisputesFilterScreen';
+import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 
 export type { DisputeCategory, DisputeItem, DisputeStatus };
 export { INITIAL_DISPUTES };
@@ -232,6 +233,19 @@ export function FarmerDisputesMediationScreen({
           setSearchQuery('');
           setSelectedStatus('All');
           setSelectedCategory('All');
+        }}
+      />
+    );
+  }
+
+  if (activeDispute) {
+    return (
+      <FarmerDisputeDetailScreen
+        dispute={activeDispute}
+        onBack={() => setActiveDispute(null)}
+        onViewTimeline={onViewTimeline ? (d) => onViewTimeline(d ?? activeDispute) : undefined}
+        onResolveDispute={(disputeId, note) => {
+          handleUpdateStatus(disputeId, 'Resolved', note);
         }}
       />
     );
@@ -417,16 +431,6 @@ export function FarmerDisputesMediationScreen({
                 >
                   <Text style={styles.detailsBtnText}>View Details</Text>
                 </TouchableOpacity>
-
-                {onViewTimeline && (
-                  <TouchableOpacity
-                    style={styles.timelineLinkBtn}
-                    onPress={() => onViewTimeline(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.timelineLinkBtnText}>Timeline →</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             </TouchableOpacity>
           );
@@ -454,161 +458,7 @@ export function FarmerDisputesMediationScreen({
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ─── Detail Case Modal ─── */}
-      <Modal
-        visible={activeDispute !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setActiveDispute(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setActiveDispute(null)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.detailModalCard}>
-                {activeDispute && (
-                  <ScrollView showsVerticalScrollIndicator={false}>
-                    <View style={styles.modalHeaderRow}>
-                      <View>
-                        <Text style={styles.detailDisputeId}>{activeDispute.id}</Text>
-                        <Text style={styles.detailTitle}>{activeDispute.title}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => setActiveDispute(null)}
-                        style={styles.closeBtn}
-                      >
-                        <Text style={styles.closeBtnText}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
 
-                    {/* Badges */}
-                    <View style={[styles.badgesRow, { marginTop: adminSpacing.sm }]}>
-                      <View
-                        style={[
-                          styles.badgePill,
-                          { backgroundColor: getStatusBadgeStyle(activeDispute.status).bg },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.badgeText,
-                            { color: getStatusBadgeStyle(activeDispute.status).text },
-                          ]}
-                        >
-                          {activeDispute.status}
-                        </Text>
-                      </View>
-                      <View style={[styles.badgePill, styles.categoryPill]}>
-                        <Text style={styles.categoryText}>{activeDispute.category}</Text>
-                      </View>
-                    </View>
-
-                    {/* Parties Section */}
-                    <View style={styles.detailInfoBox}>
-                      <Text style={styles.detailInfoRow}>
-                        <Text style={styles.detailInfoLabel}>Raised By: </Text>
-                        <Text style={styles.detailInfoValue}>{activeDispute.raisedBy}</Text>
-                      </Text>
-                      <Text style={styles.detailInfoRow}>
-                        <Text style={styles.detailInfoLabel}>Other Party: </Text>
-                        <Text style={styles.detailInfoValue}>{activeDispute.otherParty}</Text>
-                      </Text>
-                      <Text style={styles.detailInfoRow}>
-                        <Text style={styles.detailInfoLabel}>Filing Date: </Text>
-                        <Text style={styles.detailInfoValue}>{activeDispute.createdDate}</Text>
-                      </Text>
-                      <Text style={styles.detailInfoRow}>
-                        <Text style={styles.detailInfoLabel}>Last Activity: </Text>
-                        <Text style={styles.detailInfoValue}>{activeDispute.lastActivityDate}</Text>
-                      </Text>
-                    </View>
-
-                    {/* Description */}
-                    <Text style={styles.detailSectionHeading}>Case Overview</Text>
-                    <Text style={styles.detailDescriptionText}>{activeDispute.description}</Text>
-
-                    {activeDispute.resolutionNote && (
-                      <View style={styles.resolutionBox}>
-                        <Text style={styles.resolutionTitle}>Resolution Note</Text>
-                        <Text style={styles.resolutionBody}>{activeDispute.resolutionNote}</Text>
-                      </View>
-                    )}
-
-                    {/* Mediation Timeline */}
-                    {activeDispute.timeline && activeDispute.timeline.length > 0 && (
-                      <View style={styles.timelineSection}>
-                        <Text style={styles.detailSectionHeading}>Mediation Log & Timeline</Text>
-                        {activeDispute.timeline.map((step, idx) => (
-                          <View key={idx} style={styles.timelineItem}>
-                            <View style={styles.timelineDot} />
-                            <View style={styles.timelineContent}>
-                              <Text style={styles.timelineDate}>
-                                {step.date} · {step.actor}
-                              </Text>
-                              <Text style={styles.timelineAction}>{step.action}</Text>
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    {/* Mediation Actions */}
-                    <Text style={[styles.detailSectionHeading, { marginTop: adminSpacing.md }]}>
-                      Mediation Actions
-                    </Text>
-                    <View style={styles.actionBtnGroup}>
-                      {activeDispute.status !== 'Resolved' && (
-                        <TouchableOpacity
-                          style={styles.resolveActionBtn}
-                          onPress={() =>
-                            handleUpdateStatus(
-                              activeDispute.id,
-                              'Resolved',
-                              'Settlement confirmed by farmer and TOHFA administration.'
-                            )
-                          }
-                        >
-                          <Text style={styles.resolveActionBtnText}>Mark as Resolved</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {activeDispute.status !== 'Escalated' && activeDispute.status !== 'Resolved' && (
-                        <TouchableOpacity
-                          style={styles.escalateActionBtn}
-                          onPress={() =>
-                            handleUpdateStatus(
-                              activeDispute.id,
-                              'Escalated',
-                              'Escalated to PGS Regional Council and Senior TOHFA Ombudsperson.'
-                            )
-                          }
-                        >
-                          <Text style={styles.escalateActionBtnText}>Escalate Dispute</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {activeDispute.status === 'Open' && (
-                        <TouchableOpacity
-                          style={styles.reviewActionBtn}
-                          onPress={() => handleUpdateStatus(activeDispute.id, 'Under Review')}
-                        >
-                          <Text style={styles.reviewActionBtnText}>Move to Under Review</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.closeModalBtn}
-                      onPress={() => setActiveDispute(null)}
-                    >
-                      <Text style={styles.closeModalBtnText}>Close Case View</Text>
-                    </TouchableOpacity>
-                  </ScrollView>
-                )}
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
 
       {/* ─── Feedback Toast ─── */}
       {feedbackToast && (

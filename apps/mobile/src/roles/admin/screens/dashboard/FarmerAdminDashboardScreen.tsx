@@ -3507,16 +3507,6 @@ export function FarmerAdminDashboardScreen({
                 <SpeechBubbleIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Community</Text>
               </TouchableOpacity>
-
-              {/* Row 2, Col 3: Ratings */}
-              <TouchableOpacity
-                style={styles.quickCard}
-                onPress={() => pushNavigation({ subView: 'farmer_ratings' })}
-                activeOpacity={0.85}
-              >
-                <StarRatingsIcon size={24} color={adminColors.brand} />
-                <Text style={styles.quickCardLabel}>Ratings</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={{ height: 32 }} />
@@ -3588,7 +3578,6 @@ export function FarmerAdminDashboardScreen({
           <FarmerAdminMoreScreen
             onBack={() => goBack('Home')}
             onNavigatePurchases={() => pushNavigation({ subView: 'purchases' })}
-            onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
             onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
             onNavigateDisputes={() => {
@@ -3604,12 +3593,8 @@ export function FarmerAdminDashboardScreen({
               })
             }
             onItemSelect={(title) => {
-              if (title === 'Inputs & Pest Management') {
-                pushNavigation({ subView: 'inputs_pest' });
-              } else if (title === 'Market & Pricing') {
+              if (title === 'Market & Pricing') {
                 pushNavigation({ subView: 'market_pricing' });
-              } else if (title === 'Ratings') {
-                pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
                 pushNavigation({ subView: 'disputes' });
               } else if (title === 'Farmer Support') {
@@ -4302,8 +4287,8 @@ const styles = StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
+    justifyContent: 'flex-start',
+    gap: 10,
     marginTop: 8,
   },
   quickCard: {

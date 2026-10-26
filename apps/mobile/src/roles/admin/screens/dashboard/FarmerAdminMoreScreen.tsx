@@ -45,40 +45,11 @@ function ReceiptIcon({ size = 20, color = adminColors.brand }: { size?: number; 
   );
 }
 
-function LeafIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 4c-9.5 0-16 6.5-16 16 9.5 0 16-6.5 16-16z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M4 20c4-4 8-8 10-10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function StoreIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 9l2-5h14l2 5M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0M3 9v10a2 2 0 002 2h14a2 2 0 002-2V9M9 21v-7h6v7"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function StarIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2.5l2.9 6.2 6.8.9-5 4.8 1.3 6.8-6-3.3-6 3.3 1.3-6.8-5-4.8 6.8-.9L12 2.5z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
@@ -181,10 +152,8 @@ function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: { size?: num
 export interface FarmerAdminMoreScreenProps {
   onBack: () => void;
   onNavigatePurchases?: () => void;
-  onNavigateInputsPest?: () => void;
   onNavigateMarketPricing?: () => void;
   onNavigateProduceListings?: () => void;
-  onNavigateFarmerRatings?: () => void;
   onNavigateDisputes?: () => void;
   onNavigateProfile: () => void;
   onNavigateFarmerSupport?: () => void;
@@ -196,10 +165,8 @@ export interface FarmerAdminMoreScreenProps {
 export function FarmerAdminMoreScreen({
   onBack,
   onNavigatePurchases,
-  onNavigateInputsPest,
   onNavigateMarketPricing,
   onNavigateProduceListings,
-  onNavigateFarmerRatings,
   onNavigateDisputes,
   onNavigateProfile,
   onNavigateFarmerSupport,
@@ -221,18 +188,6 @@ export function FarmerAdminMoreScreen({
       },
     },
     {
-      id: 'inputs',
-      title: t('farmerAdminMore.menu.inputsPests'),
-      icon: <LeafIcon size={20} />,
-      onPress: () => {
-        if (onNavigateInputsPest) {
-          onNavigateInputsPest();
-        } else {
-          onItemSelect?.('Inputs & Pest Management');
-        }
-      },
-    },
-    {
       id: 'market',
       title: t('farmerAdminMore.menu.marketPricing'),
       icon: <StoreIcon size={20} />,
@@ -241,18 +196,6 @@ export function FarmerAdminMoreScreen({
           onNavigateMarketPricing();
         } else {
           onItemSelect?.('Market & Pricing');
-        }
-      },
-    },
-    {
-      id: 'ratings',
-      title: t('farmerAdminMore.menu.ratings'),
-      icon: <StarIcon size={20} />,
-      onPress: () => {
-        if (onNavigateFarmerRatings) {
-          onNavigateFarmerRatings();
-        } else {
-          onItemSelect?.('Ratings');
         }
       },
     },
