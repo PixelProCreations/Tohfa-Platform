@@ -146,6 +146,17 @@ function readSpec(): SpecAnnotations {
       return;
     }
 
+    // A route whose code depends on the request body (e.g. POST /admin/accounts: the role being
+    // created picks `admin.<role>.create`) lists every candidate code here instead of
+    // `x-permission`; each must exist in rbac.json exactly like `x-permission`.
+    const anyOf = /^\s+x-permission-any-of: \[(.*)\]\s*$/.exec(line)?.[1];
+    if (anyOf !== undefined) {
+      for (const code of anyOf.split(',').map((part) => part.trim()).filter(Boolean)) {
+        permissions.push({ where: `${operation} (openapi.yaml:${lineNo}, x-permission-any-of)`, value: code });
+      }
+      return;
+    }
+
     const rules = /^\s+x-business-rules: \[(.*)\]\s*$/.exec(line)?.[1];
     if (rules !== undefined) {
       for (const id of rules.split(',').map((part) => part.trim()).filter(Boolean)) {
