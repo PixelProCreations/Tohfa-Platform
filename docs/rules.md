@@ -401,6 +401,8 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 **Test contract.**
 - `BR-19a` Cash top-up of Rs 10,000.01 → 422, `code: CASH_LIMIT_EXCEEDED`.
 - `BR-19b` Rs 10,000 exactly is accepted; two consecutive Rs 10,000 top-ups are both accepted (no undefined daily cap is enforced).
+- `BR-19c` (2026-10-26) The amount is compared with the cap exactly, in integer paise through the `Money` helpers (`greaterThan`), never as `Number()` floats: an amount one paisa above the cap is refused at any magnitude, and a cap written `10000`, `10000.0` or `10000.00` behaves the same.
+- `BR-19d` (2026-10-26) The cap is `system_config.cash_topup_cap` only; there is no literal fallback. A missing cap, or one that is not a money value (e.g. `10,000.00`, which `Number()` turned into NaN so every amount passed), fails closed: 500 `INTERNAL`, nothing written.
 
 ---
 

@@ -11433,6 +11433,14 @@ paths:
         Replaying it with the same body returns the original 201 body and writes nothing; the
         same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED`; no key is 422
         `VALIDATION_FAILED`. A fiscal cash tag already used by another request is 409 `CONFLICT`.
+
+        Permissions (BR-18e): the caller needs `wallet.cash_topup.process` (`x-permission`) AND
+        `wallet.cash_topup.fiscal_tag`, because every cash top-up marks the fiscal cash tag that
+        triggers the credit. Holding only one of them is 403 `FORBIDDEN`.
+
+        The cap is `system_config.cash_topup_cap`, compared exactly in integer paise (BR-19c). A
+        missing or malformed cap is 500 `INTERNAL` and nothing is written (BR-19d): there is no
+        literal fallback.
       x-permission: wallet.cash_topup.process
       x-business-rules: [BR-18, BR-19, BR-30]
       parameters:

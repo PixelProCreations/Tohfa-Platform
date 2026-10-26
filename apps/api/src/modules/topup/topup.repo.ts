@@ -100,7 +100,11 @@ export interface TopupRepo {
     minutes: number,
   ): Promise<TopupWithPayment[]>;
 
-  getCashTopupCap(db: Executor): Promise<string>;
+  /**
+   * BR-19: system_config `cash_topup_cap` as text, or null when the row or its value is missing.
+   * No literal fallback (CLAUDE.md 2.7): the service refuses a top-up it cannot bound.
+   */
+  getCashTopupCap(db: Executor): Promise<string | null>;
 
   findCustomerWallet(
     db: Executor,
@@ -301,7 +305,7 @@ export const topupRepo: TopupRepo = {
         return String(val);
       }
     }
-    return '10000.00';
+    return null;
   },
 
   async findCustomerWallet(db, customerId) {
