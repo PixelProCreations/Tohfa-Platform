@@ -28,6 +28,8 @@ export interface BatchRow {
   qty_available: string;
   cost_per_kg: string | null;
   storage_location: string | null;
+  /** BR-125 (migration 0079); absent only in hand-built test rows. */
+  storage_location_id?: string | null;
   received_on: Date | string;
   expiry_on: Date | string | null;
   status: string;
@@ -69,6 +71,7 @@ export function toBatchView(row: BatchRow): BatchView {
     qtyAvailableKg: row.qty_available,
     costPerKg: row.cost_per_kg,
     storageLocation: row.storage_location,
+    storageLocationId: row.storage_location_id ?? null,
     receivedOn: formatDate(row.received_on) ?? new Date().toISOString().split('T')[0]!,
     expiryOn: formatDate(row.expiry_on),
     status: row.status as BatchView['status'],

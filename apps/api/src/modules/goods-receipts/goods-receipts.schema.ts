@@ -199,6 +199,9 @@ export const qualityCheckCreateBody = z
     photos: z.array(z.string()).max(5).default([]),
     priceAdjustment: z.string().default('0.00'),
     storageLocation: z.string().max(40).optional(),
+    // BR-125: a live, active storage location of the receipt's warehouse, linked to the batch. The
+    // service checks the warehouse and the status (422); the schema only the shape.
+    storageLocationId: z.string().uuid('storageLocationId must be a UUID').optional(),
     // docs/openapi.yaml `format: date`. A real calendar date, because it is copied to the batch
     // (BR-106) and `2026-02-30` would otherwise reach Postgres as a 500 (as BR-58 found elsewhere).
     expiryOn: z

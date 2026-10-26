@@ -76,6 +76,8 @@ export const batchSchema = z.object({
   qtyReservedKg: z.string().optional(),
   costPerKg: z.string().nullable().optional(),
   storageLocation: z.string().nullable(),
+  /** BR-125: the linked storage location; optional in the type so older fixtures stay valid, always set by toBatchView. */
+  storageLocationId: z.string().uuid().nullable().optional(),
   receivedOn: z.string(),
   expiryOn: z.string().nullable(),
   status: z.enum(batchStatuses),

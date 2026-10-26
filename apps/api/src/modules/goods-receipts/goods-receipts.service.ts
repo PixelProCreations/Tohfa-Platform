@@ -14,6 +14,7 @@ import { allocationsService, type AllocateBatchInput } from '../allocations/allo
 import type { BatchView } from '../inventory/inventory.schema.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import { confineToAssignedWarehouses, warehouseNotFound } from '../warehouse-ops/scope.js';
+import { findPlaceableLocation } from '../warehouse-ops/storage-locations.repo.js';
 import {
   goodsReceiptsRepo,
   type GoodsReceiptsRepo,
@@ -180,6 +181,8 @@ interface StockReceiptInput {
   /** Pass-through of the QC's optional values; NULL when not given (owner decision 4). */
   expiryOn: string | null;
   storageLocation: string | null;
+  /** BR-125: the linked location (already validated against the receipt's warehouse), or null. */
+  storageLocationId: string | null;
   audit:
     | { trigger: 'quality_check'; actorId: string; actorRole: string; qualityCheckId: string }
     | { trigger: 'quality_counter_offer.accepted'; counterOfferId: string };
@@ -231,6 +234,7 @@ export function createGoodsReceiptsService(
         qtyReceivedKg: input.qtyKg,
         costPerKg: source.purchasePricePerKg,
         storageLocation: input.storageLocation,
+        storageLocationId: input.storageLocationId,
         expiryOn: input.expiryOn,
       });
     } catch (error) {
@@ -274,6 +278,7 @@ export function createGoodsReceiptsService(
         qtyReceivedKg: batch.qtyReceivedKg,
         expiryOn: batch.expiryOn,
         storageLocation: batch.storageLocation,
+        storageLocationId: batch.storageLocationId ?? null,
         trigger: audit.trigger,
         ...(audit.trigger === 'quality_check'
           ? { qualityCheckId: audit.qualityCheckId }
@@ -497,11 +502,32 @@ export function createGoodsReceiptsService(
           }
         }
 
+        // BR-125: a named storage location must be a live, ACTIVE location of the receipt's
+        // warehouse; it is share-locked until this transaction ends so it cannot be deactivated
+        // under the batch. Without text, the batch's label is the location's code. Nothing is
+        // inferred from text alone.
+        let storageLocation = input.storageLocation;
+        if (input.storageLocationId !== undefined) {
+          const location = await findPlaceableLocation(tx, grn.warehouseId, input.storageLocationId);
+          if (location === null || !location.isActive) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: 'The storage location cannot take stock of this receipt.',
+              errors: {
+                'body.storageLocationId': [
+                  location === null ? "No storage location with that id in the receipt's warehouse." : 'The storage location is not active.',
+                ],
+              },
+            });
+          }
+          storageLocation ??= location.code;
+        }
+
         // 4. One transaction: the claim, the quality check & items, the GRN status, the batch the
         // accepted goods are stocked as (BR-106) and the audit rows commit or roll back together.
         const acceptedQtyKg = Number(acceptedQty).toFixed(3);
         const qc = await repo.insertQualityCheckWithItems(tx, {
           ...input,
+          ...(storageLocation === undefined ? {} : { storageLocation }),
           goodsReceiptId,
           warehouseId: grn.warehouseId,
           listedGrade: (grn as { grade?: ProduceGrade }).grade ?? input.assignedGrade,
@@ -548,7 +574,8 @@ export function createGoodsReceiptsService(
             grade: input.assignedGrade,
             qtyKg: acceptedQtyKg,
             expiryOn: input.expiryOn ?? null,
-            storageLocation: input.storageLocation ?? null,
+            storageLocation: storageLocation ?? null,
+            storageLocationId: input.storageLocationId ?? null,
             audit: { trigger: 'quality_check', actorId: actor.userId, actorRole: scope.roleCode, qualityCheckId: qc.id },
           });
         }
@@ -581,6 +608,7 @@ export function createGoodsReceiptsService(
         qtyKg: offer.quantityKg,
         expiryOn: offer.qualityCheck.expiryOn,
         storageLocation: offer.qualityCheck.storageLocation,
+        storageLocationId: offer.qualityCheck.storageLocationId ?? null,
         audit: { trigger: 'quality_counter_offer.accepted', counterOfferId: offerId },
       });
     },

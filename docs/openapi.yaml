@@ -998,9 +998,14 @@ paths:
         Requires `inventory.batch.view` (the designed Storage Location Detail screen is gated on it):
         a Sub Warehouse Admin reads only its own warehouse; any other warehouse and an unknown
         warehouse return the same 404 `NOT_FOUND`, never 403 and never an empty list (BR-30, BR-79).
-        `inventory_batches.storage_location` is free text and is NOT linked to these rows.
+        Each location carries its place in the warehouse's tree (`parentId`, a derived `level`) and
+        its usage, read in the same query (no per-row lookup): `usedKg` / `batchCount` for the
+        location itself and `subtreeUsedKg` / `subtreeBatchCount` including its descendants, from the
+        ACTIVE non-empty batches LINKED to it (`inventory_batches.storage_location_id`; on-hand
+        `qty_available`, not the BR-100 free shelf). A batch that carries only free text is not
+        counted (BR-125).
       x-permission: inventory.batch.view
-      x-business-rules: [BR-30, BR-79]
+      x-business-rules: [BR-30, BR-79, BR-125]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 120 } }
@@ -1030,9 +1035,14 @@ paths:
         immutable afterwards. `capacityKg` is a positive decimal string, display-only: no stock
         movement is checked against it. An unknown warehouse is 404. One
         `warehouse.storage_location.create` audit row is written in the same transaction with a
-        masked image (code, type, capacity, status; never the name) (BR-35, BR-79).
+        masked image (code, type, capacity, status, parent; never the name) (BR-35, BR-79).
+
+        An optional `parentId` places the location under a live, ACTIVE location of the same
+        warehouse (an unknown or another warehouse's location, an inactive one, or a parent that
+        would exceed `system_config.storage_location_max_depth` tiers is 422 `VALIDATION_FAILED` on
+        `body.parentId`) (BR-125).
       x-permission: warehouse.storage_location.manage
-      x-business-rules: [BR-30, BR-35, BR-79]
+      x-business-rules: [BR-30, BR-35, BR-79, BR-125]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       requestBody:
@@ -1061,8 +1071,9 @@ paths:
       description: |
         Same scoping as the list: another or an unknown warehouse, and a location id that is not in
         this warehouse, are 404 `NOT_FOUND` (BR-30, BR-79). A deactivated location is still readable.
+        Carries the same tree and usage fields as the list (BR-125).
       x-permission: inventory.batch.view
-      x-business-rules: [BR-30, BR-79]
+      x-business-rules: [BR-30, BR-79, BR-125]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - { name: locationId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1089,8 +1100,17 @@ paths:
         written in the same transaction with masked before/after images (code, type, capacity,
         status; never the name) and the real names of the changed fields. Requires
         `warehouse.storage_location.manage` (a Sub Warehouse Admin is 403, see POST) (BR-35, BR-79).
+
+        `parentId` moves the location (with everything under it) under another live, ACTIVE location
+        of the same warehouse, or `null` makes it a root; the location itself, one of its
+        descendants, an unknown / other-warehouse / inactive location, or a move that would put any
+        location of the moved subtree at `system_config.storage_location_max_depth` tiers or deeper
+        is 422 on `body.parentId`. Deactivating (`isActive: false`) a location that has an active
+        child or an ACTIVE non-empty batch linked to it is 409 `CONFLICT` (`meta.activeChildCount`,
+        `meta.batchCount`), and reactivating one under an inactive parent is 409 `CONFLICT`; nothing
+        is written (BR-125).
       x-permission: warehouse.storage_location.manage
-      x-business-rules: [BR-30, BR-35, BR-79]
+      x-business-rules: [BR-30, BR-35, BR-79, BR-125]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - { name: locationId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1108,6 +1128,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -9781,7 +9802,7 @@ paths:
         check (BR-106): code `BATCH-<year>-<6 digits>`; grade = `assignedGrade` (not the listed
         grade); `qtyReceivedKg` = `acceptedQtyKg` only (never the rejected part); `costPerKg` =
         the purchase order's agreed price as-is (`priceAdjustment` is recorded on the check but
-        not applied); `expiryOn` and `storageLocation` copied from the request, `expiryOn` null
+        not applied); `expiryOn`, `storageLocation` and `storageLocationId` (BR-125: a live, active location of the receipt's warehouse, else 422; linked to the batch) copied from the request, `expiryOn` null
         when not given. One `RECEIPT` row is appended to the stock ledger (BR-37), the batch is
         allocated across the channels (BR-12), and one `inventory.batch.assign` audit row is
         written. A `REJECT` grade is never sellable, so it is never stocked; a `REJECTED`
@@ -9804,7 +9825,7 @@ paths:
         is a structured reason and needs a non-zero `rejectedQtyKg`; the free-text `rejectionReason`
         stays an optional note. A non-zero `rejectedQtyKg` needs the code, the note or `defectNotes`.
       x-permission: inventory.quality_check.perform
-      x-business-rules: [BR-30, BR-37, BR-12, BR-106, BR-118, BR-120]
+      x-business-rules: [BR-30, BR-37, BR-12, BR-106, BR-118, BR-120, BR-125]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -16062,10 +16083,16 @@ components:
     StorageLocation:
       type: object
       description: A named place stock is kept in, within one warehouse (BR-79).
-      required: [id, warehouseId, code, name, locationType, capacityKg, isActive, createdAt, updatedAt]
+      required: [id, warehouseId, code, name, locationType, capacityKg, isActive, createdAt, updatedAt, parentId, level, usedKg, batchCount, subtreeUsedKg, subtreeBatchCount]
       properties:
         id: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
+        parentId: { type: string, format: uuid, nullable: true, description: 'The parent location in the same warehouse; null for a root (BR-125).' }
+        level: { type: integer, minimum: 0, description: 'Derived at read time: a root is 0, a child is its parent''s level + 1 (BR-125).' }
+        usedKg: { type: string, pattern: '^\d+\.\d{3}$', description: 'Sum of qty_available of the ACTIVE batches with stock LINKED to this location itself (on-hand, not the BR-100 free shelf) (BR-125).', example: '120.500' }
+        batchCount: { type: integer, minimum: 0, description: Number of those batches (BR-125). }
+        subtreeUsedKg: { type: string, pattern: '^\d+\.\d{3}$', description: usedKg of this location and all its descendants (BR-125). }
+        subtreeBatchCount: { type: integer, minimum: 0, description: batchCount of this location and all its descendants (BR-125). }
         code: { type: string, maxLength: 40, example: CS-A01 }
         name: { type: string, maxLength: 120, example: Cold Storage A }
         locationType: { type: string, nullable: true, maxLength: 40, description: 'Free text, not an enum (the design''s Cold/Dry/Bulk/Staging labels are examples).', example: Cold Storage }
@@ -16083,6 +16110,7 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         locationType: { type: string, nullable: true, minLength: 1, maxLength: 40 }
         capacityKg: { type: string, nullable: true, pattern: '^\d{1,9}(\.\d{1,3})?$', description: Decimal string greater than 0., example: '2000' }
+        parentId: { type: string, format: uuid, description: 'Optional parent: a live, active location of the same warehouse within the depth limit (BR-125).' }
 
     StorageLocationUpdate:
       type: object
@@ -16092,7 +16120,8 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         locationType: { type: string, nullable: true, minLength: 1, maxLength: 40 }
         capacityKg: { type: string, nullable: true, pattern: '^\d{1,9}(\.\d{1,3})?$' }
-        isActive: { type: boolean, description: false deactivates; true reactivates. }
+        isActive: { type: boolean, description: 'false deactivates (409 while it has an active child or a placed batch); true reactivates (409 under an inactive parent) (BR-125).' }
+        parentId: { type: string, format: uuid, nullable: true, description: 'Moves the location under another location of the same warehouse; null makes it a root (BR-125).' }
 
     StorageLocationList:
       type: object
@@ -20664,7 +20693,8 @@ components:
         defectNotes: { type: string, maxLength: 500 }
         photos: { type: array, maxItems: 5, items: { type: string, format: uri } }
         priceAdjustment: { $ref: '#/components/schemas/Money', description: 'Signed per-kg adjustment when the assigned grade differs from the listed grade.' }
-        storageLocation: { type: string, maxLength: 40, description: 'Copied to the batch the accepted goods are stocked as (BR-106).' }
+        storageLocation: { type: string, maxLength: 40, description: 'Copied to the batch the accepted goods are stocked as (BR-106). Free text; when omitted and `storageLocationId` is given, the location''s code is used (BR-125).' }
+        storageLocationId: { type: string, format: uuid, description: 'A live, ACTIVE storage location of the receipt''s warehouse (else 422). Stored on the check and linked to the batch, also when a quality counter-offer defers the batch (BR-106, BR-125).' }
         expiryOn: { type: string, format: date, description: 'A real calendar date, else 422. Copied to the batch (BR-106); the batch expiry is null when omitted.' }
 
     QualityCheckItemCreate:
@@ -20771,7 +20801,8 @@ components:
         qtyAvailableKg: { $ref: '#/components/schemas/Quantity' }
         qtyReservedKg: { $ref: '#/components/schemas/Quantity' }
         costPerKg: { $ref: '#/components/schemas/Money' }
-        storageLocation: { type: [string, 'null'] }
+        storageLocation: { type: [string, 'null'], description: Free-text label (kept for every batch, including old ones). }
+        storageLocationId: { type: [string, 'null'], format: uuid, description: 'The linked storage location of the batch''s warehouse; null when none was named or an old label matched no single location (BR-125).' }
         receivedOn: { type: string, format: date }
         expiryOn: { type: [string, 'null'], format: date }
         status: { $ref: '#/components/schemas/BatchStatus' }

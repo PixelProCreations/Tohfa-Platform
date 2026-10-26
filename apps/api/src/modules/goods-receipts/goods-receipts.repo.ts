@@ -160,6 +160,8 @@ export interface QualityOfferStocking {
     assignedGrade: ProduceGrade;
     expiryOn: string | null;
     storageLocation: string | null;
+    /** BR-125: the inspector's linked location, copied to the deferred batch. */
+    storageLocationId?: string | null;
   } | null;
 }
 
@@ -173,6 +175,8 @@ export interface InsertInventoryBatchData {
   qtyReceivedKg: string;
   costPerKg: string;
   storageLocation: string | null;
+  /** BR-125: the linked storage location (same warehouse, composite FK); null when none was named. */
+  storageLocationId?: string | null;
   expiryOn: string | null;
 }
 
@@ -525,10 +529,11 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         spoiled_qty_kg,
         rejection_reason_code,
         actual_crop_id,
-        crop_mismatch_qty_kg
+        crop_mismatch_qty_kg,
+        storage_location_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13,
-              $14::numeric, $15::numeric, $16, $17, $18::numeric)
+              $14::numeric, $15::numeric, $16, $17, $18::numeric, $19)
       RETURNING
         id,
         goods_receipt_id AS "goodsReceiptId",
@@ -574,6 +579,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.rejectionReasonCode ?? null,
       data.actualCropId ?? null,
       data.cropMismatchQtyKg ?? null,
+      // BR-125: stored so a batch deferred by a quality counter-offer is linked too.
+      data.storageLocationId ?? null,
     ];
 
     const qcResult = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
@@ -891,16 +898,18 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       assignedGrade: ProduceGrade | null;
       expiryOn: string | null;
       storageLocation: string | null;
+      storageLocationId: string | null;
     }>(
       `SELECT co.goods_receipt_id AS "goodsReceiptId",
               LEAST(co.quantity_kg, gr.gross_qty_kg)::text AS "quantityKg",
               qc.assigned_grade AS "assignedGrade",
               to_char(qc.expiry_on, 'YYYY-MM-DD') AS "expiryOn",
-              qc.storage_location AS "storageLocation"
+              qc.storage_location AS "storageLocation",
+              qc.storage_location_id AS "storageLocationId"
          FROM counter_offers co
          JOIN goods_receipts gr ON gr.id = co.goods_receipt_id
          LEFT JOIN LATERAL (
-              SELECT q.assigned_grade, q.expiry_on, q.storage_location
+              SELECT q.assigned_grade, q.expiry_on, q.storage_location, q.storage_location_id
                 FROM quality_checks q
                WHERE q.goods_receipt_id = gr.id
                ORDER BY q.checked_at DESC, q.created_at DESC
@@ -918,7 +927,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       qualityCheck:
         row.assignedGrade === null
           ? null
-          : { assignedGrade: row.assignedGrade, expiryOn: row.expiryOn, storageLocation: row.storageLocation },
+          : {
+              assignedGrade: row.assignedGrade,
+              expiryOn: row.expiryOn,
+              storageLocation: row.storageLocation,
+              storageLocationId: row.storageLocationId,
+            },
     };
   },
 
@@ -936,10 +950,10 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     const result = await tx.query<{ id: string }>(
       `INSERT INTO inventory_batches (
          batch_code, warehouse_id, crop_id, grade, goods_receipt_id, source_farmer_id,
-         qty_received, cost_per_kg, storage_location, received_on, expiry_on, status
+         qty_received, cost_per_kg, storage_location, received_on, expiry_on, status, storage_location_id
        ) VALUES (
          $1, $2, $3, $4, $5, $6,
-         $7::numeric, $8::numeric, $9, (now() AT TIME ZONE 'Asia/Kolkata')::date, $10::date, 'ACTIVE'
+         $7::numeric, $8::numeric, $9, (now() AT TIME ZONE 'Asia/Kolkata')::date, $10::date, 'ACTIVE', $11
        )
        RETURNING id`,
       [
@@ -953,6 +967,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         data.costPerKg,
         data.storageLocation,
         data.expiryOn,
+        data.storageLocationId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -975,7 +990,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
     const result = await tx.query<BatchRow>(
       `SELECT b.id, b.batch_code, b.warehouse_id, b.crop_id, c.name AS crop_name, b.grade,
               b.goods_receipt_id, b.source_farmer_id, b.qty_received::text, b.qty_available::text,
-              b.cost_per_kg::text, b.storage_location, to_char(b.received_on, 'YYYY-MM-DD') AS received_on,
+              b.cost_per_kg::text, b.storage_location, b.storage_location_id, to_char(b.received_on, 'YYYY-MM-DD') AS received_on,
               to_char(b.expiry_on, 'YYYY-MM-DD') AS expiry_on, b.status, b.created_at, b.updated_at
          FROM inventory_batches b
          JOIN crop_master c ON c.id = b.crop_id
