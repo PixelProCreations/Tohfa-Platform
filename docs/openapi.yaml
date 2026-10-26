@@ -9671,8 +9671,13 @@ paths:
         row, ledger row, history row, audit row or notification); the same key with a different body or
         target is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422 `VALIDATION_FAILED`. A refused
         attempt is not remembered.
+
+        Packages (BR-123, UNCONFIRMED unit set and bound): `packageCount` and `packageUnit` are
+        optional and come together or not at all (422 otherwise). They are stored, returned on every
+        receipt read, and never change a quantity or stock. They are part of the request the key is
+        bound to: a different package value on the same key is 409 `IDEMPOTENCY_KEY_REUSED`.
       x-permission: inventory.goods_receipt.record
-      x-business-rules: [BR-30, BR-37, BR-118]
+      x-business-rules: [BR-30, BR-37, BR-118, BR-123]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -9685,6 +9690,8 @@ paths:
               grossQtyKg: '250.000'
               vehicleNumber: TN43AB1234
               photos: [https://cdn.tohfa.in/grn/2026/aug/2b1c-1.jpg]
+              packageCount: 12
+              packageUnit: CRATE
       responses:
         '201':
           description: Goods receipt note created.
@@ -20391,6 +20398,13 @@ components:
         vehicleNumber: { type: string, maxLength: 20 }
         photos: { type: array, maxItems: 5, items: { type: string, format: uri } }
         remarks: { type: string, maxLength: 500 }
+        packageCount: { type: integer, minimum: 1, maximum: 100000, description: 'BR-123: how many packages arrived (UNCONFIRMED bound). Send with `packageUnit` or not at all (422 otherwise). Descriptive only: never a quantity.' }
+        packageUnit: { $ref: '#/components/schemas/GoodsReceiptPackageUnit' }
+
+    GoodsReceiptPackageUnit:
+      type: string
+      description: 'BR-123 (UNCONFIRMED set): the kind of package counted in `packageCount`. Sent with `packageCount` or not at all.'
+      enum: [CRATE, BAG, SACK, BOX, BUNDLE, TRAY, OTHER]
 
     GoodsReceipt:
       type: object
@@ -20415,6 +20429,12 @@ components:
         grade: { $ref: '#/components/schemas/Grade', description: The purchase order's (listed) grade. Not on the receipts nested in a purchase-order detail. }
         batchId: { type: [string, 'null'], format: uuid, description: 'BR-106: the inventory batch this receipt was stocked as; null until accepted goods are stocked.' }
         batchCode: { type: [string, 'null'], description: 'BR-106: that batch''s code (`BATCH-<year>-<6 digits>`).', examples: [BATCH-2026-000123] }
+        packageCount: { type: [integer, 'null'], description: 'BR-123: the package count recorded at intake; null when none was given. Not on the receipts nested in a purchase-order detail.' }
+        packageUnit:
+          description: 'BR-123: the unit of `packageCount`; null exactly when `packageCount` is. Not on the receipts nested in a purchase-order detail.'
+          oneOf:
+            - { $ref: '#/components/schemas/GoodsReceiptPackageUnit' }
+            - { type: 'null' }
 
     GoodsReceiptDetail:
       description: '`GET /admin/goods-receipts/{id}`: the receipt with its quality check (BR-119).'

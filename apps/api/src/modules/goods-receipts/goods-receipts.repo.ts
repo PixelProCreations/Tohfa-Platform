@@ -11,6 +11,7 @@ import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js'
 import type {
   CreateGoodsReceiptBody,
   DiscrepancyType,
+  PackageUnit,
   GoodsReceiptDiscrepancyResponse,
   GoodsReceiptResponse,
   GrnStatus,
@@ -55,6 +56,9 @@ export interface GoodsReceiptRow {
   received_at: Date;
   created_at: Date;
   updated_at: Date | null;
+  /** BR-123: both or neither (migration 0078); absent on rows built by unit-test mocks. */
+  package_count?: number | null;
+  package_unit?: PackageUnit | null;
 }
 
 export interface QualityCheckRow {
@@ -326,9 +330,11 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         vehicle_number,
         photo_keys,
         received_by,
-        status
+        status,
+        package_count,
+        package_unit
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'AWAITING_QC')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'AWAITING_QC', $9, $10)
       RETURNING
         id,
         grn_number,
@@ -345,7 +351,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         received_by,
         received_at,
         created_at,
-        updated_at
+        updated_at,
+        package_count,
+        package_unit
       )
       SELECT ins.*, u.full_name AS received_by_name
         FROM ins
@@ -361,6 +369,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.vehicleNumber ?? null,
       data.photos,
       data.receivedBy,
+      // BR-123: both or neither (the schema and goods_receipts_package_pair_chk).
+      data.packageCount ?? null,
+      data.packageUnit ?? null,
     ];
 
     const result = await tx.query<GoodsReceiptRow>(sql, values);
@@ -427,7 +438,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         c.name AS "cropName",
         po.grade,
         ib.id AS "batchId",
-        ib.batch_code AS "batchCode"
+        ib.batch_code AS "batchCode",
+        gr.package_count AS "packageCount",
+        gr.package_unit AS "packageUnit"
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN crop_master c ON c.id = po.crop_id
@@ -1038,7 +1051,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         c.name AS "cropName",
         po.grade,
         ib.id AS "batchId",
-        ib.batch_code AS "batchCode"
+        ib.batch_code AS "batchCode",
+        gr.package_count AS "packageCount",
+        gr.package_unit AS "packageUnit"
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN crop_master c ON c.id = po.crop_id

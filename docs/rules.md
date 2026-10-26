@@ -2998,6 +2998,31 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-123 — A goods receipt may record how many packages arrived and of what kind, both or neither, without touching stock
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group C" C5(b) for the Sub Warehouse Admin intake screen (package count and unit on the receipt); extends BR-118 (idempotency unchanged) and BR-119 (receipt read model); `docs/rbac.json` `inventory.goods_receipt.record` (existing code, unchanged) |
+| **Status** | DERIVED (the unit set and the count bound are UNCONFIRMED: implementer defaults awaiting the owner) |
+| **Layer** | Server-side: `apps/api/src/modules/goods-receipts/` (`createGoodsReceiptBody`, `createGoodsReceipt`, the receipt reads); `goods_receipts.package_count` / `package_unit` with CHECK constraints (`db/migrations/0078_goods_receipt_packages.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Optional, both or neither.** `POST /admin/goods-receipts` accepts `packageCount` (a JSON integer, 1-100000, UNCONFIRMED bound) and `packageUnit` (one of `CRATE`, `BAG`, `SACK`, `BOX`, `BUNDLE`, `TRAY`, `OTHER`, UNCONFIRMED set). They come together or not at all: one without the other is 422 `VALIDATION_FAILED` naming the missing field, and nothing is written. The database enforces the same (`goods_receipts_package_pair_chk`, `goods_receipts_package_count_chk`, `goods_receipts_package_unit_chk`). A request without them behaves exactly as before.
+2. **Stored and returned.** They are stored on the receipt and returned on the create response, every list row and the detail read (`null` / `null` when not given, and for every receipt created before this rule). They are part of the create audit row's after image.
+3. **Descriptive only.** Packages never change a quantity: not `grossQtyKg`, the quality check, any batch, the stock ledger, the purchase order or a payout (BR-106 unchanged). There is no edit path; a wrong count is recorded as a discrepancy (BR-121).
+4. **Idempotency unchanged (BR-118).** The fields are part of the request a key is bound to: a replay with the same key and body returns the original response and writes nothing; the same key with a different (or added, or removed) package value is 409 `IDEMPOTENCY_KEY_REUSED`. A request without them is bound exactly as before this rule, so a key claimed before it still replays.
+
+**Failure mode if unenforced.** The intake screen's crate count is lost, or stored as a count without a unit (12 of what?), or a retry with a corrected count silently replays the first one; or a package count is mistaken for a quantity and moves stock.
+
+**Test contract.** (`apps/api/src/modules/goods-receipts/goods-receipts.packages.test.ts`)
+- `BR-123a` Body validation: both optional; the count an integer 1-100000 (a string, 0, a fraction or 100001 refused); the unit set; one without the other refused on the missing field.
+- `BR-123b` Over HTTP one without the other is 422 before any SQL.
+- `BR-123c` Stored and returned on the create response, the list row and the detail; `null` / `null` when not given; the receipt's quantities and stock are unchanged.
+- `BR-123d` A replay with the same key and body returns the same response and writes one receipt; a different, added or removed package value on the key is 409 `IDEMPOTENCY_KEY_REUSED`.
+- `BR-123e` The database refuses a count without a unit (and the reverse), a count below 1 and a unit outside the set.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

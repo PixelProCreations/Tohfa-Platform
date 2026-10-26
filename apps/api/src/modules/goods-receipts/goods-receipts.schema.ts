@@ -67,6 +67,15 @@ export const disposalMethods = [
 ] as const;
 export type DisposalMethod = (typeof disposalMethods)[number];
 
+/**
+ * BR-123 (UNCONFIRMED set and bound): the kind of package counted on a receipt. Mirrored by the
+ * CHECK constraints of migration 0078 and by docs/openapi.yaml GoodsReceiptPackageUnit.
+ */
+export const packageUnits = ['CRATE', 'BAG', 'SACK', 'BOX', 'BUNDLE', 'TRAY', 'OTHER'] as const;
+export type PackageUnit = (typeof packageUnits)[number];
+const PACKAGE_COUNT_MIN = 1;
+const PACKAGE_COUNT_MAX = 100_000;
+
 export const goodsReceiptIdParams = z
   .object({
     id: z.string().uuid('Goods receipt ID must be a valid UUID'),
@@ -98,8 +107,25 @@ export const createGoodsReceiptBody = z
     vehicleNumber: z.string().max(20).optional(),
     photos: z.array(z.string()).max(5).default([]),
     remarks: z.string().max(500).optional(),
+    // BR-123: optional, both or neither (checked below). Optional rather than defaulted, so a body
+    // without them parses to exactly what it did before and keeps its Idempotency-Key binding.
+    packageCount: z
+      .number()
+      .int('packageCount must be a whole number')
+      .min(PACKAGE_COUNT_MIN, `packageCount must be at least ${PACKAGE_COUNT_MIN}`)
+      .max(PACKAGE_COUNT_MAX, `packageCount must be at most ${PACKAGE_COUNT_MAX}`)
+      .optional(),
+    packageUnit: z.enum(packageUnits).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.packageCount !== undefined && body.packageUnit === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['packageUnit'], message: 'packageUnit is required with packageCount' });
+    }
+    if (body.packageUnit !== undefined && body.packageCount === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['packageCount'], message: 'packageCount is required with packageUnit' });
+    }
+  });
 export type CreateGoodsReceiptBody = z.infer<typeof createGoodsReceiptBody>;
 
 /** docs/openapi.yaml QualityCheckItemCreate (BR-120: documented and validated strictly). */
@@ -265,6 +291,9 @@ export const goodsReceiptResponse = z.object({
   // BR-106: the batch this receipt was stocked as, once accepted goods have been stocked.
   batchId: z.string().uuid().nullable().optional(),
   batchCode: z.string().nullable().optional(),
+  // BR-123: null / null when no package count was recorded.
+  packageCount: z.number().int().nullable().optional(),
+  packageUnit: z.enum(packageUnits).nullable().optional(),
 });
 export type GoodsReceiptResponse = z.infer<typeof goodsReceiptResponse>;
 

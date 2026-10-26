@@ -367,6 +367,9 @@ export function createGoodsReceiptsService(
           // A new receipt awaits its quality check: nothing is stocked yet (BR-106).
           batchId: null,
           batchCode: null,
+          // BR-123: as stored; null / null when the request carried none.
+          packageCount: grnRow.package_count ?? null,
+          packageUnit: grnRow.package_unit ?? null,
         };
         await idem.complete(response);
         return response;
