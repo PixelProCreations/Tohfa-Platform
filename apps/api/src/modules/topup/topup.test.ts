@@ -13,7 +13,7 @@ import {
   newId,
 } from '../../test/factories.js';
 import { createTopupService } from './topup.service.js';
-import type { TopupRepo } from './topup.repo.js';
+import { topupRepo, type TopupRepo } from './topup.repo.js';
 import { cashTopupCustomerLookupQuery } from './topup.schema.js';
 import type { WalletService } from '../wallet/wallet.service.js';
 import { MockPaymentGateway } from '../../payments/mock.gateway.js';
@@ -150,6 +150,23 @@ describe('Cash top-up customer lookup (BR-91i, unit)', () => {
     const { calls, service } = lookupHarness();
     await service.lookupCashTopupCustomers(aScope({ permission: 'wallet.cash_topup.process' }), { code: '  CUST-FIRST-1 ' });
     expect(calls).toEqual([[{ kind: 'code', code: 'CUST-FIRST-1' }]]);
+  });
+
+  it('BR-91i: the repo lookup never matches a soft-deleted user, by mobile or by code', async () => {
+    const statements: string[] = [];
+    const recording = {
+      async query(sql: string) {
+        statements.push(sql);
+        return { rows: [], rowCount: 0 } as never;
+      },
+    } as unknown as Executor;
+    await topupRepo.lookupCashTopupCustomers(recording, { kind: 'mobile', digits: '9876543210' });
+    await topupRepo.lookupCashTopupCustomers(recording, { kind: 'code', code: 'CUST-FIRST-1' });
+    expect(statements).toHaveLength(2);
+    for (const sql of statements) {
+      // The users join itself excludes a deleted account, so a recycled mobile cannot surface it.
+      expect(sql.replace(/\s+/g, ' ')).toContain('JOIN users u ON u.id = c.user_id AND u.deleted_at IS NULL');
+    }
   });
 
   it('BR-91i: the top-up lookup takes exactly one of mobile or code; a name/partial search (q) is refused, so it cannot be used to browse customers', () => {
