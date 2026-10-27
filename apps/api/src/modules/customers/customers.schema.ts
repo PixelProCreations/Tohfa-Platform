@@ -7,6 +7,7 @@
  * batch) fails the test instead of reaching a client (BR-16, BR-90, BR-92).
  */
 import { z } from 'zod';
+import { walletTxnStatuses } from '../wallet/wallet.schema.js';
 
 const moneySchema = z.string().regex(/^-?[0-9]{1,10}(\.[0-9]{1,2})?$/);
 const quantitySchema = z.string().regex(/^-?[0-9]{1,9}(\.[0-9]{1,3})?$/);
@@ -278,6 +279,8 @@ export const walletTransactionSchema = z
     performedBy: z.string().uuid().nullable(),
     performedAt: isoDateTime,
     remarks: z.string().nullable(),
+    /** BR-129: always COMPLETED, set by `toWalletTransactionResponse`; see `walletTxnStatuses`. */
+    status: z.enum(walletTxnStatuses),
   })
   .strict();
 export type AdminWalletTransaction = z.infer<typeof walletTransactionSchema>;

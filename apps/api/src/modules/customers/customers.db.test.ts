@@ -25,6 +25,7 @@ import {
   randomMobile,
   requireDatabaseTables,
 } from '../../test/dbFixtures.js';
+import { walletRepo } from '../wallet/wallet.repo.js';
 import { decodeTimeKey } from './customers.policy.js';
 import { customersRepo } from './customers.repo.js';
 import {
@@ -483,6 +484,28 @@ describeIfDatabase('Customers service and repo (PostgreSQL)', () => {
       const other = await addTxn(w.tx, theirs, 'CREDIT', '7.00');
       expect((await rejects(w.svc.getWalletTransaction(w.subA(), w.cOrder.id, other))).status).toBe(404);
       expect(await w.svc.getWalletTransaction(w.subA(), w.cOrder.id, mine)).toMatchObject({ id: mine, amount: '5.00', txnType: 'TOPUP_DIGITAL' });
+    });
+  });
+
+  dbIt('BR-129c: the admin wallet list and detail and the own-ledger repo read carry status COMPLETED on every real ledger row, credit and debit', async () => {
+    await inRolledBackTx(async (w) => {
+      const wallet = await addWallet(w.tx, w.cOrder.id);
+      const credit = await addTxn(w.tx, wallet, 'CREDIT', '20.00');
+      const debit = await addTxn(w.tx, wallet, 'DEBIT', '5.00');
+
+      const page = await w.svc.listWalletTransactions(w.subA('customer.wallet.view'), w.cOrder.id, { limit: 10 });
+      expect(page.items.map((t) => t.id).sort()).toEqual([credit, debit].sort());
+      for (const t of page.items) {
+        expect(t.status).toBe('COMPLETED');
+        expect(walletTransactionSchema.parse(t)).toEqual(t);
+      }
+      for (const id of [credit, debit]) {
+        expect((await w.svc.getWalletTransaction(w.subA('customer.wallet.view'), w.cOrder.id, id)).status).toBe('COMPLETED');
+      }
+
+      // GET /wallets/me/transactions reads through this repo function and the same serializer.
+      const own = await walletRepo.listTransactions(w.tx, wallet, { limit: 10, tab: 'all' });
+      expect(own.items.map((t) => t.status)).toEqual(['COMPLETED', 'COMPLETED']);
     });
   });
 

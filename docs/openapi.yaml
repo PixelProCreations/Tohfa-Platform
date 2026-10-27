@@ -11551,9 +11551,11 @@ paths:
         Returns the caller's own append-only wallet ledger, newest first. Balances are derived
         from these rows and are never edited in place (BR-36). Ordered by `(created_at, id)`
         descending; the opaque `cursor` carries both columns, so paging never skips or repeats a
-        row. A `cursor` this endpoint did not issue is 422 `VALIDATION_FAILED`.
+        row. A `cursor` this endpoint did not issue is 422 `VALIDATION_FAILED`. Every row carries
+        `status: COMPLETED`, true by construction: only settled movements are written to the
+        ledger (BR-129).
       x-permission: wallet.own.view
-      x-business-rules: [BR-36]
+      x-business-rules: [BR-36, BR-129]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -15026,9 +15028,9 @@ paths:
       summary: Customer wallet transactions (read-only)
       description: |
         The customer's wallet ledger, newest first. GET only (BR-93). 404 when the customer is
-        outside the scope (BR-91).
+        outside the scope (BR-91). Every row carries `status: COMPLETED` (BR-129).
       x-permission: customer.wallet.view
-      x-business-rules: [BR-93, BR-91]
+      x-business-rules: [BR-93, BR-91, BR-129]
       parameters:
         - { $ref: '#/components/parameters/CustomerIdPathParam' }
         - { $ref: '#/components/parameters/CursorParam' }
@@ -15057,9 +15059,9 @@ paths:
       summary: Customer wallet transaction detail (read-only)
       description: |
         One ledger row. 404 when the customer is outside the scope, or the transaction belongs to a
-        different customer's wallet (BR-93d).
+        different customer's wallet (BR-93d). The row carries `status: COMPLETED` (BR-129).
       x-permission: customer.wallet.view
-      x-business-rules: [BR-93, BR-91]
+      x-business-rules: [BR-93, BR-91, BR-129]
       parameters:
         - { $ref: '#/components/parameters/CustomerIdPathParam' }
         - { name: txnId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -21347,8 +21349,8 @@ components:
 
     WalletTransaction:
       type: object
-      description: 'Serialized by one function (`toWalletTransactionResponse`) everywhere: every key is always present, null where noted.'
-      required: [id, walletId, txnType, amount, balanceAfter, refType, refId, fiscalCashTag, warehouseId, performedBy, performedAt, remarks]
+      description: 'Serialized by one function (`toWalletTransactionResponse`) everywhere (the own ledger, the admin customer wallet list and detail, and the cash top-up response): every key is always present, null where noted.'
+      required: [id, walletId, txnType, amount, balanceAfter, refType, refId, fiscalCashTag, warehouseId, performedBy, performedAt, remarks, status]
       additionalProperties: false
       properties:
         id: { type: string, format: uuid }
@@ -21363,6 +21365,15 @@ components:
         performedBy: { type: [string, 'null'], format: uuid }
         performedAt: { type: string, format: date-time }
         remarks: { type: [string, 'null'] }
+        status:
+          type: string
+          enum: [COMPLETED]
+          description: |
+            BR-129 (owner decision 2026-10-27, option c): always `COMPLETED`, set by the serializer
+            and not stored. True by construction: a ledger row is written only in the transaction
+            that settles the money, so pending and failed top-ups never reach the ledger. A pending
+            or failed feed, if ever added, comes from a separate non-ledger source and widens this
+            enum by a new rule.
 
     TopupIntent:
       type: object

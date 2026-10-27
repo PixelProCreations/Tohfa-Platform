@@ -66,6 +66,8 @@ export function toWalletTransactionResponse(row: WalletTransactionRow): WalletTr
     performedBy: row.created_by,
     performedAt: row.created_at.toISOString(),
     remarks: row.remarks,
+    // BR-129: constant, not read from the row. The ledger only ever holds settled movements.
+    status: 'COMPLETED',
   };
 }
 
