@@ -20,6 +20,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
+import { useCustomerWallet } from './useWalletData';
+import { rupeesFromMoney } from './mappers';
 import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -56,15 +58,26 @@ export function CustomerWalletScreen({
   onCashTopUp,
   onOpenTransaction,
 }: CustomerWalletScreenProps) {
+  const customerIdToFetch =
+    customer?.customerId ??
+    (customer?.id?.startsWith('cus-') || (customer?.id && customer.id.length === 36) ? customer.id : undefined);
+  const { summary, transactions: liveTxns } = useCustomerWallet(customerIdToFetch);
+
+  const displayBalance = summary
+    ? rupeesFromMoney(summary.balance)
+    : (customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
+
   const active: ResolvedWalletCustomer = {
     name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
     id: customer?.id ?? SAMPLE_WALLET_CUSTOMER.id,
+    customerId: customer?.customerId ?? '',
     mobile: customer?.mobile ?? SAMPLE_WALLET_CUSTOMER.mobile,
-    balance: customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance,
-    totalCredited: customer?.totalCredited ?? SAMPLE_WALLET_CUSTOMER.totalCredited,
-    totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
+    balance: displayBalance,
+    totalCredited: '—',
+    totalUsed: '—',
   };
-  const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
+  const txList = liveTxns.length > 0 ? liveTxns : transactions;
+  const visible = txList.filter((tx) => inScope(scope, tx.warehouseId));
   const showTopUp = can('wallet.cash_topup.process') && onCashTopUp !== undefined;
 
   return (

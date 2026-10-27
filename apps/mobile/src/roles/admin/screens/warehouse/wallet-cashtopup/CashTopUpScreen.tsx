@@ -14,7 +14,7 @@
  * Absorbs dashboard/MainWarehouseCashTopUpScreen (its "Maximum cash top-up"
  * hint is shown here for both roles).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Svg, { Path, Rect } from 'react-native-svg';
@@ -22,6 +22,8 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { CASH_TOPUP_CAP_PAISE, formatCashTopUpCap, validateTopUpAmount } from '../../../config/businessThresholds';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { SAMPLE_WALLET_CUSTOMER, TOP_UP_PRESETS, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
+import { useCustomerLookup } from './useWalletData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { CashTopUpDraft, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -76,12 +78,29 @@ export function CashTopUpScreen({
   onBack,
   customer,
   processedBy,
-  warehouseOptions = WALLET_WAREHOUSES,
+  warehouseOptions,
   onContinue,
 }: CashTopUpScreenProps) {
-  const custName = customer?.name ?? SAMPLE_WALLET_CUSTOMER.name;
-  const custCode = customer?.id ?? SAMPLE_WALLET_CUSTOMER.id;
-  const baseBalance = rupeesOf(customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions =
+    warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+
+  const [activeCustomer, setActiveCustomer] = useState<WalletCustomer | undefined>(customer);
+  const { results: lookupResults, search: performLookup } = useCustomerLookup();
+
+  useEffect(() => {
+    if (customer) setActiveCustomer(customer);
+  }, [customer]);
+
+  useEffect(() => {
+    if (lookupResults.length > 0) {
+      setActiveCustomer(lookupResults[0]);
+    }
+  }, [lookupResults]);
+
+  const custName = activeCustomer?.name ?? SAMPLE_WALLET_CUSTOMER.name;
+  const custCode = activeCustomer?.id ?? SAMPLE_WALLET_CUSTOMER.id;
+  const baseBalance = rupeesOf(activeCustomer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [amount, setAmount] = useState<number>(2000);
@@ -89,8 +108,13 @@ export function CashTopUpScreen({
   const [customInputValue, setCustomInputValue] = useState('2000');
   // Main picks the collecting warehouse; Sub is locked to its own.
   const [collectedAt, setCollectedAt] = useState<string | undefined>(
-    scope.warehouseId ?? warehouseOptions[0]?.warehouseId,
+    scope.warehouseId ?? effectiveWarehouseOptions[0]?.warehouseId,
   );
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    performLookup(text);
+  };
 
   if (!can('wallet.cash_topup.process')) {
     // Hiding the flow is presentation only; the server re-checks the code.
@@ -134,6 +158,7 @@ export function CashTopUpScreen({
     onContinue({
       customerName: custName,
       customerCode: custCode,
+      customerId: activeCustomer?.customerId,
       currentBalance: baseBalance,
       topUpAmount: amount,
       warehouseId,
@@ -163,7 +188,7 @@ export function CashTopUpScreen({
           {!isAllWarehouses(scope) ? (
             <SearchBar
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={handleSearchChange}
               placeholder="Search Customer ID or mobile number"
               rightAction={
                 <TouchableOpacity
@@ -251,10 +276,10 @@ export function CashTopUpScreen({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.warehouseChipsRow}
               >
-                {warehouseOptions
+                {effectiveWarehouseOptions
                   .filter((w) => w.warehouseId !== undefined)
                   .map((w) => {
-                    const active = (collectedAt ?? warehouseOptions[0]?.warehouseId) === w.warehouseId;
+                    const active = (collectedAt ?? effectiveWarehouseOptions[0]?.warehouseId) === w.warehouseId;
                     return (
                       <TouchableOpacity
                         key={w.warehouseId}

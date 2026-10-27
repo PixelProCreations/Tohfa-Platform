@@ -9,6 +9,9 @@ import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
 import { WarehouseSelector } from '../inventory';
+import { useCashTopupsReport } from './useWalletData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { rupeesFromMoney } from './mappers';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -247,22 +250,23 @@ export function WalletOperationsScreen({
   onOpenCustomerWallet,
   todayTopUpsCount = 24,
   cashCollectedTotal = 18500,
-  warehouseOptions = [
-    { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-    { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-    { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-    { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-  ],
+  warehouseOptions,
 }: WalletOperationsScreenProps) {
   const isLockedToWarehouse = scope.warehouseId !== undefined;
   const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
   const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<string | undefined>(undefined);
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions = warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+  const { report } = useCashTopupsReport(scope, selectedWarehouseId);
+
+  const liveTopUpsCount = report ? report.count : todayTopUpsCount;
+  const liveCashCollected = report ? rupeesFromMoney(report.total) : `₹${cashCollectedTotal.toLocaleString('en-IN')}`;
+  const liveSubtitle = `${liveTopUpsCount} transactions`;
 
   // BR-18: a cash top-up cannot complete without the fiscal cash tag, so the
   // flow is only offered to admins who hold both permissions. Server re-checks.
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
-
 
   const visibleWarehouseSummaries = selectedWarehouseId
     ? WAREHOUSE_WALLET_SUMMARIES.filter((w) => w.id === selectedWarehouseId)
@@ -323,7 +327,7 @@ export function WalletOperationsScreen({
           ) : (
             <WarehouseSelector
               scope={scope}
-              options={warehouseOptions}
+              options={effectiveWarehouseOptions}
               selectedId={selectedWarehouseId}
               onSelect={setSelectedWarehouseId}
             />
@@ -337,13 +341,13 @@ export function WalletOperationsScreen({
             {/* 1. 4 KPI Cards (2x2 Grid) - Static */}
             <View style={styles.mainKpiGrid}>
               <OverviewDashboardCard
-                value="₹18,500"
+                value={liveCashCollected}
                 title="Today's Cash Top-Ups"
-                subtitle="12 transactions"
+                subtitle={liveSubtitle}
                 icon="cash"
               />
               <OverviewDashboardCard
-                value="12"
+                value={String(liveTopUpsCount)}
                 title="Transactions"
                 subtitle="Completed top-ups"
                 icon="orders"
@@ -416,13 +420,13 @@ export function WalletOperationsScreen({
             <View style={styles.cashActivityCard}>
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Cash Received</Text>
-                <Text style={styles.cashActivityValue}>₹18,500</Text>
+                <Text style={styles.cashActivityValue}>{liveCashCollected}</Text>
               </View>
               <View style={styles.cashActivityDivider} />
 
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Successful Top-Ups</Text>
-                <Text style={styles.cashActivityValue}>12</Text>
+                <Text style={styles.cashActivityValue}>{liveTopUpsCount}</Text>
               </View>
               <View style={styles.cashActivityDivider} />
 
@@ -506,15 +510,15 @@ export function WalletOperationsScreen({
           <View style={styles.kpiGrid}>
             {/* Today's Cash Top-Ups */}
             <OverviewDashboardCard
-              value="₹18,500"
+              value={liveCashCollected}
               title="Today's Cash Top-Ups"
-              subtitle="12 transactions"
+              subtitle={liveSubtitle}
               icon="cash"
             />
 
             {/* Transactions */}
             <OverviewDashboardCard
-              value="12"
+              value={String(liveTopUpsCount)}
               title="Transactions"
               subtitle="Completed top-ups"
               icon="orders"

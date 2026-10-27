@@ -14,6 +14,7 @@ import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { TOP_UP_HISTORY, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import type { TopUpHistoryRow, TopUpStatus, WalletTransactionRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   EmptyState,
   HeaderIconButton,
@@ -48,11 +49,12 @@ export function toTopUpRecord(row: TopUpHistoryRow, scope: WarehouseScope): Wall
   return {
     customerName: row.customerName,
     customerId: row.customerId,
-    previousBalance: '₹2,500',
+    previousBalance: '—',
     amount: row.amount,
-    newBalance: '₹4,500',
+    newBalance: '—',
     transactionId: row.id,
-    status: row.status,
+    // Negative rule: Wallet totals (credited/used) and transaction status -> '—' or hide row
+    status: '—',
     type: 'Cash Top-Up',
     fiscalCashTag: row.fiscalTag,
     dateTime: `${row.date}, ${row.time}`,
@@ -71,9 +73,12 @@ export function TopUpHistoryScreen({
   onBack,
   onTabChange,
   rows = TOP_UP_HISTORY,
-  warehouseOptions = WALLET_WAREHOUSES,
+  warehouseOptions,
   onSelectTransaction,
 }: TopUpHistoryScreenProps) {
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions =
+    warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
   const [search, setSearch] = useState('');
   const [itemsCount, setItemsCount] = useState(PAGE);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
@@ -140,7 +145,7 @@ export function TopUpHistoryScreen({
       headerExtra={
         <ScopeHeader
           scope={scope}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           selectedWarehouseId={selectedWarehouseId}
           onSelectWarehouse={(id) => {
             setSelectedWarehouseId(id);
@@ -271,7 +276,7 @@ export function TopUpHistoryScreen({
                   >
                     <Text style={[styles.chipText, tempWarehouseId === undefined && styles.chipTextActive]}>All</Text>
                   </TouchableOpacity>
-                  {warehouseOptions.map((wh) => {
+                  {effectiveWarehouseOptions.map((wh: WarehouseScope) => {
                     const active = tempWarehouseId === wh.warehouseId;
                     return (
                       <TouchableOpacity

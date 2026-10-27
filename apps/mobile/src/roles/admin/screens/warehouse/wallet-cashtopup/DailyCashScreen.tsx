@@ -26,6 +26,8 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-nati
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CASH_LEDGER, SAMPLE_DATE, WALLET_WAREHOUSES, warehouseNameOf } from './fixtures';
+import { useDailyCashData } from './useWalletData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { CashLedgerEntry, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -69,7 +71,7 @@ export function DailyCashScreen({
   onBack,
   date = SAMPLE_DATE,
   entries = CASH_LEDGER,
-  warehouseOptions = WALLET_WAREHOUSES,
+  warehouseOptions,
   initialWarehouseId,
   hideWarehouseFilter = false,
 }: DailyCashScreenProps) {
@@ -77,6 +79,19 @@ export function DailyCashScreen({
   const [differenceReason, setDifferenceReason] = useState('');
   const [breakdown, setBreakdown] = useState<Breakdown>('Cash In');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions =
+    warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+
+  const liveCash = useDailyCashData(scope, selectedWarehouseId);
+  const effectiveOpening = liveCash.openingCash;
+  const effectiveDirectSales = liveCash.directSales > 0 ? liveCash.directSales : DIRECT_SALES;
+  const effectiveTopUps = liveCash.cashTopUps > 0 ? liveCash.cashTopUps : CASH_TOP_UPS;
+  const effectiveExpenses = liveCash.expenses > 0 ? liveCash.expenses : EXPENSES;
+  const effectiveClosing =
+    liveCash.directSales > 0 || liveCash.cashTopUps > 0 || liveCash.expenses > 0
+      ? liveCash.expectedClosing
+      : EXPECTED_CLOSING;
 
   // NO CODE for the daily cash ledger yet (SPEC_GAPS W4i-3): show it only to
   // admins who can see the finance data it is built from.
@@ -90,8 +105,15 @@ export function DailyCashScreen({
   }
 
   const parsedActual = Number(actualCash.replace(/[^0-9]/g, '')) || 0;
-  const difference = parsedActual - EXPECTED_CLOSING;
-  const rows = entries.filter((e) => e.type === breakdown && inScope(scope, e.warehouseId, selectedWarehouseId));
+  const difference = parsedActual - effectiveClosing;
+  const rows =
+    breakdown === 'Cash In'
+      ? liveCash.cashInEntries.length > 0
+        ? liveCash.cashInEntries
+        : entries.filter((e) => e.type === 'Cash In' && inScope(scope, e.warehouseId, selectedWarehouseId))
+      : liveCash.cashOutEntries.length > 0
+        ? liveCash.cashOutEntries
+        : entries.filter((e) => e.type === 'Cash Out' && inScope(scope, e.warehouseId, selectedWarehouseId));
   const headerLabel = isAllWarehouses(scope)
     ? undefined
     : `${scope.warehouseName ?? scope.warehouseId} · ${date}`;
@@ -115,7 +137,7 @@ export function DailyCashScreen({
           <ScopeHeader
             scope={scope}
             label={headerLabel}
-            warehouseOptions={warehouseOptions}
+            warehouseOptions={effectiveWarehouseOptions}
             selectedWarehouseId={selectedWarehouseId}
             onSelectWarehouse={setSelectedWarehouseId}
           />
@@ -130,31 +152,31 @@ export function DailyCashScreen({
         <SectionTitle>Opening Balance</SectionTitle>
         <Card>
           <Text style={styles.cardLabel}>Opening Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(OPENING_CASH)}</Text>
+          <Text style={styles.cardBigValue}>{formatRupees(effectiveOpening)}</Text>
         </Card>
 
         <SectionTitle>Cash In</SectionTitle>
         <Card>
-          <AmountRow label="Direct Sales" value={formatRupees(DIRECT_SALES)} />
-          <AmountRow divider label="Cash Top-Ups" value={formatRupees(CASH_TOP_UPS)} />
-          <AmountRow divider label="Total Cash In" value={formatRupees(DIRECT_SALES + CASH_TOP_UPS)} emphasis="total" />
+          <AmountRow label="Direct Sales" value={formatRupees(effectiveDirectSales)} />
+          <AmountRow divider label="Cash Top-Ups" value={formatRupees(effectiveTopUps)} />
+          <AmountRow divider label="Total Cash In" value={formatRupees(effectiveDirectSales + effectiveTopUps)} emphasis="total" />
         </Card>
 
         <SectionTitle>Cash Out</SectionTitle>
         <Card>
-          <AmountRow label="Expenses" value={formatRupees(EXPENSES)} />
-          <AmountRow divider label="Total Cash Out" value={formatRupees(EXPENSES)} emphasis="total" />
+          <AmountRow label="Expenses" value={formatRupees(effectiveExpenses)} />
+          <AmountRow divider label="Total Cash Out" value={formatRupees(effectiveExpenses)} emphasis="total" />
         </Card>
 
         <SectionTitle>Closing Balance</SectionTitle>
         <Card>
           <Text style={styles.cardLabel}>Expected Closing Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(EXPECTED_CLOSING)}</Text>
+          <Text style={styles.cardBigValue}>{formatRupees(effectiveClosing)}</Text>
         </Card>
 
         <SectionTitle>Cash Reconciliation</SectionTitle>
         <Card>
-          <AmountRow label="Expected Cash" value={formatRupees(EXPECTED_CLOSING)} />
+          <AmountRow label="Expected Cash" value={formatRupees(effectiveClosing)} />
           <View style={styles.actualInputWrap}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput

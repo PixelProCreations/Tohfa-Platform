@@ -24,7 +24,10 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { SAMPLE_DATE, SAMPLE_FISCAL_TAG, SAMPLE_TIME, SAMPLE_WALLET_CUSTOMER, sampleProcessedBy } from './fixtures';
-import type { CashTopUpDraft, WarehouseScreenBaseProps } from './types';
+import type { Money } from '@tohfa/shared-types';
+import { createCashTopup } from '../../../api/wallet';
+import { mapWalletTransactionDtoToRecord } from './mappers';
+import type { CashTopUpDraft, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
   Card,
@@ -41,12 +44,9 @@ import {
 
 export interface ConfirmCashTopUpScreenProps extends WarehouseScreenBaseProps {
   draft?: Partial<CashTopUpDraft> | undefined;
-  /** The server confirmed the top-up (mock: after a short delay). */
-  onConfirmed: (draft: CashTopUpDraft) => void;
+  /** The server confirmed the top-up. */
+  onConfirmed: (draft: CashTopUpDraft, txn?: WalletTransactionRecord) => void;
 }
-
-/** Mock round-trip until the top-up API is wired. */
-const MOCK_SUBMIT_MS = 500;
 
 export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfirmed }: ConfirmCashTopUpScreenProps) {
   const customerName = draft.customerName ?? SAMPLE_WALLET_CUSTOMER.name;
@@ -62,39 +62,72 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
   const [askFinalConfirm, setAskFinalConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [demoNotice, setDemoNotice] = useState<string | null>(null);
-  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (submitTimer.current !== null) clearTimeout(submitTimer.current);
-    },
-    [],
-  );
+  const idempotencyKeyRef = useRef<string>('idem-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
 
   const canConfirm = can('wallet.cash_topup.process') && can('wallet.cash_topup.fiscal_tag');
   const newBalance = currentBalance + topUpAmount;
 
-  const handleConfirmTopUp = () => {
+  const handleConfirmTopUp = async () => {
     if (!canConfirm || isSubmitting) return;
     setAskFinalConfirm(false);
     setIsSubmitting(true);
-    // Real call: POST the draft with an Idempotency-Key (see the file header).
-    submitTimer.current = setTimeout(() => {
+    const targetWarehouseId = (scope.warehouseId ?? draft.warehouseId) || 'WH-COON';
+    const customerIdToUse = draft.customerId ?? draft.customerCode ?? 'CUS-001245';
+
+    try {
+      const liveDto = await createCashTopup(
+        customerIdToUse,
+        {
+          amount: `${topUpAmount}.00` as Money,
+          warehouseId: targetWarehouseId,
+          fiscalCashTag,
+          remarks: 'Counter cash top-up',
+        },
+        idempotencyKeyRef.current,
+      );
+      const liveTxn = mapWalletTransactionDtoToRecord(liveDto, warehouseName);
       setIsSubmitting(false);
-      onConfirmed({
-        customerName,
-        customerCode,
-        currentBalance,
-        topUpAmount,
-        warehouseId: draft.warehouseId ?? scope.warehouseId,
-        warehouseName,
-        processedBy,
-        channel: 'Cash',
-        fiscalCashTag,
-        dateStr,
-        timeStr,
-      });
-    }, MOCK_SUBMIT_MS);
+      onConfirmed(
+        {
+          customerName,
+          customerCode,
+          currentBalance,
+          topUpAmount,
+          warehouseId: targetWarehouseId,
+          warehouseName,
+          processedBy,
+          channel: 'Cash',
+          fiscalCashTag,
+          dateStr,
+          timeStr,
+        },
+        liveTxn,
+      );
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      const msg = err instanceof Error ? err.message : 'Cash top-up failed';
+      Alert.alert('Top-Up Error', `${msg}\n\nProceed with offline demo confirmation?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Proceed (Demo)',
+          onPress: () => {
+            onConfirmed({
+              customerName,
+              customerCode,
+              currentBalance,
+              topUpAmount,
+              warehouseId: targetWarehouseId,
+              warehouseName,
+              processedBy,
+              channel: 'Cash',
+              fiscalCashTag,
+              dateStr,
+              timeStr,
+            });
+          },
+        },
+      ]);
+    }
   };
 
   return (

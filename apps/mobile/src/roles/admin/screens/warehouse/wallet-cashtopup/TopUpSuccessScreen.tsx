@@ -35,7 +35,8 @@ export function TopUpSuccessScreen({ scope, onBack, transaction = {}, onDone, on
   const record: WalletTransactionRecord = {
     ...transaction,
     type: transaction.type ?? 'Cash Top-Up',
-    status: transaction.status ?? 'Completed',
+    // Negative rule: Wallet totals (credited/used) and transaction status -> '—' or hide row
+    status: '—',
     newBalance: transaction.newBalance ?? '₹6,500.00',
     amount: transaction.amount ?? '₹2,000.00',
     transactionId: transaction.transactionId ?? SAMPLE_TRANSACTION_ID,

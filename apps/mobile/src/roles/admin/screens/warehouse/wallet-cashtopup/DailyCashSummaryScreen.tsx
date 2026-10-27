@@ -20,6 +20,8 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { CASH_BREAKDOWN, SAMPLE_DATE, TOP_UP_HISTORY } from './fixtures';
+import { useCashTopupsReport } from './useWalletData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { TopUpHistoryRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -68,12 +70,20 @@ export function DailyCashSummaryScreen({
   onNavigateToDailyCash,
 }: DailyCashSummaryScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
-  const [physicalCount, setPhysicalCount] = useState(String(SYSTEM_CASH));
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions =
+    warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+  const { report } = useCashTopupsReport(scope, selectedWarehouseId);
+
+  const systemCash = report && report.total ? Math.round(parseFloat(String(report.total))) : SYSTEM_CASH;
+  const liveCount = report ? report.count : 24;
+
+  const [physicalCount, setPhysicalCount] = useState(String(systemCash));
   const allWarehouses = isAllWarehouses(scope);
   const canTopUps = can('wallet.cash_topup.process');
 
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
-  const variance = parsedPhysical - SYSTEM_CASH;
+  const variance = parsedPhysical - systemCash;
   const todaysTopUps = rows.filter(
     (row) => row.date === date && inScope(scope, row.warehouseId, selectedWarehouseId),
   );
@@ -93,7 +103,7 @@ export function DailyCashSummaryScreen({
       headerExtra={
         <ScopeHeader
           scope={scope}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           selectedWarehouseId={selectedWarehouseId}
           onSelectWarehouse={setSelectedWarehouseId}
         />
@@ -114,14 +124,14 @@ export function DailyCashSummaryScreen({
           <>
             <KpiRow
               items={[
-                { value: '24', label: 'TRANSACTIONS' },
-                { value: '23', label: 'COMPLETED' },
-                { value: '1', label: 'PENDING' },
+                { value: String(liveCount), label: 'TRANSACTIONS' },
+                { value: String(liveCount), label: 'COMPLETED' },
+                { value: '0', label: 'PENDING' },
               ]}
             />
             <Card centered>
               <Text style={styles.totalLabel}>Total Cash Received</Text>
-              <Text style={styles.bigValue}>{formatRupees(SYSTEM_CASH)}</Text>
+              <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
             </Card>
           </>
         ) : null}
@@ -135,7 +145,7 @@ export function DailyCashSummaryScreen({
 
         <SectionTitle>System vs. Physical Cash</SectionTitle>
         <Card centered>
-          <Text style={styles.bigValue}>{formatRupees(SYSTEM_CASH)}</Text>
+          <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
           <Text style={styles.stackLabel}>SYSTEM RECORDED</Text>
           <View style={styles.arrow}>
             <ArrowDownIcon />

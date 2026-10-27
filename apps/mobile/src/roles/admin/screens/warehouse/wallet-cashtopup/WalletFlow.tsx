@@ -18,6 +18,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 
 import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
 import { CashTopUpScreen } from './CashTopUpScreen';
@@ -101,8 +102,12 @@ export function WalletFlow({
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
-  warehouseOptions = WALLET_WAREHOUSES,
+  warehouseOptions,
 }: WalletFlowProps) {
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions =
+    warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+
   const [stack, setStack] = useState<WalletStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
@@ -154,6 +159,7 @@ export function WalletFlow({
       return (
         <WalletOperationsScreen
           {...common}
+          warehouseOptions={effectiveWarehouseOptions}
           onNavigateToNotifications={onNavigateToNotifications}
           onNavigateToProfile={onNavigateToProfile}
           onNavigateToCashTopUp={() => startTopUp()}
@@ -186,7 +192,7 @@ export function WalletFlow({
         <CashTopUpScreen
           {...common}
           customer={params.customer}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           onContinue={(draft: CashTopUpDraft) => navigate('FiscalTag', { draft, customer: params.customer })}
         />
       );
@@ -203,13 +209,13 @@ export function WalletFlow({
         <ConfirmCashTopUpScreen
           {...common}
           draft={params.draft}
-          onConfirmed={(draft) =>
+          onConfirmed={(draft, liveTxn) =>
             finishWizard('TopUpSuccess', {
               customer: params.customer,
-              transaction: {
+              transaction: liveTxn ?? {
                 transactionId: SAMPLE_TRANSACTION_ID,
                 type: 'Cash Top-Up',
-                status: 'Completed',
+                status: '—',
                 customerName: draft.customerName,
                 customerId: draft.customerCode,
                 amount: formatRupees(draft.topUpAmount, true),
@@ -240,18 +246,18 @@ export function WalletFlow({
     case 'TransactionDetail':
       return <TopUpDetailsScreen {...common} transaction={params.transaction} variant="transaction" />;
     case 'TopUpHistory':
-      return <TopUpHistoryScreen {...common} warehouseOptions={warehouseOptions} onSelectTransaction={openTopUpDetails} />;
+      return <TopUpHistoryScreen {...common} warehouseOptions={effectiveWarehouseOptions} onSelectTransaction={openTopUpDetails} />;
     case 'DailyCashSummary':
       return (
         <DailyCashSummaryScreen
           {...common}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           onViewTopUpHistory={() => navigate('TopUpHistory')}
           onNavigateToDailyCash={() => navigate('DailyCash')}
         />
       );
     case 'DailyCash':
-      return <DailyCashScreen {...common} warehouseOptions={warehouseOptions} />;
+      return <DailyCashScreen {...common} warehouseOptions={effectiveWarehouseOptions} />;
     case 'WalletAttention':
       return (
         <WalletAttentionScreen
