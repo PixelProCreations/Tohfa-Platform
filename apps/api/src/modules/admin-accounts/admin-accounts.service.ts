@@ -183,9 +183,16 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
       // Every create grant in docs/rbac.json is `all`, so this is a no-op today; it bites only if a
       // create grant ever becomes `conditional` with LOWER_ROLES_ONLY.
       const levels = loadRbac().rolesByCode;
+      // A role rbac.json does not define has no level, and LOWER_ROLES_ONLY would turn that into a
+      // misleading FORBIDDEN. Say what is actually wrong. The request schema already refuses unknown
+      // roles; this guards callers that bypass it and drift between the schema enum and rbac.json.
+      const targetRoleLevel = levels.get(body.role)?.level;
+      if (targetRoleLevel === undefined) {
+        throw new AppError('ROLE_NOT_FOUND', { detail: `Role '${body.role}' is not defined in rbac.json.` });
+      }
       assertPredicate(createScope, {
         actorRoleLevel: levels.get(createScope.roleCode)?.level,
-        targetRoleLevel: levels.get(body.role)?.level,
+        targetRoleLevel,
       });
 
       // BR-112a: one path per role. Sub Warehouse Admins carry a warehouse binding and a cap (BR-81).

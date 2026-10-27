@@ -285,6 +285,24 @@ describe('admin account create: the write (BR-112c, BR-35)', () => {
   });
 });
 
+describe('admin account create: a role missing from docs/rbac.json (BR-28)', () => {
+  it('BR-28: a requested role that rbac.json does not define is 422 ROLE_NOT_FOUND, not a FORBIDDEN from the level predicate, and nothing is written', async () => {
+    // The request schema already refuses unknown roles; this is the service's own guard for a
+    // caller that bypasses it (a job, a script) or for drift between the schema enum and rbac.json.
+    const { repo, calls } = fakeRepo();
+    const log: RecordedQuery[] = [];
+    const ghost = { ...body('MAIN_WH_ADMIN'), role: 'GHOST_ROLE' } as unknown as ReturnType<typeof body>;
+    const error = await caught(
+      serviceWith(repo, calls, log).create(gateScopeFor(RoleCode.SUPER_ADMIN), createScopeFor(RoleCode.SUPER_ADMIN, 'MAIN_WH_ADMIN'), ghost),
+    );
+    expect(error.code).toBe('ROLE_NOT_FOUND');
+    expect(error.status).toBe(422);
+    expect(error.detail).toContain('GHOST_ROLE');
+    expect(calls.events).toEqual([]);
+    expect(auditInserts(log)).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 2. Request schema
 // ---------------------------------------------------------------------------

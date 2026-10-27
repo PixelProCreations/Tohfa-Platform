@@ -16600,6 +16600,7 @@ components:
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
         * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
+        * `ROLE_NOT_FOUND` — the requested role code is not defined in `docs/rbac.json`, so it cannot be assigned (BR-28). HTTP 422.
       required: [type, title, status, code]
       properties:
         type:
