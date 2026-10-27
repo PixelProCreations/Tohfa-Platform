@@ -23,9 +23,7 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import {
   BillingButton,
   BillingScreen,
-  InfoNote,
   inScope,
-  isAllWarehouses,
   PermissionNote,
   SearchBar,
   SectionTitle,

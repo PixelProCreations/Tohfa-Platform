@@ -140,7 +140,7 @@ export function InvoiceWizardScreen({
           {step !== 'review' ? (
             <BillingButton label="Continue" icon={<ArrowRightIcon />} onPress={() => setStepIndex(stepIndex + 1)} />
           ) : canGenerate ? (
-            <BillingButton label="Generate Invoice" icon={<CheckCircleIcon />} onPress={handleGenerate} />
+            <BillingButton label="Generate Invoice (not available yet)" icon={<CheckCircleIcon />} disabled={true} onPress={() => {}} />
           ) : (
             <PermissionNote>You do not have permission to generate invoices.</PermissionNote>
           )}

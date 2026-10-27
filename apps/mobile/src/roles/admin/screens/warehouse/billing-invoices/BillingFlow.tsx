@@ -56,6 +56,8 @@ export interface BillingFlowProps {
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+
 export function BillingFlow({
   scope,
   can,
@@ -64,8 +66,12 @@ export function BillingFlow({
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  warehouseOptions = BILLING_WAREHOUSES,
+  warehouseOptions: initialWarehouseOptions,
 }: BillingFlowProps) {
+  const { scopes: liveWarehouseOptions } = useWarehouseOptions({
+    enabled: initialWarehouseOptions === undefined && can('warehouse.all.view'),
+  });
+  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : BILLING_WAREHOUSES);
   const [stack, setStack] = useState<BillingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // List filters and layout survive the trip to the filters screen and back.
   const [filters, setFilters] = useState<InvoiceFilterState | undefined>(undefined);

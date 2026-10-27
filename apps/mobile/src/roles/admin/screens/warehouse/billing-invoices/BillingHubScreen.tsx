@@ -23,9 +23,8 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { SWABottomNav } from '../../swa/components';
 import {
   BillingButton,
   BillingScreen,
@@ -37,7 +36,7 @@ import {
   StatusBadge,
   rupeesOf,
 } from './BillingParts';
-import { INITIAL_INVOICES, INVOICE_REQUIRED_TRANSACTION } from './fixtures';
+import { INVOICE_REQUIRED_TRANSACTION } from './fixtures';
 import type { InvoiceRecord, WarehouseScope, WarehouseScreenBaseProps, WizardTransactionRecord } from './types';
 
 export interface BillingHubScreenProps extends WarehouseScreenBaseProps {
@@ -126,19 +125,23 @@ function formatRupees(value: number): string {
   return `₹${value.toLocaleString('en-IN')}`;
 }
 
+import { useInvoices } from './useBillingData';
+
 export function BillingHubScreen({
   scope,
   can,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   onNavigateToInvoiceList,
   onNavigateToInvoiceHistory,
   onNavigateToInvoiceDetail,
-  onGenerateInvoice,
+  onGenerateInvoice: _onGenerateInvoice,
   onNavigateToNotifications,
   warehouseOptions,
-  invoices = INITIAL_INVOICES,
+  invoices: invoicesProp,
 }: BillingHubScreenProps) {
+  const { invoices: liveInvoices } = useInvoices({}, invoicesProp === undefined);
+  const invoices = invoicesProp ?? liveInvoices;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const canGenerate = can('invoice.generate');
   const canView = can('invoice.view_own');
@@ -148,7 +151,7 @@ export function BillingHubScreen({
     [invoices, scope, selectedWarehouseId],
   );
   const latestDate = visible[0]?.date;
-  const kpis = [
+  const _kpis = [
     { key: 'today', label: "Today's Invoices", value: String(visible.filter((i) => i.date === latestDate).length), icon: ICON.calendar },
     {
       key: 'value',
@@ -225,11 +228,16 @@ export function BillingHubScreen({
           {/* Quick Actions */}
           <Text style={styles.mainSectionTitle}>Quick Actions</Text>
           <View style={styles.mainActionGrid}>
-            <TouchableOpacity style={styles.mainActionCard} onPress={() => onGenerateInvoice()} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={[styles.mainActionCard, { opacity: 0.6 }]}
+              disabled={true}
+              activeOpacity={1}
+            >
               <View style={styles.mainActionIconWrap}>
                 <GenerateInvoiceIcon size={26} />
               </View>
               <Text style={styles.mainActionLabel}>Generate Invoice</Text>
+              <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 2 }}>not available yet</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
@@ -256,27 +264,29 @@ export function BillingHubScreen({
 
           {/* Recent Invoices */}
           <Text style={styles.mainSectionTitle}>Recent Invoices</Text>
-          <TouchableOpacity
-            style={styles.mainInvoiceCard}
-            onPress={() => onNavigateToInvoiceDetail('INV-2026-001245')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.mainInvoiceTop}>
-              <Text style={styles.mainInvoiceNumber}>INV-2026-001245</Text>
-              <View style={styles.mainBadgeGenerated}>
-                <Text style={styles.mainBadgeText}>Generated</Text>
+          {recent ? (
+            <TouchableOpacity
+              style={styles.mainInvoiceCard}
+              onPress={() => onNavigateToInvoiceDetail(recent.id)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.mainInvoiceTop}>
+                <Text style={styles.mainInvoiceNumber}>{recent.id}</Text>
+                <View style={styles.mainBadgeGenerated}>
+                  <Text style={styles.mainBadgeText}>{recent.status}</Text>
+                </View>
               </View>
-            </View>
 
-            <Text style={styles.mainCustomerName}>Arun Kumar</Text>
+              {recent.customerName ? <Text style={styles.mainCustomerName}>{recent.customerName}</Text> : null}
 
-            <View style={styles.mainCardDivider} />
+              <View style={styles.mainCardDivider} />
 
-            <View style={styles.mainInvoiceBottom}>
-              <Text style={styles.mainOrderId}>ORD-2026-00982</Text>
-              <Text style={styles.mainAmount}>₹2,100</Text>
-            </View>
-          </TouchableOpacity>
+              <View style={styles.mainInvoiceBottom}>
+                <Text style={styles.mainOrderId}>Order #{recent.orderNumber}</Text>
+                <Text style={styles.mainAmount}>{recent.amount}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
           <View style={{ height: 24 }} />
         </ScrollView>
       </BillingScreen>
@@ -336,9 +346,10 @@ export function BillingHubScreen({
         <SectionTitle>Quick Actions</SectionTitle>
         <View style={styles.actionsRow}>
           {canGenerate ? (
-            <TouchableOpacity style={styles.actionCard} onPress={() => onGenerateInvoice()} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.actionCard, { opacity: 0.6 }]} disabled={true} activeOpacity={1}>
               <TileIcon d={ICON.plus} />
               <Text style={styles.actionLabel}>Generate Invoice</Text>
+              <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 2 }}>not available yet</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
@@ -359,7 +370,7 @@ export function BillingHubScreen({
               <Text style={styles.requiredOrderId}>{required.orderNumber}</Text>
               <Text style={styles.requiredCustomer}>{required.customerName}</Text>
               <Text style={styles.requiredAmount}>{required.amount}</Text>
-              <BillingButton label="Generate Invoice" onPress={() => onGenerateInvoice(required)} />
+              <BillingButton label="Generate Invoice (not available yet)" disabled={true} onPress={() => {}} />
             </View>
           </>
         ) : null}
@@ -378,7 +389,7 @@ export function BillingHubScreen({
               <StatusBadge status={recent.status} />
             </View>
             <Text style={styles.invoiceSub}>
-              {recent.customerName} · {recent.orderNumber}
+              {recent.customerName ? `${recent.customerName} · ` : ''}{recent.orderNumber}
             </Text>
             <View style={[styles.rowBetween, styles.recentBottom]}>
               <Text style={styles.invoiceDate}>

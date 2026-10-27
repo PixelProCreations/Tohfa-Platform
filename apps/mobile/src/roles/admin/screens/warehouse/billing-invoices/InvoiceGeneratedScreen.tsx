@@ -11,8 +11,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
-import { BillingButton, BillingFooter, BillingScreen, Card, InfoNote } from './BillingParts';
+import { BillingButton, BillingFooter, BillingScreen, Card } from './BillingParts';
 import type { WarehouseScreenBaseProps } from './types';
 
 export interface InvoiceGeneratedScreenProps extends WarehouseScreenBaseProps {
@@ -45,7 +44,7 @@ function DocumentIcon() {
   );
 }
 
-export function InvoiceGeneratedScreen({ scope, can, onBack, invoiceId, onViewInvoice }: InvoiceGeneratedScreenProps) {
+export function InvoiceGeneratedScreen({ scope: _scope, can, onBack, invoiceId, onViewInvoice }: InvoiceGeneratedScreenProps) {
   const canView = can('invoice.view_own');
   return (
     <BillingScreen
