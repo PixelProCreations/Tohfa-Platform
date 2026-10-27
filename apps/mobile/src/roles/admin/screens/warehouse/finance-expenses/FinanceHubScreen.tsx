@@ -66,7 +66,9 @@ import {
   type FinanceAction,
 } from './FinanceParts';
 import { FINANCE_WAREHOUSES } from './fixtures';
-import type { FinanceRoute, PermissionCheck, WarehouseScreenBaseProps } from './types';
+import { useExpenses, useRevenueList } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import type { ExpenseRecord, FinanceRoute, PermissionCheck, RevenueRecord, WarehouseScreenBaseProps } from './types';
 
 type TrendTab = 'Revenue' | 'Expenses' | 'Net';
 
@@ -126,6 +128,13 @@ export function FinanceHubScreen({
   const [trendTab, setTrendTab] = useState<TrendTab>('Revenue');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = liveWarehouseOptions.length > 0 ? liveWarehouseOptions : FINANCE_WAREHOUSES;
+
+  const effectiveWarehouseId = selectedWarehouseId === 'All' ? undefined : (selectedWarehouseId ?? scope.warehouseId);
+  const { expenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+  const { revenueRecords: revenues } = useRevenueList({});
+
   if (!can(FINANCE_CODES.dashboard)) {
     return (
       <FinanceNotAvailable
@@ -162,124 +171,63 @@ export function FinanceHubScreen({
     .filter((a) => a.route === undefined || allowed(a.route))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
-  // Per-warehouse calculations for Main Warehouse
-  const WAREHOUSE_FINANCE_METRICS: Record<
-    string,
-    {
-      revenue: string;
-      expenses: string;
-      net: string;
-      cashBalance: string;
-      revenueBreakdown: { direct: string; orders: string; other: string; total: string };
-      expenseBreakdown: { label: string; value: string }[];
-      totalExpenses: string;
-    }
-  > = {
-    All: {
-      revenue: '₹24,850',
-      expenses: '₹6,420',
-      net: '₹18,430',
-      cashBalance: '₹22,080',
-      revenueBreakdown: { direct: '₹9,850', orders: '₹12,400', other: '₹2,600', total: '₹24,850' },
-      expenseBreakdown: [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-        { label: 'Warehouse Operations', value: '₹1,200' },
-        { label: 'Utilities', value: '₹620' },
-        { label: 'Maintenance', value: '₹400' },
-      ],
-      totalExpenses: '₹6,420',
-    },
-    'WH-OOTY': {
-      revenue: '₹10,800',
-      expenses: '₹2,400',
-      net: '₹8,400',
-      cashBalance: '₹9,500',
-      revenueBreakdown: { direct: '₹4,200', orders: '₹6,600', other: '₹0', total: '₹10,800' },
-      expenseBreakdown: [
-        { label: 'Transport', value: '₹1,200' },
-        { label: 'Loading / Unloading', value: '₹700' },
-        { label: 'Utilities', value: '₹500' },
-      ],
-      totalExpenses: '₹2,400',
-    },
-    'WH-COON': {
-      revenue: '₹8,200',
-      expenses: '₹2,420',
-      net: '₹5,780',
-      cashBalance: '₹7,180',
-      revenueBreakdown: { direct: '₹6,300', orders: '₹1,900', other: '₹0', total: '₹8,200' },
-      expenseBreakdown: [
-        { label: 'Transport', value: '₹1,200' },
-        { label: 'Loading / Unloading', value: '₹600' },
-        { label: 'Utilities', value: '₹620' },
-      ],
-      totalExpenses: '₹2,420',
-    },
-    'WH-KOTA': {
-      revenue: '₹2,600',
-      expenses: '₹800',
-      net: '₹1,800',
-      cashBalance: '₹3,000',
-      revenueBreakdown: { direct: '₹0', orders: '₹0', other: '₹2,600', total: '₹2,600' },
-      expenseBreakdown: [
-        { label: 'Warehouse Operations', value: '₹500' },
-        { label: 'Maintenance', value: '₹300' },
-      ],
-      totalExpenses: '₹800',
-    },
-    'WH-GUDA': {
-      revenue: '₹3,250',
-      expenses: '₹800',
-      net: '₹2,450',
-      cashBalance: '₹2,400',
-      revenueBreakdown: { direct: '₹3,250', orders: '₹0', other: '₹0', total: '₹3,250' },
-      expenseBreakdown: [
-        { label: 'Loading / Unloading', value: '₹500' },
-        { label: 'Maintenance', value: '₹100' },
-        { label: 'Utilities', value: '₹200' },
-      ],
-      totalExpenses: '₹800',
-    },
-  };
+  // Live calculations
+  const totalRevPaise = revenues.reduce((sum: number, r: RevenueRecord) => sum + r.amount * 100, 0);
+  const totalExpPaise = expenses.reduce((sum: number, e: ExpenseRecord) => sum + e.amount * 100, 0);
+  const netPaise = totalRevPaise - totalExpPaise;
 
-  const DEFAULT_METRICS = WAREHOUSE_FINANCE_METRICS.All!;
-  const selectedMetrics =
-    (selectedWarehouseId && WAREHOUSE_FINANCE_METRICS[selectedWarehouseId]) ||
-    DEFAULT_METRICS;
+  const revDisplay = `₹${Math.round(totalRevPaise / 100).toLocaleString('en-IN')}`;
+  const expDisplay = `₹${Math.round(totalExpPaise / 100).toLocaleString('en-IN')}`;
+  const netDisplay = `${netPaise < 0 ? '-' : ''}₹${Math.abs(Math.round(netPaise / 100)).toLocaleString('en-IN')}`;
 
-  const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; subtitle: string }[] = isMain
-    ? [
-        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
-        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
-        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
-        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
-      ]
-    : [
-        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
-        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
-        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
-        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
-      ];
+  const directSalesPaise = revenues.filter((r: RevenueRecord) => r.category === 'Direct Sales').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
+  const ordersPaise = revenues.filter((r: RevenueRecord) => r.category === 'Orders').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
+  const otherPaise = revenues.filter((r: RevenueRecord) => r.category === 'Other').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
 
-  const expenseRows = isMain
-    ? selectedMetrics.expenseBreakdown
-    : [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-        { label: 'Warehouse Operations', value: '₹1,200' },
-        { label: 'Utilities', value: '₹620' },
-        { label: 'Maintenance', value: '₹400' },
-      ];
-
-  const revenueBreakdown = isMain
-    ? selectedMetrics.revenueBreakdown
+  const revenueBreakdown = revenues.length > 0
+    ? {
+        direct: `₹${Math.round(directSalesPaise / 100).toLocaleString('en-IN')}`,
+        orders: `₹${Math.round(ordersPaise / 100).toLocaleString('en-IN')}`,
+        other: `₹${Math.round(otherPaise / 100).toLocaleString('en-IN')}`,
+        total: revDisplay,
+      }
     : { direct: '₹9,850', orders: '₹12,400', other: '₹2,600', total: '₹24,850' };
+
+  const categoryMap: Record<string, number> = {};
+  for (const e of expenses) {
+    const cat = e.categoryRef.split('·')[0]?.trim() || 'General';
+    categoryMap[cat] = (categoryMap[cat] || 0) + e.amount;
+  }
+  const liveExpenseRows = Object.entries(categoryMap).map(([label, val]) => ({
+    label,
+    value: `₹${val.toLocaleString('en-IN')}`,
+  }));
+  const expenseRows = expenses.length > 0
+    ? liveExpenseRows
+    : [
+        { label: 'Transport', value: '₹2,400' },
+        { label: 'Loading / Unloading', value: '₹1,800' },
+        { label: 'Warehouse Operations', value: '₹1,200' },
+        { label: 'Utilities', value: '₹620' },
+        { label: 'Maintenance', value: '₹400' },
+      ];
+
+  const totalExpenseStr = expenses.length > 0 ? expDisplay : '₹6,420';
+
+  const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; subtitle: string }[] = [
+    { label: 'Revenue', value: revenues.length > 0 ? revDisplay : '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
+    { label: 'Expenses', value: expenses.length > 0 ? expDisplay : '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
+    { label: 'Net Movement', value: (revenues.length > 0 || expenses.length > 0) ? netDisplay : '₹18,430', tone: 'success', subtitle: 'Net Movement' },
+    { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
+  ];
 
   const revenuePress = opener('Revenue');
   const expensesPress = opener('Expenses');
   const historyPress = opener('FinanceHistory');
   const categoriesPress = opener('ExpenseCategories');
+
+  const latestRevenue = revenues[0];
+  const latestExpense = expenses[0];
 
   return (
     <WalletScreen
@@ -300,7 +248,7 @@ export function FinanceHubScreen({
         isMain ? (
           <WarehouseSelector
             scope={scope}
-            options={FINANCE_WAREHOUSES}
+            options={warehouseOptions}
             selectedId={selectedWarehouseId}
             onSelect={setSelectedWarehouseId}
           />
@@ -358,7 +306,7 @@ export function FinanceHubScreen({
               {expenseRows.map((row, index) => (
                 <TableRow key={row.label} label={row.label} value={row.value} divider={index > 0} />
               ))}
-              <TableRow label="Total Expenses" value={isMain ? selectedMetrics.totalExpenses : '₹6,420'} total divider />
+              <TableRow label="Total Expenses" value={totalExpenseStr} total divider />
             </TouchableOpacity>
 
             {isMain ? (
@@ -451,12 +399,14 @@ export function FinanceHubScreen({
                     <TrendUpIcon size={18} color={adminColors.success.text} />
                   </View>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.activityCode}>REV-000845</Text>
-                    <Text style={styles.activityMeta}>Market Sale</Text>
+                    <Text style={styles.activityCode}>{latestRevenue?.id ?? 'REV-000845'}</Text>
+                    <Text style={styles.activityMeta}>{latestRevenue?.orderRef.split('·')[0]?.trim() || latestRevenue?.category || 'Market Sale'}</Text>
                   </View>
                   <View style={styles.activityRight}>
-                    <Text style={[styles.activityAmount, styles.amountCredit]}>+₹3,450</Text>
-                    <Text style={styles.activityMeta}>Today, 11:20 AM</Text>
+                    <Text style={[styles.activityAmount, styles.amountCredit]}>
+                      {latestRevenue ? `+₹${latestRevenue.amount.toLocaleString('en-IN')}` : '+₹3,450'}
+                    </Text>
+                    <Text style={styles.activityMeta}>{latestRevenue?.timestamp ?? 'Today, 11:20 AM'}</Text>
                   </View>
                 </View>
               ) : null}
@@ -466,12 +416,14 @@ export function FinanceHubScreen({
                     <TruckIcon size={18} />
                   </View>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.activityCode}>EXP-000124</Text>
-                    <Text style={styles.activityMeta}>Transport Expense</Text>
+                    <Text style={styles.activityCode}>{latestExpense?.id ?? 'EXP-000124'}</Text>
+                    <Text style={styles.activityMeta}>{latestExpense?.categoryRef ?? 'Transport Expense'}</Text>
                   </View>
                   <View style={styles.activityRight}>
-                    <Text style={[styles.activityAmount, styles.amountDebit]}>-₹1,200</Text>
-                    <Text style={styles.activityMeta}>Today, 10:42 AM</Text>
+                    <Text style={[styles.activityAmount, styles.amountDebit]}>
+                      {latestExpense ? `-₹${latestExpense.amount.toLocaleString('en-IN')}` : '-₹1,200'}
+                    </Text>
+                    <Text style={styles.activityMeta}>{latestExpense?.timestamp ?? 'Today, 10:42 AM'}</Text>
                   </View>
                 </View>
               ) : null}

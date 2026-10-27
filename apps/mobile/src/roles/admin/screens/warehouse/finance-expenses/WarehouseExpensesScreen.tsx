@@ -33,6 +33,8 @@ import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScope, Wareho
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
 import { WarehouseSelector } from '../inventory';
+import { useExpenses } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
@@ -339,10 +341,13 @@ export function WarehouseExpensesScreen({
   onTabChange,
   onAddExpense,
   isShortVersion,
-  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  warehouseOptions: initialWarehouseOptions,
   initialWarehouseId,
   hideWarehouseFilter = false,
 }: WarehouseExpensesScreenProps) {
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : DEFAULT_WAREHOUSE_OPTIONS);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
@@ -360,6 +365,11 @@ export function WarehouseExpensesScreen({
     ? ALL_WAREHOUSES_LABEL
     : (scope.warehouseName ?? ALL_WAREHOUSES_LABEL);
 
+  const effectiveWarehouseId = isAllWarehouses
+    ? (selectedWarehouseId && selectedWarehouseId !== 'All' ? selectedWarehouseId : undefined)
+    : scope.warehouseId;
+  const { expenses: liveExpenses, refresh: reloadExpenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+
   const selectedWhOption = warehouseOptions.find(
     (w) => w.warehouseId === selectedWarehouseId || w.warehouseName === selectedWarehouseId
   );
@@ -374,8 +384,9 @@ export function WarehouseExpensesScreen({
     }
   };
 
+  const recordsToFilter = liveExpenses.length > 0 ? liveExpenses : SAMPLE_EXPENSE_RECORDS;
   const filteredRecords = canLogExpense
-    ? SAMPLE_EXPENSE_RECORDS.filter((rec) => {
+    ? recordsToFilter.filter((rec) => {
         // Warehouse filter
         if (isAllWarehouses) {
           if (selectedWarehouseId && selectedWarehouseId !== 'All') {
@@ -523,17 +534,22 @@ export function WarehouseExpensesScreen({
         can={can}
         onBack={() => setShowAddExpenseScreen(false)}
         onTabChange={onTabChange}
-        onSaveSuccess={() => {
+        onSaveSuccess={(saved) => {
           setShowAddExpenseScreen(false);
-          setSelectedExpense({
-            id: 'EXP-001245',
-            categoryRef: 'Transport',
-            amount: 2400,
-            timestamp: '25 Sep - 09:30 AM',
-            status: 'Recorded',
-            warehouseId: 'WH-COON',
-            warehouseName: 'Coonoor Warehouse',
-          });
+          reloadExpenses();
+          if (saved) {
+            setSelectedExpense(saved);
+          } else {
+            setSelectedExpense({
+              id: 'EXP-001245',
+              categoryRef: 'Transport',
+              amount: 2400,
+              timestamp: '25 Sep - 09:30 AM',
+              status: 'Recorded',
+              warehouseId: 'WH-COON',
+              warehouseName: 'Coonoor Warehouse',
+            });
+          }
         }}
         initialExpense={initialExpense}
       />

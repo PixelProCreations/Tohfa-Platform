@@ -23,7 +23,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
 import {
   BillingButton,

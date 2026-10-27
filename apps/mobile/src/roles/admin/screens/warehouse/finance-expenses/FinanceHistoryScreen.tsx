@@ -25,6 +25,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import { useExpenses, useRevenueList } from './useFinanceData';
 import type { FinanceHistoryItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
 const SAMPLE_HISTORY: FinanceHistoryItem[] = [
@@ -193,6 +194,35 @@ export function FinanceHistoryScreen({
   const [tempStatus, setTempStatus] = useState<string>('All');
   const [tempPaymentMethod, setTempPaymentMethod] = useState<string>('All');
 
+  const effectiveWarehouseId = isMain
+    ? (selectedWarehouseId && selectedWarehouseId !== 'All' ? selectedWarehouseId : undefined)
+    : scope.warehouseId;
+  const { expenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+  const { revenueRecords } = useRevenueList({});
+
+  const liveExpenseHistory: FinanceHistoryItem[] = expenses.map((e) => ({
+    id: e.id,
+    type: 'Expense',
+    title: e.categoryRef.split('·')[0]?.trim() || 'Expense',
+    amount: e.amount,
+    time: e.timestamp,
+    warehouseId: e.warehouseId,
+    warehouseName: e.warehouseName,
+  }));
+
+  const liveRevenueHistory: FinanceHistoryItem[] = revenueRecords.map((r) => ({
+    id: r.id,
+    type: 'Revenue',
+    title: r.orderRef,
+    amount: r.amount,
+    time: r.timestamp,
+    warehouseId: r.warehouseId,
+    warehouseName: r.warehouseName,
+  }));
+
+  const liveHistory = [...liveExpenseHistory, ...liveRevenueHistory];
+  const historySource = liveHistory.length > 0 ? liveHistory : SAMPLE_HISTORY;
+
   const canSeeRevenue = can('finance.sales_income.view');
   const canSeeExpense = can('finance.expense.log');
   const canSeeAny = canSeeRevenue || canSeeExpense;
@@ -212,7 +242,7 @@ export function FinanceHistoryScreen({
     }
   };
 
-  const filteredHistory = SAMPLE_HISTORY.filter((item) => {
+  const filteredHistory = historySource.filter((item) => {
     if (item.type === 'Revenue' && !canSeeRevenue) return false;
     if (item.type === 'Expense' && !canSeeExpense) return false;
     const filterToUse = isMain ? selectedType : effectiveFilter;

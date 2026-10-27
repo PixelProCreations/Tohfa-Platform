@@ -22,6 +22,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
@@ -97,8 +98,10 @@ export function FinanceFlow({
   onOpenWallet,
   onNavigateToCustomerOrders,
   onNavigateToInvoiceList,
-  warehouseOptions = FINANCE_WAREHOUSES,
+  warehouseOptions: initialWarehouseOptions,
 }: FinanceFlowProps) {
+  const { options: liveOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? (liveOptions.length > 0 ? liveOptions : FINANCE_WAREHOUSES);
   const [hubWarehouseId, setHubWarehouseId] = useState<string | undefined>(undefined);
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
